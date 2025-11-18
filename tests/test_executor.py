@@ -11,6 +11,7 @@ class DummyModel:
         self.attachment_types = attachment_types or set()
 
 
+# TRIVIAL: sanity-checks the allowlist pass-through.
 def test_enforce_model_constraints_allows_configured_model():
     config = LlmDoConfig(model=ModelConstraints(allowed_models=["allowed"]))
     model = DummyModel(model_id="allowed")
@@ -28,6 +29,7 @@ def test_enforce_model_constraints_rejects_missing_capability():
     assert "application/pdf" in str(excinfo.value)
 
 
+# TRIVIAL: ensures default passthrough without template logic.
 def test_build_prompt_and_system_without_template(tmp_path):
     config = LlmDoConfig()
     prompt, system = _build_prompt_and_system(

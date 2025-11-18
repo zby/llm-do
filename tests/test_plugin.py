@@ -25,6 +25,7 @@ def test_discover_spec_requires_spec_entry(tmp_path):
     assert "missing [workflow].spec" in str(excinfo.value)
 
 
+# TRIVIAL: confirms happy-path string resolution.
 def test_discover_spec_returns_configured_path(tmp_path):
     spec_file = tmp_path / "SPEC.md"
     spec_file.write_text("content")

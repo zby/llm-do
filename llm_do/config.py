@@ -16,7 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for <3.11
     import tomli as tomllib
 
 
-CONFIG_FILENAMES = ("llm-do.toml", ".llm-do.toml")
+CONFIG_FILENAMES = ("llm-do.toml",)
 
 
 @dataclass
@@ -83,5 +83,5 @@ def _parse_prompt(raw: dict) -> PromptSettings:
 
 
 def _parse_workflow(raw: dict) -> WorkflowSettings:
-    spec_file = raw.get("spec") or raw.get("spec_file")
+    spec_file = raw.get("spec")
     return WorkflowSettings(spec_file=spec_file)

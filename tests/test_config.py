@@ -3,6 +3,7 @@ import textwrap
 from llm_do.config import load_config
 
 
+# TRIVIAL: mirrors dataclass defaults; kept for documentation.
 def test_load_config_defaults_when_missing(tmp_path):
     config = load_config(tmp_path)
 

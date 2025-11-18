@@ -84,11 +84,11 @@ llm do "your task" --toolbox myproject.tools.MyToolbox
 
 `llm do` follows the same model selection rules as the rest of `llm`: it will use your configured default model unless you override it with `-m/--model` or a named alias.
 
-`llm-do` now requires an explicit spec path. Provide one via `--spec` or define `[workflow].spec` in `llm-do.toml`/`.llm-do.toml` within the working directory.
+`llm-do` now requires an explicit spec path. Provide one via `--spec` or define `[workflow].spec` in `llm-do.toml` within the working directory.
 
 ## Workflow Configuration
 
-Workflows carry their requirements in an `llm-do.toml` (or `.llm-do.toml`) located in the working directory; this file is also how `llm-do` discovers the spec when `--spec` is omitted. Example:
+Workflows carry their requirements in an `llm-do.toml` located in the working directory; this file is also how `llm-do` discovers the spec when `--spec` is omitted. Example:
 
 ```toml
 [workflow]

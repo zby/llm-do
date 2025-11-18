@@ -9,7 +9,7 @@ import llm
 from pathlib import Path
 from .executor import execute_spec
 from .toolbox import BaseToolbox
-from .config import LlmDoConfig, load_config
+from .context import WorkflowContext
 
 
 @llm.hookimpl
@@ -75,13 +75,6 @@ def register_commands(cli):
         else:
             working_dir = Path(working_dir)
 
-        # Load optional config from working directory
-        config = load_config(working_dir)
-
-        # Resolve spec if the flag was not provided
-        if not spec:
-            spec = _discover_spec_path(working_dir, config)
-
         # Get toolbox
         if toolbox:
             # Import custom toolbox
@@ -97,16 +90,24 @@ def register_commands(cli):
             # Use base toolbox
             toolbox_instance = BaseToolbox(working_dir=working_dir)
 
+        try:
+            context = WorkflowContext(
+                working_dir=working_dir,
+                spec_path=spec,
+                toolbox=toolbox_instance,
+            )
+        except click.ClickException:
+            raise
+        except Exception as e:
+            raise click.ClickException(str(e))
+
         # Execute
         try:
             execute_spec(
                 task=task,
-                spec_path=spec,
-                toolbox=toolbox_instance,
+                context=context,
                 model_name=model,
                 verbose=not quiet,
-                config=config,
-                working_dir=working_dir,
                 tools_approve=tools_approve,
             )
         except KeyboardInterrupt:
@@ -114,26 +115,3 @@ def register_commands(cli):
             raise SystemExit(1)
         except Exception as e:
             raise click.ClickException(str(e))
-
-
-def _discover_spec_path(working_dir: Path, config: LlmDoConfig) -> str:
-    """Resolve the spec path based on workflow config."""
-
-    if not config.path:
-        raise click.ClickException(
-            "No llm-do config found in {}. Provide --spec or create llm-do.toml with workflow.spec.".format(
-                working_dir
-            )
-        )
-
-    if config.workflow.spec_file:
-        spec_path = working_dir / config.workflow.spec_file
-        if spec_path.exists():
-            return str(spec_path)
-        raise click.ClickException(
-            f"Configured spec file '{config.workflow.spec_file}' not found in {working_dir}"
-        )
-
-    raise click.ClickException(
-        f"Config {config.path} is missing [workflow].spec. Provide --spec or set it there."
-    )

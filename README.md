@@ -1,19 +1,52 @@
 # llm-do
 
-**Spec-driven automation with LLM and progressive hardening**
+**Spec-driven agentic workflows for the `llm` CLI.**
+Write workflows as natural-language specs, run them as tool-using agents, then progressively harden recurring patterns into tested code.
 
-Write workflows as natural language specifications, execute them with LLM + tools, progressively harden proven patterns into tested functions.
+> In current LLM terminology: `llm-do` runs **single-agent, spec-guided agentic workflows**.
+> The workflow skeleton lives in Markdown specs; the LLM implements an **agentic loop** over tools (bash, files, custom Python) inside those rails.
+
+---
 
 ## What is this?
 
-`llm-do` is a plugin for [llm](https://llm.datasette.io/) that enables spec-driven automation:
+`llm-do` is a plugin for [llm](https://llm.datasette.io) that lets you:
 
-1. **Write specs in natural language** - Define workflows in `SPEC.md` files
-2. **Execute with `llm do`** - Run tasks using natural language commands
-3. **LLM interprets & executes** - Your configured llm model reads the spec and calls tools (bash, files, custom functions)
-4. **Progressive hardening** - Extract proven patterns into tested functions over time
+1. **Describe workflows as specs** – write `SPEC.md` files in natural language.
+2. **Run them with `llm do`** – call workflows using natural language commands.
+3. **Let the LLM act as an agent** – it reads the spec and drives tool calls (bash, file IO, custom toolbox methods) in an **agentic loop**.
+4. **Progressively harden** – when a pattern stabilizes, move it from spec to tested Python functions.
 
-**Key insight**: Specs ARE the program during development. Code is optimization for proven patterns.
+The key idea:
+
+> **During exploration, the spec *is* the program.
+> As patterns stabilize, you migrate them into deterministic, tested code.**
+
+This gives you agent-like flexibility early, and classic "workflow + library" reliability later.
+
+---
+
+## Where `llm-do` fits in the LLM buzzword zoo
+
+- **LLM workflow**
+  Your directories (`examples/pitchdeck_eval/`, etc.) are *workflows*: a spec + config + toolbox that describe *what* should happen.
+
+- **Agent / agentic loop**
+  Each `llm do "…"` run spins up a **single agent** (your configured model) that:
+  - reads the spec,
+  - plans steps,
+  - calls tools (`run_bash`, `read_file`, `write_file`, custom methods),
+  - loops until the task is done.
+  That plan → act → observe → re-plan cycle is the **agentic loop**.
+
+- **Agentic workflow**
+  Overall, `llm-do` gives you **agentic workflows**:
+  - you define the high-level workflow in Markdown + TOML,
+  - the LLM has local autonomy inside that frame to decide *how* to use tools to satisfy the spec.
+
+If you want: think of `llm-do` as *"make my `llm` prompts into repeatable, agentic workflows that I can gradually refactor into a normal Python library."*
+
+---
 
 ## Installation
 
@@ -21,7 +54,7 @@ Write workflows as natural language specifications, execute them with LLM + tool
 llm install llm-do
 ```
 
-Requires `llm` with Anthropic plugin:
+Requirements:
 
 ```bash
 pip install llm
@@ -29,66 +62,103 @@ llm install llm-anthropic
 llm keys set anthropic
 ```
 
+(Any `llm`-compatible provider with tools/functions support should work; Anthropic is the default in the examples.)
+
+---
+
 ## Quick Start
 
-1. **Create a `SPEC.md` file** describing your workflow:
+1. **Create a `SPEC.md` describing your workflow:**
 
-```markdown
-# My Workflow Specification
+   ```markdown
+   # My Workflow Specification
 
-You have access to tools: `run_bash`, `read_file`, `write_file`.
+   You have access to tools: `run_bash`, `read_file`, `write_file`.
 
-## Task: Process Documents
+   ## Task: Process Documents
 
-When user says "process documents":
+   When user says "process documents":
 
-1. Find all PDF files with `run_bash("find docs/ -name '*.pdf'")`
-2. For each PDF:
-   - Read it (PDFs supported natively)
-   - Extract key information
-   - Save summary to `summaries/[filename].md` using `write_file`
-3. Report what was processed
-```
+   1. Find all PDF files with `run_bash("find docs/ -name '*.pdf'")`
+   2. For each PDF:
+      - Read it (PDFs supported natively by the model)
+      - Extract key information
+      - Save a summary to `summaries/[filename].md` using `write_file`
+   3. Report what was processed
+   ```
 
-2. **Execute tasks with natural language**:
+2. **Run tasks with natural language:**
 
-```bash
-llm do "process documents"
-llm do "process documents from yesterday"
-llm do "process the urgent document"
-```
+   ```bash
+   llm do "process documents"
+   llm do "process documents from yesterday"
+   llm do "process the urgent document"
+   ```
 
-The LLM reads your `SPEC.md`, interprets the command, and executes using available tools.
+Under the hood, `llm-do`:
+
+* loads `SPEC.md` as part of the system prompt,
+* exposes a toolbox of tools,
+* lets the model decide which tools to call and in what order, in a loop, until the task is complete.
+
+---
 
 ## Usage
 
+Basic usage (spec discovered via config):
+
 ```bash
-# Basic usage (spec defined via llm-do.toml)
 llm do "your task description"
-
-# Specify spec file
-llm do "your task" --spec path/to/SPEC.md
-
-# Specify working directory
-llm do "your task" -d /path/to/project
-
-# Use different model
-llm do "your task" -m claude-opus-4.1
-
-# Quiet mode (less output)
-llm do "your task" -q
-
-# Use custom toolbox
-llm do "your task" --toolbox myproject.tools.MyToolbox
 ```
 
-`llm do` follows the same model selection rules as the rest of `llm`: it will use your configured default model unless you override it with `-m/--model` or a named alias.
+Explicit spec file:
 
-`llm-do` now requires an explicit spec path. Provide one via `--spec` or define `[workflow].spec` in `llm-do.toml` within the working directory.
+```bash
+llm do "your task" --spec path/to/SPEC.md
+```
 
-## Workflow Configuration
+Working directory:
 
-Workflows carry their requirements in an `llm-do.toml` located in the working directory; this file is also how `llm-do` discovers the spec when `--spec` is omitted. Example:
+```bash
+llm do "your task" -d /path/to/project
+```
+
+Model selection:
+
+```bash
+llm do "your task" -m claude-3-5-sonnet
+```
+
+Quiet mode:
+
+```bash
+llm do "your task" -q
+```
+
+Custom toolbox:
+
+```bash
+llm do "process files" --toolbox myproject.tools.MyToolbox
+```
+
+Tool approval (manually approve each tool call):
+
+```bash
+llm do "your task" --ta
+llm do "your task" --tools-approve
+```
+
+`llm-do` follows `llm`'s normal model-selection rules: it uses your default model unless you override it with `-m` / `--model` or a named alias.
+
+> **Note:** `llm-do` requires an explicit spec path one way or another:
+> either via `--spec` or via `[workflow].spec` in `llm-do.toml` in the working directory.
+
+---
+
+## Workflow configuration (`llm-do.toml`)
+
+Workflows carry their configuration in `llm-do.toml` in the working directory.
+This is also how `llm-do` discovers the spec when `--spec` is omitted.
 
 ```toml
 [workflow]
@@ -105,26 +175,35 @@ template = "pitchdeck-evaluator"
 spec_title = "Pitchdeck Evaluation Framework"
 ```
 
-- `workflow.spec` overrides which spec file is loaded when `--spec` is omitted.
-- `model.required_attachment_types` forces a capability check (PDF support, audio, etc.).
-- `model.allowed_models` constrains the workflow to a vetted list of model IDs or aliases.
-- `prompt.template` tells `llm-do` to load a standard llm template; `prompt.params` are passed into it, along with `spec`, `spec_path`, `task`, and `working_dir`.
+* `workflow.spec` – default spec path when `--spec` is omitted
+* `model.required_attachment_types` – capability checks (PDF, audio, etc.)
+* `model.allowed_models` – constrain to vetted model IDs / aliases
+* `prompt.template` – reuse a standard `llm` template
+* `prompt.params` – parameters passed into the template along with `spec`, `spec_path`, `task`, and `working_dir`
 
-This allows directories like `examples/pitchdeck_eval/` to require PDF-capable models and reuse richer llm templates without repeating boilerplate in every command.
+This lets you ship directories like `examples/pitchdeck_eval/` that:
 
-## Available Tools
+* enforce "must be PDF-capable",
+* reuse a richer prompt template,
+* and still keep `llm do "…"` one-liner simple for users.
 
-### Base Toolbox
+---
 
-The default toolbox provides:
+## Tools and toolboxes
 
-- **`run_bash(command)`** - Execute shell commands
-- **`read_file(path)`** - Read text files
-- **`write_file(path, content)`** - Write files
+### Base toolbox
 
-### Custom Toolboxes
+The default toolbox exposes:
 
-Extend `BaseToolbox` to add domain-specific tools:
+* `run_bash(command)` – run shell commands
+* `read_file(path)` – read text files
+* `write_file(path, content)` – write files
+
+These are the primitive tools your agentic loop uses to interact with the environment.
+
+### Custom toolboxes (progressive hardening in code)
+
+Extend `BaseToolbox` to add domain-specific, hardened logic:
 
 ```python
 # myproject/tools.py
@@ -134,13 +213,13 @@ import re
 class MyToolbox(BaseToolbox):
     def normalize_filename(self, filename: str) -> str:
         """Remove spaces and special chars from filename."""
-        name = filename.replace('.pdf', '')
-        return re.sub(r'[^a-zA-Z0-9-]', '', name.replace(' ', ''))
+        name = filename.replace(".pdf", "")
+        return re.sub(r"[^a-zA-Z0-9-]", "", name.replace(" ", ""))
 
     def get_metadata(self, path: str) -> dict:
         """Extract file metadata."""
         # Your hardened logic here
-        pass
+        ...
 ```
 
 Use it with:
@@ -149,117 +228,133 @@ Use it with:
 llm do "process files" --toolbox myproject.tools.MyToolbox
 ```
 
-## Progressive Hardening
+Now the spec can say "normalize filenames" and the agent calls your hardened function instead of reinventing it every run.
 
-Start with specs, gradually extract code:
+---
 
-**Week 1**: Pure spec-driven
-```markdown
-When processing files:
-- Normalize filenames (remove spaces, special chars)
-- ...
+## Progressive Hardening (from agentic spec → deterministic code)
+
+Typical evolution:
+
+**Week 1 – Pure spec-driven (maximally agentic)**
+
+* You write in `SPEC.md`:
+
+  > When processing files:
+  >
+  > * Normalize filenames (remove spaces, special characters)
+  > * …
+
+* The LLM figures out how to do that via `run_bash` etc., but may be inconsistent.
+
+**Week 2 – Extract pattern into a hard tool**
+
+* You add a `normalize_filename()` implementation in your toolbox
+* Add unit tests for edge cases
+* Update the spec to say "call `normalize_filename`" rather than describing the logic
+
+**Week 3+ – Keep migrating**
+
+* Anything that repeats and matters for correctness moves into code.
+* Specs focus on *orchestration and intent*, not low-level string wrangling.
+
+Over time you end up with:
+
+* **Specs**: human-friendly workflow definitions ("evaluate all new pitchdecks in this folder")
+* **Toolbox**: deterministic, tested library functions
+* **Agentic loop**: glues them together at runtime and handles the fuzzy bits ("what counts as *new*?" "where is the urgent deck?").
+
+---
+
+## How it works (conceptual flow)
+
+```text
+User: llm do "process documents from yesterday"
+    ↓
+llm-do plugin:
+  - Loads SPEC.md as a system / context prompt
+  - Applies llm-do.toml constraints (model allowlist, capabilities)
+  - Provides a toolbox to the model
+    ↓
+LLM (agent):
+  - Reads the workflow spec
+  - Interprets "from yesterday" → e.g. -mtime -1
+  - Calls run_bash("find docs/ -name '*.pdf' -mtime -1")
+  - Reads PDFs (if model supports it)
+  - Calls write_file() to save results
+    ↓
+Result: Task executed according to the spec and tools
 ```
 
-LLM figures it out each time (might be inconsistent).
-
-**Week 2**: Extract pattern to hardened tool
-```python
-def normalize_filename(self, filename: str) -> str:
-    """Normalize filename - hardened, tested function."""
-    name = filename.replace('.pdf', '')
-    return re.sub(r'[^a-zA-Z0-9-]', '', name.replace(' ', ''))
-```
-
-Add tests:
-```python
-def test_normalize():
-    assert normalize_filename("File (2024).pdf") == "File2024"
-```
-
-**Week 3-4**: Extract more patterns as they stabilize
-
-You get **rapid iteration** (change specs, test immediately) AND **reliable code** (tested functions for critical logic).
+---
 
 ## Examples
 
-See [`examples/pitchdeck_eval/`](examples/pitchdeck_eval/) for a complete example:
+See [`examples/pitchdeck_eval/`](examples/pitchdeck_eval/) for a full example:
 
-- AI-powered pitchdeck evaluation system
-- Custom toolbox with hardened functions
-- Comprehensive `SPEC.md` with multiple workflows
-- Shows progressive hardening in action
+* AI-assisted pitchdeck evaluation workflow
+* Custom toolbox with hardened helpers
+* Rich `SPEC.md` with multiple workflows
+* Shows progressive hardening from spec → code
 
-## Development Philosophy
+---
 
-### Spec-Driven Development
+## Development philosophy
 
-1. **Write specs** - Edit `SPEC.md` to describe what you want
-2. **Test immediately** - Run `llm do "your command"`
-3. **Observe behavior** - See what LLM does, what tools it calls
-4. **Iterate on specs** - Refine workflow based on results
-5. **Extract patterns** - When stable, harden into tested functions
-6. **Keep iterating** - Natural language stays flexible while core logic becomes deterministic
+### Spec-driven, agentic development
 
-### When to Harden
+1. **Write specs** – edit `SPEC.md` to describe the workflow you want.
+2. **Run them** – `llm do "your command"`.
+3. **Observe** – inspect what tools were called, in what order.
+4. **Iterate** – update the spec to tighten behavior or add branches.
+5. **Harden** – when something stabilizes and matters, move it into code + tests.
+6. **Repeat** – specs stay flexible; the toolbox becomes your stable API.
 
-Extract patterns into tools when:
+### When to harden
 
-✅ Pattern repeats consistently
-✅ Correctness is critical
-✅ Want unit tests
-✅ Performance matters
+**Harden into code when:**
 
-Don't harden when:
+* ✅ The pattern repeats
+* ✅ Correctness / safety really matters
+* ✅ You want unit tests and observability
+* ✅ Performance or latency is important
 
-❌ Still experimenting
-❌ Rare operation
-❌ Want natural variation
+**Keep in spec when:**
 
-## How It Works
+* ❌ You're still exploring
+* ❌ It's rare or low-stakes
+* ❌ You want stylistic variation or experimentation
 
-```
-User: "llm do 'process documents from yesterday'"
-    ↓
-llm-do plugin:
-  - Loads SPEC.md as system prompt
-  - Provides toolbox to Claude Sonnet
-    ↓
-Claude Sonnet:
-  - Reads workflow spec
-  - Interprets "from yesterday" → -mtime -1
-  - Calls: run_bash("find docs/ -name '*.pdf' -mtime -1")
-  - Reads PDFs directly (native PDF support)
-  - Calls: write_file() to save results
-    ↓
-Result: Task completed according to spec
-```
+---
 
 ## Features
 
-- **Natural language commands** - Flexible task descriptions
-- **Spec-driven workflows** - Define logic in markdown
-- **Tool-based architecture** - Mix bash, files, custom functions
-- **Progressive hardening** - Start flexible, extract code gradually
-- **Built on llm** - Leverage existing infrastructure
-- **Transparent** - See tool calls, understand execution
+* 🧠 **Agentic workflows** – single-agent, tool-using loops guided by Markdown specs
+* 📄 **Spec-driven design** – workflows live in plain `SPEC.md` files
+* 🧰 **Tool-based architecture** – bash + file IO + your own Python tools
+* 🔒 **Progressive hardening** – from "prompt as program" to tested functions
+* 🔍 **Transparent execution** – see what tools run with what arguments
+* 🧩 **Built on `llm`** – reuse your existing models, keys, templates, and aliases
+
+---
 
 ## Contributing
 
-Contributions welcome! Areas:
+Contributions welcome! Interesting areas:
 
-- Additional example projects
-- Base toolbox improvements
-- Testing utilities
-- Documentation
+* More example workflows (data pipelines, codegen, personal automations)
+* Extra base tools and safer defaults
+* Testing utilities / harnesses for specs + toolboxes
+* Documentation and patterns for larger agentic workflows
+
+---
 
 ## License
 
 Apache-2.0
 
-## Credits
-
-Built on [llm](https://llm.datasette.io/) by Simon Willison.
+Built on [llm](https://llm.datasette.io) by Simon Willison.
 
 ---
 
-**Write specs. Execute with LLM. Harden what works.**
+**Write specs. Run them as agents. Harden what works.**

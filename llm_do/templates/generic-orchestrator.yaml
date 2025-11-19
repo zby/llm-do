@@ -13,14 +13,8 @@ tools:
   - 'Files({"mode": "out", "path": ".", "alias": "workspace_out"})'
   - 'TemplateCall({"allow_templates": ["pkg:*", "templates/**/*.yaml", "./templates/**/*.yaml", "**/templates/**/*.yaml"], "allowed_suffixes": [".pdf", ".md", ".txt"], "max_attachments": 2, "max_bytes": 20000000})'
 functions: |
-  import json
   import os
-  import re
   from textwrap import dedent
-
-  def make_slug(text: str) -> str:
-      slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-      return slug or "workflow"
 
   def abs_path(relative: str) -> str:
       """Convert workspace-relative path to absolute path."""
@@ -38,16 +32,6 @@ functions: |
             Provide your analysis and findings.
           """
       ).strip()
-
-  def render_markdown(result: str, unit_name: str = "unit") -> str:
-      """Wrap a free-text result in simple markdown."""
-      return "\n".join(
-          [
-              f"# {unit_name}",
-              "",
-              result,
-          ]
-      )
 prompt: |
   ## Task
   $input
@@ -66,9 +50,11 @@ prompt: |
   3. Pick the sub-template to run:
      - If $sub_template is provided, use abs_path($sub_template) to get the
        absolute path.
-     - If $sub_template is blank, create `templates/generated/<slug>.yaml` using
-       scaffold_template() via Files_workspace_out_write_text, then use
-       abs_path("templates/generated/<slug>.yaml") to get the absolute path.
+     - If $sub_template is blank, create a new template file in
+       `templates/generated/` with a descriptive filename (e.g.,
+       `templates/generated/evaluate-pitch-decks.yaml`) using scaffold_template()
+       via Files_workspace_out_write_text, then use abs_path() to get its
+       absolute path.
      - Mention the template path you're using in your reasoning and final summary.
   4. For each unit (up to $max_units):
      - Gather attachment paths (PDF/Markdown/Text only) and any relevant
@@ -76,7 +62,8 @@ prompt: |
      - Call TemplateCall_run with `template` set to the absolute template path
        from step 3, plus the attachments and fragments. The response will be
        plain text.
-     - Wrap the result using render_markdown(result, unit_name) and write it to
-       the chosen output directory via Files_workspace_out_write_text.
+     - Write the result directly to the chosen output directory via
+       Files_workspace_out_write_text. Format as markdown with appropriate
+       headers.
   5. Finish by reporting how many units were processed, where outputs went, and
      which template should be reused next time (e.g. via `-p sub_template=...`).

@@ -5,9 +5,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional, Union
+from typing import Any, Iterable, List, Optional, Union
 
 import llm
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 @dataclass
@@ -28,6 +29,22 @@ class Sandbox:
         return candidate
 
 
+class FilesConfig(BaseModel):
+    mode: str = "ro"
+    path: Path
+    alias: Optional[str] = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_validator("mode")
+    @classmethod
+    def _normalize_mode(cls, value: str) -> str:
+        mode = str(value).strip().lower()
+        if mode not in {"ro", "out"}:
+            raise ValueError("Files toolbox mode must be 'ro' or 'out'")
+        return mode
+
+
 class Files(llm.Toolbox):
     """Expose read/write helpers inside a sandboxed directory."""
 
@@ -41,7 +58,7 @@ class Files(llm.Toolbox):
         path: Optional[Union[str, Path]] = None,
         alias: Optional[str] = None,
     ):
-        alias_override = alias
+        data: dict = {}
         if config is not None:
             if isinstance(config, str):
                 if ":" not in config:
@@ -49,30 +66,29 @@ class Files(llm.Toolbox):
                         "Files toolbox requires config in the form '<mode>:<path>'"
                     )
                 cfg_mode, cfg_path = config.split(":", 1)
-                mode = mode or cfg_mode
-                path = path or cfg_path
+                data.update({"mode": cfg_mode, "path": cfg_path})
             elif isinstance(config, dict):
-                mode = mode or config.get("mode")
-                path = path or config.get("path")
-                alias_override = alias_override or config.get("alias")
+                data.update(config)
             else:
                 raise TypeError("Files config must be a string or dict")
-        if mode is None:
-            mode = "ro"
-        if path is None:
+        if mode is not None:
+            data["mode"] = mode
+        if path is not None:
+            data["path"] = path
+        if alias is not None:
+            data["alias"] = alias
+        if "path" not in data:
             raise ValueError("Files toolbox requires a 'path'")
-        mode = str(mode).strip().lower()
-        if mode not in {"ro", "out"}:
-            raise ValueError("Files toolbox mode must be 'ro' or 'out'")
-        resolved = Path(str(path)).expanduser().resolve()
+        cfg = FilesConfig(**data)
+        resolved = Path(cfg.path).expanduser().resolve()
         if not resolved.exists():
-            if mode == "ro":
+            if cfg.mode == "ro":
                 raise ValueError(f"Sandbox path does not exist: {resolved}")
             resolved.mkdir(parents=True, exist_ok=True)
         if not resolved.is_dir():
             raise ValueError("Sandbox path must be a directory")
-        self.sandbox = Sandbox(root=resolved, read_only=(mode == "ro"))
-        alias_value = alias_override or self._alias_from_path(resolved, mode)
+        self.sandbox = Sandbox(root=resolved, read_only=(cfg.mode == "ro"))
+        alias_value = cfg.alias or self._alias_from_path(resolved, cfg.mode)
         self.alias = re.sub(r"[^a-z0-9_]+", "_", alias_value.lower())
         self._tool_prefix = f"{self.__class__.__name__}_{self.alias}"
 

@@ -13,6 +13,7 @@ from typing import Iterable, List, Optional
 
 import llm
 from llm.templates import Template
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 @lru_cache(maxsize=1)
@@ -22,6 +23,37 @@ def _llm_cli_module():
     from llm import cli as cli_module
 
     return cli_module
+
+
+class TemplateCallConfig(BaseModel):
+    allow_templates: List[str] = Field(default_factory=list)
+    allowed_suffixes: List[str] = Field(default_factory=list)
+    max_attachments: int = 4
+    max_bytes: int = 10_000_000
+    ignore_functions: bool = True
+    lock_template: Optional[str] = None
+    default_model: Optional[str] = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_validator("allowed_suffixes")
+    @classmethod
+    def _lower_suffixes(cls, values: List[str]) -> List[str]:
+        return [str(value).lower() for value in values]
+
+    @field_validator("max_attachments")
+    @classmethod
+    def _validate_max_attachments(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("max_attachments must be non-negative")
+        return value
+
+    @field_validator("max_bytes")
+    @classmethod
+    def _validate_max_bytes(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("max_bytes must be positive")
+        return value
 
 
 class TemplateCall(llm.Toolbox):
@@ -59,18 +91,7 @@ class TemplateCall(llm.Toolbox):
         if default_model is not None:
             options["default_model"] = default_model
 
-        self.allow_templates = options.get("allow_templates") or []
-        suffixes = options.get("allowed_suffixes") or []
-        self.allowed_suffixes = [s.lower() for s in suffixes]
-        self.max_attachments = int(options.get("max_attachments", 4))
-        self.max_bytes = int(options.get("max_bytes", 10_000_000))
-        self.ignore_functions = bool(options.get("ignore_functions", True))
-        self.lock_template = options.get("lock_template")
-        self.default_model = options.get("default_model")
-        if self.max_attachments < 0:
-            raise ValueError("max_attachments must be non-negative")
-        if self.max_bytes <= 0:
-            raise ValueError("max_bytes must be positive")
+        self.config = TemplateCallConfig(**options)
 
     # tool method ------------------------------------------------------
     def run(
@@ -82,7 +103,7 @@ class TemplateCall(llm.Toolbox):
         params: Optional[dict] = None,
         expect_json: bool = False,
     ) -> str:
-        template_name = self.lock_template or template
+        template_name = self.config.lock_template or template
         if not template_name:
             raise ValueError("Template path is required")
         if not self._template_allowed(template_name):
@@ -112,7 +133,9 @@ class TemplateCall(llm.Toolbox):
 
         tool_instances = self._instantiate_tools(tmpl)
 
-        model_name = tmpl.model or self.default_model or llm.get_default_model()
+        model_name = (
+            tmpl.model or self.config.default_model or llm.get_default_model()
+        )
         model = llm.get_model(model_name)
 
         response = model.prompt(
@@ -137,7 +160,7 @@ class TemplateCall(llm.Toolbox):
 
     # helpers ----------------------------------------------------------
     def _template_allowed(self, name: str) -> bool:
-        if not self.allow_templates:
+        if not self.config.allow_templates:
             return True
         candidates = [name]
         if not name.startswith("pkg:"):
@@ -148,7 +171,7 @@ class TemplateCall(llm.Toolbox):
         return any(
             fnmatch.fnmatch(candidate, pattern)
             for candidate in candidates
-            for pattern in self.allow_templates
+            for pattern in self.config.allow_templates
         )
 
     def _load_template(self, name: str) -> Template:
@@ -174,7 +197,7 @@ class TemplateCall(llm.Toolbox):
         return template
 
     def _resolve_attachments(self, attachment_paths: List[str]) -> List[llm.Attachment]:
-        if len(attachment_paths) > self.max_attachments:
+        if len(attachment_paths) > self.config.max_attachments:
             raise ValueError("Too many attachments")
         attachments: List[llm.Attachment] = []
         total = 0
@@ -183,11 +206,11 @@ class TemplateCall(llm.Toolbox):
             if not path.is_file():
                 raise FileNotFoundError(raw)
             suffix = path.suffix.lower()
-            if self.allowed_suffixes and suffix not in self.allowed_suffixes:
+            if self.config.allowed_suffixes and suffix not in self.config.allowed_suffixes:
                 raise ValueError(f"Attachment suffix '{suffix}' not allowed")
             size = path.stat().st_size
             total += size
-            if total > self.max_bytes:
+            if total > self.config.max_bytes:
                 raise ValueError("Attachments exceed max_bytes limit")
             attachments.append(llm.Attachment(path=str(path)))
         return attachments
@@ -195,7 +218,7 @@ class TemplateCall(llm.Toolbox):
     def _instantiate_tools(self, template: Template):
         cli = _llm_cli_module()
         if not template.tools and (
-            self.ignore_functions or not template.functions
+            self.config.ignore_functions or not template.functions
         ):
             return None
         tools = []
@@ -215,7 +238,7 @@ class TemplateCall(llm.Toolbox):
                 if spec not in registered:
                     raise ValueError(f"Unknown tool '{spec}' in template")
                 tools.append(registered[spec])
-        if not self.ignore_functions and template.functions:
+        if not self.config.ignore_functions and template.functions:
             if not template._functions_is_trusted:
                 raise ValueError("Template functions are not trusted")
             tools.extend(cli._tools_from_code(textwrap.dedent(template.functions)))

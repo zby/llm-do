@@ -120,6 +120,20 @@ TemplateCall(
 - Ignore inline Python functions by default (security); add opt-in override
 - When `expect_json=True`, parse and normalize JSON responses
 
+#### Why TemplateCall (short version)
+
+TemplateCall formalizes the two-step "choose files → process files" pattern.
+Your outer template (or Python tool) can list candidates, pick what to work on,
+then hand each unit to a locked, allowlisted sub-template with vetted
+attachments/fragments and optional JSON schemas. This keeps context tight,
+enforces guardrails (suffix/size caps, attachment limits, template locks), and
+makes orchestration reproducible. Because TemplateCall lets templates call
+other templates, it introduces recursion—the template language becomes closed
+under its own execution model—which is the theoretical backbone for treating
+"choose → then act" as a first-class operation rather than an ad-hoc hack. See
+[`docs/templatecall-motivation.md`](docs/templatecall-motivation.md) for a deeper
+dive, including a runnable pitchdeck example recipe.
+
 ---
 
 ## Templates to Ship

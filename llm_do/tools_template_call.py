@@ -254,7 +254,8 @@ class TemplateCall(llm.Toolbox):
             template = parse_template(name, content)
             template._functions_is_trusted = True
             return template
-        path = Path(name)
+        # Resolve relative paths to absolute
+        path = Path(name).resolve()
         if not path.exists():
             raise LoadTemplateError(f"Template not found: {name}")
         content = path.read_text(encoding="utf-8")

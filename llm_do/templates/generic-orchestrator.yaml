@@ -12,12 +12,6 @@ tools:
   - 'Files({"mode": "ro", "path": ".", "alias": "workspace_ro"})'
   - 'Files({"mode": "out", "path": ".", "alias": "workspace_out"})'
   - 'TemplateCall({"allow_templates": ["pkg:*", "templates/**/*.yaml", "./templates/**/*.yaml", "**/templates/**/*.yaml"], "allowed_suffixes": [".pdf", ".md", ".txt"], "max_attachments": 2, "max_bytes": 20000000})'
-functions: |
-  import os
-
-  def abs_path(relative: str) -> str:
-      """Convert workspace-relative path to absolute path."""
-      return os.path.abspath(relative)
 prompt: |
   ## Task
   $input
@@ -34,19 +28,16 @@ prompt: |
      - whether a procedure/spec file should be attached as fragments
   2. Discover candidate units using Files_workspace_ro_list (limit to $max_units).
   3. Pick the sub-template to run:
-     - If $sub_template is provided, use abs_path($sub_template) to get the
-       absolute path.
+     - If $sub_template is provided, use it as-is (relative or absolute path).
      - If $sub_template is blank, create a new template file in
        `templates/generated/` with a descriptive filename. Write an appropriate
-       YAML template with system/prompt instructions tailored to the task, then
-       use abs_path() to get its absolute path.
+       YAML template with system/prompt instructions tailored to the task.
      - Mention the template path you're using in your reasoning and final summary.
   4. For each unit (up to $max_units):
      - Gather attachment paths (PDF/Markdown/Text only) and any relevant
        instructions/spec fragments you discovered earlier.
-     - Call TemplateCall_run with `template` set to the absolute template path
-       from step 3, plus the attachments and fragments. The response will be
-       plain text.
+     - Call TemplateCall_run with `template` set to the template path from
+       step 3, plus the attachments and fragments. The response will be plain text.
      - Write the result directly to the chosen output directory via
        Files_workspace_out_write_text. Format as markdown with appropriate
        headers.

@@ -17,29 +17,14 @@ prompt: |
   $input
 
   ## Parameters
-  Sub-template path (blank = generate): "$sub_template"
+  Sub-template: "$sub_template" (blank = generate one)
   Max units: $max_units
 
   ## Instructions
-  1. Parse the task to decide:
-     - the unit of work (file, record, URL, etc.)
-     - where the inputs live inside this directory
-     - where outputs should be written
-     - whether a procedure/spec file should be attached as fragments
-  2. Discover candidate units using Files_workspace_ro_list (limit to $max_units).
-  3. Pick the sub-template to run:
-     - If $sub_template is provided, use it as-is (relative or absolute path).
-     - If $sub_template is blank, create a new template file in
-       `templates/generated/` with a descriptive filename. Write an appropriate
-       YAML template with system/prompt instructions tailored to the task.
-     - Mention the template path you're using in your reasoning and final summary.
-  4. For each unit (up to $max_units):
-     - Gather attachment paths (PDF/Markdown/Text only) and any relevant
-       instructions/spec fragments you discovered earlier.
-     - Call TemplateCall_run with `template` set to the template path from
-       step 3, plus the attachments and fragments. The response will be plain text.
-     - Write the result directly to the chosen output directory via
-       Files_workspace_out_write_text. Format as markdown with appropriate
-       headers.
-  5. Finish by reporting how many units were processed, where outputs went, and
-     which template should be reused next time (e.g. via `-p sub_template=...`).
+  1. Identify the units of work (files, records, etc.) and where they live
+  2. Discover units using Files_workspace_ro_list (limit to $max_units)
+  3. If no sub_template provided, create one in `templates/generated/` with
+     appropriate system/prompt instructions for the task
+  4. For each unit: call TemplateCall_run with the template, attachments, and
+     any relevant fragments, then write the result to the output location
+  5. Report units processed, output location, and template path for reuse

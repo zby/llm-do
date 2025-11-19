@@ -1,9 +1,8 @@
 model: claude-haiku-4.5
-options:
-  chain_limit: 20
 defaults:
   max_units: 10
   sub_template: ""
+  child_model: claude-haiku-4.5
 system: |
   You turn free-form tasks into concrete multi-step workflows.
   Use the provided Files toolboxes to inspect the workspace and write new files:
@@ -13,21 +12,27 @@ system: |
 tools:
   - 'Files({"mode": "ro", "path": ".", "alias": "workspace_ro"})'
   - 'Files({"mode": "out", "path": ".", "alias": "workspace_out"})'
-  - 'TemplateCall({"allow_templates": ["pkg:*", "./templates/**/*.yaml"], "allowed_suffixes": [".pdf", ".md", ".txt"], "max_attachments": 2, "max_bytes": 20000000})'
+  - 'TemplateCall({"allow_templates": ["pkg:*", "templates/**/*.yaml", "./templates/**/*.yaml", "**/templates/**/*.yaml"], "allowed_suffixes": [".pdf", ".md", ".txt"], "max_attachments": 2, "max_bytes": 20000000, "default_model": "$child_model"})'
 functions: |
   import json
   import os
   import re
   from textwrap import dedent
 
+  CHILD_MODEL = "$child_model"
+
   def make_slug(text: str) -> str:
       slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
       return slug or "workflow"
 
+  def abs_path(relative: str) -> str:
+      """Convert workspace-relative path to absolute path."""
+      return os.path.abspath(relative)
+
   def scaffold_template(task: str) -> str:
       return dedent(
           f"""
-          model: anthropic/claude-3-5-sonnet
+          model: {CHILD_MODEL}
           system: |
             You solve exactly one unit of work extracted from: {task}
             Respect any attached procedures/fragments.
@@ -63,8 +68,9 @@ prompt: |
   $input
 
   ## Parameters
-  Sub-template override: "$sub_template"
+  Sub-template path (blank = generate): "$sub_template"
   Max units: $max_units
+  Child model: $child_model
 
   ## Instructions
   1. Parse the task to decide:
@@ -73,17 +79,19 @@ prompt: |
      - where outputs should be written
      - whether a procedure/spec file should be attached as fragments
   2. Discover candidate units using Files_workspace_ro_list (limit to $max_units).
-  3. Pick the sub-template and remember its absolute path:
-     - If $sub_template is non-empty, use it directly.
-     - Otherwise, create `templates/generated/<slug>.yaml` by calling
-       Files_workspace_out_write_text with the result of scaffold_template().
-       Mention the generated path in your reasoning and final summary.
+  3. Pick the sub-template to run:
+     - If $sub_template is provided, use abs_path($sub_template) to get the
+       absolute path.
+     - If $sub_template is blank, create `templates/generated/<slug>.yaml` using
+       scaffold_template() via Files_workspace_out_write_text, then use
+       abs_path("templates/generated/<slug>.yaml") to get the absolute path.
+     - Mention the template path you're using in your reasoning and final summary.
   4. For each unit (up to $max_units):
-     - Gather absolute attachment paths (PDF/Markdown/Text only) and optional
-       procedure fragments.
-     - Call TemplateCall_run with `template` set to the chosen sub-template path,
-       plus the attachments, fragments, and expect_json=true
-       so the response is normalized JSON.
+     - Gather attachment paths (PDF/Markdown/Text only) and any relevant
+       instructions/spec fragments you discovered earlier.
+     - Call TemplateCall_run with `template` set to the absolute template path
+       from step 3, plus the attachments, fragments, and expect_json=true so the
+       response is JSON.
      - Convert the JSON to Markdown using render_markdown() and write it to the
        chosen output directory via Files_workspace_out_write_text.
   5. Finish by reporting how many units were processed, where outputs went, and

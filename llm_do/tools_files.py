@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Union
+from typing import Iterable, List, Optional, Union
 
 import llm
 
@@ -33,22 +33,34 @@ class Files(llm.Toolbox):
 
     name = "Files"
 
-    def __init__(self, config: Union[str, dict]):
-        alias_override = None
-        if isinstance(config, str):
-            if ":" not in config:
-                raise ValueError(
-                    "Files toolbox requires config in the form '<mode>:<path>'"
-                )
-            mode, path = config.split(":", 1)
-        elif isinstance(config, dict):
-            mode = config.get("mode", "ro")
-            path = config.get("path")
-            alias_override = config.get("alias")
-            if not path:
-                raise ValueError("Files toolbox requires a 'path'")
-        else:
-            raise TypeError("Files config must be a string or dict")
+    def __init__(
+        self,
+        config: Optional[Union[str, dict]] = None,
+        *,
+        mode: Optional[str] = None,
+        path: Optional[Union[str, Path]] = None,
+        alias: Optional[str] = None,
+    ):
+        alias_override = alias
+        if config is not None:
+            if isinstance(config, str):
+                if ":" not in config:
+                    raise ValueError(
+                        "Files toolbox requires config in the form '<mode>:<path>'"
+                    )
+                cfg_mode, cfg_path = config.split(":", 1)
+                mode = mode or cfg_mode
+                path = path or cfg_path
+            elif isinstance(config, dict):
+                mode = mode or config.get("mode")
+                path = path or config.get("path")
+                alias_override = alias_override or config.get("alias")
+            else:
+                raise TypeError("Files config must be a string or dict")
+        if mode is None:
+            mode = "ro"
+        if path is None:
+            raise ValueError("Files toolbox requires a 'path'")
         mode = str(mode).strip().lower()
         if mode not in {"ro", "out"}:
             raise ValueError("Files toolbox mode must be 'ro' or 'out'")

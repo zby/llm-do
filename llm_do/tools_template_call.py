@@ -31,24 +31,42 @@ class TemplateCall(llm.Toolbox):
 
     def __init__(
         self,
+        config: Optional[dict] = None,
         *,
         allow_templates: Optional[List[str]] = None,
         allowed_suffixes: Optional[List[str]] = None,
-        max_attachments: int = 4,
-        max_bytes: int = 10_000_000,
-        ignore_functions: bool = True,
+        max_attachments: Optional[int] = None,
+        max_bytes: Optional[int] = None,
+        ignore_functions: Optional[bool] = None,
         lock_template: Optional[str] = None,
     ):
-        self.allow_templates = allow_templates or []
-        self.allowed_suffixes = [s.lower() for s in (allowed_suffixes or [])]
-        if max_attachments < 0:
+        if config is not None and not isinstance(config, dict):
+            raise TypeError("TemplateCall config must be a dict")
+        options = dict(config or {})
+        if allow_templates is not None:
+            options["allow_templates"] = allow_templates
+        if allowed_suffixes is not None:
+            options["allowed_suffixes"] = allowed_suffixes
+        if max_attachments is not None:
+            options["max_attachments"] = max_attachments
+        if max_bytes is not None:
+            options["max_bytes"] = max_bytes
+        if ignore_functions is not None:
+            options["ignore_functions"] = ignore_functions
+        if lock_template is not None:
+            options["lock_template"] = lock_template
+
+        self.allow_templates = options.get("allow_templates") or []
+        suffixes = options.get("allowed_suffixes") or []
+        self.allowed_suffixes = [s.lower() for s in suffixes]
+        self.max_attachments = int(options.get("max_attachments", 4))
+        self.max_bytes = int(options.get("max_bytes", 10_000_000))
+        self.ignore_functions = bool(options.get("ignore_functions", True))
+        self.lock_template = options.get("lock_template")
+        if self.max_attachments < 0:
             raise ValueError("max_attachments must be non-negative")
-        if max_bytes <= 0:
+        if self.max_bytes <= 0:
             raise ValueError("max_bytes must be positive")
-        self.max_attachments = max_attachments
-        self.max_bytes = max_bytes
-        self.ignore_functions = ignore_functions
-        self.lock_template = lock_template
 
     # tool method ------------------------------------------------------
     def run(

@@ -1,4 +1,6 @@
-model: anthropic/claude-3-5-sonnet
+model: claude-haiku-4.5
+options:
+  chain_limit: 20
 defaults:
   max_units: 10
   sub_template: ""
@@ -9,14 +11,9 @@ system: |
   - Files_workspace_out_* points at the same directory but allows writes
   Call TemplateCall_run to execute per-unit templates with tightly scoped context.
 tools:
-  - Files({"mode": "ro", "path": ".", "alias": "workspace_ro"})
-  - Files({"mode": "out", "path": ".", "alias": "workspace_out"})
-  - TemplateCall({
-      "allow_templates": ["pkg:*", "./templates/**/*.yaml"],
-      "allowed_suffixes": [".pdf", ".md", ".txt"],
-      "max_attachments": 2,
-      "max_bytes": 20000000
-    })
+  - 'Files({"mode": "ro", "path": ".", "alias": "workspace_ro"})'
+  - 'Files({"mode": "out", "path": ".", "alias": "workspace_out"})'
+  - 'TemplateCall({"allow_templates": ["pkg:*", "./templates/**/*.yaml"], "allowed_suffixes": [".pdf", ".md", ".txt"], "max_attachments": 2, "max_bytes": 20000000})'
 functions: |
   import json
   import os

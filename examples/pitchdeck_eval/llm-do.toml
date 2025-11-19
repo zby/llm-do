@@ -1,5 +1,0 @@
-[workflow]
-spec = "SPEC.md"
-
-[model]
-required_attachment_types = ["application/pdf"]

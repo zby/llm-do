@@ -1,51 +1,61 @@
-"""Shared pytest fixtures for llm-do tests"""
+from __future__ import annotations
 
-import pytest
-import tempfile
+import json
 from pathlib import Path
-from unittest.mock import Mock
+import pytest
+
+
+class DummyResponse:
+    def __init__(self, text: str):
+        self._text = text
+
+    def text(self) -> str:
+        return self._text
+
+
+class DummyModel:
+    def __init__(self, response_text: str = '{"message": "ok"}'):
+        self.calls = []
+        self.response_text = response_text
+
+    def prompt(self, prompt_text: str, **kwargs):
+        self.calls.append((prompt_text, kwargs))
+        return DummyResponse(self.response_text)
 
 
 @pytest.fixture
-def temp_workspace():
-    """Provide temporary workspace directory"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        workspace = Path(tmpdir)
-        yield workspace
+def dummy_model(monkeypatch):
+    model = DummyModel()
+
+    def fake_get_model(name):
+        return model
+
+    monkeypatch.setattr("llm.get_model", fake_get_model)
+    monkeypatch.setattr("llm.get_default_model", lambda: "dummy")
+    return model
 
 
 @pytest.fixture
-def sample_spec(temp_workspace):
-    """Provide sample specification file"""
-    spec_path = temp_workspace / "SPEC.md"
-    spec_path.write_text("""# Sample Specification
-
-You are a helpful assistant that can execute bash commands.
-
-When the user asks you to do something, use the available tools to accomplish the task.
-""")
-    return spec_path
+def sample_attachment(tmp_path: Path) -> Path:
+    path = tmp_path / "sample.txt"
+    path.write_text("hello", encoding="utf-8")
+    return path
 
 
 @pytest.fixture
-def mock_toolbox(temp_workspace):
-    """Provide mock toolbox for testing"""
-    from llm_do.toolbox import BaseToolbox
-    return BaseToolbox(working_dir=temp_workspace)
-
-
-@pytest.fixture
-def mock_tool():
-    """Provide mock tool object"""
-    tool = Mock()
-    tool.name = "test_tool"
-    return tool
-
-
-@pytest.fixture
-def mock_tool_call():
-    """Provide mock tool call object"""
-    tool_call = Mock()
-    tool_call.name = "run_bash"
-    tool_call.arguments = {"command": "echo 'test'"}
-    return tool_call
+def sample_template(tmp_path: Path) -> Path:
+    template = tmp_path / "template.yaml"
+    template.write_text(
+        """
+model: dummy
+prompt: |
+  respond in json
+schema_object:
+  type: object
+  properties:
+    message:
+      type: string
+  required: [message]
+        """.strip()
+    )
+    return template

@@ -1,0 +1,93 @@
+model: anthropic/claude-3-5-sonnet
+defaults:
+  max_units: 10
+  sub_template: ""
+system: |
+  You turn free-form tasks into concrete multi-step workflows.
+  Use the provided Files toolboxes to inspect the workspace and write new files:
+  - Files_workspace_ro_* points at the current directory (read-only)
+  - Files_workspace_out_* points at the same directory but allows writes
+  Call TemplateCall_run to execute per-unit templates with tightly scoped context.
+tools:
+  - Files({"mode": "ro", "path": ".", "alias": "workspace_ro"})
+  - Files({"mode": "out", "path": ".", "alias": "workspace_out"})
+  - TemplateCall({
+      "allow_templates": ["pkg:*", "./templates/**/*.yaml"],
+      "allowed_suffixes": [".pdf", ".md", ".txt"],
+      "max_attachments": 2,
+      "max_bytes": 20000000
+    })
+functions: |
+  import json
+  import os
+  import re
+  from textwrap import dedent
+
+  def make_slug(text: str) -> str:
+      slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+      return slug or "workflow"
+
+  def scaffold_template(task: str) -> str:
+      return dedent(
+          f"""
+          model: anthropic/claude-3-5-sonnet
+          system: |
+            You solve exactly one unit of work extracted from: {task}
+            Respect any attached procedures/fragments.
+            Only return the JSON schema output.
+          prompt: |
+            Carry out the task for your specific unit. Keep context tiny.
+            Output JSON only.
+          schema_object:
+            type: object
+            required: [unit_id, summary]
+            properties:
+              unit_id:
+                type: string
+              summary:
+                type: string
+          """
+      ).strip()
+
+  def render_markdown(payload: dict) -> str:
+      return "\n".join(
+          [
+              f"# {payload.get('unit_id', 'unit')}",
+              "",
+              payload.get("summary", ""),
+              "",
+              "```json",
+              json.dumps(payload, indent=2),
+              "```",
+          ]
+      )
+prompt: |
+  ## Task
+  $input
+
+  ## Parameters
+  Sub-template override: "$sub_template"
+  Max units: $max_units
+
+  ## Instructions
+  1. Parse the task to decide:
+     - the unit of work (file, record, URL, etc.)
+     - where the inputs live inside this directory
+     - where outputs should be written
+     - whether a procedure/spec file should be attached as fragments
+  2. Discover candidate units using Files_workspace_ro_list (limit to $max_units).
+  3. Pick the sub-template and remember its absolute path:
+     - If $sub_template is non-empty, use it directly.
+     - Otherwise, create `templates/generated/<slug>.yaml` by calling
+       Files_workspace_out_write_text with the result of scaffold_template().
+       Mention the generated path in your reasoning and final summary.
+  4. For each unit (up to $max_units):
+     - Gather absolute attachment paths (PDF/Markdown/Text only) and optional
+       procedure fragments.
+     - Call TemplateCall_run with `template` set to the chosen sub-template path,
+       plus the attachments, fragments, and expect_json=true
+       so the response is normalized JSON.
+     - Convert the JSON to Markdown using render_markdown() and write it to the
+       chosen output directory via Files_workspace_out_write_text.
+  5. Finish by reporting how many units were processed, where outputs went, and
+     which template should be reused next time (e.g. via `-p sub_template=...`).

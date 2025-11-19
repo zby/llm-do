@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-do"
-version = "0.1.0"
-description = "Spec-driven automation with LLM and progressive hardening"
+version = "0.2.0"
+description = "Template-first workflows and toolboxes for the llm CLI"
 readme = "README.md"
 authors = [{name = "Your Name"}]
 license = {text = "Apache-2.0"}
@@ -23,7 +23,7 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "llm>=0.26",
-    "click",
+    "PyYAML",
 ]
 
 [project.urls]
@@ -47,7 +47,7 @@ where = ["."]
 include = ["llm_do*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "examples/pitchdeck_eval/tests"]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

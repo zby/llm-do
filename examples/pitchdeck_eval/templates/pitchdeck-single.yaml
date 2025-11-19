@@ -1,0 +1,53 @@
+model: anthropic/claude-3-5-sonnet
+system: |
+  You are an investment analyst.
+  Evaluate exactly one attached pitch deck.
+  Use the fragments as your procedure if they are supplied.
+  Only produce the JSON object defined below.
+prompt: |
+  Read the attached PDF and follow the procedure carefully.
+  Output structured JSON only.
+schema_object:
+  type: object
+  required:
+    - deck_id
+    - file_slug
+    - summary
+    - scores
+    - verdict
+    - red_flags
+  properties:
+    deck_id:
+      type: string
+      description: >-
+        Human readable name for the deck (company or project).
+    file_slug:
+      type: string
+      description: >-
+        URL-safe slug for filenames. Lowercase letters, numbers, and hyphen only.
+    summary:
+      type: string
+      description: 200-250 word summary of the pitch.
+    scores:
+      type: object
+      description: Score from 1-5 for each dimension listed in the procedure.
+      additionalProperties:
+        type: object
+        required: [score, evidence]
+        properties:
+          score:
+            type: integer
+            minimum: 1
+            maximum: 5
+          evidence:
+            type: string
+            description: 1-2 sentences referencing slides.
+    verdict:
+      type: string
+      enum: [go, watch, pass]
+    red_flags:
+      type: array
+      maxItems: 3
+      items:
+        type: string
+      description: List at most three red flags.

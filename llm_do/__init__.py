@@ -1,13 +1,10 @@
-"""
-llm-do: Spec-driven automation with LLM and progressive hardening
+"""Template-first workflows for the llm CLI."""
 
-Write workflows as natural language specs, execute them with LLM + tools,
-progressively harden proven patterns into tested functions.
-"""
+from __future__ import annotations
 
-__version__ = "0.1.0"
+__all__ = ["__version__", "Files", "TemplateCall"]
 
-from .toolbox import BaseToolbox
-from .executor import execute_spec
+__version__ = "0.2.0"
 
-__all__ = ["BaseToolbox", "execute_spec"]
+from .tools_files import Files
+from .tools_template_call import TemplateCall

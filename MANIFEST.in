@@ -1,6 +1,7 @@
 include README.md
 include LICENSE
-recursive-include examples *.md *.py
+recursive-include llm_do/templates *.yaml
+recursive-include examples *.md *.py *.yaml
 recursive-exclude examples *.pdf
 recursive-exclude examples __pycache__
 recursive-exclude examples *.pyc

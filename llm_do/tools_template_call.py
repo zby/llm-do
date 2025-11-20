@@ -7,7 +7,6 @@ import inspect
 import json
 import os
 import sys
-import textwrap
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
@@ -15,7 +14,6 @@ from typing import Iterable, List, Optional
 
 import llm
 from llm.templates import Template
-from llm.models import Response as _LLMResponse, AsyncResponse as _LLMAsyncResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -28,30 +26,12 @@ def _llm_cli_module():
     return cli_module
 
 
-def _current_chain_model_id() -> Optional[str]:
-    """Attempt to detect the model used for the current conversation/tool call."""
-    frame = inspect.currentframe()
-    try:
-        while frame:
-            self_obj = frame.f_locals.get("self")
-            if isinstance(self_obj, (_LLMResponse, _LLMAsyncResponse)):
-                model = getattr(self_obj, "model", None)
-                if model is not None:
-                    return getattr(model, "model_id", None)
-            frame = frame.f_back
-    finally:
-        del frame
-    return None
-
-
 class TemplateCallConfig(BaseModel):
     allow_templates: List[str] = Field(default_factory=list)
     allowed_suffixes: List[str] = Field(default_factory=list)
     max_attachments: int = 4
     max_bytes: int = 10_000_000
-    ignore_functions: bool = True
     lock_template: Optional[str] = None
-    default_model: Optional[str] = None
     debug: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -89,9 +69,7 @@ class TemplateCall(llm.Toolbox):
         allowed_suffixes: Optional[List[str]] = None,
         max_attachments: Optional[int] = None,
         max_bytes: Optional[int] = None,
-        ignore_functions: Optional[bool] = None,
         lock_template: Optional[str] = None,
-        default_model: Optional[str] = None,
         debug: Optional[bool] = None,
     ):
         if config is not None and not isinstance(config, dict):
@@ -105,12 +83,8 @@ class TemplateCall(llm.Toolbox):
             options["max_attachments"] = max_attachments
         if max_bytes is not None:
             options["max_bytes"] = max_bytes
-        if ignore_functions is not None:
-            options["ignore_functions"] = ignore_functions
         if lock_template is not None:
             options["lock_template"] = lock_template
-        if default_model is not None:
-            options["default_model"] = default_model
         if debug is not None:
             options["debug"] = debug
 
@@ -164,13 +138,7 @@ class TemplateCall(llm.Toolbox):
 
         tool_instances = self._instantiate_tools(tmpl)
 
-        inherited_model = _current_chain_model_id()
-        model_name = (
-            tmpl.model
-            or self.config.default_model
-            or inherited_model
-            or llm.get_default_model()
-        )
+        model_name = tmpl.model or llm.get_default_model()
         model = llm.get_model(model_name)
 
         if self.config.debug:
@@ -289,7 +257,6 @@ class TemplateCall(llm.Toolbox):
                 raise LoadTemplateError(f"Template not found in package: {relative}")
             content = resource.read_text(encoding="utf-8")
             template = parse_template(name, content)
-            template._functions_is_trusted = True
             return template
         # Resolve relative paths to absolute
         path = Path(name).resolve()
@@ -297,7 +264,6 @@ class TemplateCall(llm.Toolbox):
             raise LoadTemplateError(f"Template not found: {name}")
         content = path.read_text(encoding="utf-8")
         template = parse_template(str(path), content)
-        template._functions_is_trusted = True
         return template
 
     def _resolve_attachments(self, attachment_paths: List[str]) -> List[llm.Attachment]:
@@ -321,9 +287,7 @@ class TemplateCall(llm.Toolbox):
 
     def _instantiate_tools(self, template: Template):
         cli = _llm_cli_module()
-        if not template.tools and (
-            self.config.ignore_functions or not template.functions
-        ):
+        if not template.tools:
             return None
         tools = []
         registered = llm.get_tools()
@@ -342,10 +306,6 @@ class TemplateCall(llm.Toolbox):
                 if spec not in registered:
                     raise ValueError(f"Unknown tool '{spec}' in template")
                 tools.append(registered[spec])
-        if not self.config.ignore_functions and template.functions:
-            if not template._functions_is_trusted:
-                raise ValueError("Template functions are not trusted")
-            tools.extend(cli._tools_from_code(textwrap.dedent(template.functions)))
         return tools
 
 

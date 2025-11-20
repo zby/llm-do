@@ -17,33 +17,6 @@ tools:
       "max_attachments": 1,
       "max_bytes": 25000000
     })
-functions: |
-  import json
-  import re
-
-  def slugify(text: str) -> str:
-      slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-      return slug or "deck"
-
-  def render_markdown(payload: dict) -> str:
-      lines = [
-          f"# {payload['deck_id']}",
-          "",
-          f"**Slug:** {payload['file_slug']}",
-          f"**Verdict:** {payload['verdict'].upper()}",
-          "",
-          "## Summary",
-          payload['summary'],
-          "",
-          "## Scores",
-      ]
-      for dimension, data in payload["scores"].items():
-          lines.append(f"- **{dimension}**: {data['score']} – {data['evidence']}")
-      if payload["red_flags"]:
-          lines.extend(["", "## Red flags"])
-          for flag in payload["red_flags"]:
-              lines.append(f"- {flag}")
-      return "\n".join(lines)
 prompt: |
   1. Use Files_pipeline_ro_list("*.pdf") to enumerate decks.
   2. Load the evaluation procedure if `pipeline/PROCEDURE.md` exists using
@@ -54,7 +27,15 @@ prompt: |
        * attachments: a list containing the absolute path to the PDF
        * extra_context: include the procedure text if available
        * expect_json: true
-     - Parse the JSON response and convert it to Markdown via render_markdown.
-     - Write the Markdown to Files_evaluations_out_write_text using the slugified
-       filename `<slug>.md`.
+     - Parse the JSON response and convert it to Markdown with this structure:
+       * Title: "# {deck_id}"
+       * Slug line: "**Slug:** {file_slug}" where `file_slug` is the lowercase
+         filename with non-alphanumerics replaced by hyphens (fallback: "deck")
+       * Verdict line: "**Verdict:** {verdict uppercased}"
+       * "## Summary" heading followed by the summary text
+       * "## Scores" heading with bullet points for each score:
+         "- **{dimension}**: {score} – {evidence}"
+       * If red_flags is non-empty, add a "## Red flags" heading and bullet list
+         of the flags
+     - Write the Markdown to Files_evaluations_out_write_text using `<slug>.md`.
   4. When finished, report which decks were evaluated and where the outputs live.

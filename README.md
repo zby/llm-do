@@ -87,7 +87,9 @@ The public tool LLMs see is called `llm_worker_call`, which maps its parameters 
 
 Think of `llm_worker_call` as "delegate this subtask to a separate LLM worker with its own context and attachments," backed by the safety checks above.
 
-This enforces allowlists, file size/type restrictions, and attachment limits. It also supports template locking (force all calls to use a specific vetted template) and structured outputs via `expect_json=True`. Only set `expect_json=True` if the target template defines `schema_object`; otherwise TemplateCall will error. When the child template omits its own `model`, TemplateCall automatically inherits the caller's model so sub-calls use the same provider/config by default.
+This enforces allowlists, file size/type restrictions, and attachment limits. It also supports template locking (force all calls to use a specific vetted template) and structured outputs via `expect_json=True`. Only set `expect_json=True` if the target template defines `schema_object`; otherwise TemplateCall will error.
+
+Model selection is simple: TemplateCall uses the target template's `model` when present, otherwise it falls back to the global default model configured in `llm`. There is no per-toolbox default model parameter.
 
 ## Why TemplateCall?
 

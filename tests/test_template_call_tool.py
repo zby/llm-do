@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import pytest
 
 from llm_do.tools_template_call import TemplateCall
@@ -62,35 +61,69 @@ def test_expect_json_without_schema_raises(template_without_schema):
         tool.run(template=str(template_without_schema), expect_json=True)
 
 
-def test_template_call_infers_parent_model(
-    monkeypatch, template_without_model, sample_attachment
-):
+def test_template_model_wins(monkeypatch, tmp_path, sample_attachment):
     captured = {}
 
     class CaptureModel:
-        def __init__(self):
-            self.calls = []
-
         def prompt(self, prompt_text: str, **kwargs):
-            self.calls.append((prompt_text, kwargs))
             class _Dummy:
                 def text(self):
                     return "{}"
 
             return _Dummy()
 
-    model_instance = CaptureModel()
+    template = tmp_path / "with_model.yaml"
+    template.write_text(
+        """
+model: template-model
+prompt: |
+  respond in json
+schema_object:
+  type: object
+  properties:
+    message:
+      type: string
+  required: [message]
+        """.strip()
+    )
 
     def fake_get_model(name):
         captured["model_name"] = name
-        return model_instance
+        return CaptureModel()
 
     monkeypatch.setattr("llm.get_model", fake_get_model)
-    monkeypatch.setattr("llm.get_default_model", lambda: "default-model")
-    monkeypatch.setattr(
-        "llm_do.tools_template_call._current_chain_model_id",
-        lambda: "parent-model",
+    monkeypatch.setattr("llm.get_default_model", lambda: "fallback-model")
+
+    tool = TemplateCall(
+        allow_templates=[str(template)],
+        allowed_suffixes=[".txt"],
+        max_attachments=1,
     )
+    tool.run(
+        template=str(template),
+        attachments=[str(sample_attachment)],
+    )
+
+    assert captured["model_name"] == "template-model"
+
+
+def test_template_uses_global_default(monkeypatch, template_without_model, sample_attachment):
+    captured = {}
+
+    class CaptureModel:
+        def prompt(self, prompt_text: str, **kwargs):
+            class _Dummy:
+                def text(self):
+                    return "{}"
+
+            return _Dummy()
+
+    def fake_get_model(name):
+        captured["model_name"] = name
+        return CaptureModel()
+
+    monkeypatch.setattr("llm.get_model", fake_get_model)
+    monkeypatch.setattr("llm.get_default_model", lambda: "global-default")
 
     tool = TemplateCall(
         allow_templates=[str(template_without_model)],
@@ -101,7 +134,73 @@ def test_template_call_infers_parent_model(
         template=str(template_without_model),
         attachments=[str(sample_attachment)],
     )
-    assert captured["model_name"] == "parent-model"
+
+    assert captured["model_name"] == "global-default"
+
+
+def test_functions_blocks_are_ignored(monkeypatch, tmp_path):
+    template = tmp_path / "with_functions.yaml"
+    template.write_text(
+        """
+model: dummy
+tools:
+  - helper_tool
+functions: |
+  def unused():
+      return "should not run"
+prompt: |
+  respond in json
+schema_object:
+  type: object
+  properties:
+    message:
+      type: string
+  required: [message]
+        """.strip()
+    )
+
+    tool_instance = object()
+
+    monkeypatch.setattr("llm.get_tools", lambda: {"helper_tool": tool_instance})
+    monkeypatch.setattr("llm.get_default_model", lambda: "dummy")
+
+    import llm.cli as cli
+
+    def explode_tools_from_code(code):
+        raise AssertionError("inline functions should be ignored")
+
+    monkeypatch.setattr(cli, "_tools_from_code", explode_tools_from_code)
+
+    class CaptureModel:
+        def __init__(self):
+            self.calls = []
+
+        def prompt(self, prompt_text: str, **kwargs):
+            self.calls.append(kwargs)
+
+            class _Dummy:
+                def text(self):
+                    return "{}"
+
+            return _Dummy()
+
+    model_instance = CaptureModel()
+
+    def fake_get_model(name):
+        return model_instance
+
+    monkeypatch.setattr("llm.get_model", fake_get_model)
+
+    tool = TemplateCall(
+        allow_templates=[str(template)],
+        allowed_suffixes=[".txt"],
+        max_attachments=1,
+    )
+
+    tool.run(template=str(template))
+
+    assert model_instance.calls
+    assert model_instance.calls[0]["tools"] == [tool_instance]
 
 
 def test_debug_mode_via_env_variable(

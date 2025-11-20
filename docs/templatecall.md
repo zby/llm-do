@@ -9,7 +9,7 @@ This document explains why `TemplateCall` exists, how it fits into the `llm-do` 
   - attachment validation (count, size, suffix)
   - fragment handling for extra context
   - structured outputs via `expect_json` + `schema_object`
-  - model inheritance and security toggles
+  - model fallback and tool security toggles
 - **LLMs** only see a generic tool named `llm_worker_call` that means "call a named LLM worker (preconfigured template) with its own context and attachments." The model chooses a `worker_name`, provides `input`, optional `attachments` and `extra_context`, and (optionally) `params`/`expect_json`. The worker's prompt, model, and allowed tools are defined elsewhere; the caller only passes arguments.
 
 ## What TemplateCall Does
@@ -20,8 +20,8 @@ This document explains why `TemplateCall` exists, how it fits into the `llm-do` 
 - **Attachment validation:** File count, size, and suffix restrictions enforced before passing to the LLM
 - **Fragment support:** Pass text snippets (procedures, rubrics, extracted sections) as additional context
 - **Structured outputs:** Optional JSON parsing and normalization via `expect_json=True` (only when the template defines `schema_object`).
-- **Automatic model inheritance:** If the child template omits its own `model`, TemplateCall reuses the model currently running the parent template/tool call.
-- **Security defaults:** Inline Python functions disabled by default (opt-in override available)
+- **Model selection:** Use the template's `model` when present; otherwise fall back to the global default model configured in `llm`.
+- **Security defaults:** Inline Python functions embedded in templates are ignored.
 
 Example configuration:
 
@@ -64,6 +64,21 @@ LLM-facing tool surface (wired to the same implementation):
 ```
 
 `llm_worker_call` maps parameters like this: `worker_name` → `template`, `extra_context` → `fragments`, while `attachments`, `params`, and `expect_json` pass through with the same validation rules. (TODO: Consider adding additional tool aliases such as `delegate_task` or `call_subtask` if certain models respond better to alternate names.)
+
+This enforces allowlists, file size/type restrictions, and attachment limits. It also supports template locking (force all calls to use a specific vetted template) and structured outputs via `expect_json=True`. Only set `expect_json=True` if the target template defines `schema_object`; otherwise TemplateCall will error.
+
+### Model selection
+
+TemplateCall resolves the model in two steps:
+
+1. The `model:` field on the target template
+2. The global default model returned by `llm.get_default_model()`
+
+There is no per-TemplateCall default model parameter.
+
+### Inline functions are ignored
+
+`TemplateCall` skips inline `functions:` blocks defined inside templates. Register Python tools/toolboxes normally and reference them via `tools:` entries instead of embedding code inside YAML.
 
 ## Why Recursion Matters
 
@@ -166,8 +181,8 @@ The `TemplateCall` toolbox is implemented in `llm_do/tools_template_call.py`. Ke
 - Template paths support `pkg:` prefix for package-bundled templates and filesystem paths for user templates
 - Attachment validation happens before invoking `llm` (fail fast if files are too large or have wrong extensions)
 - `expect_json=True` attempts to parse the response as JSON (only allowed when the template defines `schema_object`) and returns a normalized structure
-- If the child template does not declare a `model`, TemplateCall automatically inherits the parent template's model for the sub-call.
-- Inline Python functions in sub-templates are ignored by default (security); override via `allow_functions=True` if needed
+- Model selection follows two steps: (1) the template's explicit `model` value, or (2) the global default model configured in `llm`.
+- Inline Python `functions:` blocks in sub-templates are ignored; reference Python toolboxes via `tools:` instead.
 - Fragment files are read and passed as text to the template (useful for procedures, rubrics, or context snippets)
 - From the LLM's point of view, all of this is exposed as the single `llm_worker_call` tool. The model only decides which `worker_name` to call, what `input` to send, which files to attach, and any extra snippets of context.
 

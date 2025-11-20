@@ -1,15 +1,16 @@
-# TemplateCall: Design and Motivation
+# TemplateCall and llm_call: Design and Motivation
 
-This document explains why `TemplateCall` exists and how it fits into the `llm-do` plugin architecture.
+This document explains why `TemplateCall` exists, how it fits into the `llm-do` plugin architecture, and how the public tool `llm_call` exposes it to models.
 
-## The Problem
+## Programmer vs LLM Perspective
 
-When automating tasks with LLM templates, you frequently encounter workflows that require multiple LLM calls. The simplest and most common case is a two-step pattern:
-
-1. **Selection:** Examine a directory, triage files, choose what to process
-2. **Execution:** For each chosen item, run a focused LLM call with specific attachments and context
-
-You could write Python code to orchestrate these steps, but that's slow to iterate on. Templates are easier to modify, but they need a way to safely invoke other templates. That's the gap `TemplateCall` fills.
+- **Programmers** work with `TemplateCall` directly in Python/YAML. Their mental model is "call another template in a safe, controlled way" with:
+  - template allowlists or locks
+  - attachment validation (count, size, suffix)
+  - fragment handling for extra context
+  - structured outputs via `expect_json` + `schema_object`
+  - model inheritance and security toggles
+- **LLMs** only see a generic tool named `llm_call` that means "delegate a subtask to another LLM worker with its own context and attachments." The model chooses a `task`, provides `input`, optional `attachments` and `extra_context`, and (optionally) `params`/`expect_json`. The model does not need to know anything about templates—the configuration lives behind the tool.
 
 ## What TemplateCall Does
 
@@ -34,10 +35,10 @@ TemplateCall(
 )
 ```
 
-The `run` method mirrors the `llm -t` CLI interface:
+Programmer-facing API call:
 
 ```python
-result = TemplateCall_run(
+result = TemplateCall().run(
   template="templates/evaluate-one.yaml",
   input="Evaluate this document",
   attachments=[{"path": "file.pdf"}],
@@ -47,21 +48,36 @@ result = TemplateCall_run(
 )
 ```
 
+LLM-facing tool surface (wired to the same implementation):
+
+```yaml
+# Conceptual view of the tool the LLM sees
+- name: llm_call
+  description: Call a separate LLM worker with its own context and optional file attachments.
+  params:
+    task: which worker/template to call
+    input: main text to process
+    attachments: list of files to attach
+    extra_context: optional snippets/rubrics
+    params: optional template parameters
+    expect_json: request structured output when available
+```
+
+`llm_call` maps parameters like this: `task` → `template`, `extra_context` → `fragments`, while `attachments`, `params`, and `expect_json` pass through with the same validation rules. (TODO: Consider adding additional tool aliases such as `delegate_task` or `call_subtask` if certain models respond better to alternate names.)
+
 ## Why Recursion Matters
 
 When a template can call another template, the template language becomes recursively closed. This is useful for a couple of reasons:
 
 1. **Composability:** Common patterns like "choose files → process files" or "triage → escalate" become reusable building blocks instead of bespoke scripts.
-
 2. **Uniformity:** Sub-calls inherit the same auditing, logging, and security guarantees as top-level template invocations.
-
 3. **Programmer ergonomics:** Clean recursion is easier to reason about than ad-hoc orchestration glue. You can build workflows that feel like composing functions.
 
 This isn't just theoretical—it matters in practice. When your orchestrator needs to handle edge cases (retry logic, partial failures, dynamic template selection), having a consistent primitive for "call another template" makes those extensions straightforward.
 
 ## The Two-Step Pattern in Practice
 
-Here's a simplified example showing how `TemplateCall` fits into a pitch deck evaluation workflow:
+Here's a simplified example showing how `TemplateCall` and `llm_call` fit into a pitch deck evaluation workflow:
 
 ```yaml
 # pitchdeck-orchestrator.yaml (pseudo-YAML, simplified)
@@ -71,7 +87,7 @@ system: |
 
 tools:
   - Files_list
-  - TemplateCall_run
+  - llm_call
 
 params:
   max_decks: 5
@@ -80,10 +96,10 @@ params:
 # 1. Call Files_list to get pipeline/*.pdf
 # 2. Choose up to max_decks files based on task description
 # 3. For each chosen file:
-#    - Call TemplateCall_run with:
-#        template: "templates/pitchdeck-single.yaml" (locked)
+#    - Call llm_call with:
+#        task: "templates/pitchdeck-single.yaml" (locked)
 #        attachments: [the PDF]
-#        fragments: ["PROCEDURE.md"]
+#        extra_context: ["PROCEDURE.md"]
 #        expect_json: true
 # 4. Write results to evaluations/ via Files_write_text
 ```
@@ -93,11 +109,8 @@ The locked `pitchdeck-single.yaml` template expects exactly one PDF, returns str
 ## Benefits
 
 - **Tight context:** Each sub-call is scoped to a single unit of work (one file, one task) rather than batching everything into a single bloated prompt.
-
 - **Guardrails by construction:** File size caps, suffix restrictions, and template locks are enforced in code, not by hoping the LLM respects instructions.
-
 - **Reproducibility:** Sub-calls are explicit, loggable, and re-runnable. You can audit exactly which template processed which files with which parameters.
-
 - **Iteration speed:** Refining the evaluation template doesn't require touching the orchestrator. They evolve independently.
 
 ## When to Use TemplateCall
@@ -129,7 +142,7 @@ The `examples/pitchdeck_eval` directory demonstrates this pattern. The orchestra
 
 1. Lists PDFs in `pipeline/` using `Files("ro:pipeline")`
 2. Chooses which ones to evaluate (based on the task description)
-3. Calls the locked `pitchdeck-single.yaml` template once per PDF, passing:
+3. Calls the locked `pitchdeck-single.yaml` template once per PDF via `llm_call`, passing:
    - The PDF as an attachment
    - `PROCEDURE.md` as a fragment (shared evaluation rubric)
    - Parameters like `deck_id` derived from the filename
@@ -156,8 +169,9 @@ The `TemplateCall` toolbox is implemented in `llm_do/tools_template_call.py`. Ke
 - If the child template does not declare a `model`, TemplateCall automatically inherits the parent template's model for the sub-call.
 - Inline Python functions in sub-templates are ignored by default (security); override via `allow_functions=True` if needed
 - Fragment files are read and passed as text to the template (useful for procedures, rubrics, or context snippets)
+- From the LLM's point of view, all of this is exposed as the single `llm_call` tool. The model only decides which `task` to call, what `input` to send, which files to attach, and any extra snippets of context.
 
-The API deliberately mirrors the `llm -t` CLI to keep the mental model consistent.
+There is currently no external code depending on this API, so the naming shift from `TemplateCall_run` to `llm_call` is not a breaking change. We're optimizing names now for clarity of mental models (programmer vs LLM) before external adoption.
 
 ## Future Directions
 

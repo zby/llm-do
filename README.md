@@ -52,7 +52,7 @@ Methods:
 
 All paths are resolved inside the sandbox root. Attempts to escape (via `..` or absolute paths) raise errors immediately.
 
-### TemplateCall
+### TemplateCall / `llm_call`
 
 Lets one template invoke another with controlled inputs. Example configuration:
 
@@ -78,6 +78,14 @@ run(
   expect_json=False,
 )
 ```
+
+The public tool LLMs see is called `llm_call`, which maps its parameters onto `TemplateCall.run`:
+
+- `task` → `template`
+- `extra_context` → `fragments`
+- `attachments`, `params`, and `expect_json` pass through unchanged
+
+Think of `llm_call` as "delegate this subtask to a separate LLM worker with its own context and attachments," backed by the safety checks above.
 
 This enforces allowlists, file size/type restrictions, and attachment limits. It also supports template locking (force all calls to use a specific vetted template) and structured outputs via `expect_json=True`. Only set `expect_json=True` if the target template defines `schema_object`; otherwise TemplateCall will error. When the child template omits its own `model`, TemplateCall automatically inherits the caller's model so sub-calls use the same provider/config by default.
 
@@ -111,7 +119,7 @@ examples/pitchdeck_eval/
 The orchestrator template:
 1. Lists PDFs in `pipeline/` using `Files("ro:pipeline")`
 2. Decides which files to process (could be all of them, or just a subset based on task description)
-3. For each file, calls `pitchdeck-single.yaml` via `TemplateCall_run`, passing the PDF as an attachment and `PROCEDURE.md` as a fragment
+3. For each file, calls `pitchdeck-single.yaml` via `llm_call`, passing the PDF as an attachment and `PROCEDURE.md` as a fragment
 4. Writes the resulting Markdown evaluations to `evaluations/` using `Files("out:evaluations")`
 
 Run it like this:

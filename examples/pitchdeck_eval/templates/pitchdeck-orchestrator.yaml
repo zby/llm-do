@@ -4,7 +4,9 @@ system: |
   Only touch files via the provided Files toolboxes:
   - Files_pipeline_ro_* is read-only and points at ./pipeline
   - Files_evaluations_out_* is writable and points at ./evaluations
-  Call TemplateCall_run exactly once per deck.
+  You have a tool called llm_call for delegating to a pitch-deck worker with
+  its own context and attachments. Use llm_call exactly once per deck when you
+  need that worker to read the PDF and apply the rubric.
 tools:
   - Files("ro:pipeline")
   - Files("out:evaluations")
@@ -47,9 +49,9 @@ prompt: |
   2. Load the evaluation procedure if `pipeline/PROCEDURE.md` exists using
      Files_pipeline_ro_read_text.
   3. For each PDF (one at a time):
-     - Call TemplateCall_run with:
+     - Call llm_call with:
        * attachments: a list containing the absolute path to the PDF
-       * fragments: include the procedure text if available
+       * extra_context: include the procedure text if available
        * expect_json: true
      - Parse the JSON response and convert it to Markdown via render_markdown.
      - Write the Markdown to Files_evaluations_out_write_text using the slugified

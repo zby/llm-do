@@ -8,10 +8,14 @@ system: |
   Available tools:
   - Files_workspace_ro_list() and Files_workspace_ro_read_text() for reading files
   - Files_workspace_out_write_text() for writing/creating files
-  - TemplateCall_run() to execute sub-templates with tightly scoped context
+  - llm_call(task, input, attachments, extra_context) to delegate work to a
+    specialized template/LLM worker with its own context and attachments
   - TemplateHelpers_make_template(prompt_text) to generate a standard template
 
   Both Files toolboxes point to the current directory.
+  Use llm_call when you need a separate LLM worker to process a unit of work,
+  especially when that worker needs attachments or extra snippets of context
+  that shouldn't bloat your own prompt.
 tools:
   - 'Files({"mode": "ro", "path": ".", "alias": "workspace_ro"})'
   - 'Files({"mode": "out", "path": ".", "alias": "workspace_out"})'
@@ -30,6 +34,6 @@ prompt: |
   2. If no sub_template provided, create a `.yaml` template in `templates/generated/`:
      - Use TemplateHelpers_make_template(prompt_text) to generate template content
      - Write it with Files_workspace_out_write_text
-  3. For each unit: call TemplateCall_run with the template, attachments, and
+  3. For each unit: call llm_call with the template, attachments, and
      any relevant fragments, then write results using Files_workspace_out_write_text
   4. Report units processed, output location, and template path for reuse

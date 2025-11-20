@@ -20,7 +20,7 @@ This document explains why `TemplateCall` exists, how it fits into the `llm-do` 
 - **Attachment validation:** File count, size, and suffix restrictions enforced before passing to the LLM
 - **Fragment support:** Pass text snippets (procedures, rubrics, extracted sections) as additional context
 - **Structured outputs:** Optional JSON parsing and normalization via `expect_json=True` (only when the template defines `schema_object`).
-- **Model selection:** Use the template's `model` when present; otherwise fall back to the global default model configured in `llm`.
+- **Model selection:** Use the template's `model` when present; otherwise fall back to llm's global default. Does NOT inherit from parent call's `-m` flag.
 - **Security defaults:** Inline Python functions embedded in templates are ignored.
 
 Example configuration:
@@ -74,7 +74,7 @@ TemplateCall resolves the model in two steps:
 1. The `model:` field on the target template
 2. The global default model returned by `llm.get_default_model()`
 
-There is no per-TemplateCall default model parameter.
+**Important:** Sub-templates do NOT inherit the model from the parent `llm` command. If you run `llm -m gpt-4 -t orchestrator.yaml`, the orchestrator uses gpt-4, but any `llm_worker_call` to a template without `model:` will use the global default, not necessarily gpt-4.
 
 ### Inline functions are ignored
 
@@ -181,7 +181,7 @@ The `TemplateCall` toolbox is implemented in `llm_do/tools_template_call.py`. Ke
 - Template paths support `pkg:` prefix for package-bundled templates and filesystem paths for user templates
 - Attachment validation happens before invoking `llm` (fail fast if files are too large or have wrong extensions)
 - `expect_json=True` attempts to parse the response as JSON (only allowed when the template defines `schema_object`) and returns a normalized structure
-- Model selection follows two steps: (1) the template's explicit `model` value, or (2) the global default model configured in `llm`.
+- Model selection: (1) the template's explicit `model` value, or (2) the global default. Does NOT inherit from parent `-m` flag.
 - Inline Python `functions:` blocks in sub-templates are ignored; reference Python toolboxes via `tools:` instead.
 - Fragment files are read and passed as text to the template (useful for procedures, rubrics, or context snippets)
 - From the LLM's point of view, all of this is exposed as the single `llm_worker_call` tool. The model only decides which `worker_name` to call, what `input` to send, which files to attach, and any extra snippets of context.

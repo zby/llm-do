@@ -89,7 +89,7 @@ Think of `llm_worker_call` as "delegate this subtask to a separate LLM worker wi
 
 This enforces allowlists, file size/type restrictions, and attachment limits. It also supports template locking (force all calls to use a specific vetted template) and structured outputs via `expect_json=True`. Only set `expect_json=True` if the target template defines `schema_object`; otherwise TemplateCall will error.
 
-Model selection is simple: TemplateCall uses the target template's `model` when present, otherwise it falls back to the global default model configured in `llm`. There is no per-toolbox default model parameter.
+**Model selection:** Sub-templates use their own `model:` field if set, otherwise llm's global default. They do **not** inherit the model from the parent `llm` command (the `-m` flag does not propagate to sub-calls).
 
 ## Why TemplateCall?
 

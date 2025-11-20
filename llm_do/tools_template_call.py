@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
-import inspect
+import inspect  # Used for type checking (isclass), not stack introspection
 import json
 import os
 import sys
@@ -138,6 +138,10 @@ class TemplateCall(llm.Toolbox):
 
         tool_instances = self._instantiate_tools(tmpl)
 
+        # Model selection rule:
+        # 1. Use the target template's model field if specified
+        # 2. Otherwise use llm's global default model
+        # Note: Does NOT inherit from parent call (no -m flag propagation)
         model_name = tmpl.model or llm.get_default_model()
         model = llm.get_model(model_name)
 

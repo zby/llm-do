@@ -24,9 +24,11 @@ The `llm` library provides:
 The concept of **workers as executables**:
 - A worker bundles template + model + tools + schemas into one runnable unit
 - Workers can invoke other workers recursively
-- Two core toolboxes enable orchestration:
+- Workers can autonomously create new workers (with user approval)
+- Three core capabilities enable orchestration:
   1. **Files**: Sandboxed file access per-directory
   2. **TemplateCall**: Safe worker-to-worker delegation
+  3. **CreateWorker**: Autonomous worker creation with approval flow
 
 ### The Recursive Call Problem (Why Rewrite?)
 
@@ -188,19 +190,62 @@ llm_worker_call(
 - Refine evaluator worker without touching orchestrator
 - Each worker is independently testable and runnable
 
+## Workers Creating Workers
+
+A key capability: **workers can autonomously create new workers** when they determine a subtask needs specialized handling.
+
+```yaml
+# Any worker can have the worker creation tool
+tools:
+  - CreateWorker:
+      output_dir: "workers"
+      require_approval: true  # user must approve before worker is saved
+```
+
+**Flow (autonomous with approval):**
+1. User gives a task: "Evaluate all pitch decks in this directory"
+2. Worker decides: "I need a specialized evaluator worker for the PDF processing subtask"
+3. Worker calls `create_worker(...)` with:
+   - Worker name and description
+   - Prompt template
+   - Schema definition
+   - Tool configuration (restricted by default)
+4. **System prompts user for approval**: shows the proposed YAML
+5. User approves → worker saved to `workers/pitchdeck-evaluator.yaml`
+6. Worker can now call the newly created worker via `llm_worker_call`
+7. Saved YAML is the starting point for progressive hardening
+
+**Security defaults:**
+- Created workers start with minimal tool access
+- No file write permissions by default
+- Worker delegation restricted to specific allowlists
+- User approval required before worker is saved/used
+- Programmer explicitly grants additional capabilities during refinement
+
+**Why this matters:**
+- Workers autonomously decompose tasks—no manual scaffolding needed
+- Human-in-the-loop approval ensures safety and quality
+- The saved YAML is the artifact—version controlled, auditable, refinable
+- Natural workflow: LLM identifies need → generates worker → user approves → system uses it
+- Progressive hardening begins from the approved file
+
+This meta-capability (workers creating workers with approval) makes the system self-scaffolding while keeping humans in control.
+
 ## Progressive Hardening
 
 Start flexible, harden incrementally:
 
-1. **Exploration**: Prototype with flexible workers (loose prompts, no schemas)
-2. **Specialization**: Add schemas, refine prompts, tune models
-3. **Locking**: Pin to vetted workers via `lock_template`
-4. **Migration**: Move brittle logic from prompts to Python toolboxes
+1. **Autonomous creation**: Worker autonomously creates specialized sub-worker, user approves
+2. **Testing**: Re-run tasks using the created worker, observe results, iterate on the YAML
+3. **Specialization**: Add schemas, refine prompts, tune models
+4. **Locking**: Pin to vetted workers via `lock_template`
+5. **Migration**: Move brittle logic from prompts to Python toolboxes
 
 Example progression:
-- **Week 1**: Worker's prompt handles scoring math inline
-- **Week 2**: Scoring becomes inconsistent → extract to Python helper
-- **Week 3**: Helper becomes a tested toolbox with regression tests
+- **Day 1**: Orchestrator autonomously creates `evaluator.yaml`, user approves
+- **Week 1**: Test runs reveal scoring inconsistencies, user edits YAML
+- **Week 2**: Add structured output schema, refine prompt
+- **Week 3**: Scoring math extracted to Python toolbox with tests
 - **Week 4**: Worker just calls `compute_score(dimensions)`, math is stable
 
 Workers stay as the orchestration layer; Python handles deterministic logic.
@@ -211,17 +256,23 @@ Workers stay as the orchestration layer; Python handles deterministic logic.
    A worker is a self-contained unit you can run from CLI or invoke from another worker
    Keeps iteration fast—edit YAML, re-run
 
-2. **Security by construction**
-   Sandbox escapes, file size bombs, and arbitrary code execution are prevented by toolbox design, not LLM instructions
+2. **Workers as artifacts**
+   Workers can create other workers by writing YAML files
+   The saved file is the starting point for progressive hardening
+   Version controlled, auditable, refinable by programmers
 
-3. **Explicit over implicit**
+3. **Security by construction**
+   Sandbox escapes, file size bombs, and arbitrary code execution are prevented by toolbox design, not LLM instructions
+   Created workers start with minimal permissions—programmer explicitly grants more
+
+4. **Explicit over implicit**
    Model selection, tool configuration, and worker allowlists are declared in YAML, not inherited or guessed
 
-4. **Recursive composability**
+5. **Recursive composability**
    Workers can call workers—workflows become building blocks
    The architecture should make this natural, not a hack
 
-5. **No backwards compatibility**
+6. **No backwards compatibility**
    This is a clean break; prioritize good design over legacy constraints
 
 ## Implementation Notes (Current llm-based System)
@@ -247,13 +298,22 @@ A rewrite on a different base (PydanticAI, custom runtime, etc.) should:
    - Worker loading, validation, and execution is part of the core runtime
    - Recursive calls are natural because workers are just executables
 
-3. **Keep the same security model**
+3. **Support autonomous worker creation with approval flow**
+   - Workers can propose new worker definitions when they identify the need
+   - System prompts user for approval before saving/using the worker
+   - User can review, edit, or reject the proposed YAML
+   - Template generation helpers for common patterns
+   - Created workers start with safe defaults (minimal permissions)
+   - Approved YAML is immediately runnable and refinable
+
+4. **Keep the same security model**
    - Sandboxed file access with escape prevention
    - Attachment validation (size, count, suffix)
    - Worker allowlists and locks
    - No inline code execution
+   - Explicit permission grants for created workers
 
-The goal: make recursive worker calls feel like function calls, not template loading gymnastics.
+The goal: make recursive worker calls feel like function calls, not template loading gymnastics. And make autonomous worker creation with approval a natural part of the workflow—workers propose specialized sub-workers when needed, users approve, system uses them.
 
 ## Example: Pitch Deck Evaluation
 
@@ -297,13 +357,15 @@ llm -t templates/pitchdeck-single.yaml \
 ## Why Not Just Script It?
 
 You could hard-code this in Python. But:
-- Iteration is slower (code → test → deploy vs. edit YAML → re-run)
-- Workflow logic lives in workers where it's easy to audit and test
-- Adding edge cases (skip files, retry failures) is easier in worker prompts
-- Recursive worker calls make complex workflows composable
-- Workers are self-documenting executables
+- **Autonomous decomposition**: Workers identify when they need specialized sub-workers and create them—no manual scaffolding
+- **Human-in-the-loop**: User approves generated workers before they're used—safety + quality control
+- **Iteration speed**: Edit approved YAML → re-run, vs. code → test → deploy
+- **Auditability**: Workflow logic lives in workers where it's easy to inspect and test
+- **Flexibility**: Adding edge cases (skip files, retry failures) is easier in worker prompts
+- **Composability**: Recursive worker calls make complex workflows into building blocks
+- **Progressive refinement**: Start with approved generated YAML, harden incrementally
 
-Workers are the right level of abstraction for orchestration. Python handles the deterministic plumbing.
+Workers are the right level of abstraction for orchestration. Python handles the deterministic plumbing. And workers can autonomously scaffold specialized sub-workers when needed.
 
 ## Future Directions
 
@@ -322,14 +384,19 @@ Better to keep it simple now and see what usage patterns emerge.
 
 **Key insight**: In the current llm library, making workers call other workers is awkward because tools don't have natural access to the template loading machinery. A better architecture would treat workers as first-class executables with built-in delegation primitives.
 
+**Meta-capability**: Workers can autonomously create specialized sub-workers when they identify the need. User approves the generated YAML before it's saved/used. This enables autonomous task decomposition with human-in-the-loop control, and the saved YAML becomes the starting point for progressive hardening.
+
 **What to preserve in a rewrite**:
 - Workers as self-contained YAML definitions
+- Autonomous worker creation with user approval
 - Sandboxed file access with escape prevention
 - Worker delegation with allowlists/locks and attachment validation
-- Progressive hardening: start flexible, migrate brittle logic to Python
-- Security by construction, not by LLM instruction-following
+- Progressive hardening: autonomous creation → approval → test → refine → migrate to Python
+- Security by construction: created workers start with minimal permissions, user must approve
 
 **What would improve**:
 - Worker invocation becomes a natural primitive, not a hack
 - Tools can call `invoke_worker(name, ...)` without re-implementing template loading
 - The worker registry is part of the core runtime, accessible to all tools
+- Worker creation with approval flow feels integrated, not bolted on
+- Clear approval UX: show proposed YAML, allow edits before saving

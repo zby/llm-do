@@ -2,13 +2,12 @@
 
 ## Upstream Discussion
 
-- [ ] **Discuss CLI flag propagation with llm library maintainers**
+- [ ] **Coordinate with llm maintainers on TemplateCall hooks**
 
-  Currently, when `TemplateCall` invokes sub-templates via `model.prompt()`, it bypasses the CLI layer entirely. This means CLI flags like `--tools-debug` don't propagate to nested calls.
+  `TemplateCall` currently sneaks around the public API in two places:
+  1. Nested calls: when workers call other templates via `model.prompt()` we bypass the CLI, so CLI flags (`--tools`, `--tools-debug`, etc.) and future per-run options never reach sub-templates. We paper over this gap with `LLM_DO_DEBUG=1`, but it's brittle and doesn't scale to other switches.
+  2. Template parsing: we import the CLI module and call its private `_parse_yaml_template()` helper so we can reuse fragment/attachment syntax. That function is not part of a stable API, so any change in the upstream CLI could break us.
 
-  We're using the `LLM_DO_DEBUG` environment variable as a workaround, but it would be good to understand:
-  - Is there a recommended pattern for tools that need to make nested `model.prompt()` calls?
-  - Should Response objects carry debug/display preferences?
-  - Should there be a context manager or similar mechanism for propagating CLI options?
+  We should ask for guidance on an official surface area that covers both needs. Possibilities include a context object that carries CLI/UX preferences into nested prompts plus a supported template loader/parsing helper (or a way to register our own Template implementation). Until then we keep relying on private internals.
 
-  Current workaround: `LLM_DO_DEBUG=1 llm -t template.yaml "task"`
+  Current workaround for debug visibility: `LLM_DO_DEBUG=1 llm -t template.yaml "task"`

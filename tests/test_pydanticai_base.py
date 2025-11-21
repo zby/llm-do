@@ -424,3 +424,159 @@ def test_jinja_path_escape_prevention(tmp_path):
 
     with pytest.raises(PermissionError, match="path escapes allowed directory"):
         registry.load_definition("malicious")
+
+
+def test_prompt_file_txt(tmp_path):
+    """Test loading plain text prompt from .txt file."""
+    registry_root = tmp_path / "workers"
+    prompts_dir = tmp_path / "prompts"
+    prompts_dir.mkdir(parents=True)
+
+    # Create plain text prompt file
+    prompt_file = prompts_dir / "my_worker.txt"
+    prompt_file.write_text("Analyze the input data and provide insights.")
+
+    # Create worker definition without inline instructions
+    registry = WorkerRegistry(registry_root)
+    worker_def = WorkerDefinition(name="my_worker")
+    registry.save_definition(worker_def)
+
+    # Load should discover and use the prompt file
+    loaded = registry.load_definition("my_worker")
+    assert loaded.instructions == "Analyze the input data and provide insights."
+
+
+def test_prompt_file_jinja2(tmp_path):
+    """Test loading Jinja2 template prompt from .jinja2 file."""
+    registry_root = tmp_path / "workers"
+    prompts_dir = tmp_path / "prompts"
+    config_dir = tmp_path / "config"
+    prompts_dir.mkdir(parents=True)
+    config_dir.mkdir(parents=True)
+
+    # Create config file
+    config_file = config_dir / "rubric.md"
+    config_file.write_text("# Scoring Rubric\n\nScore from 1-10.")
+
+    # Create Jinja2 template prompt file
+    prompt_file = prompts_dir / "evaluator.jinja2"
+    prompt_file.write_text("Evaluate using:\n\n{{ file('config/rubric.md') }}\n\nReturn JSON.")
+
+    # Create worker definition without inline instructions
+    registry = WorkerRegistry(registry_root)
+    worker_def = WorkerDefinition(name="evaluator")
+    registry.save_definition(worker_def)
+
+    # Load should discover, render template, and use the prompt
+    loaded = registry.load_definition("evaluator")
+    assert "{{ file(" not in loaded.instructions
+    assert "# Scoring Rubric" in loaded.instructions
+    assert "Score from 1-10." in loaded.instructions
+    assert "Return JSON." in loaded.instructions
+
+
+def test_prompt_file_priority(tmp_path):
+    """Test that .jinja2 takes priority over .txt when both exist."""
+    registry_root = tmp_path / "workers"
+    prompts_dir = tmp_path / "prompts"
+    prompts_dir.mkdir(parents=True)
+
+    # Create both .jinja2 and .txt files
+    (prompts_dir / "worker.jinja2").write_text("From jinja2 file")
+    (prompts_dir / "worker.txt").write_text("From txt file")
+
+    registry = WorkerRegistry(registry_root)
+    worker_def = WorkerDefinition(name="worker")
+    registry.save_definition(worker_def)
+
+    loaded = registry.load_definition("worker")
+    assert loaded.instructions == "From jinja2 file"
+
+
+def test_prompt_file_j2_extension(tmp_path):
+    """Test loading from .j2 extension."""
+    registry_root = tmp_path / "workers"
+    prompts_dir = tmp_path / "prompts"
+    prompts_dir.mkdir(parents=True)
+
+    prompt_file = prompts_dir / "worker.j2"
+    prompt_file.write_text("Instructions from .j2 file")
+
+    registry = WorkerRegistry(registry_root)
+    worker_def = WorkerDefinition(name="worker")
+    registry.save_definition(worker_def)
+
+    loaded = registry.load_definition("worker")
+    assert loaded.instructions == "Instructions from .j2 file"
+
+
+def test_prompt_file_md_extension(tmp_path):
+    """Test loading from .md extension."""
+    registry_root = tmp_path / "workers"
+    prompts_dir = tmp_path / "prompts"
+    prompts_dir.mkdir(parents=True)
+
+    prompt_file = prompts_dir / "worker.md"
+    prompt_file.write_text("# Worker Instructions\n\nDo the task.")
+
+    registry = WorkerRegistry(registry_root)
+    worker_def = WorkerDefinition(name="worker")
+    registry.save_definition(worker_def)
+
+    loaded = registry.load_definition("worker")
+    assert loaded.instructions == "# Worker Instructions\n\nDo the task."
+
+
+def test_prompt_file_not_found_no_inline(tmp_path):
+    """Test that validation error occurs when no prompt file and no inline instructions."""
+    registry_root = tmp_path / "workers"
+    registry = WorkerRegistry(registry_root)
+
+    # Create worker without instructions and no prompts/ directory
+    worker_def = WorkerDefinition(name="worker")
+    registry.save_definition(worker_def)
+
+    # Load should fail validation because instructions is required
+    # (WorkerDefinition.instructions is Optional but WorkerSpec.instructions is required for actual execution)
+    # For now, it will load successfully but may fail at runtime
+    loaded = registry.load_definition("worker")
+    assert loaded.instructions is None
+
+
+def test_prompt_file_inline_takes_precedence(tmp_path):
+    """Test that inline instructions take precedence over prompt files."""
+    registry_root = tmp_path / "workers"
+    prompts_dir = tmp_path / "prompts"
+    prompts_dir.mkdir(parents=True)
+
+    # Create prompt file
+    prompt_file = prompts_dir / "worker.txt"
+    prompt_file.write_text("From file")
+
+    # Create worker with inline instructions
+    registry = WorkerRegistry(registry_root)
+    worker_def = WorkerDefinition(name="worker", instructions="Inline instructions")
+    registry.save_definition(worker_def)
+
+    loaded = registry.load_definition("worker")
+    assert loaded.instructions == "Inline instructions"
+
+
+def test_prompt_file_nested_workers_directory(tmp_path):
+    """Test prompt file discovery when worker is in workers/ subdirectory."""
+    workers_dir = tmp_path / "workers"
+    prompts_dir = tmp_path / "prompts"
+    prompts_dir.mkdir(parents=True)
+
+    # Create prompt at project root level
+    prompt_file = prompts_dir / "my_worker.txt"
+    prompt_file.write_text("Instructions from prompts/")
+
+    # Create worker in workers/ subdirectory
+    registry = WorkerRegistry(workers_dir)
+    worker_def = WorkerDefinition(name="my_worker")
+    registry.save_definition(worker_def)
+
+    # Load should find prompts/ at parent level
+    loaded = registry.load_definition("my_worker")
+    assert loaded.instructions == "Instructions from prompts/"

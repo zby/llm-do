@@ -13,9 +13,7 @@ Workers are self-contained executable units: **prompt + config + tools**. Just l
 ```yaml
 # workers/evaluator.yaml
 name: evaluator
-instructions: |
-  Evaluate the attached document using the provided rubric.
-  Return structured scores and analysis.
+description: Evaluate documents using a predefined rubric
 model: gpt-4
 output_schema_ref: EvaluationResult
 sandboxes:
@@ -26,6 +24,19 @@ sandboxes:
     path: ./evaluations
     mode: rw
 ```
+
+```
+# prompts/evaluator.jinja2
+Evaluate the attached document using the provided rubric.
+Return structured scores and analysis.
+
+Rubric:
+{{ file('config/rubric.md') }}
+```
+
+Worker instructions are loaded from `prompts/{worker_name}.{jinja2,j2,txt,md}` by
+convention. Jinja2 templates support the `file()` function for embedding configuration
+files and standard `{% include %}` directives.
 
 Run from CLI:
 ```bash
@@ -130,8 +141,11 @@ A complete workflow demonstrating worker delegation, sandboxes, and structured o
 ```
 examples/pitchdeck_eval/
   workers/
-    pitch_orchestrator.yaml  # Coordinates evaluation workflow
-    pitch_evaluator.yaml     # Scores individual decks
+    pitch_orchestrator.yaml  # Worker definition for orchestration
+    pitch_evaluator.yaml     # Worker definition for evaluation
+  prompts/
+    pitch_orchestrator.txt   # Orchestrator instructions (plain text)
+    pitch_evaluator.jinja2   # Evaluator instructions (Jinja2 template)
   config/
     PROCEDURE.md            # Evaluation rubric (configuration)
   input/
@@ -169,10 +183,11 @@ llm-do workers/pitch_orchestrator.yaml \
 **Try it yourself:**
 - Add more pitch decks: Drop `.md` or `.txt` files into `input/`
 - Customize rubric: Edit `config/PROCEDURE.md` to change scoring dimensions
-- Adjust worker behavior: Edit `workers/pitch_evaluator.yaml` instructions
+- Adjust worker behavior: Edit `prompts/pitch_evaluator.jinja2` instructions
 
 **Key features demonstrated:**
-- **Jinja2 templates**: Evaluator loads rubric via `{{ file('config/PROCEDURE.md') }}` in instructions (supports full Jinja2 syntax)
+- **Prompts directory convention**: Instructions loaded from `prompts/{worker_name}.{jinja2,txt,md}` by convention
+- **Jinja2 templates**: Evaluator uses `{{ file('config/PROCEDURE.md') }}` to embed rubric (supports full Jinja2 syntax)
 - **Sandboxed file access**: Read-only `input/`, writable `evaluations/`
 - **Worker delegation**: Orchestrator calls evaluator with `allow_workers` list
 - **Model inheritance**: Both workers use CLI-specified model

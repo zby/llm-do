@@ -116,7 +116,7 @@ class WorkerDefinition(BaseModel):
 
     name: str
     description: Optional[str] = None
-    instructions: str
+    instructions: Optional[str] = None  # Optional: can load from prompts/{name}.{txt,jinja2,j2,md}
     model: Optional[str] = None
     output_schema_ref: Optional[str] = None
     sandboxes: Dict[str, SandboxConfig] = Field(default_factory=dict)
@@ -230,42 +230,73 @@ def _default_resolver(definition: WorkerDefinition) -> Optional[Type[BaseModel]]
 ModelLike = Union[str, PydanticAIModel]
 
 
-def _render_jinja_instructions(instructions: str, base_path: Path) -> str:
-    """Render instructions as a Jinja2 template.
+def _load_prompt_file(worker_name: str, prompts_dir: Path) -> tuple[str, bool]:
+    """Load prompt by convention from prompts/ directory.
 
-    Provides a `file(path)` function that loads files relative to base_path.
-    Plain text without Jinja2 syntax passes through unchanged.
+    Looks for prompts/{worker_name}.{txt,jinja2,j2,md} in order.
 
     Args:
-        instructions: Template string (may contain Jinja2 syntax or plain text)
-        base_path: Directory containing the worker YAML (used as base for file lookups)
+        worker_name: Name of the worker
+        prompts_dir: Path to prompts directory
+
+    Returns:
+        Tuple of (prompt_content, is_jinja_template)
+
+    Raises:
+        FileNotFoundError: If no prompt file found for worker
+    """
+    # Try extensions in order
+    for ext, is_jinja in [
+        (".jinja2", True),
+        (".j2", True),
+        (".txt", False),
+        (".md", False),
+    ]:
+        prompt_file = prompts_dir / f"{worker_name}{ext}"
+        if prompt_file.exists():
+            content = prompt_file.read_text(encoding="utf-8")
+            return (content, is_jinja)
+
+    raise FileNotFoundError(
+        f"No prompt file found for worker '{worker_name}' in {prompts_dir}. "
+        f"Expected: {worker_name}.{{txt,jinja2,j2,md}}"
+    )
+
+
+def _render_jinja_template(template_str: str, template_root: Path) -> str:
+    """Render a Jinja2 template with project root as the base directory.
+
+    Provides a `file(path)` function that loads files relative to template_root.
+    Also supports standard {% include %} directive.
+
+    Args:
+        template_str: Jinja2 template string
+        template_root: Root directory for template file loading (project root)
 
     Returns:
         Rendered template string
 
     Raises:
         FileNotFoundError: If a referenced file doesn't exist
-        PermissionError: If a file path escapes the allowed directory
+        PermissionError: If a file path escapes template root directory
         jinja2.TemplateError: If template syntax is invalid
     """
 
-    # Set up Jinja2 environment with FileSystemLoader from parent directory
-    # This allows loading files like config/PROCEDURE.md when worker is in workers/
+    # Set up Jinja2 environment with project root as base
     env = Environment(
-        loader=FileSystemLoader(base_path.parent),
+        loader=FileSystemLoader(template_root),
         autoescape=False,  # Don't escape - we want raw text
         keep_trailing_newline=True,
     )
 
     # Add custom file() function
     def load_file(path_str: str) -> str:
-        """Load a file relative to the worker's parent directory."""
-        file_path = (base_path.parent / path_str).resolve()
+        """Load a file relative to template root."""
+        file_path = (template_root / path_str).resolve()
 
-        # Security: ensure resolved path doesn't escape too far
-        # Allow files in base_path.parent or its children
+        # Security: ensure resolved path doesn't escape template root
         try:
-            file_path.relative_to(base_path.parent)
+            file_path.relative_to(template_root)
         except ValueError:
             raise PermissionError(
                 f"File path escapes allowed directory: {path_str}"
@@ -283,7 +314,7 @@ def _render_jinja_instructions(instructions: str, base_path: Path) -> str:
 
     # Render the template
     try:
-        template = env.from_string(instructions)
+        template = env.from_string(template_str)
         return template.render()
     except (TemplateNotFound, UndefinedError) as exc:
         raise ValueError(f"Template error: {exc}") from exc
@@ -324,9 +355,32 @@ class WorkerRegistry:
             raise FileNotFoundError(f"Worker definition not found: {name}")
         data = self._load_raw(path)
 
-        # Render instructions as Jinja2 template (supports file() function and {% include %})
-        if "instructions" in data and isinstance(data["instructions"], str):
-            data["instructions"] = _render_jinja_instructions(data["instructions"], path.parent)
+        # Determine project root: if worker is in workers/ subdirectory, go up one level
+        # This allows both flat structure (worker.yaml, prompts/) and nested (workers/, prompts/)
+        project_root = path.parent
+        if project_root.name == "workers":
+            project_root = project_root.parent
+
+        prompts_dir = project_root / "prompts"
+
+        if "instructions" not in data or data["instructions"] is None:
+            # No inline instructions - discover from prompts/ directory
+            if prompts_dir.exists():
+                worker_name = data.get("name", name)
+                prompt_content, is_jinja = _load_prompt_file(worker_name, prompts_dir)
+                if is_jinja:
+                    # Jinja2 root is project_root (where config/, prompts/ live)
+                    data["instructions"] = _render_jinja_template(prompt_content, project_root)
+                else:
+                    data["instructions"] = prompt_content
+            # If no prompts/ directory exists and no inline instructions, let validation handle it
+        elif isinstance(data["instructions"], str):
+            # Inline instructions exist - check if they contain Jinja2 syntax and render
+            # Simple heuristic: if contains {{ or {%, assume it's a template
+            instructions_str = data["instructions"]
+            if "{{" in instructions_str or "{%" in instructions_str:
+                # Jinja2 root is project_root (where config/, prompts/ live)
+                data["instructions"] = _render_jinja_template(instructions_str, project_root)
 
         try:
             return WorkerDefinition.model_validate(data)

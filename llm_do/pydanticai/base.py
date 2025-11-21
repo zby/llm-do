@@ -189,6 +189,25 @@ def _auto_approve_callback(
     return ApprovalDecision(approved=True)
 
 
+def _strict_mode_callback(
+    tool_name: str, payload: Mapping[str, Any], reason: Optional[str]
+) -> ApprovalDecision:
+    """Callback that rejects all approval-required tools (strict/production mode).
+
+    Use with --strict flag to ensure only pre-approved tools execute.
+    Provides "deny by default" security posture.
+    """
+    return ApprovalDecision(
+        approved=False,
+        note=f"Strict mode: tool '{tool_name}' not pre-approved in worker config"
+    )
+
+
+# Public aliases for CLI use
+approve_all_callback = _auto_approve_callback
+strict_mode_callback = _strict_mode_callback
+
+
 class WorkerRunResult(BaseModel):
     """Structured result from a worker execution."""
 
@@ -710,6 +729,8 @@ __all__: Iterable[str] = [
     "ApprovalCallback",
     "ApprovalController",
     "ApprovalDecision",
+    "approve_all_callback",
+    "strict_mode_callback",
     "AttachmentPolicy",
     "ToolRule",
     "SandboxConfig",

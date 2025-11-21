@@ -246,3 +246,81 @@ def test_run_worker_without_model_errors(registry):
             worker="no-model",
             input_data="hello",
         )
+
+
+def test_approve_all_callback_mode(tmp_path, registry):
+    """Test Story 6: --approve-all flag auto-approves all tools."""
+    from llm_do.pydanticai import approve_all_callback
+
+    sandbox_path = tmp_path / "out"
+    sandbox_cfg = SandboxConfig(
+        name="out",
+        path=sandbox_path,
+        mode="rw",
+        allowed_suffixes=[".txt"],
+    )
+    rule = ToolRule(name="sandbox.write", approval_required=True)
+
+    definition = WorkerDefinition(
+        name="writer",
+        instructions="",
+        sandboxes={"out": sandbox_cfg},
+        tool_rules={"sandbox.write": rule},
+    )
+    registry.save_definition(definition)
+
+    def runner(defn, input_data, ctx, output_model):
+        result = ctx.sandbox_toolset.write_text("out", "note.txt", "hello")
+        return {"wrote": result}
+
+    result = run_worker(
+        registry=registry,
+        worker="writer",
+        input_data="",
+        cli_model="model-x",
+        agent_runner=runner,
+        approval_callback=approve_all_callback,
+    )
+
+    # Tool executed successfully
+    assert (sandbox_path / "note.txt").exists()
+    assert (sandbox_path / "note.txt").read_text() == "hello"
+
+
+def test_strict_mode_callback_rejects(tmp_path, registry):
+    """Test Story 7: --strict flag rejects all non-preapproved tools."""
+    from llm_do.pydanticai import strict_mode_callback
+
+    sandbox_path = tmp_path / "out"
+    sandbox_cfg = SandboxConfig(
+        name="out",
+        path=sandbox_path,
+        mode="rw",
+        allowed_suffixes=[".txt"],
+    )
+    rule = ToolRule(name="sandbox.write", approval_required=True)
+
+    definition = WorkerDefinition(
+        name="writer",
+        instructions="",
+        sandboxes={"out": sandbox_cfg},
+        tool_rules={"sandbox.write": rule},
+    )
+    registry.save_definition(definition)
+
+    def runner(defn, input_data, ctx, output_model):
+        ctx.sandbox_toolset.write_text("out", "note.txt", "hello")
+        return {"worker": defn.name}
+
+    with pytest.raises(PermissionError, match="Strict mode: tool 'sandbox.write' not pre-approved"):
+        run_worker(
+            registry=registry,
+            worker="writer",
+            input_data="",
+            cli_model="model-x",
+            agent_runner=runner,
+            approval_callback=strict_mode_callback,
+        )
+
+    # Tool did not execute
+    assert not (sandbox_path / "note.txt").exists()

@@ -26,7 +26,7 @@ Overall, the sketch covers llm-do’s core scenarios (recursive execution, appro
 Workers live as file-backed artifacts, editable without Python:
 
 - **`WorkerDefinition` (YAML/JSON):** name, description, instructions (Jinja/plain), optional `model`, optional `output_schema_ref`, sandbox configs, attachment policy, worker allowlist, tool rules, `locked` flag.
-- **`WorkerSpec` (LLM-facing):** minimal single-argument schema (`name`, `instructions`, optional `output_schema_ref`, optional `kind`) used by `create_worker`.
+- **`WorkerSpec` (LLM-facing):** minimal single-argument schema (`name`, `instructions`, optional `output_schema_ref`) used by `create_worker`.
 - **`WorkerCreationProfile` (Python config):** default sandboxes, attachment policy, tool rules, allowlist, and optional default model applied when expanding a `WorkerSpec` into a persisted definition.
 
 Creation flow: LLM proposes a `WorkerSpec` → approval → runtime expands with the active `WorkerCreationProfile` → `WorkerDefinition` saved to disk.

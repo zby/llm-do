@@ -135,9 +135,6 @@ class WorkerSpec(BaseModel):
     description: Optional[str] = None
     output_schema_ref: Optional[str] = None
     model: Optional[str] = None
-    kind: Optional[str] = Field(
-        default=None, description="Optional category (e.g., evaluator, orchestrator)."
-    )
 
 
 class WorkerCreationProfile(BaseModel):

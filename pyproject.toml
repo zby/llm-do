@@ -23,8 +23,12 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "llm>=0.26",
+    "pydantic>=2.7",
     "PyYAML",
 ]
+
+[project.scripts]
+pydanticai-run = "llm_do.pydanticai.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/llm-do"

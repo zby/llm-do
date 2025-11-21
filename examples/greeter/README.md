@@ -36,14 +36,24 @@ The CLI automatically:
 ### With different models
 
 ```bash
-# Use OpenAI instead
+# Override with a different Claude model
 llm-do examples/greeter.yaml "What's the weather?" \
+  --model anthropic:claude-3-5-sonnet-20241022
+
+# Use OpenAI instead
+llm-do examples/greeter.yaml "Hello!" \
   --model openai:gpt-4o
 
 # Use Google Gemini
 llm-do examples/greeter.yaml "Hello!" \
   --model google-gla:gemini-1.5-pro
 ```
+
+**Common Anthropic models:**
+- `claude-sonnet-4-20250514` (recommended, latest)
+- `claude-opus-4-20250514` (most capable)
+- `claude-3-5-sonnet-20241022` (previous generation)
+- `claude-3-5-haiku-20241022` (fast, affordable)
 
 ### Advanced: JSON input
 
@@ -59,7 +69,7 @@ llm-do examples/greeter.yaml \
 The worker is defined in `../greeter.yaml`:
 
 - **name**: greeter
-- **model**: anthropic:claude-3-5-sonnet-20241022 (configurable via `--model` flag)
+- **model**: anthropic:claude-sonnet-4-20250514 (configurable via `--model` flag)
 - **instructions**: Simple, friendly conversational style
 - **no sandboxes**: This worker doesn't need file access
 - **no approval rules**: Safe for all operations (no file writes, no delegations)

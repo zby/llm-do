@@ -10,4 +10,4 @@ instructions: |
 
   Keep your responses brief and conversational.
 
-model: anthropic:claude-3-5-sonnet-20241022
+model: anthropic:claude-sonnet-4-20250514

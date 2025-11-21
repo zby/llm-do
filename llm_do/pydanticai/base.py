@@ -413,6 +413,7 @@ class WorkerContext:
     sandbox_toolset: SandboxToolset
     creation_profile: WorkerCreationProfile
     effective_model: Optional[ModelLike]
+    approval_controller: ApprovalController
     attachments: List[Path] = field(default_factory=list)
 
 
@@ -461,6 +462,99 @@ def _register_worker_tools(agent: Agent) -> None:
         content: str,
     ) -> Optional[str]:
         return ctx.deps.sandbox_toolset.write_text(sandbox, path, content)
+
+    @agent.tool(name="worker_call", description="Delegate to another registered worker")
+    def worker_call_tool(
+        ctx: RunContext[WorkerContext],
+        worker: str,
+        input_data: Any = None,
+        attachments: Optional[List[str]] = None,
+    ) -> Any:
+        return _worker_call_tool(
+            ctx.deps,
+            worker=worker,
+            input_data=input_data,
+            attachments=attachments,
+        )
+
+    @agent.tool(name="worker_create", description="Persist a new worker definition using the active profile")
+    def worker_create_tool(
+        ctx: RunContext[WorkerContext],
+        name: str,
+        instructions: str,
+        description: Optional[str] = None,
+        model: Optional[str] = None,
+        output_schema_ref: Optional[str] = None,
+        force: bool = False,
+    ) -> Dict[str, Any]:
+        return _worker_create_tool(
+            ctx.deps,
+            name=name,
+            instructions=instructions,
+            description=description,
+            model=model,
+            output_schema_ref=output_schema_ref,
+            force=force,
+        )
+
+
+def _worker_call_tool(
+    ctx: WorkerContext,
+    *,
+    worker: str,
+    input_data: Any = None,
+    attachments: Optional[List[str]] = None,
+) -> Any:
+    def _invoke() -> Any:
+        resolved = [Path(path).expanduser().resolve() for path in attachments or []]
+        result = call_worker(
+            registry=ctx.registry,
+            worker=worker,
+            input_data=input_data,
+            caller_context=ctx,
+            attachments=resolved or None,
+        )
+        return result.output
+
+    return ctx.approval_controller.maybe_run(
+        "worker.call",
+        {"worker": worker},
+        _invoke,
+    )
+
+
+def _worker_create_tool(
+    ctx: WorkerContext,
+    *,
+    name: str,
+    instructions: str,
+    description: Optional[str] = None,
+    model: Optional[str] = None,
+    output_schema_ref: Optional[str] = None,
+    force: bool = False,
+) -> Dict[str, Any]:
+    spec = WorkerSpec(
+        name=name,
+        instructions=instructions,
+        description=description,
+        model=model,
+        output_schema_ref=output_schema_ref,
+    )
+
+    def _invoke() -> Dict[str, Any]:
+        created = create_worker(
+            registry=ctx.registry,
+            spec=spec,
+            profile=ctx.creation_profile,
+            force=force,
+        )
+        return created.model_dump(mode="json")
+
+    return ctx.approval_controller.maybe_run(
+        "worker.create",
+        {"worker": name},
+        _invoke,
+    )
 
 
 def _default_agent_runner(
@@ -569,6 +663,7 @@ def run_worker(
         creation_profile=profile,
         effective_model=effective_model,
         attachments=attachment_list,
+        approval_controller=approvals,
     )
 
     output_model = registry.resolve_output_schema(definition)

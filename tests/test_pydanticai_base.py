@@ -183,16 +183,16 @@ def test_call_worker_respects_allowlist(registry):
     def simple_runner(defn, input_data, ctx, output_model):
         return {"worker": defn.name, "input": input_data, "model": ctx.effective_model}
 
+    controller = ApprovalController(parent_def.tool_rules, requests=[])
+    sandbox_manager = SandboxManager(parent_def.sandboxes)
     parent_context = WorkerContext(
         registry=registry,
         worker=parent_def,
-        sandbox_manager=SandboxManager(parent_def.sandboxes),
-        sandbox_toolset=SandboxToolset(
-            SandboxManager(parent_def.sandboxes),
-            ApprovalController(parent_def.tool_rules, requests=[]),
-        ),
+        sandbox_manager=sandbox_manager,
+        sandbox_toolset=SandboxToolset(sandbox_manager, controller),
         creation_profile=WorkerCreationProfile(),
         effective_model="cli",
+        approval_controller=controller,
     )
 
     result = call_worker(
@@ -226,6 +226,8 @@ def test_default_agent_runner_uses_pydantic_ai(registry):
         "sandbox_list",
         "sandbox_read_text",
         "sandbox_write_text",
+        "worker_call",
+        "worker_create",
     ]
 
 

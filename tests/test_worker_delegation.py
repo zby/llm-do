@@ -10,14 +10,17 @@ from llm_do.pydanticai import (
     SandboxConfig,
     SandboxManager,
     SandboxToolset,
+    ToolRule,
     WorkerCreationProfile,
     WorkerDefinition,
     WorkerRegistry,
     WorkerSpec,
     WorkerContext,
+    WorkerRunResult,
     call_worker,
     create_worker,
 )
+from llm_do.pydanticai.base import _worker_call_tool, _worker_create_tool
 
 
 def _registry(tmp_path):
@@ -26,8 +29,9 @@ def _registry(tmp_path):
 
 
 def _parent_context(registry, worker, profile=None):
+    controller = ApprovalController(worker.tool_rules, requests=[])
     sandbox_manager = SandboxManager(worker.sandboxes)
-    sandbox_toolset = SandboxToolset(sandbox_manager, ApprovalController({}, requests=[]))
+    sandbox_toolset = SandboxToolset(sandbox_manager, controller)
     return WorkerContext(
         registry=registry,
         worker=worker,
@@ -35,6 +39,7 @@ def _parent_context(registry, worker, profile=None):
         sandbox_toolset=sandbox_toolset,
         creation_profile=profile or WorkerCreationProfile(),
         effective_model="cli-model",
+        approval_controller=controller,
     )
 
 
@@ -126,3 +131,109 @@ def test_create_worker_defaults_allow_delegation(tmp_path):
     )
 
     assert seen_sandboxes == ["shared"]
+
+def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        allow_workers=["child"],
+        tool_rules={"worker.call": ToolRule(name="worker.call", approval_required=True)},
+    )
+    registry.save_definition(parent)
+    context = _parent_context(registry, parent)
+
+    invoked = False
+
+    def fake_call_worker(**_):
+        nonlocal invoked
+        invoked = True
+        return WorkerRunResult(output={"ok": True})
+
+    monkeypatch.setattr("llm_do.pydanticai.base.call_worker", fake_call_worker)
+
+    result = _worker_call_tool(context, worker="child", input_data={"task": "demo"})
+
+    assert result is None
+    assert not invoked
+    assert context.approval_controller.requests
+    assert context.approval_controller.requests[0].tool_name == "worker.call"
+
+
+def test_worker_call_tool_passes_attachments(monkeypatch, tmp_path):
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(name="parent", instructions="", allow_workers=["child"])
+    registry.save_definition(parent)
+    context = _parent_context(registry, parent)
+    attachment = tmp_path / "note.txt"
+    attachment.write_text("memo", encoding="utf-8")
+
+    captured = {}
+
+    def fake_call_worker(**kwargs):
+        captured.update(kwargs)
+        return WorkerRunResult(output={"status": "ok"})
+
+    monkeypatch.setattr("llm_do.pydanticai.base.call_worker", fake_call_worker)
+
+    result = _worker_call_tool(
+        context,
+        worker="child",
+        input_data={"task": "demo"},
+        attachments=[str(attachment)],
+    )
+
+    assert result == {"status": "ok"}
+    assert captured["attachments"] == [attachment.resolve()]
+
+
+def test_worker_create_tool_persists_definition(tmp_path):
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(name="parent", instructions="")
+    registry.save_definition(parent)
+    context = _parent_context(registry, parent)
+
+    payload = _worker_create_tool(
+        context,
+        name="child",
+        instructions="delegate",
+        description="desc",
+    )
+
+    created = registry.load_definition("child")
+    assert created.instructions == "delegate"
+    assert payload["name"] == "child"
+
+
+def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        tool_rules={"worker.create": ToolRule(name="worker.create", approval_required=True)},
+    )
+    registry.save_definition(parent)
+    context = _parent_context(registry, parent)
+
+    invoked = False
+
+    class DummyDefinition:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def model_dump(self, mode="python"):
+            return self.payload
+
+    def fake_create_worker(**kwargs):
+        nonlocal invoked
+        invoked = True
+        return DummyDefinition(kwargs["spec"].model_dump(mode="json"))
+
+    monkeypatch.setattr("llm_do.pydanticai.base.create_worker", fake_create_worker)
+
+    result = _worker_create_tool(context, name="child", instructions="demo")
+
+    assert result is None
+    assert not invoked
+    assert context.approval_controller.requests
+    assert context.approval_controller.requests[0].tool_name == "worker.create"

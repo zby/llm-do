@@ -222,20 +222,18 @@ class WorkerRegistry:
         return self.root / f"{name}.yaml"
 
     def _load_raw(self, path: Path) -> Dict[str, Any]:
+        suffix = path.suffix.lower()
+        if suffix not in {".yaml", ".yml"}:
+            raise ValueError(
+                f"Worker definition must be .yaml or .yml, got: {suffix}"
+            )
         content = path.read_text(encoding="utf-8")
-        if path.suffix.lower() in {".yaml", ".yml"}:
-            return yaml.safe_load(content) or {}
-        return yaml.safe_load(content) if path.suffix.lower() == ".json" else {}
+        return yaml.safe_load(content) or {}
 
     def load_definition(self, name: str) -> WorkerDefinition:
         path = self._definition_path(name)
         if not path.exists():
-            # try JSON fallback
-            alt = path.with_suffix(".json")
-            if alt.exists():
-                path = alt
-            else:
-                raise FileNotFoundError(f"Worker definition not found: {name}")
+            raise FileNotFoundError(f"Worker definition not found: {name}")
         data = self._load_raw(path)
         try:
             return WorkerDefinition.model_validate(data)

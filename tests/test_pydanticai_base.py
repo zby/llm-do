@@ -1,5 +1,9 @@
+import json
+
 import pytest
 from pydantic import BaseModel
+from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart
+from pydantic_ai.models import Model
 
 from llm_do.pydanticai import (
     ApprovalController,
@@ -22,6 +26,45 @@ class EchoPayload(BaseModel):
     worker: str
     input: object
     model: str | None
+
+
+class RecordingModel(Model):
+    def __init__(self):
+        super().__init__()
+        self.tool_names: list[str] = []
+        self.last_prompt: str | None = None
+        self.last_instructions: str | None = None
+
+    @property
+    def model_name(self) -> str:
+        return "recording"
+
+    @property
+    def system(self) -> str:
+        return "test"
+
+    async def request(self, messages, model_settings, model_request_parameters):
+        self.tool_names = [tool.name for tool in model_request_parameters.function_tools]
+        prompt = None
+        instructions = None
+        for message in reversed(messages):
+            if isinstance(message, ModelRequest):
+                instructions = message.instructions
+                parts: list[str] = []
+                for part in message.parts:
+                    content = getattr(part, "content", None)
+                    if content is None:
+                        continue
+                    if isinstance(content, str):
+                        parts.append(content)
+                    else:
+                        parts.append(json.dumps(content))
+                prompt = "\n\n".join(parts)
+                break
+        self.last_prompt = prompt or ""
+        self.last_instructions = instructions
+        payload = json.dumps({"prompt": self.last_prompt, "instructions": self.last_instructions})
+        return ModelResponse(parts=[TextPart(content=payload)], model_name=self.model_name)
 
 
 @pytest.fixture
@@ -162,3 +205,37 @@ def test_call_worker_respects_allowlist(registry):
 
     assert result.output["worker"] == "child"
     assert result.output["model"] == "cli"
+
+
+def test_default_agent_runner_uses_pydantic_ai(registry):
+    definition = WorkerDefinition(name="pydantic-worker", instructions="Summarize input")
+    registry.save_definition(definition)
+
+    model = RecordingModel()
+    result = run_worker(
+        registry=registry,
+        worker="pydantic-worker",
+        input_data={"task": "demo"},
+        cli_model=model,
+    )
+
+    payload = json.loads(result.output)
+    assert json.loads(payload["prompt"]) == {"task": "demo"}
+    assert payload["instructions"] == definition.instructions
+    assert model.tool_names == [
+        "sandbox_list",
+        "sandbox_read_text",
+        "sandbox_write_text",
+    ]
+
+
+def test_run_worker_without_model_errors(registry):
+    definition = WorkerDefinition(name="no-model", instructions="")
+    registry.save_definition(definition)
+
+    with pytest.raises(ValueError, match="No model configured"):
+        run_worker(
+            registry=registry,
+            worker="no-model",
+            input_data="hello",
+        )

@@ -16,12 +16,16 @@ core interfaces.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Type
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Type, Union
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic_ai import Agent
+from pydantic_ai.models import Model as PydanticAIModel
+from pydantic_ai.tools import RunContext
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +200,9 @@ OutputSchemaResolver = Callable[[WorkerDefinition], Optional[Type[BaseModel]]]
 
 def _default_resolver(definition: WorkerDefinition) -> Optional[Type[BaseModel]]:
     return None
+
+
+ModelLike = Union[str, PydanticAIModel]
 
 
 class WorkerRegistry:
@@ -409,12 +416,56 @@ class WorkerContext:
     sandbox_manager: SandboxManager
     sandbox_toolset: SandboxToolset
     creation_profile: WorkerCreationProfile
-    effective_model: Optional[str]
+    effective_model: Optional[ModelLike]
     attachments: List[Path] = field(default_factory=list)
-    caller_effective_model: Optional[str] = None
+    caller_effective_model: Optional[ModelLike] = None
 
 
 AgentRunner = Callable[[WorkerDefinition, Any, WorkerContext, Optional[Type[BaseModel]]], Any]
+
+
+def _format_user_prompt(user_input: Any) -> str:
+    """Serialize user input into a prompt string for the agent."""
+
+    if isinstance(user_input, str):
+        return user_input
+    if isinstance(user_input, (bytes, bytearray)):
+        return user_input.decode("utf-8", errors="replace")
+    try:
+        return json.dumps(user_input, indent=2, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        return str(user_input)
+
+
+def _register_worker_tools(agent: Agent) -> None:
+    """Expose built-in llm-do helpers as PydanticAI tools."""
+
+    @agent.tool(name="sandbox_list", description="List files within a sandbox using a glob pattern")
+    def sandbox_list(
+        ctx: RunContext[WorkerContext],
+        sandbox: str,
+        pattern: str = "**/*",
+    ) -> List[str]:
+        return ctx.deps.sandbox_toolset.list(sandbox, pattern)
+
+    @agent.tool(name="sandbox_read_text", description="Read UTF-8 text from a sandboxed file")
+    def sandbox_read_text(
+        ctx: RunContext[WorkerContext],
+        sandbox: str,
+        path: str,
+        *,
+        max_chars: int = 200_000,
+    ) -> str:
+        return ctx.deps.sandbox_toolset.read_text(sandbox, path, max_chars=max_chars)
+
+    @agent.tool(name="sandbox_write_text", description="Write UTF-8 text to a sandboxed file")
+    def sandbox_write_text(
+        ctx: RunContext[WorkerContext],
+        sandbox: str,
+        path: str,
+        content: str,
+    ) -> Optional[str]:
+        return ctx.deps.sandbox_toolset.write_text(sandbox, path, content)
 
 
 def _default_agent_runner(
@@ -423,20 +474,29 @@ def _default_agent_runner(
     context: WorkerContext,
     output_model: Optional[Type[BaseModel]],
 ) -> Any:
-    """A placeholder agent runner for tests and bootstrapping.
+    """Execute a worker via a PydanticAI agent using the worker context."""
 
-    The runner simply echoes back the requested input and worker name. Real
-    integrations should replace this with a PydanticAI Agent invocation.
-    """
+    if context.effective_model is None:
+        raise ValueError(
+            f"No model configured for worker '{definition.name}'. "
+            "Set worker.model, pass --model, or provide a custom agent_runner."
+        )
 
-    payload = {
-        "worker": definition.name,
-        "input": user_input,
-        "model": context.effective_model,
-    }
-    if output_model:
-        return output_model.model_validate(payload)
-    return payload
+    agent_kwargs: Dict[str, Any] = dict(
+        model=context.effective_model,
+        instructions=definition.instructions,
+        name=definition.name,
+        deps_type=WorkerContext,
+    )
+    if output_model is not None:
+        agent_kwargs["output_type"] = output_model
+
+    agent = Agent(**agent_kwargs)
+    _register_worker_tools(agent)
+
+    prompt = _format_user_prompt(user_input)
+    run_result = agent.run_sync(prompt, deps=context)
+    return run_result.output
 
 
 # worker delegation ---------------------------------------------------------
@@ -486,8 +546,8 @@ def run_worker(
     worker: str,
     input_data: Any,
     attachments: Optional[List[Path]] = None,
-    caller_effective_model: Optional[str] = None,
-    cli_model: Optional[str] = None,
+    caller_effective_model: Optional[ModelLike] = None,
+    cli_model: Optional[ModelLike] = None,
     creation_profile: Optional[WorkerCreationProfile] = None,
     agent_runner: AgentRunner = _default_agent_runner,
 ) -> WorkerRunResult:

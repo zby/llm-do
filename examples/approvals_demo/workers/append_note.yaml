@@ -18,8 +18,8 @@ instructions: |
   You maintain a running log of notes in the `notes` sandbox.
 
   Steps:
-  1. Read the incoming note from `input_data.note`. If missing, default to
-     "(no note provided)".
+  1. Treat the entire user input as the note text. When `input_data` is a
+     mapping, prefer `input_data.note`; otherwise stringify the whole payload.
   2. Build a string in the format: `YYYY-MM-DD HH:MM • {note}`.
   3. Append the string to `notes/activity.log` using `sandbox_write_text` with a
      leading newline so entries stay separated.

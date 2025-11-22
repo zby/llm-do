@@ -6,8 +6,8 @@ configured to require approval each time.
 
 ## Files
 
-- `workers/append_note.yaml` – worker definition that takes `{"note": "..."}`
-  input and appends it to `notes/activity.log`.
+- `workers/append_note.yaml` – worker definition that treats the entire user
+  input as the note text and appends it to `notes/activity.log`.
 - `notes/` – sandbox directory where the log is stored. It starts empty.
 
 ## Run it
@@ -16,7 +16,7 @@ configured to require approval each time.
 cd examples/approvals_demo
 llm-do append_note \
   --model anthropic:claude-3-5-haiku-20241022 \
-  --input '{"note": "interactive approvals are working"}'
+  "Interactive approvals are working"
 ```
 
 When the worker attempts to call `sandbox_write_text("notes", ...)`, the CLI

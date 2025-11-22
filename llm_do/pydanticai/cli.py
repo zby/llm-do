@@ -74,8 +74,26 @@ def _display_messages(messages: list[ModelMessage], console: Console) -> None:
 
             for part in msg.parts:
                 if isinstance(part, UserPromptPart):
+                    # Handle both string and list content (with attachments)
+                    if isinstance(part.content, str):
+                        display_content = part.content
+                    else:
+                        # part.content is a Sequence[UserContent] with text + attachments
+                        text_parts = []
+                        attachment_count = 0
+                        for item in part.content:
+                            if isinstance(item, str):
+                                text_parts.append(item)
+                            else:
+                                # BinaryContent, ImageUrl, etc.
+                                attachment_count += 1
+
+                        display_content = "\n".join(text_parts)
+                        if attachment_count:
+                            display_content += f"\n\n[dim]+ {attachment_count} attachment(s)[/dim]"
+
                     console.print(Panel(
-                        part.content,
+                        display_content,
                         title="[bold green]User Input[/bold green]",
                         border_style="green",
                     ))

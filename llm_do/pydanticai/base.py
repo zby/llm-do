@@ -25,6 +25,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, UndefinedError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from pydantic_ai import Agent
+from pydantic_ai.messages import BinaryContent, UserContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
@@ -766,7 +767,21 @@ def _default_agent_runner(
     agent = Agent(**agent_kwargs)
     _register_worker_tools(agent)
 
-    prompt = _format_user_prompt(user_input)
+    # Build user prompt with attachments
+    prompt_text = _format_user_prompt(user_input)
+
+    if context.attachments:
+        # Create a list of UserContent with text + file attachments
+        # UserContent = str | BinaryContent | ImageUrl | AudioUrl | ...
+        user_content: List[Union[str, BinaryContent]] = [prompt_text]
+        for attachment_path in context.attachments:
+            binary_content = BinaryContent.from_path(attachment_path)
+            user_content.append(binary_content)
+        prompt = user_content
+    else:
+        # Just text, no attachments
+        prompt = prompt_text
+
     run_result = agent.run_sync(prompt, deps=context)
 
     # Extract messages from the result

@@ -8,10 +8,12 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic_ai.messages import FunctionToolResultEvent, ToolReturnPart
 from rich.console import Console as RichConsole
+from rich.text import Text
 
 from llm_do import WorkerDefinition, WorkerRegistry, WorkerRunResult
-from llm_do.cli import main
+from llm_do.cli import _build_streaming_callback, main
 
 
 def test_cli_parses_worker_name_and_uses_cwd_registry(tmp_path, monkeypatch):
@@ -198,6 +200,29 @@ def test_cli_json_mode_outputs_structured_result(tmp_path, monkeypatch, capsys):
     payload = json.loads(captured.out)
     assert payload["output"] == {"key": "value"}
     assert payload["messages"] == [{"role": "user", "content": "hello"}]
+
+
+def test_streaming_callback_renders_tool_results(monkeypatch):
+    """Regression test: tool result events render via the shared helper."""
+
+    console = RichConsole(
+        force_terminal=False,
+        color_system=None,
+        record=True,
+        width=80,
+    )
+
+    mock_render = Mock(return_value=Text("rendered"))
+    monkeypatch.setattr("llm_do.cli.render_json_or_text", mock_render)
+
+    callback = _build_streaming_callback(console)
+
+    tool_result = ToolReturnPart(tool_name="math", content={"value": 42})
+    event = FunctionToolResultEvent(result=tool_result)
+
+    callback([event])
+
+    mock_render.assert_called_once_with({"value": 42})
 
 
 def test_cli_uses_interactive_approval_when_tty(tmp_path, monkeypatch):

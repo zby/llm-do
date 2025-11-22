@@ -150,7 +150,7 @@ def _build_streaming_callback(console: Console):
     def _print_tool_result(worker: str, result: ToolReturnPart | RetryPromptPart) -> None:
         console.print()
         if isinstance(result, ToolReturnPart):
-            body = _render_json_or_text(result.content)
+            body = render_json_or_text(result.content)
             title = f"[bold yellow]{worker} ◁ Tool Result: {result.tool_name}[/bold yellow]"
         else:
             body = Text(result.instructions or "Retry requested", style="yellow")

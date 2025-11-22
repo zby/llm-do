@@ -8,7 +8,6 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 - `README.md` — setup, CLI usage, examples
 - `docs/worker_delegation.md` — how `worker_call`/`worker_create` behave
-- `docs/pydanticai_architecture.md` — runtime internals
 - `examples/pitchdeck_eval/` — end-to-end multi-worker example
 
 ---

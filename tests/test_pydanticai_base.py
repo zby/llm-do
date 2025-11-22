@@ -604,20 +604,3 @@ def test_workers_subdirectory_discovery(tmp_path):
     assert loaded.instructions == "Do the task"
 
 
-def test_root_level_takes_precedence_over_workers_subdir(tmp_path):
-    """Test that root-level workers take precedence over workers/ subdirectory."""
-    registry = WorkerRegistry(tmp_path)
-    workers_dir = tmp_path / "workers"
-    workers_dir.mkdir()
-
-    # Create worker at root level
-    root_worker = WorkerDefinition(name="my_worker", instructions="From root")
-    registry.save_definition(root_worker)
-
-    # Create worker in workers/ subdirectory with same name
-    subdir_worker = WorkerDefinition(name="my_worker", instructions="From workers/")
-    registry.save_definition(subdir_worker, path=workers_dir / "my_worker.yaml")
-
-    # Load should get root-level worker (precedence)
-    loaded = registry.load_definition("my_worker")
-    assert loaded.instructions == "From root"

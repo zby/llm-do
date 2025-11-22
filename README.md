@@ -11,66 +11,55 @@
 Workers are self-contained executable units: **prompt + config + tools**. Just like source code is packaged with build configs and dependencies to become executable programs, prompts need packaging to become executable workers.
 
 ```yaml
-# workers/evaluator.yaml
-name: evaluator
-description: Evaluate documents using a predefined rubric
-model: gpt-4
-output_schema_ref: EvaluationResult
-sandboxes:
-  input:
-    path: ./documents
-    mode: ro
-  output:
-    path: ./evaluations
-    mode: rw
+# workers/pitch_evaluator.yaml
+name: pitch_evaluator
+description: Analyze a PDF pitch deck and return a markdown evaluation report
+attachment_policy:
+  max_attachments: 1
+  max_total_bytes: 10000000  # 10MB
+  allowed_suffixes:
+    - .pdf
 ```
 
-```
-# prompts/evaluator.jinja2
-Evaluate the attached document using the provided rubric.
-Return structured scores and analysis.
+```jinja2
+# prompts/pitch_evaluator.jinja2
+You are a pitch deck evaluation specialist. You will receive a pitch deck PDF
+as an attachment and must analyze it according to the evaluation rubric below.
 
-Rubric:
-{{ file('config/rubric.md') }}
+Evaluation rubric:
+{{ file('PROCEDURE.md') }}
+
+Input:
+- You will receive the deck as a PDF attachment (the LLM can read PDFs natively)
+- Input data contains `deck_name` for reference
+
+Output format (Markdown):
+Return a complete Markdown report with scores and analysis.
 ```
 
 Worker instructions are loaded from `prompts/{worker_name}.{jinja2,j2,txt,md}` by
 convention. Jinja2 templates support the `file()` function for embedding configuration
-files and standard `{% include %}` directives.
+files (relative to `prompts/` directory) and standard `{% include %}` directives.
 
 Run from CLI:
 ```bash
-cd /path/to/project  # Registry defaults to current working directory
+cd examples/pitchdeck_eval  # Registry defaults to current working directory
 
-# Load worker by name (checks root level, then workers/ subdirectory)
-llm-do evaluator \
-  --input '{"rubric": "PROCEDURE.md"}' \
-  --attachments document.pdf
+# Load worker by name (discovered from workers/ subdirectory)
+llm-do pitch_evaluator \
+  --input '{"deck_name": "Aurora Solar"}' \
+  --attachments input/aurora-solar.pdf \
+  --model anthropic:claude-sonnet-4-20250514
 
 # Or specify full path to worker file:
-llm-do workers/evaluator.yaml \
-  --input '{"rubric": "PROCEDURE.md"}' \
-  --attachments document.pdf
-
-# Or specify registry explicitly:
-llm-do evaluator \
-  --registry ./workers \
-  --input '{"rubric": "PROCEDURE.md"}' \
-  --attachments document.pdf
+llm-do workers/pitch_evaluator.yaml \
+  --input '{"deck_name": "Aurora Solar"}' \
+  --attachments input/aurora-solar.pdf \
+  --model anthropic:claude-sonnet-4-20250514
 ```
 
-**Worker discovery convention**: When you specify a worker by name (e.g., `evaluator`),
-the registry checks:
-1. `{cwd}/evaluator.yaml` (root level)
-2. `{cwd}/workers/evaluator.yaml` (workers/ subdirectory)
-
-Root-level workers take precedence over workers/ subdirectory.
-
-Or call from another worker (recursive delegation):
-```python
-# Inside a worker's agent runtime
-result = call_worker("evaluator", input_data={"rubric": "..."}, attachments=["doc.pdf"])
-```
+**Worker discovery convention**: When you specify a worker by name (e.g., `pitch_evaluator`),
+the registry looks for `{cwd}/workers/pitch_evaluator.yaml`.
 
 ## Why This Matters
 
@@ -83,6 +72,16 @@ Large workflows with bloated prompts drift and fail unpredictably. When you batc
 Making workers call other workers should feel natural, like function calls. But in most frameworks, templates and tools live in separate worlds.
 
 **Solution**: Workers are first-class executables. Delegation is a core primitive with built-in sandboxing, allowlists, and validation.
+
+For example, an orchestrator worker can handle I/O while delegating analysis to the evaluator:
+```python
+# Inside pitch_orchestrator's agent runtime
+result = worker_call("pitch_evaluator",
+                    input_data={"deck_name": "Aurora Solar"},
+                    attachments=["input/aurora-solar.pdf"])
+```
+
+The orchestrator lists PDFs, calls the evaluator for each one, and writes the markdown reports—clean separation of concerns with attachment-based file passing.
 
 ### 3. Progressive Hardening
 Start with flexible prompts that solve problems. Over time, extract deterministic operations (math, formatting, parsing) from prompts into tested Python code. The prompt stays as orchestration; deterministic operations move to functions.
@@ -126,26 +125,7 @@ Workers can create specialized sub-workers when they identify the need:
 
 ## Examples
 
-### Example 1: Greeter (Quick Start)
-
-A simple single-worker example to verify your setup works.
-
-**Worker**: `examples/greeter.yaml`
-- No sandboxes or special tools
-- Just responds to messages conversationally
-- Perfect for testing basic functionality
-
-**Run it:**
-```bash
-cd examples
-llm-do greeter.yaml "Hello, how are you?" --model anthropic:claude-sonnet-4-20250514
-```
-
-Expected output: Friendly greeting and response with rich formatted message trace showing the full conversation.
-
----
-
-### Example 2: Pitch Deck Evaluation (Multi-Worker)
+### Example 1: Pitch Deck Evaluation (Multi-Worker)
 
 See `examples/pitchdeck_eval/` for a complete implementation.
 
@@ -194,6 +174,29 @@ decision—full transparency into what the system is doing.
 
 For implementation details, usage patterns, and customization options, see the
 [example's README](examples/pitchdeck_eval/README.md).
+
+### Example 2: Greeter (Quick Start)
+
+See `examples/workers/greeter.yaml` for a minimal worker example.
+
+This simple example demonstrates basic worker usage without sandboxes or delegation:
+
+**Minimal Configuration**
+
+The greeter worker is just 12 lines of YAML with inline instructions. No sandboxes, no tools, no schemas—just a friendly conversational agent. This is the fastest way to create an executable worker.
+
+**CLI Model Override**
+
+The worker doesn't specify a model, so you provide one at runtime via `--model`. This lets you experiment with different models (Claude, GPT-4, Gemini) without editing the worker definition.
+
+**Run the example:**
+```bash
+cd examples
+llm-do greeter "Tell me a joke" \
+  --model anthropic:claude-sonnet-4-20250514
+```
+
+For more details, see the [greeter README](examples/README.md).
 
 ## Progressive Hardening Workflow
 

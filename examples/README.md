@@ -25,12 +25,13 @@ export GOOGLE_API_KEY="..."
 ### Basic greeting (simple interface)
 
 ```bash
-llm-do examples/greeter.yaml "Tell me a joke" \
+cd examples
+llm-do greeter "Tell me a joke" \
   --model anthropic:claude-sonnet-4-20250514
 ```
 
 The CLI automatically:
-- Infers the registry from the worker file path
+- Discovers workers from the `workers/` subdirectory
 - Pretty-prints output by default
 - Accepts plain text messages
 
@@ -39,16 +40,18 @@ The CLI automatically:
 ### Using different models
 
 ```bash
+cd examples
+
 # Override with a different Claude model
-llm-do examples/greeter.yaml "What's the weather?" \
+llm-do greeter "What's the weather?" \
   --model anthropic:claude-3-5-sonnet-20241022
 
 # Use OpenAI instead
-llm-do examples/greeter.yaml "Hello!" \
+llm-do greeter "Hello!" \
   --model openai:gpt-4o
 
 # Use Google Gemini
-llm-do examples/greeter.yaml "Hello!" \
+llm-do greeter "Hello!" \
   --model google-gla:gemini-1.5-pro
 ```
 
@@ -63,13 +66,15 @@ llm-do examples/greeter.yaml "Hello!" \
 For structured input, use `--input` instead of a plain message:
 
 ```bash
-llm-do examples/greeter.yaml \
-  --input '{"message": "Hello!", "context": "formal"}'
+cd examples
+llm-do greeter \
+  --input '{"message": "Hello!", "context": "formal"}' \
+  --model anthropic:claude-sonnet-4-20250514
 ```
 
 ## Worker Definition
 
-The worker is defined in `../greeter.yaml`:
+The worker is defined in `workers/greeter.yaml`:
 
 - **name**: greeter
 - **model**: None (must be specified via `--model` flag)

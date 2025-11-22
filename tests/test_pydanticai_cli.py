@@ -13,10 +13,9 @@ from llm_do.pydanticai import WorkerDefinition, WorkerRegistry, WorkerRunResult
 from llm_do.pydanticai.cli import main
 
 
-def test_cli_parses_worker_file_path_and_uses_cwd_registry(tmp_path, monkeypatch):
+def test_cli_parses_worker_name_and_uses_cwd_registry(tmp_path, monkeypatch):
     """Test that CLI defaults to CWD as registry when not specified."""
-    # Create worker file
-    worker_file = tmp_path / "test_worker.yaml"
+    # Create worker in workers/ subdirectory
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="test_worker", instructions="demo"))
 
@@ -27,8 +26,8 @@ def test_cli_parses_worker_file_path_and_uses_cwd_registry(tmp_path, monkeypatch
     with patch("llm_do.pydanticai.cli.run_worker") as mock_run:
         mock_run.return_value = WorkerRunResult(output="test output")
 
-        # Run CLI with file path but no --registry flag
-        result = main([str(worker_file), "Hello"])
+        # Run CLI with worker name (no path, no --registry flag)
+        result = main(["test_worker", "Hello"])
 
         assert result == 0
         mock_run.assert_called_once()
@@ -42,7 +41,6 @@ def test_cli_parses_worker_file_path_and_uses_cwd_registry(tmp_path, monkeypatch
 
 def test_cli_accepts_plain_text_message(tmp_path, monkeypatch):
     """Test that plain text message is passed as input_data."""
-    worker_file = tmp_path / "greeter.yaml"
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="greeter", instructions="demo"))
 
@@ -51,7 +49,8 @@ def test_cli_accepts_plain_text_message(tmp_path, monkeypatch):
     with patch("llm_do.pydanticai.cli.run_worker") as mock_run:
         mock_run.return_value = WorkerRunResult(output="Hi there!")
 
-        main([str(worker_file), "Tell me a joke"])
+        # Worker is now in workers/ subdirectory by convention
+        main(["greeter", "Tell me a joke"])
 
         call_kwargs = mock_run.call_args.kwargs
         assert call_kwargs["input_data"] == "Tell me a joke"
@@ -59,7 +58,6 @@ def test_cli_accepts_plain_text_message(tmp_path, monkeypatch):
 
 def test_cli_accepts_json_input_instead_of_message(tmp_path, monkeypatch):
     """Test that --input takes precedence over plain message."""
-    worker_file = tmp_path / "worker.yaml"
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="worker", instructions="demo"))
 
@@ -68,7 +66,7 @@ def test_cli_accepts_json_input_instead_of_message(tmp_path, monkeypatch):
     with patch("llm_do.pydanticai.cli.run_worker") as mock_run:
         mock_run.return_value = WorkerRunResult(output="done")
 
-        main([str(worker_file), "--input", '{"task": "analyze", "data": [1,2,3]}'])
+        main(["worker", "--input", '{"task": "analyze", "data": [1,2,3]}'])
 
         call_kwargs = mock_run.call_args.kwargs
         assert call_kwargs["input_data"] == {"task": "analyze", "data": [1, 2, 3]}
@@ -92,7 +90,6 @@ def test_cli_accepts_worker_name_with_explicit_registry(tmp_path):
 
 def test_cli_passes_model_override(tmp_path, monkeypatch):
     """Test that --model is passed to run_worker."""
-    worker_file = tmp_path / "worker.yaml"
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="worker", instructions="demo"))
 
@@ -101,7 +98,7 @@ def test_cli_passes_model_override(tmp_path, monkeypatch):
     with patch("llm_do.pydanticai.cli.run_worker") as mock_run:
         mock_run.return_value = WorkerRunResult(output="done")
 
-        main([str(worker_file), "hi", "--model", "openai:gpt-4o"])
+        main(["worker", "hi", "--model", "openai:gpt-4o"])
 
         call_kwargs = mock_run.call_args.kwargs
         assert call_kwargs["cli_model"] == "openai:gpt-4o"
@@ -109,7 +106,6 @@ def test_cli_passes_model_override(tmp_path, monkeypatch):
 
 def test_cli_passes_attachments(tmp_path, monkeypatch):
     """Test that --attachments are passed to run_worker."""
-    worker_file = tmp_path / "worker.yaml"
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="worker", instructions="demo"))
 
@@ -123,7 +119,7 @@ def test_cli_passes_attachments(tmp_path, monkeypatch):
         mock_run.return_value = WorkerRunResult(output="done")
 
         main([
-            str(worker_file),
+            "worker",
             "process",
             "--attachments",
             str(tmp_path / "file1.txt"),
@@ -139,7 +135,6 @@ def test_cli_passes_attachments(tmp_path, monkeypatch):
 
 def test_cli_pretty_prints_by_default(tmp_path, monkeypatch, capsys):
     """Test that output is pretty-printed by default."""
-    worker_file = tmp_path / "worker.yaml"
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="worker", instructions="demo"))
 
@@ -148,7 +143,7 @@ def test_cli_pretty_prints_by_default(tmp_path, monkeypatch, capsys):
     with patch("llm_do.pydanticai.cli.run_worker") as mock_run:
         mock_run.return_value = WorkerRunResult(output={"key": "value", "nested": {"a": 1}})
 
-        main([str(worker_file), "test"])
+        main(["worker", "test"])
 
         captured = capsys.readouterr()
         output = json.loads(captured.out)
@@ -163,7 +158,6 @@ def test_cli_pretty_prints_by_default(tmp_path, monkeypatch, capsys):
 
 def test_cli_respects_no_pretty_flag(tmp_path, monkeypatch, capsys):
     """Test that --no-pretty disables pretty printing."""
-    worker_file = tmp_path / "worker.yaml"
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="worker", instructions="demo"))
 
@@ -172,7 +166,7 @@ def test_cli_respects_no_pretty_flag(tmp_path, monkeypatch, capsys):
     with patch("llm_do.pydanticai.cli.run_worker") as mock_run:
         mock_run.return_value = WorkerRunResult(output={"key": "value"})
 
-        main([str(worker_file), "test", "--no-pretty"])
+        main(["worker", "test", "--no-pretty"])
 
         captured = capsys.readouterr()
         # Should be compact JSON on one line

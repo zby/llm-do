@@ -340,17 +340,9 @@ class WorkerRegistry:
         if base.suffix:
             return base if base.is_absolute() else (self.root / base)
 
-        # Try root level first, then workers/ subdirectory by convention
-        root_path = self.root / f"{name}.yaml"
-        if root_path.exists():
-            return root_path
-
+        # Check workers/ subdirectory by convention
         workers_path = self.root / "workers" / f"{name}.yaml"
-        if workers_path.exists():
-            return workers_path
-
-        # Return root path if neither exists (for consistent error messages)
-        return root_path
+        return workers_path
 
     def _load_raw(self, path: Path) -> Dict[str, Any]:
         suffix = path.suffix.lower()

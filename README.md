@@ -31,7 +31,6 @@ Evaluation rubric:
 
 Input:
 - You will receive the deck as a PDF attachment (the LLM can read PDFs natively)
-- Input data contains `deck_name` for reference
 
 Output format (Markdown):
 Return a complete Markdown report with scores and analysis.
@@ -47,15 +46,13 @@ cd examples/pitchdeck_eval  # Registry defaults to current working directory
 
 # Load worker by name (discovered from workers/ subdirectory)
 llm-do pitch_evaluator \
-  --input '{"deck_name": "Aurora Solar"}' \
-  --attachments input/aurora-solar.pdf \
-  --model anthropic:claude-sonnet-4-5
+  --attachments input/acma_pitchdeck.pdf \
+  --model anthropic:claude-haiku-4-5
 
 # Or specify full path to worker file:
 llm-do workers/pitch_evaluator.yaml \
-  --input '{"deck_name": "Aurora Solar"}' \
-  --attachments input/aurora-solar.pdf \
-  --model anthropic:claude-sonnet-4-5
+  --attachments input/acma_pitchdeck.pdf \
+  --model anthropic:claude-haiku-4-5
 ```
 
 **Worker discovery convention**: When you specify a worker by name (e.g., `pitch_evaluator`),
@@ -77,8 +74,7 @@ For example, an orchestrator worker can handle I/O while delegating analysis to 
 ```python
 # Inside pitch_orchestrator's agent runtime
 result = worker_call("pitch_evaluator",
-                    input_data={"deck_name": "Aurora Solar"},
-                    attachments=["input/aurora-solar.pdf"])
+                    attachments=["input/acma_pitchdeck.pdf"])
 ```
 
 The orchestrator lists PDFs, calls the evaluator for each one, and writes the markdown reports—clean separation of concerns with attachment-based file passing.

@@ -11,7 +11,7 @@ Follow this process:
 1. Use `sandbox_list("input", "*.pdf")` to find all pitch deck PDFs.
 2. For each PDF file:
    - Generate a file slug (lowercase, hyphenated, no extension) from the filename
-   - Call `worker_call(worker="pitch_evaluator", input_data={"deck_name": <filename>}, attachments=["input/<pdf-path>"])`
+   - Call `worker_call(worker="pitch_evaluator", attachments=["input/<pdf-path>"])`
    - The evaluator will receive the PDF as an attachment and return a Markdown report
 3. For each report returned:
    - Write it to `evaluations/{file_slug}.md` using `sandbox_write_text()`

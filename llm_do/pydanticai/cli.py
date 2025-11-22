@@ -18,13 +18,8 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
     ModelResponse,
-    PartDeltaEvent,
     PartEndEvent,
-    PartStartEvent,
     TextPart,
-    TextPartDelta,
-    ThinkingPart,
-    ThinkingPartDelta,
     ToolCallPart,
     ToolReturnPart,
     UserPromptPart,
@@ -148,66 +143,6 @@ def _display_messages(messages: list[ModelMessage], console: Console) -> None:
 def _build_streaming_callback(console: Console):
     """Create a callback that prints streaming events as they arrive."""
 
-    text_progress: dict[tuple[str, int], int] = {}
-    thinking_progress: dict[tuple[str, int], int] = {}
-    active_text_lines: set[tuple[str, int]] = set()
-    active_thinking_lines: set[tuple[str, int]] = set()
-
-    def _emit_text_chunk(worker: str, index: int, content: str) -> None:
-        if not content:
-            return
-        key = (worker, index)
-        if key not in active_text_lines:
-            console.print(Text(f"[{worker}] ", style="cyan"), end="")
-            active_text_lines.add(key)
-        console.print(Text(content, style="magenta"), end="")
-
-    def _emit_text_from_content(worker: str, index: int, content: str, finalize: bool = False) -> None:
-        key = (worker, index)
-        already = text_progress.get(key, 0)
-        new_chunk = content[already:]
-        if new_chunk:
-            _emit_text_chunk(worker, index, new_chunk)
-            text_progress[key] = already + len(new_chunk)
-        if finalize and key in active_text_lines:
-            console.print()
-            active_text_lines.remove(key)
-            text_progress.pop(key, None)
-
-    def _emit_text_delta(worker: str, index: int, delta: str) -> None:
-        if not delta:
-            return
-        key = (worker, index)
-        _emit_text_chunk(worker, index, delta)
-        text_progress[key] = text_progress.get(key, 0) + len(delta)
-
-    def _emit_thinking_chunk(worker: str, index: int, content: str) -> None:
-        if not content:
-            return
-        key = (worker, index)
-        if key not in active_thinking_lines:
-            console.print(Text(f"[{worker} 🤔] ", style="yellow"), end="")
-            active_thinking_lines.add(key)
-        console.print(Text(content, style="dim"), end="")
-
-    def _emit_thinking_from_content(worker: str, index: int, content: str, finalize: bool = False) -> None:
-        key = (worker, index)
-        already = thinking_progress.get(key, 0)
-        new_chunk = content[already:]
-        if new_chunk:
-            _emit_thinking_chunk(worker, index, new_chunk)
-            thinking_progress[key] = already + len(new_chunk)
-        if finalize and key in active_thinking_lines:
-            console.print()
-            active_thinking_lines.remove(key)
-            thinking_progress.pop(key, None)
-
-    def _emit_thinking_delta(worker: str, index: int, delta: ThinkingPartDelta) -> None:
-        if delta.content_delta:
-            key = (worker, index)
-            _emit_thinking_chunk(worker, index, delta.content_delta)
-            thinking_progress[key] = thinking_progress.get(key, 0) + len(delta.content_delta)
-
     def _format_jsonish(value: Any) -> str:
         if isinstance(value, str):
             return value
@@ -242,6 +177,16 @@ def _build_streaming_callback(console: Console):
             title = f"[bold yellow]{worker} ◁ Tool Retry[/bold yellow]"
         console.print(Panel(body, title=title, border_style="yellow"))
 
+    def _print_model_response(worker: str, text: str) -> None:
+        if not text.strip():
+            return
+        console.print()
+        console.print(Panel(
+            text,
+            title=f"[bold magenta]{worker} ▷ Model Response[/bold magenta]",
+            border_style="magenta",
+        ))
+
     def _callback(events: list[Any]) -> None:
         for payload in events:
             if isinstance(payload, dict):
@@ -254,23 +199,10 @@ def _build_streaming_callback(console: Console):
             if event is None:
                 continue
 
-            if isinstance(event, PartStartEvent):
+            if isinstance(event, PartEndEvent):
                 part = event.part
                 if isinstance(part, TextPart):
-                    _emit_text_from_content(worker, event.index, part.content)
-                elif isinstance(part, ThinkingPart):
-                    _emit_thinking_from_content(worker, event.index, part.content)
-            elif isinstance(event, PartDeltaEvent):
-                if isinstance(event.delta, TextPartDelta):
-                    _emit_text_delta(worker, event.index, event.delta.content_delta)
-                elif isinstance(event.delta, ThinkingPartDelta):
-                    _emit_thinking_delta(worker, event.index, event.delta)
-            elif isinstance(event, PartEndEvent):
-                part = event.part
-                if isinstance(part, TextPart):
-                    _emit_text_from_content(worker, event.index, part.content, finalize=True)
-                elif isinstance(part, ThinkingPart):
-                    _emit_thinking_from_content(worker, event.index, part.content, finalize=True)
+                    _print_model_response(worker, part.content)
             elif isinstance(event, FunctionToolCallEvent):
                 _print_tool_call(worker, event.part)
             elif isinstance(event, FunctionToolResultEvent):

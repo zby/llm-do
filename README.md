@@ -6,6 +6,14 @@
 
 🧪 **Experimental** — Built on PydanticAI for agent runtime and structured outputs. The architecture is functional but APIs may change.
 
+## Security Reality
+
+Sandboxes, attachment policies, and approval prompts reduce the blast radius of mistakes,
+but they are not security guarantees. Prompt-injection and malicious inputs can still trick
+an LLM into abusing granted tools, so assume every worker is handling untrusted data.
+Treat the approval layer and sandbox config as mitigations that buy you review time—not as
+proof that the system is locked down.
+
 ## Core Concept
 
 Workers are self-contained executable units: **prompt + config + tools**. Just like source code is packaged with build configs and dependencies to become executable programs, prompts need packaging to become executable workers.
@@ -56,26 +64,15 @@ llm-do workers/pitch_evaluator.yaml \
 ```
 
 **Worker discovery convention**: When you specify a worker by name (e.g., `pitch_evaluator`),
-the registry looks for `{cwd}/workers/pitch_evaluator.yaml`.
+the registry looks for `{cwd}/workers/pitch_evaluator.yaml`. The package also ships with
+reference workers under `llm_do/workers/` that you can run directly or copy into your own
+project to remix.
 
 ## Why This Matters
 
-### 1. Context Bloat
-Large workflows with bloated prompts drift and fail unpredictably. When you batch everything into a single prompt, the LLM loses focus.
-
-**Solution**: Decompose into focused sub-calls. Each worker handles a single unit of work ("evaluate exactly this PDF with this procedure") instead of processing everything at once.
-
-### 2. Recursive Calls Are Hard
-Making workers call other workers should feel natural, like function calls. But in most frameworks, templates and tools live in separate worlds.
-
-**Solution**: Workers are first-class executables. Delegation is a core primitive with built-in sandboxing, allowlists, and validation.
-
-For example, an orchestrator worker can handle I/O while delegating analysis to the evaluator:
-```python
-# Inside pitch_orchestrator's agent runtime
-result = worker_call("pitch_evaluator",
-                    attachments=["input/acma_pitchdeck.pdf"])
-```
+- **Focused context**: Bloated prompts drift. Workers keep each task scoped ("evaluate this deck with this rubric"), so the LLM does not juggle unrelated goals.
+- **Delegation feels native**: `worker_call("pitch_evaluator", attachments=["input/acma_pitchdeck.pdf"])` feels like a function call with allowlists and attachment validation built in, keeping orchestrators small.
+- **Progressive hardening**: Start with flexible prompts, then move deterministic logic into Python tools once you understand the workflow.
 
 The orchestrator lists PDFs, calls the evaluator for each one, and writes the markdown reports—clean separation of concerns with attachment-based file passing.
 
@@ -84,91 +81,43 @@ Start with flexible prompts that solve problems. Over time, extract deterministi
 
 ## Key Capabilities
 
-### Sandboxed File Access
-Workers read/write files through configured sandboxes:
-- Each sandbox has a root directory and access mode (read-only or writable)
-- Path escapes blocked by design
-- File size limits prevent resource exhaustion
-- Optional suffix filters:
-  - `text_suffixes` restrict which file types may be opened via `sandbox_read_text`
-  - `attachment_suffixes` restrict which file types may be passed as attachments
-  - `allowed_suffixes` (on writable sandboxes) restrict which files can be created
+- **Sandboxed file access** keeps I/O inside declared roots with explicit read/write modes,
+  suffix filters, and size caps. Use attachments for binary files so the model reads them directly.
 
 ```python
-# In a worker's tools
+# In a worker tool
 files = sandbox_list("input", "*.pdf")
 content = sandbox_read_text("input", files[0])
 sandbox_write_text("output", "result.md", report)
 ```
 
-`sandbox_read_text` is strictly for UTF-8 text files (markdown, JSON, YAML).
-For binary assets—PDFs, images, spreadsheets—pass the path via `attachments`
-when calling another worker so the LLM can read the file natively. Attempting to
-read those formats as text will fail or garble the data.
+`sandbox_read_text` only opens UTF-8 text. Passing `attachments=["input/deck.pdf"]`
+into a downstream worker hands the binary to the LLM without leaking broader access.
 
-### Worker-to-Worker Delegation
-Workers invoke other workers with controlled inputs:
-- Allowlists restrict which workers can be called
-- Attachment validation (count, size, extensions) enforced
-- Model inheritance: worker definition → caller → CLI → error
-- Results can be structured (validated JSON) or freeform text
+- **Worker-to-worker delegation** means `worker_call`/`worker_create` enforce allowlists,
+  attachment budgets, and optional schemas. Orchestrators stay small while specialized
+  workers focus on analysis.
 
-See [Worker Delegation](docs/worker_delegation.md) for detailed design and examples.
+- **Tool approval system** lets you decide which tools run automatically versus pause for
+  review. Treat approvals as a brake pedal—if a prompt is compromised it can still abuse
+  whatever tools you allow.
 
-### Tool Approval System
-Control which tools execute automatically vs. require human approval:
-- Pre-approved tools (read files, call specific workers) execute automatically
-- Approval-required tools (write files, create workers) prompt user
-- Configurable per-worker and per-tool
-
-### Autonomous Worker Creation
-Workers can create specialized sub-workers when they identify the need:
-- Subject to approval controls
-- User reviews proposed definition before saving
-- Created workers start with minimal permissions
-- Saved definitions are immediately executable
+- **Autonomous worker creation** lets a worker draft new definitions under tight sandboxes.
+  Proposals require human approval and start with minimal permissions, but once accepted
+  they are first-class artifacts on disk.
 
 ## Examples
 
 ### Example 1: Pitch Deck Evaluation (Multi-Worker)
 
-See `examples/pitchdeck_eval/` for a complete implementation.
+`examples/pitchdeck_eval/` shows how an orchestrator lists decks, hands each PDF to a
+specialized evaluator, and writes markdown reports. Key takeaways:
+- Clean separation: orchestrator = I/O, evaluator = analysis, so each worker is testable.
+- Attachments move files between workers without exposing extra filesystem access.
+- Rubrics live in `prompts/PROCEDURE.md` and are injected via `{{ file('PROCEDURE.md') }}`.
+- Start with markdown output; add schemas later if you need structure.
 
-This example demonstrates the core design principles of multi-worker systems:
-
-**Clean Separation of Concerns**
-
-The orchestrator handles all I/O (listing files, writing reports), while the evaluator
-focuses purely on analysis. This separation makes each worker:
-- **Testable**: Pure analysis logic is easy to test with different inputs
-- **Reusable**: Evaluator can be called from any workflow needing deck analysis
-- **Maintainable**: I/O changes don't affect analysis; rubric changes don't affect I/O
-
-**Attachment-Based File Passing**
-
-Instead of sharing sandboxes or passing file paths, the orchestrator sends PDFs as
-attachments via `worker_call(attachments=["input/deck.pdf"])`. The evaluator receives
-the PDF directly and uses LLM vision to read it natively—no text extraction, no
-preprocessing. This pattern works for any file type the LLM can process, and the
-attachment path (`input/deck.pdf`) is resolved inside the orchestrator's `input`
-sandbox and checked against its attachment policy so it cannot escape allowed
-roots or send unexpected file types.
-
-**Configuration as Code**
-
-The evaluation rubric lives in `prompts/PROCEDURE.md` and gets loaded into the
-evaluator's instructions via Jinja2: `{{ file('PROCEDURE.md') }}`. This keeps
-configuration close to the prompt logic, version-controlled and auditable. Change
-the rubric, get different evaluations—no code changes needed.
-
-**Progressive Refinement**
-
-The evaluator returns simple markdown (not JSON with schemas). This makes iteration
-fast: tweak the prompt template, run again, inspect the markdown. Later, if you need
-structured output for aggregation, add a schema. Start simple; add structure when
-needed.
-
-**Run the example:**
+Run it with:
 ```bash
 cd examples/pitchdeck_eval
 llm-do pitch_orchestrator \
@@ -177,34 +126,24 @@ llm-do pitch_orchestrator \
   --approve-all
 ```
 
-The rich formatted output shows every tool call, worker delegation, and approval
-decision—full transparency into what the system is doing.
-
-For implementation details, usage patterns, and customization options, see the
-[example's README](examples/pitchdeck_eval/README.md).
+The CLI trace shows every tool call and approval prompt. See
+`examples/pitchdeck_eval/README.md` for deep dives.
 
 ### Example 2: Greeter (Quick Start)
 
-See `examples/workers/greeter.yaml` for a minimal worker example.
+`examples/workers/greeter.yaml` is a 12-line worker with inline instructions. No sandboxes, no tools, no schemas—just a friendly conversational agent you can tweak instantly.
 
-This simple example demonstrates basic worker usage without sandboxes or delegation:
+- Override the model at runtime with `--model` to experiment without editing the file.
+- Use it as a template when you want to spin up a conversational helper fast.
 
-**Minimal Configuration**
-
-The greeter worker is just 12 lines of YAML with inline instructions. No sandboxes, no tools, no schemas—just a friendly conversational agent. This is the fastest way to create an executable worker.
-
-**CLI Model Override**
-
-The worker doesn't specify a model, so you provide one at runtime via `--model`. This lets you experiment with different models (Claude, GPT-4, Gemini) without editing the worker definition.
-
-**Run the example:**
+Run it with:
 ```bash
 cd examples
 llm-do greeter "Tell me a joke" \
   --model anthropic:claude-haiku-4-5
 ```
 
-For more details, see the [greeter README](examples/README.md).
+See `examples/README.md` for more lightweight workers.
 
 ## Progressive Hardening Workflow
 
@@ -275,14 +214,13 @@ Dependencies:
 
 🚧 **In progress:**
 - Output schema resolution (pluggable resolver exists, needs production implementation)
-- Interactive approval prompts in CLI (callback system works, CLI integration pending)
 - Scaffolding builder for project initialization
 
 ## Design Principles
 
 1. **Prompts as executables**: Workers are self-contained units you can run from CLI or invoke from other workers
 2. **Workers as artifacts**: Definitions saved to disk, version controlled, auditable, refinable
-3. **Security by construction**: Sandbox escapes and resource bombs prevented by design, not instructions
+3. **Security-first defaults**: Sandboxes, allowlists, and approvals lower risk but cannot eliminate prompt-injection or abuse
 4. **Explicit configuration**: Tool access and allowlists declared in definitions, not inherited
 5. **Recursive composability**: Worker calls feel like function calls
 6. **Sophisticated approval controls**: Balance autonomy with safety
@@ -293,11 +231,8 @@ PRs welcome. See `AGENTS.md` for development guidance.
 
 Key points:
 - Run `pytest` before committing
-- No backwards compatibility constraints (new project)
 - Balance simplicity with good design
 
 ## Acknowledgements
 
 Built on [PydanticAI](https://ai.pydantic.dev/) for agent runtime and structured outputs.
-
-Inspired by [Simon Willison's llm library](https://llm.datasette.io/) for the concept of templates as executable units.

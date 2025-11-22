@@ -31,7 +31,7 @@ locked to prevent accidental edits.
 ## Lifecycle (Happy Path)
 
 1. **Definition**: YAML file describes instructions, sandboxes, tool rules, and
-   optionally inline instructions (Jinja allowed) or prompt file references.
+   optionally inline instructions (raw text only) or prompt file references.
 2. **Loading**: `WorkerRegistry.load_definition` resolves the file, renders
    templates, hydrates Pydantic models, and throws if invalid.
 3. **Invocation**: `run_worker` computes the effective model (definition → caller

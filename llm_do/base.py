@@ -211,25 +211,16 @@ class WorkerRegistry:
             project_root = project_root.parent
 
         prompts_dir = project_root / "prompts"
+        worker_name = data.get("name", name)
 
-        if "instructions" not in data or data.get("instructions") is None:
-            # No inline instructions - discover from prompts/ directory
-            if prompts_dir.exists():
-                worker_name = data.get("name", name)
-                prompt_content, is_jinja = prompts.load_prompt_file(worker_name, prompts_dir)
-                if is_jinja:
-                    # Jinja2 root is prompts/ directory
-                    data["instructions"] = prompts.render_jinja_template(prompt_content, prompts_dir)
-                else:
-                    data["instructions"] = prompt_content
-            # If no prompts/ directory exists and no inline instructions, let validation handle it
-        elif isinstance(data["instructions"], str):
-            # Inline instructions exist - check if they contain Jinja2 syntax and render
-            # Simple heuristic: if contains {{ or {%, assume it's a template
-            instructions_str = data["instructions"]
-            if "{{" in instructions_str or "{%" in instructions_str:
-                # Jinja2 root is prompts/ directory
-                data["instructions"] = prompts.render_jinja_template(instructions_str, prompts_dir)
+        resolved_instructions = prompts.resolve_worker_instructions(
+            raw_instructions=data.get("instructions"),
+            worker_name=worker_name,
+            prompts_dir=prompts_dir,
+        )
+
+        if resolved_instructions is not None:
+            data["instructions"] = resolved_instructions
 
         # Inject sandbox names from dictionary keys
         if "sandboxes" in data and isinstance(data["sandboxes"], dict):

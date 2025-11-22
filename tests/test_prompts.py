@@ -32,13 +32,14 @@ def test_jinja_file_function(tmp_path):
     rubric_file = prompts_dir / "rubric.md"
     rubric_file.write_text("# Evaluation Rubric\n\nScore from 1-5.")
 
-    # Create worker definition with Jinja2 file() function
+    # Create worker definition using a prompt file
     # File paths are relative to prompts/ directory
-    registry = WorkerRegistry(project_root)
-    worker_def = WorkerDefinition(
-        name="evaluator",
-        instructions="Evaluate using this rubric:\n\n{{ file('rubric.md') }}\n\nReturn scores.",
+    (prompts_dir / "evaluator.jinja2").write_text(
+        "Evaluate using this rubric:\n\n{{ file('rubric.md') }}\n\nReturn scores."
     )
+    
+    registry = WorkerRegistry(project_root)
+    worker_def = WorkerDefinition(name="evaluator")
     registry.save_definition(worker_def)
 
     # Load the worker - Jinja2 should render the template
@@ -60,13 +61,14 @@ def test_jinja_include_directive(tmp_path):
     procedure_file = prompts_dir / "procedure.txt"
     procedure_file.write_text("Step 1: Analyze\nStep 2: Score")
 
-    # Create worker with {% include %} directive
+    # Create worker with {% include %} directive in a file
     # Include paths are relative to prompts/ directory
-    registry = WorkerRegistry(project_root)
-    worker_def = WorkerDefinition(
-        name="worker",
-        instructions="Follow this procedure:\n{% include 'procedure.txt' %}",
+    (prompts_dir / "worker.jinja2").write_text(
+        "Follow this procedure:\n{% include 'procedure.txt' %}"
     )
+
+    registry = WorkerRegistry(project_root)
+    worker_def = WorkerDefinition(name="worker")
     registry.save_definition(worker_def)
 
     loaded = registry.load_definition("worker")
@@ -93,12 +95,14 @@ def test_jinja_plain_text_passthrough(tmp_path):
 
 def test_jinja_file_not_found(tmp_path):
     """Test that missing file raises FileNotFoundError."""
-    registry = WorkerRegistry(_project_root(tmp_path))
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
+    prompts_dir.mkdir(parents=True)
 
-    worker_def = WorkerDefinition(
-        name="broken",
-        instructions="Use this: {{ file('missing.md') }}",
-    )
+    (prompts_dir / "broken.jinja2").write_text("Use this: {{ file('missing.md') }}")
+
+    registry = WorkerRegistry(project_root)
+    worker_def = WorkerDefinition(name="broken")
     registry.save_definition(worker_def)
 
     with pytest.raises(FileNotFoundError, match="File not found"):
@@ -107,13 +111,15 @@ def test_jinja_file_not_found(tmp_path):
 
 def test_jinja_path_escape_prevention(tmp_path):
     """Test that file() function prevents path escapes."""
-    registry = WorkerRegistry(_project_root(tmp_path))
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
+    prompts_dir.mkdir(parents=True)
 
     # Try to escape to parent's parent
-    worker_def = WorkerDefinition(
-        name="malicious",
-        instructions="{{ file('../../etc/passwd') }}",
-    )
+    (prompts_dir / "malicious.jinja2").write_text("{{ file('../../etc/passwd') }}")
+
+    registry = WorkerRegistry(project_root)
+    worker_def = WorkerDefinition(name="malicious")
     registry.save_definition(worker_def)
 
     with pytest.raises(PermissionError, match="path escapes allowed directory"):
@@ -138,10 +144,10 @@ def test_inline_jinja_rendering(tmp_path):
     )
     registry.save_definition(worker_def)
 
-    # Load should render the inline template
+    # Load should NOT render the inline template (raw instructions are now always raw)
     loaded = registry.load_definition("reviewer")
-    assert "{{ file(" not in loaded.instructions
-    assert "Be thorough and accurate." in loaded.instructions
+    assert "{{ file('guidelines.txt') }}" in loaded.instructions
+    assert "Be thorough and accurate." not in loaded.instructions
     assert "Review the submission." in loaded.instructions
 
 
@@ -303,3 +309,65 @@ def test_prompt_file_nested_workers_directory(tmp_path):
     # Load should find prompts/ at parent level
     loaded = registry.load_definition("my_worker")
     assert loaded.instructions == "Instructions from prompts/"
+
+
+# ---------------------------------------------------------------------------
+# resolve_worker_instructions unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_worker_instructions_missing_prompts_dir(tmp_path):
+    """Test that None is returned if prompts_dir does not exist."""
+    from llm_do.prompts import resolve_worker_instructions
+
+    result = resolve_worker_instructions(
+        raw_instructions=None,
+        worker_name="worker",
+        prompts_dir=tmp_path / "missing",
+    )
+    assert result is None
+
+
+def test_resolve_worker_instructions_missing_file(tmp_path):
+    """Test that None is returned if prompt file is missing."""
+    from llm_do.prompts import resolve_worker_instructions
+
+    prompts_dir = tmp_path / "prompts"
+    prompts_dir.mkdir()
+
+    result = resolve_worker_instructions(
+        raw_instructions=None,
+        worker_name="worker",
+        prompts_dir=prompts_dir,
+    )
+    assert result is None
+
+
+def test_resolve_worker_instructions_inline_plain(tmp_path):
+    """Test that plain inline instructions are returned as-is."""
+    from llm_do.prompts import resolve_worker_instructions
+
+    result = resolve_worker_instructions(
+        raw_instructions="Just do it",
+        worker_name="worker",
+        prompts_dir=tmp_path / "prompts",
+    )
+    assert result == "Just do it"
+
+
+def test_resolve_worker_instructions_inline_jinja_is_raw(tmp_path):
+    """Test that inline instructions with Jinja syntax are NOT rendered."""
+    from llm_do.prompts import resolve_worker_instructions
+
+    prompts_dir = tmp_path / "prompts"
+    prompts_dir.mkdir()
+    (prompts_dir / "data.txt").write_text("123")
+
+    raw = "Data: {{ file('data.txt') }}"
+    result = resolve_worker_instructions(
+        raw_instructions=raw,
+        worker_name="worker",
+        prompts_dir=prompts_dir,
+    )
+    assert result == raw
+

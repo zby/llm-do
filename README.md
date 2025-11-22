@@ -36,9 +36,9 @@ Output format (Markdown):
 Return a complete Markdown report with scores and analysis.
 ```
 
-Worker instructions are loaded from `prompts/{worker_name}.{jinja2,j2,txt,md}` by
-convention. Jinja2 templates support the `file()` function for embedding configuration
-files (relative to `prompts/` directory) and standard `{% include %}` directives.
+Worker instructions can be provided inline (raw text only) or loaded from `prompts/{worker_name}.{jinja2,j2,txt,md}`.
+File-based prompts with `.jinja2` or `.j2` extensions support Jinja2 templating, including the `file()` function
+and `{% include %}` directives. Inline instructions are **always** treated as raw text and are never rendered.
 
 Run from CLI:
 ```bash

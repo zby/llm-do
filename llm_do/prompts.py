@@ -8,7 +8,47 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from typing import Optional
+
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, UndefinedError
+
+
+def resolve_worker_instructions(
+    *,
+    raw_instructions: Optional[str],
+    worker_name: str,
+    prompts_dir: Path,
+) -> Optional[str]:
+    """
+    Return final instructions string for a worker.
+
+    Rules:
+      - If raw_instructions is None:
+          - If prompts_dir exists, load prompts/{worker_name}.{jinja2,j2,txt,md}
+            and render Jinja templates as needed.
+          - If prompts_dir does not exist, return None (let validation handle).
+      - If raw_instructions is a string:
+          - If it looks like a Jinja template, render it using prompts_dir
+            as template_root (so file() and includes work).
+          - Otherwise, return it as-is.
+    """
+
+    # 1. Determine content and type
+    if raw_instructions is not None:
+        content = raw_instructions
+        is_jinja = False
+    elif prompts_dir.exists():
+        try:
+            content, is_jinja = load_prompt_file(worker_name, prompts_dir)
+        except FileNotFoundError:
+            return None
+    else:
+        return None
+
+    # 2. Render if needed
+    if is_jinja:
+        return render_jinja_template(content, prompts_dir)
+    return content
 
 
 def load_prompt_file(worker_name: str, prompts_dir: Path) -> tuple[str, bool]:

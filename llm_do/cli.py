@@ -27,9 +27,9 @@ from pydantic_ai.messages import (
     SystemPromptPart,
     RetryPromptPart,
 )
-from rich.console import Console
+from rich.console import Console, Group
+from rich.json import JSON
 from rich.panel import Panel
-from rich.syntax import Syntax
 from rich.text import Text
 
 from .base import (
@@ -43,15 +43,16 @@ from .base import (
 )
 
 
-def _format_jsonish(value: Any) -> str:
-    """Best-effort pretty-printer for payload dictionaries."""
-
+def _render_json_or_text(value: Any) -> JSON | Text:
+    """Render value as Rich JSON or Text with fallback for edge cases."""
     if isinstance(value, str):
-        return value
+        return Text(value)
+
     try:
-        return json.dumps(value, indent=2, sort_keys=True)
-    except TypeError:
-        return repr(value)
+        return JSON.from_data(value)
+    except (TypeError, ValueError):
+        # Fallback for non-serializable objects (should rarely happen)
+        return Text(repr(value), style="dim")
 
 
 def _is_interactive_terminal() -> bool:
@@ -217,12 +218,12 @@ def _build_interactive_approval_callback(
     def _callback(
         tool_name: str, payload: Mapping[str, Any], reason: Optional[str]
     ):
-        payload_text = _format_jsonish(payload)
         reason_text = reason or "Approval required"
-        body = Text()
-        body.append(f"Reason: {reason_text}\n\n", style="bold red")
-        body.append("Payload:\n", style="bold")
-        body.append(payload_text)
+        body = Group(
+            Text(f"Reason: {reason_text}\n", style="bold red"),
+            Text("Payload:", style="bold"),
+            _render_json_or_text(payload),
+        )
         console.print()
         console.print(
             Panel(
@@ -262,11 +263,8 @@ def _build_streaming_callback(console: Console):
 
     def _print_tool_call(worker: str, part: ToolCallPart) -> None:
         console.print()
-        args_text = _format_jsonish(part.args)
         console.print(Panel(
-            Syntax(args_text, "json", theme="monokai", line_numbers=False)
-            if args_text.strip().startswith(("{", "["))
-            else Text(args_text),
+            _render_json_or_text(part.args),
             title=f"[bold blue]{worker} ▷ Tool Call: {part.tool_name}[/bold blue]",
             border_style="blue",
         ))
@@ -274,12 +272,7 @@ def _build_streaming_callback(console: Console):
     def _print_tool_result(worker: str, result: ToolReturnPart | RetryPromptPart) -> None:
         console.print()
         if isinstance(result, ToolReturnPart):
-            payload = _format_jsonish(result.content)
-            body = (
-                Syntax(payload, "json", theme="monokai", line_numbers=False)
-                if payload.strip().startswith(("{", "["))
-                else Text(payload)
-            )
+            body = _render_json_or_text(result.content)
             title = f"[bold yellow]{worker} ◁ Tool Result: {result.tool_name}[/bold yellow]"
         else:
             body = Text(result.instructions or "Retry requested", style="yellow")

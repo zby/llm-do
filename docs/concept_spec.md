@@ -22,12 +22,9 @@ Large workflows with bloated prompts tend to drift and fail unpredictably. When 
 
 ### The Recursive Call Problem
 
-In the `llm` library, making workers call other workers is awkward:
-- Templates and tools live in separate worlds
-- Inside a tool call, you don't have access to template loading machinery
-- To call another template from a tool, you have to manually reconstruct all the template resolution logic
+Making workers call other workers needs to be natural and composable. In many frameworks, templates and tools live in separate worlds, forcing awkward workarounds.
 
-This forces hacks and workarounds. **We're looking for a framework** (or building on one) that treats workers as first-class executables where recursive invocation is a natural primitive. This enables:
+**llm-do solves this** by treating workers as first-class executables where recursive invocation is a natural primitive. This enables:
 - **Composability**: Common patterns become reusable building blocks vs. bespoke scripts
 - **Uniformity**: Sub-calls inherit the same auditing, logging, and security guarantees as top-level invocations
 - **Programmer ergonomics**: Clean recursion is easier to reason about than ad-hoc orchestration glue
@@ -119,25 +116,25 @@ Workers stay as the orchestration layer; Python handles deterministic operations
 
 6. **Sophisticated approval controls**: Balance autonomy with safety through configurable tool approval policies. Pre-approve benign operations, require human approval for consequential actions. Worker creation, file writes, and external API calls are subject to approval, not special-cased.
 
-## What We're Looking For
+## Architecture
 
-We're seeking a framework that provides most of these capabilities, or can be extended to support them. Key requirements:
+llm-do provides a complete runtime for worker execution built on PydanticAI:
 
-1. **Make workers first-class executables**
+1. **Workers as first-class executables**
    - Worker = template + config + tools as a loadable, runnable unit
-   - Standard invocation interface: `worker.run(input, attachments, params, ...)`
-   - Tools can access the worker registry naturally—no hacks
+   - Standard invocation interface: `run_worker(registry, worker, input_data, ...)`
+   - Tools access the worker registry naturally through `WorkerContext`
 
 2. **Built-in delegation primitives**
-   - `call_worker(name, input, ...)` is part of the core runtime
-   - Worker loading, validation, and execution happen naturally
+   - `worker_call` tool is part of the core runtime
+   - Worker loading, validation, and execution happen transparently
    - Recursive calls feel like function calls
 
 3. **Integrated tool approval system**
    - Configurable policies for which tools require human approval
    - Pre-approved tools (reads, specific worker calls) execute automatically
    - Approval-required tools (writes, worker creation, external APIs) prompt user with full context
-   - User can approve, reject, or modify tool invocations before execution
+   - User can approve, reject, or approve for session
    - Sensible defaults with ability to customize per worker or per tool
 
 4. **Worker creation as a first-class capability**
@@ -147,7 +144,7 @@ We're seeking a framework that provides most of these capabilities, or can be ex
    - Created workers start with safe defaults (minimal permissions)
    - Approved definitions are immediately runnable and refinable
 
-5. **Preserve security model**
+5. **Security by construction**
    - Sandboxed file access with escape prevention
    - Attachment validation (size, count, suffix)
    - Worker allowlists and locks
@@ -174,18 +171,18 @@ We're seeking a framework that provides most of these capabilities, or can be ex
 
 Each PDF gets isolated worker invocation = reproducible results, testable components.
 
-## Why Not Just Script It?
+## Why llm-do vs. Hard-Coded Scripts?
 
-Hard-coding in Python is fine for stable workflows. But:
+Hard-coding in Python is fine for stable workflows. llm-do provides complementary benefits:
 
 - **Autonomous decomposition**: Workers identify when they need specialized sub-workers and create them—no manual scaffolding
 - **Balanced control**: Tool approval system lets workers operate efficiently for safe operations while keeping humans in the loop for consequential actions
-- **Iteration speed**: Edit approved definitions → re-run, vs. code → test → deploy
-- **Composability**: Recursive worker calls make complex workflows into building blocks
-- **Progressive refinement**: Start with approved generated definition, harden incrementally
+- **Iteration speed**: Edit worker definitions → re-run, vs. code → test → deploy
+- **Composability**: Recursive worker calls via `worker_call` make complex workflows into building blocks
+- **Progressive refinement**: Start with generated definition, harden incrementally, migrate logic to Python when stable
 - **Reproducibility**: Every sub-call is explicit, loggable, auditable—you can trace exactly what happened
 
-Workers are the right abstraction for orchestration. Python handles deterministic operations. And workers can scaffold specialized sub-workers when needed, subject to approval controls.
+Workers provide the right abstraction for LLM orchestration. Python handles deterministic operations. Workers can scaffold specialized sub-workers when needed, subject to approval controls.
 
 ## Summary
 
@@ -193,24 +190,23 @@ Workers are the right abstraction for orchestration. Python handles deterministi
 
 **Key problems solved**:
 1. **Context bloat**: Decompose workflows into focused sub-calls instead of bloated single prompts
-2. **Recursive calls**: Make workers calling workers a natural primitive, not a hack
+2. **Recursive calls**: Make workers calling workers a natural primitive
 3. **Self-scaffolding**: Let workers autonomously create specialized sub-workers
 4. **Safety**: Balance autonomy with control through sophisticated tool approval
 
-**Critical insight**: The `llm` library makes workers calling workers awkward due to separation between templates and tools. We're looking for a framework that treats workers as first-class executables with built-in delegation, creation, and approval primitives—or one we can extend to add these.
-
-**What to preserve**:
-- Workers as self-contained definitions
+**Architecture features**:
+- Workers as self-contained definitions (YAML + prompts)
 - Sophisticated tool approval system (pre-approved vs. human-in-the-loop)
 - Worker creation as one instance of the general approval mechanism
 - Sandboxed file access with escape prevention
 - Worker delegation with allowlists/locks and attachment validation
 - Progressive hardening: creation → approval → test → refine → migrate to Python
 - Security by construction: minimal permissions by default, guardrails enforced by code
+- Built on PydanticAI for agent runtime and structured outputs
 
-**What would improve**:
-- Worker invocation as a natural primitive, not a workaround
-- Tool approval system integrated into the core runtime
-- Worker registry part of the core runtime, accessible to all tools
-- Approval UX: show full context, allow edits before execution
-- Concrete benefits: tight context per call, guardrails by construction, reproducibility, independent evolution
+**Benefits delivered**:
+- Worker invocation as a natural primitive through `worker_call` tool
+- Tool approval system integrated into the core runtime (`ApprovalController`)
+- Worker registry part of the core runtime, accessible to all tools via `WorkerContext`
+- Approval UX: show full context, approve/reject/approve-for-session
+- Tight context per call, guardrails by construction, reproducibility, independent evolution

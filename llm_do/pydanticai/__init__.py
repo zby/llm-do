@@ -1,4 +1,4 @@
-"""PydanticAI-inspired runtime utilities for llm-do."""
+"""PydanticAI-based runtime for llm-do workers."""
 from .base import (
     AgentRunner,
     ApprovalCallback,

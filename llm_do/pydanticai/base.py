@@ -1,18 +1,15 @@
-"""Foundational PydanticAI-style runtime for llm-do.
+"""Foundational PydanticAI-based runtime for llm-do.
 
-This module implements the initial slice described in
-``docs/pydanticai_base_plan.md``. It provides:
+This module provides:
 
 - Worker artifacts (definition/spec/defaults) with YAML/JSON persistence via
   ``WorkerRegistry``.
-- Runtime orchestration through ``run_worker`` using a pluggable agent runner
-  (LLM integration can be layered on later).
+- Runtime orchestration through ``run_worker`` using PydanticAI agents.
 - Sandbox-aware filesystem helpers with optional approval gating.
-- Simple worker delegation and creation hooks that honor allowlists and locks.
+- Worker delegation and creation tools that honor allowlists and locks.
 
-The design favors testability and deterministic enforcement so that a future
-host can swap in real PydanticAI agents and approval UIs without changing the
-core interfaces.
+The design favors testability and deterministic enforcement through pluggable
+agent runners and approval callbacks.
 """
 from __future__ import annotations
 

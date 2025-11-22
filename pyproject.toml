@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "llm-do"
 version = "0.2.0"
-description = "Template-first workflows and toolboxes for the llm CLI"
+description = "Self-contained prompt workers with sandboxed execution, built on PydanticAI"
 readme = "README.md"
 authors = [{name = "Your Name"}]
 license = {text = "Apache-2.0"}

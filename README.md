@@ -4,7 +4,7 @@
 
 ## Status
 
-🚧 **Active development** — Currently porting to PydanticAI. The architecture described here is being implemented. The old `llm` plugin-based design is being replaced.
+🧪 **Experimental** — Built on PydanticAI for agent runtime and structured outputs. The architecture is functional but APIs may change.
 
 ## Core Concept
 
@@ -226,10 +226,15 @@ docs/
 
 ## Documentation Map
 
-- **Long-lived references** live under `docs/` (see the files listed above). They describe the intended architecture/spec and should stay current as the code evolves.
-- **Short-lived notes** live under `docs/notes/` and are explicitly exploratory. They capture transient investigations that may inform redesigns and can be deleted or promoted later.
-- Latest example note: `docs/notes/worker.md` explains the current "what is a worker" story and will be replaced as the redesign lands.
-- When a note becomes canonical, move it into the main `docs/` tree and link it here so contributors know which document to trust.
+- **Stable references** live under `docs/`:
+  - `concept_spec.md` — Design philosophy and motivation
+  - `worker_delegation.md` — Worker-to-worker delegation design
+  - `message_display.md` — CLI output formatting
+- **Exploratory notes** live under `docs/notes/`:
+  - `worker.md` — Implementation notes and open questions
+- **Example documentation** lives with the examples:
+  - `examples/pitchdeck_eval/README.md` — Multi-worker delegation example
+  - `examples/README.md` — Quick start examples
 
 ## Installation
 

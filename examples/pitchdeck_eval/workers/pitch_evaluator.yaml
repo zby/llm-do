@@ -1,10 +1,7 @@
 name: pitch_evaluator
-description: Score a single Markdown pitch deck using the shared rubric.
-sandboxes:
-  input:
-    path: ./input
-    mode: ro
-    allowed_suffixes:
-      - .md
-      - .txt
-    max_bytes: 300000
+description: Analyze a PDF pitch deck and return a markdown evaluation report.
+attachment_policy:
+  max_attachments: 1
+  max_total_bytes: 10000000  # 10MB
+  allowed_suffixes:
+    - .pdf

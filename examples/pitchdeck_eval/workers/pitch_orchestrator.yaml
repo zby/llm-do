@@ -5,9 +5,8 @@ sandboxes:
     path: ./input
     mode: ro
     allowed_suffixes:
-      - .md
-      - .txt
-    max_bytes: 300000
+      - .pdf
+    max_bytes: 10000000  # 10MB for PDF files
   evaluations:
     path: ./evaluations
     mode: rw

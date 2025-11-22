@@ -147,32 +147,35 @@ Expected output: Friendly greeting and response with rich formatted message trac
 
 ### Example 2: Pitch Deck Evaluation (Multi-Worker)
 
-A complete workflow demonstrating worker delegation, sandboxes, and structured outputs.
+A complete workflow demonstrating worker delegation, PDF attachments, and clean I/O separation.
 
-**Scenario**: Evaluate multiple pitch decks using a shared rubric.
+**Scenario**: Analyze PDF pitch decks using a shared evaluation rubric.
 
 **Structure:**
 ```
 examples/pitchdeck_eval/
   workers/
-    pitch_orchestrator.yaml  # Worker definition for orchestration
-    pitch_evaluator.yaml     # Worker definition for evaluation
+    pitch_orchestrator.yaml  # Orchestrator (handles I/O)
+    pitch_evaluator.yaml     # Evaluator (pure analysis)
   prompts/
-    pitch_orchestrator.txt   # Orchestrator instructions (plain text)
-    pitch_evaluator.jinja2   # Evaluator instructions (Jinja2 template)
-  config/
-    PROCEDURE.md            # Evaluation rubric (configuration)
+    pitch_orchestrator.txt   # I/O logic (list PDFs, write reports)
+    pitch_evaluator.jinja2   # Analysis logic (read PDF, output markdown)
+    PROCEDURE.md            # Evaluation rubric (loaded by Jinja2)
   input/
-    aurora_solar.md         # Sample pitch deck (pure input data)
-  evaluations/              # Output directory (reports written here)
+    *.pdf                   # Drop PDF pitch decks here
+  evaluations/              # Generated markdown reports
 ```
 
 **How it works:**
-1. **Orchestrator** lists `.md` files in `input/` sandbox (read-only)
-2. For each deck, **orchestrator** calls **evaluator** worker via `worker_call()`
-3. **Evaluator** reads deck file, applies its configured rubric (loaded via `{{file()}}` macro), returns structured JSON
-4. **Orchestrator** converts JSON to Markdown report
-5. **Orchestrator** writes report to `evaluations/` sandbox (writable)
+1. **Orchestrator** lists `.pdf` files in `input/` sandbox
+2. For each PDF, **orchestrator** calls **evaluator** via `worker_call()` with PDF as attachment
+3. **Evaluator** reads PDF natively (LLM vision), applies rubric, returns markdown report
+4. **Orchestrator** writes markdown directly to `evaluations/{slug}.md`
+
+**Design highlights:**
+- PDFs passed as **attachments** (not file paths) for native LLM reading
+- Evaluator outputs **markdown** (not JSON) - simpler, cleaner
+- Clean separation: orchestrator = I/O, evaluator = analysis
 
 **Run it:**
 ```bash
@@ -190,29 +193,36 @@ and worker delegations with color-coded panels. The `--approve-all` flag auto-ap
 file writes (omit for interactive approval prompts).
 
 **What you'll see:**
-- Orchestrator discovers `aurora_solar.md`
-- Delegates evaluation to `pitch_evaluator` worker
-- Rich formatted message trace showing all tool calls and results
-- Approval prompt for writing `evaluations/aurora-solar.md` (interactive approval required)
-- Formatted report written to `evaluations/aurora-solar.md`
+- Orchestrator discovers PDF files in `input/`
+- For each PDF:
+  - Calls `pitch_evaluator` with PDF as attachment
+  - Evaluator reads PDF natively and returns markdown
+  - Writes markdown report to `evaluations/`
+- Rich formatted message trace showing:
+  - Sandbox listing
+  - Worker delegation with attachments
+  - PDF analysis by LLM
+  - File writes (with approval prompts)
 
-Note: The approval system is still active. To skip interactive approvals, you can pass `--approve-all` flag.
+**Requirements**: Use a model with PDF/vision support (Claude 3.5 Sonnet, GPT-4 Vision, Gemini 1.5 Pro)
 
 **Try it yourself:**
-- Add more pitch decks: Drop `.md` or `.txt` files into `input/`
-- Customize rubric: Edit `config/PROCEDURE.md` to change scoring dimensions
-- Adjust worker behavior: Edit `prompts/pitch_evaluator.jinja2` instructions
+- Add pitch decks: Drop PDF files into `input/`
+- Customize rubric: Edit `prompts/PROCEDURE.md` to change evaluation criteria
+- Adjust markdown format: Edit `prompts/pitch_evaluator.jinja2` to change report structure
+- Tweak I/O logic: Edit `prompts/pitch_orchestrator.txt` to change file handling
 
 **Key features demonstrated:**
-- **Prompts directory convention**: Instructions loaded from `prompts/{worker_name}.{jinja2,txt,md}` by convention
-- **Jinja2 templates**: Evaluator uses `{{ file('config/PROCEDURE.md') }}` to embed rubric (supports full Jinja2 syntax)
-- **Sandboxed file access**: Read-only `input/`, writable `evaluations/`
-- **Worker delegation**: Orchestrator calls evaluator with `allow_workers` list
-- **Model inheritance**: Both workers use CLI-specified model
-- **Structured outputs**: Evaluator returns validated JSON
-- **Tool approval**: Write operations can be gated (see `tool_rules`)
+- **PDF attachments**: Files passed to workers via `worker_call(attachments=[...])`
+- **Native PDF reading**: LLM reads PDFs directly (vision capabilities)
+- **Prompts directory convention**: Instructions from `prompts/{worker_name}.{jinja2,txt,md}`
+- **Jinja2 templates**: Evaluator loads rubric via `{{ file('prompts/PROCEDURE.md') }}`
+- **Markdown output**: Evaluator returns markdown (no JSON conversion needed)
+- **Sandboxed I/O**: Orchestrator handles all file operations
+- **Worker delegation**: Clean separation of concerns (I/O vs analysis)
+- **Tool approval**: Write operations gated by approval system
 
-Each deck gets isolated worker invocation = reproducible results, testable components.
+Each PDF gets isolated evaluation = reproducible, auditable results.
 
 ## Progressive Hardening Workflow
 
@@ -243,6 +253,13 @@ docs/
   pydanticai_architecture.md
   pydanticai_base_plan.md
 ```
+
+## Documentation Map
+
+- **Long-lived references** live under `docs/` (see the files listed above). They describe the intended architecture/spec and should stay current as the code evolves.
+- **Short-lived notes** live under `docs/notes/` and are explicitly exploratory. They capture transient investigations that may inform redesigns and can be deleted or promoted later.
+- Latest example note: `docs/notes/worker.md` explains the current "what is a worker" story and will be replaced as the redesign lands.
+- When a note becomes canonical, move it into the main `docs/` tree and link it here so contributors know which document to trust.
 
 ## Installation
 

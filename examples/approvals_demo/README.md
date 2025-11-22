@@ -15,7 +15,7 @@ configured to require approval each time.
 
 ```bash
 cd examples/approvals_demo
-llm-do save_note --model anthropic:claude-3-5-haiku \
+llm-do save_note --model anthropic:claude-haiku-4-5 \
   "Interactive approvals are working"
 ```
 

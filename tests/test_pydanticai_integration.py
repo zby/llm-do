@@ -76,10 +76,15 @@ class ToolCallingModel(Model):
             )
 
 
+def _project_root(tmp_path):
+    root = tmp_path / "project"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 @pytest.fixture
 def registry(tmp_path):
-    root = tmp_path / "workers"
-    return WorkerRegistry(root)
+    return WorkerRegistry(_project_root(tmp_path))
 
 
 def test_integration_approve_all_allows_write(tmp_path, registry):

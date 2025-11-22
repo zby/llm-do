@@ -80,9 +80,15 @@ def resolver():
     return _resolve
 
 
+def _project_root(tmp_path):
+    root = tmp_path / "project"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 @pytest.fixture
 def registry(tmp_path, resolver):
-    root = tmp_path / "workers"
+    root = _project_root(tmp_path)
     return WorkerRegistry(root, output_schema_resolver=resolver)
 
 
@@ -400,8 +406,8 @@ def test_strict_mode_callback_rejects(tmp_path, registry):
 def test_jinja_file_function(tmp_path):
     """Test that Jinja2 file() function loads files correctly."""
     # Create registry and support file
-    registry_root = tmp_path / "workers"
-    prompts_dir = tmp_path / "prompts"
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
     prompts_dir.mkdir(parents=True)
 
     # Create a rubric file in prompts directory
@@ -410,7 +416,7 @@ def test_jinja_file_function(tmp_path):
 
     # Create worker definition with Jinja2 file() function
     # File paths are relative to prompts/ directory
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(project_root)
     worker_def = WorkerDefinition(
         name="evaluator",
         instructions="Evaluate using this rubric:\n\n{{ file('rubric.md') }}\n\nReturn scores.",
@@ -428,8 +434,8 @@ def test_jinja_file_function(tmp_path):
 
 def test_jinja_include_directive(tmp_path):
     """Test that standard Jinja2 {% include %} directive works."""
-    registry_root = tmp_path / "workers"
-    prompts_dir = tmp_path / "prompts"
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
     prompts_dir.mkdir(parents=True)
 
     # Create a procedure file in prompts directory
@@ -438,7 +444,7 @@ def test_jinja_include_directive(tmp_path):
 
     # Create worker with {% include %} directive
     # Include paths are relative to prompts/ directory
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(project_root)
     worker_def = WorkerDefinition(
         name="worker",
         instructions="Follow this procedure:\n{% include 'procedure.txt' %}",
@@ -454,8 +460,7 @@ def test_jinja_include_directive(tmp_path):
 
 def test_jinja_plain_text_passthrough(tmp_path):
     """Test that plain text without Jinja2 syntax passes through unchanged."""
-    registry_root = tmp_path / "workers"
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(_project_root(tmp_path))
 
     plain_instructions = "Just evaluate the document. No templates here."
     worker_def = WorkerDefinition(
@@ -470,8 +475,7 @@ def test_jinja_plain_text_passthrough(tmp_path):
 
 def test_jinja_file_not_found(tmp_path):
     """Test that missing file raises FileNotFoundError."""
-    registry_root = tmp_path / "workers"
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(_project_root(tmp_path))
 
     worker_def = WorkerDefinition(
         name="broken",
@@ -485,8 +489,7 @@ def test_jinja_file_not_found(tmp_path):
 
 def test_jinja_path_escape_prevention(tmp_path):
     """Test that file() function prevents path escapes."""
-    registry_root = tmp_path / "workers"
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(_project_root(tmp_path))
 
     # Try to escape to parent's parent
     worker_def = WorkerDefinition(
@@ -501,8 +504,8 @@ def test_jinja_path_escape_prevention(tmp_path):
 
 def test_prompt_file_txt(tmp_path):
     """Test loading plain text prompt from .txt file."""
-    registry_root = tmp_path / "workers"
-    prompts_dir = tmp_path / "prompts"
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
     prompts_dir.mkdir(parents=True)
 
     # Create plain text prompt file
@@ -510,7 +513,7 @@ def test_prompt_file_txt(tmp_path):
     prompt_file.write_text("Analyze the input data and provide insights.")
 
     # Create worker definition without inline instructions
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(project_root)
     worker_def = WorkerDefinition(name="my_worker")
     registry.save_definition(worker_def)
 
@@ -521,9 +524,9 @@ def test_prompt_file_txt(tmp_path):
 
 def test_prompt_file_jinja2(tmp_path):
     """Test loading Jinja2 template prompt from .jinja2 file."""
-    registry_root = tmp_path / "workers"
-    prompts_dir = tmp_path / "prompts"
-    config_dir = tmp_path / "config"
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
+    config_dir = prompts_dir / "config"
     prompts_dir.mkdir(parents=True)
     config_dir.mkdir(parents=True)
 
@@ -536,7 +539,7 @@ def test_prompt_file_jinja2(tmp_path):
     prompt_file.write_text("Evaluate using:\n\n{{ file('config/rubric.md') }}\n\nReturn JSON.")
 
     # Create worker definition without inline instructions
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(project_root)
     worker_def = WorkerDefinition(name="evaluator")
     registry.save_definition(worker_def)
 
@@ -550,15 +553,15 @@ def test_prompt_file_jinja2(tmp_path):
 
 def test_prompt_file_priority(tmp_path):
     """Test that .jinja2 takes priority over .txt when both exist."""
-    registry_root = tmp_path / "workers"
-    prompts_dir = tmp_path / "prompts"
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
     prompts_dir.mkdir(parents=True)
 
     # Create both .jinja2 and .txt files
     (prompts_dir / "worker.jinja2").write_text("From jinja2 file")
     (prompts_dir / "worker.txt").write_text("From txt file")
 
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(project_root)
     worker_def = WorkerDefinition(name="worker")
     registry.save_definition(worker_def)
 
@@ -568,14 +571,14 @@ def test_prompt_file_priority(tmp_path):
 
 def test_prompt_file_j2_extension(tmp_path):
     """Test loading from .j2 extension."""
-    registry_root = tmp_path / "workers"
-    prompts_dir = tmp_path / "prompts"
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
     prompts_dir.mkdir(parents=True)
 
     prompt_file = prompts_dir / "worker.j2"
     prompt_file.write_text("Instructions from .j2 file")
 
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(project_root)
     worker_def = WorkerDefinition(name="worker")
     registry.save_definition(worker_def)
 
@@ -585,14 +588,14 @@ def test_prompt_file_j2_extension(tmp_path):
 
 def test_prompt_file_md_extension(tmp_path):
     """Test loading from .md extension."""
-    registry_root = tmp_path / "workers"
-    prompts_dir = tmp_path / "prompts"
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
     prompts_dir.mkdir(parents=True)
 
     prompt_file = prompts_dir / "worker.md"
     prompt_file.write_text("# Worker Instructions\n\nDo the task.")
 
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(project_root)
     worker_def = WorkerDefinition(name="worker")
     registry.save_definition(worker_def)
 
@@ -602,8 +605,7 @@ def test_prompt_file_md_extension(tmp_path):
 
 def test_prompt_file_not_found_no_inline(tmp_path):
     """Test that validation error occurs when no prompt file and no inline instructions."""
-    registry_root = tmp_path / "workers"
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(_project_root(tmp_path))
 
     # Create worker without instructions and no prompts/ directory
     worker_def = WorkerDefinition(name="worker")
@@ -618,8 +620,8 @@ def test_prompt_file_not_found_no_inline(tmp_path):
 
 def test_prompt_file_inline_takes_precedence(tmp_path):
     """Test that inline instructions take precedence over prompt files."""
-    registry_root = tmp_path / "workers"
-    prompts_dir = tmp_path / "prompts"
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
     prompts_dir.mkdir(parents=True)
 
     # Create prompt file
@@ -627,7 +629,7 @@ def test_prompt_file_inline_takes_precedence(tmp_path):
     prompt_file.write_text("From file")
 
     # Create worker with inline instructions
-    registry = WorkerRegistry(registry_root)
+    registry = WorkerRegistry(project_root)
     worker_def = WorkerDefinition(name="worker", instructions="Inline instructions")
     registry.save_definition(worker_def)
 
@@ -637,8 +639,8 @@ def test_prompt_file_inline_takes_precedence(tmp_path):
 
 def test_prompt_file_nested_workers_directory(tmp_path):
     """Test prompt file discovery when worker is in workers/ subdirectory."""
-    workers_dir = tmp_path / "workers"
-    prompts_dir = tmp_path / "prompts"
+    project_root = _project_root(tmp_path)
+    prompts_dir = project_root / "prompts"
     prompts_dir.mkdir(parents=True)
 
     # Create prompt at project root level
@@ -646,7 +648,7 @@ def test_prompt_file_nested_workers_directory(tmp_path):
     prompt_file.write_text("Instructions from prompts/")
 
     # Create worker in workers/ subdirectory
-    registry = WorkerRegistry(workers_dir)
+    registry = WorkerRegistry(project_root)
     worker_def = WorkerDefinition(name="my_worker")
     registry.save_definition(worker_def)
 
@@ -657,11 +659,11 @@ def test_prompt_file_nested_workers_directory(tmp_path):
 
 def test_workers_subdirectory_discovery(tmp_path):
     """Test that workers can be discovered from workers/ subdirectory by name."""
-    # Create registry at project root
-    registry = WorkerRegistry(tmp_path)
+    project_root = _project_root(tmp_path)
+    registry = WorkerRegistry(project_root)
 
     # Create worker in workers/ subdirectory
-    workers_dir = tmp_path / "workers"
+    workers_dir = project_root / "workers"
     workers_dir.mkdir()
     worker_file = workers_dir / "my_worker.yaml"
     worker_def = WorkerDefinition(name="my_worker", instructions="Do the task")

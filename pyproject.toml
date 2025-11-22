@@ -20,7 +20,6 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "llm>=0.26",
     "pydantic-ai>=0.0.13",
     "pydantic>=2.7",
     "PyYAML",
@@ -35,9 +34,6 @@ llm-do = "llm_do.pydanticai.cli:main"
 Homepage = "https://github.com/yourusername/llm-do"
 Issues = "https://github.com/yourusername/llm-do/issues"
 Documentation = "https://github.com/yourusername/llm-do"
-
-[project.entry-points.llm]
-do = "llm_do.plugin"
 
 [project.optional-dependencies]
 dev = [

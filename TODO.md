@@ -1,13 +1,12 @@
 # TODO
 
-## Upstream Discussion
+## Runtime polish
 
-- [ ] **Coordinate with llm maintainers on TemplateCall hooks**
+- [ ] Add a helper that parses the old `Files` shorthand (e.g., `ro:./reports`) into `SandboxConfig` entries so worker authors can keep concise configs.
+- [ ] Expose per-sandbox aliases when generating `sandbox_*` tool calls so orchestration instructions can mention `sandbox_write_text("evaluations", …)` without boilerplate.
+- [ ] Surface attachment approval/context UX in the CLI (prompts instead of auto-approving everything).
 
-  `TemplateCall` currently sneaks around the public API in two places:
-  1. Nested calls: when workers call other templates via `model.prompt()` we bypass the CLI, so CLI flags (`--tools`, `--tools-debug`, etc.) and future per-run options never reach sub-templates. We paper over this gap with `LLM_DO_DEBUG=1`, but it's brittle and doesn't scale to other switches.
-  2. Template parsing: we import the CLI module and call its private `_parse_yaml_template()` helper so we can reuse fragment/attachment syntax. That function is not part of a stable API, so any change in the upstream CLI could break us.
+## Docs & guidance
 
-  We should ask for guidance on an official surface area that covers both needs. Possibilities include a context object that carries CLI/UX preferences into nested prompts plus a supported template loader/parsing helper (or a way to register our own Template implementation). Until then we keep relying on private internals.
-
-  Current workaround for debug visibility: `LLM_DO_DEBUG=1 llm -t template.yaml "task"`
+- [ ] Expand AGENTS/README with a short “Worker authoring checklist” now that TemplateCall is gone.
+- [ ] Write a migration note for users who previously relied on the `llm` plugin/toolboxes.

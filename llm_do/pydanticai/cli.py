@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 from pydantic_ai.messages import (
+    BinaryContent,
     FunctionToolCallEvent,
     FunctionToolResultEvent,
     ModelMessage,
@@ -138,6 +139,44 @@ def _display_messages(messages: list[ModelMessage], console: Console) -> None:
                         title=f"[bold blue]Tool Call: {part.tool_name}[/bold blue]",
                         border_style="blue",
                     ))
+
+
+def _stringify_user_input(user_input: Any) -> str:
+    """Convert arbitrary input data to displayable text."""
+
+    if isinstance(user_input, str):
+        return user_input
+    return json.dumps(user_input, indent=2, sort_keys=True)
+
+
+def _display_initial_request(
+    *,
+    definition: "WorkerDefinition",
+    user_input: Any,
+    attachments: Optional[list[str]],
+    console: Console,
+) -> None:
+    """Render the outgoing message sent to the LLM before streaming starts."""
+
+    prompt_text = _stringify_user_input(user_input)
+    user_content: Any
+    if attachments:
+        user_content = [prompt_text]
+        for attachment in attachments:
+            placeholder = BinaryContent(
+                data=b"",
+                media_type="application/octet-stream",
+                identifier=Path(attachment).name,
+            )
+            user_content.append(placeholder)
+    else:
+        user_content = prompt_text
+
+    request = ModelRequest(
+        parts=[UserPromptPart(content=user_content)],
+        instructions=definition.instructions,
+    )
+    _display_messages([request], console)
 
 
 def _build_streaming_callback(console: Console):
@@ -318,6 +357,18 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         creation_defaults = _load_creation_defaults(args.creation_defaults_path)
 
+        # Show the outgoing request immediately in rich mode
+        preview_definition = None
+        if not args.json:
+            preview_definition = registry.load_definition(worker_name)
+            console.print("\n[bold white]═══ Message Exchange ═══[/bold white]\n")
+            _display_initial_request(
+                definition=preview_definition,
+                user_input=input_data,
+                attachments=args.attachments,
+                console=console,
+            )
+
         # Determine approval callback based on flags
         if args.approve_all and args.strict:
             print("Error: Cannot use --approve-all and --strict together", file=sys.stderr)
@@ -350,12 +401,6 @@ def main(argv: Optional[list[str]] = None) -> int:
             json.dump(serialized, sys.stdout, indent=2)
             sys.stdout.write("\n")
             return 0
-
-        # Default: Rich formatted output
-        if result.messages:
-            console.print("\n[bold white]═══ Message Exchange ═══[/bold white]\n")
-            _display_messages(result.messages, console)
-            console.print()
 
         # Display final output in a nice panel
         console.print(Panel(

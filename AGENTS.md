@@ -6,30 +6,29 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 ## Key References
 
-- `README.md` — setup, toolboxes, examples
-- `docs/templatecall.md` — TemplateCall design
-- `examples/pitchdeck_eval/` — working example
+- `README.md` — setup, CLI usage, examples
+- `docs/worker_delegation.md` — how `worker_call`/`worker_create` behave
+- `docs/pydanticai_architecture.md` — runtime internals
+- `examples/pitchdeck_eval/` — end-to-end multi-worker example
 
 ---
 
 ## Development
 
-- Run full test suite before committing: `pytest`
-- Tests use mock models, no real API calls
-- After changing templates, test with `llm -t <template>`
-- **Testing with real models**: Use `anthropic:claude-haiku-4-5` for fast, cost-effective testing
+- Run `pytest` before committing (tests use dummy models, no live API calls)
+- Prefer creating/editing workers via `workers/*.yaml` and run them with `llm-do`
 - Style: black, 4 spaces, snake_case/PascalCase
-- **No backwards compatibility** — new project, no external users yet; breaking changes are fine if they improve design
-- **Balance simplicity with good design** — aim for clean architecture, but don't over-engineer; delete complexity when possible
+- No backwards compatibility promise—breaking changes are fine if they improve design
+- Favor clear architecture over hacks; delete dead code when possible
 
 ---
 
-## Template Design
+## Worker Design
 
-- Start simple, trust the LLM
-- List available tools in system prompt
-- Give goals, not step-by-step instructions
-- Use `TemplateHelpers_make_template()` for template generation
+- Keep each worker focused on a single unit of work; use `worker_call` for sub-tasks
+- Declare sandboxes explicitly with the minimal access needed
+- Document available tools in `instructions` so models know how to call them
+- Rely on `WorkerCreationDefaults` for shared defaults rather than copying YAML snippets
 
 ---
 
@@ -43,9 +42,9 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 ## Common Pitfalls
 
-- Only `Files_workspace_out_write_text` exists for writing (not `_ro_write_text`)
-- Template files must end in `.yaml`
-- Use `LLM_DO_DEBUG=1` for debugging TemplateCall
+- Forgetting to configure sandboxes leads to runtime `KeyError`
+- Approval rules default to auto-approve; lock down `tool_rules` for critical workers
+- Model inheritance is worker → caller → CLI flag; set `model` in YAML if a worker needs a specific model
 
 ---
 

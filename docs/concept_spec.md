@@ -6,7 +6,7 @@
 
 Just like source code is packaged with build configs and dependencies to become executable programs, prompts need to be packaged with configuration (model, tools, schemas, security constraints) to become executable workers.
 
-**Progressive hardening**: Start with flexible prompts that solve problems. Over time, identify operations that should be deterministic (math, formatting, parsing, validation) and extract them from prompts into tested Python code. The prompt stays as the orchestration layer; deterministic operations move to functions.
+**Progressive hardening**: Start with flexible prompts that solve problems. But as systems grow and compose many parts, stochasticity becomes a liability—especially in key areas. So you progressively harden: replace workers or extract operations to tested Python code.
 
 **Recursive execution**: Workers can call other workers. Critically, workers can autonomously create new workers—the generated definition is saved to disk for user review and approval. Once saved, the new worker is immediately executable. The saved files become artifacts for progressive hardening: review, refine, version control, and gradually extract logic to Python. This makes the system self-scaffolding.
 
@@ -100,7 +100,7 @@ The workflow for evolving a worker from prototype to production:
 - **Week 3**: Extract scoring logic to Python toolbox with tests
 - **Week 4**: Worker calls `compute_score()`, math is stable
 
-Workers stay as the orchestration layer; Python handles deterministic operations.
+Replace workers or extract operations to tested Python code as needed.
 
 ## Design Principles
 
@@ -151,25 +151,7 @@ llm-do provides a complete runtime for worker execution built on PydanticAI:
    - No inline code execution
    - Explicit permission grants for created workers
 
-## Example: Pitch Deck Evaluation
-
-**Scenario**: Evaluate multiple pitch decks using a shared rubric.
-
-**Flow**:
-1. Orchestrator worker lists PDFs in a directory
-2. For each PDF:
-   - Calls locked evaluator worker
-   - Passes PDF + evaluation rubric
-   - Gets back structured JSON (scores, summary, red flags)
-   - Writes formatted report to output directory
-
-**What makes this work**:
-- **Sandboxed files**: Read-only pipeline directory, writable output directory
-- **Worker delegation**: Orchestrator invokes locked evaluator worker per PDF
-- **Tight context**: Each evaluator call processes one file with one rubric
-- **Progressive hardening**: Start with generated evaluator, refine prompt, extract scoring math to Python
-
-Each PDF gets isolated worker invocation = reproducible results, testable components.
+See [`../examples/pitchdeck_eval/`](../examples/pitchdeck_eval/) for a complete multi-worker orchestration example.
 
 ## Why llm-do vs. Hard-Coded Scripts?
 
@@ -186,27 +168,10 @@ Workers provide the right abstraction for LLM orchestration. Python handles dete
 
 ## Summary
 
-**Core concept**: Treat prompts as executables. Package prompts with configuration (model, tools, schemas, security constraints) to create workers that LLMs interpret.
+llm-do treats prompts as executables by packaging them with configuration (model, tools, schemas, security constraints) into workers that LLMs interpret.
 
-**Key problems solved**:
-1. **Context bloat**: Decompose workflows into focused sub-calls instead of bloated single prompts
-2. **Recursive calls**: Make workers calling workers a natural primitive
-3. **Self-scaffolding**: Let workers autonomously create specialized sub-workers
-4. **Safety**: Balance autonomy with control through sophisticated tool approval
+**Key capabilities**: Worker-to-worker delegation, sandboxed file access, tool approval system, autonomous worker creation.
 
-**Architecture features**:
-- Workers as self-contained definitions (YAML + prompts)
-- Sophisticated tool approval system (pre-approved vs. human-in-the-loop)
-- Worker creation as one instance of the general approval mechanism
-- Sandboxed file access with escape prevention
-- Worker delegation with allowlists/locks and attachment validation
-- Progressive hardening: creation → approval → test → refine → migrate to Python
-- Security by construction: minimal permissions by default, guardrails enforced by code
-- Built on PydanticAI for agent runtime and structured outputs
+**Progressive hardening**: Start with flexible prompts, extract deterministic operations to tested Python code as systems grow and compose.
 
-**Benefits delivered**:
-- Worker invocation as a natural primitive through `worker_call` tool
-- Tool approval system integrated into the core runtime (`ApprovalController`)
-- Worker registry part of the core runtime, accessible to all tools via `WorkerContext`
-- Approval UX: show full context, approve/reject/approve-for-session
-- Tight context per call, guardrails by construction, reproducibility, independent evolution
+Built on [PydanticAI](https://ai.pydantic.dev/) for agent runtime and structured outputs.

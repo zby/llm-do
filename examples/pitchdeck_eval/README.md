@@ -28,7 +28,8 @@ export ANTHROPIC_API_KEY=...  # or another model provider supported by PydanticA
 ```
 
 Both workers leave the `model` field unset so you can choose one at runtime.
-Any Claude, OpenAI, or Gemini model exposed through PydanticAI will work.
+
+**Important:** This example requires a model with native PDF reading capabilities (e.g., Anthropic Claude models). Not all models support PDF attachments—check your model provider's documentation.
 
 ## Run the workflow
 

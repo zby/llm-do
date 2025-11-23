@@ -1,27 +1,48 @@
 # llm-do
 
-**Treat prompts as executables.** Package prompts with configuration (model, tools, schemas, security constraints) to create workers that LLMs interpret.
+Package prompts with configuration to create executable workers.
 
-## Status
+A worker is: **prompt + config + tools**. Workers are self-contained units you run from the CLI or call from other workers.
 
-🧪 **Experimental** — Built on PydanticAI for agent runtime and structured outputs. The architecture is functional but APIs may change.
+## Why llm-do?
 
-## Security Reality
+**Tight context.** Each worker does one thing well. No bloated multi-purpose prompts that try to handle everything.
 
-Sandboxes, attachment policies, and approval prompts reduce the blast radius of mistakes,
-but they are not security guarantees. Prompt-injection and malicious inputs can still trick
-an LLM into abusing granted tools, so assume every worker is handling untrusted data.
-Treat the approval layer and sandbox config as mitigations that buy you review time—not as
-proof that the system is locked down.
+**Composability.** Workers call other workers like functions. Build complex workflows from simple, focused building blocks.
 
-## Core Concept
+**Guardrails by construction.** Security is enforced in code—sandboxes prevent path traversal, attachment policies prevent resource exhaustion, tool approvals gate dangerous operations. Not suggestions the LLM might ignore.
 
-Workers are self-contained executable units: **prompt + config + tools**. Just like source code is packaged with build configs and dependencies to become executable programs, prompts need packaging to become executable workers.
+**Progressive hardening.** Programming with specs (prompts) is powerful for bootstrapping. But as systems grow and compose many parts, stochasticity becomes a liability—especially in key areas. So you progressively harden: replace workers or extract operations to tested Python code.
+
+## Quick Start
+
+```bash
+# Install
+pip install -e .
+
+# Set your API key (choose one)
+export ANTHROPIC_API_KEY="sk-ant-..."
+# or
+export OPENAI_API_KEY="sk-..."
+
+# Set a default model (cheap and fast)
+export MODEL=anthropic:claude-3-5-haiku-20241022  # or openai:gpt-4o-mini
+
+# Run a simple worker
+cd examples/greeter
+llm-do greeter "Tell me a joke" --model $MODEL
+```
+
+Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o`).
+
+---
+
+Workers can do much more than simple chat: access files, call other workers, require approvals. Here's a real example that analyzes PDF pitch decks:
 
 ```yaml
 # workers/pitch_evaluator.yaml
 name: pitch_evaluator
-description: Analyze a PDF pitch deck and return a markdown evaluation report
+description: Analyze a PDF pitch deck and return a markdown evaluation report.
 attachment_policy:
   max_attachments: 1
   max_total_bytes: 10000000  # 10MB
@@ -37,201 +58,112 @@ as an attachment and must analyze it according to the evaluation rubric below.
 Evaluation rubric:
 {{ file('PROCEDURE.md') }}
 
-Input:
-- You will receive the deck as a PDF attachment (the LLM can read PDFs natively)
-
-Output format (Markdown):
-Return a complete Markdown report with scores and analysis.
+...
 ```
 
-Worker instructions can be provided inline (raw text only) or loaded from `prompts/{worker_name}.{jinja2,j2,txt,md}`.
-File-based prompts with `.jinja2` or `.j2` extensions support Jinja2 templating, including the `file()` function
-and `{% include %}` directives. Inline instructions are **always** treated as raw text and are never rendered.
-
-Run from CLI:
-```bash
-cd examples/pitchdeck_eval  # Registry defaults to current working directory
-
-# Load worker by name (discovered from workers/ subdirectory)
-llm-do pitch_evaluator \
-  --attachments input/acma_pitchdeck.pdf \
-  --model anthropic:claude-haiku-4-5
-
-# Or specify full path to worker file:
-llm-do workers/pitch_evaluator.yaml \
-  --attachments input/acma_pitchdeck.pdf \
-  --model anthropic:claude-haiku-4-5
-```
-
-**Worker discovery convention**: When you specify a worker by name (e.g., `pitch_evaluator`),
-the registry looks for `{cwd}/workers/pitch_evaluator.yaml`. The package also ships with
-reference workers under `llm_do/workers/` that you can run directly or copy into your own
-project to remix.
-
-## Why This Matters
-
-- **Focused context**: Bloated prompts drift. Workers keep each task scoped ("evaluate this deck with this rubric"), so the LLM does not juggle unrelated goals.
-- **Delegation feels native**: `worker_call("pitch_evaluator", attachments=["input/acma_pitchdeck.pdf"])` feels like a function call with allowlists and attachment validation built in, keeping orchestrators small.
-- **Progressive hardening**: Start with flexible prompts, then move deterministic logic into Python tools once you understand the workflow.
-
-The orchestrator lists PDFs, calls the evaluator for each one, and writes the markdown reports—clean separation of concerns with attachment-based file passing.
-
-### 3. Progressive Hardening
-Start with flexible prompts that solve problems. Over time, extract deterministic operations (math, formatting, parsing) from prompts into tested Python code. The prompt stays as orchestration; deterministic operations move to functions.
-
-## Key Capabilities
-
-- **Sandboxed file access** keeps I/O inside declared roots with explicit read/write modes,
-  suffix filters, and size caps. Use attachments for binary files so the model reads them directly.
-
-```python
-# In a worker tool
-files = sandbox_list("input", "*.pdf")
-content = sandbox_read_text("input", files[0])
-sandbox_write_text("output", "result.md", report)
-```
-
-`sandbox_read_text` only opens UTF-8 text. Passing `attachments=["input/deck.pdf"]`
-into a downstream worker hands the binary to the LLM without leaking broader access.
-
-- **Worker-to-worker delegation** means `worker_call`/`worker_create` enforce allowlists,
-  attachment budgets, and optional schemas. Orchestrators stay small while specialized
-  workers focus on analysis.
-
-- **Tool approval system** lets you decide which tools run automatically versus pause for
-  review. Treat approvals as a brake pedal—if a prompt is compromised it can still abuse
-  whatever tools you allow.
-
-- **Autonomous worker creation** lets a worker draft new definitions under tight sandboxes.
-  Proposals require human approval and start with minimal permissions, but once accepted
-  they are first-class artifacts on disk.
-
-## Examples
-
-### Example 1: Pitch Deck Evaluation (Multi-Worker)
-
-`examples/pitchdeck_eval/` shows how an orchestrator lists decks, hands each PDF to a
-specialized evaluator, and writes markdown reports. Key takeaways:
-- Clean separation: orchestrator = I/O, evaluator = analysis, so each worker is testable.
-- Attachments move files between workers without exposing extra filesystem access.
-- Rubrics live in `prompts/PROCEDURE.md` and are injected via `{{ file('PROCEDURE.md') }}`.
-- Start with markdown output; add schemas later if you need structure.
-
-Run it with:
+Run it:
 ```bash
 cd examples/pitchdeck_eval
-llm-do pitch_orchestrator \
-  "Evaluate all pitch decks" \
-  --model anthropic:claude-sonnet-4-5 \
-  --approve-all
+
+llm-do pitch_evaluator --attachments input/deck.pdf --model $MODEL
 ```
 
-The CLI trace shows every tool call and approval prompt. See
-`examples/pitchdeck_eval/README.md` for deep dives.
+**Note:** This example requires a model with native PDF reading (e.g., Anthropic Claude models). Not all models support PDF attachments.
 
-### Example 2: Greeter (Quick Start)
+## More Examples
 
-`examples/workers/greeter.yaml` is a 12-line worker with inline instructions. No sandboxes, no tools, no schemas—just a friendly conversational agent you can tweak instantly.
+Check the `examples/` directory for additional patterns:
+- **[`greeter/`](examples/greeter/)** — Minimal conversational worker (shown above)
+- **[`pitchdeck_eval/`](examples/pitchdeck_eval/)** — Multi-worker orchestration with PDF analysis (shown above)
+- **[`approvals_demo/`](examples/approvals_demo/)** — A demo for tool approval system
+- **`bootstrapping_pitchdeck_eval/`** — Autonomous worker creation workflow
 
-- Override the model at runtime with `--model` to experiment without editing the file.
-- Use it as a template when you want to spin up a conversational helper fast.
+## Key Features
 
-Run it with:
-```bash
-cd examples
-llm-do greeter "Tell me a joke" \
-  --model anthropic:claude-haiku-4-5
+- **Sandboxed file access**: Workers can only read/write within declared directories, with suffix filters and size limits
+- **Worker delegation**: Workers call other workers like functions, with built-in allowlists and validation
+- **Tool approval system**: Configure which operations run automatically vs. require human review
+- **Autonomous worker creation**: Let workers draft new worker definitions (requires approval)
+- **Jinja2 templating**: Include files and compose prompts with `{{ file() }}` and `{% include %}`
+- **Model flexibility**: Specify models per-worker or override at runtime with `--model`
+
+## How It Works
+
+**Workers** are YAML files that define:
+- `name`: Worker identifier
+- `description`: What the worker does
+- `model`: Which LLM to use (optional, can override with `--model`)
+- `instructions`: The prompt (inline or from `prompts/{name}.jinja2`)
+- `sandboxes`: Which directories to access (read/write permissions, file filters)
+- `tool_rules`: Which tools require approval
+- `worker_creation_policy`: Can this worker create new workers?
+
+**Sandboxes** limit file access:
+```yaml
+sandboxes:
+  input:
+    root_dir: ./input
+    mode: read
+    allowed_suffixes: [.pdf, .txt]
+  output:
+    root_dir: ./output
+    mode: write
 ```
 
-See `examples/README.md` for more lightweight workers.
-
-## Progressive Hardening Workflow
-
-1. **Autonomous creation**: Worker creates specialized sub-worker, user approves
-2. **Testing**: Run tasks, observe behavior
-3. **Iteration**: Edit saved definition—refine prompts, add schemas
-4. **Locking**: Pin orchestrators to vetted worker definitions via allowlists
-5. **Migration**: Extract deterministic operations to tested Python functions
-
-Workers stay as orchestration layer; Python handles deterministic operations.
-
-## Architecture
-
-```
-llm_do/
-  pydanticai/
-    __init__.py
-    base.py              # Core runtime: registry, sandboxes, delegation
-    cli.py               # CLI entry point with mock runner support
-
-tests/
-  test_pydanticai_base.py
-  test_pydanticai_cli.py
-
-docs/
-  concept_spec.md           # Detailed design philosophy
-  worker_delegation.md      # Worker-to-worker delegation design
-  pydanticai_architecture.md
-  pydanticai_base_plan.md
+**Worker delegation** lets workers call other workers:
+```python
+# From within a worker's tools
+result = worker_call("pitch_evaluator", attachments=["deck.pdf"])
 ```
 
-## Documentation Map
+See [`docs/worker_delegation.md`](docs/worker_delegation.md) for detailed design.
 
-- **Stable references** live under `docs/`:
-  - `concept_spec.md` — Design philosophy and motivation
-  - `worker_delegation.md` — Worker-to-worker delegation design
-  - `message_display.md` — CLI output formatting
-- **Exploratory notes** live under `docs/notes/`:
-  - `worker.md` — Implementation notes and open questions
-- **Example documentation** lives with the examples:
-  - `examples/pitchdeck_eval/README.md` — Multi-worker delegation example
-  - `examples/README.md` — Quick start examples
+## Documentation
 
-## Installation
+- **[`docs/concept_spec.md`](docs/concept_spec.md)** — Design philosophy and motivation
+- **[`docs/worker_delegation.md`](docs/worker_delegation.md)** — Worker-to-worker delegation
+- **[`examples/greeter/README.md`](examples/greeter/README.md)** — Simple greeter example
+- **[`examples/pitchdeck_eval/README.md`](examples/pitchdeck_eval/README.md)** — Multi-worker example walkthrough
+- **[`AGENTS.md`](AGENTS.md)** — Development guide (for AI agents and humans)
 
-Not yet published to PyPI. Install in development mode:
+## Design Philosophy
 
-```bash
-pip install -e .
-```
-
-Dependencies:
-- `pydantic-ai>=0.0.13`
-- `pydantic>=2.7`
-- `PyYAML`
+1. **Prompts are executables** — Workers are self-contained units you run from CLI or invoke from other workers
+2. **Workers are artifacts** — Version controlled, auditable, refinable YAML files on disk
+3. **Explicit over implicit** — Tool access and sandboxes declared in worker definitions
+4. **Progressive hardening** — Start with flexible prompts, extract deterministic logic to Python tools later
+5. **Composability** — Worker delegation feels like function calls
 
 ## Current Status
 
-✅ **Core functionality complete:**
-- Worker artifacts (definition/spec/defaults) with YAML persistence
-- WorkerRegistry with file-backed storage and CWD defaults
+🧪 **Experimental** — Built on PydanticAI. Architecture is functional but APIs may change.
+
+✅ **Working:**
+- Worker definitions with YAML persistence
 - Sandboxed file access with escape prevention
-- Tool approval system with configurable policies
-- Worker-to-worker delegation (`worker_call`, `worker_create` tools)
-- Model inheritance chain (definition → caller → CLI)
-- CLI with approval modes (`--approve-all`, `--strict`)
-- Comprehensive test coverage with mock models
+- Tool approval system
+- Worker-to-worker delegation
+- CLI with approval modes
+- Comprehensive test coverage
 
-🚧 **In progress:**
-- Output schema resolution (pluggable resolver exists, needs production implementation)
-- Scaffolding builder for project initialization
+🚧 **In Progress:**
+- Output schema resolution
+- Project scaffolding builder
 
-## Design Principles
+## Caveats
 
-1. **Prompts as executables**: Workers are self-contained units you can run from CLI or invoke from other workers
-2. **Workers as artifacts**: Definitions saved to disk, version controlled, auditable, refinable
-3. **Security-first defaults**: Sandboxes, allowlists, and approvals lower risk but cannot eliminate prompt-injection or abuse
-4. **Explicit configuration**: Tool access and allowlists declared in definitions, not inherited
-5. **Recursive composability**: Worker calls feel like function calls
-6. **Sophisticated approval controls**: Balance autonomy with safety
+**Security reality**: Sandboxes, attachment policies, and approval prompts reduce risk but aren't guarantees. Prompt injection and malicious inputs can trick LLMs into misusing granted tools. Treat approvals and sandboxes as mitigations that buy review time, not proof the system is locked down. Assume every worker handles untrusted data.
+
+**Experimental status**: APIs may change. Not production-ready.
 
 ## Contributing
 
-PRs welcome. See `AGENTS.md` for development guidance.
+PRs welcome! See [`AGENTS.md`](AGENTS.md) for development guidance.
 
-Key points:
-- Run `pytest` before committing
-- Balance simplicity with good design
+Quick points:
+- Run `.venv/bin/pytest` before committing
+- Follow `black` formatting, snake_case/PascalCase
+- No backwards compatibility promise — breaking changes are fine if they improve design
 
 ## Acknowledgements
 

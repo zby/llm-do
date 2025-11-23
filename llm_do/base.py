@@ -479,7 +479,7 @@ def _register_worker_tools(agent: Agent) -> None:
     ) -> List[str]:
         return ctx.deps.sandbox_toolset.list(sandbox, pattern)
 
-    @agent.tool(name="sandbox_read_text", description="Read UTF-8 text from a sandboxed file")
+    @agent.tool(name="sandbox_read_text", description="Read UTF-8 text from a sandboxed file. Do not use this on binary files (PDFs, images, etc) - pass them as attachments instead.")
     def sandbox_read_text(
         ctx: RunContext[WorkerContext],
         sandbox: str,

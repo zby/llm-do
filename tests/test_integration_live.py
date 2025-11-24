@@ -22,7 +22,7 @@ from llm_do import (
 )
 
 
-pytestmark = [pytest.mark.examples, pytest.mark.slow]
+pytestmark = pytest.mark.live
 
 
 @pytest.fixture

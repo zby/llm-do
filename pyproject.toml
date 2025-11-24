@@ -58,8 +58,9 @@ addopts = [
     "--strict-markers",
     "--ignore=tests/test_integration_live.py",
     "--ignore=examples/",
+    "-m not custom_deps",
 ]
 markers = [
-    "examples: tests that use example workers",
-    "slow: tests that make real API calls (deselect with '-k \"not slow\"')",
+    "live: tests that hit real external services",
+    "custom_deps: tests that require optional/custom dependency extras",
 ]

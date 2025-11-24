@@ -1,6 +1,5 @@
 name: worker_bootstrapper
 description: Turn free-form tasks into concrete multi-step workflows by designing workers and invoking them
-model: anthropic:claude-haiku-4-5
 
 sandboxes:
   input:

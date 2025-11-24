@@ -77,7 +77,6 @@ Check the `examples/` directory for additional patterns:
 - **[`pitchdeck_eval/`](examples/pitchdeck_eval/)** — Multi-worker orchestration with PDF analysis (shown above)
 - **[`approvals_demo/`](examples/approvals_demo/)** — A demo for tool approval system
 - **[`calculator/`](examples/calculator/)** — Custom tools example with mathematical functions
-- **[`screen_analyzer/`](examples/screen_analyzer/)** — ACI/Computer Use integration pattern
 - **`bootstrapping_pitchdeck_eval/`** — Autonomous worker creation workflow
 
 ## Key Features

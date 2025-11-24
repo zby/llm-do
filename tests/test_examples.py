@@ -38,9 +38,6 @@ from llm_do import (
 )
 
 
-pytestmark = pytest.mark.examples
-
-
 class ToolCallingModel(Model):
     """Mock model that makes predefined tool calls.
 

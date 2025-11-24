@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from pydantic_ai.models.test import TestModel
 
 from llm_do import (
     WorkerRegistry,
@@ -17,15 +18,6 @@ def calculator_registry(tmp_path):
     """Registry for calculator example with custom tools."""
     source = Path(__file__).parent.parent / "examples" / "calculator"
     dest = tmp_path / "calculator"
-    shutil.copytree(source, dest)
-    return WorkerRegistry(dest)
-
-
-@pytest.fixture
-def screen_analyzer_registry(tmp_path):
-    """Registry for screen_analyzer example with custom tools."""
-    source = Path(__file__).parent.parent / "examples" / "screen_analyzer"
-    dest = tmp_path / "screen_analyzer"
     shutil.copytree(source, dest)
     return WorkerRegistry(dest)
 
@@ -53,12 +45,15 @@ def test_custom_tools_not_found_for_simple_workers(calculator_registry, tmp_path
 
 def test_custom_tools_loaded_and_callable(calculator_registry):
     """Test that custom tools are loaded and can be called."""
-    # Run calculator worker with TestModel
+    # Only call the calculator tool to avoid random worker_call invocations
+    model = TestModel(call_tools=["calculate_fibonacci"])
+
+    # Run calculator worker with TestModel to exercise the tool path without API keys
     result = run_worker(
         registry=calculator_registry,
         worker="calculator",
         input_data="What is the 10th Fibonacci number?",
-        cli_model="test",
+        cli_model=model,
         approval_callback=approve_all_callback,
     )
 
@@ -83,21 +78,6 @@ def test_custom_tools_respect_tool_rules(calculator_registry):
     assert "calculate_fibonacci" in definition.tool_rules
     assert definition.tool_rules["calculate_fibonacci"].allowed is True
     assert definition.tool_rules["calculate_fibonacci"].approval_required is False
-
-
-def test_screen_analyzer_custom_tools(screen_analyzer_registry):
-    """Test screen analyzer example with custom tools."""
-    # Load the worker
-    definition = screen_analyzer_registry.load_definition("screen_analyzer")
-
-    # Verify custom tools are configured
-    custom_tools = screen_analyzer_registry.find_custom_tools("screen_analyzer")
-    assert custom_tools is not None
-
-    # Verify tool rules
-    assert "get_screen_info" in definition.tool_rules
-    assert "extract_text_regions" in definition.tool_rules
-    assert "get_element_positions" in definition.tool_rules
 
 
 def test_multiple_custom_tools_registered(calculator_registry):

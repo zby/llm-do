@@ -10,7 +10,11 @@ from pydantic_ai.models.test import TestModel
 def pytest_configure(config):
     config.addinivalue_line(
         "markers",
-        "examples: integration tests for example workers",
+        "live: tests that hit real APIs",
+    )
+    config.addinivalue_line(
+        "markers",
+        "custom_deps: tests that require optional/custom dependencies",
     )
 
 

@@ -10,8 +10,6 @@ instructions: |
 
   When the user asks for calculations, use the appropriate tool and explain the result clearly.
 
-model: anthropic:claude-haiku-4-5
-
 sandboxes:
   scratch:
     path: ./scratch

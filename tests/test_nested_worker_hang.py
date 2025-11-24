@@ -16,9 +16,6 @@ from llm_do import (
 from tests.test_examples import ToolCallingModel
 
 
-pytestmark = pytest.mark.examples
-
-
 @pytest.fixture
 def whiteboard_registry(tmp_path, monkeypatch):
     """Registry for the whiteboard_planner example."""

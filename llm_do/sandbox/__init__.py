@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Callable, List, Mapping, Optional, Protocol, Sequence
+from pathlib import Path, PurePosixPath
+from typing import Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 __all__ = [
+    "AttachmentInput",
+    "AttachmentPayload",
     "ApprovalRunner",
     "AttachmentPolicy",
     "SandboxConfig",
@@ -15,6 +17,17 @@ __all__ = [
     "SandboxRoot",
     "SandboxToolset",
 ]
+
+
+@dataclass
+class AttachmentPayload:
+    """Attachment path plus a display-friendly label."""
+
+    path: Path
+    display_name: str
+
+
+AttachmentInput = Union[str, Path, AttachmentPayload]
 
 
 class AttachmentPolicy(BaseModel):
@@ -128,6 +141,112 @@ class SandboxManager:
                 attachment_suffixes=list(cfg.attachment_suffixes),
                 max_bytes=cfg.max_bytes,
             )
+
+    def validate_attachments(
+        self,
+        attachment_specs: Optional[Sequence[AttachmentInput]],
+        policy: AttachmentPolicy,
+    ) -> Tuple[List[Path], List[Dict[str, Any]]]:
+        """Resolve attachment specs to sandboxed files and enforce policy limits."""
+
+        if not attachment_specs:
+            return ([], [])
+
+        resolved: List[Path] = []
+        metadata: List[Dict[str, Any]] = []
+        for spec in attachment_specs:
+            if isinstance(spec, AttachmentPayload):
+                resolved_path = self._assert_attachment_path(spec)
+                resolved.append(resolved_path)
+                metadata.append(
+                    self._infer_attachment_metadata(spec, resolved_path)
+                )
+                continue
+
+            path, info = self.resolve_attachment(spec)
+            resolved.append(path)
+            metadata.append(info)
+
+        policy.validate_paths(resolved)
+        return (resolved, metadata)
+
+    def _assert_attachment_path(self, payload: AttachmentPayload) -> Path:
+        path = payload.path.expanduser().resolve()
+        if not path.exists():
+            raise FileNotFoundError(f"Attachment not found: {payload.display_name}")
+        if not path.is_file():
+            raise IsADirectoryError(f"Attachment must be a file: {payload.display_name}")
+        return path
+
+    def _infer_attachment_metadata(
+        self, payload: AttachmentPayload, resolved_path: Optional[Path] = None
+    ) -> Dict[str, Any]:
+        path = resolved_path or payload.path.expanduser().resolve()
+        size = path.stat().st_size
+        sandbox = "external"
+        relative = payload.display_name
+        for name, root in self.sandboxes.items():
+            try:
+                rel_path = path.relative_to(root.path)
+            except ValueError:
+                continue
+            sandbox = name
+            relative = rel_path.as_posix()
+            break
+        return {"sandbox": sandbox, "path": relative, "bytes": size}
+
+    def resolve_attachment(
+        self, spec: Union[str, Path]
+    ) -> Tuple[Path, Dict[str, Any]]:
+        value = str(spec).strip()
+        if not value:
+            raise ValueError("Attachment path cannot be empty")
+
+        normalized = value.replace("\\", "/")
+        if normalized.startswith("/") or normalized.startswith("~"):
+            raise PermissionError("Attachments must reference a sandbox, not an absolute path")
+
+        # Support "sandbox:path" style by converting to sandbox/relative.
+        if ":" in normalized:
+            prefix, suffix = normalized.split(":", 1)
+            if prefix in self.sandboxes:
+                normalized = f"{prefix}/{suffix.lstrip('/')}"
+
+        path = PurePosixPath(normalized)
+        parts = path.parts
+        if not parts:
+            raise ValueError("Attachment path must include a sandbox and file name")
+
+        sandbox_name = parts[0]
+        if sandbox_name in {".", ".."}:
+            raise PermissionError("Attachments must reference a sandbox name")
+
+        if sandbox_name not in self.sandboxes:
+            raise KeyError(f"Unknown sandbox '{sandbox_name}' for attachment '{value}'")
+
+        relative_parts = parts[1:]
+        if not relative_parts:
+            raise ValueError("Attachment path must include a file inside the sandbox")
+
+        relative_path = PurePosixPath(*relative_parts).as_posix()
+        sandbox_root = self.sandboxes[sandbox_name]
+        target = sandbox_root.resolve(relative_path)
+        if not target.exists():
+            raise FileNotFoundError(f"Attachment not found: {value}")
+        if not target.is_file():
+            raise IsADirectoryError(f"Attachment must be a file: {value}")
+
+        suffix = target.suffix.lower()
+        attachment_suffixes = sandbox_root.attachment_suffixes
+        if attachment_suffixes and suffix not in attachment_suffixes:
+            raise PermissionError(
+                f"Attachments from sandbox '{sandbox_name}' must use suffixes:"
+                f" {', '.join(sorted(attachment_suffixes))}"
+            )
+
+        size = target.stat().st_size
+        info = {"sandbox": sandbox_name, "path": relative_path, "bytes": size}
+        return (target, info)
 
     def _sandbox_for(self, sandbox: str) -> SandboxRoot:
         if sandbox not in self.sandboxes:

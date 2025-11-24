@@ -16,9 +16,12 @@ core interfaces.
 """
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+import sys
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Type, Union
 
 import yaml
@@ -111,6 +114,31 @@ class SandboxConfig(BaseModel):
         return [suffix.lower() for suffix in value]
 
 
+class ToolImport(BaseModel):
+    """Dynamic tool registration entry loaded at runtime."""
+
+    path: str = Field(description="Python module path or file relative to the worker")
+    callable: str = Field(
+        default="register_tools",
+        description="Callable within the module that will register tools",
+    )
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("path")
+    @classmethod
+    def _strip_path(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Tool import path cannot be empty")
+        return normalized
+
+    @property
+    def is_file_path(self) -> bool:
+        return any(sep in self.path for sep in ("/", "\\")) or self.path.endswith(".py")
+
+
 class WorkerDefinition(BaseModel):
     """Persisted worker artifact."""
 
@@ -123,7 +151,10 @@ class WorkerDefinition(BaseModel):
     attachment_policy: AttachmentPolicy = Field(default_factory=AttachmentPolicy)
     allow_workers: List[str] = Field(default_factory=list)
     tool_rules: Dict[str, ToolRule] = Field(default_factory=dict)
+    tools: List["ToolImport"] = Field(default_factory=list)
     locked: bool = False
+    source_path: Optional[Path] = Field(default=None, exclude=True)
+    project_root: Optional[Path] = Field(default=None, exclude=True)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -148,6 +179,7 @@ class WorkerCreationDefaults(BaseModel):
     )
     default_allow_workers: List[str] = Field(default_factory=list)
     default_tool_rules: Dict[str, ToolRule] = Field(default_factory=dict)
+    default_tools: List["ToolImport"] = Field(default_factory=list)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -158,6 +190,7 @@ class WorkerCreationDefaults(BaseModel):
         attachment_policy = self.default_attachment_policy.model_copy()
         allow_workers = list(self.default_allow_workers)
         tool_rules = {name: rule.model_copy() for name, rule in self.default_tool_rules.items()}
+        tools = [tool.model_copy() for tool in self.default_tools]
         return WorkerDefinition(
             name=spec.name,
             description=spec.description,
@@ -168,6 +201,7 @@ class WorkerCreationDefaults(BaseModel):
             attachment_policy=attachment_policy,
             allow_workers=allow_workers,
             tool_rules=tool_rules,
+            tools=tools,
             locked=False,
         )
 
@@ -394,9 +428,13 @@ class WorkerRegistry:
                 data["instructions"] = _render_jinja_template(instructions_str, project_root)
 
         try:
-            return WorkerDefinition.model_validate(data)
+            definition = WorkerDefinition.model_validate(data)
         except ValidationError as exc:
             raise ValueError(f"Invalid worker definition at {path}: {exc}") from exc
+
+        definition.source_path = path
+        definition.project_root = project_root
+        return definition
 
     def save_definition(
         self,
@@ -578,6 +616,41 @@ class SandboxToolset:
         )
 
 
+class ToolImportLoader:
+    """Load and invoke dynamic tool registration functions for a worker."""
+
+    def __init__(self, base_dir: Path):
+        self.base_dir = base_dir
+
+    def _import_module(self, path: str) -> Any:
+        if any(sep in path for sep in ("/", "\\")) or path.endswith(".py"):
+            resolved = (self.base_dir / path).expanduser().resolve()
+            if not resolved.exists():
+                raise FileNotFoundError(f"Tool module not found: {resolved}")
+            module_name = f"llm_do.worker_tools.{resolved.stem}"
+            spec = importlib.util.spec_from_file_location(module_name, resolved)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Unable to load tool module from {resolved}")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+            return module
+        return importlib.import_module(path)
+
+    def load(self, tool_import: ToolImport) -> Callable[[Agent, "WorkerContext"], Any]:
+        module = self._import_module(tool_import.path)
+        registrar = getattr(module, tool_import.callable, None)
+        if registrar is None or not callable(registrar):
+            raise AttributeError(
+                f"Callable '{tool_import.callable}' not found in tool module {tool_import.path}"
+            )
+
+        def _invoke(agent: Agent, context: "WorkerContext") -> Any:
+            return registrar(agent, context, **tool_import.config)
+
+        return _invoke
+
+
 # ---------------------------------------------------------------------------
 # Runtime context and operations
 # ---------------------------------------------------------------------------
@@ -592,6 +665,8 @@ class WorkerContext:
     creation_defaults: WorkerCreationDefaults
     effective_model: Optional[ModelLike]
     approval_controller: ApprovalController
+    worker_path: Path
+    project_root: Path
     attachments: List[Path] = field(default_factory=list)
 
 
@@ -756,6 +831,12 @@ def _default_agent_runner(
     agent = Agent(**agent_kwargs)
     _register_worker_tools(agent)
 
+    if definition.tools:
+        loader = ToolImportLoader(context.worker_path.parent)
+        for tool_import in definition.tools:
+            registrar = loader.load(tool_import)
+            registrar(agent, context)
+
     prompt = _format_user_prompt(user_input)
     run_result = agent.run_sync(prompt, deps=context)
     return run_result.output
@@ -828,6 +909,9 @@ def run_worker(
     approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
     sandbox_tools = SandboxToolset(sandbox_manager, approvals)
 
+    definition_path = getattr(definition, "source_path", None) or registry._definition_path(worker)
+    project_root = getattr(definition, "project_root", None) or definition_path.parent
+
     context = WorkerContext(
         registry=registry,
         worker=definition,
@@ -837,6 +921,8 @@ def run_worker(
         effective_model=effective_model,
         attachments=attachment_list,
         approval_controller=approvals,
+        worker_path=definition_path,
+        project_root=project_root,
     )
 
     output_model = registry.resolve_output_schema(definition)
@@ -863,6 +949,7 @@ __all__: Iterable[str] = [
     "strict_mode_callback",
     "AttachmentPolicy",
     "ToolRule",
+    "ToolImport",
     "SandboxConfig",
     "WorkerDefinition",
     "WorkerSpec",
@@ -874,5 +961,6 @@ __all__: Iterable[str] = [
     "create_worker",
     "SandboxManager",
     "SandboxToolset",
+    "ToolImportLoader",
     "WorkerContext",
 ]

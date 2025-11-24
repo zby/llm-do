@@ -32,6 +32,7 @@ def _parent_context(registry, worker, defaults=None):
     controller = ApprovalController(worker.tool_rules)
     sandbox_manager = SandboxManager(worker.sandboxes)
     sandbox_toolset = SandboxToolset(sandbox_manager, controller)
+    worker_path = registry._definition_path(worker.name)
     return WorkerContext(
         registry=registry,
         worker=worker,
@@ -40,6 +41,8 @@ def _parent_context(registry, worker, defaults=None):
         creation_defaults=defaults or WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        worker_path=worker_path,
+        project_root=worker_path.parent,
     )
 
 

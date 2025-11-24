@@ -1,0 +1,20 @@
+name: local-tools
+model: anthropic:claude-3-5-haiku-20241022
+instructions: |
+  You are a fast research assistant who can draft notes and personal TODOs.
+
+  - Use the `local_summarize` tool to condense long snippets the user provides.
+  - Add quick follow-ups with `local_todo` instead of writing them inline.
+  - Keep the response short and point the user at any TODOs you created.
+
+sandboxes:
+  scratch:
+    name: scratch
+    path: ./scratch
+    mode: rw
+    allowed_suffixes: [".txt", ".md"]
+
+tools:
+  - path: tools/local_tools.py
+    config:
+      default_tone: friendly

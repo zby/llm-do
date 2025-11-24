@@ -16,6 +16,7 @@ from pydantic_ai.models import Model
 from llm_do.pydanticai import (
     ApprovalDecision,
     SandboxConfig,
+    ToolImport,
     ToolRule,
     WorkerDefinition,
     WorkerRegistry,
@@ -346,3 +347,48 @@ def test_integration_rejection_stops_workflow(tmp_path, registry):
     # No files written
     assert not (sandbox_path / "file1.txt").exists()
     assert not (sandbox_path / "file2.txt").exists()
+
+
+def test_worker_registers_local_tool_module(tmp_path, registry):
+    tool_module = registry.root / "toolkit.py"
+    tool_module.write_text(
+        """
+from pydantic_ai.tools import RunContext
+from llm_do.pydanticai import WorkerContext
+
+
+def register_tools(agent, ctx: WorkerContext, **config):
+    marker = ctx.project_root / "custom_tool_marker.txt"
+
+    @agent.tool(name="custom_repeat", description="Echo text in uppercase for testing")
+    def custom_repeat(run_ctx: RunContext[WorkerContext], text: str) -> str:
+        marker.write_text(text, encoding="utf-8")
+        return text.upper()
+"""
+    )
+
+    definition = WorkerDefinition(
+        name="custom-tools",
+        instructions="Use the custom_repeat tool to transform input when asked.",
+        tools=[ToolImport(path="toolkit.py")],
+    )
+    registry.save_definition(definition)
+
+    mock_model = ToolCallingModel(
+        [
+            {
+                "name": "custom_repeat",
+                "args": {"text": "hello"},
+            }
+        ]
+    )
+
+    result = run_worker(
+        registry=registry,
+        worker="custom-tools",
+        input_data="Uppercase please",
+        cli_model=mock_model,
+    )
+
+    assert result.output == "Task completed"
+    assert (registry.root / "custom_tool_marker.txt").read_text(encoding="utf-8") == "hello"

@@ -1,0 +1,15 @@
+name: langchain-router
+model: openai:gpt-4o
+instructions: |
+  You orchestrate LangChain community tools (search, Wikipedia, etc.) via the
+  pydantic-ai LangChain bridge. Choose the smallest tool that can answer the
+  question and explain which tools were used.
+
+  - Prefer search for current topics and Wikipedia for evergreen facts.
+  - If both tools are insufficient, suggest a manual next step for the user.
+
+tools:
+  - path: tools/langchain_tools.py
+    config:
+      collection: community
+      tools: ["search", "wikipedia"]

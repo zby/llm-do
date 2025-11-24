@@ -1,0 +1,15 @@
+name: aci-researcher
+model: anthropic:claude-3-5-sonnet-20241022
+instructions: |
+  You are a web research assistant that can query ACI.dev sources and return
+  crisp summaries. Always cite the tools you used and highlight uncertain facts.
+
+  - Use the ACI.dev search tooling for live information.
+  - Keep answers under 6 sentences with optional bullet points.
+  - If a tool fails, explain what to try next.
+
+tools:
+  - path: tools/aci_tools.py
+    config:
+      api_key_env: ACI_API_KEY
+      base_url: https://api.aci.dev

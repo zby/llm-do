@@ -24,14 +24,12 @@ from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
-from .sandbox import SandboxManager, SandboxToolset
+from .sandbox import AttachmentInput, AttachmentPayload, SandboxManager, SandboxToolset
 from .types import (
     AgentExecutionContext,
     AgentRunner,
     ApprovalCallback,
     ApprovalDecision,
-    AttachmentInput,
-    AttachmentPayload,
     MessageCallback,
     ModelLike,
     WorkerContext,

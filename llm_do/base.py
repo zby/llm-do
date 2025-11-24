@@ -22,7 +22,7 @@ from __future__ import annotations
 from typing import Iterable
 
 # Re-export sandbox types
-from .sandbox import AttachmentPolicy, SandboxConfig, SandboxManager, SandboxToolset
+from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxConfig, SandboxManager, SandboxToolset
 
 # Re-export all types
 from .types import (
@@ -30,8 +30,6 @@ from .types import (
     AgentRunner,
     ApprovalCallback,
     ApprovalDecision,
-    AttachmentInput,
-    AttachmentPayload,
     MessageCallback,
     ModelLike,
     OutputSchemaResolver,

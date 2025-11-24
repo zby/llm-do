@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 
-from .sandbox import AttachmentPolicy, SandboxConfig, SandboxManager, SandboxToolset
+from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxConfig, SandboxManager, SandboxToolset
 
 
 # ---------------------------------------------------------------------------
@@ -147,15 +147,6 @@ MessageCallback = Callable[[List[Any]], None]
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class AttachmentPayload:
-    """Attachment path plus a display-friendly label."""
-
-    path: Path
-    display_name: str
-
-
-AttachmentInput = Union[str, Path, AttachmentPayload]
 
 
 @dataclass
@@ -177,76 +168,12 @@ class WorkerContext:
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
 
     def validate_attachments(
-        self, attachment_specs: Optional[Sequence[Union[str, Path]]]
+        self, attachment_specs: Optional[Sequence[AttachmentInput]]
     ) -> tuple[List[Path], List[Dict[str, Any]]]:
         """Resolve attachment specs to sandboxed files and enforce policy limits."""
-
-        if not attachment_specs:
-            return ([], [])
-
-        resolved: List[Path] = []
-        metadata: List[Dict[str, Any]] = []
-        for spec in attachment_specs:
-            path, info = self._resolve_attachment_spec(spec)
-            resolved.append(path)
-            metadata.append(info)
-
-        # Reuse the caller's attachment policy to keep delegation within limits
-        self.worker.attachment_policy.validate_paths(resolved)
-        return (resolved, metadata)
-
-    def _resolve_attachment_spec(
-        self, spec: Union[str, Path]
-    ) -> tuple[Path, Dict[str, Any]]:
-        value = str(spec).strip()
-        if not value:
-            raise ValueError("Attachment path cannot be empty")
-
-        normalized = value.replace("\\", "/")
-        if normalized.startswith("/") or normalized.startswith("~"):
-            raise PermissionError("Attachments must reference a sandbox, not an absolute path")
-
-        # Support "sandbox:path" style by converting to sandbox/relative.
-        if ":" in normalized:
-            prefix, suffix = normalized.split(":", 1)
-            if prefix in self.sandbox_manager.sandboxes:
-                normalized = f"{prefix}/{suffix.lstrip('/')}"
-
-        path = PurePosixPath(normalized)
-        parts = path.parts
-        if not parts:
-            raise ValueError("Attachment path must include a sandbox and file name")
-
-        sandbox_name = parts[0]
-        if sandbox_name in {".", ".."}:
-            raise PermissionError("Attachments must reference a sandbox name")
-
-        if sandbox_name not in self.sandbox_manager.sandboxes:
-            raise KeyError(f"Unknown sandbox '{sandbox_name}' for attachment '{value}'")
-
-        relative_parts = parts[1:]
-        if not relative_parts:
-            raise ValueError("Attachment path must include a file inside the sandbox")
-
-        relative_path = PurePosixPath(*relative_parts).as_posix()
-        sandbox_root = self.sandbox_manager.sandboxes[sandbox_name]
-        target = sandbox_root.resolve(relative_path)
-        if not target.exists():
-            raise FileNotFoundError(f"Attachment not found: {value}")
-        if not target.is_file():
-            raise IsADirectoryError(f"Attachment must be a file: {value}")
-
-        suffix = target.suffix.lower()
-        attachment_suffixes = getattr(sandbox_root, "attachment_suffixes", [])
-        if attachment_suffixes and suffix not in attachment_suffixes:
-            raise PermissionError(
-                f"Attachments from sandbox '{sandbox_name}' must use suffixes:"
-                f" {', '.join(sorted(attachment_suffixes))}"
-            )
-
-        size = target.stat().st_size
-        info = {"sandbox": sandbox_name, "path": relative_path, "bytes": size}
-        return (target, info)
+        return self.sandbox_manager.validate_attachments(
+            attachment_specs, self.worker.attachment_policy
+        )
 
 
 @dataclass

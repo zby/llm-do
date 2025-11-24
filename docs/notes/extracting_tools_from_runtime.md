@@ -24,21 +24,23 @@ standalone `tools.py` module so we can resolve the circular dependency on
 ### `llm_do/runtime.py`
 - Import `register_worker_tools` from `.tools`.
 - Delete `_register_worker_tools`, `_load_custom_tools`,
-  `_worker_call_tool_async`, and `_worker_create_tool`.
-- Update `_default_agent_runner_async` to call `register_worker_tools`, passing a
-  runner that wraps `call_worker_async` (or a small closure) so the tool module
-  can perform delegation without reaching back into `runtime.py`.
-- Alternatively, pass `call_worker_async` directly to the tool helper and let it
-  construct the worker-call tool internally.
+  `_worker_call_tool_async`, `_worker_call_tool`, and `_worker_create_tool`.
+- Update both `_default_agent_runner_async` **and** the sync `run_worker` path to
+  call `register_worker_tools`, each passing a runner (async or sync) that wraps
+  `call_worker_async`/`call_worker` so the tool module can perform delegation
+  without reaching back into `runtime.py`.
+- Alternatively, pass the raw runner callables directly to the tool helper and
+  let it construct the worker-call tools internally.
 
 ### `llm_do/types.py`
-- No immediate code changes. Optionally add a `WorkerRunner` protocol if it
-  helps document the callable signature used by `register_worker_tools`.
+- Define a `WorkerRunner` protocol (or similar type alias) that documents the
+  required callable signature. This keeps both sync and async runner variants
+  explicit and avoids ad-hoc `Callable[..., Any]` usage.
 
 ## Verification Plan
 1. Run existing automated coverage, paying particular attention to
    `tests/test_custom_tools.py` and `tests/test_worker_delegation.py`.
    ```bash
-   uv run pytest tests/
+   .venv/bin/pytest tests/
    ```
 2. Manual verification is unnecessary if the automated suite passes.

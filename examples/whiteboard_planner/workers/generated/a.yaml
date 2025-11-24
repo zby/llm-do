@@ -1,0 +1,11 @@
+allow_workers: []
+attachment_policy:
+  allowed_suffixes: []
+  denied_suffixes: []
+  max_attachments: 4
+  max_total_bytes: 10000000
+instructions: a
+locked: false
+name: a
+sandboxes: {}
+tool_rules: {}

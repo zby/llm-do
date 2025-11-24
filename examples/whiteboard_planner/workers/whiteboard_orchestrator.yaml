@@ -1,0 +1,21 @@
+name: whiteboard_orchestrator
+description: Orchestrate whiteboard → project plan generation for all images in input/
+model: null
+allow_workers: ["whiteboard_planner"]
+sandboxes:
+  input:
+    path: ./input
+    mode: ro
+    allowed_suffixes: [".jpg", ".jpeg", ".png"]
+    max_bytes: 20971520 # 20 MB
+  plans:
+    path: ./plans
+    mode: rw
+    allowed_suffixes: [".md"]
+tool_rules:
+  sandbox.write:
+    allowed: true
+    approval_required: true
+  worker.call:
+    allowed: true
+    approval_required: false

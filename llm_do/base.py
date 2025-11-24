@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from time import perf_counter
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Type, Union
 
 import yaml
@@ -440,7 +441,164 @@ class WorkerContext:
         return (target, info)
 
 
+@dataclass
+class AgentExecutionContext:
+    """Prepared context for agent execution (shared by sync and async runners)."""
+    prompt: Union[str, List[Union[str, BinaryContent]]]
+    agent_kwargs: Dict[str, Any]
+    event_handler: Optional[Callable]
+    model_label: Optional[str]
+    started_at: Optional[float]
+    emit_status: Optional[Callable[[str, Optional[float]], None]]
+
+
+def _prepare_agent_execution(
+    definition: WorkerDefinition,
+    user_input: Any,
+    context: WorkerContext,
+    output_model: Optional[Type[BaseModel]],
+) -> AgentExecutionContext:
+    """Prepare everything needed for agent execution (sync or async).
+
+    This extracts all the setup logic that's common between sync and async
+    agent runners, including:
+    - Building the prompt with attachments
+    - Setting up streaming callbacks
+    - Preparing agent kwargs
+    - Initializing status tracking
+
+    Args:
+        definition: Worker definition with instructions and configuration
+        user_input: Input data for the worker
+        context: Worker execution context with tools and dependencies
+        output_model: Optional Pydantic model for structured output
+
+    Returns:
+        AgentExecutionContext with all prepared state for agent execution
+    """
+    import sys
+
+    if context.effective_model is None:
+        raise ValueError(
+            f"No model configured for worker '{definition.name}'. "
+            "Set worker.model, pass --model, or provide a custom agent_runner."
+        )
+
+    # Build user prompt with attachments
+    prompt_text = _format_user_prompt(user_input)
+    attachment_labels = [item.display_name for item in context.attachments]
+
+    if context.attachments:
+        # Create a list of UserContent with text + file attachments
+        print(f"DEBUG: Processing {len(context.attachments)} attachments", file=sys.stderr)
+        sys.stderr.flush()
+        user_content: List[Union[str, BinaryContent]] = [prompt_text]
+        for i, attachment in enumerate(context.attachments):
+            print(f"DEBUG:   Attachment {i}: path={attachment.path}, exists={attachment.path.exists()}, size={attachment.path.stat().st_size if attachment.path.exists() else 'N/A'}", file=sys.stderr)
+            sys.stderr.flush()
+            print(f"DEBUG:   Calling BinaryContent.from_path...", file=sys.stderr)
+            sys.stderr.flush()
+            binary_content = BinaryContent.from_path(attachment.path)
+            print(f"DEBUG:   Created BinaryContent with media_type={binary_content.media_type}", file=sys.stderr)
+            sys.stderr.flush()
+            user_content.append(binary_content)
+        print(f"DEBUG: All attachments processed, prompt list has {len(user_content)} items", file=sys.stderr)
+        sys.stderr.flush()
+        prompt = user_content
+    else:
+        # Just text, no attachments
+        prompt = prompt_text
+
+    # Setup callbacks and status tracking
+    event_handler = None
+    model_label: Optional[str] = None
+    started_at: Optional[float] = None
+    emit_status: Optional[Callable[[str, Optional[float]], None]] = None
+
+    if context.message_callback:
+        preview = {
+            "instructions": definition.instructions or "",
+            "user_input": prompt_text,
+            "attachments": attachment_labels,
+        }
+        context.message_callback(
+            [{"worker": definition.name, "initial_request": preview}]
+        )
+
+        def _emit_model_status(state: str, *, duration: Optional[float] = None) -> None:
+            if not context.message_callback:
+                return
+            status: Dict[str, Any] = {
+                "phase": "model_request",
+                "state": state,
+            }
+            if model_label:
+                status["model"] = model_label
+            if duration is not None:
+                status["duration_sec"] = duration
+            context.message_callback(
+                [{"worker": definition.name, "status": status}]
+            )
+
+        if _model_supports_streaming(context.effective_model):
+            # Note: The stream handler must be thread-safe since it will be called
+            # from within the agent's event loop
+            async def _stream_handler(
+                run_ctx: RunContext[WorkerContext], event_stream
+            ) -> None:  # pragma: no cover - exercised indirectly via integration tests
+                async for event in event_stream:
+                    # Call message_callback in a thread-safe way
+                    try:
+                        context.message_callback(
+                            [{"worker": definition.name, "event": event}]
+                        )
+                    except Exception as e:
+                        # Log but don't crash on callback errors
+                        print(f"DEBUG: Error in stream handler callback: {e}", file=sys.stderr)
+                        sys.stderr.flush()
+
+            event_handler = _stream_handler
+
+        if isinstance(context.effective_model, str):
+            model_label = context.effective_model
+        elif context.effective_model is not None:
+            model_label = (
+                getattr(context.effective_model, "model_name", None)
+                or context.effective_model.__class__.__name__
+            )
+
+        from time import perf_counter
+        started_at = perf_counter()
+        emit_status = _emit_model_status
+        emit_status("start")
+
+    # Prepare agent kwargs
+    agent_kwargs: Dict[str, Any] = dict(
+        model=context.effective_model,
+        instructions=definition.instructions,
+        name=definition.name,
+        deps_type=WorkerContext,
+    )
+    if output_model is not None:
+        agent_kwargs["output_type"] = output_model
+
+    return AgentExecutionContext(
+        prompt=prompt,
+        agent_kwargs=agent_kwargs,
+        event_handler=event_handler,
+        model_label=model_label,
+        started_at=started_at,
+        emit_status=emit_status,
+    )
+
+
 AgentRunner = Callable[[WorkerDefinition, Any, WorkerContext, Optional[Type[BaseModel]]], Any]
+"""Type alias for the execution strategy used by ``run_worker``.
+
+This interface allows swapping the underlying agent execution logic (e.g., for
+unit testing or using a different agent framework) while keeping the
+``run_worker`` orchestration logic (sandboxing, approvals, context) intact.
+"""
 
 
 def _model_supports_streaming(model: ModelLike) -> bool:
@@ -499,18 +657,26 @@ def _register_worker_tools(agent: Agent) -> None:
         return ctx.deps.sandbox_toolset.write_text(sandbox, path, content)
 
     @agent.tool(name="worker_call", description="Delegate to another registered worker")
-    def worker_call_tool(
+    async def worker_call_tool(
         ctx: RunContext[WorkerContext],
         worker: str,
         input_data: Any = None,
         attachments: Optional[List[str]] = None,
     ) -> Any:
-        return _worker_call_tool(
+        import sys
+        print(f"DEBUG: worker_call_tool called for worker={worker}", file=sys.stderr)
+        sys.stderr.flush()
+
+        result = await _worker_call_tool_async(
             ctx.deps,
             worker=worker,
             input_data=input_data,
             attachments=attachments,
         )
+
+        print(f"DEBUG: worker_call_tool completed for worker={worker}", file=sys.stderr)
+        sys.stderr.flush()
+        return result
 
     @agent.tool(name="worker_create", description="Persist a new worker definition using the active profile")
     def worker_create_tool(
@@ -533,6 +699,75 @@ def _register_worker_tools(agent: Agent) -> None:
         )
 
 
+async def _worker_call_tool_async(
+    ctx: WorkerContext,
+    *,
+    worker: str,
+    input_data: Any = None,
+    attachments: Optional[List[str]] = None,
+) -> Any:
+    """Async version of worker call tool - calls call_worker_async to avoid hangs."""
+    resolved_attachments: List[Path]
+    attachment_metadata: List[Dict[str, Any]]
+    if attachments:
+        resolved_attachments, attachment_metadata = ctx.validate_attachments(attachments)
+    else:
+        resolved_attachments, attachment_metadata = ([], [])
+
+    attachment_payloads: Optional[List[AttachmentPayload]] = None
+    if resolved_attachments:
+        attachment_payloads = [
+            AttachmentPayload(
+                path=path,
+                display_name=f"{meta['sandbox']}/{meta['path']}",
+            )
+            for path, meta in zip(resolved_attachments, attachment_metadata)
+        ]
+
+    async def _invoke() -> Any:
+        result = await call_worker_async(
+            registry=ctx.registry,
+            worker=worker,
+            input_data=input_data,
+            caller_context=ctx,
+            attachments=attachment_payloads,
+        )
+        return result.output
+
+    payload: Dict[str, Any] = {"worker": worker}
+    if attachment_metadata:
+        payload["attachments"] = attachment_metadata
+
+    # Note: maybe_run is sync, but we need to await _invoke
+    # For now, call maybe_run with an async wrapper
+    import asyncio
+
+    def _sync_wrapper() -> Any:
+        return asyncio.create_task(_invoke())
+
+    # Actually, we need to handle approval synchronously but execution asynchronously
+    # Check approval first
+    rule = ctx.approval_controller.tool_rules.get("worker.call")
+    if rule:
+        if not rule.allowed:
+            raise PermissionError(f"Tool 'worker.call' is disallowed")
+        if rule.approval_required:
+            # Check session approvals
+            key = ctx.approval_controller._make_approval_key("worker.call", payload)
+            if key not in ctx.approval_controller.session_approvals:
+                # Block and wait for approval
+                decision = ctx.approval_controller.approval_callback("worker.call", payload, rule.description)
+                if not decision.approved:
+                    note = f": {decision.note}" if decision.note else ""
+                    raise PermissionError(f"User rejected tool call 'worker.call'{note}")
+                # Track session approval if requested
+                if decision.approve_for_session:
+                    ctx.approval_controller.session_approvals.add(key)
+
+    # Now execute async
+    return await _invoke()
+
+
 def _worker_call_tool(
     ctx: WorkerContext,
     *,
@@ -540,6 +775,7 @@ def _worker_call_tool(
     input_data: Any = None,
     attachments: Optional[List[str]] = None,
 ) -> Any:
+    """Sync version of worker call tool - kept for backward compatibility."""
     resolved_attachments: List[Path]
     attachment_metadata: List[Dict[str, Any]]
     if attachments:
@@ -612,92 +848,101 @@ def _worker_create_tool(
     )
 
 
-def _default_agent_runner(
+async def _default_agent_runner_async(
     definition: WorkerDefinition,
     user_input: Any,
     context: WorkerContext,
     output_model: Optional[Type[BaseModel]],
 ) -> tuple[Any, List[Any]]:
-    """Execute a worker via a PydanticAI agent using the worker context.
+    """Async version of the default agent runner.
+
+    This is the core async implementation that directly awaits agent.run().
+    The sync version wraps this with asyncio.run().
 
     Args:
         definition: Worker definition with instructions and configuration
         user_input: Input data for the worker
-        context: Worker execution context with tools and dependencies (includes message_callback)
+        context: Worker execution context with tools and dependencies
         output_model: Optional Pydantic model for structured output
 
     Returns:
         Tuple of (output, messages) where messages is the list of all messages
         exchanged with the LLM during execution.
     """
+    import sys
 
-    if context.effective_model is None:
-        raise ValueError(
-            f"No model configured for worker '{definition.name}'. "
-            "Set worker.model, pass --model, or provide a custom agent_runner."
-        )
+    # Prepare execution context (prompt, callbacks, agent kwargs)
+    exec_ctx = _prepare_agent_execution(definition, user_input, context, output_model)
 
-    agent_kwargs: Dict[str, Any] = dict(
-        model=context.effective_model,
-        instructions=definition.instructions,
-        name=definition.name,
-        deps_type=WorkerContext,
-    )
-    if output_model is not None:
-        agent_kwargs["output_type"] = output_model
+    # Debug logging
+    print(f"DEBUG: About to call agent.run with prompt type: {type(exec_ctx.prompt)}", file=sys.stderr)
+    if isinstance(exec_ctx.prompt, list):
+        print(f"DEBUG: Prompt has {len(exec_ctx.prompt)} items", file=sys.stderr)
+        for i, item in enumerate(exec_ctx.prompt):
+            print(f"DEBUG:   Item {i}: {type(item).__name__}", file=sys.stderr)
+    sys.stderr.flush()
 
-    agent = Agent(**agent_kwargs)
+    # Create Agent
+    print(f"DEBUG: Creating Agent in async runner...", file=sys.stderr)
+    sys.stderr.flush()
+
+    agent = Agent(**exec_ctx.agent_kwargs)
     _register_worker_tools(agent)
 
-    # Build user prompt with attachments
-    prompt_text = _format_user_prompt(user_input)
+    print(f"DEBUG: Agent created, calling agent.run()...", file=sys.stderr)
+    sys.stderr.flush()
 
-    attachment_labels = [item.display_name for item in context.attachments]
-
-    if context.attachments:
-        # Create a list of UserContent with text + file attachments
-        # UserContent = str | BinaryContent | ImageUrl | AudioUrl | ...
-        user_content: List[Union[str, BinaryContent]] = [prompt_text]
-        for attachment in context.attachments:
-            binary_content = BinaryContent.from_path(attachment.path)
-            user_content.append(binary_content)
-        prompt = user_content
-    else:
-        # Just text, no attachments
-        prompt = prompt_text
-
-    event_handler = None
-    if context.message_callback:
-        preview = {
-            "instructions": definition.instructions or "",
-            "user_input": prompt_text,
-            "attachments": attachment_labels,
-        }
-        context.message_callback(
-            [{"worker": definition.name, "initial_request": preview}]
-        )
-
-        if _model_supports_streaming(context.effective_model):
-            async def _stream_handler(
-                run_ctx: RunContext[WorkerContext], event_stream
-            ) -> None:  # pragma: no cover - exercised indirectly via integration tests
-                async for event in event_stream:
-                    context.message_callback(
-                        [{"worker": definition.name, "event": event}]
-                    )
-
-            event_handler = _stream_handler
-
-    run_result = agent.run_sync(
-        prompt,
+    # Run the agent asynchronously
+    run_result = await agent.run(
+        exec_ctx.prompt,
         deps=context,
-        event_stream_handler=event_handler,
+        event_stream_handler=exec_ctx.event_handler,
     )
+
+    print(f"DEBUG: agent.run() completed successfully", file=sys.stderr)
+    sys.stderr.flush()
+
+    if exec_ctx.emit_status is not None and exec_ctx.started_at is not None:
+        from time import perf_counter
+        exec_ctx.emit_status("end", duration=round(perf_counter() - exec_ctx.started_at, 2))
 
     # Extract all messages from the result
     messages = run_result.all_messages() if hasattr(run_result, 'all_messages') else []
 
     return (run_result.output, messages)
+
+
+def _default_agent_runner(
+    definition: WorkerDefinition,
+    user_input: Any,
+    context: WorkerContext,
+    output_model: Optional[Type[BaseModel]],
+) -> tuple[Any, List[Any]]:
+    """Synchronous wrapper around the async agent runner.
+
+    This provides backward compatibility for synchronous code that calls
+    run_worker(). It simply wraps the async implementation with asyncio.run().
+
+    Args:
+        definition: Worker definition with instructions and configuration
+        user_input: Input data for the worker
+        context: Worker execution context with tools and dependencies
+        output_model: Optional Pydantic model for structured output
+
+    Returns:
+        Tuple of (output, messages) where messages is the list of all messages
+        exchanged with the LLM during execution.
+    """
+    import asyncio
+    import sys
+
+    print(f"DEBUG: Sync runner wrapping async runner with asyncio.run()", file=sys.stderr)
+    sys.stderr.flush()
+
+    # Simply wrap the async version with asyncio.run()
+    return asyncio.run(
+        _default_agent_runner_async(definition, user_input, context, output_model)
+    )
 
 
 # worker delegation ---------------------------------------------------------
@@ -728,6 +973,50 @@ def call_worker(
     )
 
 
+async def call_worker_async(
+    registry: WorkerRegistry,
+    worker: str,
+    input_data: Any,
+    *,
+    caller_context: WorkerContext,
+    attachments: Optional[Sequence[AttachmentInput]] = None,
+    agent_runner: Optional[Callable] = None,
+    ) -> WorkerRunResult:
+    """Async version of call_worker for delegating to another worker.
+
+    This is the key function that enables nested worker calls without hanging.
+    By awaiting run_worker_async(), we stay within the same async context
+    instead of creating conflicting event loops.
+
+    Args:
+        registry: Source for worker definitions.
+        worker: Name of the worker to delegate to.
+        input_data: Input payload for the delegated worker.
+        caller_context: Context from the calling worker (for allowlist checks).
+        attachments: Optional files to pass to the delegated worker.
+        agent_runner: Optional async agent runner (defaults to async PydanticAI).
+
+    Returns:
+        WorkerRunResult from the delegated worker.
+    """
+    allowed = caller_context.worker.allow_workers
+    if allowed:
+        allowed_set = set(allowed)
+        if "*" not in allowed_set and worker not in allowed_set:
+            raise PermissionError(f"Delegation to '{worker}' is not allowed")
+    return await run_worker_async(
+        registry=registry,
+        worker=worker,
+        input_data=input_data,
+        caller_effective_model=caller_context.effective_model,
+        attachments=attachments,
+        creation_defaults=caller_context.creation_defaults,
+        agent_runner=agent_runner,
+        message_callback=caller_context.message_callback,
+        approval_callback=caller_context.approval_controller.approval_callback,
+    )
+
+
 # worker creation -----------------------------------------------------------
 
 def create_worker(
@@ -748,6 +1037,109 @@ def create_worker(
 
 # run_worker ----------------------------------------------------------------
 
+async def run_worker_async(
+    *,
+    registry: WorkerRegistry,
+    worker: str,
+    input_data: Any,
+    attachments: Optional[Sequence[AttachmentInput]] = None,
+    caller_effective_model: Optional[ModelLike] = None,
+    cli_model: Optional[ModelLike] = None,
+    creation_defaults: Optional[WorkerCreationDefaults] = None,
+    agent_runner: Optional[Callable] = None,
+    approval_callback: ApprovalCallback = _auto_approve_callback,
+    message_callback: Optional[MessageCallback] = None,
+) -> WorkerRunResult:
+    """Execute a worker by name (async version).
+
+    This is the async entry point for running workers. It handles:
+    1. Loading the worker definition.
+    2. Setting up the runtime environment (sandboxes, tools, approvals).
+    3. Creating the execution context.
+    4. Awaiting the async agent runner.
+
+    Args:
+        registry: Source for worker definitions.
+        worker: Name of the worker to run.
+        input_data: Input payload for the worker.
+        attachments: Optional files to expose to the worker.
+        caller_effective_model: Inherited model from parent (used if worker has no model).
+        cli_model: Fallback model from CLI (used if neither worker nor parent has a model).
+        creation_defaults: Defaults for any new workers created during this run.
+        agent_runner: Optional async strategy for executing the agent (defaults to async PydanticAI).
+        approval_callback: Callback for tool approval requests.
+        message_callback: Callback for streaming events and progress updates.
+
+    Returns:
+        WorkerRunResult containing the final output and message history.
+    """
+    definition = registry.load_definition(worker)
+
+    defaults = creation_defaults or WorkerCreationDefaults()
+    sandbox_manager = SandboxManager(definition.sandboxes or defaults.default_sandboxes)
+
+    attachment_policy = definition.attachment_policy
+
+    attachment_payloads: List[AttachmentPayload] = []
+    if attachments:
+        for item in attachments:
+            if isinstance(item, AttachmentPayload):
+                attachment_payloads.append(item)
+                continue
+
+            display_name = str(item)
+            path = Path(item).expanduser().resolve()
+            attachment_payloads.append(
+                AttachmentPayload(path=path, display_name=display_name)
+            )
+
+    attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
+
+    effective_model = definition.model or caller_effective_model or cli_model
+
+    approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
+    sandbox_tools = SandboxToolset(sandbox_manager, approvals)
+
+    context = WorkerContext(
+        registry=registry,
+        worker=definition,
+        sandbox_manager=sandbox_manager,
+        sandbox_toolset=sandbox_tools,
+        creation_defaults=defaults,
+        effective_model=effective_model,
+        attachments=attachment_payloads,
+        approval_controller=approvals,
+        message_callback=message_callback,
+    )
+
+    output_model = registry.resolve_output_schema(definition)
+
+    # Use the provided agent_runner or default to the async version
+    if agent_runner is None:
+        result = await _default_agent_runner_async(definition, input_data, context, output_model)
+    else:
+        # Support both sync and async agent runners
+        import inspect
+        if inspect.iscoroutinefunction(agent_runner):
+            result = await agent_runner(definition, input_data, context, output_model)
+        else:
+            result = agent_runner(definition, input_data, context, output_model)
+
+    # Handle both old-style (output only) and new-style (output, messages) returns
+    if isinstance(result, tuple) and len(result) == 2:
+        raw_output, messages = result
+    else:
+        raw_output = result
+        messages = []
+
+    if output_model is not None:
+        output = output_model.model_validate(raw_output)
+    else:
+        output = raw_output
+
+    return WorkerRunResult(output=output, messages=messages)
+
+
 def run_worker(
     *,
     registry: WorkerRegistry,
@@ -761,6 +1153,29 @@ def run_worker(
     approval_callback: ApprovalCallback = _auto_approve_callback,
     message_callback: Optional[MessageCallback] = None,
 ) -> WorkerRunResult:
+    """Execute a worker by name.
+
+    This is the primary entry point for running workers. It handles:
+    1. Loading the worker definition.
+    2. Setting up the runtime environment (sandboxes, tools, approvals).
+    3. Creating the execution context.
+    4. Delegating the actual agent loop to the provided ``agent_runner``.
+
+    Args:
+        registry: Source for worker definitions.
+        worker: Name of the worker to run.
+        input_data: Input payload for the worker.
+        attachments: Optional files to expose to the worker.
+        caller_effective_model: Inherited model from parent (used if worker has no model).
+        cli_model: Fallback model from CLI (used if neither worker nor parent has a model).
+        creation_defaults: Defaults for any new workers created during this run.
+        agent_runner: Strategy for executing the agent (defaults to PydanticAI).
+        approval_callback: Callback for tool approval requests.
+        message_callback: Callback for streaming events and progress updates.
+
+    Returns:
+        WorkerRunResult containing the final output and message history.
+    """
     definition = registry.load_definition(worker)
 
     defaults = creation_defaults or WorkerCreationDefaults()
@@ -839,7 +1254,9 @@ __all__: Iterable[str] = [
     "WorkerRegistry",
     "WorkerRunResult",
     "run_worker",
+    "run_worker_async",
     "call_worker",
+    "call_worker_async",
     "create_worker",
     "SandboxManager",
     "SandboxToolset",

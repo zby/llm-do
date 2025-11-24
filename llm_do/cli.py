@@ -43,6 +43,7 @@ from .base import (
 )
 from .cli_display import (
     display_worker_request,
+    display_worker_status,
     display_streaming_model_response,
     display_streaming_tool_call,
     display_streaming_tool_result,
@@ -156,6 +157,10 @@ def _build_streaming_callback(console: Console):
                 preview = payload.get("initial_request")
                 if preview is not None:
                     display_worker_request(console, worker, preview)
+                    continue
+                status = payload.get("status")
+                if status is not None:
+                    display_worker_status(console, worker, status)
                     continue
                 event = payload.get("event")
             else:

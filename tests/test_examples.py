@@ -483,3 +483,14 @@ def test_all_example_workers_load_successfully():
     orchestrator_def = pitch_registry.load_definition("pitch_orchestrator")
     assert orchestrator_def.name == "pitch_orchestrator"
     assert orchestrator_def.allow_workers is not None
+
+    # Whiteboard planner (in examples/whiteboard_planner/workers/whiteboard_planner.yaml)
+    whiteboard_registry = WorkerRegistry(examples_dir / "whiteboard_planner")
+    planner_def = whiteboard_registry.load_definition("whiteboard_planner")
+    assert planner_def.name == "whiteboard_planner"
+    assert planner_def.attachment_policy is not None
+
+    # Whiteboard orchestrator (in examples/whiteboard_planner/workers/whiteboard_orchestrator.yaml)
+    wb_orchestrator_def = whiteboard_registry.load_definition("whiteboard_orchestrator")
+    assert wb_orchestrator_def.name == "whiteboard_orchestrator"
+    assert wb_orchestrator_def.allow_workers is not None

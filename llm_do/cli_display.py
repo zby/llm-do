@@ -145,6 +145,36 @@ def display_streaming_model_response(console: Console, worker: str, text: str) -
     ))
 
 
+def display_worker_status(console: Console, worker: str, status: Mapping[str, Any]) -> None:
+    """Display status updates emitted by the runtime (e.g., model call start/end)."""
+
+    phase = status.get("phase")
+    state = status.get("state")
+    model_name = status.get("model")
+    duration = status.get("duration_sec")
+
+    if phase == "model_request":
+        if state == "start":
+            message = f"Calling {model_name or 'model'}..."
+        elif state == "end":
+            if duration is not None:
+                message = f"{model_name or 'Model'} finished in {duration:.2f}s"
+            else:
+                message = f"{model_name or 'Model'} finished"
+        else:
+            message = f"Model state: {state or 'unknown'}"
+        body: JSON | Text = Text(message, style="cyan")
+    else:
+        body = render_json_or_text(status)
+
+    console.print()
+    console.print(Panel(
+        body,
+        title=f"[bold blue]{worker} ▷ Status[/bold blue]",
+        border_style="blue",
+    ))
+
+
 def display_worker_request(
     console: Console,
     worker: str,

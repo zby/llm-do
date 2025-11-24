@@ -174,6 +174,7 @@ class WorkerContext:
     approval_controller: Any  # ApprovalController - defined in runtime.py
     attachments: List[AttachmentPayload] = field(default_factory=list)
     message_callback: Optional[MessageCallback] = None
+    custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
 
     def validate_attachments(
         self, attachment_specs: Optional[Sequence[Union[str, Path]]]

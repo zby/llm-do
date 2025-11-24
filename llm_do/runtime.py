@@ -262,8 +262,13 @@ def _prepare_agent_execution(
 # ---------------------------------------------------------------------------
 
 
-def _register_worker_tools(agent: Agent) -> None:
-    """Expose built-in llm-do helpers as PydanticAI tools."""
+def _register_worker_tools(agent: Agent, context: WorkerContext) -> None:
+    """Expose built-in llm-do helpers and custom tools as PydanticAI tools.
+
+    Registers:
+    1. Built-in tools (sandbox_*, worker_call, worker_create)
+    2. Custom tools from tools.py if available
+    """
 
     @agent.tool(name="sandbox_list", description="List files within a sandbox using a glob pattern")
     def sandbox_list(
@@ -325,6 +330,61 @@ def _register_worker_tools(agent: Agent) -> None:
             output_schema_ref=output_schema_ref,
             force=force,
         )
+
+    # Load and register custom tools if available
+    if context.custom_tools_path:
+        _load_custom_tools(agent, context)
+
+
+def _load_custom_tools(agent: Agent, context: WorkerContext) -> None:
+    """Load and register custom tools from tools.py module.
+
+    Custom tools are functions defined in the tools.py file in the worker's directory.
+    Each function should have appropriate type hints and a docstring.
+
+    The tools are registered with the agent and subject to the same approval
+    rules as built-in tools via tool_rules in the worker definition.
+    """
+    import importlib.util
+    import sys
+
+    tools_path = context.custom_tools_path
+    if not tools_path or not tools_path.exists():
+        return
+
+    # Load the module from the file path
+    spec = importlib.util.spec_from_file_location(f"{context.worker.name}_tools", tools_path)
+    if spec is None or spec.loader is None:
+        logger.warning(f"Could not load custom tools from {tools_path}")
+        return
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+
+    try:
+        spec.loader.exec_module(module)
+    except Exception as e:
+        logger.error(f"Error loading custom tools from {tools_path}: {e}")
+        return
+
+    # Register all callable functions from the module as tools
+    # Functions with names starting with _ are considered private
+    import inspect
+    for name in dir(module):
+        if name.startswith("_"):
+            continue
+
+        obj = getattr(module, name)
+        if not (callable(obj) and inspect.isfunction(obj) and obj.__module__ == module.__name__):
+            continue
+
+        # Register using tool_plain since custom tools don't need WorkerContext
+        try:
+            # Use the function's existing signature and docstring
+            agent.tool_plain(name=name, description=obj.__doc__ or f"Custom tool: {name}")(obj)
+            logger.debug(f"Registered custom tool: {name}")
+        except Exception as e:
+            logger.warning(f"Could not register custom tool '{name}': {e}")
 
 
 async def _worker_call_tool_async(
@@ -499,7 +559,7 @@ async def _default_agent_runner_async(
 
     # Create Agent
     agent = Agent(**exec_ctx.agent_kwargs)
-    _register_worker_tools(agent)
+    _register_worker_tools(agent, context)
 
     # Run the agent asynchronously
     run_result = await agent.run(
@@ -685,6 +745,7 @@ async def run_worker_async(
         WorkerRunResult containing the final output and message history.
     """
     definition = registry.load_definition(worker)
+    custom_tools_path = registry.find_custom_tools(worker)
 
     defaults = creation_defaults or WorkerCreationDefaults()
     sandbox_manager = SandboxManager(definition.sandboxes or defaults.default_sandboxes)
@@ -721,6 +782,7 @@ async def run_worker_async(
         attachments=attachment_payloads,
         approval_controller=approvals,
         message_callback=message_callback,
+        custom_tools_path=custom_tools_path,
     )
 
     output_model = registry.resolve_output_schema(definition)
@@ -787,6 +849,7 @@ def run_worker(
         WorkerRunResult containing the final output and message history.
     """
     definition = registry.load_definition(worker)
+    custom_tools_path = registry.find_custom_tools(worker)
 
     defaults = creation_defaults or WorkerCreationDefaults()
     sandbox_manager = SandboxManager(definition.sandboxes or defaults.default_sandboxes)
@@ -823,6 +886,7 @@ def run_worker(
         attachments=attachment_payloads,
         approval_controller=approvals,
         message_callback=message_callback,
+        custom_tools_path=custom_tools_path,
     )
 
     output_model = registry.resolve_output_schema(definition)

@@ -76,12 +76,15 @@ Check the `examples/` directory for additional patterns:
 - **[`greeter/`](examples/greeter/)** — Minimal conversational worker (shown above)
 - **[`pitchdeck_eval/`](examples/pitchdeck_eval/)** — Multi-worker orchestration with PDF analysis (shown above)
 - **[`approvals_demo/`](examples/approvals_demo/)** — A demo for tool approval system
+- **[`calculator/`](examples/calculator/)** — Custom tools example with mathematical functions
+- **[`screen_analyzer/`](examples/screen_analyzer/)** — ACI/Computer Use integration pattern
 - **`bootstrapping_pitchdeck_eval/`** — Autonomous worker creation workflow
 
 ## Key Features
 
 - **Sandboxed file access**: Workers can only read/write within declared directories, with suffix filters and size limits
 - **Worker delegation**: Workers call other workers like functions, with built-in allowlists and validation
+- **Custom tools**: Add Python functions as tools in `workers/name/tools.py` for domain-specific operations
 - **Tool approval system**: Configure which operations run automatically vs. require human review
 - **Autonomous worker creation**: Let workers draft new worker definitions (requires approval)
 - **Jinja2 templating**: Include files and compose prompts with `{{ file() }}` and `{% include %}`
@@ -115,6 +118,21 @@ sandboxes:
 # From within a worker's tools
 result = worker_call("pitch_evaluator", attachments=["deck.pdf"])
 ```
+
+**Custom tools** extend workers with Python code:
+```python
+# workers/calculator/tools.py
+def calculate_fibonacci(n: int) -> int:
+    """Calculate the nth Fibonacci number."""
+    if n <= 1:
+        return n
+    a, b = 0, 1
+    for _ in range(2, n + 1):
+        a, b = b, a + b
+    return b
+```
+
+Functions in `tools.py` are automatically registered as tools the LLM can call. See [`examples/calculator/`](examples/calculator/) for a complete example.
 
 See [`docs/worker_delegation.md`](docs/worker_delegation.md) for detailed design.
 

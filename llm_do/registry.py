@@ -43,13 +43,18 @@ class WorkerRegistry:
             return [base if base.is_absolute() else (self.root / base)]
 
         candidates = [
+            # Simple form: workers/name.yaml
             self.root / "workers" / f"{name}.yaml",
+            # Directory form: workers/name/worker.yaml
+            self.root / "workers" / name / "worker.yaml",
+            # Generated simple form
             self.root / "workers" / "generated" / f"{name}.yaml",
         ]
 
-        # Add built-in path
-        builtin_path = Path(__file__).parent / "workers" / f"{name}.yaml"
-        candidates.append(builtin_path)
+        # Add built-in paths (both forms)
+        builtin_simple = Path(__file__).parent / "workers" / f"{name}.yaml"
+        builtin_dir = Path(__file__).parent / "workers" / name / "worker.yaml"
+        candidates.extend([builtin_simple, builtin_dir])
 
         return candidates
 
@@ -70,13 +75,39 @@ class WorkerRegistry:
         content = path.read_text(encoding="utf-8")
         return yaml.safe_load(content) or {}
 
+    def find_custom_tools(self, name: str) -> Optional[Path]:
+        """Find custom tools module for a worker.
+
+        Checks for tools.py in the same directory as the worker definition.
+        Only applies to directory-based workers (workers/name/worker.yaml).
+
+        Args:
+            name: Worker name
+
+        Returns:
+            Path to tools.py if it exists, None otherwise
+        """
+        path = self._definition_path(name)
+        if not path.exists():
+            return None
+
+        # Only directory-based workers can have custom tools
+        # Check if this is workers/name/worker.yaml pattern
+        if path.name == "worker.yaml":
+            tools_path = path.parent / "tools.py"
+            if tools_path.exists():
+                return tools_path
+
+        return None
+
     def load_definition(self, name: str) -> WorkerDefinition:
         """Load a worker definition by name.
 
         Searches in order:
         1. {root}/workers/{name}.yaml
-        2. {root}/workers/generated/{name}.yaml
-        3. Built-in workers (llm_do/workers/{name}.yaml)
+        2. {root}/workers/{name}/worker.yaml (directory form)
+        3. {root}/workers/generated/{name}.yaml
+        4. Built-in workers (llm_do/workers/{name}.yaml or llm_do/workers/{name}/worker.yaml)
 
         Args:
             name: Worker name to load

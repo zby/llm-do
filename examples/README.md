@@ -92,6 +92,17 @@ The CLI returns JSON with the worker result:
 
 Use `--pretty` for formatted output.
 
+## Tooling examples
+
+Additional workers demonstrate tool integrations located alongside their YAML:
+
+- `examples/tooling/local_tools/worker.yaml` shows how to ship worker-local
+  Python tools and sandboxes together.
+- `examples/tooling/aci_researcher/worker.yaml` wires up the ACI.dev toolkit
+  from `pydantic-ai` (install with `pydantic-ai[aci]`).
+- `examples/tooling/langchain_tools/worker.yaml` bridges LangChain community
+  tools using the `pydantic-ai` LangChain integration.
+
 ## Next Steps
 
 - Try creating a worker with sandboxed file access

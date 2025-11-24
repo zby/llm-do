@@ -198,6 +198,8 @@ def test_call_worker_respects_allowlist(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        worker_path=registry._definition_path(parent_def.name),
+        project_root=registry.root,
     )
 
     result = call_worker(

@@ -14,164 +14,128 @@ A **worker** = prompt template + configuration + tools, packaged as an executabl
 
 ## Why This Matters
 
-### The Context Bloat Problem
+**The LLM context problem**: LLM behavior is context-sensitive. Unlike traditional compilers where unused code is ignored, adding more text to an LLM prompt can degrade results. Large prompts bloat, drift, and fail unpredictably. When you batch everything into a single prompt, the LLM loses focus.
 
-Large workflows with bloated prompts tend to drift and fail unpredictably. When you batch everything into a single prompt, the LLM loses focus and results become inconsistent.
+**The solution**: Workers with isolated contexts, connected through three mechanisms:
 
-**Solution**: Decompose into focused sub-calls with tightly scoped inputs. Each worker call handles a single unit of work (e.g., "evaluate exactly this PDF with this procedure") rather than trying to process everything at once. This keeps each call grounded and reproducible.
+1. **Worker delegation** (`worker_call`) — Decompose workflows into focused sub-calls. Each worker handles one unit of work (e.g., "evaluate this PDF with this rubric") with its own instructions, model, and tools. No bloated catch-all prompts.
 
-### The Recursive Call Problem
+2. **Autonomous worker creation** (`worker_create`) — Workers propose specialized sub-workers when needed. This is same-language metaprogramming: the LLM that executes workers also writes them. Created definitions are saved to disk for review, refinement, and reuse.
 
-Making workers call other workers needs to be natural and composable. In many frameworks, templates and tools live in separate worlds, forcing awkward workarounds.
+3. **Progressive hardening** — Refine created workers over time: edit prompts, add schemas, lock allowlists, extract logic to Python. Orchestrators delegate to vetted workers instead of fragile inline instructions.
 
-**llm-do solves this** by treating workers as first-class executables where recursive invocation is a natural primitive. This enables:
-- **Composability**: Common patterns become reusable building blocks vs. bespoke scripts
-- **Uniformity**: Sub-calls inherit the same auditing, logging, and security guarantees as top-level invocations
-- **Programmer ergonomics**: Clean recursion is easier to reason about than ad-hoc orchestration glue
+**What this enables**:
+- **Composability**: Recursive calls feel like function calls, not orchestration glue
+- **Autonomy**: Workers identify when they need specialized handlers and create them
+- **Control**: Approval gates, security boundaries (sandboxes, tool rules), progressive refinement
+- **Reproducibility**: Every sub-call is explicit, loggable, auditable
 
-### The Self-Scaffolding Problem
-
-Most LLM orchestration systems require you to manually write workflow code. But LLMs are good at decomposing tasks—they can identify when a subtask needs specialized handling and what that handler should look like.
-
-**Solution**: Let workers create new workers autonomously, subject to approval controls. The LLM identifies the need, generates the worker definition, and the system manages approval before saving/using it. The saved file becomes the artifact for progressive hardening.
+**Design implications**:
+- Optimize for context isolation, not just code reuse
+- Worker definitions are the primary boundary for security and side-effects
+- Meta-workers (that create other workers) are long-lived components, not scaffolding
 
 ## Key Capabilities
 
-Four primitives enable this:
+Four primitives implement these mechanisms:
 
 ### 1. Sandboxed File Access
-Workers can read/write files through explicitly configured sandboxes:
-- Each sandbox has a root directory and access mode (read-only or writable)
-- Path escapes (`..` or absolute paths) are blocked by design
+Workers read/write files through explicitly configured sandboxes. Security by construction:
+- Root directory and access mode (read-only or writable) declared per sandbox
+- Path escapes (`..`, absolute paths) blocked by design
 - File size limits prevent resource exhaustion
-- Multiple sandboxes can be exposed to different parts of the workflow
-
-**Motivation**: Security by construction. Prevent sandbox escapes and resource bombs through toolbox design, not by hoping the LLM follows instructions.
+- Suffix filters control which file types can be read/written
 
 ### 2. Worker-to-Worker Delegation
-Workers can invoke other workers with controlled inputs:
+The `worker_call` tool with enforcement layers:
 - Allowlists restrict which workers can be called
-- Attachment validation (count, size, file extensions) happens before execution
-- Model inheritance follows a clear chain: worker definition → caller's model → CLI model → error
-- Tool access and allowlists are NOT inherited (each worker declares its own)
+- Attachment validation (count, size, extensions) happens before execution
+- Model inheritance: worker definition → caller's model → CLI model → error
+- Tool access NOT inherited—each worker declares its own
 - Results can be structured (validated JSON) or freeform text
 
-**Motivation**: Enable the two-step pattern (choose → act) and multi-stage workflows. Each worker has tight, focused context. Refining one worker doesn't require touching others.
-
-**Concrete benefits**:
-- **Tight context**: Each sub-call scoped to single unit of work, not batching into bloated prompt
-- **Guardrails by construction**: File size caps, suffix restrictions, locks enforced in code, not by hoping LLM respects instructions
-- **Reproducibility**: Sub-calls are explicit, loggable, re-runnable, auditable—you can trace exactly which worker processed which files with which parameters
-- **Iteration speed**: Refine one worker without touching others, they evolve independently
-
-### 3. Tool Call Approval System
-Sophisticated control over which tools can be invoked without user intervention:
-- **Pre-approved tools**: Benign operations (read files, call specific workers) execute automatically
-- **Human-in-the-loop approval**: Potentially dangerous operations (write files, create workers, call arbitrary external APIs) require explicit user approval before execution
-- **Configurable policies**: Workers can specify which tools require approval, with sensible defaults
-- **Approval context**: User sees the full tool invocation (arguments, context) and can approve, reject, or modify
-
-**Motivation**: Balance autonomy with control. Let workers operate efficiently for safe operations while ensuring humans stay in the loop for consequential actions. This is critical for trust and safety.
+### 3. Tool Approval System
+Configurable control over which operations require human approval:
+- **Pre-approved**: Benign operations (read files, call specific workers) execute automatically
+- **Approval-required**: Consequential operations (writes, worker creation, external APIs) require explicit user approval
+- **Approval context**: User sees full invocation (tool name, arguments, attachments)
+- **Session approvals**: Approve once for repeated identical calls
 
 ### 4. Autonomous Worker Creation
-Workers can create specialized sub-workers when they identify the need:
-- Worker calls `create_worker(...)` with prompt, schema, and tool config
-- Subject to tool approval policy (typically requires human approval)
-- User reviews the proposed definition, can edit or reject before saving
+The `worker_create` tool, subject to approval:
+- Worker proposes: name, instructions, optional schema/model
+- User reviews definition, can edit or reject before saving
 - Created workers start with minimal permissions (principle of least privilege)
-- Saved definition is immediately executable
-
-**Motivation**: Autonomous task decomposition with human-in-the-loop control. Worker creation is just one instance of the general tool approval system—no special case needed.
+- Saved definition is immediately executable and refinable
 
 ## Progressive Hardening
 
-The workflow for evolving a worker from prototype to production:
+Workers start flexible, then harden as patterns stabilize:
 
-1. **Autonomous creation**: Worker creates specialized sub-worker, user approves saved definition
-2. **Testing**: Run tasks using the created worker, observe behavior
-3. **Iteration**: Edit the saved definition—refine prompts, add schemas, tune models
-4. **Locking**: Pin orchestrators to vetted worker definitions via allowlists
-5. **Migration**: Extract operations that should be deterministic (scoring math, formatting) from prompts into tested Python functions
+1. **Autonomous creation** — Worker creates sub-worker, user approves saved definition
+2. **Testing** — Run tasks, observe behavior
+3. **Iteration** — Edit definition: refine prompts, add schemas, tune models
+4. **Locking** — Pin orchestrators to vetted workers via allowlists
+5. **Migration** — Extract deterministic operations (scoring, formatting) to tested Python
 
-**Example progression:**
-- **Day 1**: Orchestrator creates `evaluator` worker, user approves
-- **Week 1**: Test runs reveal inconsistencies, user refines prompt
-- **Week 2**: Add structured output schema for validation
+**Example**:
+- **Day 1**: Orchestrator creates `evaluator`, user approves
+- **Week 1**: Test runs reveal drift, refine prompt
+- **Week 2**: Add structured output schema
 - **Week 3**: Extract scoring logic to Python toolbox with tests
-- **Week 4**: Worker calls `compute_score()`, math is stable
-
-Replace workers or extract operations to tested Python code as needed.
+- **Week 4**: Worker calls `compute_score()`, math is now deterministic
 
 ## Design Principles
 
-1. **Prompts as executables**: Workers are self-contained units (prompt + config + tools) you can run from CLI or invoke from other workers
+1. **Prompts as executables** — Workers are self-contained units you can run from CLI or invoke from other workers
 
-2. **Workers as artifacts**: Generated workers are saved to disk, version controlled, auditable, refinable by programmers
+2. **Workers as artifacts** — Saved to disk, version controlled, auditable, refinable by programmers
 
-3. **Security by construction**: Sandbox escapes, file size bombs, arbitrary code execution prevented by toolbox design, not LLM instruction-following. Created workers start with minimal permissions.
+3. **Security by construction** — Sandboxes, attachment validation, approval enforcement happen in code, not by hoping the LLM follows instructions
 
-4. **Explicit configuration**: Tool access and worker allowlists declared in definitions, not inherited. Model selection uses a well-defined fallback chain (worker definition → caller → CLI) for convenience while remaining predictable
+4. **Explicit configuration** — Tool access and worker allowlists declared in definitions, not inherited. Model selection follows a predictable chain: worker definition → caller → CLI
 
-5. **Recursive composability**: Workers calling workers should feel like function calls, not template loading gymnastics. The architecture should make this natural.
+5. **Recursive composability** — Workers calling workers should feel like function calls, not orchestration glue
 
-6. **Sophisticated approval controls**: Balance autonomy with safety through configurable tool approval policies. Pre-approve benign operations, require human approval for consequential actions. Worker creation, file writes, and external API calls are subject to approval, not special-cased.
+6. **Approval controls** — Balance autonomy with safety. Pre-approve benign operations, require approval for consequential actions. No special cases.
 
 ## Architecture
 
-llm-do provides a complete runtime for worker execution built on PydanticAI:
+Built on [PydanticAI](https://ai.pydantic.dev/) for agent runtime and structured outputs.
 
-1. **Workers as first-class executables**
-   - Worker = template + config + tools as a loadable, runnable unit
-   - Standard invocation interface: `run_worker(registry, worker, input_data, ...)`
-   - Tools access the worker registry naturally through `WorkerContext`
+**Core modules** (see [`docs/dependency_injection.md`](dependency_injection.md) for DI architecture):
+- `runtime.py` — Worker orchestration, delegation, creation lifecycle
+- `protocols.py` — Interface definitions for dependency injection
+- `tools.py` — Tool registration (sandboxes, worker_call, worker_create, custom tools)
+- `execution.py` — Agent runners and execution context
+- `approval.py` — Approval enforcement and session tracking
+- `types.py` — Type definitions and data models
+- `registry.py` — Worker definition loading and persistence
+- `sandbox.py` — Sandboxed filesystem operations
 
-2. **Built-in delegation primitives**
-   - `worker_call` tool is part of the core runtime
-   - Worker loading, validation, and execution happen transparently
-   - Recursive calls feel like function calls
+**Key patterns**:
+- Protocol-based DI enables recursive worker calls without circular imports
+- Security boundaries enforced in code (sandboxes, attachments, approvals)
+- Workers as first-class executables with standard invocation: `run_worker(registry, worker, input_data, ...)`
 
-3. **Integrated tool approval system**
-   - Configurable policies for which tools require human approval
-   - Pre-approved tools (reads, specific worker calls) execute automatically
-   - Approval-required tools (writes, worker creation, external APIs) prompt user with full context
-   - User can approve, reject, or approve for session
-   - Sensible defaults with ability to customize per worker or per tool
-
-4. **Worker creation as a first-class capability**
-   - Workers can propose new definitions when they identify the need
-   - Subject to tool approval policies (no special case)
-   - User reviews proposed definition, can edit or reject before saving
-   - Created workers start with safe defaults (minimal permissions)
-   - Approved definitions are immediately runnable and refinable
-
-5. **Security by construction**
-   - Sandboxed file access with escape prevention
-   - Attachment validation (size, count, suffix)
-   - Worker allowlists and locks
-   - No inline code execution
-   - Explicit permission grants for created workers
-
-See [`../examples/pitchdeck_eval/`](../examples/pitchdeck_eval/) for a complete multi-worker orchestration example.
+See [`../examples/pitchdeck_eval/`](../examples/pitchdeck_eval/) for a complete multi-worker example.
 
 ## Why llm-do vs. Hard-Coded Scripts?
 
 Hard-coding in Python is fine for stable workflows. llm-do provides complementary benefits:
 
-- **Autonomous decomposition**: Workers identify when they need specialized sub-workers and create them—no manual scaffolding
-- **Balanced control**: Tool approval system lets workers operate efficiently for safe operations while keeping humans in the loop for consequential actions
-- **Iteration speed**: Edit worker definitions → re-run, vs. code → test → deploy
-- **Composability**: Recursive worker calls via `worker_call` make complex workflows into building blocks
-- **Progressive refinement**: Start with generated definition, harden incrementally, migrate logic to Python when stable
-- **Reproducibility**: Every sub-call is explicit, loggable, auditable—you can trace exactly what happened
+- **Autonomous decomposition** — Workers create specialized sub-workers when needed, no manual scaffolding
+- **Context control** — Decompose into focused calls with isolated contexts instead of bloated prompts
+- **Iteration speed** — Edit definitions and re-run vs. code → test → deploy
+- **Progressive refinement** — Start flexible, harden incrementally, migrate logic to Python when stable
+- **Reproducibility** — Every sub-call explicit, loggable, auditable
 
-Workers provide the right abstraction for LLM orchestration. Python handles deterministic operations. Workers can scaffold specialized sub-workers when needed, subject to approval controls.
+Workers handle LLM orchestration. Python handles deterministic operations. They complement each other.
 
 ## Summary
 
-llm-do treats prompts as executables by packaging them with configuration (model, tools, schemas, security constraints) into workers that LLMs interpret.
+llm-do treats prompts as executables—packaged with configuration (model, tools, schemas, security) into workers that LLMs interpret.
 
-**Key capabilities**: Worker-to-worker delegation, sandboxed file access, tool approval system, autonomous worker creation.
+**Key mechanisms**: Worker delegation (decomposition), worker creation (metaprogramming), progressive hardening (refinement).
 
-**Progressive hardening**: Start with flexible prompts, extract deterministic operations to tested Python code as systems grow and compose.
-
-Built on [PydanticAI](https://ai.pydantic.dev/) for agent runtime and structured outputs.
+**Key primitives**: Sandboxed file access, tool approval system, worker registry, protocol-based DI.

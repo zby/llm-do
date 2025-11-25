@@ -193,13 +193,28 @@ They are orthogonal:
 
 When a worker calls another worker:
 - Attachments must be in caller's sandbox
+- Attachments are validated against `attachment_policy` (count, size, suffixes)
+- Attachments can require `sandbox.read` approval before sharing
 - Child worker uses its OWN sandbox (from its definition)
 
 ```python
 def worker_call(worker_name: str, attachments: list[str] = None):
-    # Attachments validated against caller's sandbox
-    # Child worker uses its own sandbox config
+    # 1. Attachments validated against caller's sandbox
+    # 2. AttachmentPolicy enforced (count, bytes, suffixes)
+    # 3. sandbox.read approval checked (if configured)
+    # 4. Child worker uses its own sandbox config
 ```
+
+To require approval for sharing files with delegated workers:
+
+```yaml
+tool_rules:
+  sandbox.read:
+    allowed: true
+    approval_required: true  # User approves each attachment
+```
+
+See [worker_delegation.md](worker_delegation.md) for full details.
 
 ---
 

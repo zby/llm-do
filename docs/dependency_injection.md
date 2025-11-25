@@ -15,8 +15,11 @@ result = await agent.run(input_data, deps=context)
 
 # Tools receive context via RunContext
 @agent.tool
-async def sandbox_read_text(ctx: RunContext[WorkerContext], sandbox_name: str, ...):
-    return ctx.deps.sandbox_toolset.read_text(sandbox_name, ...)
+async def read_file(ctx: RunContext[WorkerContext], path: str, ...):
+    # File operations are handled through registered Sandbox toolset
+    # Tools like read_file, write_file, list_files are registered automatically
+    # based on the worker's sandbox configuration
+    ...
 ```
 
 This follows PydanticAI conventions exactly. See [`tools.py`](../llm_do/tools.py) for examples.

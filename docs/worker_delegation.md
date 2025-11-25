@@ -57,15 +57,16 @@ def worker_create(
 ### Programmer-Facing API
 
 ```python
-from llm_do.pydanticai import call_worker
+from llm_do import call_worker, WorkerContext
 
+# call_worker requires a caller_context (from parent worker)
+# For programmatic use, you'd typically call run_worker instead
 result = call_worker(
-    worker_name="evaluator",
-    input_data={"rubric": "Evaluate this pitch deck thoroughly"},
-    attachments=["input/deck.pdf"],
-    model="claude-sonnet-4",  # Optional override
     registry=worker_registry,
-    approval_callback=approve_all_callback,
+    worker="evaluator",
+    input_data={"rubric": "Evaluate this pitch deck thoroughly"},
+    caller_context=parent_context,  # Required: WorkerContext from calling worker
+    attachments=["input/deck.pdf"],
 )
 ```
 
@@ -111,11 +112,36 @@ The runtime:
 1. Resolves the path inside that sandbox
 2. Blocks escape attempts (`..` or absolute paths)
 3. Re-applies the caller's `attachment_policy` (count, total bytes, suffix allow/deny)
-4. Forwards validated files to the callee
+4. Checks `sandbox.read` approval for each attachment (if configured)
+5. Forwards validated files to the callee
 
 This keeps delegated attachments confined to data the caller already has permission to access.
 
-**Important**: `sandbox_read_text` is for UTF-8 text only. Configure `text_suffixes` on a sandbox to enumerate safe file types. Binary files (PDF, images, spreadsheets) should go through `attachments`, not `sandbox_read_text`. Combine with `attachment_suffixes` to restrict which binaries can be shared with sub-workers.
+### Attachment Approval
+
+Attachments can require user approval before being shared with another worker. Configure via `tool_rules`:
+
+```yaml
+tool_rules:
+  sandbox.read:
+    allowed: true
+    approval_required: true  # User must approve each attachment
+```
+
+When approval is required, the user sees:
+- **Path**: Full sandbox-relative path (e.g., `input/secret.pdf`)
+- **Size**: File size in bytes
+- **Target worker**: Which worker will receive the file
+
+This allows users to review what data is being shared with delegated workers, even when `worker.call` itself is pre-approved.
+
+| `sandbox.read` setting | Behavior |
+|------------------------|----------|
+| Not configured | Attachments shared (backward compatible) |
+| `approval_required: false` | Attachments shared (auto-approved) |
+| `approval_required: true` | User prompted for each attachment |
+
+**Important**: `read_file` is for UTF-8 text only. Configure `suffixes` on a sandbox path to enumerate safe file types. Binary files (PDF, images, spreadsheets) should go through `attachments`, not `read_file`.
 
 ## Model Selection
 
@@ -134,19 +160,19 @@ Each worker configures which tools require approval via `tool_rules`:
 
 ```yaml
 tool_rules:
-  - name: sandbox.read
+  sandbox.read:
     allowed: true
-    approval_required: false  # Reads are pre-approved
+    approval_required: true  # Approve sharing files as attachments
 
-  - name: sandbox.write
+  sandbox.write:
     allowed: true
     approval_required: true  # Writes require user approval
 
-  - name: worker.call
+  worker.call:
     allowed: true
     approval_required: false  # Delegation pre-approved (if in allowlist)
 
-  - name: worker.create
+  worker.create:
     allowed: true
     approval_required: true  # Creating workers requires approval
 ```
@@ -158,7 +184,16 @@ When a tool with `approval_required: true` is called, the runtime gates it throu
 
 They can then approve, reject, or modify before execution. Session approvals remember approvals for identical calls during the same run.
 
-When `worker_call` sends attachments, the approval payload includes each sandbox-relative path and file size so the operator understands exactly which files will be shared with the delegated worker.
+### Approval Rules Reference
+
+| Rule | Controls | Payload shown to user |
+|------|----------|----------------------|
+| `sandbox.read` | Sharing files as attachments to `worker_call` | `{path, bytes, target_worker}` |
+| `sandbox.write` | Writing files via `write_file` | `{path}` |
+| `worker.call` | Delegating to another worker | `{worker, attachments}` |
+| `worker.create` | Creating new worker definitions | `{name, instructions, ...}` |
+
+**Note**: `sandbox.read` approval is separate from `worker.call` approval. You can pre-approve worker calls but still require approval for each attachment being shared.
 
 ## Autonomous Worker Creation
 
@@ -177,21 +212,24 @@ Workflow:
 
 ## Implementation Architecture
 
-Worker delegation is implemented in `llm_do/pydanticai/base.py`. Key components:
+Worker delegation is implemented in `llm_do/runtime.py`. Key components:
 
 **WorkerRegistry**: Manages loading/saving worker definitions from filesystem
 
-**SandboxManager**: Handles path resolution, escape prevention, and file validation
+**Sandbox**: Handles file access boundaries, path resolution, and escape prevention
+
+**AttachmentValidator**: Resolves attachment paths and enforces `AttachmentPolicy`
 
 **ApprovalController**: Manages tool approval rules and user callbacks
 
 **call_worker()** orchestrates the full delegation lifecycle:
 1. Load callee definition from registry
-2. Validate attachments against policy
-3. Compute effective model (callee → caller → CLI)
-4. Create WorkerContext with sandboxes and approval controller
-5. Build PydanticAI agent with tools
-6. Execute and return WorkerRunResult
+2. Resolve and validate attachments (via `AttachmentValidator`)
+3. Check `sandbox.read` approval for each attachment
+4. Compute effective model (callee → caller → CLI)
+5. Create WorkerContext with sandbox and approval controller
+6. Build PydanticAI agent with tools
+7. Execute and return WorkerRunResult
 
 **create_worker()** handles autonomous worker creation:
 1. Takes minimal WorkerSpec (name, instructions, description, schema, model)

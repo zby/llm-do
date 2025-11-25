@@ -35,7 +35,7 @@ class WorkerDefinition(BaseModel):
 
     name: str
     description: Optional[str] = None
-    instructions: Optional[str] = None  # Optional: can load from prompts/{name}.{txt,jinja2,j2,md}
+    instructions: Optional[str] = None  # Acts as the worker's system prompt. Optional: can load from prompts/{name}.{txt,jinja2,j2,md}
     model: Optional[str] = None
     output_schema_ref: Optional[str] = None
     sandboxes: Dict[str, SandboxConfig] = Field(default_factory=dict)

@@ -236,6 +236,9 @@ def _prepare_agent_execution(
         emit_status("start")
 
     # Prepare agent kwargs
+    # PydanticAI expects the system prompt under the "instructions" parameter,
+    # so even though WorkerDefinition refers to it as the worker's system
+    # prompt, we keep passing it under that legacy keyword here.
     agent_kwargs: Dict[str, Any] = dict(
         model=context.effective_model,
         instructions=definition.instructions,

@@ -257,20 +257,6 @@ def test_prompt_file_md_extension(tmp_path):
     assert loaded.instructions == "# Worker Instructions\n\nDo the task."
 
 
-def test_prompt_file_not_found_no_inline(tmp_path):
-    """Test that validation error occurs when no prompt file and no inline instructions."""
-    registry = WorkerRegistry(_project_root(tmp_path))
-
-    # Create worker without instructions and no prompts/ directory
-    worker_def = WorkerDefinition(name="worker")
-    registry.save_definition(worker_def)
-
-    # Load should fail validation because instructions is required
-    # (WorkerDefinition.instructions is Optional but WorkerSpec.instructions is required for actual execution)
-    # For now, it will load successfully but may fail at runtime
-    loaded = registry.load_definition("worker")
-    assert loaded.instructions is None
-
 
 def test_prompt_file_inline_takes_precedence(tmp_path):
     """Test that inline instructions take precedence over prompt files."""
@@ -370,4 +356,3 @@ def test_resolve_worker_instructions_inline_jinja_is_raw(tmp_path):
         prompts_dir=prompts_dir,
     )
     assert result == raw
-

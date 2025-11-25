@@ -139,7 +139,7 @@ The sandbox and shell tools need careful review of relative path handling to pre
 4. **Working directory assumptions**: Shell commands inherit cwd - is this always safe?
 
 ### Action Items
-- [ ] Audit `file_sandbox.py` for relative path normalization
+- [ ] Audit `filesystem_sandbox.py` for relative path normalization
 - [ ] Review shell tool's path argument extraction and validation
 - [ ] Test edge cases: `../../`, symlinks, absolute paths in sandboxed contexts
 - [ ] Document safe patterns for shell commands in sandboxes
@@ -148,7 +148,7 @@ The sandbox and shell tools need careful review of relative path handling to pre
 ### Related Code
 - `llm_do/shell.py:extract_path_arguments()`
 - `llm_do/shell.py:validate_paths_in_sandbox()`
-- `llm_do/file_sandbox.py:resolve()`
+- `llm_do/filesystem_sandbox.py:resolve()`
 
 ---
 

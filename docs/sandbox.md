@@ -208,7 +208,7 @@ def worker_call(worker_name: str, attachments: list[str] = None):
 ```
 llm_do/
 ├── protocols.py      # FileSandbox protocol
-├── file_sandbox.py   # FileSandboxImpl, config, errors
+├── filesystem_sandbox.py   # FileSandboxImpl, config, errors
 ├── sandbox_v2.py     # Sandbox extending FileSandbox
 ├── tools.py          # Tool registration using FileSandbox
 └── runtime.py        # Creates Sandbox, injects into tools
@@ -218,7 +218,7 @@ Dependency flow:
 ```
 protocols.py      ← defines FileSandbox protocol (no deps)
        ↑
-file_sandbox.py   ← implements FileSandbox
+filesystem_sandbox.py   ← implements FileSandbox
        ↑
 sandbox_v2.py     ← extends with network, OS enforcement
        ↑

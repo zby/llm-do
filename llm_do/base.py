@@ -25,7 +25,7 @@ from typing import Iterable
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxConfig, SandboxManager, SandboxToolset
 
 # Re-export new sandbox types
-from .file_sandbox import (
+from .filesystem_sandbox import (
     FileSandboxConfig,
     FileSandboxError,
     FileSandboxImpl,

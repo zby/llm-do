@@ -77,7 +77,7 @@ def _register_sandbox_tools(
     """Register sandbox file operations using FileSandbox protocol.
 
     These tools use the unified sandbox API with path format "sandbox_name/relative/path".
-    Tool implementations are defined in file_sandbox.py for reusability.
+    Tool implementations are defined in filesystem_sandbox.py for reusability.
     """
 
     @agent.tool(

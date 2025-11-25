@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from .file_sandbox import FileSandboxError
+from .filesystem_sandbox import FileSandboxError
 from .protocols import FileSandbox
 from .types import ShellDefault, ShellResult, ShellRule
 

@@ -19,7 +19,7 @@ from llm_do.shell import (
     validate_paths_in_sandbox,
 )
 from llm_do.types import ShellDefault, ShellResult, ShellRule
-from llm_do.file_sandbox import FileSandboxError
+from llm_do.filesystem_sandbox import FileSandboxError
 
 
 class TestParseCommand:

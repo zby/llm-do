@@ -6,7 +6,7 @@ This module extends the reusable FileSandbox with:
 - Future: OS-level enforcement integration
 
 The Sandbox class here is the llm-do specific version.
-The base FileSandboxImpl is in file_sandbox.py.
+The base FileSandboxImpl is in filesystem_sandbox.py.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from typing import Optional
 
 from pydantic import Field
 
-from .file_sandbox import (
+from .filesystem_sandbox import (
     FileSandboxConfig,
     FileSandboxImpl,
     PathConfig,

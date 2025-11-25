@@ -13,7 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 
-from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxConfig, SandboxManager, SandboxToolset
+from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxConfig as LegacySandboxConfig, SandboxManager, SandboxToolset
+from .sandbox_v2 import SandboxConfig as NewSandboxConfig
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +39,16 @@ class WorkerDefinition(BaseModel):
     instructions: Optional[str] = None  # Acts as the worker's system prompt. Optional: can load from prompts/{name}.{txt,jinja2,j2,md}
     model: Optional[str] = None
     output_schema_ref: Optional[str] = None
-    sandboxes: Dict[str, SandboxConfig] = Field(default_factory=dict)
+    # New unified sandbox config (preferred)
+    sandbox: Optional[NewSandboxConfig] = Field(
+        default=None,
+        description="New unified sandbox configuration (preferred over sandboxes)"
+    )
+    # Legacy sandbox config (deprecated, for backward compatibility)
+    sandboxes: Dict[str, LegacySandboxConfig] = Field(
+        default_factory=dict,
+        description="Legacy sandbox configuration (deprecated, use 'sandbox' instead)"
+    )
     attachment_policy: AttachmentPolicy = Field(default_factory=AttachmentPolicy)
     allow_workers: List[str] = Field(default_factory=list)
     tool_rules: Dict[str, ToolRule] = Field(default_factory=dict)
@@ -61,7 +71,13 @@ class WorkerCreationDefaults(BaseModel):
     """Host-configured defaults used when persisting workers."""
 
     default_model: Optional[str] = None
-    default_sandboxes: Dict[str, SandboxConfig] = Field(default_factory=dict)
+    # New unified sandbox config (preferred)
+    default_sandbox: Optional[NewSandboxConfig] = Field(
+        default=None,
+        description="New unified sandbox configuration (preferred)"
+    )
+    # Legacy sandbox config (for backward compatibility)
+    default_sandboxes: Dict[str, LegacySandboxConfig] = Field(default_factory=dict)
     default_attachment_policy: AttachmentPolicy = Field(
         default_factory=AttachmentPolicy
     )
@@ -83,6 +99,7 @@ class WorkerCreationDefaults(BaseModel):
             instructions=spec.instructions,
             model=spec.model or self.default_model,
             output_schema_ref=spec.output_schema_ref,
+            sandbox=self.default_sandbox.model_copy() if self.default_sandbox else None,
             sandboxes=sandboxes,
             attachment_policy=attachment_policy,
             allow_workers=allow_workers,

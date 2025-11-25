@@ -21,8 +21,21 @@ from __future__ import annotations
 
 from typing import Iterable
 
-# Re-export sandbox types
+# Re-export sandbox types (legacy)
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxConfig, SandboxManager, SandboxToolset
+
+# Re-export new sandbox types
+from .file_sandbox import (
+    FileSandboxConfig,
+    FileSandboxError,
+    FileSandboxImpl,
+    FileTooLargeError,
+    PathConfig,
+    PathNotInSandboxError,
+    PathNotWritableError,
+    SuffixNotAllowedError,
+)
+from .sandbox_v2 import Sandbox, SandboxConfig as NewSandboxConfig, sandbox_config_from_legacy
 
 # Re-export all types
 from .types import (
@@ -50,7 +63,7 @@ from .registry import WorkerRegistry
 from .approval import ApprovalController
 
 # Re-export protocols
-from .protocols import WorkerCreator, WorkerDelegator
+from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
 
 # Re-export tools
 from .tools import load_custom_tools, register_worker_tools
@@ -90,13 +103,26 @@ __all__: Iterable[str] = [
     "SandboxManager",
     "SandboxToolset",
     "WorkerContext",
-    # Protocols (new in Phase 2)
+    # Protocols
+    "FileSandbox",
     "WorkerCreator",
     "WorkerDelegator",
-    # Protocol implementations (new in Phase 4)
+    # Protocol implementations
     "RuntimeCreator",
     "RuntimeDelegator",
-    # Tools (new in Phase 2)
+    # Tools
     "load_custom_tools",
     "register_worker_tools",
+    # New sandbox classes
+    "FileSandboxConfig",
+    "FileSandboxError",
+    "FileSandboxImpl",
+    "FileTooLargeError",
+    "NewSandboxConfig",
+    "PathConfig",
+    "PathNotInSandboxError",
+    "PathNotWritableError",
+    "Sandbox",
+    "SuffixNotAllowedError",
+    "sandbox_config_from_legacy",
 ]

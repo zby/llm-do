@@ -26,8 +26,9 @@ from pydantic_ai.tools import RunContext
 
 from .approval import ApprovalController
 from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
-from .protocols import WorkerCreator, WorkerDelegator
+from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
 from .sandbox import AttachmentInput, AttachmentPayload, SandboxManager, SandboxToolset
+from .sandbox_v2 import Sandbox, SandboxConfig, sandbox_config_from_legacy
 from .tools import register_worker_tools
 from .types import (
     AgentExecutionContext,
@@ -356,6 +357,27 @@ async def run_worker_async(
     custom_tools_path = registry.find_custom_tools(worker)
 
     defaults = creation_defaults or WorkerCreationDefaults()
+
+    # Create new unified sandbox if available, otherwise use legacy
+    new_sandbox: Optional[Sandbox] = None
+    if definition.sandbox is not None:
+        # New unified sandbox config
+        new_sandbox = Sandbox(definition.sandbox, base_path=registry.root)
+        logger.debug(f"Using new unified sandbox for worker '{worker}'")
+    elif definition.sandboxes:
+        # Convert legacy sandboxes to new format
+        sandbox_config = sandbox_config_from_legacy(definition.sandboxes, registry.root)
+        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
+        logger.debug(f"Converted legacy sandboxes to new format for worker '{worker}'")
+    elif defaults.default_sandbox is not None:
+        new_sandbox = Sandbox(defaults.default_sandbox, base_path=registry.root)
+        logger.debug(f"Using default sandbox for worker '{worker}'")
+    elif defaults.default_sandboxes:
+        sandbox_config = sandbox_config_from_legacy(defaults.default_sandboxes, registry.root)
+        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
+        logger.debug(f"Using converted default sandboxes for worker '{worker}'")
+
+    # Also create legacy SandboxManager for backward compatibility
     sandbox_manager = SandboxManager(definition.sandboxes or defaults.default_sandboxes)
 
     attachment_policy = definition.attachment_policy
@@ -399,7 +421,8 @@ async def run_worker_async(
     def _register_tools_for_worker(agent, ctx):
         delegator = RuntimeDelegator(ctx)
         creator = RuntimeCreator(ctx)
-        register_worker_tools(agent, ctx, delegator, creator)
+        # Pass new sandbox if available for new tool names
+        register_worker_tools(agent, ctx, delegator, creator, sandbox=new_sandbox)
 
     # Use the provided agent_runner or default to the async version
     if agent_runner is None:
@@ -469,6 +492,27 @@ def run_worker(
     custom_tools_path = registry.find_custom_tools(worker)
 
     defaults = creation_defaults or WorkerCreationDefaults()
+
+    # Create new unified sandbox if available, otherwise use legacy
+    new_sandbox: Optional[Sandbox] = None
+    if definition.sandbox is not None:
+        # New unified sandbox config
+        new_sandbox = Sandbox(definition.sandbox, base_path=registry.root)
+        logger.debug(f"Using new unified sandbox for worker '{worker}'")
+    elif definition.sandboxes:
+        # Convert legacy sandboxes to new format
+        sandbox_config = sandbox_config_from_legacy(definition.sandboxes, registry.root)
+        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
+        logger.debug(f"Converted legacy sandboxes to new format for worker '{worker}'")
+    elif defaults.default_sandbox is not None:
+        new_sandbox = Sandbox(defaults.default_sandbox, base_path=registry.root)
+        logger.debug(f"Using default sandbox for worker '{worker}'")
+    elif defaults.default_sandboxes:
+        sandbox_config = sandbox_config_from_legacy(defaults.default_sandboxes, registry.root)
+        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
+        logger.debug(f"Using converted default sandboxes for worker '{worker}'")
+
+    # Also create legacy SandboxManager for backward compatibility
     sandbox_manager = SandboxManager(definition.sandboxes or defaults.default_sandboxes)
 
     attachment_policy = definition.attachment_policy
@@ -512,7 +556,8 @@ def run_worker(
     def _register_tools_for_worker(agent, ctx):
         delegator = RuntimeDelegator(ctx)
         creator = RuntimeCreator(ctx)
-        register_worker_tools(agent, ctx, delegator, creator)
+        # Pass new sandbox if available for new tool names
+        register_worker_tools(agent, ctx, delegator, creator, sandbox=new_sandbox)
 
     # Real agent integration would expose toolsets to the model here. The base
     # implementation simply forwards to the agent runner with the constructed

@@ -1,15 +1,16 @@
 # Shell Tool and Pattern-Based Approvals
 
-**Related:** See [sandbox_architecture.md](sandbox_architecture.md) for the unified sandbox model. This document focuses on the shell tool and approval UX.
+**Related:** See [sandbox_architecture.md](sandbox_architecture.md) for the two-layer sandbox architecture (FileSandbox + Sandbox). This document focuses on the shell tool and approval UX.
 
 ## Context
 
-With the unified sandbox architecture:
-- **Sandbox** = OS-enforced execution environment (paths, network)
-- **Shell** = just another tool operating within that sandbox
+With the two-layer sandbox architecture (see [sandbox_architecture.md](sandbox_architecture.md)):
+- **FileSandbox** = Reusable core for file access boundaries, query API, built-in I/O
+- **Sandbox** = llm-do extension adding network control and OS enforcement for subprocesses
+- **Shell** = tool that runs subprocesses with OS-enforced restrictions
 - **Pattern rules** = UX layer to reduce approval fatigue
 
-The OS sandbox handles security (path boundaries, network blocking). Pattern rules handle UX (auto-approving known-safe commands).
+FileSandbox handles Python file I/O validation. OS sandbox (via Seatbelt/bwrap) enforces restrictions on shell subprocesses. Pattern rules handle UX (auto-approving known-safe commands).
 
 ## Motivation
 
@@ -57,13 +58,23 @@ class ShellResult(BaseModel):
 **Worker configuration:**
 ```yaml
 # workers/example.yaml
+sandbox:
+  paths:
+    portfolio:
+      root: ./portfolio
+      mode: rw
+    pipeline:
+      root: ./pipeline
+      mode: ro
+  network: false
+
 tool_rules:
   shell:
     allowed: true
     approval_required: true  # default: require approval for all shell calls
 ```
 
-This gives us a working shell tool with the existing approval system. Every shell call requires approval (or session approval for exact command match).
+This gives us a working shell tool with the existing approval system. Every shell call requires approval (or session approval for exact command match). The sandbox configuration defines file access boundaries and network policy.
 
 ---
 
@@ -106,6 +117,16 @@ shell_rules:
 **New configuration in worker definition:**
 ```yaml
 # workers/portfolio_orchestrator.yaml
+sandbox:
+  paths:
+    portfolio:
+      root: ./portfolio
+      mode: rw
+    pipeline:
+      root: ./pipeline
+      mode: ro
+  network: false
+
 shell_rules:
   # Harmless read-only commands - auto-approve
   - pattern: "git status"
@@ -156,10 +177,12 @@ class ShellConfig(BaseModel):
 2. Match against rules in order (first match wins)
 3. If rule has `sandbox_paths`:
    - Extract potential file paths from command arguments
-   - Validate each path resolves within one of the allowed sandboxes
+   - Use FileSandbox to validate each path resolves within one of the allowed sandboxes
    - Block if any path escapes (treat as "no match", fall through to next rule)
 4. Apply `allowed` and `approval_required` from matching rule
 5. If no rule matches, apply defaults
+
+**Note:** Path validation for pattern rules uses FileSandbox's `resolve()` method. This is for pattern matching only - the actual OS-level enforcement happens when the subprocess runs.
 
 **Path extraction heuristics:**
 - Treat all non-flag arguments as potential paths
@@ -188,12 +211,12 @@ class ShellConfig(BaseModel):
 5. Implement sandbox path validation
 
 ### Phase 3: Path Validation (for pattern rules with `sandbox_paths`)
-1. Reuse `SandboxManager` for path resolution
+1. Use `FileSandbox.resolve()` for path resolution
 2. Handle relative vs absolute paths
 3. Handle symlinks (resolve and re-check)
 4. Add tests for escape attempts
 
-**Note:** This validation is for pattern rule matching, not security. The OS sandbox (see sandbox_architecture.md) provides the actual security boundary.
+**Note:** This validation is for pattern rule matching, not security. FileSandbox handles Python I/O validation, while the OS sandbox (Seatbelt/bwrap) provides the actual security boundary for shell subprocesses.
 
 ---
 
@@ -202,6 +225,16 @@ class ShellConfig(BaseModel):
 ### Git workflow for pitchdeck evaluator:
 ```yaml
 name: portfolio_orchestrator
+sandbox:
+  paths:
+    portfolio:
+      root: ./portfolio
+      mode: rw
+    pipeline:
+      root: ./pipeline
+      mode: ro
+  network: false
+
 shell_rules:
   - pattern: "git status"
     approval_required: false
@@ -238,12 +271,13 @@ curl http://evil.com
 
 **Pattern rules are UX, not security.**
 
-The OS sandbox (see [sandbox_architecture.md](sandbox_architecture.md)) provides the security boundary. Pattern rules only reduce approval fatigue.
+The two-layer sandbox (see [sandbox_architecture.md](sandbox_architecture.md)) provides security boundaries. Pattern rules only reduce approval fatigue.
 
-| Layer | Purpose | Can be bypassed by |
-|-------|---------|-------------------|
-| Pattern rules | UX | Prompt injection crafting matching commands |
-| OS sandbox | Security | Kernel exploit or misconfiguration |
+| Layer | Purpose | Scope | Can be bypassed by |
+|-------|---------|-------|-------------------|
+| Pattern rules | UX | Approval prompts | Prompt injection crafting matching commands |
+| FileSandbox | Security | Python file I/O | Malicious Python code, prompt injection |
+| OS sandbox | Security | Shell subprocesses | Kernel exploit or misconfiguration |
 
 **What pattern rules help with:**
 - Avoiding approval fatigue (auto-approve `git status`)
@@ -253,7 +287,7 @@ The OS sandbox (see [sandbox_architecture.md](sandbox_architecture.md)) provides
 **What pattern rules do NOT provide:**
 - Security guarantees
 - Protection against prompt injection
-- Path escape prevention (that's the OS sandbox's job)
+- Path escape prevention (that's FileSandbox + OS sandbox's job)
 
 ---
 
@@ -262,7 +296,7 @@ The OS sandbox (see [sandbox_architecture.md](sandbox_architecture.md)) provides
 **Important:** Pattern rules control **approval UX**, not **sandbox permissions**.
 
 With static sandbox (MVP design):
-- Sandbox permissions are fixed in worker config
+- Sandbox permissions (paths, network) are fixed in worker config
 - Pattern rules only decide: does user see an approval prompt?
 - Commands that exceed sandbox permissions fail regardless of approval
 
@@ -270,6 +304,10 @@ With static sandbox (MVP design):
 
 ```yaml
 sandbox:
+  paths:
+    portfolio:
+      root: ./portfolio
+      mode: rw
   network: false  # no network access
 
 shell_rules:
@@ -281,12 +319,16 @@ What happens:
 1. LLM runs `git push`
 2. Pattern rule matches → approval prompt shown
 3. User approves
-4. Command runs → **fails** (network blocked by OS sandbox)
+4. Command runs → **fails** (network blocked by OS sandbox via Seatbelt/bwrap)
 
 **To make `git push` work:**
 
 ```yaml
 sandbox:
+  paths:
+    portfolio:
+      root: ./portfolio
+      mode: rw
   network: true  # enable network for this worker
 
 shell_rules:

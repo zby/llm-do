@@ -20,7 +20,12 @@ from llm_do import (
     call_worker,
     create_worker,
 )
-from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
+from llm_do.worker_sandbox import (
+    AttachmentValidator,
+    Sandbox,
+    SandboxConfig,
+    SuffixNotAllowedError,
+)
 from llm_do.filesystem_sandbox import PathConfig
 
 
@@ -73,12 +78,25 @@ def _parent_with_sandbox(
 
 
 def test_sandbox_read_text_rejects_binary_suffix(tmp_path):
-    """Test that sandbox rejects reading text from non-text suffixes.
+    """Sandbox should refuse to read files with disallowed suffixes."""
+    sandbox_root = tmp_path / "input"
+    sandbox_root.mkdir()
+    binary_file = sandbox_root / "photo.png"
+    binary_file.write_bytes(b"not actually an image")
 
-    This test is now obsolete as SandboxManager has been removed.
-    The new FileSandbox approach handles this through PathConfig suffixes.
-    """
-    pytest.skip("SandboxManager removed - functionality now handled by FileSandbox")
+    config = SandboxConfig(
+        paths={
+            "input": PathConfig(
+                root=str(sandbox_root),
+                mode="ro",
+                suffixes=[".txt"],
+            )
+        }
+    )
+    sandbox = Sandbox(config)
+
+    with pytest.raises(SuffixNotAllowedError, match="suffix '.png' not allowed"):
+        sandbox.read("input/photo.png")
 
 
 def test_call_worker_forwards_attachments(tmp_path):
@@ -405,3 +423,122 @@ def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
     assert result["name"] == "child"
     assert result["instructions"] == "demo"
     assert invoked
+
+
+def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
+    """Test that attachments trigger sandbox.read approval before sharing."""
+    from llm_do.types import ApprovalDecision
+
+    registry = _registry(tmp_path)
+    parent, sandbox_root = _parent_with_sandbox(tmp_path)
+    # Add sandbox.read rule requiring approval
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        allow_workers=["child"],
+        sandbox=parent.sandbox,
+        tool_rules={"sandbox.read": ToolRule(name="sandbox.read", approval_required=True)},
+    )
+    registry.save_definition(parent)
+
+    # Track approval requests
+    approval_requests = []
+
+    def tracking_callback(tool_name, payload, description=None):
+        approval_requests.append({"tool": tool_name, "payload": payload})
+        return ApprovalDecision(approved=True)
+
+    controller = ApprovalController(parent.tool_rules, approval_callback=tracking_callback)
+    sandbox = Sandbox(parent.sandbox, base_path=registry.root)
+    attachment_validator = AttachmentValidator(sandbox)
+
+    context = WorkerContext(
+        registry=registry,
+        worker=parent,
+        attachment_validator=attachment_validator,
+        creation_defaults=WorkerCreationDefaults(),
+        effective_model="cli-model",
+        approval_controller=controller,
+    )
+
+    # Create test file
+    attachment = sandbox_root / "secret.pdf"
+    attachment.write_bytes(b"sensitive data")
+
+    def fake_call_worker(**kwargs):
+        return WorkerRunResult(output={"status": "ok"})
+
+    monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
+
+    # Call with attachment
+    RuntimeDelegator(context).call_sync(
+        worker="child",
+        input_data={"task": "analyze"},
+        attachments=["input/secret.pdf"],
+    )
+
+    # Verify sandbox.read approval was requested
+    sandbox_read_requests = [r for r in approval_requests if r["tool"] == "sandbox.read"]
+    assert len(sandbox_read_requests) == 1
+
+    req = sandbox_read_requests[0]
+    assert req["payload"]["path"] == "input/secret.pdf"
+    assert req["payload"]["target_worker"] == "child"
+    assert req["payload"]["bytes"] == len(b"sensitive data")
+
+
+def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
+    """Test that denying sandbox.read approval prevents attachment sharing."""
+    from llm_do.types import ApprovalDecision
+
+    registry = _registry(tmp_path)
+    parent, sandbox_root = _parent_with_sandbox(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        allow_workers=["child"],
+        sandbox=parent.sandbox,
+        tool_rules={"sandbox.read": ToolRule(name="sandbox.read", approval_required=True)},
+    )
+    registry.save_definition(parent)
+
+    # Deny approval
+    def denying_callback(tool_name, payload, description=None):
+        return ApprovalDecision(approved=False, note="User denied")
+
+    controller = ApprovalController(parent.tool_rules, approval_callback=denying_callback)
+    sandbox = Sandbox(parent.sandbox, base_path=registry.root)
+    attachment_validator = AttachmentValidator(sandbox)
+
+    context = WorkerContext(
+        registry=registry,
+        worker=parent,
+        attachment_validator=attachment_validator,
+        creation_defaults=WorkerCreationDefaults(),
+        effective_model="cli-model",
+        approval_controller=controller,
+    )
+
+    # Create test file
+    attachment = sandbox_root / "secret.pdf"
+    attachment.write_bytes(b"sensitive data")
+
+    call_invoked = False
+
+    def fake_call_worker(**kwargs):
+        nonlocal call_invoked
+        call_invoked = True
+        return WorkerRunResult(output={"status": "ok"})
+
+    monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
+
+    # Call should raise PermissionError
+    with pytest.raises(PermissionError, match="sandbox.read"):
+        RuntimeDelegator(context).call_sync(
+            worker="child",
+            input_data={"task": "analyze"},
+            attachments=["input/secret.pdf"],
+        )
+
+    # Worker was never called
+    assert not call_invoked

@@ -38,7 +38,7 @@ From the example directory:
 ```bash
 cd examples/pitchdeck_eval
 llm-do pitch_orchestrator \
-  --model anthropic:claude-sonnet-4-20250514 \
+  --model anthropic:claude-haiku-4-5\
   --approve-all
 ```
 

@@ -202,6 +202,15 @@ class RuntimeDelegator:
         else:
             resolved_attachments, attachment_metadata = ([], [])
 
+        # Check sandbox.read approval for each attachment before sharing
+        # Done after validation so we have full metadata (sandbox, path, size)
+        for meta in attachment_metadata:
+            self.context.approval_controller.maybe_run(
+                "sandbox.read",
+                {"path": f"{meta['sandbox']}/{meta['path']}", "bytes": meta["bytes"], "target_worker": worker},
+                lambda: None,  # Approval check only, no action
+            )
+
         attachment_payloads: Optional[List[AttachmentPayload]] = None
         if resolved_attachments:
             attachment_payloads = [
@@ -262,6 +271,15 @@ class RuntimeDelegator:
             resolved_attachments, attachment_metadata = self.context.validate_attachments(attachments)
         else:
             resolved_attachments, attachment_metadata = ([], [])
+
+        # Check sandbox.read approval for each attachment before sharing
+        # Done after validation so we have full metadata (sandbox, path, size)
+        for meta in attachment_metadata:
+            self.context.approval_controller.maybe_run(
+                "sandbox.read",
+                {"path": f"{meta['sandbox']}/{meta['path']}", "bytes": meta["bytes"], "target_worker": worker},
+                lambda: None,  # Approval check only, no action
+            )
 
         attachment_payloads: Optional[List[AttachmentPayload]] = None
         if resolved_attachments:

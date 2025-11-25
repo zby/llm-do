@@ -49,6 +49,131 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Helper dataclasses and utilities
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _WorkerExecutionPrep:
+    """Prepared context and metadata for worker execution."""
+    context: WorkerContext
+    definition: WorkerDefinition
+    output_model: Optional[Type[BaseModel]]
+    register_tools_fn: Callable
+    sandbox: Sandbox
+
+
+def _prepare_worker_context(
+    *,
+    registry: Any,
+    worker: str,
+    input_data: Any,
+    attachments: Optional[Sequence[AttachmentInput]],
+    caller_effective_model: Optional[ModelLike],
+    cli_model: Optional[ModelLike],
+    creation_defaults: Optional[WorkerCreationDefaults],
+    approval_callback: ApprovalCallback,
+    message_callback: Optional[MessageCallback],
+) -> _WorkerExecutionPrep:
+    """Prepare worker context and dependencies (shared by sync and async).
+
+    This extracts all the common setup logic that's identical between
+    run_worker and run_worker_async, reducing ~110 lines of duplication.
+    """
+    definition = registry.load_definition(worker)
+    custom_tools_path = registry.find_custom_tools(worker)
+
+    defaults = creation_defaults or WorkerCreationDefaults()
+
+    # Create new unified sandbox (always required now)
+    new_sandbox: Sandbox
+    if definition.sandbox is not None:
+        # New unified sandbox config
+        new_sandbox = Sandbox(definition.sandbox, base_path=registry.root)
+        logger.debug(f"Using new unified sandbox for worker '{worker}'")
+    elif defaults.default_sandbox is not None:
+        new_sandbox = Sandbox(defaults.default_sandbox, base_path=registry.root)
+        logger.debug(f"Using default sandbox for worker '{worker}'")
+    else:
+        # Create empty sandbox with no paths
+        new_sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
+        logger.debug(f"Using empty sandbox for worker '{worker}'")
+
+    # Create attachment validator using the new sandbox
+    attachment_validator = AttachmentValidator(new_sandbox)
+
+    attachment_policy = definition.attachment_policy
+
+    attachment_payloads: List[AttachmentPayload] = []
+    if attachments:
+        for item in attachments:
+            if isinstance(item, AttachmentPayload):
+                attachment_payloads.append(item)
+                continue
+
+            display_name = str(item)
+            path = Path(item).expanduser().resolve()
+            attachment_payloads.append(
+                AttachmentPayload(path=path, display_name=display_name)
+            )
+
+    attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
+
+    effective_model = definition.model or caller_effective_model or cli_model
+
+    approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
+
+    context = WorkerContext(
+        registry=registry,
+        worker=definition,
+        attachment_validator=attachment_validator,
+        creation_defaults=defaults,
+        effective_model=effective_model,
+        attachments=attachment_payloads,
+        approval_controller=approvals,
+        message_callback=message_callback,
+        custom_tools_path=custom_tools_path,
+    )
+
+    output_model = registry.resolve_output_schema(definition)
+
+    # Create a closure for tool registration using protocol implementations
+    def _register_tools_for_worker(agent, ctx):
+        delegator = RuntimeDelegator(ctx)
+        creator = RuntimeCreator(ctx)
+        # Pass new sandbox if available for new tool names
+        register_worker_tools(agent, ctx, delegator, creator, sandbox=new_sandbox)
+
+    return _WorkerExecutionPrep(
+        context=context,
+        definition=definition,
+        output_model=output_model,
+        register_tools_fn=_register_tools_for_worker,
+        sandbox=new_sandbox,
+    )
+
+
+def _handle_result(
+    result: Any,
+    output_model: Optional[Type[BaseModel]],
+) -> WorkerRunResult:
+    """Handle agent result and convert to WorkerRunResult (shared by sync and async)."""
+    # Handle both old-style (output only) and new-style (output, messages) returns
+    if isinstance(result, tuple) and len(result) == 2:
+        raw_output, messages = result
+    else:
+        raw_output = result
+        messages = []
+
+    if output_model is not None:
+        output = output_model.model_validate(raw_output)
+    else:
+        output = raw_output
+
+    return WorkerRunResult(output=output, messages=messages)
+
+
+# ---------------------------------------------------------------------------
 # Protocol implementations for dependency injection
 # ---------------------------------------------------------------------------
 
@@ -218,6 +343,15 @@ class RuntimeCreator:
 # ---------------------------------------------------------------------------
 
 
+def _check_delegation_allowed(caller_context: WorkerContext, worker: str) -> None:
+    """Check if delegation to a worker is allowed (shared by sync and async)."""
+    allowed = caller_context.worker.allow_workers
+    if allowed:
+        allowed_set = set(allowed)
+        if "*" not in allowed_set and worker not in allowed_set:
+            raise PermissionError(f"Delegation to '{worker}' is not allowed")
+
+
 def call_worker(
     registry: Any,  # WorkerRegistry - avoid circular import
     worker: str,
@@ -228,11 +362,7 @@ def call_worker(
     agent_runner: Optional[AgentRunner] = None,
 ) -> WorkerRunResult:
     """Delegate to another worker (sync version)."""
-    allowed = caller_context.worker.allow_workers
-    if allowed:
-        allowed_set = set(allowed)
-        if "*" not in allowed_set and worker not in allowed_set:
-            raise PermissionError(f"Delegation to '{worker}' is not allowed")
+    _check_delegation_allowed(caller_context, worker)
     return run_worker(
         registry=registry,
         worker=worker,
@@ -272,11 +402,7 @@ async def call_worker_async(
     Returns:
         WorkerRunResult from the delegated worker.
     """
-    allowed = caller_context.worker.allow_workers
-    if allowed:
-        allowed_set = set(allowed)
-        if "*" not in allowed_set and worker not in allowed_set:
-            raise PermissionError(f"Delegation to '{worker}' is not allowed")
+    _check_delegation_allowed(caller_context, worker)
     return await run_worker_async(
         registry=registry,
         worker=worker,
@@ -353,96 +479,32 @@ async def run_worker_async(
     Returns:
         WorkerRunResult containing the final output and message history.
     """
-    definition = registry.load_definition(worker)
-    custom_tools_path = registry.find_custom_tools(worker)
-
-    defaults = creation_defaults or WorkerCreationDefaults()
-
-    # Create new unified sandbox (always required now)
-    new_sandbox: Sandbox
-    if definition.sandbox is not None:
-        # New unified sandbox config
-        new_sandbox = Sandbox(definition.sandbox, base_path=registry.root)
-        logger.debug(f"Using new unified sandbox for worker '{worker}'")
-    elif defaults.default_sandbox is not None:
-        new_sandbox = Sandbox(defaults.default_sandbox, base_path=registry.root)
-        logger.debug(f"Using default sandbox for worker '{worker}'")
-    else:
-        # Create empty sandbox with no paths
-        new_sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
-        logger.debug(f"Using empty sandbox for worker '{worker}'")
-
-    # Create attachment validator using the new sandbox
-    attachment_validator = AttachmentValidator(new_sandbox)
-
-    attachment_policy = definition.attachment_policy
-
-    attachment_payloads: List[AttachmentPayload] = []
-    if attachments:
-        for item in attachments:
-            if isinstance(item, AttachmentPayload):
-                attachment_payloads.append(item)
-                continue
-
-            display_name = str(item)
-            path = Path(item).expanduser().resolve()
-            attachment_payloads.append(
-                AttachmentPayload(path=path, display_name=display_name)
-            )
-
-    attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
-
-    effective_model = definition.model or caller_effective_model or cli_model
-
-    approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
-
-    context = WorkerContext(
+    prep = _prepare_worker_context(
         registry=registry,
-        worker=definition,
-        attachment_validator=attachment_validator,
-        creation_defaults=defaults,
-        effective_model=effective_model,
-        attachments=attachment_payloads,
-        approval_controller=approvals,
+        worker=worker,
+        input_data=input_data,
+        attachments=attachments,
+        caller_effective_model=caller_effective_model,
+        cli_model=cli_model,
+        creation_defaults=creation_defaults,
+        approval_callback=approval_callback,
         message_callback=message_callback,
-        custom_tools_path=custom_tools_path,
     )
-
-    output_model = registry.resolve_output_schema(definition)
-
-    # Create a closure for tool registration using protocol implementations
-    def _register_tools_for_worker(agent, ctx):
-        delegator = RuntimeDelegator(ctx)
-        creator = RuntimeCreator(ctx)
-        # Pass new sandbox if available for new tool names
-        register_worker_tools(agent, ctx, delegator, creator, sandbox=new_sandbox)
 
     # Use the provided agent_runner or default to the async version
     if agent_runner is None:
         result = await default_agent_runner_async(
-            definition, input_data, context, output_model,
-            register_tools_fn=_register_tools_for_worker
+            prep.definition, input_data, prep.context, prep.output_model,
+            register_tools_fn=prep.register_tools_fn
         )
     else:
         # Support both sync and async agent runners
         if inspect.iscoroutinefunction(agent_runner):
-            result = await agent_runner(definition, input_data, context, output_model)
+            result = await agent_runner(prep.definition, input_data, prep.context, prep.output_model)
         else:
-            result = agent_runner(definition, input_data, context, output_model)
+            result = agent_runner(prep.definition, input_data, prep.context, prep.output_model)
 
-    # Handle both old-style (output only) and new-style (output, messages) returns
-    if isinstance(result, tuple) and len(result) == 2:
-        raw_output, messages = result
-    else:
-        raw_output = result
-        messages = []
-
-    if output_model is not None:
-        output = output_model.model_validate(raw_output)
-    else:
-        output = raw_output
-
-    return WorkerRunResult(output=output, messages=messages)
+    return _handle_result(result, prep.output_model)
 
 
 def run_worker(
@@ -481,91 +543,27 @@ def run_worker(
     Returns:
         WorkerRunResult containing the final output and message history.
     """
-    definition = registry.load_definition(worker)
-    custom_tools_path = registry.find_custom_tools(worker)
-
-    defaults = creation_defaults or WorkerCreationDefaults()
-
-    # Create new unified sandbox (always required now)
-    new_sandbox: Sandbox
-    if definition.sandbox is not None:
-        # New unified sandbox config
-        new_sandbox = Sandbox(definition.sandbox, base_path=registry.root)
-        logger.debug(f"Using new unified sandbox for worker '{worker}'")
-    elif defaults.default_sandbox is not None:
-        new_sandbox = Sandbox(defaults.default_sandbox, base_path=registry.root)
-        logger.debug(f"Using default sandbox for worker '{worker}'")
-    else:
-        # Create empty sandbox with no paths
-        new_sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
-        logger.debug(f"Using empty sandbox for worker '{worker}'")
-
-    # Create attachment validator using the new sandbox
-    attachment_validator = AttachmentValidator(new_sandbox)
-
-    attachment_policy = definition.attachment_policy
-
-    attachment_payloads: List[AttachmentPayload] = []
-    if attachments:
-        for item in attachments:
-            if isinstance(item, AttachmentPayload):
-                attachment_payloads.append(item)
-                continue
-
-            display_name = str(item)
-            path = Path(item).expanduser().resolve()
-            attachment_payloads.append(
-                AttachmentPayload(path=path, display_name=display_name)
-            )
-
-    attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
-
-    effective_model = definition.model or caller_effective_model or cli_model
-
-    approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
-
-    context = WorkerContext(
+    prep = _prepare_worker_context(
         registry=registry,
-        worker=definition,
-        attachment_validator=attachment_validator,
-        creation_defaults=defaults,
-        effective_model=effective_model,
-        attachments=attachment_payloads,
-        approval_controller=approvals,
+        worker=worker,
+        input_data=input_data,
+        attachments=attachments,
+        caller_effective_model=caller_effective_model,
+        cli_model=cli_model,
+        creation_defaults=creation_defaults,
+        approval_callback=approval_callback,
         message_callback=message_callback,
-        custom_tools_path=custom_tools_path,
     )
-
-    output_model = registry.resolve_output_schema(definition)
-
-    # Create a closure for tool registration using protocol implementations
-    def _register_tools_for_worker(agent, ctx):
-        delegator = RuntimeDelegator(ctx)
-        creator = RuntimeCreator(ctx)
-        # Pass new sandbox if available for new tool names
-        register_worker_tools(agent, ctx, delegator, creator, sandbox=new_sandbox)
 
     # Real agent integration would expose toolsets to the model here. The base
     # implementation simply forwards to the agent runner with the constructed
     # context.
     if agent_runner is None:
         result = default_agent_runner(
-            definition, input_data, context, output_model,
-            register_tools_fn=_register_tools_for_worker
+            prep.definition, input_data, prep.context, prep.output_model,
+            register_tools_fn=prep.register_tools_fn
         )
     else:
-        result = agent_runner(definition, input_data, context, output_model)
+        result = agent_runner(prep.definition, input_data, prep.context, prep.output_model)
 
-    # Handle both old-style (output only) and new-style (output, messages) returns
-    if isinstance(result, tuple) and len(result) == 2:
-        raw_output, messages = result
-    else:
-        raw_output = result
-        messages = []
-
-    if output_model is not None:
-        output = output_model.model_validate(raw_output)
-    else:
-        output = raw_output
-
-    return WorkerRunResult(output=output, messages=messages)
+    return _handle_result(result, prep.output_model)

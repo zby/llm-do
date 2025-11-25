@@ -6,9 +6,8 @@
 
 ## Runtime polish
 
-- [ ] Expose per-sandbox aliases when generating `sandbox_*` tool calls so orchestration instructions can mention `sandbox_write_text("evaluations", …)` without boilerplate.
-- [ ] Surface attachment approval/context UX in the CLI (prompts instead of auto-approving everything).
-- [ ] Add a “defer and resume” path for approval-required tools so long runs can pause and continue later.
+- [ ] Surface attachment approval/context UX in the CLI (prompts instead of auto-approving everything). Attachments passed to `worker_call` should go through approval similar to file reads.
+- [ ] Add a "defer and resume" path for approval-required tools so long runs can pause and continue later. (Complex - requires state serialization and agent resume mechanism.)
 
 ## Docs & guidance
 

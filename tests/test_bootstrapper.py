@@ -6,22 +6,15 @@ Tests the bootstrapper's ability to:
 3. Delegate work to the created worker
 4. Write results to output
 """
-import shutil
 from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic_ai.messages import (
-    ModelRequest,
-    ModelResponse,
-    TextPart,
-    ToolCallPart,
-    ToolReturnPart,
-)
+from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models import Model
 
-from llm_do import WorkerRegistry, WorkerRunResult, approve_all_callback, run_worker
 import llm_do.runtime
+from llm_do import WorkerRegistry, WorkerRunResult, approve_all_callback, run_worker
 
 
 class SequentialToolCallingModel(Model):
@@ -217,3 +210,72 @@ def test_bootstrapper_lists_files_correctly(bootstrapper_registry):
 
     assert result is not None
     assert "test_pitch.pdf" in result.output or "1 file" in result.output
+
+
+def test_bootstrapper_creates_worker(bootstrapper_registry):
+    """Test that bootstrapper can create a new worker."""
+    model = SequentialToolCallingModel(
+        tool_sequence=[
+            {
+                "name": "worker_create",
+                "args": {
+                    "name": "test_analyzer",
+                    "description": "Test worker",
+                    "instructions": "You are a test analyzer.",
+                },
+            },
+        ],
+        final_text="Created worker: test_analyzer",
+    )
+
+    result = run_worker(
+        registry=bootstrapper_registry,
+        worker="worker_bootstrapper",
+        input_data="Create a test analyzer worker",
+        cli_model=model,
+        approval_callback=approve_all_callback,
+    )
+
+    assert result is not None
+
+    # Verify the worker file was created
+    worker_file = Path("workers/generated/test_analyzer.yaml")
+    assert worker_file.exists()
+
+    # Verify content
+    content = worker_file.read_text()
+    assert "test_analyzer" in content
+    assert "Test worker" in content
+
+
+def test_bootstrapper_writes_output(bootstrapper_registry):
+    """Test that bootstrapper can write to output sandbox."""
+    test_content = "# Test Output\n\nThis is a test."
+
+    model = SequentialToolCallingModel(
+        tool_sequence=[
+            {
+                "name": "write_file",
+                "args": {
+                    "path": "output/test_output.md",
+                    "content": test_content,
+                },
+            },
+        ],
+        final_text="Wrote output file.",
+    )
+
+    result = run_worker(
+        registry=bootstrapper_registry,
+        worker="worker_bootstrapper",
+        input_data="Write a test file",
+        cli_model=model,
+        approval_callback=approve_all_callback,
+    )
+
+    assert result is not None
+
+    # Verify the output file was created
+    output_file = Path("output/test_output.md")
+    assert output_file.exists()
+    assert output_file.read_text() == test_content

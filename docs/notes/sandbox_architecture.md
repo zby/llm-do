@@ -1,68 +1,93 @@
 # Sandbox Architecture
 
-## Overview
+## What is a Sandbox
 
-Sandbox is the **execution environment** for a worker, not just configuration for file tools. All tools (read, write, shell, etc.) operate within this environment.
+A sandbox is an **execution environment** with:
+1. **Boundaries** — which paths are readable/writable, network access
+2. **Query API** — tools can ask "can I access this path?"
+3. **Built-in I/O** — read, write, list operations
+4. **OS enforcement** — kernel-level restrictions (defense in depth)
 
 ```
-┌─────────────────────────────────────┐
-│ Sandbox (OS-enforced environment)   │
-│                                     │
-│  Readable: ./portfolio, ./pipeline  │
-│  Writable: ./portfolio              │
-│  Network:  blocked                  │
-│                                     │
-│  ┌─────────────────────────────────┐│
-│  │ Worker process                  ││
-│  │  ├── read_text                  ││
-│  │  ├── write_text                 ││
-│  │  ├── list_files                 ││
-│  │  ├── shell        ← just a tool ││
-│  │  └── worker_call                ││
-│  └─────────────────────────────────┘│
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│ Sandbox                                     │
+│                                             │
+│  Boundaries:                                │
+│    readable: [./portfolio, ./pipeline]      │
+│    writable: [./portfolio]                  │
+│    network: false                           │
+│                                             │
+│  Query API:                                 │
+│    can_read(path) → bool                    │
+│    can_write(path) → bool                   │
+│    resolve(path) → Path | Error             │
+│                                             │
+│  Built-in Tools:                            │
+│    read(path) → str                         │
+│    write(path, content) → None              │
+│    list(pattern) → List[str]                │
+│                                             │
+└─────────────────────────────────────────────┘
+         ↑
+         │ Tools operate within sandbox
+         │
+    ┌────┴────┐
+    │  shell  │  ← can query sandbox, OS enforces boundaries
+    └─────────┘
 ```
-
-## Motivation
-
-**Current state:** Multiple overlapping concepts
-- `SandboxConfig` - per-path config for `sandbox_*` tools
-- `AttachmentPolicy` - controls files passed to sub-workers
-- (Proposed) OS sandbox for shell commands
-
-**Problem:** Adding shell tool requires "another sandbox" - confusing.
-
-**Solution:** Unify into single sandbox concept that:
-1. Defines the execution environment (paths, network)
-2. Is enforced at OS level (kernel boundaries)
-3. All tools operate within it
 
 ---
 
-## Architecture
+## Sandbox vs Tools vs Approvals
 
-### Two Layers
+Three separate concepts:
 
-| Layer | Responsibility | Enforcement |
-|-------|----------------|-------------|
-| **Sandbox environment** | Path boundaries, network access | OS kernel (Seatbelt/bwrap) |
-| **Application policies** | Suffix filters, size limits, approval UX | Python code |
+| Concept | What it is | What it controls |
+|---------|------------|------------------|
+| **Sandbox** | Execution environment | What CAN happen (paths, network) |
+| **Tools** | Capabilities exposed to LLM | What the LLM CAN call |
+| **Approvals** | UX layer | What NEEDS user confirmation |
 
-The OS sandbox is the **security boundary**. Application policies provide **fine-grained control** within that boundary.
+They are orthogonal:
+- A tool can be available but sandbox blocks its effect
+- A tool can be approved but sandbox still restricts it
+- Sandbox boundaries are fixed; approvals don't change them
 
-### Sandbox Configuration
+**Example:**
+```yaml
+sandbox:
+  paths:
+    portfolio: { root: ./portfolio, mode: rw }
+  network: false  # fixed boundary
+
+tools:
+  - shell  # available to LLM
+
+tool_rules:
+  shell:
+    approval_required: true  # UX: user sees commands
+```
+
+If LLM runs `curl http://example.com`:
+1. Tool is available ✓
+2. User approves ✓
+3. Sandbox blocks network ✗ → command fails
+
+Approval doesn't grant network access. Sandbox boundaries are static.
+
+---
+
+## Sandbox Configuration
 
 ```yaml
-name: portfolio_orchestrator
-
 sandbox:
-  # Paths accessible to this worker
+  # Path boundaries
   paths:
     portfolio:
       root: ./portfolio
       mode: rw                    # read-write
-      suffixes: [.md, .pdf]       # application filter (not OS-enforced)
-      max_file_bytes: 10000000    # application limit
+      suffixes: [.md, .pdf]       # application-level filter
+      max_file_bytes: 10000000    # application-level limit
     pipeline:
       root: ./pipeline
       mode: ro                    # read-only
@@ -70,44 +95,215 @@ sandbox:
     framework:
       root: ./framework
       mode: ro
-      suffixes: [.md]
 
-  # Network access
-  network: false                  # OS-enforced
+  # Network boundary
+  network: false
 
-  # What happens if OS sandbox unavailable
-  require_os_sandbox: false       # warn and continue, or fail?
-
-# Attachment policy (for sub-worker calls)
-attachment_policy:
-  max_count: 5
-  max_total_bytes: 15000000
-  # Attachments must come from readable paths (enforced by sandbox)
-
-# Tool-specific rules (approval UX, not security)
-tool_rules:
-  shell:
-    approval_required: true
-  write_text:
-    approval_required: false
+  # OS sandbox requirement
+  require_os_sandbox: false  # warn if unavailable, or fail?
 ```
 
-### Tools Within Sandbox
+**What's OS-enforced vs application-enforced:**
 
-Tools no longer configure their own paths - they inherit from sandbox:
+| Boundary | OS-enforced | Application-enforced |
+|----------|-------------|---------------------|
+| Path read/write | ✓ Seatbelt/bwrap | ✓ Python validation |
+| Network access | ✓ Seatbelt/bwrap | — |
+| File suffixes | — | ✓ Python validation |
+| File size limits | — | ✓ Python validation |
 
-| Tool | Behavior |
-|------|----------|
-| `read_text(path)` | Read from any readable sandbox path |
-| `write_text(path, content)` | Write to any writable sandbox path |
-| `list_files(path, pattern)` | List files in any readable sandbox path |
-| `shell(command)` | Execute command, inherits sandbox restrictions |
-| `worker_call(worker, attachments)` | Attachments must be from readable paths |
+OS enforcement is the security boundary. Application enforcement adds fine-grained policies.
 
-**Rename consideration:**
-- `sandbox_read_text` → `read_text` (sandbox is implicit)
-- `sandbox_write_text` → `write_text`
-- `sandbox_list` → `list_files`
+---
+
+## Sandbox Query API
+
+Tools can ask the sandbox about permissions before acting:
+
+```python
+class Sandbox:
+    def can_read(self, path: str) -> bool:
+        """Check if path is within readable boundaries."""
+
+    def can_write(self, path: str) -> bool:
+        """Check if path is within writable boundaries."""
+
+    def resolve(self, path: str) -> Path:
+        """Resolve path within sandbox. Raises if outside boundaries."""
+
+    def check_suffix(self, path: Path) -> None:
+        """Raises if suffix not allowed (application policy)."""
+
+    def check_size(self, path: Path) -> None:
+        """Raises if file exceeds size limit (application policy)."""
+```
+
+**Why tools should query:**
+- Clear error messages: "path outside sandbox" vs generic failure
+- Pre-flight validation before expensive operations
+- Pattern rules can use `can_read`/`can_write` for path validation
+
+**Why OS enforcement is still needed:**
+- Tools might have bugs
+- Defense in depth
+- Shell commands can't be pre-validated completely
+
+---
+
+## Error Handling and LLM Guidance
+
+When sandbox rejects an operation, errors must guide the LLM to correct behavior:
+
+**Bad error (unhelpful):**
+```
+Error: Permission denied
+```
+
+**Good error (actionable):**
+```
+Cannot read '/etc/passwd': path is outside sandbox.
+Readable paths: ./portfolio, ./pipeline, ./framework
+```
+
+**Error messages should include:**
+
+| Rejection reason | Error should include |
+|------------------|---------------------|
+| Path outside sandbox | List of accessible paths |
+| Write to read-only path | Which paths ARE writable |
+| Suffix not allowed | List of allowed suffixes |
+| File too large | Size limit and actual size |
+| Network blocked | "Network access is disabled for this worker" |
+
+**Implementation:**
+
+```python
+class SandboxError(Exception):
+    """Base class for sandbox errors with LLM-friendly messages."""
+    pass
+
+class PathNotInSandboxError(SandboxError):
+    def __init__(self, path: str, sandbox: 'Sandbox'):
+        readable = [p.root for p in sandbox.paths.values()]
+        self.message = (
+            f"Cannot access '{path}': path is outside sandbox.\n"
+            f"Readable paths: {', '.join(readable)}"
+        )
+        super().__init__(self.message)
+
+class PathNotWritableError(SandboxError):
+    def __init__(self, path: str, sandbox: 'Sandbox'):
+        writable = [p.root for p in sandbox.paths.values() if p.mode == 'rw']
+        self.message = (
+            f"Cannot write to '{path}': path is read-only.\n"
+            f"Writable paths: {', '.join(writable) or 'none'}"
+        )
+        super().__init__(self.message)
+
+class SuffixNotAllowedError(SandboxError):
+    def __init__(self, path: str, allowed: List[str]):
+        self.message = (
+            f"Cannot access '{path}': suffix not allowed.\n"
+            f"Allowed suffixes: {', '.join(allowed)}"
+        )
+        super().__init__(self.message)
+
+class FileTooLargeError(SandboxError):
+    def __init__(self, path: str, size: int, limit: int):
+        self.message = (
+            f"Cannot read '{path}': file too large ({size} bytes).\n"
+            f"Maximum allowed: {limit} bytes"
+        )
+        super().__init__(self.message)
+```
+
+**For shell commands:**
+
+When OS sandbox blocks a shell command, the error is less specific (just "permission denied" or "network unreachable"). The shell tool should wrap these:
+
+```python
+def shell(command: str, ...) -> ShellResult:
+    result = subprocess.run(...)
+
+    if result.returncode != 0:
+        # Enhance error with sandbox context
+        if "Permission denied" in result.stderr:
+            result.stderr += (
+                f"\n\nNote: This worker's writable paths are: "
+                f"{', '.join(sandbox.writable_paths)}"
+            )
+        if "Network is unreachable" in result.stderr:
+            result.stderr += (
+                "\n\nNote: Network access is disabled for this worker."
+            )
+
+    return ShellResult(...)
+```
+
+This helps the LLM understand WHY something failed and WHAT it can do instead.
+
+---
+
+## Sandbox Built-in Tools
+
+The sandbox provides basic I/O as built-in tools:
+
+```python
+# Exposed to LLM as tools
+def read(path: str, max_chars: int = 200_000) -> str:
+    """Read text file from sandbox."""
+    resolved = sandbox.resolve(path)
+    sandbox.check_suffix(resolved)
+    sandbox.check_size(resolved)
+    return resolved.read_text()[:max_chars]
+
+def write(path: str, content: str) -> None:
+    """Write text file to sandbox."""
+    resolved = sandbox.resolve(path)
+    sandbox.check_suffix(resolved)
+    # OS sandbox also enforces write permission
+    resolved.write_text(content)
+
+def list_files(path: str = ".", pattern: str = "**/*") -> List[str]:
+    """List files in sandbox matching pattern."""
+    resolved = sandbox.resolve(path)
+    return [str(p.relative_to(resolved)) for p in resolved.glob(pattern)]
+```
+
+**Naming:**
+- Current: `sandbox_read_text`, `sandbox_write_text`, `sandbox_list`
+- Proposed: `read`, `write`, `list_files` (sandbox is implicit context)
+
+---
+
+## External Tools Using Sandbox
+
+Tools like `shell` operate within the sandbox but aren't part of it:
+
+```python
+def shell(command: str, timeout: int = 30) -> ShellResult:
+    """Execute shell command within sandbox boundaries."""
+    args = shlex.split(command)
+
+    # Tool can query sandbox for validation (optional, for better errors)
+    # But OS sandbox enforces regardless
+
+    result = subprocess.run(
+        args,
+        capture_output=True,
+        timeout=timeout,
+        cwd=sandbox.root,
+        # OS sandbox restricts filesystem and network
+    )
+
+    return ShellResult(
+        stdout=result.stdout.decode()[:50000],
+        stderr=result.stderr.decode()[:50000],
+        exit_code=result.returncode,
+    )
+```
+
+The shell tool doesn't need to validate every path in the command—the OS sandbox enforces boundaries. But it CAN query the sandbox for better error messages.
 
 ---
 
@@ -117,161 +313,143 @@ Tools no longer configure their own paths - they inherit from sandbox:
 
 ```python
 def create_seatbelt_policy(sandbox_config) -> str:
-    readable = [p.root for p in sandbox_config.paths.values()]
     writable = [p.root for p in sandbox_config.paths.values() if p.mode == 'rw']
 
     policy = """
 (version 1)
 (deny default)
-
-; Read access
 (allow file-read*)
+"""
+    for path in writable:
+        policy += f'(allow file-write* (subpath "{path}"))\n'
 
-; Write access - only to declared writable paths
-{writable_rules}
+    if not sandbox_config.network:
+        policy += "(deny network*)\n"
 
-; Network
-{network_rule}
-
-; Process management
+    policy += """
 (allow process-fork)
 (allow process-exec)
-(allow signal (target self))
 """
-    # Generate (allow file-write* (subpath "...")) for each writable path
-    ...
+    return policy
 ```
 
 ### Linux: bubblewrap
 
 ```python
-def create_bwrap_command(sandbox_config, command) -> List[str]:
-    readable = [p.root for p in sandbox_config.paths.values()]
-    writable = [p.root for p in sandbox_config.paths.values() if p.mode == 'rw']
+def create_bwrap_args(sandbox_config) -> List[str]:
+    args = ["bwrap"]
 
-    bwrap = ["bwrap"]
+    for name, path_config in sandbox_config.paths.items():
+        if path_config.mode == 'rw':
+            args.extend(["--bind", path_config.root, path_config.root])
+        else:
+            args.extend(["--ro-bind", path_config.root, path_config.root])
 
-    # Read-only bind for all readable paths
-    for path in readable:
-        if path not in writable:
-            bwrap.extend(["--ro-bind", path, path])
-
-    # Read-write bind for writable paths
-    for path in writable:
-        bwrap.extend(["--bind", path, path])
-
-    # Block network
     if not sandbox_config.network:
-        bwrap.append("--unshare-net")
+        args.append("--unshare-net")
 
-    bwrap.extend(["--die-with-parent", "--"])
-    bwrap.extend(command)
-
-    return bwrap
+    args.extend(["--die-with-parent", "--"])
+    return args
 ```
 
-### Fallback: Application-Only
+### Fallback
 
 When OS sandbox is unavailable:
 ```python
 if not os_sandbox_available():
     if sandbox_config.require_os_sandbox:
         raise SecurityError("OS sandbox required but unavailable")
-    else:
-        logger.warning("OS sandbox unavailable, using application-level checks only")
+    logger.warning("OS sandbox unavailable, application-level only")
 ```
 
 ---
 
-## Runtime Flow
+## Static vs Dynamic Permissions
 
-### Worker Startup
+### Current Design: Static
 
-```python
-def run_worker(worker_def, input_data, ...):
-    sandbox = worker_def.sandbox
+Sandbox boundaries are fixed at worker startup:
+- Defined in worker YAML
+- Cannot be changed by approvals
+- Commands exceeding boundaries fail
 
-    # 1. Create OS sandbox environment
-    os_sandbox = create_os_sandbox(sandbox)
+### Future Option: Dynamic Grants
 
-    # 2. Run worker inside sandbox
-    with os_sandbox:
-        # 3. Register tools (they inherit sandbox context)
-        agent = create_agent(worker_def)
-        register_tools(agent, sandbox)
-
-        # 4. Execute
-        return agent.run(input_data)
+Approvals could grant temporary permissions:
+```yaml
+# FUTURE - not implemented
+shell_rules:
+  - pattern: "git push"
+    approval_required: true
+    grants:
+      network: true  # if approved, enable network for this command
 ```
 
-### Tool Execution
+**Why start static:**
+1. Simpler mental model
+2. Easier to audit (permissions in YAML)
+3. Less attack surface
+4. Forces explicit configuration
+
+**When dynamic might help:**
+- Occasional network operations (git push, API calls)
+- Interactive workflows
+- Reducing config duplication
+
+---
+
+## Attachment Handling
+
+Attachments are files passed to sub-workers. They must come from sandbox:
 
 ```python
-def read_text(ctx, path: str) -> str:
-    sandbox = ctx.sandbox
+def load_attachment(path: str) -> AttachmentPayload:
+    # Must be readable in current sandbox
+    resolved = sandbox.resolve(path)  # raises if outside
 
-    # 1. Resolve path within sandbox
-    resolved = sandbox.resolve_path(path)  # validates path is in readable area
+    # Check attachment policy (count, size, suffix)
+    attachment_policy.validate(resolved)
 
-    # 2. Apply application policies
-    sandbox.check_suffix(resolved)
-    sandbox.check_size(resolved)
-
-    # 3. Read file (OS sandbox also enforces, defense in depth)
-    return resolved.read_text()
-
-def shell(ctx, command: str) -> ShellResult:
-    # 1. Parse command
-    args = shlex.split(command)
-
-    # 2. Check approval (UX layer)
-    ctx.approval_controller.maybe_approve("shell", {"command": command})
-
-    # 3. Execute (OS sandbox enforces path/network restrictions)
-    result = subprocess.run(args, capture_output=True, timeout=30)
-
-    return ShellResult(
-        stdout=result.stdout.decode(),
-        stderr=result.stderr.decode(),
-        exit_code=result.returncode
-    )
-```
-
-### Attachment Loading
-
-```python
-def load_attachment(ctx, path: str) -> AttachmentPayload:
-    sandbox = ctx.sandbox
-
-    # 1. Resolve path (must be in readable area)
-    resolved = sandbox.resolve_path(path)  # OS also enforces this
-
-    # 2. Check attachment policy
-    ctx.attachment_policy.validate(resolved)
-
-    # 3. Return payload
     return AttachmentPayload(path=resolved, ...)
 ```
 
+The sandbox's `resolve()` ensures attachments can only come from readable paths.
+
 ---
 
-## Migration Path
+## Worker Delegation
 
-### Phase 1: Refactor Config (No OS Sandbox Yet)
+When a worker calls another worker:
 
-1. Rename `sandboxes` (plural) → `sandbox` (singular)
-2. Nest path configs under `sandbox.paths`
-3. Add `sandbox.network` (unused initially)
-4. Keep application-level enforcement
+```python
+def worker_call(worker_name: str, attachments: List[str] = None):
+    # Attachments must be in caller's sandbox
+    if attachments:
+        for path in attachments:
+            caller_sandbox.resolve(path)  # validates access
 
+    # Child worker uses its OWN sandbox (from its definition)
+    child_sandbox = load_worker(worker_name).sandbox
+
+    # Child cannot exceed parent's attachment access
+    # (attachments are pre-resolved absolute paths)
+```
+
+**Key principle:** Child workers have their own sandbox. They cannot access paths outside their sandbox, even if parent could.
+
+---
+
+## Migration from Current System
+
+### Phase 1: Refactor Config
 ```yaml
-# Before
+# Before (multiple sandboxes)
 sandboxes:
   portfolio:
     path: ./portfolio
     mode: rw
 
-# After
+# After (single sandbox with paths)
 sandbox:
   paths:
     portfolio:
@@ -279,130 +457,30 @@ sandbox:
       mode: rw
 ```
 
-### Phase 2: Add Shell Tool
+### Phase 2: Add Query API
+- Implement `can_read()`, `can_write()`, `resolve()`
+- Tools use query API for validation
 
-1. Add `shell` tool (see shell_tool_and_approval_patterns.md)
-2. Pattern rules for approval UX
-3. Still application-level only
+### Phase 3: OS Enforcement
+- Implement Seatbelt wrapper (macOS)
+- Implement bwrap wrapper (Linux)
+- Wrap worker execution
 
-### Phase 3: OS Sandbox
-
-1. Implement Seatbelt wrapper (macOS)
-2. Implement bwrap wrapper (Linux)
-3. Wrap worker execution in OS sandbox
-4. Shell commands automatically restricted
-
-### Phase 4: Cleanup
-
-1. Rename tools: `sandbox_read_text` → `read_text`
-2. Update documentation
-3. Deprecate old config format
-
----
-
-## Comparison with Codex
-
-| Aspect | Codex | llm-do (proposed) |
-|--------|-------|-------------------|
-| Sandbox modes | 3 presets (read-only, workspace-write, full-access) | Explicit path config |
-| Granularity | Coarse (all or nothing) | Fine (per-path mode) |
-| OS enforcement | Seatbelt, Landlock | Seatbelt, bwrap |
-| Network control | Binary (on/off) | Binary (on/off) |
-| Approval UX | 3-tier model | Pattern rules |
-| Application filters | None | Suffix, size limits |
-
-Our approach is more flexible (explicit paths vs presets) while using similar OS mechanisms.
-
----
-
-## Sandbox and Approval Interaction
-
-### The Question
-
-Should sandbox permissions be static (defined in config) or dynamic (adjusted based on approvals)?
-
-**Scenario:** Worker has `network: false`, LLM runs `git push`
-
-| Approach | Behavior |
-|----------|----------|
-| Static | Command fails (network blocked). User must edit config. |
-| Dynamic | Approval prompt shows "git push (requires network)". If approved, sandbox enables network for this call. |
-
-### Decision: Static First, Dynamic Later
-
-**Phase 1 (MVP): Static sandbox**
-- Sandbox policy defined in worker config
-- If command needs more permissions, it fails
-- User must configure worker appropriately
-- Simple to implement and reason about
-
-**Phase 2 (Future): Dynamic grants**
-- Pattern rules can specify additional permissions
-- Approval UI shows what's being granted
-- Per-command sandbox policy
-
-```yaml
-# Future: pattern rules with grants
-shell_rules:
-  - pattern: "git push"
-    approval_required: true
-    grants:
-      network: true  # if approved, enable network for this command
-
-  - pattern: "curl"
-    approval_required: true
-    grants:
-      network: true
-
-  - pattern: "git status"
-    approval_required: false
-    grants: {}  # no extra permissions
-```
-
-**Why static first:**
-1. Simpler mental model - sandbox is what's in config
-2. Easier to audit - permissions visible in YAML
-3. Less attack surface - no runtime permission escalation
-4. Forces explicit configuration - user thinks about what worker needs
-
-**When dynamic might be needed:**
-- Workers that occasionally need network (git push, API calls)
-- Interactive workflows where user grants permissions on demand
-- Reducing config duplication across similar workers
-
-### Implications for Current Design
-
-With static sandbox:
-- Worker config must declare ALL permissions it might need
-- Pattern rules only control approval UX, not sandbox policy
-- Commands exceeding sandbox fail with clear error
-
-```yaml
-# Worker that needs occasional network access
-sandbox:
-  paths:
-    portfolio: { root: ./portfolio, mode: rw }
-  network: true  # must enable if ANY command needs it
-
-tool_rules:
-  shell:
-    approval_required: true  # user still approves commands
-```
-
-The downside: enabling `network: true` allows ALL commands to use network, not just approved ones. This is the tradeoff of static sandbox - coarser granularity for simpler model.
+### Phase 4: Rename Tools
+- `sandbox_read_text` → `read`
+- `sandbox_write_text` → `write`
+- `sandbox_list` → `list_files`
 
 ---
 
 ## Open Questions
 
-1. **Tmpdir handling**: Should `/tmp` always be writable? Or explicit in config?
+1. **Tmpdir:** Always writable, or explicit in config?
 
-2. **Home directory**: Allow `~/.config`, `~/.cache` access? Security vs practicality.
+2. **Home directory:** Allow `~/.cache`, `~/.config`?
 
-3. **Tool inheritance**: When worker_call delegates, does child inherit parent's sandbox or use its own?
+3. **Child sandbox inheritance:** Should children be restricted to subset of parent?
 
-4. **Sandbox composition**: Can a child have MORE permissions than parent? (Probably no)
+4. **Dynamic grants:** When to implement, if ever?
 
-5. **Debugging**: How to run without sandbox for debugging? `--no-sandbox` flag?
-
-6. **Dynamic grants priority**: When/if to implement dynamic grants based on real usage patterns.
+5. **Network granularity:** Allow specific hosts/ports instead of binary on/off?

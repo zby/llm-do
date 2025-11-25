@@ -6,6 +6,8 @@ See tests/README.md for testing patterns and best practices.
 import pytest
 from pydantic_ai.models.test import TestModel
 
+from tests.tool_calling_model import ToolCallingModel
+
 
 def pytest_configure(config):
     config.addinivalue_line(
@@ -48,3 +50,10 @@ def test_model():
     See tests/README.md for when to use TestModel vs custom agent_runner.
     """
     return TestModel(seed=42)
+
+
+@pytest.fixture
+def tool_calling_model_cls():
+    """Return the deterministic mock model used to exercise tool flows."""
+
+    return ToolCallingModel

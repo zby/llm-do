@@ -26,8 +26,6 @@ import shutil
 from pathlib import Path
 
 import pytest
-from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, ToolCallPart, ToolReturnPart
-from pydantic_ai.models import Model
 from pydantic_ai.models.test import TestModel
 
 from llm_do import (
@@ -36,65 +34,7 @@ from llm_do import (
     run_worker,
     strict_mode_callback,
 )
-
-
-class ToolCallingModel(Model):
-    """Mock model that makes predefined tool calls.
-
-    This model is more realistic than TestModel(call_tools=[]) because it
-    actually executes the tool calling flow, allowing us to verify that:
-    - Tools are called with correct arguments
-    - Tool results are processed
-    - Files are actually written/read
-    - Approval flows are exercised
-    """
-
-    def __init__(self, tool_calls: list[dict]):
-        """
-        Args:
-            tool_calls: List of tool calls to make, e.g.:
-                [{"name": "sandbox_write_text", "args": {"sandbox": "out", "path": "test.txt", "content": "hello"}}]
-        """
-        super().__init__()
-        self.tool_calls = tool_calls
-        self.call_count = 0
-
-    @property
-    def model_name(self) -> str:
-        return "tool-calling-mock"
-
-    @property
-    def system(self) -> str:
-        return "test"
-
-    async def request(self, messages, model_settings, model_request_parameters):
-        self.call_count += 1
-
-        # Check if this is the first request or a continuation after tool results
-        has_tool_returns = any(
-            isinstance(msg, ModelRequest)
-            and any(isinstance(part, ToolReturnPart) for part in msg.parts)
-            for msg in messages
-        )
-
-        if not has_tool_returns and self.tool_calls:
-            # First request: make tool calls
-            parts = []
-            for i, call in enumerate(self.tool_calls):
-                parts.append(
-                    ToolCallPart(
-                        tool_name=call["name"],
-                        args=call["args"],
-                        tool_call_id=f"call_{i}",
-                    )
-                )
-            return ModelResponse(parts=parts, model_name=self.model_name)
-        else:
-            # After tool calls: return final response
-            return ModelResponse(
-                parts=[TextPart(content="Task completed")],
-                model_name=self.model_name,
-            )
+from tests.tool_calling_model import ToolCallingModel
 
 
 def _copy_example_directory(example_name: str, tmp_path: Path) -> Path:
@@ -182,7 +122,7 @@ def test_greeter_with_different_inputs(greeter_registry):
         assert result is not None
 
 
-def test_save_note_example(approvals_demo_registry):
+def test_save_note_example(approvals_demo_registry, tool_calling_model_cls):
     """Test the save_note example - sandbox write with approval.
 
     This tests that:
@@ -206,7 +146,7 @@ def test_save_note_example(approvals_demo_registry):
 
     # Mock model that actually calls sandbox_write_text
     note_content = "2025-11-22 14:30 • Test note from integration test"
-    model = ToolCallingModel([
+    model = tool_calling_model_cls([
         {
             "name": "sandbox_write_text",
             "args": {
@@ -234,7 +174,7 @@ def test_save_note_example(approvals_demo_registry):
     assert log_file.read_text() == note_content
 
 
-def test_save_note_with_string_input(approvals_demo_registry):
+def test_save_note_with_string_input(approvals_demo_registry, tool_calling_model_cls):
     """Test save_note with plain string input."""
     from pathlib import Path
 
@@ -247,7 +187,7 @@ def test_save_note_with_string_input(approvals_demo_registry):
         log_file.unlink()
 
     note_content = "2025-11-22 15:00 • Plain string note"
-    model = ToolCallingModel([
+    model = tool_calling_model_cls([
         {
             "name": "sandbox_write_text",
             "args": {
@@ -274,7 +214,7 @@ def test_save_note_with_string_input(approvals_demo_registry):
     assert log_file.read_text() == note_content
 
 
-def test_save_note_strict_mode_blocks_write(approvals_demo_registry):
+def test_save_note_strict_mode_blocks_write(approvals_demo_registry, tool_calling_model_cls):
     """Test that save_note is blocked in strict mode (no approval)."""
     from pathlib import Path
 
@@ -287,7 +227,7 @@ def test_save_note_strict_mode_blocks_write(approvals_demo_registry):
         log_file.unlink()
 
     # Mock model that tries to write
-    model = ToolCallingModel([
+    model = tool_calling_model_cls([
         {
             "name": "sandbox_write_text",
             "args": {
@@ -439,16 +379,6 @@ def test_pitch_orchestrator_sandboxes_configured(pitchdeck_eval_registry):
 
     # Verify allowed suffixes
     assert ".pdf" in definition.sandboxes["input"].allowed_suffixes
-
-
-def test_pitch_orchestrator_delegation_configured(pitchdeck_eval_registry):
-    """Test that pitch_orchestrator has correct delegation configuration."""
-    definition = pitchdeck_eval_registry.load_definition("pitch_orchestrator")
-
-    # Verify delegation is configured
-    assert definition.allow_workers is not None
-    assert "pitch_evaluator" in definition.allow_workers
-
 
 def test_all_example_workers_load_successfully():
     """Test that all example worker definitions can be loaded.

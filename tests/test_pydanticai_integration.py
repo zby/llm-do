@@ -3,15 +3,6 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import BaseModel
-from pydantic_ai.messages import (
-    ModelRequest,
-    ModelResponse,
-    TextPart,
-    ToolCallPart,
-    ToolReturnPart,
-)
-from pydantic_ai.models import Model
 
 from llm_do import (
     ApprovalDecision,
@@ -25,57 +16,6 @@ from llm_do import (
 )
 
 
-class ToolCallingModel(Model):
-    """Mock model that makes predefined tool calls."""
-
-    def __init__(self, tool_calls: list[dict]):
-        """
-        Args:
-            tool_calls: List of tool calls to make, e.g.:
-                [{"name": "sandbox_write_text", "args": {"sandbox": "out", "path": "test.txt", "content": "hello"}}]
-        """
-        super().__init__()
-        self.tool_calls = tool_calls
-        self.call_count = 0
-
-    @property
-    def model_name(self) -> str:
-        return "tool-calling-mock"
-
-    @property
-    def system(self) -> str:
-        return "test"
-
-    async def request(self, messages, model_settings, model_request_parameters):
-        self.call_count += 1
-
-        # Check if this is the first request or a continuation after tool results
-        has_tool_returns = any(
-            isinstance(msg, ModelRequest)
-            and any(isinstance(part, ToolReturnPart) for part in msg.parts)
-            for msg in messages
-        )
-
-        if not has_tool_returns and self.tool_calls:
-            # First request: make tool calls
-            parts = []
-            for i, call in enumerate(self.tool_calls):
-                parts.append(
-                    ToolCallPart(
-                        tool_name=call["name"],
-                        args=call["args"],
-                        tool_call_id=f"call_{i}",
-                    )
-                )
-            return ModelResponse(parts=parts, model_name=self.model_name)
-        else:
-            # After tool calls: return final response
-            return ModelResponse(
-                parts=[TextPart(content="Task completed")],
-                model_name=self.model_name,
-            )
-
-
 def _project_root(tmp_path):
     root = tmp_path / "project"
     root.mkdir(parents=True, exist_ok=True)
@@ -87,7 +27,7 @@ def registry(tmp_path):
     return WorkerRegistry(_project_root(tmp_path))
 
 
-def test_integration_approve_all_allows_write(tmp_path, registry):
+def test_integration_approve_all_allows_write(tmp_path, registry, tool_calling_model_cls):
     """Integration test: worker writes file with --approve-all."""
     sandbox_path = tmp_path / "output"
     sandbox_cfg = SandboxConfig(
@@ -100,14 +40,14 @@ def test_integration_approve_all_allows_write(tmp_path, registry):
 
     definition = WorkerDefinition(
         name="writer",
-        instructions="Write a test file",
+        system_prompt="Write a test file",
         sandboxes={"out": sandbox_cfg},
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
     # Mock LLM that calls sandbox_write_text
-    mock_model = ToolCallingModel(
+    mock_model = tool_calling_model_cls(
         [
             {
                 "name": "sandbox_write_text",
@@ -134,7 +74,7 @@ def test_integration_approve_all_allows_write(tmp_path, registry):
     assert result.output == "Task completed"
 
 
-def test_integration_strict_mode_blocks_write(tmp_path, registry):
+def test_integration_strict_mode_blocks_write(tmp_path, registry, tool_calling_model_cls):
     """Integration test: worker fails in --strict mode."""
     sandbox_path = tmp_path / "output"
     sandbox_cfg = SandboxConfig(
@@ -147,14 +87,14 @@ def test_integration_strict_mode_blocks_write(tmp_path, registry):
 
     definition = WorkerDefinition(
         name="writer",
-        instructions="Write a test file",
+        system_prompt="Write a test file",
         sandboxes={"out": sandbox_cfg},
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
     # Mock LLM that tries to call sandbox_write_text
-    mock_model = ToolCallingModel(
+    mock_model = tool_calling_model_cls(
         [
             {
                 "name": "sandbox_write_text",
@@ -180,7 +120,9 @@ def test_integration_strict_mode_blocks_write(tmp_path, registry):
     assert not (sandbox_path / "test.txt").exists()
 
 
-def test_integration_multiple_tool_calls_with_session_approval(tmp_path, registry):
+def test_integration_multiple_tool_calls_with_session_approval(
+    tmp_path, registry, tool_calling_model_cls
+):
     """Integration test: multiple tool calls with session approval."""
     sandbox_path = tmp_path / "output"
     sandbox_cfg = SandboxConfig(
@@ -193,7 +135,7 @@ def test_integration_multiple_tool_calls_with_session_approval(tmp_path, registr
 
     definition = WorkerDefinition(
         name="multi-writer",
-        instructions="Write multiple files",
+        system_prompt="Write multiple files",
         sandboxes={"out": sandbox_cfg},
         tool_rules={"sandbox.write": rule},
     )
@@ -201,7 +143,7 @@ def test_integration_multiple_tool_calls_with_session_approval(tmp_path, registr
 
     # Mock LLM that makes multiple identical write calls
     # Session approval should work for identical payloads (same args)
-    mock_model = ToolCallingModel(
+    mock_model = tool_calling_model_cls(
         [
             {
                 "name": "sandbox_write_text",
@@ -241,7 +183,7 @@ def test_integration_multiple_tool_calls_with_session_approval(tmp_path, registr
     assert (sandbox_path / "test.txt").read_text() == "same content"
 
 
-def test_integration_read_and_write_flow(tmp_path, registry):
+def test_integration_read_and_write_flow(tmp_path, registry, tool_calling_model_cls):
     """Integration test: worker reads file, processes, writes result."""
     input_path = tmp_path / "input"
     output_path = tmp_path / "output"
@@ -261,7 +203,7 @@ def test_integration_read_and_write_flow(tmp_path, registry):
 
     definition = WorkerDefinition(
         name="processor",
-        instructions="Read input, process, write output",
+        system_prompt="Read input, process, write output",
         sandboxes={"in": input_cfg, "out": output_cfg},
         tool_rules={"sandbox.write": rule},
     )
@@ -272,7 +214,7 @@ def test_integration_read_and_write_flow(tmp_path, registry):
     (input_path / "data.txt").write_text("input data")
 
     # Mock LLM that reads then writes
-    mock_model = ToolCallingModel(
+    mock_model = tool_calling_model_cls(
         [
             {
                 "name": "sandbox_read_text",
@@ -302,7 +244,7 @@ def test_integration_read_and_write_flow(tmp_path, registry):
     assert (output_path / "result.txt").read_text() == "processed: input data"
 
 
-def test_integration_rejection_stops_workflow(tmp_path, registry):
+def test_integration_rejection_stops_workflow(tmp_path, registry, tool_calling_model_cls):
     """Integration test: rejecting first tool stops workflow."""
     sandbox_path = tmp_path / "output"
     sandbox_cfg = SandboxConfig(
@@ -315,14 +257,14 @@ def test_integration_rejection_stops_workflow(tmp_path, registry):
 
     definition = WorkerDefinition(
         name="writer",
-        instructions="Write files",
+        system_prompt="Write files",
         sandboxes={"out": sandbox_cfg},
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
     # Mock LLM that tries to make two writes
-    mock_model = ToolCallingModel(
+    mock_model = tool_calling_model_cls(
         [
             {
                 "name": "sandbox_write_text",

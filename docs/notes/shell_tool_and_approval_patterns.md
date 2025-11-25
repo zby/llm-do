@@ -71,6 +71,38 @@ This gives us a working shell tool with the existing approval system. Every shel
 
 Extend the approval system to support command patterns, reducing approval fatigue for known-safe operations.
 
+**Precedence: shell_rules vs tool_rules**
+
+Two places can configure shell approval:
+
+```yaml
+tool_rules:
+  shell:
+    allowed: true
+    approval_required: true  # default for ALL shell commands
+
+shell_rules:
+  - pattern: "git status"
+    approval_required: false  # override for specific pattern
+```
+
+**Resolution order:**
+1. Check `tool_rules.shell.allowed` - if false, shell is completely disabled
+2. Match command against `shell_rules` in order
+3. If pattern matches, use that rule's `approval_required`
+4. If no pattern matches, use `shell_default` settings
+5. If no `shell_default`, fall back to `tool_rules.shell.approval_required`
+
+**Example flow for `git status`:**
+1. `tool_rules.shell.allowed = true` → shell enabled ✓
+2. Match against shell_rules → matches `pattern: "git status"`
+3. Rule says `approval_required: false` → auto-approve ✓
+
+**Example flow for `rm -rf /`:**
+1. `tool_rules.shell.allowed = true` → shell enabled ✓
+2. Match against shell_rules → no match
+3. `shell_default.allowed = false` → blocked ✗
+
 **New configuration in worker definition:**
 ```yaml
 # workers/portfolio_orchestrator.yaml

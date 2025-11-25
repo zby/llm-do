@@ -13,8 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 
-from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxConfig as LegacySandboxConfig, SandboxManager, SandboxToolset
-from .sandbox_v2 import SandboxConfig as NewSandboxConfig
+from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxToolset
+from .worker_sandbox import AttachmentValidator, SandboxConfig
 
 
 # ---------------------------------------------------------------------------
@@ -87,15 +87,10 @@ class WorkerDefinition(BaseModel):
     instructions: Optional[str] = None  # Acts as the worker's system prompt. Optional: can load from prompts/{name}.{txt,jinja2,j2,md}
     model: Optional[str] = None
     output_schema_ref: Optional[str] = None
-    # New unified sandbox config (preferred)
-    sandbox: Optional[NewSandboxConfig] = Field(
+    # Unified sandbox config
+    sandbox: Optional[SandboxConfig] = Field(
         default=None,
-        description="New unified sandbox configuration (preferred over sandboxes)"
-    )
-    # Legacy sandbox config (deprecated, for backward compatibility)
-    sandboxes: Dict[str, LegacySandboxConfig] = Field(
-        default_factory=dict,
-        description="Legacy sandbox configuration (deprecated, use 'sandbox' instead)"
+        description="Unified sandbox configuration"
     )
     attachment_policy: AttachmentPolicy = Field(default_factory=AttachmentPolicy)
     allow_workers: List[str] = Field(default_factory=list)
@@ -128,13 +123,11 @@ class WorkerCreationDefaults(BaseModel):
     """Host-configured defaults used when persisting workers."""
 
     default_model: Optional[str] = None
-    # New unified sandbox config (preferred)
-    default_sandbox: Optional[NewSandboxConfig] = Field(
+    # Unified sandbox config
+    default_sandbox: Optional[SandboxConfig] = Field(
         default=None,
-        description="New unified sandbox configuration (preferred)"
+        description="Unified sandbox configuration"
     )
-    # Legacy sandbox config (for backward compatibility)
-    default_sandboxes: Dict[str, LegacySandboxConfig] = Field(default_factory=dict)
     default_attachment_policy: AttachmentPolicy = Field(
         default_factory=AttachmentPolicy
     )
@@ -146,7 +139,6 @@ class WorkerCreationDefaults(BaseModel):
     def expand_spec(self, spec: WorkerSpec) -> WorkerDefinition:
         """Apply defaults to a ``WorkerSpec`` to create a full definition."""
 
-        sandboxes = {name: cfg.model_copy() for name, cfg in self.default_sandboxes.items()}
         attachment_policy = self.default_attachment_policy.model_copy()
         allow_workers = list(self.default_allow_workers)
         tool_rules = {name: rule.model_copy() for name, rule in self.default_tool_rules.items()}
@@ -157,7 +149,6 @@ class WorkerCreationDefaults(BaseModel):
             model=spec.model or self.default_model,
             output_schema_ref=spec.output_schema_ref,
             sandbox=self.default_sandbox.model_copy() if self.default_sandbox else None,
-            sandboxes=sandboxes,
             attachment_policy=attachment_policy,
             allow_workers=allow_workers,
             tool_rules=tool_rules,
@@ -232,7 +223,7 @@ class WorkerContext:
     """
     registry: Any  # WorkerRegistry - avoid circular import
     worker: WorkerDefinition
-    sandbox_manager: SandboxManager
+    attachment_validator: AttachmentValidator
     sandbox_toolset: SandboxToolset
     creation_defaults: WorkerCreationDefaults
     effective_model: Optional[ModelLike]
@@ -245,7 +236,7 @@ class WorkerContext:
         self, attachment_specs: Optional[Sequence[AttachmentInput]]
     ) -> tuple[List[Path], List[Dict[str, Any]]]:
         """Resolve attachment specs to sandboxed files and enforce policy limits."""
-        return self.sandbox_manager.validate_attachments(
+        return self.attachment_validator.validate_attachments(
             attachment_specs, self.worker.attachment_policy
         )
 

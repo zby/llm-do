@@ -27,8 +27,8 @@ from pydantic_ai.tools import RunContext
 from .approval import ApprovalController
 from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
 from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
-from .sandbox import AttachmentInput, AttachmentPayload, SandboxManager, SandboxToolset
-from .sandbox_v2 import Sandbox, SandboxConfig, sandbox_config_from_legacy
+from .sandbox import AttachmentInput, AttachmentPayload, SandboxToolset
+from .worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
 from .tools import register_worker_tools
 from .types import (
     AgentExecutionContext,
@@ -364,25 +364,16 @@ async def run_worker_async(
         # New unified sandbox config
         new_sandbox = Sandbox(definition.sandbox, base_path=registry.root)
         logger.debug(f"Using new unified sandbox for worker '{worker}'")
-    elif definition.sandboxes:
-        # Convert legacy sandboxes to new format
-        sandbox_config = sandbox_config_from_legacy(definition.sandboxes, registry.root)
-        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
-        logger.debug(f"Converted legacy sandboxes to new format for worker '{worker}'")
     elif defaults.default_sandbox is not None:
         new_sandbox = Sandbox(defaults.default_sandbox, base_path=registry.root)
         logger.debug(f"Using default sandbox for worker '{worker}'")
-    elif defaults.default_sandboxes:
-        sandbox_config = sandbox_config_from_legacy(defaults.default_sandboxes, registry.root)
-        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
-        logger.debug(f"Using converted default sandboxes for worker '{worker}'")
     else:
         # Create empty sandbox with no paths
         new_sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
         logger.debug(f"Using empty sandbox for worker '{worker}'")
 
-    # Also create legacy SandboxManager for backward compatibility
-    sandbox_manager = SandboxManager(definition.sandboxes or defaults.default_sandboxes)
+    # Create attachment validator using the new sandbox
+    attachment_validator = AttachmentValidator(new_sandbox)
 
     attachment_policy = definition.attachment_policy
 
@@ -404,12 +395,16 @@ async def run_worker_async(
     effective_model = definition.model or caller_effective_model or cli_model
 
     approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
-    sandbox_tools = SandboxToolset(sandbox_manager, approvals)
+    # SandboxToolset still needs the legacy manager for now (backward compat)
+    # TODO: Refactor SandboxToolset to use the new Sandbox directly
+    from .sandbox import SandboxManager
+    legacy_manager = SandboxManager({})  # Empty - tools now use FileSandboxImpl
+    sandbox_tools = SandboxToolset(legacy_manager, approvals)
 
     context = WorkerContext(
         registry=registry,
         worker=definition,
-        sandbox_manager=sandbox_manager,
+        attachment_validator=attachment_validator,
         sandbox_toolset=sandbox_tools,
         creation_defaults=defaults,
         effective_model=effective_model,
@@ -503,25 +498,16 @@ def run_worker(
         # New unified sandbox config
         new_sandbox = Sandbox(definition.sandbox, base_path=registry.root)
         logger.debug(f"Using new unified sandbox for worker '{worker}'")
-    elif definition.sandboxes:
-        # Convert legacy sandboxes to new format
-        sandbox_config = sandbox_config_from_legacy(definition.sandboxes, registry.root)
-        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
-        logger.debug(f"Converted legacy sandboxes to new format for worker '{worker}'")
     elif defaults.default_sandbox is not None:
         new_sandbox = Sandbox(defaults.default_sandbox, base_path=registry.root)
         logger.debug(f"Using default sandbox for worker '{worker}'")
-    elif defaults.default_sandboxes:
-        sandbox_config = sandbox_config_from_legacy(defaults.default_sandboxes, registry.root)
-        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
-        logger.debug(f"Using converted default sandboxes for worker '{worker}'")
     else:
         # Create empty sandbox with no paths
         new_sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
         logger.debug(f"Using empty sandbox for worker '{worker}'")
 
-    # Also create legacy SandboxManager for backward compatibility
-    sandbox_manager = SandboxManager(definition.sandboxes or defaults.default_sandboxes)
+    # Create attachment validator using the new sandbox
+    attachment_validator = AttachmentValidator(new_sandbox)
 
     attachment_policy = definition.attachment_policy
 
@@ -543,12 +529,16 @@ def run_worker(
     effective_model = definition.model or caller_effective_model or cli_model
 
     approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
-    sandbox_tools = SandboxToolset(sandbox_manager, approvals)
+    # SandboxToolset still needs the legacy manager for now (backward compat)
+    # TODO: Refactor SandboxToolset to use the new Sandbox directly
+    from .sandbox import SandboxManager
+    legacy_manager = SandboxManager({})  # Empty - tools now use FileSandboxImpl
+    sandbox_tools = SandboxToolset(legacy_manager, approvals)
 
     context = WorkerContext(
         registry=registry,
         worker=definition,
-        sandbox_manager=sandbox_manager,
+        attachment_validator=attachment_validator,
         sandbox_toolset=sandbox_tools,
         creation_defaults=defaults,
         effective_model=effective_model,

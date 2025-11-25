@@ -10,10 +10,11 @@ instructions: |
 
   When the user asks for calculations, use the appropriate tool and explain the result clearly.
 
-sandboxes:
-  scratch:
-    path: ./scratch
-    mode: rw
+sandbox:
+  paths:
+    scratch:
+      root: ./scratch
+      mode: rw
 
 tool_rules:
   # Custom tools require approval by default for safety

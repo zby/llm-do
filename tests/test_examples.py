@@ -365,17 +365,18 @@ def test_pitch_orchestrator_sandboxes_configured(pitchdeck_eval_registry):
     definition = pitchdeck_eval_registry.load_definition("pitch_orchestrator")
 
     # Verify sandboxes are configured
-    assert "input" in definition.sandboxes
-    assert "evaluations" in definition.sandboxes
+    assert definition.sandbox is not None
+    assert "input" in definition.sandbox.paths
+    assert "evaluations" in definition.sandbox.paths
 
     # Verify input is read-only
-    assert definition.sandboxes["input"].mode == "ro"
+    assert definition.sandbox.paths["input"].mode == "ro"
 
     # Verify evaluations is writable
-    assert definition.sandboxes["evaluations"].mode == "rw"
+    assert definition.sandbox.paths["evaluations"].mode == "rw"
 
     # Verify allowed suffixes
-    assert ".pdf" in definition.sandboxes["input"].allowed_suffixes
+    assert ".pdf" in definition.sandbox.paths["input"].suffixes
 
 def test_all_example_workers_load_successfully():
     """Test that all example worker definitions can be loaded.
@@ -395,7 +396,8 @@ def test_all_example_workers_load_successfully():
     approvals_registry = WorkerRegistry(examples_dir / "approvals_demo")
     save_note_def = approvals_registry.load_definition("save_note")
     assert save_note_def.name == "save_note"
-    assert "notes" in save_note_def.sandboxes
+    assert save_note_def.sandbox is not None
+    assert "notes" in save_note_def.sandbox.paths
 
     # Pitch evaluator (in examples/pitchdeck_eval/workers/pitch_evaluator.yaml)
     pitch_registry = WorkerRegistry(examples_dir / "pitchdeck_eval")

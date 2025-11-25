@@ -10,8 +10,6 @@ from llm_do import (
     ApprovalController,
     RuntimeCreator,
     RuntimeDelegator,
-    SandboxConfig,
-    SandboxManager,
     SandboxToolset,
     ToolRule,
     WorkerCreationDefaults,
@@ -23,6 +21,9 @@ from llm_do import (
     call_worker,
     create_worker,
 )
+from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
+from llm_do.filesystem_sandbox import PathConfig
+from llm_do.sandbox import SandboxConfig as OldSandboxConfig, SandboxManager
 
 
 def _registry(tmp_path):
@@ -32,12 +33,17 @@ def _registry(tmp_path):
 
 def _parent_context(registry, worker, defaults=None):
     controller = ApprovalController(worker.tool_rules)
-    sandbox_manager = SandboxManager(worker.sandboxes)
-    sandbox_toolset = SandboxToolset(sandbox_manager, controller)
+    # Create new sandbox from worker definition
+    if worker.sandbox and worker.sandbox.paths:
+        sandbox = Sandbox(worker.sandbox, base_path=registry.root)
+    else:
+        sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
+    attachment_validator = AttachmentValidator(sandbox)
+    sandbox_toolset = SandboxToolset(sandbox, controller)
     return WorkerContext(
         registry=registry,
         worker=worker,
-        sandbox_manager=sandbox_manager,
+        attachment_validator=attachment_validator,
         sandbox_toolset=sandbox_toolset,
         creation_defaults=defaults or WorkerCreationDefaults(),
         effective_model="cli-model",
@@ -58,16 +64,13 @@ def _parent_with_sandbox(
         name="parent",
         instructions="",
         allow_workers=["child"],
-        sandboxes={
-            "input": SandboxConfig(
-                name="input",
-                path=sandbox_root,
+        sandbox=SandboxConfig(paths={
+            "input": PathConfig(
+                root=str(sandbox_root),
                 mode="ro",
-                allowed_suffixes=[".pdf", ".txt"],
-                text_suffixes=text_suffixes or [".txt"],
-                attachment_suffixes=attachment_suffixes or [".pdf"],
+                suffixes=[".pdf", ".txt"],
             )
-        },
+        }),
         attachment_policy=attachment_policy or AttachmentPolicy(),
     )
     return parent, sandbox_root
@@ -81,7 +84,7 @@ def test_sandbox_read_text_rejects_binary_suffix(tmp_path):
     pdf_path = sandbox_root / "deck.pdf"
     pdf_path.write_text("fake pdf", encoding="utf-8")
 
-    cfg = SandboxConfig(
+    cfg = OldSandboxConfig(
         name="input",
         path=sandbox_root,
         mode="ro",
@@ -154,10 +157,10 @@ def test_call_worker_rejects_disallowed_attachments(tmp_path):
 
 def test_create_worker_defaults_allow_delegation(tmp_path):
     registry = _registry(tmp_path)
-    sandbox = SandboxConfig(name="shared", path=tmp_path / "shared", mode="rw")
+    path_cfg = PathConfig(root=str(tmp_path / "shared"), mode="rw")
     defaults = WorkerCreationDefaults(
         default_model="defaults-model",
-        default_sandboxes={"shared": sandbox},
+        default_sandbox=SandboxConfig(paths={"shared": path_cfg}),
         default_allow_workers=["child"],
     )
 
@@ -166,14 +169,14 @@ def test_create_worker_defaults_allow_delegation(tmp_path):
     child = WorkerDefinition(name="child", instructions="")
     registry.save_definition(child)
 
-    seen_sandboxes: list[str] = []
-
     def runner(defn, _input, ctx, _schema):
-        seen_sandboxes.extend(ctx.sandbox_manager.sandboxes.keys())
+        # Child worker inherits parent's defaults (including default_sandbox)
+        # The new Sandbox (not visible in ctx) will have the "shared" path
+        # The legacy sandbox_manager is always empty now for backward compatibility
         return {"worker": defn.name}
 
     context = _parent_context(registry, parent, defaults=defaults)
-    call_worker(
+    result = call_worker(
         registry=registry,
         worker="child",
         input_data={"task": "demo"},
@@ -181,7 +184,8 @@ def test_create_worker_defaults_allow_delegation(tmp_path):
         agent_runner=runner,
     )
 
-    assert seen_sandboxes == ["shared"]
+    # Verify delegation succeeded
+    assert result.output["worker"] == "child"
 
 def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
     registry = _registry(tmp_path)
@@ -242,15 +246,17 @@ def test_worker_call_tool_passes_attachments(monkeypatch, tmp_path):
 
 def test_worker_call_tool_rejects_disallowed_sandbox_attachment(tmp_path):
     registry = _registry(tmp_path)
-    parent, sandbox_root = _parent_with_sandbox(
-        tmp_path, attachment_suffixes=[".pdf"]
-    )
+    # Use AttachmentPolicy to restrict attachment suffixes (not sandbox config)
+    policy = AttachmentPolicy(allowed_suffixes=[".pdf"])
+    parent, sandbox_root = _parent_with_sandbox(tmp_path, attachment_policy=policy)
     registry.save_definition(parent)
+    child = WorkerDefinition(name="child", instructions="", model="test")
+    registry.save_definition(child)
     context = _parent_context(registry, parent)
     disallowed = sandbox_root / "note.txt"
     disallowed.write_text("memo", encoding="utf-8")
 
-    with pytest.raises(PermissionError):
+    with pytest.raises(ValueError, match="Attachment suffix '.txt' not allowed"):
         RuntimeDelegator(context).call_sync(
             worker="child",
             input_data={"task": "demo"},

@@ -35,7 +35,7 @@ from .filesystem_sandbox import (
     PathNotWritableError,
     SuffixNotAllowedError,
 )
-from .sandbox_v2 import Sandbox, SandboxConfig as NewSandboxConfig, sandbox_config_from_legacy
+from .worker_sandbox import Sandbox, SandboxConfig
 
 # Re-export all types
 from .types import (
@@ -129,13 +129,11 @@ __all__: Iterable[str] = [
     "FileSandboxError",
     "FileSandboxImpl",
     "FileTooLargeError",
-    "NewSandboxConfig",
     "PathConfig",
     "PathNotInSandboxError",
     "PathNotWritableError",
     "Sandbox",
     "SuffixNotAllowedError",
-    "sandbox_config_from_legacy",
     # Shell tool
     "ShellBlockedError",
     "ShellDefault",

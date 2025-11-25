@@ -6,7 +6,6 @@ import pytest
 
 from llm_do import (
     ApprovalDecision,
-    SandboxConfig,
     ToolRule,
     WorkerDefinition,
     WorkerRegistry,
@@ -14,6 +13,8 @@ from llm_do import (
     run_worker,
     strict_mode_callback,
 )
+from llm_do.worker_sandbox import SandboxConfig
+from llm_do.filesystem_sandbox import PathConfig
 
 
 def _project_root(tmp_path):
@@ -30,18 +31,17 @@ def registry(tmp_path):
 def test_integration_approve_all_allows_write(tmp_path, registry, tool_calling_model_cls):
     """Integration test: worker writes file with --approve-all."""
     sandbox_path = tmp_path / "output"
-    sandbox_cfg = SandboxConfig(
-        name="out",
-        path=sandbox_path,
+    path_cfg = PathConfig(
+        root=str(sandbox_path),
         mode="rw",
-        allowed_suffixes=[".txt"],
+        suffixes=[".txt"],
     )
     rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
         system_prompt="Write a test file",
-        sandboxes={"out": sandbox_cfg},
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
@@ -76,18 +76,17 @@ def test_integration_approve_all_allows_write(tmp_path, registry, tool_calling_m
 def test_integration_strict_mode_blocks_write(tmp_path, registry, tool_calling_model_cls):
     """Integration test: worker fails in --strict mode."""
     sandbox_path = tmp_path / "output"
-    sandbox_cfg = SandboxConfig(
-        name="out",
-        path=sandbox_path,
+    path_cfg = PathConfig(
+        root=str(sandbox_path),
         mode="rw",
-        allowed_suffixes=[".txt"],
+        suffixes=[".txt"],
     )
     rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
         system_prompt="Write a test file",
-        sandboxes={"out": sandbox_cfg},
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
@@ -123,18 +122,17 @@ def test_integration_multiple_tool_calls_with_session_approval(
 ):
     """Integration test: multiple tool calls with session approval."""
     sandbox_path = tmp_path / "output"
-    sandbox_cfg = SandboxConfig(
-        name="out",
-        path=sandbox_path,
+    path_cfg = PathConfig(
+        root=str(sandbox_path),
         mode="rw",
-        allowed_suffixes=[".txt"],
+        suffixes=[".txt"],
     )
     rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="multi-writer",
         system_prompt="Write multiple files",
-        sandboxes={"out": sandbox_cfg},
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
@@ -186,23 +184,21 @@ def test_integration_read_and_write_flow(tmp_path, registry, tool_calling_model_
     input_path = tmp_path / "input"
     output_path = tmp_path / "output"
 
-    input_cfg = SandboxConfig(
-        name="in",
-        path=input_path,
+    input_cfg = PathConfig(
+        root=str(input_path),
         mode="ro",
     )
-    output_cfg = SandboxConfig(
-        name="out",
-        path=output_path,
+    output_cfg = PathConfig(
+        root=str(output_path),
         mode="rw",
-        allowed_suffixes=[".txt"],
+        suffixes=[".txt"],
     )
     rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="processor",
         system_prompt="Read input, process, write output",
-        sandboxes={"in": input_cfg, "out": output_cfg},
+        sandbox=SandboxConfig(paths={"in": input_cfg, "out": output_cfg}),
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
@@ -244,18 +240,17 @@ def test_integration_read_and_write_flow(tmp_path, registry, tool_calling_model_
 def test_integration_rejection_stops_workflow(tmp_path, registry, tool_calling_model_cls):
     """Integration test: rejecting first tool stops workflow."""
     sandbox_path = tmp_path / "output"
-    sandbox_cfg = SandboxConfig(
-        name="out",
-        path=sandbox_path,
+    path_cfg = PathConfig(
+        root=str(sandbox_path),
         mode="rw",
-        allowed_suffixes=[".txt"],
+        suffixes=[".txt"],
     )
     rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
         system_prompt="Write files",
-        sandboxes={"out": sandbox_cfg},
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)

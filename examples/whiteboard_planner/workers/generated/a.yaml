@@ -7,5 +7,4 @@ attachment_policy:
 instructions: a
 locked: false
 name: a
-sandboxes: {}
 tool_rules: {}

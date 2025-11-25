@@ -1,13 +1,14 @@
 name: save_note
 description: Save a timestamped note to a sandboxed log file (overwrites file).
-sandboxes:
-  notes:
-    path: ./notes
-    mode: rw
-    allowed_suffixes:
-      - .txt
-      - .log
-    max_bytes: 100000
+sandbox:
+  paths:
+    notes:
+      root: ./notes
+      mode: rw
+      suffixes:
+        - .txt
+        - .log
+      max_file_bytes: 100000
 allow_workers: []
 tool_rules:
   sandbox.write:

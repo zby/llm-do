@@ -1,28 +1,28 @@
 name: worker_bootstrapper
 description: Turn free-form tasks into concrete multi-step workflows by designing workers and invoking them
 
-sandboxes:
-  input:
-    path: ./input
-    mode: ro
-    text_suffixes:
-      - .md
-      - .txt
-      - .yaml
-      - .json
-      - .py
-    attachment_suffixes:
-      - .pdf
-    max_bytes: 20000000  # 20MB
-  output:
-    path: ./output
-    mode: rw
-    allowed_suffixes:
-      - .yaml
-      - .md
-      - .txt
-      - .json
-    max_bytes: 20000000
+sandbox:
+  paths:
+    input:
+      root: ./input
+      mode: ro
+      suffixes:
+        - .md
+        - .txt
+        - .yaml
+        - .json
+        - .py
+        - .pdf
+      max_file_bytes: 20000000  # 20MB
+    output:
+      root: ./output
+      mode: rw
+      suffixes:
+        - .yaml
+        - .md
+        - .txt
+        - .json
+      max_file_bytes: 20000000
 
 allow_workers:
   - "*"  # Allow calling any worker from the registry
@@ -67,8 +67,8 @@ instructions: |
   ## Workflow Pattern
 
   Typical workflow:
-  1. Identify the units of work using sandbox_list("input", pattern)
-  2. Use sandbox_read_text("input", path) only for text files (.md, .txt, .yaml,
+  1. Identify the units of work using list_files("input", pattern)
+  2. Use read_file("input/path") only for text files (.md, .txt, .yaml,
      .json, .py). For binary files like PDFs, skip reading and plan to pass them
      as attachments instead.
   3. If no appropriate worker exists, create one with worker_create()
@@ -78,7 +78,7 @@ instructions: |
   4. For each unit of work: call worker_call() with the worker name,
      input data, relevant attachments (attach PDFs rather than reading them), and
      any context fragments
-  5. Write consolidated results using sandbox_write_text("output", ...)
+  5. Write consolidated results using write_file("output/filename", content)
   6. Report:
      - Units processed
      - Output location

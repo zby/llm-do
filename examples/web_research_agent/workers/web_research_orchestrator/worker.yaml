@@ -4,14 +4,15 @@ allow_workers:
   - web_research_extractor
   - web_research_consolidator
   - web_research_reporter
-sandboxes:
-  reports:
-    path: ./reports
-    mode: rw
-    allowed_suffixes:
-      - .md
-      - .json
-    max_bytes: 500000
+sandbox:
+  paths:
+    reports:
+      root: ./reports
+      mode: rw
+      suffixes:
+        - .md
+        - .json
+      max_file_bytes: 500000
 tool_rules:
   sandbox.write:
     name: sandbox.write

@@ -1,17 +1,18 @@
 name: pitch_orchestrator
 description: Coordinate evaluations for every deck stored in the input sandbox.
-sandboxes:
-  input:
-    path: ./input
-    mode: ro
-    allowed_suffixes:
-      - .pdf
-    max_bytes: 10000000  # 10MB for PDF files
-  evaluations:
-    path: ./evaluations
-    mode: rw
-    allowed_suffixes:
-      - .md
-    max_bytes: 500000
+sandbox:
+  paths:
+    input:
+      root: ./input
+      mode: ro
+      suffixes:
+        - .pdf
+      max_file_bytes: 10000000  # 10MB for PDF files
+    evaluations:
+      root: ./evaluations
+      mode: rw
+      suffixes:
+        - .md
+      max_file_bytes: 500000
 allow_workers:
   - pitch_evaluator

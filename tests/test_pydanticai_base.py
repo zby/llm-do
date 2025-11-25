@@ -10,8 +10,6 @@ from llm_do import (
     ApprovalCallback,
     ApprovalController,
     ApprovalDecision,
-    SandboxConfig,
-    SandboxManager,
     SandboxToolset,
     ToolRule,
     WorkerContext,
@@ -23,6 +21,8 @@ from llm_do import (
     create_worker,
     run_worker,
 )
+from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
+from llm_do.filesystem_sandbox import PathConfig
 
 
 class EchoPayload(BaseModel):
@@ -153,27 +153,32 @@ def test_run_worker_message_callback_invoked(registry):
     assert seen == [{"worker": "alpha", "event": "chunk"}]
 
 
-def test_sandbox_write_requires_approval(tmp_path, registry):
+def test_sandbox_write_requires_approval(tmp_path, registry, tool_calling_model_cls):
     sandbox_path = tmp_path / "out"
-    sandbox_cfg = SandboxConfig(
-        name="out",
-        path=sandbox_path,
+    path_cfg = PathConfig(
+        root=str(sandbox_path),
         mode="rw",
-        allowed_suffixes=[".txt"],
+        suffixes=[".txt"],
     )
     rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
-        instructions="",
-        sandboxes={"out": sandbox_cfg},
+        system_prompt="Write a test file",
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
-    def runner(defn, input_data, ctx, output_model):
-        ctx.sandbox_toolset.write_text("out", "note.txt", "hello")
-        return {"worker": defn.name, "input": input_data, "model": ctx.effective_model}
+    # Mock LLM that tries to call write_file tool
+    mock_model = tool_calling_model_cls(
+        [
+            {
+                "name": "write_file",
+                "args": {"path": "out/note.txt", "content": "hello"},
+            }
+        ]
+    )
 
     def reject_callback(tool_name, payload, reason):
         return ApprovalDecision(approved=False, note="Test rejection")
@@ -183,8 +188,7 @@ def test_sandbox_write_requires_approval(tmp_path, registry):
             registry=registry,
             worker="writer",
             input_data="",
-            cli_model="model-x",
-            agent_runner=runner,
+            cli_model=mock_model,
             approval_callback=reject_callback,
         )
 
@@ -194,18 +198,18 @@ def test_sandbox_write_requires_approval(tmp_path, registry):
 def test_create_worker_applies_creation_defaults(registry, tmp_path):
     defaults = WorkerCreationDefaults(
         default_model="gpt-4",
-        default_sandboxes={
-            "rw": SandboxConfig(name="rw", path=tmp_path / "rw", mode="rw"),
-        },
+        default_sandbox=SandboxConfig(paths={
+            "rw": PathConfig(root=str(tmp_path / "rw"), mode="rw"),
+        }),
     )
     spec = WorkerSpec(name="beta", instructions="collect data")
 
     created = create_worker(registry, spec, defaults=defaults)
 
     assert created.model == "gpt-4"
-    assert "rw" in created.sandboxes
+    assert "rw" in created.sandbox.paths
     loaded = registry.load_definition("beta")
-    assert loaded.sandboxes["rw"].path == (tmp_path / "rw").resolve()
+    assert loaded.sandbox.paths["rw"].root == str((tmp_path / "rw").resolve())
     generated_path = registry.root / "workers" / "generated" / "beta.yaml"
     assert generated_path.exists()
 
@@ -298,12 +302,13 @@ def test_call_worker_respects_allowlist(registry):
         return {"worker": defn.name, "input": input_data, "model": ctx.effective_model}
 
     controller = ApprovalController(parent_def.tool_rules)
-    sandbox_manager = SandboxManager(parent_def.sandboxes)
+    sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
+    attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
         registry=registry,
         worker=parent_def,
-        sandbox_manager=sandbox_manager,
-        sandbox_toolset=SandboxToolset(sandbox_manager, controller),
+        attachment_validator=attachment_validator,
+        sandbox_toolset=SandboxToolset(sandbox, controller),
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
@@ -335,12 +340,13 @@ def test_call_worker_supports_wildcard_allowlist(registry):
         return {"worker": defn.name, "input": input_data}
 
     controller = ApprovalController(parent_def.tool_rules)
-    sandbox_manager = SandboxManager(parent_def.sandboxes)
+    sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
+    attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
         registry=registry,
         worker=parent_def,
-        sandbox_manager=sandbox_manager,
-        sandbox_toolset=SandboxToolset(sandbox_manager, controller),
+        attachment_validator=attachment_validator,
+        sandbox_toolset=SandboxToolset(sandbox, controller),
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
@@ -378,12 +384,13 @@ def test_call_worker_propagates_message_callback(registry):
         return ("done", [])
 
     controller = ApprovalController(parent_def.tool_rules)
-    sandbox_manager = SandboxManager(parent_def.sandboxes)
+    sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
+    attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
         registry=registry,
         worker=parent_def,
-        sandbox_manager=sandbox_manager,
-        sandbox_toolset=SandboxToolset(sandbox_manager, controller),
+        attachment_validator=attachment_validator,
+        sandbox_toolset=SandboxToolset(sandbox, controller),
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
@@ -467,37 +474,41 @@ def test_run_worker_without_model_errors(registry):
         )
 
 
-def test_approve_all_callback_mode(tmp_path, registry):
+def test_approve_all_callback_mode(tmp_path, registry, tool_calling_model_cls):
     """Test Story 6: --approve-all flag auto-approves all tools."""
     from llm_do import approve_all_callback
 
     sandbox_path = tmp_path / "out"
-    sandbox_cfg = SandboxConfig(
-        name="out",
-        path=sandbox_path,
+    path_cfg = PathConfig(
+        root=str(sandbox_path),
         mode="rw",
-        allowed_suffixes=[".txt"],
+        suffixes=[".txt"],
     )
     rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
-        instructions="",
-        sandboxes={"out": sandbox_cfg},
+        system_prompt="Write a test file",
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
-    def runner(defn, input_data, ctx, output_model):
-        result = ctx.sandbox_toolset.write_text("out", "note.txt", "hello")
-        return {"wrote": result}
+    # Mock LLM that calls write_file tool
+    mock_model = tool_calling_model_cls(
+        [
+            {
+                "name": "write_file",
+                "args": {"path": "out/note.txt", "content": "hello"},
+            }
+        ]
+    )
 
     result = run_worker(
         registry=registry,
         worker="writer",
         input_data="",
-        cli_model="model-x",
-        agent_runner=runner,
+        cli_model=mock_model,
         approval_callback=approve_all_callback,
     )
 
@@ -506,38 +517,42 @@ def test_approve_all_callback_mode(tmp_path, registry):
     assert (sandbox_path / "note.txt").read_text() == "hello"
 
 
-def test_strict_mode_callback_rejects(tmp_path, registry):
+def test_strict_mode_callback_rejects(tmp_path, registry, tool_calling_model_cls):
     """Test Story 7: --strict flag rejects all non-preapproved tools."""
     from llm_do import strict_mode_callback
 
     sandbox_path = tmp_path / "out"
-    sandbox_cfg = SandboxConfig(
-        name="out",
-        path=sandbox_path,
+    path_cfg = PathConfig(
+        root=str(sandbox_path),
         mode="rw",
-        allowed_suffixes=[".txt"],
+        suffixes=[".txt"],
     )
     rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
-        instructions="",
-        sandboxes={"out": sandbox_cfg},
+        system_prompt="Write a test file",
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
         tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
-    def runner(defn, input_data, ctx, output_model):
-        ctx.sandbox_toolset.write_text("out", "note.txt", "hello")
-        return {"worker": defn.name}
+    # Mock LLM that tries to call write_file tool
+    mock_model = tool_calling_model_cls(
+        [
+            {
+                "name": "write_file",
+                "args": {"path": "out/note.txt", "content": "hello"},
+            }
+        ]
+    )
 
-    with pytest.raises(PermissionError, match="Strict mode: tool 'sandbox.write' not pre-approved"):
+    with pytest.raises(PermissionError, match="Strict mode.*sandbox.write"):
         run_worker(
             registry=registry,
             worker="writer",
             input_data="",
-            cli_model="model-x",
-            agent_runner=runner,
+            cli_model=mock_model,
             approval_callback=strict_mode_callback,
         )
 

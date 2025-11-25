@@ -51,7 +51,7 @@ Three separate concepts:
 They are orthogonal:
 - A tool can be available but sandbox blocks its effect
 - A tool can be approved but sandbox still restricts it
-- Sandbox boundaries are fixed; approvals don't change them
+- Sandbox boundaries are fixed; approvals don't change them **(initial design for simplicity)**
 
 **Example:**
 ```yaml
@@ -73,7 +73,7 @@ If LLM runs `curl http://example.com`:
 2. User approves ✓
 3. Sandbox blocks network ✗ → command fails
 
-Approval doesn't grant network access. Sandbox boundaries are static.
+**Initial design:** Approval doesn't grant network access. Sandbox boundaries are static. See "Static vs Dynamic Permissions" for future extension options.
 
 ---
 
@@ -366,12 +366,14 @@ if not os_sandbox_available():
 
 ## Static vs Dynamic Permissions
 
-### Current Design: Static
+### Initial Design: Static (for simplicity)
 
 Sandbox boundaries are fixed at worker startup:
 - Defined in worker YAML
 - Cannot be changed by approvals
 - Commands exceeding boundaries fail
+
+This is a deliberate simplification for the initial implementation. It keeps the mental model simple and makes security auditing straightforward.
 
 ### Future Option: Dynamic Grants
 
@@ -439,9 +441,244 @@ def worker_call(worker_name: str, attachments: List[str] = None):
 
 ---
 
+## Integration with Runtime Architecture
+
+The sandbox design must integrate with the existing DI-based runtime (see [runtime_refactor_with_di.md](runtime_refactor_with_di.md)).
+
+### Current Architecture
+
+```
+protocols.py     → WorkerDelegator, WorkerCreator
+tools.py         → register_worker_tools (depends on protocols)
+approval.py      → ApprovalController
+execution.py     → agent runners
+runtime.py       → orchestrates, implements protocols
+```
+
+### Adding SandboxProtocol
+
+Add `SandboxProtocol` to `protocols.py` so tools depend on interface, not implementation:
+
+```python
+# protocols.py
+
+class SandboxProtocol(Protocol):
+    """Protocol for sandbox operations.
+
+    Tools depend on this protocol, not concrete Sandbox implementation.
+    This enables testing with mock sandboxes and breaks circular deps.
+    """
+
+    # Query API
+    def can_read(self, path: str) -> bool:
+        """Check if path is readable."""
+        ...
+
+    def can_write(self, path: str) -> bool:
+        """Check if path is writable."""
+        ...
+
+    def resolve(self, path: str) -> Path:
+        """Resolve path within sandbox. Raises SandboxError if outside."""
+        ...
+
+    # Built-in I/O
+    def read(self, path: str, max_chars: int = 200_000) -> str:
+        """Read text file from sandbox."""
+        ...
+
+    def write(self, path: str, content: str) -> None:
+        """Write text file to sandbox."""
+        ...
+
+    def list_files(self, path: str = ".", pattern: str = "**/*") -> List[str]:
+        """List files matching pattern."""
+        ...
+
+    # Metadata for error messages
+    @property
+    def readable_paths(self) -> List[str]:
+        """List of readable path roots (for error messages)."""
+        ...
+
+    @property
+    def writable_paths(self) -> List[str]:
+        """List of writable path roots (for error messages)."""
+        ...
+
+    @property
+    def network_enabled(self) -> bool:
+        """Whether network access is allowed."""
+        ...
+```
+
+### Updated Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    protocols.py                              │
+│  - WorkerDelegator    (existing)                            │
+│  - WorkerCreator      (existing)                            │
+│  - SandboxProtocol    (NEW)                                 │
+└─────────────────────────────────────────────────────────────┘
+                         ▲
+                         │ (implements)
+                         │
+┌────────────────────────┴────────────────────────────────────┐
+│                     sandbox.py                               │
+│  - Sandbox class (implements SandboxProtocol)               │
+│  - SandboxError classes                                     │
+│  - OS enforcement wrappers (Seatbelt, bwrap)                │
+└─────────────────────────────────────────────────────────────┘
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+    ┌──────────┐   ┌──────────┐   ┌──────────┐
+    │ tools.py │   │execution │   │ runtime  │
+    │          │   │   .py    │   │   .py    │
+    │ register │   │          │   │          │
+    │ _sandbox │   │ OS wrap  │   │ creates  │
+    │ _tools() │   │ here     │   │ Sandbox  │
+    └──────────┘   └──────────┘   └──────────┘
+```
+
+### Where Tools Are Registered
+
+Update `tools.py` to use `SandboxProtocol`:
+
+```python
+# tools.py
+
+from .protocols import SandboxProtocol, WorkerDelegator, WorkerCreator
+
+def register_worker_tools(
+    agent: Agent,
+    context: WorkerContext,
+    delegator: WorkerDelegator,
+    creator: WorkerCreator,
+    sandbox: SandboxProtocol,  # NEW parameter
+) -> None:
+    """Register all tools for a worker."""
+
+    # Sandbox built-in tools (use protocol methods)
+    @agent.tool(name="read", description="Read text file")
+    def read_tool(ctx: RunContext, path: str) -> str:
+        return sandbox.read(path)
+
+    @agent.tool(name="write", description="Write text file")
+    def write_tool(ctx: RunContext, path: str, content: str) -> None:
+        sandbox.write(path, content)
+
+    @agent.tool(name="list_files", description="List files")
+    def list_tool(ctx: RunContext, path: str = ".", pattern: str = "**/*") -> List[str]:
+        return sandbox.list_files(path, pattern)
+
+    # Shell tool (queries sandbox for error context)
+    @agent.tool(name="shell", description="Execute shell command")
+    def shell_tool(ctx: RunContext, command: str) -> ShellResult:
+        return execute_shell(command, sandbox)
+
+    # Worker delegation (existing)
+    # ...
+```
+
+### Where OS Enforcement Hooks In
+
+OS sandbox wraps the entire worker execution in `execution.py`:
+
+```python
+# execution.py
+
+from .sandbox import Sandbox, create_os_sandbox
+
+async def default_agent_runner_async(
+    definition: WorkerDefinition,
+    user_input: Any,
+    context: WorkerContext,
+    output_model: Optional[Type[BaseModel]],
+    *,
+    register_tools_fn: Callable,
+    sandbox: Sandbox,  # NEW parameter
+) -> tuple[Any, List[Any]]:
+    """Async agent runner with OS sandbox enforcement."""
+
+    # Wrap entire execution in OS sandbox
+    with create_os_sandbox(sandbox.config):
+        exec_ctx = prepare_agent_execution(...)
+        agent = Agent(**exec_ctx.agent_kwargs)
+        register_tools_fn(agent, context)
+
+        run_result = await agent.run(...)
+
+    return (run_result.output, messages)
+```
+
+### Runtime Creates Sandbox
+
+In `runtime.py`, create the `Sandbox` instance and inject it:
+
+```python
+# runtime.py
+
+from .sandbox import Sandbox
+from .protocols import SandboxProtocol
+
+async def run_worker_async(...) -> WorkerRunResult:
+    definition = registry.load_definition(worker)
+
+    # Create sandbox from worker definition
+    sandbox = Sandbox(definition.sandbox)
+
+    # Create protocol implementations for DI
+    delegator = RuntimeDelegator(context)
+    creator = RuntimeCreator(context)
+
+    # Tool registration with sandbox injection
+    def register_tools_for_worker(agent, ctx):
+        register_worker_tools(agent, ctx, delegator, creator, sandbox)
+
+    # Run with OS enforcement
+    result = await default_agent_runner_async(
+        definition, input_data, context, output_model,
+        register_tools_fn=register_tools_for_worker,
+        sandbox=sandbox,
+    )
+
+    return WorkerRunResult(...)
+```
+
+### Dependency Flow (No Circular Imports)
+
+```
+protocols.py          ← defines SandboxProtocol (no deps)
+       ↑
+sandbox.py            ← implements SandboxProtocol
+       ↑
+tools.py              ← uses SandboxProtocol (not Sandbox)
+       ↑
+execution.py          ← wraps with OS sandbox
+       ↑
+runtime.py            ← creates Sandbox, wires everything
+```
+
+Key: `tools.py` depends on `SandboxProtocol` (interface), not `Sandbox` (implementation). No circular imports.
+
+---
+
 ## Migration from Current System
 
-### Phase 1: Refactor Config
+### Phase 1: Add SandboxProtocol
+1. Add `SandboxProtocol` to `protocols.py`
+2. Keep existing `SandboxManager`/`SandboxToolset` working
+3. No behavior changes yet
+
+### Phase 2: Implement Sandbox Class
+1. Create new `Sandbox` class implementing `SandboxProtocol`
+2. Include query API: `can_read()`, `can_write()`, `resolve()`
+3. Include built-in I/O: `read()`, `write()`, `list_files()`
+4. Include LLM-friendly error classes
+
+### Phase 3: Refactor Config
 ```yaml
 # Before (multiple sandboxes)
 sandboxes:
@@ -455,21 +692,30 @@ sandbox:
     portfolio:
       root: ./portfolio
       mode: rw
+  network: false
 ```
 
-### Phase 2: Add Query API
-- Implement `can_read()`, `can_write()`, `resolve()`
-- Tools use query API for validation
+### Phase 4: Update tools.py
+1. Add `sandbox: SandboxProtocol` parameter to `register_worker_tools()`
+2. Replace `sandbox_*` tools with calls to `sandbox.read()`, etc.
+3. Add shell tool using sandbox for error context
 
-### Phase 3: OS Enforcement
-- Implement Seatbelt wrapper (macOS)
-- Implement bwrap wrapper (Linux)
-- Wrap worker execution
+### Phase 5: Update runtime.py
+1. Create `Sandbox` instance from worker definition
+2. Inject sandbox into `register_worker_tools()`
+3. Pass sandbox to agent runner
 
-### Phase 4: Rename Tools
+### Phase 6: OS Enforcement
+1. Implement `create_os_sandbox()` context manager
+2. Add Seatbelt wrapper (macOS)
+3. Add bwrap wrapper (Linux)
+4. Wrap agent execution in `execution.py`
+
+### Phase 7: Rename Tools
 - `sandbox_read_text` → `read`
 - `sandbox_write_text` → `write`
 - `sandbox_list` → `list_files`
+- Deprecate old names with warnings
 
 ---
 

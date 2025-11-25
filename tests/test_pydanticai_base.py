@@ -420,6 +420,7 @@ def test_default_agent_runner_uses_pydantic_ai(registry):
         "sandbox_list",
         "sandbox_read_text",
         "sandbox_write_text",
+        "shell",
         "worker_call",
         "worker_create",
     ]

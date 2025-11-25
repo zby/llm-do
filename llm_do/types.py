@@ -31,6 +31,54 @@ class ToolRule(BaseModel):
     description: Optional[str] = None
 
 
+# ---------------------------------------------------------------------------
+# Shell tool types
+# ---------------------------------------------------------------------------
+
+
+class ShellResult(BaseModel):
+    """Result from a shell command execution."""
+
+    stdout: str
+    stderr: str
+    exit_code: int
+    truncated: bool = False  # True if output exceeded limit
+
+
+class ShellRule(BaseModel):
+    """Pattern-based rule for shell command approval.
+
+    Rules are matched in order. First match wins.
+    """
+
+    pattern: str = Field(description="Command prefix to match (e.g., 'git status')")
+    sandbox_paths: List[str] = Field(
+        default_factory=list,
+        description="Sandboxes for path argument validation. Empty means no path validation."
+    )
+    approval_required: bool = Field(
+        default=True,
+        description="Whether this command requires user approval"
+    )
+    allowed: bool = Field(
+        default=True,
+        description="Whether this command is allowed at all"
+    )
+
+
+class ShellDefault(BaseModel):
+    """Default behavior for shell commands that don't match any rule."""
+
+    allowed: bool = Field(
+        default=True,
+        description="Whether unmatched commands are allowed"
+    )
+    approval_required: bool = Field(
+        default=True,
+        description="Whether unmatched commands require approval"
+    )
+
+
 class WorkerDefinition(BaseModel):
     """Persisted worker artifact."""
 
@@ -52,6 +100,15 @@ class WorkerDefinition(BaseModel):
     attachment_policy: AttachmentPolicy = Field(default_factory=AttachmentPolicy)
     allow_workers: List[str] = Field(default_factory=list)
     tool_rules: Dict[str, ToolRule] = Field(default_factory=dict)
+    # Shell tool configuration
+    shell_rules: List[ShellRule] = Field(
+        default_factory=list,
+        description="Pattern-based rules for shell command approval"
+    )
+    shell_default: Optional[ShellDefault] = Field(
+        default=None,
+        description="Default behavior for shell commands not matching any rule"
+    )
     locked: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

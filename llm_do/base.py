@@ -46,6 +46,9 @@ from .types import (
     MessageCallback,
     ModelLike,
     OutputSchemaResolver,
+    ShellDefault,
+    ShellResult,
+    ShellRule,
     ToolRule,
     WorkerContext,
     WorkerCreationDefaults,
@@ -54,6 +57,14 @@ from .types import (
     WorkerSpec,
     approve_all_callback,
     strict_mode_callback,
+)
+
+# Re-export shell module
+from .shell import (
+    ShellBlockedError,
+    ShellError,
+    execute_shell,
+    match_shell_rules,
 )
 
 # Re-export registry
@@ -125,4 +136,12 @@ __all__: Iterable[str] = [
     "Sandbox",
     "SuffixNotAllowedError",
     "sandbox_config_from_legacy",
+    # Shell tool
+    "ShellBlockedError",
+    "ShellDefault",
+    "ShellError",
+    "ShellResult",
+    "ShellRule",
+    "execute_shell",
+    "match_shell_rules",
 ]

@@ -12,13 +12,21 @@ import importlib.util
 import logging
 import sys
 import warnings
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 
 from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
-from .types import WorkerContext
+from .shell import (
+    ShellBlockedError,
+    execute_shell,
+    enhance_error_with_sandbox_context,
+    match_shell_rules,
+    parse_command,
+)
+from .types import ShellResult, WorkerContext
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +60,9 @@ def register_worker_tools(
         _register_new_sandbox_tools(agent, context, file_sandbox=sandbox)
     else:
         _register_sandbox_tools(agent, context)
+
+    # Register shell tool if enabled
+    _register_shell_tool(agent, context, sandbox)
 
     # Register worker delegation/creation tools with injected implementations
     _register_worker_delegation_tools(agent, context, delegator, creator)
@@ -203,6 +214,124 @@ def _register_new_sandbox_tools(
             {"sandbox": sandbox, "path": path},
             lambda: file_sandbox.write(full_path, content),
         )
+
+
+def _register_shell_tool(
+    agent: Agent,
+    context: WorkerContext,
+    file_sandbox: Optional[FileSandbox],
+) -> None:
+    """Register the shell tool for executing commands.
+
+    The shell tool:
+    1. Checks if shell is enabled via tool_rules
+    2. Matches command against shell_rules for approval decision
+    3. Routes through approval controller
+    4. Executes command and returns result
+    """
+    # Check if shell is enabled via tool_rules
+    shell_rule = context.worker.tool_rules.get("shell")
+    if shell_rule is not None and not shell_rule.allowed:
+        logger.debug(f"Shell tool disabled for worker '{context.worker.name}'")
+        return
+
+    @agent.tool(
+        name="shell",
+        description="Execute a shell command. Commands are parsed with shlex and "
+                    "executed without a shell for security. Shell metacharacters "
+                    "(|, >, <, ;, &, `, $() are blocked."
+    )
+    def shell_tool(
+        ctx: RunContext[WorkerContext],
+        command: str,
+        timeout: int = 30,
+    ) -> ShellResult:
+        """Execute a shell command.
+
+        Args:
+            command: Command to execute (parsed with shlex)
+            timeout: Timeout in seconds (default 30, max 300)
+
+        Returns:
+            ShellResult with stdout, stderr, exit_code, and truncated flag
+        """
+        # Enforce timeout limits
+        timeout = min(max(timeout, 1), 300)
+
+        # Get worker's shell configuration
+        worker = ctx.deps.worker
+        shell_rules = worker.shell_rules
+        shell_default = worker.shell_default
+
+        # Parse command for rule matching
+        try:
+            args = parse_command(command)
+        except ShellBlockedError as e:
+            return ShellResult(
+                stdout="",
+                stderr=str(e),
+                exit_code=1,
+                truncated=False,
+            )
+
+        # Match against shell_rules
+        allowed, approval_required = match_shell_rules(
+            command=command,
+            args=args,
+            rules=shell_rules,
+            default=shell_default,
+            file_sandbox=file_sandbox,
+        )
+
+        # Check if command is allowed
+        if not allowed:
+            return ShellResult(
+                stdout="",
+                stderr=f"Command not allowed by shell rules: {command}",
+                exit_code=1,
+                truncated=False,
+            )
+
+        # Determine approval requirement
+        # Priority: shell_rules match > shell_default > tool_rules.shell
+        if not approval_required:
+            # Auto-approved by shell_rules
+            pass
+        else:
+            # Check tool_rules.shell for approval override
+            shell_tool_rule = ctx.deps.worker.tool_rules.get("shell")
+            if shell_tool_rule is not None and not shell_tool_rule.approval_required:
+                approval_required = False
+
+        # Execute with or without approval
+        def _execute() -> ShellResult:
+            working_dir = Path(ctx.deps.registry.root)
+            result = execute_shell(
+                command=command,
+                working_dir=working_dir,
+                timeout=timeout,
+            )
+            # Enhance errors with sandbox context
+            return enhance_error_with_sandbox_context(result, file_sandbox)
+
+        if approval_required:
+            # Route through approval controller
+            return ctx.deps.approval_controller.maybe_run(
+                "shell",
+                {"command": command},
+                _execute,
+            )
+        else:
+            # Auto-approved
+            try:
+                return _execute()
+            except ShellBlockedError as e:
+                return ShellResult(
+                    stdout="",
+                    stderr=str(e),
+                    exit_code=1,
+                    truncated=False,
+                )
 
 
 def _register_worker_delegation_tools(

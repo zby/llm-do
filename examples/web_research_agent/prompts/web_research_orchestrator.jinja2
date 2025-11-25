@@ -4,7 +4,7 @@ reports to the `reports` sandbox.
 Available tools:
 - `search_web(query, num_results=5)` → returns [{url, title, snippet}]
 - `worker_call(worker, input_data)` → delegate to sub-workers
-- `sandbox_write_text(sandbox, path, content)` → write files into a sandbox
+- `write_file(path, content)` → write files (path format: "sandbox_name/relative/path")
 
 Process:
 1) Derive the topic from `input_data.topic` when present, otherwise treat the
@@ -28,7 +28,7 @@ Process:
    - trim to 60 characters
    - default to "report" when empty
 8) Write the Markdown to `reports/{slug}.md` and the JSON (pretty) to
-   `reports/{slug}.json` via `sandbox_write_text`.
+   `reports/{slug}.json` via `write_file`.
 9) End with a brief status: topic, number of sources used, and where files were
    written.
 

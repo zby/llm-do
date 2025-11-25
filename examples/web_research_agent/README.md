@@ -29,5 +29,5 @@ Outputs are written to `reports/{topic-slug}.md` and `reports/{topic-slug}.json`
 
 ## Notes
 - Tools use standard library HTTP (no extra deps). They respect `SERPAPI_API_KEY` when present, otherwise default to DuckDuckGo JSON.
-- `sandbox_write_text` is approval-gated in the orchestrator; pass `--approve-all` for smooth runs.
+- `write_file` is approval-gated in the orchestrator; pass `--approve-all` for smooth runs.
 - Keep topic slugs short and ASCII-safe; the orchestrator instructions handle slugging in-model.

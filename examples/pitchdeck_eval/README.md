@@ -88,7 +88,7 @@ Open `evaluations/` afterwards to inspect the generated reports.
 **`pitch_orchestrator`** demonstrates:
 - Multiple sandboxes (`input` read-only, `evaluations` writable)
 - `worker_call` with **attachments** parameter (passes PDF files)
-- `sandbox_write_text` for saving reports
+- `write_file` for saving reports
 - Tight `allow_workers` list (only `pitch_evaluator` allowed)
 - File slug generation for consistent naming
 

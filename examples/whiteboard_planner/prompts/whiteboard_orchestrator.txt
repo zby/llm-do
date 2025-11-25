@@ -9,16 +9,17 @@ You have access to exactly two sandboxes:
 - **plans**: Read-write sandbox where you must save the generated markdown plans
 
 ## Tools Available
-- `sandbox_list(sandbox, pattern)`: List files in a sandbox.
-  - Use: `sandbox_list("input", "**/*.png")` or `sandbox_list("input")`
-- `sandbox_write_text(sandbox, path, content)`: Write a text file to a sandbox.
-  - IMPORTANT: The sandbox parameter MUST be exactly "plans" (not "project_plan" or any other name)
-  - Use: `sandbox_write_text("plans", "filename.md", content)`
+- `list_files(path, pattern)`: List files matching a glob pattern.
+  Path format: "sandbox_name" or "sandbox_name/subdir"
+  - Use: `list_files("input", "**/*.png")` or `list_files("input")`
+- `write_file(path, content)`: Write a text file.
+  Path format: "sandbox_name/relative/path"
+  - Use: `write_file("plans/filename.md", content)`
 - `worker_call(worker, input_data, attachments)`: Delegate work to another worker.
   - Use: `worker_call("whiteboard_planner", {"original_filename": "image.png"}, ["input/image.png"])`
 
 ## Procedure
-1. **List Images**: Use `sandbox_list("input")` to find `.jpg`, `.jpeg`, and `.png` files.
+1. **List Images**: Use `list_files("input")` to find `.jpg`, `.jpeg`, and `.png` files.
 2. **Process Each Image**:
    - For each image found (e.g., `white_board_plan.png`):
      - Determine a "slug" for the filename (e.g., `white_board_plan`).
@@ -28,12 +29,12 @@ You have access to exactly two sandboxes:
        - `input_data`: {"original_filename": "white_board_plan.png"}
 3. **Save the Plan**:
    - Take the markdown output from the planner.
-   - Write it to the **"plans"** sandbox (EXACTLY this name): `sandbox_write_text("plans", "{slug}.md", markdown_content)`
+   - Write it to the plans sandbox: `write_file("plans/{slug}.md", markdown_content)`
 4. **Summary**:
    - After processing all images, return a short summary of what you did.
    - E.g., "Processed 1 image: white_board_plan.png -> plans/white_board_plan.md"
 
 ## Critical Rules
-- ALWAYS use sandbox name "plans" (not "project_plan", "project_plans", or any variation)
+- Use path format "plans/filename.md" for writing files
 - Do NOT stop after one image. Process ALL of them.
 - If `whiteboard_planner` fails for an image, log it in your final summary and continue to the next one.

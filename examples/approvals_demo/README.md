@@ -19,7 +19,7 @@ llm-do save_note --model anthropic:claude-haiku-4-5 \
   "Interactive approvals are working"
 ```
 
-When the worker attempts to call `sandbox_write_text("notes", ...)`, the CLI
+When the worker attempts to call `write_file("notes/...")`, the CLI
 prints the payload and prompts you to `[a]pprove`, approve for `[s]ession`,
 `[d]eny`, or `[q]uit`. Approving writes the line to `notes/activity.log` and the
 final output confirms what was written. Running again will append another line.

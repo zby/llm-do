@@ -59,8 +59,8 @@ def test_whiteboard_orchestrator_execution(whiteboard_registry, tmp_path):
     
     model = ToolCallingModel([
         {
-            "name": "sandbox_list",
-            "args": {"sandbox": "input", "pattern": "*.jpg"}
+            "name": "list_files",
+            "args": {"path": "input", "pattern": "*.jpg"}
         },
         {
             "name": "worker_call",
@@ -71,10 +71,9 @@ def test_whiteboard_orchestrator_execution(whiteboard_registry, tmp_path):
             }
         },
         {
-            "name": "sandbox_write_text",
+            "name": "write_file",
             "args": {
-                "sandbox": "plans",
-                "path": "test_board.md",
+                "path": "plans/test_board.md",
                 "content": plan_content
             }
         }

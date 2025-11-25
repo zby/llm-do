@@ -22,7 +22,7 @@ from __future__ import annotations
 from typing import Iterable
 
 # Re-export sandbox types (legacy)
-from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxConfig, SandboxManager, SandboxToolset
+from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 
 # Re-export new sandbox types
 from .filesystem_sandbox import (
@@ -111,8 +111,6 @@ __all__: Iterable[str] = [
     "call_worker",
     "call_worker_async",
     "create_worker",
-    "SandboxManager",
-    "SandboxToolset",
     "WorkerContext",
     # Protocols
     "FileSandbox",

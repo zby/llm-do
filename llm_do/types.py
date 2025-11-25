@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 
-from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy, SandboxToolset
+from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 from .worker_sandbox import AttachmentValidator, SandboxConfig
 
 
@@ -224,7 +224,6 @@ class WorkerContext:
     registry: Any  # WorkerRegistry - avoid circular import
     worker: WorkerDefinition
     attachment_validator: AttachmentValidator
-    sandbox_toolset: SandboxToolset
     creation_defaults: WorkerCreationDefaults
     effective_model: Optional[ModelLike]
     approval_controller: Any  # ApprovalController - defined in runtime.py

@@ -7,7 +7,7 @@ This ensures the examples stay working as the codebase evolves.
 ## Testing Philosophy: CWD Matters
 
 Workers with sandboxes that use relative paths (like `./notes` or `./input`)
-depend on CWD for correct path resolution, because SandboxManager resolves
+depend on CWD for correct path resolution, because the Sandbox resolves
 relative paths from CWD (not from the registry root).
 
 To match real-world usage:

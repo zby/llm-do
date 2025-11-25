@@ -27,7 +27,7 @@ from pydantic_ai.tools import RunContext
 from .approval import ApprovalController
 from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
 from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
-from .sandbox import AttachmentInput, AttachmentPayload, SandboxToolset
+from .sandbox import AttachmentInput, AttachmentPayload
 from .worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
 from .tools import register_worker_tools
 from .types import (
@@ -395,17 +395,11 @@ async def run_worker_async(
     effective_model = definition.model or caller_effective_model or cli_model
 
     approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
-    # SandboxToolset still needs the legacy manager for now (backward compat)
-    # TODO: Refactor SandboxToolset to use the new Sandbox directly
-    from .sandbox import SandboxManager
-    legacy_manager = SandboxManager({})  # Empty - tools now use FileSandboxImpl
-    sandbox_tools = SandboxToolset(legacy_manager, approvals)
 
     context = WorkerContext(
         registry=registry,
         worker=definition,
         attachment_validator=attachment_validator,
-        sandbox_toolset=sandbox_tools,
         creation_defaults=defaults,
         effective_model=effective_model,
         attachments=attachment_payloads,
@@ -529,17 +523,11 @@ def run_worker(
     effective_model = definition.model or caller_effective_model or cli_model
 
     approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
-    # SandboxToolset still needs the legacy manager for now (backward compat)
-    # TODO: Refactor SandboxToolset to use the new Sandbox directly
-    from .sandbox import SandboxManager
-    legacy_manager = SandboxManager({})  # Empty - tools now use FileSandboxImpl
-    sandbox_tools = SandboxToolset(legacy_manager, approvals)
 
     context = WorkerContext(
         registry=registry,
         worker=definition,
         attachment_validator=attachment_validator,
-        sandbox_toolset=sandbox_tools,
         creation_defaults=defaults,
         effective_model=effective_model,
         attachments=attachment_payloads,

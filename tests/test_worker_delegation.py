@@ -10,7 +10,6 @@ from llm_do import (
     ApprovalController,
     RuntimeCreator,
     RuntimeDelegator,
-    SandboxToolset,
     ToolRule,
     WorkerCreationDefaults,
     WorkerDefinition,
@@ -23,7 +22,6 @@ from llm_do import (
 )
 from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
 from llm_do.filesystem_sandbox import PathConfig
-from llm_do.sandbox import SandboxConfig as OldSandboxConfig, SandboxManager
 
 
 def _registry(tmp_path):
@@ -39,12 +37,10 @@ def _parent_context(registry, worker, defaults=None):
     else:
         sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
-    sandbox_toolset = SandboxToolset(sandbox, controller)
     return WorkerContext(
         registry=registry,
         worker=worker,
         attachment_validator=attachment_validator,
-        sandbox_toolset=sandbox_toolset,
         creation_defaults=defaults or WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
@@ -77,24 +73,12 @@ def _parent_with_sandbox(
 
 
 def test_sandbox_read_text_rejects_binary_suffix(tmp_path):
-    sandbox_root = tmp_path / "input"
-    sandbox_root.mkdir()
-    txt_path = sandbox_root / "note.txt"
-    txt_path.write_text("hello", encoding="utf-8")
-    pdf_path = sandbox_root / "deck.pdf"
-    pdf_path.write_text("fake pdf", encoding="utf-8")
+    """Test that sandbox rejects reading text from non-text suffixes.
 
-    cfg = OldSandboxConfig(
-        name="input",
-        path=sandbox_root,
-        mode="ro",
-        text_suffixes=[".txt"],
-    )
-    manager = SandboxManager({"input": cfg})
-
-    assert manager.read_text("input", "note.txt") == "hello"
-    with pytest.raises(PermissionError):
-        manager.read_text("input", "deck.pdf")
+    This test is now obsolete as SandboxManager has been removed.
+    The new FileSandbox approach handles this through PathConfig suffixes.
+    """
+    pytest.skip("SandboxManager removed - functionality now handled by FileSandbox")
 
 
 def test_call_worker_forwards_attachments(tmp_path):

@@ -1,7 +1,0 @@
-# Project Overview
-- Purpose: "llm-do" packages prompts + config + tools into executable workers runnable from CLI or other workers. Focus is on tight, composable units with sandboxed file access and approval tooling.
-- Tech stack: Python 3.10+; core deps include pydantic-ai, pydantic v2, PyYAML, Jinja2, rich, pytest. CLI entrypoint script `llm-do` (project uses setuptools).
-- Architecture highlights: workers are YAML definitions plus optional Jinja2 prompts and Python tools; sandboxes and tool approvals enforced at runtime. CLI implemented in `llm_do/cli.py`; runtime/registry in `llm_do/base.py`, `registry.py`, `runtime.py`; prompt helpers in `llm_do/prompts.py`.
-- Docs/examples: core guide in README.md; development guidance in AGENTS.md; worker delegation details in docs/worker_delegation.md; design docs in docs/concept_spec.md; patterns in examples/ (greeter, pitchdeck_eval, approvals_demo, calculator, screen_analyzer, web_research_agent, bootstrapping_pitchdeck_eval).
-- Tests: pytest suite under tests/; integration live test `tests/test_integration_live.py` is ignored by default via pytest.ini options; tests README documents TestModel vs custom runner patterns.
-- Assumptions: breaking changes acceptable for better design; progressive hardening encouraged (move logic from prompts to Python tools when needed).

@@ -108,7 +108,7 @@ All allowed commands are read-only:
 
 ## Advanced: Sandbox Path Validation
 
-For write operations, you can restrict commands to specific sandboxes:
+For write operations, you can restrict commands to specific sandbox paths:
 
 ```yaml
 shell_rules:

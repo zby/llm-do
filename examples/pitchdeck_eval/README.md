@@ -84,7 +84,7 @@ Open `evaluations/` afterwards to inspect the generated reports.
 ## Anatomy of the workers
 
 **`pitch_orchestrator`** demonstrates:
-- Multiple sandboxes (`input` read-only, `evaluations` writable)
+- Multiple sandbox paths (`input` read-only, `evaluations` writable)
 - `worker_call` with **attachments** parameter (passes PDF files)
 - `write_file` for saving reports
 - Tight `allow_workers` list (only `pitch_evaluator` allowed)
@@ -92,7 +92,7 @@ Open `evaluations/` afterwards to inspect the generated reports.
 
 **`pitch_evaluator`** demonstrates:
 - **Attachment policy** (accepts 1 PDF, max 10MB)
-- **No sandboxes** (receives data via attachments, not file system)
+- **No sandbox** (receives data via attachments, not file system)
 - Jinja2 template with `{{ file('PROCEDURE.md') }}` to load rubric
 - **Markdown output** (not JSON - simpler, more readable)
 - Native PDF reading via LLM vision capabilities

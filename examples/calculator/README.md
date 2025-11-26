@@ -45,7 +45,7 @@ llm-do calculator "Find the prime factors of 1001 and calculate factorial of 7" 
 ## How Custom Tools Work
 
 1. **Discovery**: llm-do looks for `workers/calculator/tools.py` alongside `worker.worker`
-2. **Registration**: All public functions (not starting with `_`) are registered as tools
+2. **Registration**: All public functions (not starting with `_`) are registered as [PydanticAI tools](https://ai.pydantic.dev/api/tools/)
 3. **Approval**: Tool rules in `worker.worker` control whether approval is required
 4. **Documentation**: Function docstrings become tool descriptions for the LLM
 

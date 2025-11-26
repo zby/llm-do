@@ -96,32 +96,41 @@ Check the `examples/` directory for additional patterns:
 
 ## How It Works
 
-**Workers** are `.worker` files with YAML front matter + instructions:
+**Workers** are `.worker` files with [YAML front matter](https://python-frontmatter.readthedocs.io/) + instructions:
 - `name`: Worker identifier
 - `description`: What the worker does
 - `model`: Which LLM to use (optional, can override with `--model`)
-- `sandboxes`: Which directories to access (read/write permissions, file filters)
+- `sandbox`: File access configuration (paths, permissions, file filters)
 - `tool_rules`: Which tools require approval
-- `worker_creation_policy`: Can this worker create new workers?
+- `allow_workers`: Which workers can be delegated to
 - **Body** (after `---`): System prompt / instructions with optional Jinja2 templating
 
-**Sandboxes** limit file access:
+See [`docs/notes/worker_format_migration.md`](docs/notes/worker_format_migration.md) for complete field documentation.
+
+**Sandbox** limits file access:
 ```yaml
-sandboxes:
-  input:
-    root_dir: ./input
-    mode: read
-    allowed_suffixes: [.pdf, .txt]
-  output:
-    root_dir: ./output
-    mode: write
+sandbox:
+  paths:
+    input:
+      root: ./input
+      mode: ro
+      suffixes: [.pdf, .txt]
+    output:
+      root: ./output
+      mode: rw
 ```
 
-**Worker delegation** lets workers call other workers:
-```python
-# From within a worker's tools
-result = worker_call("pitch_evaluator", attachments=["deck.pdf"])
+**Worker delegation** lets workers call other workers via the `worker_call` tool:
+```yaml
+# In your worker's instructions, tell the LLM about delegation:
+allow_workers:
+  - pitch_evaluator
+
+# The LLM can then use the worker_call tool:
+# worker_call(worker="pitch_evaluator", input_data={...}, attachments=["input/deck.pdf"])
 ```
+
+The orchestrator worker delegates work, the evaluator worker processes it—clean separation of concerns.
 
 **Custom tools** extend workers with Python code:
 ```python
@@ -136,7 +145,7 @@ def calculate_fibonacci(n: int) -> int:
     return b
 ```
 
-Functions in `tools.py` are automatically registered as tools the LLM can call. See [`examples/calculator/`](examples/calculator/) for a complete example.
+Functions in `tools.py` are automatically registered as [tools](https://ai.pydantic.dev/api/tools/) the LLM can call. Workers also have access to [toolsets](https://ai.pydantic.dev/api/toolsets/) for file operations (when a sandbox is configured). See [`examples/calculator/`](examples/calculator/) for a complete example.
 
 See [`docs/worker_delegation.md`](docs/worker_delegation.md) for detailed design.
 

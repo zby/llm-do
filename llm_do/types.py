@@ -104,6 +104,10 @@ class WorkerDefinition(BaseModel):
         default=None,
         description="Default behavior for shell commands not matching any rule"
     )
+    shell_cwd: Optional[str] = Field(
+        default=None,
+        description="Working directory for shell commands. Can be absolute or relative to registry root. None means registry root."
+    )
     locked: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -230,6 +234,7 @@ class WorkerContext:
     attachments: List[AttachmentPayload] = field(default_factory=list)
     message_callback: Optional[MessageCallback] = None
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
+    shell_cwd: Optional[Path] = None  # Working directory for shell commands (overrides worker.shell_cwd)
 
     def validate_attachments(
         self, attachment_specs: Optional[Sequence[AttachmentInput]]

@@ -220,7 +220,10 @@ def _register_shell_tool(
 
         # Execute with or without approval
         def _execute() -> ShellResult:
-            working_dir = Path(ctx.deps.registry.root)
+            # Determine working directory:
+            # 1. If context.shell_cwd is set (from worker.shell_cwd or --set override), use it
+            # 2. Otherwise, use current working directory
+            working_dir = ctx.deps.shell_cwd if ctx.deps.shell_cwd is not None else Path.cwd()
             result = execute_shell(
                 command=command,
                 working_dir=working_dir,

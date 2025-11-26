@@ -123,6 +123,15 @@ def _prepare_worker_context(
 
     approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
 
+    # Resolve shell_cwd: if worker specifies one, make it absolute (relative to registry.root)
+    resolved_shell_cwd: Optional[Path] = None
+    if definition.shell_cwd is not None:
+        cwd_path = Path(definition.shell_cwd)
+        if cwd_path.is_absolute():
+            resolved_shell_cwd = cwd_path
+        else:
+            resolved_shell_cwd = (Path(registry.root) / cwd_path).resolve()
+
     context = WorkerContext(
         registry=registry,
         worker=definition,
@@ -133,6 +142,7 @@ def _prepare_worker_context(
         approval_controller=approvals,
         message_callback=message_callback,
         custom_tools_path=custom_tools_path,
+        shell_cwd=resolved_shell_cwd,
     )
 
     output_model = registry.resolve_output_schema(definition)

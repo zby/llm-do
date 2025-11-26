@@ -31,12 +31,16 @@
 
 ## Location-Independent Workers
 
-**Problem:** Workers must be run from their own directory. Relative paths in sandboxes and shell commands only work from specific locations. This limits reusability - examples cannot easily be run from arbitrary locations.
+**Status:** ✅ **Completed (Phase 1)**
 
-**Proposed solutions:**
-- [ ] Add configurable "project root" that workers can reference
-- [ ] Let workers specify their shell working directory in the definition
-- [ ] Support absolute sandbox paths (currently only relative)
-- [ ] Add runtime path parameters like `--cwd` or `--project-root` CLI flags
+**Solution implemented:**
+- [x] Shell commands now run from user's current working directory by default (not registry root)
+- [x] Added `shell_cwd` field to WorkerDefinition for workers that need specific directories
+- [x] Overridable at runtime: `--set shell_cwd=/some/project`
+- [x] Worker creation still uses `registry.root/workers/generated/` (registry acts as "project root")
 
-**Benefits:** Run `llm-do code_analyzer` from anywhere, analyze any directory. Reusable workers that work across different project structures.
+**Remaining (future work):**
+- [ ] Support absolute sandbox paths (currently only relative to registry root)
+- [ ] Template variables in paths (e.g., `{CWD}`, `{REGISTRY_ROOT}`)
+
+**Benefits achieved:** Workers with shell tools now work from user's current directory, making `code_analyzer` and similar workers location-independent.

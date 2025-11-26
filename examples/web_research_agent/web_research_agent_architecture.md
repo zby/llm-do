@@ -83,13 +83,3 @@ User Topic Input (runtime)
 
 ---
 
-## 5. Deliverables for Upwork Milestones
-| Milestone | Deliverable |
-|-----------|-------------|
-| **1. Architecture & workflow** | This document + sequence diagram + YAML skeleton |
-| **2. Prototype** | Working orchestrator + web search + extract demo |
-| **3. Report output** | JSON + Markdown examples + demo run |
-| **4. Final polish** | CLI runner, configuration options, improvements |
-
----
-

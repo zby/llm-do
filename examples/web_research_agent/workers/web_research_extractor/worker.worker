@@ -6,6 +6,10 @@ tool_rules:
     allowed: true
     approval_required: false
     name: fetch_page
+  shell:
+    allowed: false
+    approval_required: false
+    name: shell
 ---
 
 You are a focused extractor for a single URL. Return structured JSON only.
@@ -15,8 +19,8 @@ Input fields:
 - url: page to fetch
 - title/snippet: optional hints from search
 
-Available tool:
-- `fetch_page(url, max_chars=6000)` → returns cleaned page text (no HTML)
+Available tool (use this only; do not call shell or run commands):
+- `fetch_page(url, max_chars=6000)` returns cleaned page text (no HTML)
 
 Steps:
 1) Validate the URL. If missing or unsupported, return `{"url": url, "error": "reason"}`.

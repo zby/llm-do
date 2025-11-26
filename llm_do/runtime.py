@@ -102,8 +102,6 @@ def _prepare_worker_context(
     # Create attachment validator using the new sandbox
     attachment_validator = AttachmentValidator(new_sandbox)
 
-    attachment_policy = definition.attachment_policy
-
     attachment_payloads: List[AttachmentPayload] = []
     if attachments:
         for item in attachments:
@@ -117,7 +115,10 @@ def _prepare_worker_context(
                 AttachmentPayload(path=path, display_name=display_name)
             )
 
-    attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
+    # Validate attachments against receiver's policy (type/count/size constraints)
+    # Note: Sandbox validation (can caller access?) happens at caller side
+    if attachment_payloads:
+        definition.attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
 
     effective_model = definition.model or caller_effective_model or cli_model
 

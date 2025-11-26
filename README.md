@@ -2,7 +2,7 @@
 
 Package prompts with configuration to create executable workers.
 
-A worker is: **prompt + config + tools**. Workers are self-contained units you run from the CLI or call from other workers.
+A worker is a **promptogram**: **prompt + config + tools**. Promptograms are self-contained, versioned units you run from the CLI or call from other workers.
 
 ## Why llm-do?
 

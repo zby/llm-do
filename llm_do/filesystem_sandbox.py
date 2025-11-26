@@ -120,6 +120,25 @@ class FileTooLargeError(FileSandboxError):
 
 
 # ---------------------------------------------------------------------------
+# Read Result
+# ---------------------------------------------------------------------------
+
+
+DEFAULT_MAX_READ_CHARS = 20_000
+"""Default maximum characters to read from a file."""
+
+
+class ReadResult(BaseModel):
+    """Result of reading a file from the sandbox."""
+
+    content: str = Field(description="The file content read")
+    truncated: bool = Field(description="True if more content exists after this chunk")
+    total_chars: int = Field(description="Total file size in characters")
+    offset: int = Field(description="Starting character position used")
+    chars_read: int = Field(description="Number of characters actually returned")
+
+
+# ---------------------------------------------------------------------------
 # Implementation
 # ---------------------------------------------------------------------------
 
@@ -301,15 +320,16 @@ class FileSandboxImpl(AbstractToolset[Any]):
             if size > config.max_file_bytes:
                 raise FileTooLargeError(str(path), size, config.max_file_bytes)
 
-    def read(self, path: str, max_chars: int = 200_000) -> str:
+    def read(self, path: str, max_chars: int = DEFAULT_MAX_READ_CHARS, offset: int = 0) -> ReadResult:
         """Read text file from sandbox.
 
         Args:
             path: Path to file (relative to sandbox)
             max_chars: Maximum characters to read
+            offset: Character position to start reading from (default: 0)
 
         Returns:
-            File contents as string
+            ReadResult with content, truncation info, and metadata
 
         Raises:
             PathNotInSandboxError: If path outside sandbox
@@ -329,11 +349,24 @@ class FileSandboxImpl(AbstractToolset[Any]):
         self._check_size(resolved, config)
 
         text = resolved.read_text(encoding="utf-8")
-        if len(text) > max_chars:
-            text = text[:max_chars]
-            # Could add truncation notice, but keeping simple for now
+        total_chars = len(text)
 
-        return text
+        # Apply offset
+        if offset > 0:
+            text = text[offset:]
+
+        # Apply max_chars limit
+        truncated = len(text) > max_chars
+        if truncated:
+            text = text[:max_chars]
+
+        return ReadResult(
+            content=text,
+            truncated=truncated,
+            total_chars=total_chars,
+            offset=offset,
+            chars_read=len(text),
+        )
 
     def write(self, path: str, content: str) -> str:
         """Write text file to sandbox.
@@ -437,8 +470,13 @@ class FileSandboxImpl(AbstractToolset[Any]):
                 },
                 "max_chars": {
                     "type": "integer",
-                    "default": 200_000,
-                    "description": "Maximum characters to read (default 200,000)",
+                    "default": DEFAULT_MAX_READ_CHARS,
+                    "description": f"Maximum characters to read (default {DEFAULT_MAX_READ_CHARS:,})",
+                },
+                "offset": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Character position to start reading from (default 0)",
                 },
             },
             "required": ["path"],
@@ -533,8 +571,9 @@ class FileSandboxImpl(AbstractToolset[Any]):
         """Call a tool with the given arguments."""
         if name == "read_file":
             path = tool_args["path"]
-            max_chars = tool_args.get("max_chars", 200_000)
-            return self.read(path, max_chars=max_chars)
+            max_chars = tool_args.get("max_chars", DEFAULT_MAX_READ_CHARS)
+            offset = tool_args.get("offset", 0)
+            return self.read(path, max_chars=max_chars, offset=offset)
 
         elif name == "write_file":
             path = tool_args["path"]

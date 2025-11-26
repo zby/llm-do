@@ -26,6 +26,7 @@ from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 
 # Re-export new sandbox types
 from .filesystem_sandbox import (
+    DEFAULT_MAX_READ_CHARS,
     FileSandboxConfig,
     FileSandboxError,
     FileSandboxImpl,
@@ -33,6 +34,7 @@ from .filesystem_sandbox import (
     PathConfig,
     PathNotInSandboxError,
     PathNotWritableError,
+    ReadResult,
     SuffixNotAllowedError,
 )
 from .worker_sandbox import Sandbox, SandboxConfig
@@ -123,6 +125,7 @@ __all__: Iterable[str] = [
     "load_custom_tools",
     "register_worker_tools",
     # New sandbox classes
+    "DEFAULT_MAX_READ_CHARS",
     "FileSandboxConfig",
     "FileSandboxError",
     "FileSandboxImpl",
@@ -130,6 +133,7 @@ __all__: Iterable[str] = [
     "PathConfig",
     "PathNotInSandboxError",
     "PathNotWritableError",
+    "ReadResult",
     "Sandbox",
     "SuffixNotAllowedError",
     # Shell tool

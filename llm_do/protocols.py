@@ -9,7 +9,12 @@ runtime orchestration (runtime.py) without circular dependencies.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+
+from .filesystem_sandbox import DEFAULT_MAX_READ_CHARS
+
+if TYPE_CHECKING:
+    from .filesystem_sandbox import ReadResult
 
 
 # ---------------------------------------------------------------------------
@@ -49,15 +54,16 @@ class FileSandbox(Protocol):
         """
         ...
 
-    def read(self, path: str, max_chars: int = 200_000) -> str:
+    def read(self, path: str, max_chars: int = DEFAULT_MAX_READ_CHARS, offset: int = 0) -> ReadResult:
         """Read text file from sandbox.
 
         Args:
             path: Path to file (relative to sandbox)
-            max_chars: Maximum characters to read
+            max_chars: Maximum characters to read (default: DEFAULT_MAX_READ_CHARS)
+            offset: Character position to start reading from (default: 0)
 
         Returns:
-            File contents as string
+            ReadResult with content, truncation info, and metadata
 
         Raises:
             FileSandboxError: If path outside sandbox, suffix not allowed, etc.

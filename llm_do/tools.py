@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 
+from .filesystem_sandbox import DEFAULT_MAX_READ_CHARS
 from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
 from .shell import (
     ShellBlockedError,
@@ -92,7 +93,7 @@ def _register_sandbox_tools(
     def read_file(
         ctx: RunContext[WorkerContext],
         path: str,
-        max_chars: int = 200_000,
+        max_chars: int = DEFAULT_MAX_READ_CHARS,
     ) -> str:
         return file_sandbox.read(path, max_chars=max_chars)
 

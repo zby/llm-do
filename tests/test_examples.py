@@ -386,47 +386,47 @@ def test_all_example_workers_load_successfully():
     """
     examples_dir = Path(__file__).parent.parent / "examples"
 
-    # Greeter (in examples/greeter/workers/greeter.yaml)
+    # Greeter (in examples/greeter/workers/greeter.worker)
     greeter_registry = WorkerRegistry(examples_dir / "greeter")
     greeter_def = greeter_registry.load_definition("greeter")
     assert greeter_def.name == "greeter"
     assert greeter_def.description is not None
 
-    # Save note (in examples/approvals_demo/workers/save_note.yaml)
+    # Save note (in examples/approvals_demo/workers/save_note.worker)
     approvals_registry = WorkerRegistry(examples_dir / "approvals_demo")
     save_note_def = approvals_registry.load_definition("save_note")
     assert save_note_def.name == "save_note"
     assert save_note_def.sandbox is not None
     assert "notes" in save_note_def.sandbox.paths
 
-    # Pitch evaluator (in examples/pitchdeck_eval/workers/pitch_evaluator.yaml)
+    # Pitch evaluator (in examples/pitchdeck_eval/workers/pitch_evaluator.worker)
     pitch_registry = WorkerRegistry(examples_dir / "pitchdeck_eval")
     evaluator_def = pitch_registry.load_definition("pitch_evaluator")
     assert evaluator_def.name == "pitch_evaluator"
     assert evaluator_def.attachment_policy is not None
 
-    # Pitch orchestrator (in examples/pitchdeck_eval/workers/pitch_orchestrator.yaml)
+    # Pitch orchestrator (in examples/pitchdeck_eval/workers/pitch_orchestrator.worker)
     orchestrator_def = pitch_registry.load_definition("pitch_orchestrator")
     assert orchestrator_def.name == "pitch_orchestrator"
     assert orchestrator_def.allow_workers is not None
 
-    # Whiteboard planner (in examples/whiteboard_planner/workers/whiteboard_planner.yaml)
+    # Whiteboard planner (in examples/whiteboard_planner/workers/whiteboard_planner.worker)
     whiteboard_registry = WorkerRegistry(examples_dir / "whiteboard_planner")
     planner_def = whiteboard_registry.load_definition("whiteboard_planner")
     assert planner_def.name == "whiteboard_planner"
     assert planner_def.attachment_policy is not None
 
-    # Whiteboard orchestrator (in examples/whiteboard_planner/workers/whiteboard_orchestrator.yaml)
+    # Whiteboard orchestrator (in examples/whiteboard_planner/workers/whiteboard_orchestrator.worker)
     wb_orchestrator_def = whiteboard_registry.load_definition("whiteboard_orchestrator")
     assert wb_orchestrator_def.name == "whiteboard_orchestrator"
     assert wb_orchestrator_def.allow_workers is not None
 
-    # Calculator (in examples/calculator/workers/calculator/worker.yaml)
+    # Calculator (in examples/calculator/workers/calculator/worker.worker)
     calculator_registry = WorkerRegistry(examples_dir / "calculator")
     calculator_def = calculator_registry.load_definition("calculator")
     assert calculator_def.name == "calculator"
 
-    # Code analyzer (in examples/code_analyzer/workers/code_analyzer/worker.yaml)
+    # Code analyzer (in examples/code_analyzer/workers/code_analyzer/worker.worker)
     code_analyzer_registry = WorkerRegistry(examples_dir / "code_analyzer")
     code_analyzer_def = code_analyzer_registry.load_definition("code_analyzer")
     assert code_analyzer_def.name == "code_analyzer"
@@ -443,4 +443,4 @@ def test_all_example_workers_load_successfully():
     assert web_reporter_def.name == "web_research_reporter"
 
     # Bootstrapping example uses built-in worker_bootstrapper (no local workers to test)
-    # Generated workers in workers/generated/ are created by LLM and may vary
+    # Generated workers go to /tmp/llm-do/generated/ and are session-scoped

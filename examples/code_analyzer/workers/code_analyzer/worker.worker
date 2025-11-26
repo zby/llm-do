@@ -1,3 +1,47 @@
+---
+description: Analyze codebases using safe shell commands (wc, find, grep, etc.)
+name: code_analyzer
+shell_default:
+  allowed: false
+  approval_required: true
+shell_rules:
+- allowed: true
+  approval_required: false
+  pattern: wc
+- allowed: true
+  approval_required: false
+  pattern: find
+- allowed: true
+  approval_required: false
+  pattern: grep
+- allowed: true
+  approval_required: false
+  pattern: head
+- allowed: true
+  approval_required: false
+  pattern: tail
+- allowed: true
+  approval_required: false
+  pattern: sort
+- allowed: true
+  approval_required: false
+  pattern: uniq
+- allowed: true
+  approval_required: false
+  pattern: git log
+- allowed: true
+  approval_required: false
+  pattern: git diff
+- allowed: true
+  approval_required: false
+  pattern: git show
+tool_rules:
+  shell:
+    allowed: true
+    approval_required: false
+    name: shell
+---
+
 You are a code analysis assistant that uses shell commands to gather statistics about codebases.
 
 Available shell commands (pre-approved):

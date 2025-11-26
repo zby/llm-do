@@ -81,11 +81,12 @@ def bootstrapper_registry(tmp_path, monkeypatch):
     # Create output directory
     (dest / "output").mkdir()
 
-    # Create workers/generated directory for created workers
-    (dest / "workers" / "generated").mkdir(parents=True)
+    # Use test-specific generated directory (not global /tmp/llm-do/generated)
+    generated_dir = dest / "generated"
+    generated_dir.mkdir()
 
     monkeypatch.chdir(dest)
-    return WorkerRegistry(dest)
+    return WorkerRegistry(dest, generated_dir=generated_dir)
 
 
 def test_bootstrapper_pitchdeck_workflow(bootstrapper_registry, monkeypatch):
@@ -180,8 +181,9 @@ Moderate investor interest likely.
         assert "Strengths" in content
         assert "Weaknesses" in content
 
-        # Verify the worker was created
-        worker_file = Path("workers/generated/pitch_deck_analyzer.yaml")
+        # Verify the worker was created in the registry's generated directory
+        # Generated workers are directories: {name}/worker.worker
+        worker_file = bootstrapper_registry.generated_dir / "pitch_deck_analyzer" / "worker.worker"
         assert worker_file.exists()
 
     finally:
@@ -238,8 +240,9 @@ def test_bootstrapper_creates_worker(bootstrapper_registry):
 
     assert result is not None
 
-    # Verify the worker file was created
-    worker_file = Path("workers/generated/test_analyzer.yaml")
+    # Verify the worker file was created in registry's generated directory
+    # Generated workers are directories: {name}/worker.worker
+    worker_file = bootstrapper_registry.generated_dir / "test_analyzer" / "worker.worker"
     assert worker_file.exists()
 
     # Verify content

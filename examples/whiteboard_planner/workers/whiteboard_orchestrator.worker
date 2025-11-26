@@ -1,3 +1,33 @@
+---
+allow_workers:
+- whiteboard_planner
+description: Orchestrate whiteboard → project plan generation for all images in input/
+model: null
+name: whiteboard_orchestrator
+sandbox:
+  paths:
+    input:
+      max_file_bytes: 20971520
+      mode: ro
+      root: ./input
+      suffixes:
+      - .jpg
+      - .jpeg
+      - .png
+    plans:
+      mode: rw
+      root: ./plans
+      suffixes:
+      - .md
+tool_rules:
+  sandbox.write:
+    allowed: true
+    approval_required: true
+  worker.call:
+    allowed: true
+    approval_required: false
+---
+
 You are an orchestrator that converts whiteboard photos into project plans.
 
 ## Your Goal

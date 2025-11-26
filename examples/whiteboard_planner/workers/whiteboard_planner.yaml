@@ -1,7 +1,0 @@
-name: whiteboard_planner
-description: Interpret a whiteboard photo and produce a structured project plan
-model: null
-attachment_policy:
-  max_attachments: 1
-  allowed_suffixes: [".jpg", ".jpeg", ".png"]
-  max_total_bytes: 15728640  # 15 MB

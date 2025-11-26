@@ -1,7 +1,0 @@
-name: web_research_extractor
-description: Fetch a URL and extract structured insights aligned to the topic.
-tool_rules:
-  fetch_page:
-    name: fetch_page
-    allowed: true
-    approval_required: false

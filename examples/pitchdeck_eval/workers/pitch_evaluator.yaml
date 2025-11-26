@@ -1,7 +1,0 @@
-name: pitch_evaluator
-description: Analyze a PDF pitch deck and return a markdown evaluation report.
-attachment_policy:
-  max_attachments: 1
-  max_total_bytes: 10000000  # 10MB
-  allowed_suffixes:
-    - .pdf

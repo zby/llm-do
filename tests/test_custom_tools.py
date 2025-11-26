@@ -32,12 +32,12 @@ def test_custom_tools_discovery(calculator_registry):
 
 
 def test_custom_tools_not_found_for_simple_workers(calculator_registry, tmp_path):
-    """Test that custom tools are not found for simple .yaml workers."""
+    """Test that custom tools are not found for simple .worker workers."""
     # Create a simple worker (not directory-based)
     workers_dir = calculator_registry.root / "workers"
     workers_dir.mkdir(exist_ok=True)
-    simple_worker = workers_dir / "simple.yaml"
-    simple_worker.write_text("name: simple\ninstructions: test")
+    simple_worker = workers_dir / "simple.worker"
+    simple_worker.write_text("---\nname: simple\n---\ntest")
 
     custom_tools = calculator_registry.find_custom_tools("simple")
     assert custom_tools is None
@@ -101,11 +101,13 @@ def test_custom_tools_module_error_handling(calculator_registry, tmp_path):
     bad_worker_dir = calculator_registry.root / "workers" / "bad_tools"
     bad_worker_dir.mkdir(parents=True)
 
-    worker_yaml = bad_worker_dir / "worker.yaml"
-    worker_yaml.write_text(
+    worker_file = bad_worker_dir / "worker.worker"
+    worker_file.write_text(
+        "---\n"
         "name: bad_tools\n"
-        "instructions: Just respond with 'done'\n"
         "model: test\n"
+        "---\n"
+        "Just respond with 'done'"
     )
 
     # Create tools.py with syntax error
@@ -151,11 +153,13 @@ def test_custom_tools_require_tool_rules_allowlist(calculator_registry, tmp_path
     test_worker_dir = calculator_registry.root / "workers" / "test_no_rules"
     test_worker_dir.mkdir(parents=True)
 
-    worker_yaml = test_worker_dir / "worker.yaml"
-    worker_yaml.write_text(
+    worker_file = test_worker_dir / "worker.worker"
+    worker_file.write_text(
+        "---\n"
         "name: test_no_rules\n"
-        "instructions: Test worker\n"
         "model: test\n"
+        "---\n"
+        "Test worker"
     )
 
     # Create tools.py with a dangerous function
@@ -191,15 +195,17 @@ def test_custom_tools_approval_enforcement(calculator_registry):
     test_worker_dir = calculator_registry.root / "workers" / "test_approval"
     test_worker_dir.mkdir(parents=True)
 
-    worker_yaml = test_worker_dir / "worker.yaml"
-    worker_yaml.write_text(
+    worker_file = test_worker_dir / "worker.worker"
+    worker_file.write_text(
+        "---\n"
         "name: test_approval\n"
-        "instructions: Calculate fibonacci\n"
         "model: test\n"
         "tool_rules:\n"
         "  calculate_fibonacci:\n"
         "    allowed: true\n"
         "    approval_required: true\n"
+        "---\n"
+        "Calculate fibonacci"
     )
 
     # Copy the calculator tools.py

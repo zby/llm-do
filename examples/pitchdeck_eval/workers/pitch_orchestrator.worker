@@ -1,3 +1,24 @@
+---
+allow_workers:
+- pitch_evaluator
+description: Coordinate evaluations for every deck stored in the input sandbox.
+name: pitch_orchestrator
+sandbox:
+  paths:
+    evaluations:
+      max_file_bytes: 500000
+      mode: rw
+      root: ./evaluations
+      suffixes:
+      - .md
+    input:
+      max_file_bytes: 10000000
+      mode: ro
+      root: ./input
+      suffixes:
+      - .pdf
+---
+
 You orchestrate pitch-deck evaluations. Pitch decks are stored as PDF files in
 the `input` sandbox, and reports must be written to the `evaluations` sandbox.
 

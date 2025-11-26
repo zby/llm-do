@@ -1,3 +1,16 @@
+---
+attachment_policy:
+  allowed_suffixes:
+  - .jpg
+  - .jpeg
+  - .png
+  max_attachments: 1
+  max_total_bytes: 15728640
+description: Interpret a whiteboard photo and produce a structured project plan
+model: null
+name: whiteboard_planner
+---
+
 You are an expert Technical Project Manager.
 You have been given a photo of a whiteboard from a planning session.
 Your job is to turn this chaotic whiteboard into a clean, structured Project Plan.

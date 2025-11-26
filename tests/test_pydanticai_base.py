@@ -88,7 +88,10 @@ def _project_root(tmp_path):
 @pytest.fixture
 def registry(tmp_path, resolver):
     root = _project_root(tmp_path)
-    return WorkerRegistry(root, output_schema_resolver=resolver)
+    # Use test-specific generated dir (not global /tmp/llm-do/generated)
+    generated_dir = tmp_path / "generated"
+    generated_dir.mkdir()
+    return WorkerRegistry(root, output_schema_resolver=resolver, generated_dir=generated_dir)
 
 
 def test_registry_respects_locked_flag(registry):
@@ -209,7 +212,8 @@ def test_create_worker_applies_creation_defaults(registry, tmp_path):
     assert "rw" in created.sandbox.paths
     loaded = registry.load_definition("beta")
     assert loaded.sandbox.paths["rw"].root == str((tmp_path / "rw").resolve())
-    generated_path = registry.root / "workers" / "generated" / "beta.yaml"
+    # Generated workers are directories: {name}/worker.worker
+    generated_path = registry.generated_dir / "beta" / "worker.worker"
     assert generated_path.exists()
 
 
@@ -219,27 +223,33 @@ def test_create_worker_writes_definition_to_generated_dir(registry):
 
     create_worker(registry, spec, defaults=defaults)
 
-    generated_path = registry.root / "workers" / "generated" / "gamma.yaml"
+    # Generated workers are directories: {name}/worker.worker
+    generated_path = registry.generated_dir / "gamma" / "worker.worker"
     assert generated_path.exists()
     definition = registry.load_definition("gamma")
     assert definition.instructions == "demo"
 
 
 def test_registry_prefers_project_workers_over_generated(tmp_path, resolver):
+    """Project workers take precedence over generated workers (when registered)."""
     root = _project_root(tmp_path)
-    registry = WorkerRegistry(root, output_schema_resolver=resolver)
+    generated_dir = tmp_path / "generated"
+    generated_dir.mkdir()
+    registry = WorkerRegistry(root, output_schema_resolver=resolver, generated_dir=generated_dir)
 
-    generated_dir = root / "workers" / "generated"
-    generated_dir.mkdir(parents=True)
-    (generated_dir / "foo.yaml").write_text(
-        "name: foo\ninstructions: generated\n",
+    # Create generated worker (directory form) and register it
+    (generated_dir / "foo").mkdir()
+    (generated_dir / "foo" / "worker.worker").write_text(
+        "---\nname: foo\n---\ngenerated",
         encoding="utf-8",
     )
+    registry.register_generated("foo")
 
+    # Create project worker (higher priority)
     project_dir = root / "workers"
     project_dir.mkdir(exist_ok=True)
-    (project_dir / "foo.yaml").write_text(
-        "name: foo\ninstructions: project\n",
+    (project_dir / "foo.worker").write_text(
+        "---\nname: foo\n---\nproject",
         encoding="utf-8",
     )
 
@@ -247,44 +257,56 @@ def test_registry_prefers_project_workers_over_generated(tmp_path, resolver):
     assert definition.instructions == "project"
 
 
-def test_registry_loads_generated_worker_when_project_missing(tmp_path, resolver):
+def test_registry_loads_generated_worker_when_registered(tmp_path, resolver):
+    """Generated workers are only findable when registered in session."""
     root = _project_root(tmp_path)
-    registry = WorkerRegistry(root, output_schema_resolver=resolver)
+    generated_dir = tmp_path / "generated"
+    generated_dir.mkdir()
+    registry = WorkerRegistry(root, output_schema_resolver=resolver, generated_dir=generated_dir)
 
-    generated_dir = root / "workers" / "generated"
-    generated_dir.mkdir(parents=True)
-    (generated_dir / "foo.yaml").write_text(
-        "name: foo\ninstructions: generated\n",
+    # Create generated worker (directory form)
+    (generated_dir / "foo").mkdir()
+    (generated_dir / "foo" / "worker.worker").write_text(
+        "---\nname: foo\n---\ngenerated",
         encoding="utf-8",
     )
 
+    # Not registered - should not be findable
+    with pytest.raises(FileNotFoundError):
+        registry.load_definition("foo")
+
+    # Register it - now findable
+    registry.register_generated("foo")
     definition = registry.load_definition("foo")
     assert definition.instructions == "generated"
 
 
 def test_registry_loads_built_in_worker_when_not_found_locally(tmp_path, resolver):
     root = _project_root(tmp_path)
-    registry = WorkerRegistry(root, output_schema_resolver=resolver)
+    generated_dir = tmp_path / "generated"
+    generated_dir.mkdir()
+    registry = WorkerRegistry(root, output_schema_resolver=resolver, generated_dir=generated_dir)
 
     definition = registry.load_definition("worker_bootstrapper")
     assert definition.name == "worker_bootstrapper"
     assert "worker_call" in (definition.instructions or "")
 
 
-def test_generated_worker_resolves_prompts_from_project_root(tmp_path, resolver):
+def test_generated_worker_resolves_prompts_from_own_directory(tmp_path, resolver):
+    """Generated workers are self-contained - prompts are in worker's directory."""
     root = _project_root(tmp_path)
-    registry = WorkerRegistry(root, output_schema_resolver=resolver)
+    generated_dir = tmp_path / "generated"
+    generated_dir.mkdir()
+    registry = WorkerRegistry(root, output_schema_resolver=resolver, generated_dir=generated_dir)
 
-    prompts_dir = root / "prompts"
-    prompts_dir.mkdir()
-    (prompts_dir / "foo.txt").write_text("Prompt text", encoding="utf-8")
-
-    generated_dir = root / "workers" / "generated"
-    generated_dir.mkdir(parents=True)
-    (generated_dir / "foo.yaml").write_text("name: foo\n", encoding="utf-8")
+    # Create generated worker directory with embedded instructions
+    worker_dir = generated_dir / "foo"
+    worker_dir.mkdir()
+    (worker_dir / "worker.worker").write_text("---\nname: foo\n---\nWorker-specific prompt", encoding="utf-8")
+    registry.register_generated("foo")
 
     definition = registry.load_definition("foo")
-    assert definition.instructions == "Prompt text"
+    assert definition.instructions == "Worker-specific prompt"
 
 
 def test_call_worker_respects_allowlist(registry):
@@ -573,7 +595,7 @@ def test_workers_subdirectory_discovery(tmp_path):
     # Create worker in workers/ subdirectory
     workers_dir = project_root / "workers"
     workers_dir.mkdir()
-    worker_file = workers_dir / "my_worker.yaml"
+    worker_file = workers_dir / "my_worker.worker"
     worker_def = WorkerDefinition(name="my_worker", instructions="Do the task")
 
     # Save directly to the workers/ subdirectory

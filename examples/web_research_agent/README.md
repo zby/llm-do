@@ -9,7 +9,7 @@ This example turns the architecture in `web_research_agent_architecture.md` into
 ## Prerequisites
 - Install the repo: `pip install -e .`
 - Set a model (inherits from CLI): `export MODEL=anthropic:claude-3-5-sonnet-20241022` (PowerShell: `$env:MODEL=...`) or `openai:gpt-4o`
-- Optional but recommended for better search: `export SERPAPI_API_KEY=your_key` (PowerShell: `$env:SERPAPI_API_KEY=...`; falls back to DuckDuckGo instant answer API when unset)
+- **Required**: `export SERPAPI_API_KEY=your_key` (PowerShell: `$env:SERPAPI_API_KEY=...`). Get a free API key at https://serpapi.com/
 
 ## Run
 ```bash
@@ -28,6 +28,6 @@ Outputs are written to `reports/{topic-slug}.md` and `reports/{topic-slug}.json`
 - `schemas/models.py` — reference Pydantic models for the data contracts
 
 ## Notes
-- Tools use standard library HTTP (no extra deps). They respect `SERPAPI_API_KEY` when present, otherwise default to DuckDuckGo JSON.
+- Tools use standard library HTTP (no extra deps).
 - `write_file` is approval-gated in the orchestrator; pass `--approve-all` for smooth runs.
 - Keep topic slugs short and ASCII-safe; the orchestrator instructions handle slugging in-model.

@@ -14,12 +14,10 @@ MAX_HTTP_BYTES = 1_000_000
 
 def search_web(query: str, num_results: int = 4) -> List[Dict[str, str | None]]:
     """
-    Run a lightweight web search.
+    Run a web search using SerpAPI.
 
-    Prefers SerpAPI when SERPAPI_API_KEY is set; otherwise falls back to the
-    DuckDuckGo JSON instant-answer API (coverage is limited; expect sparse
-    results). Returns a list of {url, title, snippet} dicts with duplicates
-    removed.
+    Requires SERPAPI_API_KEY environment variable to be set.
+    Returns a list of {url, title, snippet} dicts with duplicates removed.
     """
     cleaned_query = (query or "").strip()
     if not cleaned_query:
@@ -28,19 +26,21 @@ def search_web(query: str, num_results: int = 4) -> List[Dict[str, str | None]]:
     limit = max(1, min(num_results, 8))
     api_key = os.getenv("SERPAPI_API_KEY")
 
-    if api_key:
-        try:
-            serpapi_hits = _search_serpapi(cleaned_query, api_key, limit)
-            if serpapi_hits:
-                return serpapi_hits[:limit]
-        except Exception:
-            # Fall back silently; the model can see the empty list if everything fails.
-            pass
+    if not api_key:
+        raise ValueError(
+            "SERPAPI_API_KEY environment variable is required. "
+            "Get a free API key at https://serpapi.com/"
+        )
 
     try:
-        return _search_duckduckgo(cleaned_query, limit)
-    except Exception:
-        return []
+        return _search_serpapi(cleaned_query, api_key, limit)
+    except RuntimeError as exc:
+        if "HTTP 401" in str(exc) or "HTTP 403" in str(exc):
+            raise ValueError(
+                f"SERPAPI_API_KEY is invalid or expired (got {exc}). "
+                "Please check your API key at https://serpapi.com/manage-api-key"
+            ) from exc
+        raise
 
 
 def _http_get_json(url: str, timeout: float = 12.0) -> dict:
@@ -107,36 +107,3 @@ def _search_serpapi(query: str, api_key: str, limit: int) -> List[Dict[str, str 
     return results
 
 
-def _search_duckduckgo(query: str, limit: int) -> List[Dict[str, str | None]]:
-    url = (
-        "https://api.duckduckgo.com/?"
-        f"q={parse.quote(query)}&format=json&no_redirect=1&no_html=1&skip_disambig=1"
-    )
-    payload = _http_get_json(url)
-    results: List[Dict[str, str | None]] = []
-    seen: set[str] = set()
-
-    def _add_result(link: str | None, text: str | None) -> None:
-        if not link or link in seen:
-            return
-        seen.add(link)
-        snippet = (text or "").strip() or None
-        results.append({"url": link, "title": None, "snippet": snippet})
-
-    for item in payload.get("Results", []):
-        _add_result(item.get("FirstURL"), item.get("Text"))
-        if len(results) >= limit:
-            return results
-
-    for topic in payload.get("RelatedTopics", []):
-        if "FirstURL" in topic:
-            _add_result(topic.get("FirstURL"), topic.get("Text"))
-        elif topic.get("Topics"):
-            for sub in topic["Topics"]:
-                _add_result(sub.get("FirstURL"), sub.get("Text"))
-                if len(results) >= limit:
-                    return results
-        if len(results) >= limit:
-            break
-
-    return results[:limit]

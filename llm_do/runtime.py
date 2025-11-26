@@ -26,7 +26,7 @@ from pydantic_ai.tools import RunContext
 
 from .approval import ApprovalController
 from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
-from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
+from .protocols import WorkerCreator, WorkerDelegator
 from .sandbox import AttachmentInput, AttachmentPayload
 from .worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
 from .tools import register_worker_tools
@@ -138,8 +138,9 @@ def _prepare_worker_context(
         attachment_validator=attachment_validator,
         creation_defaults=defaults,
         effective_model=effective_model,
-        attachments=attachment_payloads,
         approval_controller=approvals,
+        sandbox=new_sandbox,
+        attachments=attachment_payloads,
         message_callback=message_callback,
         custom_tools_path=custom_tools_path,
         shell_cwd=resolved_shell_cwd,
@@ -151,8 +152,7 @@ def _prepare_worker_context(
     def _register_tools_for_worker(agent, ctx):
         delegator = RuntimeDelegator(ctx)
         creator = RuntimeCreator(ctx)
-        # Pass new sandbox if available for new tool names
-        register_worker_tools(agent, ctx, delegator, creator, sandbox=new_sandbox)
+        register_worker_tools(agent, ctx, delegator, creator)
 
     return _WorkerExecutionPrep(
         context=context,

@@ -52,6 +52,7 @@ def _parent_context(registry, worker, defaults=None):
         creation_defaults=defaults or WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        sandbox=sandbox,
     )
 
 
@@ -564,6 +565,7 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        sandbox=sandbox,
     )
 
     # Create test file
@@ -622,6 +624,7 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        sandbox=sandbox,
     )
 
     # Create test file

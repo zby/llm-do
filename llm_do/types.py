@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Type,
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
+from pydantic_ai.toolsets import AbstractToolset
 
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 from .worker_sandbox import AttachmentValidator, SandboxConfig
@@ -231,6 +232,7 @@ class WorkerContext:
     creation_defaults: WorkerCreationDefaults
     effective_model: Optional[ModelLike]
     approval_controller: Any  # ApprovalController - defined in runtime.py
+    sandbox: AbstractToolset
     attachments: List[AttachmentPayload] = field(default_factory=list)
     message_callback: Optional[MessageCallback] = None
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools

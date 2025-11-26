@@ -182,6 +182,7 @@ def prepare_agent_execution(
         instructions=definition.instructions,
         name=definition.name,
         deps_type=WorkerContext,
+        toolsets=[context.sandbox],  # Sandbox provides read_file, write_file, list_files
     )
     if output_model is not None:
         agent_kwargs["output_type"] = output_model

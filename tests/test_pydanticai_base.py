@@ -332,6 +332,7 @@ def test_call_worker_respects_allowlist(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        sandbox=sandbox,
     )
 
     result = call_worker(
@@ -369,6 +370,7 @@ def test_call_worker_supports_wildcard_allowlist(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        sandbox=sandbox,
     )
 
     result = call_worker(
@@ -412,6 +414,7 @@ def test_call_worker_propagates_message_callback(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        sandbox=sandbox,
         message_callback=callback,
     )
 
@@ -441,14 +444,14 @@ def test_default_agent_runner_uses_pydantic_ai(registry):
     payload = json.loads(result.output)
     assert json.loads(payload["prompt"]) == {"task": "demo"}
     assert payload["instructions"] == definition.instructions
-    assert model.tool_names == [
+    assert set(model.tool_names) == {
         "read_file",
         "write_file",
         "list_files",
         "shell",
         "worker_call",
         "worker_create",
-    ]
+    }
 
 
 def test_default_runner_emits_request_preview(tmp_path, registry):

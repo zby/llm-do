@@ -18,8 +18,7 @@ from typing import Any, Dict, List, Optional
 from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 
-from .filesystem_sandbox import DEFAULT_MAX_READ_CHARS
-from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
+from .protocols import WorkerCreator, WorkerDelegator
 from .shell import (
     ShellBlockedError,
     execute_shell,
@@ -37,7 +36,6 @@ def register_worker_tools(
     context: WorkerContext,
     delegator: WorkerDelegator,
     creator: WorkerCreator,
-    sandbox: FileSandbox,
 ) -> None:
     """Register all tools for a worker.
 
@@ -46,21 +44,18 @@ def register_worker_tools(
         context: Worker execution context
         delegator: Implementation of worker delegation (DI)
         creator: Implementation of worker creation (DI)
-        sandbox: FileSandbox instance providing file operations
 
     Registers:
-    1. Sandbox tools (read_file, write_file, list_files)
-    2. Shell tool (if enabled)
-    3. Worker delegation tool (worker_call)
-    4. Worker creation tool (worker_create)
-    5. Custom tools from tools.py if available
+    1. Shell tool (if enabled)
+    2. Worker delegation tool (worker_call)
+    3. Worker creation tool (worker_create)
+    4. Custom tools from tools.py if available
+
+    Note: Sandbox tools (read_file, write_file, list_files) are provided
+    by the Sandbox toolset passed to the Agent constructor.
     """
-
-    # Register built-in sandbox tools
-    _register_sandbox_tools(agent, context, file_sandbox=sandbox)
-
     # Register shell tool if enabled
-    _register_shell_tool(agent, context, sandbox)
+    _register_shell_tool(agent, context)
 
     # Register worker delegation/creation tools with injected implementations
     _register_worker_delegation_tools(agent, context, delegator, creator)
@@ -70,72 +65,9 @@ def register_worker_tools(
         load_custom_tools(agent, context)
 
 
-def _register_sandbox_tools(
-    agent: Agent,
-    context: WorkerContext,
-    file_sandbox: FileSandbox,
-) -> None:
-    """Register sandbox file operations using FileSandbox protocol.
-
-    These tools use the unified sandbox API with path format "sandbox_name/relative/path".
-    Tool implementations are defined in filesystem_sandbox.py for reusability.
-    """
-
-    @agent.tool(
-        name="read_file",
-        description=(
-            "Read a text file from the sandbox. "
-            "Path format: 'sandbox_name/relative/path'. "
-            "Do not use this on binary files (PDFs, images, etc) - "
-            "pass them as attachments instead."
-        )
-    )
-    def read_file(
-        ctx: RunContext[WorkerContext],
-        path: str,
-        max_chars: int = DEFAULT_MAX_READ_CHARS,
-    ) -> str:
-        return file_sandbox.read(path, max_chars=max_chars)
-
-    @agent.tool(
-        name="write_file",
-        description=(
-            "Write a text file to the sandbox. "
-            "Path format: 'sandbox_name/relative/path'."
-        )
-    )
-    def write_file(
-        ctx: RunContext[WorkerContext],
-        path: str,
-        content: str,
-    ) -> str:
-        # Route through approval controller for writes
-        return ctx.deps.approval_controller.maybe_run(
-            "sandbox.write",
-            {"path": path},
-            lambda: file_sandbox.write(path, content),
-        )
-
-    @agent.tool(
-        name="list_files",
-        description=(
-            "List files in the sandbox matching a glob pattern. "
-            "Path format: 'sandbox_name' or 'sandbox_name/subdir'. "
-            "Use '.' to list all sandboxes."
-        )
-    )
-    def list_files(
-        ctx: RunContext[WorkerContext],
-        path: str = ".",
-        pattern: str = "**/*",
-    ) -> List[str]:
-        return file_sandbox.list_files(path, pattern)
-
-
 def _register_shell_tool(
     agent: Agent,
     context: WorkerContext,
-    file_sandbox: Optional[FileSandbox],
 ) -> None:
     """Register the shell tool for executing commands.
 
@@ -196,7 +128,7 @@ def _register_shell_tool(
             args=args,
             rules=shell_rules,
             default=shell_default,
-            file_sandbox=file_sandbox,
+            file_sandbox=ctx.deps.sandbox,
         )
 
         # Check if command is allowed
@@ -231,7 +163,7 @@ def _register_shell_tool(
                 timeout=timeout,
             )
             # Enhance errors with sandbox context
-            return enhance_error_with_sandbox_context(result, file_sandbox)
+            return enhance_error_with_sandbox_context(result, ctx.deps.sandbox)
 
         if approval_required:
             # Route through approval controller

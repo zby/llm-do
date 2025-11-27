@@ -2,6 +2,8 @@
 
 > **Related document**: See [cli_approval_user_stories.md](cli_approval_user_stories.md) for detailed CLI interaction stories and acceptance criteria. This document focuses on the technical architecture; the user stories document covers the operator experience.
 
+> **Portability**: The core approval types (`ApprovalRequest`, `ApprovalContext`, `ApprovalAware`) are designed to be framework-agnostic. They can be extracted into a standalone package for use with any LLM agent framework, not just llm-do or PydanticAI.
+
 ## Problem Statement
 
 The current llm-do approval system has approval configuration split across two places:
@@ -62,81 +64,130 @@ Additionally, we want to:
 Tools that support approval implement an optional interface:
 
 ```python
-from typing import Protocol, Optional, Any, Literal
+from typing import Protocol, Optional, Any, Literal, Callable
 from pydantic import BaseModel
 
 class ApprovalPresentation(BaseModel):
-    """Rich presentation data for approval UI."""
+    """Rich presentation data for approval UI.
+
+    This is optional—tools can return just the basic ApprovalRequest fields
+    and let the approval controller generate presentation from the payload.
+    """
     type: Literal["text", "diff", "file_content", "command", "structured"]
     content: str
     language: Optional[str] = None  # For syntax highlighting
-    metadata: dict[str, Any] = {}
+    metadata: dict[str, Any] = {}   # e.g., {"full_content": "..."} for pager
 
 class ApprovalContext(BaseModel):
-    """Context passed to check_approval for richer scenarios."""
+    """Context passed to check_approval.
+
+    The core fields (tool_name, args) are framework-agnostic. The metadata
+    dict allows framework-specific data (run IDs, session IDs, caller info)
+    without polluting the base interface.
+    """
     tool_name: str
     args: dict[str, Any]
 
-    # Optional fields for richer scenarios
-    run_id: str | None = None
-    session_id: str | None = None
-    caller: str | None = None          # Which worker/agent
-    tags: set[str] = set()             # e.g., {"filesystem", "write"}
+    # Framework-specific context goes here (run_id, session_id, caller, etc.)
+    # This keeps the core interface stable across different agent frameworks.
+    metadata: dict[str, Any] = {}
 
 class ApprovalRequest(BaseModel):
     """Returned by a tool to request approval before execution.
 
     This is the single canonical shape for all approval requests.
     The payload field is the structured fingerprint used for session
-    approval matching—tools can deliberately include/omit/redact fields.
+    approval matching—tools control what goes here.
     """
-    # Whether this operation MUST be explicitly decided (vs. nice-to-have)
-    required: bool = True
-
     # Stable identifier: what the operator sees and what gets logged
     tool_name: str
     description: str
 
-    # Structured fingerprint for "approve for session" matching
-    # Tools control what goes here (can omit secrets, large content, etc.)
+    # Structured fingerprint for "approve for session" matching.
+    # Tools control what goes here (can omit secrets, normalize paths, etc.)
+    # See "Session Approval Matching" section for matching semantics.
     payload: dict[str, Any]
 
-    # Optional rich UI hints
+    # Optional rich UI hints. If None, the approval controller renders
+    # a default display from tool_name + payload.
     presentation: Optional[ApprovalPresentation] = None
 
     # Optional grouping for batch approvals
     group_id: str | None = None
 
 class ApprovalAware(Protocol):
-    """Protocol for tools that can request approval."""
+    """Protocol for tools that can request approval.
 
-    async def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+    This is intentionally synchronous. Approval checking should be a fast,
+    pure computation based on tool config and arguments. Any I/O-heavy work
+    (like generating diffs for presentation) should be done lazily by the
+    approval controller, not in check_approval().
+    """
+
+    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
         """Inspect context and return approval request, or None if no approval needed.
 
-        This is async because some approval checks require I/O (reading existing
-        files for diff generation, checking file sizes, probing environment).
+        Returns:
+            None - No approval needed, proceed with execution
+            ApprovalRequest - Approval required before execution
+
+        Raises:
+            PermissionError - Operation is blocked entirely (not just needs approval)
         """
         ...
 ```
 
-A bare PydanticAI tool doesn't implement this - it just executes. An llm-do enhanced tool can implement `check_approval` to declare its needs.
+A bare tool function doesn't implement this—it just executes. An approval-aware tool implements `check_approval` to declare when it needs user consent.
 
-#### Base Implementation for Simple Cases
+#### Why `check_approval` is Synchronous
+
+The interface is deliberately sync because:
+
+1. **Approval checking is a policy decision**, not I/O. The tool examines its config and the arguments to decide if approval is needed—this is pure computation.
+
+2. **Presentation generation can be lazy**. If a diff is needed, the approval controller can generate it *after* checking session cache. No point computing a diff for an already-approved operation.
+
+3. **Simpler integration**. Sync protocols are easier to implement and compose. Async would force every tool wrapper to be async even when unnecessary.
+
+#### Factory Function for Simple Cases
 
 For tools that just need basic approval with tool name and args display:
 
 ```python
-class SimpleApprovalRequest(ApprovalRequest):
-    """Convenience class that derives description and payload from tool_name and args."""
+def simple_approval_request(
+    tool_name: str,
+    args: dict[str, Any],
+    *,
+    description: str | None = None,
+    exclude_keys: set[str] | None = None,
+) -> ApprovalRequest:
+    """Create an ApprovalRequest with sensible defaults.
 
-    @classmethod
-    def from_args(cls, tool_name: str, args: dict[str, Any], required: bool = True) -> "SimpleApprovalRequest":
-        return cls(
-            required=required,
-            tool_name=tool_name,
-            description=f"{tool_name}({', '.join(f'{k}={v!r}' for k, v in args.items())})",
-            payload={"tool_name": tool_name, **args},
-        )
+    Args:
+        tool_name: Name of the tool requesting approval
+        args: Tool arguments
+        description: Human-readable description. If None, auto-generated from tool_name and args.
+        exclude_keys: Keys to omit from payload (e.g., large content, secrets)
+
+    Returns:
+        ApprovalRequest ready to return from check_approval()
+    """
+    # Build payload, optionally excluding certain keys
+    if exclude_keys:
+        payload = {k: v for k, v in args.items() if k not in exclude_keys}
+    else:
+        payload = dict(args)
+
+    # Auto-generate description if not provided
+    if description is None:
+        args_str = ', '.join(f'{k}={v!r}' for k, v in args.items())
+        description = f"{tool_name}({args_str})"
+
+    return ApprovalRequest(
+        tool_name=tool_name,
+        description=description,
+        payload=payload,
+    )
 ```
 
 This allows tools to start simple and add richer presentation later without changing the architecture.
@@ -182,51 +233,77 @@ Example with diff:
 
 **Tools are responsible for:**
 - Deciding whether an operation needs approval (based on tool config like `write_approval`, `shell_rules`)
-- Returning an `ApprovalRequest` with `required=True/False`
+- Returning `ApprovalRequest` when approval is needed, or `None` when pre-approved
+- Raising `PermissionError` when an operation is blocked entirely
 - Generating the `description`, `payload`, and optional `presentation`
 - Never knowing about CLI flags (`--strict`, `--approve-all`), TTY state, or session memory
 
 **Approval Controller is responsible for:**
-- Interpreting `required` together with runtime mode:
-  - Interactive default: prompt for any `ApprovalRequest`
-  - `--approve-all`: auto-approve even when `required=True`
-  - `--strict`: auto-deny any `ApprovalRequest`, regardless of `required`
+- Interpreting `ApprovalRequest` together with runtime mode
 - Session memory ("approve for session") using `payload` for equivalence matching
-- Displaying the approval prompt (using `presentation` if available)
+- Displaying the approval prompt (using `presentation` if available, otherwise rendering from payload)
+- Generating lazy presentation (diffs, syntax highlighting) when needed
 - Non-interactive mode detection (TTY check)
 
 This separation keeps tools portable—the same `check_approval` logic works in CLI, CI, or AG-UI scenarios.
 
-| Mode | `required=True` | `required=False` |
-|------|-----------------|------------------|
-| Interactive (default) | Prompt user | Prompt user |
-| `--approve-all` | Auto-approve | Auto-approve |
-| `--strict` | Auto-deny | Auto-approve (tool says it's pre-approved) |
+| `check_approval()` returns | Interactive (default) | `--approve-all` | `--strict` |
+|----------------------------|----------------------|-----------------|------------|
+| `None` | Execute | Execute | Execute |
+| `ApprovalRequest` | Prompt user | Auto-approve | Auto-deny |
+| Raises `PermissionError` | Block | Block | Block |
+
+The semantics are simple:
+- **`None`**: Tool says "no approval needed"—all modes execute immediately
+- **`ApprovalRequest`**: Tool says "ask the user"—behavior depends on mode
+- **`PermissionError`**: Tool says "never allowed"—all modes block
 
 ### Runtime Flow
 
 ```python
-async def execute_tool(tool, tool_name: str, args: dict, approval_controller, run_context):
+import asyncio
+from typing import Callable, Any
+
+async def execute_tool(
+    tool_func: Callable,
+    tool_name: str,
+    args: dict,
+    approval_controller: ApprovalController,
+    context_metadata: dict[str, Any] | None = None,
+):
+    """Execute a tool with approval checking.
+
+    Args:
+        tool_func: The tool function/callable to execute
+        tool_name: Name of the tool (for display and logging)
+        args: Arguments to pass to the tool
+        approval_controller: Handles approval prompts and session memory
+        context_metadata: Optional framework-specific context (run_id, session_id, etc.)
+    """
     # 1. Check if tool is approval-aware
-    if hasattr(tool, 'check_approval'):
+    if hasattr(tool_func, 'check_approval'):
         ctx = ApprovalContext(
             tool_name=tool_name,
             args=args,
-            run_id=run_context.run_id,
-            session_id=run_context.session_id,
-            caller=run_context.caller,
+            metadata=context_metadata or {},
         )
-        approval_request = await tool.check_approval(ctx)
+
+        # check_approval is sync—it's just a policy decision
+        approval_request = tool_func.check_approval(ctx)
 
         if approval_request is not None:
-            # 2. Ask approval controller (interprets request + runtime mode)
+            # 2. Ask approval controller (may prompt user, check session cache, etc.)
+            # This is async because it may involve I/O (user input, lazy diff generation)
             decision = await approval_controller.request_approval(approval_request)
 
             if not decision.approved:
                 raise PermissionError(f"Approval denied: {decision.note}")
 
     # 3. Execute the tool
-    return await tool.call(args)
+    if asyncio.iscoroutinefunction(tool_func):
+        return await tool_func(**args)
+    else:
+        return tool_func(**args)
 ```
 
 ### Example: Filesystem Sandbox
@@ -252,27 +329,31 @@ The sandbox's `check_approval` implementation:
 
 ```python
 class FileSandbox:
-    async def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
         if ctx.tool_name == "write_file":
             path = ctx.args["path"]
             sandbox_name, resolved, config = self._find_path_for(path)
 
+            if not config:
+                raise PermissionError(f"Path not in any sandbox: {path}")
+
             if config.write_approval:
                 return ApprovalRequest(
-                    required=True,
                     tool_name=ctx.tool_name,
                     description=f"Write to {sandbox_name}:{path}",
                     payload={"sandbox": sandbox_name, "path": path},
-                    # presentation added in Phase 2 (diff for existing files, etc.)
+                    # Note: presentation (diff) is generated lazily by the controller
                 )
 
         elif ctx.tool_name == "read_file":
             path = ctx.args["path"]
             sandbox_name, resolved, config = self._find_path_for(path)
 
+            if not config:
+                raise PermissionError(f"Path not in any sandbox: {path}")
+
             if config.read_approval:
                 return ApprovalRequest(
-                    required=True,
                     tool_name=ctx.tool_name,
                     description=f"Read from {sandbox_name}:{path}",
                     payload={"sandbox": sandbox_name, "path": path},
@@ -310,7 +391,7 @@ The shell tool's `check_approval`:
 
 ```python
 class ShellTool:
-    async def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
         command = ctx.args["command"]
         parsed = parse_command(command)
 
@@ -327,24 +408,22 @@ class ShellTool:
 
                 if rule.approval:
                     return ApprovalRequest(
-                        required=True,
                         tool_name=ctx.tool_name,
                         description=rule.description or f"Execute: {command[:50]}...",
                         payload={"command": command, "rule": rule.pattern},
                     )
                 else:
-                    return None  # Pre-approved
+                    return None  # Pre-approved by rule
 
         # No rule matched, use default
         if self.config.default.approval:
             return ApprovalRequest(
-                required=True,
                 tool_name=ctx.tool_name,
                 description=f"Execute shell command: {command[:50]}...",
                 payload={"command": command},
             )
 
-        return None
+        return None  # Default allows without approval
 ```
 
 ### Example: Custom Tool
@@ -352,7 +431,7 @@ class ShellTool:
 Use the `@requires_approval` decorator to add approval to custom tools:
 
 ```python
-from llm_do.approval import requires_approval
+from tool_approval import requires_approval  # Framework-agnostic package
 
 @requires_approval()
 def send_email(to: str, subject: str, body: str) -> str:
@@ -366,8 +445,7 @@ For more control over description and payload:
 ```python
 @requires_approval(
     description=lambda args: f"Send email to {args['to']}: {args['subject']}",
-    payload=lambda args: {"to": args["to"], "subject": args["subject"]},
-    # Omit body from payload to avoid logging sensitive content
+    exclude_keys={"body"},  # Omit body from payload to avoid logging sensitive content
 )
 def send_email(to: str, subject: str, body: str) -> str:
     """Send an email."""
@@ -375,9 +453,76 @@ def send_email(to: str, subject: str, body: str) -> str:
     return f"Email sent to {to}"
 ```
 
+#### Decorator Implementation
+
+```python
+import functools
+import inspect
+from typing import Callable, Optional, Any
+
+def requires_approval(
+    *,
+    description: str | Callable[[dict[str, Any]], str] | None = None,
+    exclude_keys: set[str] | None = None,
+    payload: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+):
+    """Decorator that adds check_approval() to a tool function.
+
+    Args:
+        description: Static string or callable that generates description from args.
+                    If None, auto-generates from function name and args.
+        exclude_keys: Keys to exclude from auto-generated payload.
+        payload: Custom payload generator. If provided, exclude_keys is ignored.
+
+    Example:
+        @requires_approval()
+        def delete_file(path: str) -> str:
+            ...
+
+        @requires_approval(
+            description=lambda args: f"Delete {args['path']}",
+            exclude_keys={"force"},
+        )
+        def delete_file(path: str, force: bool = False) -> str:
+            ...
+    """
+    def decorator(func: Callable) -> Callable:
+        tool_name = func.__name__
+
+        def check_approval(ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+            # Generate description
+            if description is None:
+                args_str = ', '.join(f'{k}={v!r}' for k, v in ctx.args.items())
+                desc = f"{tool_name}({args_str})"
+            elif callable(description):
+                desc = description(ctx.args)
+            else:
+                desc = description
+
+            # Generate payload
+            if payload is not None:
+                pl = payload(ctx.args)
+            elif exclude_keys:
+                pl = {k: v for k, v in ctx.args.items() if k not in exclude_keys}
+            else:
+                pl = dict(ctx.args)
+
+            return ApprovalRequest(
+                tool_name=tool_name,
+                description=desc,
+                payload=pl,
+            )
+
+        # Attach check_approval to the function
+        func.check_approval = check_approval
+        return func
+
+    return decorator
+```
+
 The decorator pattern is preferred because:
-- It's easier to type-check and document
-- It integrates well with PydanticAI's `@agent.tool` / toolset machinery
+- It's easy to add approval to existing functions without modifying them
+- It integrates well with any agent framework's tool registration
 - The `ApprovalAware` protocol can evolve without breaking tool implementations
 
 ### OS Sandbox Integration
@@ -451,70 +596,108 @@ sandbox:
 
 The OS sandbox is invisible to the approval layer—it's a silent safety net that catches bugs or path traversal escapes in the Python layer.
 
-### PydanticAI Integration
+### Framework Integration
 
-This architecture sits on top of PydanticAI's agent and tools model. Here's how the pieces connect:
+The approval types are designed to work with any LLM agent framework. Here's the general pattern:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  PydanticAI Agent                                           │
-│  - @agent.tool or Toolset functions                         │
-│  - RunContext with dependencies                             │
+│  Agent Framework (PydanticAI, LangChain, etc.)              │
+│  - Tool registration and execution                          │
+│  - Context management                                       │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  llm-do Runtime Adapter                                     │
-│  - Wraps tool execution                                     │
-│  - Maps RunContext + ToolDefinition + args → ApprovalContext│
+│  Approval Wrapper (framework-specific adapter)              │
+│  - Intercepts tool calls                                    │
+│  - Builds ApprovalContext from framework context            │
 │  - Calls check_approval() before tool execution             │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Approval Controller                                        │
+│  Approval Controller (framework-agnostic)                   │
 │  - Interprets ApprovalRequest + runtime mode                │
-│  - Displays prompt (CLI, IDE, AG-UI)                        │
+│  - Displays prompt (CLI, IDE, web UI)                       │
 │  - Manages session memory                                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 Key integration points:
 
-1. **Tools are PydanticAI tools**: Exposed via `@agent.tool` or as `Toolset` functions
-2. **RunContext mapping**: The runtime extracts `run_id`, `session_id`, etc. from PydanticAI's `RunContext` to build `ApprovalContext`
-3. **Approval-aware wrapper**: The runtime wraps tool execution to call `check_approval()` when the tool implements `ApprovalAware`
-4. **No second abstraction**: We don't re-invent tool registration; we just add an optional approval check around PydanticAI's existing machinery
+1. **Tools are native framework tools**: Use your framework's normal tool registration
+2. **Context mapping**: The adapter maps framework context to `ApprovalContext.metadata`
+3. **Approval-aware wrapper**: Check `hasattr(tool, 'check_approval')` before execution
+4. **No framework lock-in**: The core types have no framework dependencies
+
+#### Example: PydanticAI Integration
 
 ```python
-# Example: Integrating with PydanticAI agent
 from pydantic_ai import Agent, RunContext
-from llm_do.approval import ApprovalContext, ApprovalRequest
+from tool_approval import ApprovalContext, ApprovalRequest, ApprovalController
 
 async def approval_tool_wrapper(
-    tool_func,
+    tool_func: Callable,
     ctx: RunContext,
     tool_name: str,
     args: dict,
-    approval_controller,
+    approval_controller: ApprovalController,
 ):
     """Wrap a PydanticAI tool with approval checking."""
     if hasattr(tool_func, 'check_approval'):
         approval_ctx = ApprovalContext(
             tool_name=tool_name,
             args=args,
-            run_id=ctx.run_id if hasattr(ctx, 'run_id') else None,
-            session_id=getattr(ctx.deps, 'session_id', None),
-            caller=getattr(ctx.deps, 'worker_name', None),
+            metadata={
+                "run_id": getattr(ctx, 'run_id', None),
+                "session_id": getattr(ctx.deps, 'session_id', None),
+                "caller": getattr(ctx.deps, 'worker_name', None),
+            },
         )
-        request = await tool_func.check_approval(approval_ctx)
+        # check_approval is sync
+        request = tool_func.check_approval(approval_ctx)
 
         if request is not None:
+            # request_approval is async (user interaction, lazy presentation)
             decision = await approval_controller.request_approval(request)
             if not decision.approved:
                 raise PermissionError(f"Approval denied: {decision.note}")
 
-    return await tool_func(**args)
+    # Execute the actual tool
+    if asyncio.iscoroutinefunction(tool_func):
+        return await tool_func(**args)
+    return tool_func(**args)
+```
+
+#### Example: LangChain Integration
+
+```python
+from langchain_core.tools import BaseTool
+from tool_approval import ApprovalContext, ApprovalController
+
+class ApprovalToolWrapper:
+    """Wraps LangChain tools with approval checking."""
+
+    def __init__(self, tool: BaseTool, controller: ApprovalController):
+        self.tool = tool
+        self.controller = controller
+
+    async def invoke(self, args: dict, config: dict | None = None) -> Any:
+        if hasattr(self.tool, 'check_approval'):
+            ctx = ApprovalContext(
+                tool_name=self.tool.name,
+                args=args,
+                metadata={"config": config} if config else {},
+            )
+            request = self.tool.check_approval(ctx)
+
+            if request is not None:
+                decision = await self.controller.request_approval(request)
+                if not decision.approved:
+                    raise PermissionError(f"Approval denied: {decision.note}")
+
+        return await self.tool.ainvoke(args, config)
 ```
 
 ### Batch Approvals
@@ -523,18 +706,81 @@ When tools produce related operations (e.g., "save project" writes 10 files), th
 
 ```python
 class FileSandbox:
-    async def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
         # ...
         return ApprovalRequest(
-            required=True,
             tool_name=ctx.tool_name,
             description=f"Write to {sandbox_name}:{path}",
             payload={"sandbox": sandbox_name, "path": path},
-            group_id=ctx.tags.get("batch_id"),  # Set by higher-level operation
+            # batch_id passed via metadata by higher-level orchestration
+            group_id=ctx.metadata.get("batch_id"),
         )
 ```
 
 When multiple `ApprovalRequest`s share a `group_id`, the approval controller *may* present them together as a single approve/deny decision. This keeps batching explicit and tool-controlled rather than having the runtime guess based on timing or similarity.
+
+### Session Approval Matching
+
+When the user selects "approve for session", the approval controller stores the `payload` and skips future prompts for equivalent operations. Here's how matching works:
+
+#### Matching Rules
+
+1. **Exact match by default**: Two payloads match if they are deeply equal (`payload_a == payload_b`)
+
+2. **Tools control granularity**: By choosing what goes in `payload`, tools control what counts as "the same operation":
+   ```python
+   # Fine-grained: each file is separately approved
+   payload={"path": "/data/report.txt"}
+
+   # Coarse-grained: all writes to a sandbox are approved together
+   payload={"sandbox": "data"}
+
+   # Command pattern: approve all "git status" commands
+   payload={"command_pattern": "git status"}
+   ```
+
+3. **Exclude volatile data**: Don't include timestamps, request IDs, or content that changes between calls:
+   ```python
+   # Bad: content changes, so session approval never matches
+   payload={"path": path, "content": content}
+
+   # Good: just the path, content can vary
+   payload={"path": path}
+   ```
+
+#### Implementation
+
+```python
+class ApprovalController:
+    def __init__(self):
+        self.session_approvals: set[tuple[str, frozenset]] = set()
+
+    def _make_key(self, request: ApprovalRequest) -> tuple[str, frozenset]:
+        """Create hashable key for session matching."""
+        def freeze(obj):
+            if isinstance(obj, dict):
+                return frozenset((k, freeze(v)) for k, v in sorted(obj.items()))
+            elif isinstance(obj, (list, tuple)):
+                return tuple(freeze(x) for x in obj)
+            return obj
+
+        return (request.tool_name, freeze(request.payload))
+
+    def is_session_approved(self, request: ApprovalRequest) -> bool:
+        return self._make_key(request) in self.session_approvals
+
+    def add_session_approval(self, request: ApprovalRequest) -> None:
+        self.session_approvals.add(self._make_key(request))
+```
+
+#### Guidelines for Tool Authors
+
+| Scenario | Payload Strategy |
+|----------|-----------------|
+| File operations | Include path, exclude content |
+| Shell commands | Include command or pattern, exclude output |
+| API calls | Include endpoint + method, exclude body/response |
+| Database queries | Include query pattern, exclude parameters |
 
 ## Key Changes from Current Implementation
 
@@ -593,13 +839,23 @@ def truncate_for_display(content: str, max_lines: int = 50) -> str:
 └────────────────────────────────────────────────────────────┘
 ```
 
+## Design Decisions
+
+These were originally open questions, now resolved:
+
+1. **Presentation generation is lazy.** The approval controller generates diffs and syntax highlighting *after* checking session cache. Tools just provide `payload`; rich presentation is the controller's responsibility.
+
+2. **`--strict` respects tool pre-approval.** If a tool returns `None` from `check_approval()`, it means "no approval needed"—this is respected in all modes including strict. Strict mode only auto-denies when tools explicitly return an `ApprovalRequest`.
+
+3. **`check_approval()` is synchronous.** Approval checking is a policy decision based on config and arguments—pure computation, no I/O. Async work (user prompts, diff generation) happens in the controller.
+
 ## Open Questions
 
 1. **How does this interact with MCP tools?** MCP tools come from external servers—can they declare approval requirements? Options:
    - MCP server provides approval metadata in tool definition
-   - llm-do wraps MCP tools with configurable approval rules
+   - Runtime wraps MCP tools with configurable approval rules
    - MCP tools are always approval-required by default
 
-2. **Should presentation generation be lazy?** Generating diffs for large files is expensive—only do it if approval is actually required and not session-cached? Proposed: Yes, the runtime should check session cache *before* calling `check_approval()`.
+2. **Should there be a standalone `tool-approval` package?** The core types (`ApprovalRequest`, `ApprovalContext`, `ApprovalAware`, `requires_approval`) have no framework dependencies. Extracting them would make adoption easier for non-llm-do users.
 
-3. **How does `--strict` mode interact with tool-level config?** If a path has `write_approval: false`, does `--strict` still block it? Proposed: No, tool-level pre-approval (`required=False` or returning `None`) is respected even in strict mode—strict mode only auto-denies `required=True` requests.
+3. **Wildcard/pattern matching for session approvals?** Currently session matching is exact. Should tools be able to specify patterns (e.g., "approve all writes to `./data/*`")? This adds complexity but would reduce prompt fatigue for batch operations.

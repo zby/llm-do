@@ -115,6 +115,12 @@ class ApprovalRequest(BaseModel):
     # Optional grouping for batch approvals
     group_id: str | None = None
 
+class ApprovalDecision(BaseModel):
+    """Returned by the approval controller after user interaction."""
+    approved: bool
+    scope: Literal["once", "session"] = "once"  # "session" means don't prompt again
+    note: str | None = None  # Reason for rejection, or user comment
+
 class ApprovalAware(Protocol):
     """Protocol for tools that can request approval.
 
@@ -138,6 +144,57 @@ class ApprovalAware(Protocol):
 ```
 
 A bare tool function doesn't implement this—it just executes. An approval-aware tool implements `check_approval` to declare when it needs user consent.
+
+#### Two Integration Patterns
+
+**Pattern 1: Decorated functions** (for simple, standalone tools)
+
+Use the `@requires_approval` decorator on individual tool functions:
+
+```python
+@requires_approval()
+def send_email(to: str, subject: str, body: str) -> str:
+    ...
+```
+
+The decorator attaches `check_approval` directly to the function. The runtime discovers it via `hasattr(func, 'check_approval')`.
+
+**Pattern 2: Toolset-level checker** (for class-based toolsets)
+
+For toolsets that expose multiple tools (like `FileSandbox`, `ShellTool`), implement `check_approval` as an instance method that dispatches by `ctx.tool_name`:
+
+```python
+class FileSandbox:
+    def __init__(self, config: SandboxConfig):
+        self.config = config
+
+    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+        """Single entry point for all tools in this toolset."""
+        if ctx.tool_name == "write_file":
+            return self._check_write(ctx)
+        elif ctx.tool_name == "read_file":
+            return self._check_read(ctx)
+        return None  # Unknown tool or no approval needed
+
+    def _check_write(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+        path = ctx.args["path"]
+        sandbox_name, resolved, config = self._find_path_for(path)
+        if not config:
+            raise PermissionError(f"Path not in any sandbox: {path}")
+        if config.write_approval:
+            return ApprovalRequest(
+                tool_name=ctx.tool_name,
+                description=f"Write to {sandbox_name}:{path}",
+                payload={"sandbox": sandbox_name, "path": path},
+            )
+        return None
+
+    # Tool methods
+    def write_file(self, path: str, content: str) -> str: ...
+    def read_file(self, path: str) -> str: ...
+```
+
+The runtime checks `hasattr(toolset, 'check_approval')` and calls it before `toolset.call_tool(name, args)`. This matches PydanticAI's `AbstractToolset` pattern—toolsets already have a single `call_tool()` entry point, and now they have a corresponding `check_approval()` entry point.
 
 #### Why `check_approval` is Synchronous
 
@@ -260,12 +317,15 @@ The semantics are simple:
 
 ### Runtime Flow
 
+The runtime handles both integration patterns:
+
 ```python
 import asyncio
-from typing import Callable, Any
+from typing import Callable, Any, Union
+from pydantic_ai.toolsets import AbstractToolset
 
 async def execute_tool(
-    tool_func: Callable,
+    tool: Union[Callable, AbstractToolset],
     tool_name: str,
     args: dict,
     approval_controller: ApprovalController,
@@ -274,14 +334,14 @@ async def execute_tool(
     """Execute a tool with approval checking.
 
     Args:
-        tool_func: The tool function/callable to execute
+        tool: Either a tool function (Pattern 1) or a toolset instance (Pattern 2)
         tool_name: Name of the tool (for display and logging)
         args: Arguments to pass to the tool
         approval_controller: Handles approval prompts and session memory
         context_metadata: Optional framework-specific context (run_id, session_id, etc.)
     """
-    # 1. Check if tool is approval-aware
-    if hasattr(tool_func, 'check_approval'):
+    # 1. Check if tool/toolset is approval-aware
+    if hasattr(tool, 'check_approval'):
         ctx = ApprovalContext(
             tool_name=tool_name,
             args=args,
@@ -289,7 +349,7 @@ async def execute_tool(
         )
 
         # check_approval is sync—it's just a policy decision
-        approval_request = tool_func.check_approval(ctx)
+        approval_request = tool.check_approval(ctx)
 
         if approval_request is not None:
             # 2. Ask approval controller (may prompt user, check session cache, etc.)
@@ -300,10 +360,15 @@ async def execute_tool(
                 raise PermissionError(f"Approval denied: {decision.note}")
 
     # 3. Execute the tool
-    if asyncio.iscoroutinefunction(tool_func):
-        return await tool_func(**args)
+    if isinstance(tool, AbstractToolset):
+        # Pattern 2: Toolset with call_tool()
+        return await tool.call_tool(tool_name, args)
+    elif asyncio.iscoroutinefunction(tool):
+        # Pattern 1: Async function
+        return await tool(**args)
     else:
-        return tool_func(**args)
+        # Pattern 1: Sync function
+        return tool(**args)
 ```
 
 ### Example: Filesystem Sandbox
@@ -751,18 +816,7 @@ When the user selects "approve for session", the approval controller stores the 
 #### Implementation
 
 ```python
-from dataclasses import dataclass
-from enum import Enum
-
-class ApprovalScope(Enum):
-    ONCE = "once"           # Just this call
-    SESSION = "session"     # Until run ends
-
-@dataclass
-class ApprovalDecision:
-    approved: bool
-    scope: ApprovalScope = ApprovalScope.ONCE
-    note: str | None = None
+# ApprovalDecision is defined in the core types section above
 
 class ApprovalController:
     def __init__(self, mode: str = "interactive"):
@@ -800,7 +854,7 @@ class ApprovalController:
 
         # 2. Check session cache BEFORE generating presentation
         if self.is_session_approved(request):
-            return ApprovalDecision(approved=True, scope=ApprovalScope.SESSION)
+            return ApprovalDecision(approved=True, scope="session")
 
         # 3. Only now do we build rich presentation (diffs, syntax highlighting, etc.)
         #    This is the "lazy" part—expensive I/O only happens when we need to prompt.
@@ -810,7 +864,7 @@ class ApprovalController:
         decision = await self._prompt_user(display_request)
 
         # 5. Update session cache if user chose "approve for session"
-        if decision.approved and decision.scope == ApprovalScope.SESSION:
+        if decision.approved and decision.scope == "session":
             self.add_session_approval(request)
 
         return decision

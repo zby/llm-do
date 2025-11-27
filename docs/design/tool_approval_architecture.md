@@ -748,25 +748,6 @@ def http_post(url: str, body: dict) -> dict:
 └────────────────────────────────────────────────────────────┘
 ```
 
-## Updates Needed in cli_approval_user_stories.md
-
-The CLI user stories document should be updated to reflect this architecture:
-
-1. **Story 4 (Pre-approve known-safe tools)**: Update acceptance criteria to reference per-tool config instead of `tool_rules`:
-   - Old: "set `tool_rules` (e.g., `sandbox.write` with certain sandboxes/paths)"
-   - New: "set approval config in tool definition (e.g., `sandbox.paths.notes.write_approval: false`)"
-
-2. **Story 13 (File sharing approval)**: Update to reference tool-level config:
-   - Old: "If `sandbox.read` is pre-approved in tool rules"
-   - New: "If `read_approval: false` is set for that sandbox path"
-
-3. **Add new story**: Rich approval presentation
-   - As an operator approving file edits, I want to see a diff of what will change
-   - As an operator approving new file creation, I want to see a preview of the content
-   - Acceptance criteria should reference `[v]iew full` option for large content
-
-4. **Clarify naming**: Replace `sandbox.write`/`sandbox.read` references with actual tool names (`write_file`/`read_file`) in CLI output examples
-
 ## Open Questions
 
 1. **Should `check_approval` be sync or async?** Some approval checks might need I/O (checking file sizes, reading existing files for diff)

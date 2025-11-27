@@ -2,6 +2,8 @@
 
 > Persona: command-line operator running `llm-do` workers directly from the terminal. The CLI pauses tool execution and prompts the operator inline until a decision is entered.
 
+> **Related document**: See [tool_approval_architecture.md](tool_approval_architecture.md) for technical implementation details.
+
 ## Story 1 — Pause run when a guarded tool is invoked
 - **As** an operator watching a long-running worker execution in the terminal,
 - **I want** the CLI to pause immediately when the agent requests a guarded tool (write, worker creation, delegation outside allowlist),
@@ -34,13 +36,29 @@
 
 ## Story 4 — Edit worker config to preapprove known-safe tools
 - **As** an operator who repeatedly approves the same safe tool calls,
-- **I want** to edit the worker’s YAML definition (or creation defaults config) to mark specific tools/paths as preapproved,
+- **I want** to edit the worker's YAML definition (or creation defaults config) to mark specific tools/paths as preapproved,
 - **So that** future CLI runs skip the interactive prompt for those actions while still blocking anything else.
 
 **Acceptance Criteria**
-1. Documentation explains how to set `tool_rules` (e.g., `sandbox.write` with certain sandboxes/paths) so the runtime executes them without prompting.
+1. Documentation explains how to configure approval in tool definitions:
+   - For filesystem sandbox: set `write_approval: false` or `read_approval: false` per path
+   - For shell: use `shell_rules` with `approval: false` for safe command patterns
 2. After editing the worker definition, rerunning the CLI shows that the specified tool executes automatically, while other tools still pause for approval.
 3. Operators can revert or tighten the configuration easily if they notice unwanted behavior.
+
+**Example configuration:**
+```yaml
+sandbox:
+  paths:
+    cache:
+      root: ./cache
+      mode: rw
+      write_approval: false  # Cache writes don't need approval
+    output:
+      root: ./output
+      mode: rw
+      write_approval: true   # Output writes require approval
+```
 
 ## Story 5 — Approve for the current session
 - **As** an operator who trusts a request only for the current run,
@@ -68,8 +86,10 @@
 - **So that** the worker fails fast if it attempts any unexpected operations, ensuring security.
 
 **Acceptance Criteria**
-1. Passing `--strict` flag causes any approval-required tool to fail immediately with an error.
-2. Only tools marked with `approval_required: false` in the worker's `tool_rules` execute successfully.
+1. Passing `--strict` flag causes any tool requiring approval to fail immediately with an error.
+2. Only tools with approval disabled in their config execute successfully:
+   - Filesystem: paths with `write_approval: false` / `read_approval: false`
+   - Shell: commands matching rules with `approval: false`
 3. The error message clearly indicates which tool was rejected and that strict mode is active.
 4. This provides a "deny by default" security posture for production deployments.
 
@@ -119,7 +139,7 @@
 2. The operator can approve (save to disk), deny (abort), or quit.
 3. Denied creation returns an error to the calling worker.
 4. Approved workers are saved and immediately available for use.
-5. The `worker.create` tool rule controls whether creation requires approval.
+5. The `worker_create` tool's `check_approval()` determines whether creation requires approval.
 
 ## Story 12 — Approve worker delegation with context
 - **As** an operator monitoring a worker that delegates to other workers,
@@ -130,7 +150,7 @@
 1. When `worker_call` requires approval, the CLI displays: target worker name, input data, and attachment metadata.
 2. The operator can approve, approve for session, deny, or quit.
 3. Session approval applies to identical calls (same worker, input, and attachments).
-4. Workers in the `allow_workers` list that have `approval_required: false` in tool rules execute without prompting.
+4. The `worker_call` tool's `check_approval()` determines whether delegation requires approval (can consider `allow_workers` list).
 
 ## Story 13 — Approve file sharing between workers
 - **As** an operator whose worker passes file attachments to a sub-worker,
@@ -138,11 +158,25 @@
 - **So that** I can prevent sensitive files from being inadvertently exposed to other workers.
 
 **Acceptance Criteria**
-1. When attachments are passed to `worker_call`, each file triggers a `sandbox.read` approval check.
+1. When attachments are passed to `worker_call`, each file triggers a `read_file` approval check.
 2. The prompt shows: file path, size in bytes, and the target worker receiving the file.
 3. The operator can approve, approve for session (same file + target), deny, or quit.
 4. Denying any attachment aborts the entire delegation call.
-5. If `sandbox.read` is pre-approved in tool rules, attachments transfer without prompting.
+5. If `read_approval: false` is set for that sandbox path, attachments transfer without prompting.
+
+**Example configuration:**
+```yaml
+sandbox:
+  paths:
+    public_docs:
+      root: ./docs
+      mode: ro
+      read_approval: false  # Public docs can be shared freely
+    sensitive:
+      root: ./private
+      mode: ro
+      read_approval: true   # Sensitive files require approval to share
+```
 
 ## Story 14 — See approval history in session
 - **As** an operator who has approved several tools during a long-running session,
@@ -150,7 +184,7 @@
 - **So that** I know what will auto-execute and what will still prompt.
 
 **Acceptance Criteria**
-1. Session approvals (from choosing `[s]`) are tracked by tool name and exact payload.
+1. Session approvals (from choosing `[s]`) are tracked by tool name and exact args.
 2. The CLI can display currently active session approvals when requested.
 3. Only identical tool calls (same name and arguments) benefit from session approval.
 4. Session approvals reset when the worker run completes.
@@ -165,3 +199,95 @@
 2. The error message explains that `--approve-all` or `--strict` is required for non-interactive use.
 3. Both flags cannot be used together (mutually exclusive).
 4. The exit code is non-zero to signal failure to calling scripts.
+
+---
+
+## Phase 2: Rich Presentation Stories
+
+> These stories describe enhanced approval display features planned for Phase 2. Phase 1 displays tool name and args as JSON.
+
+## Story 16 — See file diffs before approving edits
+- **As** an operator approving file modifications,
+- **I want** to see a unified diff of what will change,
+- **So that** I can catch unintended modifications before they happen.
+
+**Acceptance Criteria**
+1. When `write_file` is called on an existing file, the CLI displays a unified diff (like `git diff`).
+2. Removed lines are shown in red with `-` prefix, added lines in green with `+` prefix.
+3. Context lines are shown around changes for orientation.
+4. The operator can approve, reject, or view the full file content.
+5. For new files (no existing content), the CLI shows the full content instead of a diff.
+
+**Example display:**
+```
+┌─ write_file ──────────────────────────────────────────────┐
+│ Edit notes/report.md                                       │
+├────────────────────────────────────────────────────────────┤
+│ @@ -1,3 +1,5 @@                                            │
+│  # Weekly Report                                           │
+│ -## Summary                                                │
+│ +## Executive Summary                                      │
+│ +Key findings from this week:                              │
+├────────────────────────────────────────────────────────────┤
+│ [y] Approve  [n] Reject  [s] Session  [v] View full        │
+└────────────────────────────────────────────────────────────┘
+```
+
+## Story 17 — Preview new file content before creation
+- **As** an operator approving new file creation,
+- **I want** to see the content that will be written,
+- **So that** I can verify it's correct before the file is created.
+
+**Acceptance Criteria**
+1. When `write_file` creates a new file, the CLI displays the content with syntax highlighting.
+2. The file extension determines the syntax highlighting language.
+3. Large files are truncated with a `[v] View full` option.
+4. The file size is shown in the header.
+
+**Example display:**
+```
+┌─ write_file ──────────────────────────────────────────────┐
+│ Create config/settings.json (245 bytes)                    │
+├────────────────────────────────────────────────────────────┤
+│ {                                                          │
+│   "version": "1.0",                                        │
+│   "debug": false                                           │
+│ }                                                          │
+├────────────────────────────────────────────────────────────┤
+│ [y] Approve  [n] Reject  [s] Session                       │
+└────────────────────────────────────────────────────────────┘
+```
+
+## Story 18 — See shell commands with context
+- **As** an operator approving shell commands,
+- **I want** to see the command clearly formatted with its working directory,
+- **So that** I understand exactly what will execute and where.
+
+**Acceptance Criteria**
+1. Shell commands are displayed with `$` prefix and bash syntax highlighting.
+2. The working directory is shown below the command.
+3. Long commands wrap appropriately for readability.
+
+**Example display:**
+```
+┌─ shell ───────────────────────────────────────────────────┐
+│ Execute shell command                                      │
+├────────────────────────────────────────────────────────────┤
+│ $ git commit -m "Add weekly report"                        │
+│                                                            │
+│ Working directory: /home/user/project                      │
+├────────────────────────────────────────────────────────────┤
+│ [y] Approve  [n] Reject  [s] Session                       │
+└────────────────────────────────────────────────────────────┘
+```
+
+## Story 19 — Handle large content gracefully
+- **As** an operator approving large file writes,
+- **I want** to see a truncated preview with option to view full content,
+- **So that** approval prompts don't flood my terminal.
+
+**Acceptance Criteria**
+1. Content exceeding a threshold (e.g., 50 lines or 2000 chars) is truncated.
+2. A message indicates how much content was truncated (e.g., "[... 847 more lines]").
+3. The `[v] View full` option opens the full content in a pager (like `less`).
+4. The truncation threshold can be configured.

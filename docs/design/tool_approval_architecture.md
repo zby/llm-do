@@ -28,7 +28,6 @@ Additionally, we want to:
 3. **Single configuration point** - no `tool_rules` separate from tool config
 4. **Clean layering** - approval, validation, and OS enforcement are separate concerns
 5. **Composable** - tools can be wrapped with approval without changing their implementation
-6. **Rich presentation** - tools provide context for informed approval decisions (diffs, previews)
 
 ## Proposed Architecture
 
@@ -63,25 +62,69 @@ Additionally, we want to:
 Tools that support approval implement an optional interface:
 
 ```python
-from typing import Protocol, Optional, Any
+from typing import Protocol, Optional, Any, Literal
 from pydantic import BaseModel
+
+class ApprovalPresentation(BaseModel):
+    """Rich presentation data for approval UI (Phase 2)."""
+    type: Literal["text", "diff", "file_content", "command", "structured"]
+    content: str
+    language: Optional[str] = None  # For syntax highlighting
+    metadata: dict[str, Any] = {}
 
 class ApprovalRequest(BaseModel):
     """Returned by a tool to request approval before execution."""
-    required: bool
-    tool_name: str  # For display/logging
-    description: str  # Human-readable description of what will happen
-    payload: dict[str, Any]  # Structured data for approval decision
+    tool_name: str
+    args: dict[str, Any]
+    # Phase 2: Optional rich presentation
+    presentation: Optional[ApprovalPresentation] = None
 
 class ApprovalAware(Protocol):
     """Protocol for tools that can request approval."""
 
     def check_approval(self, tool_name: str, args: dict[str, Any]) -> Optional[ApprovalRequest]:
-        """Inspect args and return approval requirements, or None if no approval needed."""
+        """Inspect args and return approval request, or None if no approval needed."""
         ...
 ```
 
 A bare PydanticAI tool doesn't implement this - it just executes. An llm-do enhanced tool can implement `check_approval` to declare its needs.
+
+#### Phase 1: Simple Display
+
+The CLI displays tool name and args directly:
+```
+Tool: write_file
+Args: {"path": "notes/log.txt", "content": "Meeting notes..."}
+
+[y] Approve  [n] Reject  [s] Approve for session
+```
+
+#### Phase 2: Rich Presentation
+
+When `presentation` is provided, the CLI renders it appropriately:
+
+| Type | Use Case | Rendering |
+|------|----------|-----------|
+| `text` | Simple messages | Plain text block |
+| `diff` | File edits | Unified diff with colors (+green/-red) |
+| `file_content` | New file creation | Syntax-highlighted content |
+| `command` | Shell execution | Command with working directory |
+| `structured` | Complex data | JSON/YAML formatted display |
+
+Example with diff:
+```
+┌─ write_file ──────────────────────────────────────────────┐
+│ Edit notes/report.md                                       │
+├────────────────────────────────────────────────────────────┤
+│ @@ -1,3 +1,5 @@                                            │
+│  # Weekly Report                                           │
+│ -## Summary                                                │
+│ +## Executive Summary                                      │
+│ +Key findings from this week:                              │
+├────────────────────────────────────────────────────────────┤
+│ [y] Approve  [n] Reject  [s] Approve for session           │
+└────────────────────────────────────────────────────────────┘
+```
 
 ### Runtime Flow
 
@@ -91,13 +134,9 @@ async def execute_tool(tool, tool_name: str, args: dict, approval_controller):
     if hasattr(tool, 'check_approval'):
         approval_request = tool.check_approval(tool_name, args)
 
-        if approval_request and approval_request.required:
-            # 2. Ask approval controller
-            decision = approval_controller.request_approval(
-                tool_name=approval_request.tool_name,
-                description=approval_request.description,
-                payload=approval_request.payload,
-            )
+        if approval_request is not None:
+            # 2. Ask approval controller (displays tool_name + args to user)
+            decision = approval_controller.request_approval(approval_request)
 
             if not decision.approved:
                 raise PermissionError(f"Approval denied: {decision.note}")
@@ -135,24 +174,14 @@ class FileSandbox:
             sandbox_name, resolved, config = self._find_path_for(path)
 
             if config.write_approval:
-                return ApprovalRequest(
-                    required=True,
-                    tool_name="write_file",
-                    description=f"Write {len(args['content'])} chars to {path}",
-                    payload={"path": path, "sandbox": sandbox_name, "bytes": len(args["content"])}
-                )
+                return ApprovalRequest(tool_name=tool_name, args=args)
 
         elif tool_name == "read_file":
             path = args["path"]
             sandbox_name, resolved, config = self._find_path_for(path)
 
             if config.read_approval:
-                return ApprovalRequest(
-                    required=True,
-                    tool_name="read_file",
-                    description=f"Read from {path}",
-                    payload={"path": path, "sandbox": sandbox_name}
-                )
+                return ApprovalRequest(tool_name=tool_name, args=args)
 
         return None  # No approval needed
 ```
@@ -202,23 +231,13 @@ class ShellTool:
                         continue  # Try next rule
 
                 if rule.approval:
-                    return ApprovalRequest(
-                        required=True,
-                        tool_name="shell",
-                        description=rule.description or f"Execute: {command}",
-                        payload={"command": command, "pattern": rule.pattern}
-                    )
+                    return ApprovalRequest(tool_name=tool_name, args=args)
                 else:
                     return None  # Pre-approved
 
         # No rule matched, use default
         if self.config.default.approval:
-            return ApprovalRequest(
-                required=True,
-                tool_name="shell",
-                description=f"Execute shell command: {command}",
-                payload={"command": command}
-            )
+            return ApprovalRequest(tool_name=tool_name, args=args)
 
         return None
 ```
@@ -237,12 +256,7 @@ def send_email(to: str, subject: str, body: str) -> str:
 
 # Add approval awareness
 def send_email_check_approval(tool_name: str, args: dict) -> ApprovalRequest:
-    return ApprovalRequest(
-        required=True,
-        tool_name="send_email",
-        description=f"Send email to {args['to']}: {args['subject']}",
-        payload={"to": args["to"], "subject": args["subject"]}
-    )
+    return ApprovalRequest(tool_name=tool_name, args=args)
 
 send_email.check_approval = send_email_check_approval
 ```
@@ -252,10 +266,7 @@ Or using a decorator:
 ```python
 from llm_do.approval import requires_approval
 
-@requires_approval(
-    description=lambda args: f"Send email to {args['to']}: {args['subject']}",
-    payload=lambda args: {"to": args["to"], "subject": args["subject"]}
-)
+@requires_approval()
 def send_email(to: str, subject: str, body: str) -> str:
     """Send an email."""
     # ... implementation ...
@@ -311,8 +322,8 @@ sandbox:
 
 **Flow:**
 1. LLM calls `write_file("notes/log.txt", "Meeting notes...")`
-2. Sandbox's `check_approval` returns `ApprovalRequest(required=True, ...)`
-3. Runtime prompts user: "Write 42 chars to notes/log.txt? [y/n]"
+2. Sandbox's `check_approval` returns `ApprovalRequest(tool_name="write_file", args={...})`
+3. Runtime displays tool name and args, prompts user
 4. User approves, file is written
 
 ### Story 2: Pre-approved Cache Writes
@@ -479,64 +490,55 @@ This architecture supports all scenarios from [cli_approval_user_stories.md](cli
 
 | User Story | Architecture Support |
 |------------|---------------------|
-| **Story 1-3**: Pause, approve, reject | Runtime calls `check_approval()`, displays `ApprovalPresentation`, waits for decision |
+| **Story 1-3**: Pause, approve, reject | Runtime calls `check_approval()`, displays tool name + args, waits for decision |
 | **Story 4**: Pre-approve known-safe tools | Tool config (e.g., `write_approval: false` per path) instead of `tool_rules` |
-| **Story 5**: Session approval | `ApprovalController` tracks approved payloads; tools provide payload for matching |
+| **Story 5**: Session approval | `ApprovalController` tracks approved `(tool_name, args)` pairs |
 | **Story 6**: `--approve-all` flag | Runtime skips `check_approval()` entirely or auto-approves all requests |
-| **Story 7**: `--strict` mode | Runtime rejects any `ApprovalRequest` with `required: true` |
-| **Story 8-10**: Shell command approval | Shell tool's `check_approval()` evaluates `shell_rules`, returns rich command presentation |
-| **Story 11**: Worker creation approval | `worker.create` tool implements `check_approval()` with worker definition preview |
-| **Story 12**: Worker delegation approval | `worker.call` tool implements `check_approval()` with target/input/attachment summary |
-| **Story 13**: File sharing approval | Sandbox's `check_approval()` for reads includes target worker context |
-| **Story 14**: Session history | `ApprovalController` exposes list of session-approved payloads |
+| **Story 7**: `--strict` mode | Runtime rejects any non-None `ApprovalRequest` |
+| **Story 8-10**: Shell command approval | Shell tool's `check_approval()` evaluates `shell_rules` |
+| **Story 11**: Worker creation approval | `worker.create` tool implements `check_approval()` |
+| **Story 12**: Worker delegation approval | `worker.call` tool implements `check_approval()` |
+| **Story 13**: File sharing approval | Sandbox's `check_approval()` for reads |
+| **Story 14**: Session history | `ApprovalController` exposes list of session-approved `(tool_name, args)` pairs |
 | **Story 15**: Non-interactive mode | Runtime checks TTY; requires explicit `--approve-all` or `--strict` |
 
 ### Key Changes from Current Implementation
 
 1. **No more `tool_rules` for built-in tools** - approval config moves into tool config
-2. **Tools return `ApprovalPresentation`** - not just yes/no, but rich context for display
+2. **Tools return `ApprovalRequest`** - contains tool name + args (Phase 1), optionally rich presentation (Phase 2)
 3. **Consistent naming** - tool name in `ApprovalRequest` matches what LLM sees (`write_file` not `sandbox.write`)
 4. **Runtime is approval-agnostic** - just calls `check_approval()` and displays what it gets back
 
 ## Migration Path
 
-### Phase 1: Add `check_approval` to existing tools
+### Phase 1: Basic approval with tool name + args
 - Filesystem sandbox implements `check_approval` based on new per-path config (`write_approval`, `read_approval`)
 - Shell tool implements `check_approval` using existing `shell_rules` (already tool-owned)
 - Runtime checks for `check_approval` before tool execution
-- Add `ApprovalPresentation` support (diffs for file edits, command display for shell)
+- CLI displays simple format: tool name + args JSON
+- `ApprovalRequest.presentation` is always `None`
 
-### Phase 2: Deprecate `tool_rules` for built-in tools
+### Phase 2: Rich presentation
+- Add `ApprovalPresentation` support to tools
+- Filesystem sandbox generates diffs for file edits, content preview for new files
+- Shell tool shows command with working directory context
+- CLI renders based on presentation type (diff, file_content, command, etc.)
+- Tools without presentation fall back to Phase 1 display
+
+### Phase 3: Deprecate `tool_rules` for built-in tools
 - Emit warning when `tool_rules` contains `sandbox.write`, `sandbox.read`, or `shell`
 - Document migration: `tool_rules.sandbox.write.approval_required: true` → `sandbox.paths.X.write_approval: true`
 - Keep `tool_rules` working during transition
 
-### Phase 3: Remove `tool_rules` for built-in tools
+### Phase 4: Remove `tool_rules` for built-in tools
 - `tool_rules` only applies to custom tools that don't implement `check_approval`
-- Eventually provide `@requires_approval` decorator as the standard way for custom tools
+- Provide `@requires_approval` decorator as the standard way for custom tools
 
-## Rich Approval Presentation
+## Phase 2: Rich Presentation Details
 
-A simple "approve Y/N?" prompt is insufficient for many operations. Users need to see **what will actually happen** before approving. The tool should provide rich presentation data that the CLI can render appropriately.
+> This section details the rich presentation feature planned for Phase 2. In Phase 1, approval prompts show only tool name and args.
 
-### Extended ApprovalRequest
-
-```python
-class ApprovalPresentation(BaseModel):
-    """Rich presentation data for approval UI."""
-    type: Literal["text", "diff", "file_content", "command", "structured"]
-    content: str  # Primary content to display
-    language: Optional[str] = None  # For syntax highlighting (e.g., "python", "json")
-    metadata: dict[str, Any] = {}  # Additional context
-
-class ApprovalRequest(BaseModel):
-    """Returned by a tool to request approval before execution."""
-    required: bool
-    tool_name: str
-    description: str  # One-line summary
-    payload: dict[str, Any]  # Structured data for approval decision/logging
-    presentation: Optional[ApprovalPresentation] = None  # Rich display data
-```
+A simple "approve Y/N?" prompt is insufficient for many operations. Users need to see **what will actually happen** before approving. Tools provide rich presentation data via the optional `ApprovalRequest.presentation` field.
 
 ### Presentation Types
 
@@ -563,7 +565,7 @@ class FileSandbox:
             if not config.write_approval:
                 return None
 
-            # Generate diff if file exists
+            # Generate diff if file exists (Phase 2)
             presentation = None
             if resolved.exists():
                 old_content = resolved.read_text()
@@ -579,19 +581,16 @@ class FileSandbox:
                 )
             else:
                 # New file - show content
-                suffix = resolved.suffix
                 presentation = ApprovalPresentation(
                     type="file_content",
                     content=new_content,
-                    language=suffix_to_language(suffix),
+                    language=suffix_to_language(resolved.suffix),
                     metadata={"size": len(new_content)}
                 )
 
             return ApprovalRequest(
-                required=True,
-                tool_name="write_file",
-                description=f"{'Edit' if resolved.exists() else 'Create'} {path}",
-                payload={"path": path, "sandbox": sandbox_name},
+                tool_name=tool_name,
+                args=args,
                 presentation=presentation,
             )
 ```
@@ -605,10 +604,8 @@ class ShellTool:
         # ... rule matching logic ...
 
         return ApprovalRequest(
-            required=True,
-            tool_name="shell",
-            description=f"Execute shell command",
-            payload={"command": command},
+            tool_name=tool_name,
+            args=args,
             presentation=ApprovalPresentation(
                 type="command",
                 content=command,
@@ -725,7 +722,6 @@ ApprovalPresentation(
 **Example - HTTP request tool:**
 ```python
 @requires_approval(
-    description=lambda args: f"POST to {args['url']}",
     presentation=lambda args: ApprovalPresentation(
         type="structured",
         content=json.dumps(args["body"], indent=2),

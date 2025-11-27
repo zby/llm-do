@@ -70,7 +70,7 @@ class ApprovalController:
                     raise PermissionError(f"User rejected tool call '{tool_name}'{note}")
 
                 # Track session approval if requested
-                if decision.approve_for_session:
+                if decision.scope == "session":
                     self.session_approvals.add(key)
 
         return func()

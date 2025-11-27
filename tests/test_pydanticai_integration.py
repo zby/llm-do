@@ -104,7 +104,7 @@ def test_integration_strict_mode_blocks_write(tmp_path, registry, tool_calling_m
         ]
     )
 
-    with pytest.raises(PermissionError, match="Strict mode.*sandbox.write"):
+    with pytest.raises(PermissionError, match="Strict mode.*write_file"):
         run_worker(
             registry=registry,
             worker="writer",
@@ -163,7 +163,7 @@ def test_integration_multiple_tool_calls_with_session_approval(
         nonlocal call_count
         call_count += 1
         # First call: approve for session (subsequent identical calls auto-approved)
-        return ApprovalDecision(approved=True, approve_for_session=True)
+        return ApprovalDecision(approved=True, scope="session")
 
     result = run_worker(
         registry=registry,

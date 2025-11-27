@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import RunContext, ToolDefinition
 
+from .tool_approval import ApprovalContext, ApprovalRequest
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -35,6 +37,15 @@ class PathConfig(BaseModel):
     )
     max_file_bytes: Optional[int] = Field(
         default=None, description="Maximum file size in bytes. None means no limit."
+    )
+    # Approval settings
+    write_approval: bool = Field(
+        default=True,
+        description="Whether writes to this path require approval",
+    )
+    read_approval: bool = Field(
+        default=False,
+        description="Whether reads from this path require approval",
     )
 
 
@@ -320,6 +331,87 @@ class FileSandboxImpl(AbstractToolset[Any]):
             if size > config.max_file_bytes:
                 raise FileTooLargeError(str(path), size, config.max_file_bytes)
 
+    # ---------------------------------------------------------------------------
+    # Approval Interface (ApprovalAware protocol)
+    # ---------------------------------------------------------------------------
+
+    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+        """Check if the tool call requires approval.
+
+        This is the single entry point for all tools in this toolset.
+        It dispatches based on ctx.tool_name.
+
+        Args:
+            ctx: Approval context with tool_name and args
+
+        Returns:
+            ApprovalRequest if approval is needed, None otherwise
+
+        Raises:
+            PermissionError: If operation is blocked entirely (path not in sandbox, etc.)
+        """
+        if ctx.tool_name == "write_file":
+            return self._check_write_approval(ctx)
+        elif ctx.tool_name == "read_file":
+            return self._check_read_approval(ctx)
+        # list_files doesn't require approval
+        return None
+
+    def _check_write_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+        """Check if a write operation requires approval.
+
+        Note: Path validation here is intentionally duplicated in write().
+        This provides defense in depth - early rejection here gives better error
+        messages, while write() remains safe as a standalone method.
+        """
+        path = ctx.args.get("path", "")
+
+        try:
+            sandbox_name, resolved, config = self._find_path_for(path)
+        except PathNotInSandboxError:
+            # Re-raise as PermissionError for blocked operations
+            raise PermissionError(f"Path not in any sandbox: {path}")
+
+        if config.mode != "rw":
+            raise PermissionError(f"Path is read-only: {path}")
+
+        if config.write_approval:
+            return ApprovalRequest(
+                tool_name=ctx.tool_name,
+                description=f"Write to {sandbox_name}:{path}",
+                payload={"sandbox": sandbox_name, "path": path},
+                # Note: presentation (diff) is generated lazily by the controller
+            )
+
+        return None  # Pre-approved by config
+
+    def _check_read_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+        """Check if a read operation requires approval.
+
+        Note: Path validation here is intentionally duplicated in read().
+        This provides defense in depth - early rejection here gives better error
+        messages, while read() remains safe as a standalone method.
+        """
+        path = ctx.args.get("path", "")
+
+        try:
+            sandbox_name, resolved, config = self._find_path_for(path)
+        except PathNotInSandboxError:
+            raise PermissionError(f"Path not in any sandbox: {path}")
+
+        if config.read_approval:
+            return ApprovalRequest(
+                tool_name=ctx.tool_name,
+                description=f"Read from {sandbox_name}:{path}",
+                payload={"sandbox": sandbox_name, "path": path},
+            )
+
+        return None  # Pre-approved by config
+
+    # ---------------------------------------------------------------------------
+    # File Operations
+    # ---------------------------------------------------------------------------
+
     def read(self, path: str, max_chars: int = DEFAULT_MAX_READ_CHARS, offset: int = 0) -> ReadResult:
         """Read text file from sandbox.
 
@@ -568,7 +660,11 @@ class FileSandboxImpl(AbstractToolset[Any]):
         ctx: RunContext[Any],
         tool: ToolsetTool[Any],
     ) -> Any:
-        """Call a tool with the given arguments."""
+        """Call a tool with the given arguments.
+
+        Note: Approval checking is handled by the runtime via check_approval().
+        This method just executes the operation.
+        """
         if name == "read_file":
             path = tool_args["path"]
             max_chars = tool_args.get("max_chars", DEFAULT_MAX_READ_CHARS)
@@ -578,13 +674,6 @@ class FileSandboxImpl(AbstractToolset[Any]):
         elif name == "write_file":
             path = tool_args["path"]
             content = tool_args["content"]
-            # Check if ctx.deps has approval_controller for writes
-            if hasattr(ctx.deps, "approval_controller"):
-                return ctx.deps.approval_controller.maybe_run(
-                    "sandbox.write",
-                    {"path": path},
-                    lambda: self.write(path, content),
-                )
             return self.write(path, content)
 
         elif name == "list_files":

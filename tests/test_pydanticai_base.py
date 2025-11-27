@@ -22,6 +22,7 @@ from llm_do import (
 )
 from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
 from llm_do.filesystem_sandbox import PathConfig
+from llm_do.tool_approval import ApprovalController as SandboxApprovalController
 
 
 class EchoPayload(BaseModel):
@@ -185,7 +186,7 @@ def test_sandbox_write_requires_approval(tmp_path, registry, tool_calling_model_
     def reject_callback(tool_name, payload, reason):
         return ApprovalDecision(approved=False, note="Test rejection")
 
-    with pytest.raises(PermissionError, match="User rejected tool call 'sandbox.write': Test rejection"):
+    with pytest.raises(PermissionError, match="Approval denied for write_file: Test rejection"):
         run_worker(
             registry=registry,
             worker="writer",
@@ -323,6 +324,7 @@ def test_call_worker_respects_allowlist(registry):
         return {"worker": defn.name, "input": input_data, "model": ctx.effective_model}
 
     controller = ApprovalController(parent_def.tool_rules)
+    sandbox_controller = SandboxApprovalController(mode="approve_all")
     sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
@@ -332,6 +334,7 @@ def test_call_worker_respects_allowlist(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 
@@ -361,6 +364,7 @@ def test_call_worker_supports_wildcard_allowlist(registry):
         return {"worker": defn.name, "input": input_data}
 
     controller = ApprovalController(parent_def.tool_rules)
+    sandbox_controller = SandboxApprovalController(mode="approve_all")
     sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
@@ -370,6 +374,7 @@ def test_call_worker_supports_wildcard_allowlist(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 
@@ -405,6 +410,7 @@ def test_call_worker_propagates_message_callback(registry):
         return ("done", [])
 
     controller = ApprovalController(parent_def.tool_rules)
+    sandbox_controller = SandboxApprovalController(mode="approve_all")
     sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
@@ -414,6 +420,7 @@ def test_call_worker_propagates_message_callback(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
         message_callback=callback,
     )
@@ -573,7 +580,7 @@ def test_strict_mode_callback_rejects(tmp_path, registry, tool_calling_model_cls
         ]
     )
 
-    with pytest.raises(PermissionError, match="Strict mode.*sandbox.write"):
+    with pytest.raises(PermissionError, match="Strict mode.*write_file"):
         run_worker(
             registry=registry,
             worker="writer",

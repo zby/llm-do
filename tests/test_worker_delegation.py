@@ -26,6 +26,7 @@ from llm_do.worker_sandbox import (
     SandboxConfig,
 )
 from llm_do.filesystem_sandbox import PathConfig, ReadResult
+from llm_do.tool_approval import ApprovalController as SandboxApprovalController
 
 
 def _registry(tmp_path):
@@ -38,6 +39,7 @@ def _registry(tmp_path):
 
 def _parent_context(registry, worker, defaults=None):
     controller = ApprovalController(worker.tool_rules)
+    sandbox_controller = SandboxApprovalController(mode="approve_all")
     # Create new sandbox from worker definition
     if worker.sandbox and worker.sandbox.paths:
         sandbox = Sandbox(worker.sandbox, base_path=registry.root)
@@ -51,6 +53,7 @@ def _parent_context(registry, worker, defaults=None):
         creation_defaults=defaults or WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 
@@ -430,6 +433,7 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
         return ApprovalDecision(approved=True)
 
     controller = ApprovalController(parent.tool_rules, approval_callback=tracking_callback)
+    sandbox_controller = SandboxApprovalController(mode="approve_all")
     sandbox = Sandbox(parent.sandbox, base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
 
@@ -440,6 +444,7 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 
@@ -489,6 +494,7 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
         return ApprovalDecision(approved=False, note="User denied")
 
     controller = ApprovalController(parent.tool_rules, approval_callback=denying_callback)
+    sandbox_controller = SandboxApprovalController(mode="approve_all")
     sandbox = Sandbox(parent.sandbox, base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
 
@@ -499,6 +505,7 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 

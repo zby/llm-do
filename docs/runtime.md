@@ -137,7 +137,9 @@ class WorkerContext:
     attachment_validator: AttachmentValidator
     creation_defaults: WorkerCreationDefaults
     effective_model: Optional[ModelLike]
-    approval_controller: ApprovalController
+    approval_controller: ApprovalController           # For tool_rules (worker.call, worker.create)
+    sandbox_approval_controller: SandboxApprovalController  # For filesystem tools (via ApprovalToolset)
+    sandbox: Optional[AbstractToolset]                # FileSandbox toolset (None if no file I/O)
     attachments: List[AttachmentPayload]
     message_callback: Optional[MessageCallback]
     custom_tools_path: Optional[Path]
@@ -151,7 +153,9 @@ class WorkerContext:
 **Key components:**
 
 - **`attachment_validator`**: Validates and resolves attachments for worker delegation
-- **`approval_controller`**: Enforces tool rules and prompts for user approval
+- **`approval_controller`**: Enforces tool rules (worker.call, worker.create, sandbox.read) via `ToolRule` configuration
+- **`sandbox_approval_controller`**: Enforces filesystem tool approvals via the new ApprovalToolset wrapper
+- **`sandbox`**: The FileSandbox toolset wrapped with ApprovalToolset for approval checking
 - **`attachments`**: Files passed to this worker from parent (if delegated)
 - **`custom_tools_path`**: Path to `tools.py` if worker has custom tools
 
@@ -179,9 +183,111 @@ def my_tool(ctx: RunContext[WorkerContext], arg: str) -> str:
 
 ---
 
-## ApprovalController
+## Tool Approval Architecture
 
-Enforces tool rules and prompts for user approval when required.
+llm-do has two approval systems that work together:
+
+1. **Tool Rules (`approval.py`)**: Legacy system for `worker.call`, `worker.create`, `sandbox.read`
+2. **Tool Approval (`tool_approval.py`)**: New framework-agnostic system for filesystem tools
+
+> **Design document**: See [docs/design/tool_approval_architecture.md](design/tool_approval_architecture.md) for the full architecture.
+
+### New Tool Approval System
+
+The new system is framework-agnostic and based on tools declaring their approval needs:
+
+```python
+from llm_do.tool_approval import (
+    ApprovalContext,
+    ApprovalRequest,
+    ApprovalDecision,
+    ApprovalController,
+    ApprovalToolset,
+    requires_approval,
+)
+```
+
+#### Core Types
+
+| Type | Purpose |
+|------|---------|
+| `ApprovalContext` | Framework-agnostic context passed to `check_approval()` |
+| `ApprovalRequest` | Returned by tools when approval is needed |
+| `ApprovalDecision` | Result from the approval controller |
+| `ApprovalController` | Manages session memory, modes (interactive/approve_all/strict) |
+| `ApprovalToolset` | PydanticAI wrapper that intercepts tool calls for approval |
+
+#### Pattern 1: Decorated Functions
+
+For simple standalone tools:
+
+```python
+from llm_do.tool_approval import requires_approval
+
+@requires_approval()
+def send_email(to: str, subject: str, body: str) -> str:
+    """Send an email - always requires approval."""
+    return f"Email sent to {to}"
+
+@requires_approval(
+    description=lambda args: f"Send email to {args['to']}",
+    exclude_keys={"body"},  # Don't include body in approval payload
+)
+def send_email_v2(to: str, subject: str, body: str) -> str:
+    ...
+```
+
+#### Pattern 2: Toolset-Level Checker
+
+For class-based toolsets (like `FileSandboxImpl`):
+
+```python
+class FileSandboxImpl(AbstractToolset):
+    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+        """Single entry point for all tools in this toolset."""
+        if ctx.tool_name == "write_file":
+            return self._check_write_approval(ctx)
+        elif ctx.tool_name == "read_file":
+            return self._check_read_approval(ctx)
+        return None  # No approval needed for list_files
+```
+
+#### ApprovalToolset Wrapper
+
+Wraps any PydanticAI toolset with approval checking:
+
+```python
+from llm_do.tool_approval import ApprovalToolset, ApprovalController
+
+sandbox = FileSandboxImpl(config)
+controller = ApprovalController(mode="interactive", approval_callback=...)
+approval_sandbox = ApprovalToolset(sandbox, controller)
+
+# approval_sandbox checks sandbox.check_approval() before each tool call
+agent = Agent(..., toolsets=[approval_sandbox])
+```
+
+#### Controller Modes
+
+| Mode | Behavior |
+|------|----------|
+| `interactive` | Prompts user via callback |
+| `approve_all` | Auto-approves all `ApprovalRequest`s |
+| `strict` | Auto-denies all `ApprovalRequest`s |
+
+```python
+# Auto-approve mode (for tests)
+controller = ApprovalController(mode="approve_all")
+
+# Strict mode (for CI/production)
+controller = ApprovalController(mode="strict")
+```
+
+---
+
+## Legacy ApprovalController
+
+The legacy system (in `approval.py`) handles `tool_rules` configuration:
 
 ```python
 from llm_do import ApprovalController
@@ -191,28 +297,23 @@ controller = ApprovalController(
     approval_callback=my_callback,
 )
 
-# Used internally by tools
+# Used internally by tools like worker_call
 result = controller.maybe_run(
-    tool_name="sandbox.write",
-    payload={"path": "output/file.txt"},
-    func=lambda: do_write(),
+    tool_name="worker.call",
+    payload={"worker": "target"},
+    func=lambda: do_delegation(),
 )
 ```
-
-**Features:**
-- Session approval caching to avoid repeated prompts for identical operations
-- Configurable `approval_callback` for custom approval logic
-- Integration with `ToolRule` for per-tool configuration
 
 **Tool Rules:**
 ```python
 from llm_do import ToolRule
 
 rule = ToolRule(
-    name="sandbox.write",
+    name="worker.call",
     allowed=True,
     approval_required=True,
-    description="Write files to output sandbox"
+    description="Delegate to another worker"
 )
 ```
 
@@ -234,7 +335,7 @@ def my_callback(tool_name: str, payload: dict, reason: str) -> ApprovalDecision:
     # Show prompt to user, get decision
     return ApprovalDecision(
         approved=True,
-        approve_for_session=True,  # Don't ask again for same operation
+        scope="session",  # Don't ask again for same operation
         note="User approved via CLI",
     )
 ```
@@ -262,13 +363,21 @@ llm_do/
 │                        # - default_agent_runner (sync wrapper)
 │                        # - default_agent_runner_async (PydanticAI integration)
 │                        # - prepare_agent_execution (context prep)
+│                        # - ApprovalToolset wrapping for sandbox
 │
 ├── types.py             # Type definitions and data models
 │                        # - WorkerDefinition, WorkerSpec, WorkerContext
 │                        # - AgentRunner, ApprovalCallback, MessageCallback
 │
-├── approval.py          # Approval enforcement
-│                        # - ApprovalController
+├── approval.py          # Legacy approval enforcement (tool_rules)
+│                        # - ApprovalController (for worker.call, worker.create)
+│
+├── tool_approval.py     # New framework-agnostic approval system
+│                        # - ApprovalContext, ApprovalRequest, ApprovalDecision
+│                        # - ApprovalController (session memory, modes)
+│                        # - ApprovalToolset (PydanticAI wrapper)
+│                        # - @requires_approval decorator
+│                        # - simple_approval_request factory
 │
 ├── tools.py             # Tool registration
 │                        # - register_worker_tools
@@ -285,8 +394,9 @@ llm_do/
 │                        # - AttachmentValidator (attachment validation)
 │
 └── filesystem_sandbox.py # Reusable filesystem sandbox
-                         # - FileSandboxImpl (core I/O operations)
-                         # - PathConfig (path-level configuration)
+                         # - FileSandboxImpl (AbstractToolset + ApprovalAware)
+                         # - PathConfig (path-level configuration with approval flags)
+                         # - check_approval() for filesystem operations
 ```
 
 **Architecture highlights:**
@@ -295,3 +405,4 @@ llm_do/
 - **Dependency injection**: Protocols enable testability and flexibility
 - **Shared helpers**: `_prepare_worker_context` eliminates ~110 lines of duplication
 - **Async-first**: `run_worker` wraps async implementation for backward compatibility
+- **Framework-agnostic approval**: `tool_approval.py` types can be extracted for use with any LLM framework

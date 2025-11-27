@@ -26,6 +26,11 @@ from pydantic_ai.tools import RunContext
 
 from .approval import ApprovalController
 from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
+from .tool_approval import (
+    ApprovalController as SandboxApprovalController,
+    ApprovalDecision as SandboxApprovalDecision,
+    ApprovalRequest,
+)
 from .protocols import WorkerCreator, WorkerDelegator
 from .sandbox import AttachmentInput, AttachmentPayload
 from .worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
@@ -49,7 +54,39 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Helper dataclasses and utilities
+# Helper functions
+# ---------------------------------------------------------------------------
+
+
+def _create_sandbox_approval_controller(
+    approval_callback: ApprovalCallback,
+) -> SandboxApprovalController:
+    """Create a SandboxApprovalController from an ApprovalCallback.
+
+    This bridges the old callback-based API to the new ApprovalController.
+    """
+
+    def bridge_callback(request: ApprovalRequest) -> SandboxApprovalDecision:
+        """Convert new ApprovalRequest to old format and back."""
+        decision = approval_callback(
+            request.tool_name,
+            request.payload,
+            request.description,
+        )
+        return SandboxApprovalDecision(
+            approved=decision.approved,
+            scope=decision.scope,
+            note=decision.note,
+        )
+
+    return SandboxApprovalController(
+        mode="interactive",
+        approval_callback=bridge_callback,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helper dataclasses
 # ---------------------------------------------------------------------------
 
 
@@ -124,6 +161,7 @@ def _prepare_worker_context(
     effective_model = definition.model or caller_effective_model or cli_model
 
     approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
+    sandbox_approvals = _create_sandbox_approval_controller(approval_callback)
 
     # Resolve shell_cwd: if worker specifies one, make it absolute (relative to registry.root)
     resolved_shell_cwd: Optional[Path] = None
@@ -141,6 +179,7 @@ def _prepare_worker_context(
         creation_defaults=defaults,
         effective_model=effective_model,
         approval_controller=approvals,
+        sandbox_approval_controller=sandbox_approvals,
         sandbox=new_sandbox,
         attachments=attachment_payloads,
         message_callback=message_callback,
@@ -264,7 +303,7 @@ class RuntimeDelegator:
                         note = f": {decision.note}" if decision.note else ""
                         raise PermissionError(f"User rejected tool call 'worker.call'{note}")
                     # Track session approval if requested
-                    if decision.approve_for_session:
+                    if decision.scope == "session":
                         self.context.approval_controller.session_approvals.add(key)
 
         # Now execute async

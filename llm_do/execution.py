@@ -17,6 +17,7 @@ from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
+from .tool_approval import ApprovalToolset
 from .types import (
     AgentExecutionContext,
     ModelLike,
@@ -188,7 +189,11 @@ def prepare_agent_execution(
     # Conditionally include sandbox toolset if configured
     # Only pass toolsets parameter if we have a sandbox to avoid empty list issues
     if context.sandbox is not None:
-        agent_kwargs["toolsets"] = [context.sandbox]  # Sandbox provides read_file, write_file, list_files
+        # Wrap sandbox with approval checking
+        approval_sandbox = ApprovalToolset(
+            context.sandbox, context.sandbox_approval_controller
+        )
+        agent_kwargs["toolsets"] = [approval_sandbox]  # Sandbox provides read_file, write_file, list_files
 
     if output_model is not None:
         agent_kwargs["output_type"] = output_model

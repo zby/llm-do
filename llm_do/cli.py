@@ -135,7 +135,7 @@ def _build_interactive_approval_callback(
             if choice in {"", "a"}:
                 return ApprovalDecision(approved=True)
             if choice == "s":
-                return ApprovalDecision(approved=True, approve_for_session=True)
+                return ApprovalDecision(approved=True, scope="session")
             if choice == "d":
                 return ApprovalDecision(
                     approved=False, note="Rejected via interactive CLI"

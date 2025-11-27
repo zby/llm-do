@@ -15,6 +15,7 @@ from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.toolsets import AbstractToolset
 
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
+from .tool_approval import ApprovalDecision
 from .worker_sandbox import AttachmentValidator, SandboxConfig
 
 
@@ -161,14 +162,6 @@ class WorkerCreationDefaults(BaseModel):
         )
 
 
-class ApprovalDecision(BaseModel):
-    """Decision from an approval prompt."""
-
-    approved: bool
-    approve_for_session: bool = False
-    note: Optional[str] = None
-
-
 class WorkerRunResult(BaseModel):
     """Structured result from a worker execution."""
 
@@ -231,7 +224,8 @@ class WorkerContext:
     attachment_validator: Optional[AttachmentValidator]
     creation_defaults: WorkerCreationDefaults
     effective_model: Optional[ModelLike]
-    approval_controller: Any  # ApprovalController - defined in runtime.py
+    approval_controller: Any  # ApprovalController - defined in approval.py (for tool rules)
+    sandbox_approval_controller: Any  # ApprovalController - defined in tool_approval.py (for filesystem)
     sandbox: Optional[AbstractToolset] = None  # None if worker doesn't use file I/O
     attachments: List[AttachmentPayload] = field(default_factory=list)
     message_callback: Optional[MessageCallback] = None

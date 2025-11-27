@@ -65,7 +65,7 @@ Tools that support approval implement an optional interface:
 
 ```python
 from typing import Protocol, Optional, Any, Literal, Callable
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class ApprovalPresentation(BaseModel):
     """Rich presentation data for approval UI.
@@ -76,7 +76,7 @@ class ApprovalPresentation(BaseModel):
     type: Literal["text", "diff", "file_content", "command", "structured"]
     content: str
     language: Optional[str] = None  # For syntax highlighting
-    metadata: dict[str, Any] = {}   # e.g., {"full_content": "..."} for pager
+    metadata: dict[str, Any] = Field(default_factory=dict)  # e.g., {"full_content": "..."} for pager
 
 class ApprovalContext(BaseModel):
     """Context passed to check_approval.
@@ -90,7 +90,7 @@ class ApprovalContext(BaseModel):
 
     # Framework-specific context goes here (run_id, session_id, caller, etc.)
     # This keeps the core interface stable across different agent frameworks.
-    metadata: dict[str, Any] = {}
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 class ApprovalRequest(BaseModel):
     """Returned by a tool to request approval before execution.
@@ -751,8 +751,22 @@ When the user selects "approve for session", the approval controller stores the 
 #### Implementation
 
 ```python
+from dataclasses import dataclass
+from enum import Enum
+
+class ApprovalScope(Enum):
+    ONCE = "once"           # Just this call
+    SESSION = "session"     # Until run ends
+
+@dataclass
+class ApprovalDecision:
+    approved: bool
+    scope: ApprovalScope = ApprovalScope.ONCE
+    note: str | None = None
+
 class ApprovalController:
-    def __init__(self):
+    def __init__(self, mode: str = "interactive"):
+        self.mode = mode  # "interactive", "approve_all", "strict"
         self.session_approvals: set[tuple[str, frozenset]] = set()
 
     def _make_key(self, request: ApprovalRequest) -> tuple[str, frozenset]:
@@ -771,6 +785,56 @@ class ApprovalController:
 
     def add_session_approval(self, request: ApprovalRequest) -> None:
         self.session_approvals.add(self._make_key(request))
+
+    async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
+        """Main entry point for approval requests.
+
+        This is where lazy presentation generation happens—only if we
+        actually need to prompt the user.
+        """
+        # 1. Handle non-interactive modes first (no I/O needed)
+        if self.mode == "approve_all":
+            return ApprovalDecision(approved=True)
+        if self.mode == "strict":
+            return ApprovalDecision(approved=False, note="Strict mode: approval required")
+
+        # 2. Check session cache BEFORE generating presentation
+        if self.is_session_approved(request):
+            return ApprovalDecision(approved=True, scope=ApprovalScope.SESSION)
+
+        # 3. Only now do we build rich presentation (diffs, syntax highlighting, etc.)
+        #    This is the "lazy" part—expensive I/O only happens when we need to prompt.
+        display_request = await self._enrich_presentation(request)
+
+        # 4. Prompt the user
+        decision = await self._prompt_user(display_request)
+
+        # 5. Update session cache if user chose "approve for session"
+        if decision.approved and decision.scope == ApprovalScope.SESSION:
+            self.add_session_approval(request)
+
+        return decision
+
+    async def _enrich_presentation(self, request: ApprovalRequest) -> ApprovalRequest:
+        """Generate rich presentation if not already provided.
+
+        This is where we do expensive I/O like reading files for diffs,
+        syntax highlighting, etc. Only called when we need to prompt.
+        """
+        if request.presentation is not None:
+            return request  # Tool already provided presentation
+
+        # Generate default presentation based on tool type
+        # (In practice, this would dispatch to tool-specific presenters)
+        return request  # For Phase 1, just use description + payload
+
+    async def _prompt_user(self, request: ApprovalRequest) -> ApprovalDecision:
+        """Display prompt and wait for user input.
+
+        Implementation depends on UI (CLI, IDE, web).
+        """
+        # ... CLI/UI specific code ...
+        raise NotImplementedError("Subclass must implement _prompt_user")
 ```
 
 #### Guidelines for Tool Authors

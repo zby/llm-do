@@ -6,16 +6,10 @@ sandbox:
     scratch:
       mode: rw
       root: ./scratch
-tool_rules:
-  calculate_factorial:
-    allowed: true
-    approval_required: false
-  calculate_fibonacci:
-    allowed: true
-    approval_required: false
-  calculate_prime_factors:
-    allowed: true
-    approval_required: false
+custom_tools:
+  - calculate_factorial
+  - calculate_fibonacci
+  - calculate_prime_factors
 ---
 
 You are a mathematical calculator assistant with access to custom tools for advanced calculations.

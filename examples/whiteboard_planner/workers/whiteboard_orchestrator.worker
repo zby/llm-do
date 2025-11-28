@@ -19,13 +19,7 @@ sandbox:
       root: ./plans
       suffixes:
       - .md
-tool_rules:
-  sandbox.write:
-    allowed: true
-    approval_required: true
-  worker.call:
-    allowed: true
-    approval_required: false
+      write_approval: true
 ---
 
 You are an orchestrator that converts whiteboard photos into project plans.

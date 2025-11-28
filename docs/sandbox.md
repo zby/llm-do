@@ -201,17 +201,19 @@ When a worker calls another worker:
 def worker_call(worker_name: str, attachments: list[str] = None):
     # 1. Attachments validated against caller's sandbox
     # 2. AttachmentPolicy enforced (count, bytes, suffixes)
-    # 3. sandbox.read approval checked (if configured)
+    # 3. read_approval checked for attachment path (if configured in PathConfig)
     # 4. Child worker uses its own sandbox config
 ```
 
-To require approval for sharing files with delegated workers:
+To require approval for sharing files with delegated workers, set `read_approval: true` on the path:
 
 ```yaml
-tool_rules:
-  sandbox.read:
-    allowed: true
-    approval_required: true  # User approves each attachment
+sandbox:
+  paths:
+    documents:
+      root: ./docs
+      mode: ro
+      read_approval: true  # User approves each attachment from this path
 ```
 
 See [worker_delegation.md](worker_delegation.md) for full details.

@@ -14,23 +14,11 @@ sandbox:
       suffixes:
       - .md
       - .json
-tool_rules:
-  sandbox.write:
-    allowed: true
-    approval_required: true
-    name: sandbox.write
-  search_web:
-    allowed: true
-    approval_required: false
-    name: search_web
-  worker.call:
-    allowed: true
-    approval_required: false
-    name: worker.call
-  shell:
-    allowed: false
-    approval_required: false
-    name: shell
+      write_approval: true
+custom_tools:
+- search_web
+shell_default:
+  allowed: false
 ---
 
 You orchestrate a live web research pipeline and write both Markdown and JSON

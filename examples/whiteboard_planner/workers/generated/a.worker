@@ -7,7 +7,7 @@ attachment_policy:
   max_total_bytes: 10000000
 locked: false
 name: a
-tool_rules: {}
+custom_tools: []
 ---
 
 a

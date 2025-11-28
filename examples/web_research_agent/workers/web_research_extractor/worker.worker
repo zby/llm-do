@@ -1,15 +1,10 @@
 ---
 description: Fetch a URL and extract structured insights aligned to the topic.
 name: web_research_extractor
-tool_rules:
-  fetch_page:
-    allowed: true
-    approval_required: false
-    name: fetch_page
-  shell:
-    allowed: false
-    approval_required: false
-    name: shell
+custom_tools:
+- fetch_page
+shell_default:
+  allowed: false
 ---
 
 You are a focused extractor for a single URL. Return structured JSON only.

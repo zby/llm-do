@@ -24,15 +24,6 @@ from .worker_sandbox import AttachmentValidator, SandboxConfig
 # ---------------------------------------------------------------------------
 
 
-class ToolRule(BaseModel):
-    """Policy applied to a tool call."""
-
-    name: str
-    allowed: bool = True
-    approval_required: bool = False
-    description: Optional[str] = None
-
-
 # ---------------------------------------------------------------------------
 # Shell tool types
 # ---------------------------------------------------------------------------
@@ -96,7 +87,10 @@ class WorkerDefinition(BaseModel):
     )
     attachment_policy: AttachmentPolicy = Field(default_factory=AttachmentPolicy)
     allow_workers: List[str] = Field(default_factory=list)
-    tool_rules: Dict[str, ToolRule] = Field(default_factory=dict)
+    custom_tools: List[str] = Field(
+        default_factory=list,
+        description="Allowlist of custom tool function names from tools.py"
+    )
     # Shell tool configuration
     shell_rules: List[ShellRule] = Field(
         default_factory=list,
@@ -138,7 +132,7 @@ class WorkerCreationDefaults(BaseModel):
         default_factory=AttachmentPolicy
     )
     default_allow_workers: List[str] = Field(default_factory=list)
-    default_tool_rules: Dict[str, ToolRule] = Field(default_factory=dict)
+    default_custom_tools: List[str] = Field(default_factory=list)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -147,7 +141,7 @@ class WorkerCreationDefaults(BaseModel):
 
         attachment_policy = self.default_attachment_policy.model_copy()
         allow_workers = list(self.default_allow_workers)
-        tool_rules = {name: rule.model_copy() for name, rule in self.default_tool_rules.items()}
+        custom_tools = list(self.default_custom_tools)
         return WorkerDefinition(
             name=spec.name,
             description=spec.description,
@@ -157,7 +151,7 @@ class WorkerCreationDefaults(BaseModel):
             sandbox=self.default_sandbox.model_copy() if self.default_sandbox else None,
             attachment_policy=attachment_policy,
             allow_workers=allow_workers,
-            tool_rules=tool_rules,
+            custom_tools=custom_tools,
             locked=False,
         )
 
@@ -224,8 +218,7 @@ class WorkerContext:
     attachment_validator: Optional[AttachmentValidator]
     creation_defaults: WorkerCreationDefaults
     effective_model: Optional[ModelLike]
-    approval_controller: Any  # ApprovalController - defined in approval.py (for tool rules)
-    sandbox_approval_controller: Any  # ApprovalController - defined in tool_approval.py (for filesystem)
+    approval_controller: Any  # ApprovalController - defined in tool_approval.py
     sandbox: Optional[AbstractToolset] = None  # None if worker doesn't use file I/O
     attachments: List[AttachmentPayload] = field(default_factory=list)
     message_callback: Optional[MessageCallback] = None

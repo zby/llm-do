@@ -264,6 +264,52 @@ class ApprovalController:
         self._approval_callback = approval_callback
         self._session_approvals: set[tuple[str, frozenset]] = set()
 
+    @property
+    def approval_callback(self) -> Callable[[ApprovalRequest], ApprovalDecision]:
+        """Get the approval callback, or a default based on mode.
+
+        This is used when delegating to child workers to create their controller.
+        """
+        if self._approval_callback is not None:
+            return self._approval_callback
+
+        # Return a default callback based on mode
+        if self.mode == "approve_all":
+            return lambda req: ApprovalDecision(approved=True)
+        elif self.mode == "strict":
+            return lambda req: ApprovalDecision(
+                approved=False,
+                note=f"Strict mode: {req.tool_name} requires approval"
+            )
+        else:
+            # Interactive mode with no callback - this shouldn't be used
+            raise RuntimeError("No approval_callback set for interactive mode")
+
+    def get_legacy_callback(
+        self,
+    ) -> Callable[[str, Mapping[str, Any], Optional[str]], ApprovalDecision]:
+        """Get an old-style callback for use with run_worker().
+
+        The legacy ApprovalCallback signature is:
+            (tool_name: str, payload: dict, description: str) -> ApprovalDecision
+
+        This wraps the new-style callback to maintain backward compatibility
+        with the run_worker() function signature.
+        """
+        new_callback = self.approval_callback
+
+        def legacy_wrapper(
+            tool_name: str, payload: Mapping[str, Any], description: Optional[str]
+        ) -> ApprovalDecision:
+            request = ApprovalRequest(
+                tool_name=tool_name,
+                description=description or f"{tool_name}",
+                payload=dict(payload),
+            )
+            return new_callback(request)
+
+        return legacy_wrapper
+
     def _make_key(self, request: ApprovalRequest) -> tuple[str, frozenset]:
         """Create hashable key for session matching."""
 

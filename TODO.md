@@ -18,9 +18,22 @@
 
 - [ ] Implement automatic iterative refinement: bootstrapper should read the created worker, call it, evaluate output, and refine the definition if needed.
 
+## Tool Approval Enhancements
+
+- [ ] **Rich Presentation (Phase 2)**: Implement `ApprovalPresentation` rendering in CLI
+  - Display diffs with syntax highlighting for file edits
+  - Show syntax-highlighted content for new file creation
+  - Add `[v]iew full` pager option for large content
+  - Support presentation types: `text`, `diff`, `file_content`, `command`, `structured`
+  - Lazy presentation generation (only compute diffs when actually prompting)
+
 ## Security & Sandboxing
 
 - [ ] **OS-level sandbox enforcement**: Add Seatbelt (macOS) and bubblewrap (Linux) wrappers for shell subprocess isolation. Wrap shell commands in OS-level sandbox to provide defense-in-depth beyond application-level path validation.
+  - Derive OS sandbox profile from tool configurations (sandbox paths, shell rules)
+  - Key invariant: OS sandbox must never be less restrictive than Python/tool config
+  - Add `require_os_sandbox` option to fail fast if OS sandbox unavailable
+  - Support `os_sandbox_fallback: refuse_tools` for degraded mode
 
 - [ ] **Sandbox relative path security review**: Audit sandbox and shell tools for relative path handling vulnerabilities.
   - Review `filesystem_sandbox.py` path normalization (`.resolve()`, symlink handling)

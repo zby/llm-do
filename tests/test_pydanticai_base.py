@@ -10,7 +10,6 @@ from llm_do import (
     ApprovalCallback,
     ApprovalController,
     ApprovalDecision,
-    ToolRule,
     WorkerContext,
     WorkerCreationDefaults,
     WorkerDefinition,
@@ -22,7 +21,6 @@ from llm_do import (
 )
 from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
 from llm_do.filesystem_sandbox import PathConfig
-from llm_do.tool_approval import ApprovalController as SandboxApprovalController
 
 
 class EchoPayload(BaseModel):
@@ -162,14 +160,13 @@ def test_sandbox_write_requires_approval(tmp_path, registry, tool_calling_model_
         root=str(sandbox_path),
         mode="rw",
         suffixes=[".txt"],
+        write_approval=True,  # Require approval for writes
     )
-    rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
         system_prompt="Write a test file",
         sandbox=SandboxConfig(paths={"out": path_cfg}),
-        tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
@@ -323,8 +320,7 @@ def test_call_worker_respects_allowlist(registry):
     def simple_runner(defn, input_data, ctx, output_model):
         return {"worker": defn.name, "input": input_data, "model": ctx.effective_model}
 
-    controller = ApprovalController(parent_def.tool_rules)
-    sandbox_controller = SandboxApprovalController(mode="approve_all")
+    controller = ApprovalController(mode="approve_all")
     sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
@@ -334,7 +330,6 @@ def test_call_worker_respects_allowlist(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
-        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 
@@ -363,8 +358,7 @@ def test_call_worker_supports_wildcard_allowlist(registry):
     def simple_runner(defn, input_data, ctx, output_model):
         return {"worker": defn.name, "input": input_data}
 
-    controller = ApprovalController(parent_def.tool_rules)
-    sandbox_controller = SandboxApprovalController(mode="approve_all")
+    controller = ApprovalController(mode="approve_all")
     sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
@@ -374,7 +368,6 @@ def test_call_worker_supports_wildcard_allowlist(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
-        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 
@@ -409,8 +402,7 @@ def test_call_worker_propagates_message_callback(registry):
         ctx.message_callback([{"worker": defn.name, "event": "child-event"}])
         return ("done", [])
 
-    controller = ApprovalController(parent_def.tool_rules)
-    sandbox_controller = SandboxApprovalController(mode="approve_all")
+    controller = ApprovalController(mode="approve_all")
     sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
@@ -420,7 +412,6 @@ def test_call_worker_propagates_message_callback(registry):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
-        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
         message_callback=callback,
     )
@@ -516,14 +507,13 @@ def test_approve_all_callback_mode(tmp_path, registry, tool_calling_model_cls):
         root=str(sandbox_path),
         mode="rw",
         suffixes=[".txt"],
+        write_approval=True,  # Require approval for writes
     )
-    rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
         system_prompt="Write a test file",
         sandbox=SandboxConfig(paths={"out": path_cfg}),
-        tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
@@ -559,14 +549,13 @@ def test_strict_mode_callback_rejects(tmp_path, registry, tool_calling_model_cls
         root=str(sandbox_path),
         mode="rw",
         suffixes=[".txt"],
+        write_approval=True,  # Require approval for writes
     )
-    rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
         system_prompt="Write a test file",
         sandbox=SandboxConfig(paths={"out": path_cfg}),
-        tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 

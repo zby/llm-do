@@ -70,14 +70,14 @@ def test_custom_tools_loaded_and_callable(calculator_registry):
     assert len(tool_calls) > 0, "Custom tool calculate_fibonacci should have been called"
 
 
-def test_custom_tools_respect_tool_rules(calculator_registry):
-    """Test that custom tools respect tool_rules in worker definition."""
+def test_custom_tools_allowlist(calculator_registry):
+    """Test that custom tools are listed in custom_tools allowlist."""
     definition = calculator_registry.load_definition("calculator")
 
-    # Verify tool rules are configured
-    assert "calculate_fibonacci" in definition.tool_rules
-    assert definition.tool_rules["calculate_fibonacci"].allowed is True
-    assert definition.tool_rules["calculate_fibonacci"].approval_required is False
+    # Verify custom_tools allowlist is configured
+    assert "calculate_fibonacci" in definition.custom_tools
+    assert "calculate_factorial" in definition.custom_tools
+    assert "calculate_prime_factors" in definition.custom_tools
 
 
 def test_multiple_custom_tools_registered(calculator_registry):
@@ -92,7 +92,7 @@ def test_multiple_custom_tools_registered(calculator_registry):
     ]
 
     for tool_name in custom_tool_names:
-        assert tool_name in definition.tool_rules, f"Tool {tool_name} should be in tool_rules"
+        assert tool_name in definition.custom_tools, f"Tool {tool_name} should be in custom_tools"
 
 
 def test_custom_tools_module_error_handling(calculator_registry, tmp_path):
@@ -133,30 +133,29 @@ def test_custom_tools_module_error_handling(calculator_registry, tmp_path):
 
 
 def test_private_functions_not_registered(calculator_registry, tmp_path):
-    """Test that functions starting with _ are not registered as tools."""
-    # The calculator tools.py has a _validate_input function
-    # It should not be registered as a tool
+    """Test that functions starting with _ are not registered as tools.
 
-    # We can't easily check this directly, but we can verify the behavior
-    # by checking that only public functions are in tool_rules
+    In the new architecture, only functions listed in custom_tools are registered.
+    Private functions (_validate_input) are not listed, so they won't be registered.
+    """
     definition = calculator_registry.load_definition("calculator")
 
-    # Verify _validate_input is NOT in tool_rules
-    assert "_validate_input" not in definition.tool_rules
-    assert "__init__" not in definition.tool_rules
-    assert "__name__" not in definition.tool_rules
+    # Verify _validate_input is NOT in custom_tools
+    assert "_validate_input" not in definition.custom_tools
+    assert "__init__" not in definition.custom_tools
+    assert "__name__" not in definition.custom_tools
 
 
-def test_custom_tools_require_tool_rules_allowlist(calculator_registry, tmp_path):
-    """Test that custom tools must be explicitly listed in tool_rules to be registered."""
-    # Create a worker with tools.py but no tool_rules
-    test_worker_dir = calculator_registry.root / "workers" / "test_no_rules"
+def test_custom_tools_require_allowlist(calculator_registry, tmp_path):
+    """Test that custom tools must be explicitly listed in custom_tools to be registered."""
+    # Create a worker with tools.py but no custom_tools
+    test_worker_dir = calculator_registry.root / "workers" / "test_no_allowlist"
     test_worker_dir.mkdir(parents=True)
 
     worker_file = test_worker_dir / "worker.worker"
     worker_file.write_text(
         "---\n"
-        "name: test_no_rules\n"
+        "name: test_no_allowlist\n"
         "model: test\n"
         "---\n"
         "Test worker"
@@ -171,59 +170,58 @@ def test_custom_tools_require_tool_rules_allowlist(calculator_registry, tmp_path
     )
 
     # Load the worker - should succeed
-    definition = calculator_registry.load_definition("test_no_rules")
-    assert definition.name == "test_no_rules"
+    definition = calculator_registry.load_definition("test_no_allowlist")
+    assert definition.name == "test_no_allowlist"
 
     # Verify custom tools path is found
-    custom_tools = calculator_registry.find_custom_tools("test_no_rules")
+    custom_tools = calculator_registry.find_custom_tools("test_no_allowlist")
     assert custom_tools is not None
 
-    # Verify tool_rules is empty
-    assert len(definition.tool_rules) == 0
+    # Verify custom_tools is empty
+    assert len(definition.custom_tools) == 0
 
-    # The security guarantee is in _load_custom_tools:
-    # It only registers tools that are in tool_rules with allowed=True
-    # Since there are no tool_rules, no custom tools will be registered
-    # This is verified by the fact that the implementation filters:
-    # allowed_tools = {name: rule for name, rule in tool_rules.items() if rule.allowed}
-    # if not allowed_tools: return
+    # The security guarantee is in load_custom_tools:
+    # It only registers tools that are in custom_tools list
+    # Since there are no custom_tools, no custom tools will be registered
 
 
-def test_custom_tools_approval_enforcement(calculator_registry):
-    """Test that custom tools respect approval_required setting."""
-    # Create a worker that requires approval for fibonacci
-    test_worker_dir = calculator_registry.root / "workers" / "test_approval"
+def test_custom_tools_approval_via_decorator(calculator_registry):
+    """Test that custom tools can require approval via @requires_approval decorator.
+
+    In the new architecture, approval is determined by the @requires_approval
+    decorator on the function, not by tool_rules config.
+    """
+    # Create a worker with custom_tools and tools that use @requires_approval
+    test_worker_dir = calculator_registry.root / "workers" / "test_approval_decorator"
     test_worker_dir.mkdir(parents=True)
 
     worker_file = test_worker_dir / "worker.worker"
     worker_file.write_text(
         "---\n"
-        "name: test_approval\n"
+        "name: test_approval_decorator\n"
         "model: test\n"
-        "tool_rules:\n"
-        "  calculate_fibonacci:\n"
-        "    allowed: true\n"
-        "    approval_required: true\n"
+        "custom_tools:\n"
+        "  - calculate_with_approval\n"
         "---\n"
-        "Calculate fibonacci"
+        "Calculate with approval"
     )
 
-    # Copy the calculator tools.py
-    import shutil
-    calc_tools = calculator_registry.root / "workers" / "calculator" / "tools.py"
-    dest_tools = test_worker_dir / "tools.py"
-    shutil.copy(calc_tools, dest_tools)
+    # Create tools.py with a function that uses @requires_approval
+    tools_py = test_worker_dir / "tools.py"
+    tools_py.write_text(
+        "from llm_do.tool_approval import requires_approval\n\n"
+        "@requires_approval()\n"
+        "def calculate_with_approval(n: int) -> int:\n"
+        "    '''Calculate something that requires approval.'''\n"
+        "    return n * 2\n"
+    )
 
     # Load the worker
-    definition = calculator_registry.load_definition("test_approval")
+    definition = calculator_registry.load_definition("test_approval_decorator")
 
-    # Verify the tool rule requires approval
-    assert "calculate_fibonacci" in definition.tool_rules
-    assert definition.tool_rules["calculate_fibonacci"].approval_required is True
+    # Verify the tool is in the allowlist
+    assert "calculate_with_approval" in definition.custom_tools
 
-    # The security guarantee is enforced in _load_custom_tools:
-    # Each custom tool is wrapped to call ctx.deps.approval_controller.maybe_run()
-    # This respects the tool_rules.approval_required setting
-    # The wrapper code is:
-    # return ctx.deps.approval_controller.maybe_run(name, tool_kwargs, _invoke)
-    # which will check the tool rule and either execute or require approval
+    # The security guarantee is enforced in load_custom_tools:
+    # When a function has check_approval (from @requires_approval), the wrapper
+    # calls it before executing the function

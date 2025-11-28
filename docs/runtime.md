@@ -137,9 +137,8 @@ class WorkerContext:
     attachment_validator: AttachmentValidator
     creation_defaults: WorkerCreationDefaults
     effective_model: Optional[ModelLike]
-    approval_controller: ApprovalController           # For tool_rules (worker.call, worker.create)
-    sandbox_approval_controller: SandboxApprovalController  # For filesystem tools (via ApprovalToolset)
-    sandbox: Optional[AbstractToolset]                # FileSandbox toolset (None if no file I/O)
+    approval_controller: ApprovalController  # Unified approval for all tools
+    sandbox: Optional[AbstractToolset]       # FileSandbox toolset wrapped with ApprovalToolset
     attachments: List[AttachmentPayload]
     message_callback: Optional[MessageCallback]
     custom_tools_path: Optional[Path]
@@ -153,8 +152,7 @@ class WorkerContext:
 **Key components:**
 
 - **`attachment_validator`**: Validates and resolves attachments for worker delegation
-- **`approval_controller`**: Enforces tool rules (worker.call, worker.create, sandbox.read) via `ToolRule` configuration
-- **`sandbox_approval_controller`**: Enforces filesystem tool approvals via the new ApprovalToolset wrapper
+- **`approval_controller`**: Unified approval controller for all tools (from `tool_approval.py`)
 - **`sandbox`**: The FileSandbox toolset wrapped with ApprovalToolset for approval checking
 - **`attachments`**: Files passed to this worker from parent (if delegated)
 - **`custom_tools_path`**: Path to `tools.py` if worker has custom tools
@@ -164,19 +162,24 @@ Tools access context via `RunContext[WorkerContext]`:
 ```python
 from pydantic_ai import RunContext
 from llm_do import WorkerContext
+from llm_do.tool_approval import ApprovalRequest
 
 @agent.tool
 def my_tool(ctx: RunContext[WorkerContext], arg: str) -> str:
     # Access worker definition
     worker_name = ctx.deps.worker.name
 
-    # Access approval controller
-    result = ctx.deps.approval_controller.maybe_run(
-        "my_tool",
-        {"arg": arg},
-        lambda: perform_operation(arg),
+    # Request approval via the unified controller
+    request = ApprovalRequest(
+        tool_name="my_tool",
+        description=f"Execute my_tool with arg={arg}",
+        payload={"arg": arg},
     )
-    return result
+    decision = ctx.deps.approval_controller.request_approval_sync(request)
+    if not decision.approved:
+        raise PermissionError(f"Approval denied: {decision.note}")
+
+    return perform_operation(arg)
 ```
 
 **Note:** File operations are handled through the `Sandbox` toolset registered automatically. Tools like `read_file`, `write_file`, and `list_files` are available based on the worker's sandbox configuration.
@@ -285,40 +288,6 @@ controller = ApprovalController(mode="strict")
 
 ---
 
-## Legacy ApprovalController
-
-The legacy system (in `approval.py`) handles `tool_rules` configuration:
-
-```python
-from llm_do import ApprovalController
-
-controller = ApprovalController(
-    tool_rules=definition.tool_rules,
-    approval_callback=my_callback,
-)
-
-# Used internally by tools like worker_call
-result = controller.maybe_run(
-    tool_name="worker.call",
-    payload={"worker": "target"},
-    func=lambda: do_delegation(),
-)
-```
-
-**Tool Rules:**
-```python
-from llm_do import ToolRule
-
-rule = ToolRule(
-    name="worker.call",
-    allowed=True,
-    approval_required=True,
-    description="Delegate to another worker"
-)
-```
-
----
-
 ## Approval Callbacks
 
 ```python
@@ -369,10 +338,8 @@ llm_do/
 │                        # - WorkerDefinition, WorkerSpec, WorkerContext
 │                        # - AgentRunner, ApprovalCallback, MessageCallback
 │
-├── approval.py          # Legacy approval enforcement (tool_rules)
-│                        # - ApprovalController (for worker.call, worker.create)
-│
-├── tool_approval.py     # New framework-agnostic approval system
+├── tool_approval.py     # Framework-agnostic approval system
+│                        # - ApprovalController (modes: interactive, approve_all, strict)
 │                        # - ApprovalContext, ApprovalRequest, ApprovalDecision
 │                        # - ApprovalController (session memory, modes)
 │                        # - ApprovalToolset (PydanticAI wrapper)

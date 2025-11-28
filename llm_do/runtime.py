@@ -24,11 +24,10 @@ from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
-from .approval import ApprovalController
 from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
 from .tool_approval import (
-    ApprovalController as SandboxApprovalController,
-    ApprovalDecision as SandboxApprovalDecision,
+    ApprovalController,
+    ApprovalDecision,
     ApprovalRequest,
 )
 from .protocols import WorkerCreator, WorkerDelegator
@@ -39,7 +38,6 @@ from .types import (
     AgentExecutionContext,
     AgentRunner,
     ApprovalCallback,
-    ApprovalDecision,
     MessageCallback,
     ModelLike,
     WorkerContext,
@@ -47,7 +45,7 @@ from .types import (
     WorkerDefinition,
     WorkerRunResult,
     WorkerSpec,
-    approve_all_callback as _auto_approve_callback,
+    approve_all_callback,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,28 +56,28 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _create_sandbox_approval_controller(
+def _create_approval_controller(
     approval_callback: ApprovalCallback,
-) -> SandboxApprovalController:
-    """Create a SandboxApprovalController from an ApprovalCallback.
+) -> ApprovalController:
+    """Create an ApprovalController from an ApprovalCallback.
 
-    This bridges the old callback-based API to the new ApprovalController.
+    This bridges the callback-based API (used by CLI) to the ApprovalController.
     """
 
-    def bridge_callback(request: ApprovalRequest) -> SandboxApprovalDecision:
-        """Convert new ApprovalRequest to old format and back."""
+    def bridge_callback(request: ApprovalRequest) -> ApprovalDecision:
+        """Convert ApprovalRequest to callback format and back."""
         decision = approval_callback(
             request.tool_name,
             request.payload,
             request.description,
         )
-        return SandboxApprovalDecision(
+        return ApprovalDecision(
             approved=decision.approved,
             scope=decision.scope,
             note=decision.note,
         )
 
-    return SandboxApprovalController(
+    return ApprovalController(
         mode="interactive",
         approval_callback=bridge_callback,
     )
@@ -160,8 +158,8 @@ def _prepare_worker_context(
 
     effective_model = definition.model or caller_effective_model or cli_model
 
-    approvals = ApprovalController(definition.tool_rules, approval_callback=approval_callback)
-    sandbox_approvals = _create_sandbox_approval_controller(approval_callback)
+    # Single unified approval controller for all tools
+    approval_controller = _create_approval_controller(approval_callback)
 
     # Resolve shell_cwd: if worker specifies one, make it absolute (relative to registry.root)
     resolved_shell_cwd: Optional[Path] = None
@@ -178,8 +176,7 @@ def _prepare_worker_context(
         attachment_validator=attachment_validator,
         creation_defaults=defaults,
         effective_model=effective_model,
-        approval_controller=approvals,
-        sandbox_approval_controller=sandbox_approvals,
+        approval_controller=approval_controller,
         sandbox=new_sandbox,
         attachments=attachment_payloads,
         message_callback=message_callback,
@@ -239,6 +236,21 @@ class RuntimeDelegator:
     def __init__(self, context: WorkerContext):
         self.context = context
 
+    def _check_approval(self, tool_name: str, payload: Dict[str, Any], description: str) -> None:
+        """Check approval using the unified ApprovalController.
+
+        Raises PermissionError if approval is denied.
+        """
+        request = ApprovalRequest(
+            tool_name=tool_name,
+            description=description,
+            payload=payload,
+        )
+        decision = self.context.approval_controller.request_approval_sync(request)
+        if not decision.approved:
+            note = f": {decision.note}" if decision.note else ""
+            raise PermissionError(f"Approval denied for {tool_name}{note}")
+
     async def call_async(
         self,
         worker: str,
@@ -256,10 +268,10 @@ class RuntimeDelegator:
         # Check sandbox.read approval for each attachment before sharing
         # Done after validation so we have full metadata (sandbox, path, size)
         for meta in attachment_metadata:
-            self.context.approval_controller.maybe_run(
+            self._check_approval(
                 "sandbox.read",
                 {"path": f"{meta['sandbox']}/{meta['path']}", "bytes": meta["bytes"], "target_worker": worker},
-                lambda: None,  # Approval check only, no action
+                f"Share file '{meta['sandbox']}/{meta['path']}' with worker '{worker}'",
             )
 
         attachment_payloads: Optional[List[AttachmentPayload]] = None
@@ -272,42 +284,26 @@ class RuntimeDelegator:
                 for path, meta in zip(resolved_attachments, attachment_metadata)
             ]
 
-        async def _invoke() -> Any:
-            result = await call_worker_async(
-                registry=self.context.registry,
-                worker=worker,
-                input_data=input_data,
-                caller_context=self.context,
-                attachments=attachment_payloads,
-            )
-            return result.output
-
         payload: Dict[str, Any] = {"worker": worker}
         if attachment_metadata:
             payload["attachments"] = attachment_metadata
 
-        # Check approval first (synchronously)
-        rule = self.context.approval_controller.tool_rules.get("worker.call")
-        if rule:
-            if not rule.allowed:
-                raise PermissionError(f"Tool 'worker.call' is disallowed")
-            if rule.approval_required:
-                # Check session approvals
-                key = self.context.approval_controller._make_approval_key("worker.call", payload)
-                if key not in self.context.approval_controller.session_approvals:
-                    # Block and wait for approval
-                    decision = self.context.approval_controller.approval_callback(
-                        "worker.call", payload, rule.description
-                    )
-                    if not decision.approved:
-                        note = f": {decision.note}" if decision.note else ""
-                        raise PermissionError(f"User rejected tool call 'worker.call'{note}")
-                    # Track session approval if requested
-                    if decision.scope == "session":
-                        self.context.approval_controller.session_approvals.add(key)
+        # Check worker.call approval
+        self._check_approval(
+            "worker.call",
+            payload,
+            f"Delegate to worker '{worker}'",
+        )
 
         # Now execute async
-        return await _invoke()
+        result = await call_worker_async(
+            registry=self.context.registry,
+            worker=worker,
+            input_data=input_data,
+            caller_context=self.context,
+            attachments=attachment_payloads,
+        )
+        return result.output
 
     def call_sync(
         self,
@@ -326,10 +322,10 @@ class RuntimeDelegator:
         # Check sandbox.read approval for each attachment before sharing
         # Done after validation so we have full metadata (sandbox, path, size)
         for meta in attachment_metadata:
-            self.context.approval_controller.maybe_run(
+            self._check_approval(
                 "sandbox.read",
                 {"path": f"{meta['sandbox']}/{meta['path']}", "bytes": meta["bytes"], "target_worker": worker},
-                lambda: None,  # Approval check only, no action
+                f"Share file '{meta['sandbox']}/{meta['path']}' with worker '{worker}'",
             )
 
         attachment_payloads: Optional[List[AttachmentPayload]] = None
@@ -342,25 +338,26 @@ class RuntimeDelegator:
                 for path, meta in zip(resolved_attachments, attachment_metadata)
             ]
 
-        def _invoke() -> Any:
-            result = call_worker(
-                registry=self.context.registry,
-                worker=worker,
-                input_data=input_data,
-                caller_context=self.context,
-                attachments=attachment_payloads,
-            )
-            return result.output
-
         payload: Dict[str, Any] = {"worker": worker}
         if attachment_metadata:
             payload["attachments"] = attachment_metadata
 
-        return self.context.approval_controller.maybe_run(
+        # Check worker.call approval
+        self._check_approval(
             "worker.call",
             payload,
-            _invoke,
+            f"Delegate to worker '{worker}'",
         )
+
+        # Execute
+        result = call_worker(
+            registry=self.context.registry,
+            worker=worker,
+            input_data=input_data,
+            caller_context=self.context,
+            attachments=attachment_payloads,
+        )
+        return result.output
 
 
 class RuntimeCreator:
@@ -383,6 +380,20 @@ class RuntimeCreator:
         force: bool = False,
     ) -> Dict[str, Any]:
         """Create worker with approval enforcement."""
+        payload = {"worker": name}
+
+        # Check worker.create approval
+        request = ApprovalRequest(
+            tool_name="worker.create",
+            description=f"Create new worker '{name}'",
+            payload=payload,
+        )
+        decision = self.context.approval_controller.request_approval_sync(request)
+        if not decision.approved:
+            note = f": {decision.note}" if decision.note else ""
+            raise PermissionError(f"Approval denied for worker.create{note}")
+
+        # Execute
         spec = WorkerSpec(
             name=name,
             instructions=instructions,
@@ -390,21 +401,13 @@ class RuntimeCreator:
             model=model,
             output_schema_ref=output_schema_ref,
         )
-
-        def _invoke() -> Dict[str, Any]:
-            created = create_worker(
-                registry=self.context.registry,
-                spec=spec,
-                defaults=self.context.creation_defaults,
-                force=force,
-            )
-            return created.model_dump(mode="json")
-
-        return self.context.approval_controller.maybe_run(
-            "worker.create",
-            {"worker": name},
-            _invoke,
+        created = create_worker(
+            registry=self.context.registry,
+            spec=spec,
+            defaults=self.context.creation_defaults,
+            force=force,
         )
+        return created.model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------
@@ -441,7 +444,7 @@ def call_worker(
         creation_defaults=caller_context.creation_defaults,
         agent_runner=agent_runner,
         message_callback=caller_context.message_callback,
-        approval_callback=caller_context.approval_controller.approval_callback,
+        approval_callback=caller_context.approval_controller.get_legacy_callback(),
     )
 
 
@@ -481,7 +484,7 @@ async def call_worker_async(
         creation_defaults=caller_context.creation_defaults,
         agent_runner=agent_runner,
         message_callback=caller_context.message_callback,
-        approval_callback=caller_context.approval_controller.approval_callback,
+        approval_callback=caller_context.approval_controller.get_legacy_callback(),
     )
 
 
@@ -538,7 +541,7 @@ async def run_worker_async(
     cli_model: Optional[ModelLike] = None,
     creation_defaults: Optional[WorkerCreationDefaults] = None,
     agent_runner: Optional[Callable] = None,
-    approval_callback: ApprovalCallback = _auto_approve_callback,
+    approval_callback: ApprovalCallback = approve_all_callback,
     message_callback: Optional[MessageCallback] = None,
 ) -> WorkerRunResult:
     """Execute a worker by name (async version).
@@ -602,7 +605,7 @@ def run_worker(
     cli_model: Optional[ModelLike] = None,
     creation_defaults: Optional[WorkerCreationDefaults] = None,
     agent_runner: Optional[AgentRunner] = None,
-    approval_callback: ApprovalCallback = _auto_approve_callback,
+    approval_callback: ApprovalCallback = approve_all_callback,
     message_callback: Optional[MessageCallback] = None,
 ) -> WorkerRunResult:
     """Execute a worker by name.

@@ -85,23 +85,18 @@ model: claude-sonnet-4
 allow_workers:
   - evaluator  # Only allow calling the evaluator worker
 
-sandboxes:
-  input:
-    path: ./pipeline
-    mode: ro
-    allowed_suffixes: [".pdf", ".txt"]
-    max_bytes: 15000000
-  output:
-    path: ./evaluations
-    mode: rw
-
-tool_rules:
-  - name: sandbox.write
-    allowed: true
-    approval_required: true  # Writes require approval
-  - name: worker.call
-    allowed: true
-    approval_required: false  # Pre-approved for allowed workers
+sandbox:
+  paths:
+    input:
+      root: ./pipeline
+      mode: ro
+      suffixes: [".pdf", ".txt"]
+      max_file_bytes: 15000000
+      read_approval: true  # Require approval to share files as attachments
+    output:
+      root: ./evaluations
+      mode: rw
+      write_approval: true  # Writes require approval
 ```
 
 ## Attachment Resolution
@@ -112,34 +107,35 @@ The runtime:
 1. Resolves the path inside that sandbox
 2. Blocks escape attempts (`..` or absolute paths)
 3. Re-applies the caller's `attachment_policy` (count, total bytes, suffix allow/deny)
-4. Checks `sandbox.read` approval for each attachment (if configured)
+4. Checks `read_approval` for the attachment path (if configured in PathConfig)
 5. Forwards validated files to the callee
 
 This keeps delegated attachments confined to data the caller already has permission to access.
 
 ### Attachment Approval
 
-Attachments can require user approval before being shared with another worker. Configure via `tool_rules`:
+Attachments can require user approval before being shared with another worker. Configure via `read_approval` on the sandbox path:
 
 ```yaml
-tool_rules:
-  sandbox.read:
-    allowed: true
-    approval_required: true  # User must approve each attachment
+sandbox:
+  paths:
+    documents:
+      root: ./docs
+      mode: ro
+      read_approval: true  # User must approve each attachment
 ```
 
 When approval is required, the user sees:
-- **Path**: Full sandbox-relative path (e.g., `input/secret.pdf`)
+- **Path**: Full sandbox-relative path (e.g., `documents/secret.pdf`)
 - **Size**: File size in bytes
 - **Target worker**: Which worker will receive the file
 
-This allows users to review what data is being shared with delegated workers, even when `worker.call` itself is pre-approved.
+This allows users to review what data is being shared with delegated workers.
 
-| `sandbox.read` setting | Behavior |
+| `read_approval` setting | Behavior |
 |------------------------|----------|
-| Not configured | Attachments shared (backward compatible) |
-| `approval_required: false` | Attachments shared (auto-approved) |
-| `approval_required: true` | User prompted for each attachment |
+| Not configured / false | Attachments shared (auto-approved) |
+| `true` | User prompted for each attachment |
 
 **Important**: `read_file` is for UTF-8 text only. Configure `suffixes` on a sandbox path to enumerate safe file types. Binary files (PDF, images, spreadsheets) should go through `attachments`, not `read_file`.
 
@@ -156,28 +152,29 @@ Worker delegation resolves the model using this chain:
 
 ## Tool Approval System
 
-Each worker configures which tools require approval via `tool_rules`:
+Tool approval is configured per-path in the sandbox configuration:
 
 ```yaml
-tool_rules:
-  sandbox.read:
-    allowed: true
-    approval_required: true  # Approve sharing files as attachments
+sandbox:
+  paths:
+    input:
+      root: ./input
+      mode: ro
+      read_approval: true   # Approve sharing files as attachments
 
-  sandbox.write:
-    allowed: true
-    approval_required: true  # Writes require user approval
-
-  worker.call:
-    allowed: true
-    approval_required: false  # Delegation pre-approved (if in allowlist)
-
-  worker.create:
-    allowed: true
-    approval_required: true  # Creating workers requires approval
+    output:
+      root: ./output
+      mode: rw
+      write_approval: true  # Writes require user approval
 ```
 
-When a tool with `approval_required: true` is called, the runtime gates it through an approval callback. The user sees:
+Worker delegation (`worker.call`) and creation (`worker.create`) always go through the approval controller. The controller's mode determines behavior:
+
+- **`approve_all`**: Auto-approve all requests (testing, non-interactive)
+- **`interactive`**: Prompt user for approval
+- **`strict`**: Reject all approval-required operations (production, CI)
+
+When approval is required, the user sees:
 - Which tool is being invoked
 - The full arguments
 - Context about why

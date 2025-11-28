@@ -189,9 +189,9 @@ def prepare_agent_execution(
     # Conditionally include sandbox toolset if configured
     # Only pass toolsets parameter if we have a sandbox to avoid empty list issues
     if context.sandbox is not None:
-        # Wrap sandbox with approval checking
+        # Wrap sandbox with approval checking using unified controller
         approval_sandbox = ApprovalToolset(
-            context.sandbox, context.sandbox_approval_controller
+            context.sandbox, context.approval_controller
         )
         agent_kwargs["toolsets"] = [approval_sandbox]  # Sandbox provides read_file, write_file, list_files
 

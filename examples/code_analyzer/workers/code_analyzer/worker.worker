@@ -35,11 +35,6 @@ shell_rules:
 - allowed: true
   approval_required: false
   pattern: git show
-tool_rules:
-  shell:
-    allowed: true
-    approval_required: false
-    name: shell
 ---
 
 You are a code analysis assistant that uses shell commands to gather statistics about codebases.

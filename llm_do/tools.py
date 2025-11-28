@@ -26,6 +26,7 @@ from .shell import (
     match_shell_rules,
     parse_command,
 )
+from .tool_approval import ApprovalRequest
 from .types import ShellResult, WorkerContext
 
 logger = logging.getLogger(__name__)
@@ -72,17 +73,13 @@ def _register_shell_tool(
     """Register the shell tool for executing commands.
 
     The shell tool:
-    1. Checks if shell is enabled via tool_rules
-    2. Matches command against shell_rules for approval decision
-    3. Routes through approval controller
+    1. Matches command against shell_rules for approval decision
+    2. Falls back to shell_default if no rule matches
+    3. Routes through approval controller if approval required
     4. Executes command and returns result
-    """
-    # Check if shell is enabled via tool_rules
-    shell_rule = context.worker.tool_rules.get("shell")
-    if shell_rule is not None and not shell_rule.allowed:
-        logger.debug(f"Shell tool disabled for worker '{context.worker.name}'")
-        return
 
+    To disable shell entirely, use: shell_default: {allowed: false}
+    """
     @agent.tool(
         name="shell",
         description="Execute a shell command. Commands are parsed with shlex and "
@@ -140,19 +137,26 @@ def _register_shell_tool(
                 truncated=False,
             )
 
-        # Determine approval requirement
-        # Priority: shell_rules match > shell_default > tool_rules.shell
-        if not approval_required:
-            # Auto-approved by shell_rules
-            pass
-        else:
-            # Check tool_rules.shell for approval override
-            shell_tool_rule = ctx.deps.worker.tool_rules.get("shell")
-            if shell_tool_rule is not None and not shell_tool_rule.approval_required:
-                approval_required = False
+        # Check approval if required (determined by shell_rules or shell_default)
+        if approval_required:
+            # Route through approval controller using new pattern
+            request = ApprovalRequest(
+                tool_name="shell",
+                description=f"Execute: {command[:80]}{'...' if len(command) > 80 else ''}",
+                payload={"command": command},
+            )
+            decision = ctx.deps.approval_controller.request_approval_sync(request)
+            if not decision.approved:
+                note = f": {decision.note}" if decision.note else ""
+                return ShellResult(
+                    stdout="",
+                    stderr=f"Approval denied for shell{note}",
+                    exit_code=1,
+                    truncated=False,
+                )
 
-        # Execute with or without approval
-        def _execute() -> ShellResult:
+        # Execute command
+        try:
             # Determine working directory:
             # 1. If context.shell_cwd is set (from worker.shell_cwd or --set override), use it
             # 2. Otherwise, use current working directory
@@ -164,25 +168,13 @@ def _register_shell_tool(
             )
             # Enhance errors with sandbox context
             return enhance_error_with_sandbox_context(result, ctx.deps.sandbox)
-
-        if approval_required:
-            # Route through approval controller
-            return ctx.deps.approval_controller.maybe_run(
-                "shell",
-                {"command": command},
-                _execute,
+        except ShellBlockedError as e:
+            return ShellResult(
+                stdout="",
+                stderr=str(e),
+                exit_code=1,
+                truncated=False,
             )
-        else:
-            # Auto-approved
-            try:
-                return _execute()
-            except ShellBlockedError as e:
-                return ShellResult(
-                    stdout="",
-                    stderr=str(e),
-                    exit_code=1,
-                    truncated=False,
-                )
 
 
 def _register_worker_delegation_tools(
@@ -239,13 +231,15 @@ def load_custom_tools(agent: Agent, context: WorkerContext) -> None:
     """Load and register custom tools from tools.py module.
 
     Custom tools are functions defined in the tools.py file in the worker's directory.
-    Only functions explicitly listed in the worker's tool_rules are registered.
-    Each tool call is wrapped with the approval controller to enforce security policies.
+    Only functions explicitly listed in the worker's custom_tools are registered.
+
+    Approval is determined by whether the function has a check_approval method
+    (added via @requires_approval decorator). Functions without the decorator
+    execute without approval prompts.
 
     Security guarantees:
-    - Only functions listed in definition.tool_rules are registered (allowlist)
-    - All tool calls go through approval_controller.maybe_run() (approval enforcement)
-    - Tool rules (allowed, approval_required) are respected
+    - Only functions listed in definition.custom_tools are registered (allowlist)
+    - Functions with @requires_approval go through approval_controller
     """
     tools_path = context.custom_tools_path
     if not tools_path or not tools_path.exists():
@@ -268,21 +262,18 @@ def load_custom_tools(agent: Agent, context: WorkerContext) -> None:
         logger.error(f"Error loading custom tools from {tools_path}: {e}")
         return
 
-    # Only register functions that are explicitly allowed in tool_rules
-    allowed_tools = {
-        name: rule
-        for name, rule in context.worker.tool_rules.items()
-        if rule.allowed
-    }
+    # Only register functions that are explicitly allowed in custom_tools
+    allowed_tools = context.worker.custom_tools
 
     if not allowed_tools:
-        logger.debug(f"No custom tools allowed in tool_rules for {context.worker.name}")
+        logger.debug(f"No custom tools listed for {context.worker.name}")
         return
 
     # Find and register allowed functions from the module
-    for tool_name, tool_rule in allowed_tools.items():
+    for tool_name in allowed_tools:
         # Check if this tool exists in the module
         if not hasattr(module, tool_name):
+            logger.warning(f"Custom tool '{tool_name}' not found in {tools_path}")
             continue
 
         obj = getattr(module, tool_name)
@@ -294,10 +285,9 @@ def load_custom_tools(agent: Agent, context: WorkerContext) -> None:
             logger.warning(f"Custom tool '{tool_name}' is not a function in {tools_path}")
             continue
 
-        # Wrap the function to enforce approval via the approval controller
-        # This ensures tool_rules.approval_required is respected
+        # Wrap the function to enforce approval via @requires_approval decorator
         def make_wrapped_tool(func, name):
-            """Create a wrapped tool that goes through approval controller."""
+            """Create a wrapped tool that goes through approval controller if decorated."""
             # Get the original function's signature
             orig_sig = inspect.signature(func)
             orig_params = list(orig_sig.parameters.values())
@@ -327,19 +317,28 @@ def load_custom_tools(agent: Agent, context: WorkerContext) -> None:
                 return_annotation=orig_sig.return_annotation
             )
 
+            # Check if function has @requires_approval decorator
+            has_approval = hasattr(func, 'check_approval')
+
             # Create wrapper function
             def wrapped_tool(ctx, **tool_kwargs):
-                """Wrapped custom tool that enforces approval rules."""
-                def _invoke():
-                    # Call the original function with the tool arguments
-                    return func(**tool_kwargs)
+                """Wrapped custom tool that enforces approval if decorated."""
+                # Check if tool has @requires_approval decorator
+                if has_approval:
+                    from .tool_approval import ApprovalContext
+                    approval_ctx = ApprovalContext(
+                        tool_name=name,
+                        args=tool_kwargs,
+                    )
+                    request = func.check_approval(approval_ctx)
+                    if request is not None:
+                        decision = ctx.deps.approval_controller.request_approval_sync(request)
+                        if not decision.approved:
+                            note = f": {decision.note}" if decision.note else ""
+                            raise PermissionError(f"Approval denied for {name}{note}")
 
-                # Use approval controller to enforce tool_rules
-                return ctx.deps.approval_controller.maybe_run(
-                    name,
-                    tool_kwargs,
-                    _invoke,
-                )
+                # Call the original function with the tool arguments
+                return func(**tool_kwargs)
 
             # Apply the new signature and preserve metadata
             wrapped_tool.__signature__ = new_sig
@@ -354,15 +353,15 @@ def load_custom_tools(agent: Agent, context: WorkerContext) -> None:
             return wrapped_tool
 
         try:
-            # Create wrapped version that enforces approvals
+            # Create wrapped version
             wrapped = make_wrapped_tool(obj, tool_name)
 
             # Register using agent.tool (not tool_plain) since we need RunContext for approval
             agent.tool(
                 name=tool_name,
-                description=obj.__doc__ or tool_rule.description or f"Custom tool: {tool_name}"
+                description=obj.__doc__ or f"Custom tool: {tool_name}"
             )(wrapped)
 
-            logger.debug(f"Registered custom tool with approval enforcement: {tool_name}")
+            logger.debug(f"Registered custom tool: {tool_name}")
         except Exception as e:
             logger.warning(f"Could not register custom tool '{tool_name}': {e}")

@@ -6,7 +6,6 @@ import pytest
 
 from llm_do import (
     ApprovalDecision,
-    ToolRule,
     WorkerDefinition,
     WorkerRegistry,
     approve_all_callback,
@@ -35,14 +34,13 @@ def test_integration_approve_all_allows_write(tmp_path, registry, tool_calling_m
         root=str(sandbox_path),
         mode="rw",
         suffixes=[".txt"],
+        write_approval=True,  # Require approval for writes
     )
-    rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
         system_prompt="Write a test file",
         sandbox=SandboxConfig(paths={"out": path_cfg}),
-        tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
@@ -80,14 +78,13 @@ def test_integration_strict_mode_blocks_write(tmp_path, registry, tool_calling_m
         root=str(sandbox_path),
         mode="rw",
         suffixes=[".txt"],
+        write_approval=True,  # Require approval for writes
     )
-    rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
         system_prompt="Write a test file",
         sandbox=SandboxConfig(paths={"out": path_cfg}),
-        tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
@@ -126,14 +123,13 @@ def test_integration_multiple_tool_calls_with_session_approval(
         root=str(sandbox_path),
         mode="rw",
         suffixes=[".txt"],
+        write_approval=True,  # Require approval for writes
     )
-    rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="multi-writer",
         system_prompt="Write multiple files",
         sandbox=SandboxConfig(paths={"out": path_cfg}),
-        tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
@@ -192,14 +188,13 @@ def test_integration_read_and_write_flow(tmp_path, registry, tool_calling_model_
         root=str(output_path),
         mode="rw",
         suffixes=[".txt"],
+        write_approval=True,  # Require approval for writes
     )
-    rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="processor",
         system_prompt="Read input, process, write output",
         sandbox=SandboxConfig(paths={"in": input_cfg, "out": output_cfg}),
-        tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 
@@ -244,14 +239,13 @@ def test_integration_rejection_stops_workflow(tmp_path, registry, tool_calling_m
         root=str(sandbox_path),
         mode="rw",
         suffixes=[".txt"],
+        write_approval=True,  # Require approval for writes
     )
-    rule = ToolRule(name="sandbox.write", approval_required=True)
 
     definition = WorkerDefinition(
         name="writer",
         system_prompt="Write files",
         sandbox=SandboxConfig(paths={"out": path_cfg}),
-        tool_rules={"sandbox.write": rule},
     )
     registry.save_definition(definition)
 

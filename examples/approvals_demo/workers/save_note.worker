@@ -11,11 +11,7 @@ sandbox:
       suffixes:
       - .txt
       - .log
-tool_rules:
-  sandbox.write:
-    approval_required: true
-    description: Writing to notes log requires explicit approval.
-    name: sandbox.write
+      write_approval: true
 ---
 
 You maintain a running log of notes in the `notes` sandbox.

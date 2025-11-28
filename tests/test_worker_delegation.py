@@ -8,9 +8,9 @@ import pytest
 from llm_do import (
     AttachmentPolicy,
     ApprovalController,
+    ApprovalDecision,
     RuntimeCreator,
     RuntimeDelegator,
-    ToolRule,
     WorkerCreationDefaults,
     WorkerDefinition,
     WorkerRegistry,
@@ -26,7 +26,7 @@ from llm_do.worker_sandbox import (
     SandboxConfig,
 )
 from llm_do.filesystem_sandbox import PathConfig, ReadResult
-from llm_do.tool_approval import ApprovalController as SandboxApprovalController
+from llm_do.tool_approval import ApprovalRequest
 
 
 def _registry(tmp_path):
@@ -37,9 +37,21 @@ def _registry(tmp_path):
     return WorkerRegistry(root, generated_dir=generated_dir)
 
 
-def _parent_context(registry, worker, defaults=None):
-    controller = ApprovalController(worker.tool_rules)
-    sandbox_controller = SandboxApprovalController(mode="approve_all")
+def _parent_context(registry, worker, defaults=None, approval_callback=None):
+    """Create a parent WorkerContext for testing.
+
+    Args:
+        registry: WorkerRegistry instance
+        worker: WorkerDefinition for the parent
+        defaults: Optional WorkerCreationDefaults
+        approval_callback: Optional callback for approval requests.
+                          If None, uses approve_all mode.
+    """
+    if approval_callback:
+        controller = ApprovalController(mode="interactive", approval_callback=approval_callback)
+    else:
+        controller = ApprovalController(mode="approve_all")
+
     # Create new sandbox from worker definition
     if worker.sandbox and worker.sandbox.paths:
         sandbox = Sandbox(worker.sandbox, base_path=registry.root)
@@ -53,7 +65,6 @@ def _parent_context(registry, worker, defaults=None):
         creation_defaults=defaults or WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
-        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 
@@ -174,12 +185,16 @@ def test_create_worker_defaults_allow_delegation(tmp_path):
     assert result.output["worker"] == "child"
 
 def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
+    """Worker delegation always goes through approval controller.
+
+    In the new architecture, RuntimeDelegator always creates an ApprovalRequest.
+    The controller's mode determines if it prompts (interactive) or auto-approves.
+    """
     registry = _registry(tmp_path)
     parent = WorkerDefinition(
         name="parent",
         instructions="",
         allow_workers=["child"],
-        tool_rules={"worker.call": ToolRule(name="worker.call", approval_required=True)},
     )
     registry.save_definition(parent)
     context = _parent_context(registry, parent)
@@ -325,22 +340,21 @@ def test_worker_call_tool_includes_attachment_metadata(monkeypatch, tmp_path):
     registry = _registry(tmp_path)
     parent, sandbox_root = _parent_with_sandbox(tmp_path)
     registry.save_definition(parent)
-    context = _parent_context(registry, parent)
+    # Capture approval requests via callback
+    captured_requests: list[ApprovalRequest] = []
+
+    def capture_callback(request: ApprovalRequest) -> ApprovalDecision:
+        captured_requests.append(request)
+        return ApprovalDecision(approved=True)
+
+    context = _parent_context(registry, parent, approval_callback=capture_callback)
     attachment = sandbox_root / "deck.pdf"
     payload_bytes = "memo".encode("utf-8")
     attachment.write_bytes(payload_bytes)
 
-    captured_payload: dict[str, Any] = {}
-
     def fake_call_worker(**_):
         return WorkerRunResult(output={"status": "ok"})
 
-    def fake_maybe_run(tool_name, payload, func):
-        captured_payload["tool"] = tool_name
-        captured_payload["payload"] = payload
-        return func()
-
-    context.approval_controller.maybe_run = fake_maybe_run
     monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
 
     result = RuntimeDelegator(context).call_sync(
@@ -350,8 +364,20 @@ def test_worker_call_tool_includes_attachment_metadata(monkeypatch, tmp_path):
     )
 
     assert result == {"status": "ok"}
-    assert captured_payload["tool"] == "worker.call"
-    attachment_info = captured_payload["payload"]["attachments"][0]
+
+    # Should have 2 approval requests: sandbox.read (for attachment) + worker.call
+    assert len(captured_requests) == 2
+
+    # First should be sandbox.read for the attachment
+    sandbox_read_request = captured_requests[0]
+    assert sandbox_read_request.tool_name == "sandbox.read"
+    assert sandbox_read_request.payload["path"] == "input/deck.pdf"
+    assert sandbox_read_request.payload["bytes"] == len(payload_bytes)
+
+    # Second should be worker.call with attachment metadata
+    worker_call_request = captured_requests[1]
+    assert worker_call_request.tool_name == "worker.call"
+    attachment_info = worker_call_request.payload["attachments"][0]
     assert attachment_info["sandbox"] == "input"
     assert attachment_info["path"] == "deck.pdf"
     assert attachment_info["bytes"] == len(payload_bytes)
@@ -375,11 +401,15 @@ def test_worker_create_tool_persists_definition(tmp_path):
 
 
 def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
+    """Worker creation always goes through approval controller.
+
+    In the new architecture, RuntimeCreator always creates an ApprovalRequest.
+    The controller's mode determines if it prompts (interactive) or auto-approves.
+    """
     registry = _registry(tmp_path)
     parent = WorkerDefinition(
         name="parent",
         instructions="",
-        tool_rules={"worker.create": ToolRule(name="worker.create", approval_required=True)},
     )
     registry.save_definition(parent)
     context = _parent_context(registry, parent)
@@ -411,29 +441,25 @@ def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
 
 def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
     """Test that attachments trigger sandbox.read approval before sharing."""
-    from llm_do.types import ApprovalDecision
-
     registry = _registry(tmp_path)
     parent, sandbox_root = _parent_with_sandbox(tmp_path)
-    # Add sandbox.read rule requiring approval
+    # Add sandbox.read rule requiring approval (no longer used, kept for backwards compat)
     parent = WorkerDefinition(
         name="parent",
         instructions="",
         allow_workers=["child"],
         sandbox=parent.sandbox,
-        tool_rules={"sandbox.read": ToolRule(name="sandbox.read", approval_required=True)},
     )
     registry.save_definition(parent)
 
     # Track approval requests
     approval_requests = []
 
-    def tracking_callback(tool_name, payload, description=None):
-        approval_requests.append({"tool": tool_name, "payload": payload})
+    def tracking_callback(request: ApprovalRequest) -> ApprovalDecision:
+        approval_requests.append({"tool": request.tool_name, "payload": request.payload})
         return ApprovalDecision(approved=True)
 
-    controller = ApprovalController(parent.tool_rules, approval_callback=tracking_callback)
-    sandbox_controller = SandboxApprovalController(mode="approve_all")
+    controller = ApprovalController(mode="interactive", approval_callback=tracking_callback)
     sandbox = Sandbox(parent.sandbox, base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
 
@@ -444,7 +470,6 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
-        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 
@@ -476,8 +501,6 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
 
 def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
     """Test that denying sandbox.read approval prevents attachment sharing."""
-    from llm_do.types import ApprovalDecision
-
     registry = _registry(tmp_path)
     parent, sandbox_root = _parent_with_sandbox(tmp_path)
     parent = WorkerDefinition(
@@ -485,16 +508,14 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
         instructions="",
         allow_workers=["child"],
         sandbox=parent.sandbox,
-        tool_rules={"sandbox.read": ToolRule(name="sandbox.read", approval_required=True)},
     )
     registry.save_definition(parent)
 
     # Deny approval
-    def denying_callback(tool_name, payload, description=None):
+    def denying_callback(request: ApprovalRequest) -> ApprovalDecision:
         return ApprovalDecision(approved=False, note="User denied")
 
-    controller = ApprovalController(parent.tool_rules, approval_callback=denying_callback)
-    sandbox_controller = SandboxApprovalController(mode="approve_all")
+    controller = ApprovalController(mode="interactive", approval_callback=denying_callback)
     sandbox = Sandbox(parent.sandbox, base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
 
@@ -505,7 +526,6 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
         creation_defaults=WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
-        sandbox_approval_controller=sandbox_controller,
         sandbox=sandbox,
     )
 

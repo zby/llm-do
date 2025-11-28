@@ -51,7 +51,6 @@ from .types import (
     ShellDefault,
     ShellResult,
     ShellRule,
-    ToolRule,
     WorkerContext,
     WorkerCreationDefaults,
     WorkerDefinition,
@@ -72,8 +71,8 @@ from .shell import (
 # Re-export registry
 from .registry import WorkerRegistry
 
-# Re-export approval
-from .approval import ApprovalController
+# Re-export approval types from unified module
+from .tool_approval import ApprovalController
 
 # Re-export protocols
 from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
@@ -101,7 +100,6 @@ __all__: Iterable[str] = [
     "approve_all_callback",
     "strict_mode_callback",
     "AttachmentPolicy",
-    "ToolRule",
     "SandboxConfig",
     "WorkerDefinition",
     "WorkerSpec",

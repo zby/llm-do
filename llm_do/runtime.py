@@ -37,7 +37,6 @@ from .tools import register_worker_tools
 from .types import (
     AgentExecutionContext,
     AgentRunner,
-    ApprovalCallback,
     MessageCallback,
     ModelLike,
     WorkerContext,
@@ -45,42 +44,9 @@ from .types import (
     WorkerDefinition,
     WorkerRunResult,
     WorkerSpec,
-    approve_all_callback,
 )
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Helper functions
-# ---------------------------------------------------------------------------
-
-
-def _create_approval_controller(
-    approval_callback: ApprovalCallback,
-) -> ApprovalController:
-    """Create an ApprovalController from an ApprovalCallback.
-
-    This bridges the callback-based API (used by CLI) to the ApprovalController.
-    """
-
-    def bridge_callback(request: ApprovalRequest) -> ApprovalDecision:
-        """Convert ApprovalRequest to callback format and back."""
-        decision = approval_callback(
-            request.tool_name,
-            request.payload,
-            request.description,
-        )
-        return ApprovalDecision(
-            approved=decision.approved,
-            scope=decision.scope,
-            note=decision.note,
-        )
-
-    return ApprovalController(
-        mode="interactive",
-        approval_callback=bridge_callback,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +73,7 @@ def _prepare_worker_context(
     caller_effective_model: Optional[ModelLike],
     cli_model: Optional[ModelLike],
     creation_defaults: Optional[WorkerCreationDefaults],
-    approval_callback: ApprovalCallback,
+    approval_controller: ApprovalController,
     message_callback: Optional[MessageCallback],
 ) -> _WorkerExecutionPrep:
     """Prepare worker context and dependencies (shared by sync and async).
@@ -157,9 +123,6 @@ def _prepare_worker_context(
         definition.attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
 
     effective_model = definition.model or caller_effective_model or cli_model
-
-    # Single unified approval controller for all tools
-    approval_controller = _create_approval_controller(approval_callback)
 
     # Resolve shell_cwd: if worker specifies one, make it absolute (relative to registry.root)
     resolved_shell_cwd: Optional[Path] = None
@@ -444,7 +407,7 @@ def call_worker(
         creation_defaults=caller_context.creation_defaults,
         agent_runner=agent_runner,
         message_callback=caller_context.message_callback,
-        approval_callback=caller_context.approval_controller.get_legacy_callback(),
+        approval_controller=caller_context.approval_controller,
     )
 
 
@@ -484,7 +447,7 @@ async def call_worker_async(
         creation_defaults=caller_context.creation_defaults,
         agent_runner=agent_runner,
         message_callback=caller_context.message_callback,
-        approval_callback=caller_context.approval_controller.get_legacy_callback(),
+        approval_controller=caller_context.approval_controller,
     )
 
 
@@ -541,7 +504,7 @@ async def run_worker_async(
     cli_model: Optional[ModelLike] = None,
     creation_defaults: Optional[WorkerCreationDefaults] = None,
     agent_runner: Optional[Callable] = None,
-    approval_callback: ApprovalCallback = approve_all_callback,
+    approval_controller: Optional[ApprovalController] = None,
     message_callback: Optional[MessageCallback] = None,
 ) -> WorkerRunResult:
     """Execute a worker by name (async version).
@@ -561,12 +524,15 @@ async def run_worker_async(
         cli_model: Fallback model from CLI (used if neither worker nor parent has a model).
         creation_defaults: Defaults for any new workers created during this run.
         agent_runner: Optional async strategy for executing the agent (defaults to async PydanticAI).
-        approval_callback: Callback for tool approval requests.
+        approval_controller: Controller for tool approval (defaults to approve-all mode).
         message_callback: Callback for streaming events and progress updates.
 
     Returns:
         WorkerRunResult containing the final output and message history.
     """
+    if approval_controller is None:
+        approval_controller = ApprovalController(mode="approve_all")
+
     prep = _prepare_worker_context(
         registry=registry,
         worker=worker,
@@ -575,7 +541,7 @@ async def run_worker_async(
         caller_effective_model=caller_effective_model,
         cli_model=cli_model,
         creation_defaults=creation_defaults,
-        approval_callback=approval_callback,
+        approval_controller=approval_controller,
         message_callback=message_callback,
     )
 
@@ -605,7 +571,7 @@ def run_worker(
     cli_model: Optional[ModelLike] = None,
     creation_defaults: Optional[WorkerCreationDefaults] = None,
     agent_runner: Optional[AgentRunner] = None,
-    approval_callback: ApprovalCallback = approve_all_callback,
+    approval_controller: Optional[ApprovalController] = None,
     message_callback: Optional[MessageCallback] = None,
 ) -> WorkerRunResult:
     """Execute a worker by name.
@@ -625,12 +591,15 @@ def run_worker(
         cli_model: Fallback model from CLI (used if neither worker nor parent has a model).
         creation_defaults: Defaults for any new workers created during this run.
         agent_runner: Strategy for executing the agent (defaults to PydanticAI).
-        approval_callback: Callback for tool approval requests.
+        approval_controller: Controller for tool approval (defaults to approve-all mode).
         message_callback: Callback for streaming events and progress updates.
 
     Returns:
         WorkerRunResult containing the final output and message history.
     """
+    if approval_controller is None:
+        approval_controller = ApprovalController(mode="approve_all")
+
     prep = _prepare_worker_context(
         registry=registry,
         worker=worker,
@@ -639,7 +608,7 @@ def run_worker(
         caller_effective_model=caller_effective_model,
         cli_model=cli_model,
         creation_defaults=creation_defaults,
-        approval_callback=approval_callback,
+        approval_controller=approval_controller,
         message_callback=message_callback,
     )
 

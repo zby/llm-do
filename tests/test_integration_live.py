@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 
 from llm_do import (
+    ApprovalController,
     WorkerRegistry,
-    approve_all_callback,
     run_worker,
 )
 
@@ -76,7 +76,7 @@ def test_nested_worker_with_real_api(whiteboard_registry):
         worker="whiteboard_orchestrator",
         input_data={},
         cli_model="anthropic:claude-haiku-4-5",
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     # Verify it completed

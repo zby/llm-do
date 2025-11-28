@@ -1,7 +1,29 @@
 # Tool Approval Redesign
 
-**Status:** Proposed
-**Date:** 2024-11-28
+**Status:** Phase 0 Complete
+**Date:** 2025-11-28
+
+## Completed: Phase 0 - Remove Legacy Callback Pattern
+
+The legacy `ApprovalCallback` pattern has been removed:
+
+- `run_worker()` now accepts `approval_controller: ApprovalController` directly
+- Removed `ApprovalCallback` type alias and `approve_all_callback`/`strict_mode_callback` functions
+- Removed `get_legacy_callback()` method from `ApprovalController`
+- CLI now creates `ApprovalController` directly instead of building callbacks
+- Worker delegation passes controllers directly (no more round-trip conversion)
+
+This eliminates the wasteful conversion chain that was:
+```
+CLI callback -> ApprovalController -> get_legacy_callback() -> child's ApprovalController
+```
+
+Now it's simply:
+```
+CLI ApprovalController -> child inherits same controller
+```
+
+---
 
 ## Summary
 

@@ -7,8 +7,8 @@ import pytest
 from pydantic_ai.models.test import TestModel
 
 from llm_do import (
+    ApprovalController,
     WorkerRegistry,
-    approve_all_callback,
     run_worker,
 )
 
@@ -54,7 +54,7 @@ def test_custom_tools_loaded_and_callable(calculator_registry):
         worker="calculator",
         input_data="What is the 10th Fibonacci number?",
         cli_model=model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     # Check that the worker ran successfully

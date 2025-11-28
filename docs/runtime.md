@@ -16,10 +16,10 @@ result = run_worker(
     registry=registry,
     worker="my-worker",
     input_data={"task": "..."},
-    attachments=None,              # Optional files to expose
-    cli_model="openai:gpt-4",      # Fallback model
-    approval_callback=callback,    # For tool approvals
-    message_callback=on_message,   # For streaming events
+    attachments=None,                 # Optional files to expose
+    cli_model="openai:gpt-4",         # Fallback model
+    approval_controller=controller,   # For tool approvals
+    message_callback=on_message,      # For streaming events
 )
 
 # Async version (recommended for nested worker calls)
@@ -39,7 +39,7 @@ result = await run_worker_async(
 | `input_data` | `Any` | Input payload (string or dict) |
 | `attachments` | `Sequence[AttachmentInput]` | Optional files to expose |
 | `cli_model` | `ModelLike` | Fallback model if worker has none |
-| `approval_callback` | `ApprovalCallback` | Callback for tool approvals |
+| `approval_controller` | `ApprovalController` | Controller for tool approvals |
 | `message_callback` | `MessageCallback` | Callback for streaming events |
 
 **Returns:** `WorkerRunResult` with `output` and `messages`.
@@ -288,30 +288,36 @@ controller = ApprovalController(mode="strict")
 
 ---
 
-## Approval Callbacks
+## Approval Controllers
 
 ```python
-from llm_do import ApprovalDecision, approve_all_callback, strict_mode_callback
+from llm_do import ApprovalController, ApprovalDecision
+from llm_do.tool_approval import ApprovalRequest
 
 # Auto-approve everything (for tests)
-result = run_worker(..., approval_callback=approve_all_callback)
+result = run_worker(..., approval_controller=ApprovalController(mode="approve_all"))
 
 # Reject all approval-required tools (strict mode)
-result = run_worker(..., approval_callback=strict_mode_callback)
+result = run_worker(..., approval_controller=ApprovalController(mode="strict"))
 
-# Custom callback
-def my_callback(tool_name: str, payload: dict, reason: str) -> ApprovalDecision:
+# Custom interactive approval
+def my_callback(request: ApprovalRequest) -> ApprovalDecision:
     # Show prompt to user, get decision
+    print(f"Approve {request.tool_name}? {request.description}")
     return ApprovalDecision(
         approved=True,
         scope="session",  # Don't ask again for same operation
         note="User approved via CLI",
     )
+
+controller = ApprovalController(mode="interactive", approval_callback=my_callback)
+result = run_worker(..., approval_controller=controller)
 ```
 
-**Built-in callbacks:**
-- `approve_all_callback`: Auto-approves all requests (testing, non-interactive)
-- `strict_mode_callback`: Rejects all approval-required tools (production, CI)
+**Built-in modes:**
+- `mode="approve_all"`: Auto-approves all requests (testing, non-interactive)
+- `mode="strict"`: Rejects all approval-required tools (production, CI)
+- `mode="interactive"`: Uses custom callback for user prompts
 
 ---
 
@@ -336,7 +342,7 @@ llm_do/
 │
 ├── types.py             # Type definitions and data models
 │                        # - WorkerDefinition, WorkerSpec, WorkerContext
-│                        # - AgentRunner, ApprovalCallback, MessageCallback
+│                        # - AgentRunner, MessageCallback
 │
 ├── tool_approval.py     # Framework-agnostic approval system
 │                        # - ApprovalController (modes: interactive, approve_all, strict)

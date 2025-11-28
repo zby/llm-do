@@ -5,8 +5,8 @@ import pytest
 from pydantic_ai.models.test import TestModel
 
 from llm_do import (
+    ApprovalController,
     WorkerRegistry,
-    approve_all_callback,
     run_worker,
 )
 from tests.test_examples import ToolCallingModel
@@ -84,7 +84,7 @@ def test_whiteboard_orchestrator_execution(whiteboard_registry, tmp_path):
         worker="whiteboard_orchestrator",
         input_data="Process images",
         cli_model=model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     assert result is not None

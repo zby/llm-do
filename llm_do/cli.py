@@ -33,13 +33,14 @@ from rich.panel import Panel
 from rich.text import Text
 
 from .base import (
-    ApprovalCallback,
-    ApprovalDecision,
     WorkerCreationDefaults,
     WorkerRegistry,
     run_worker,
-    approve_all_callback,
-    strict_mode_callback,
+)
+from .tool_approval import (
+    ApprovalController,
+    ApprovalDecision,
+    ApprovalRequest,
 )
 from .config_overrides import apply_cli_overrides
 from .cli_display import (
@@ -92,12 +93,12 @@ def _load_creation_defaults(path: Optional[str]) -> WorkerCreationDefaults:
     return WorkerCreationDefaults.model_validate(data)
 
 
-def _build_interactive_approval_callback(
+def _build_interactive_approval_controller(
     console: Console,
     *,
     worker_name: str,
-) -> ApprovalCallback:
-    """Return a callback that prompts the user before running gated tools."""
+) -> ApprovalController:
+    """Return an ApprovalController that prompts the user before running gated tools."""
 
     def _prompt_choice() -> str:
         response = console.input(
@@ -105,20 +106,18 @@ def _build_interactive_approval_callback(
         )
         return response.strip().lower()
 
-    def _callback(
-        tool_name: str, payload: Mapping[str, Any], reason: Optional[str]
-    ):
-        reason_text = reason or "Approval required"
+    def _callback(request: ApprovalRequest) -> ApprovalDecision:
+        reason_text = request.description or "Approval required"
         body = Group(
             Text(f"Reason: {reason_text}\n", style="bold red"),
             Text("Payload:", style="bold"),
-            render_json_or_text(payload),
+            render_json_or_text(request.payload),
         )
         console.print()
         console.print(
             Panel(
                 body,
-                title=f"[bold red]{worker_name} ▷ Tool approval: {tool_name}[/bold red]",
+                title=f"[bold red]{worker_name} ▷ Tool approval: {request.tool_name}[/bold red]",
                 border_style="red",
             )
         )
@@ -145,7 +144,7 @@ def _build_interactive_approval_callback(
 
             console.print("Unknown choice. Use a/s/d/q.", style="yellow")
 
-    return _callback
+    return ApprovalController(mode="interactive", approval_callback=_callback)
 
 
 def _build_streaming_callback(console: Console):
@@ -328,14 +327,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         if not args.json:
             console.print("\n[bold white]═══ Message Exchange ═══[/bold white]\n")
 
-        # Determine approval callback based on flags
+        # Determine approval controller based on flags
         if args.approve_all and args.strict:
             print("Error: Cannot use --approve-all and --strict together", file=sys.stderr)
             return 1
         elif args.approve_all:
-            approval_callback = approve_all_callback
+            approval_controller = ApprovalController(mode="approve_all")
         elif args.strict:
-            approval_callback = strict_mode_callback
+            approval_controller = ApprovalController(mode="strict")
         else:
             if not _is_interactive_terminal():
                 print(
@@ -343,7 +342,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                     file=sys.stderr,
                 )
                 return 1
-            approval_callback = _build_interactive_approval_callback(
+            approval_controller = _build_interactive_approval_controller(
                 prompt_console, worker_name=worker_name
             )
 
@@ -356,7 +355,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             attachments=args.attachments,
             cli_model=args.cli_model,
             creation_defaults=creation_defaults,
-            approval_callback=approval_callback,
+            approval_controller=approval_controller,
             message_callback=streaming_callback,
         )
 

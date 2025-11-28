@@ -5,13 +5,13 @@ from pathlib import Path
 import pytest
 
 from llm_do import (
+    ApprovalController,
     ApprovalDecision,
     WorkerDefinition,
     WorkerRegistry,
-    approve_all_callback,
     run_worker,
-    strict_mode_callback,
 )
+from llm_do.tool_approval import ApprovalRequest
 from llm_do.worker_sandbox import SandboxConfig
 from llm_do.filesystem_sandbox import PathConfig
 
@@ -62,7 +62,7 @@ def test_integration_approve_all_allows_write(tmp_path, registry, tool_calling_m
         worker="writer",
         input_data="Write a test file",
         cli_model=mock_model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     # Verify file was written
@@ -101,13 +101,13 @@ def test_integration_strict_mode_blocks_write(tmp_path, registry, tool_calling_m
         ]
     )
 
-    with pytest.raises(PermissionError, match="Strict mode.*write_file"):
+    with pytest.raises(PermissionError, match="Approval denied for write_file.*Strict mode"):
         run_worker(
             registry=registry,
             worker="writer",
             input_data="Write a test file",
             cli_model=mock_model,
-            approval_callback=strict_mode_callback,
+            approval_controller=ApprovalController(mode="strict"),
         )
 
     # Verify file was NOT written
@@ -155,18 +155,20 @@ def test_integration_multiple_tool_calls_with_session_approval(
     # Custom callback: approve first call for session
     call_count = 0
 
-    def session_approval_callback(tool_name, payload, reason):
+    def session_approval_callback(request: ApprovalRequest) -> ApprovalDecision:
         nonlocal call_count
         call_count += 1
         # First call: approve for session (subsequent identical calls auto-approved)
         return ApprovalDecision(approved=True, scope="session")
+
+    session_controller = ApprovalController(mode="interactive", approval_callback=session_approval_callback)
 
     result = run_worker(
         registry=registry,
         worker="multi-writer",
         input_data="Write files",
         cli_model=mock_model,
-        approval_callback=session_approval_callback,
+        approval_controller=session_controller,
     )
 
     # All writes executed, but callback only called once due to session approval
@@ -224,7 +226,7 @@ def test_integration_read_and_write_flow(tmp_path, registry, tool_calling_model_
         worker="processor",
         input_data="Process the data",
         cli_model=mock_model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     # Verify output file
@@ -264,8 +266,10 @@ def test_integration_rejection_stops_workflow(tmp_path, registry, tool_calling_m
     )
 
     # Reject the first call
-    def reject_callback(tool_name, payload, reason):
+    def reject_callback(request: ApprovalRequest) -> ApprovalDecision:
         return ApprovalDecision(approved=False, note="User rejected")
+
+    reject_controller = ApprovalController(mode="interactive", approval_callback=reject_callback)
 
     with pytest.raises(PermissionError, match="User rejected"):
         run_worker(
@@ -273,7 +277,7 @@ def test_integration_rejection_stops_workflow(tmp_path, registry, tool_calling_m
             worker="writer",
             input_data="Write files",
             cli_model=mock_model,
-            approval_callback=reject_callback,
+            approval_controller=reject_controller,
         )
 
     # No files written

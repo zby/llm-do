@@ -267,17 +267,18 @@ def test_run_worker_applies_model_inheritance():
 From `test_pydanticai_base.py`:
 
 ```python
-def test_strict_mode_callback_rejects():
+def test_strict_mode_rejects():
     """Test that strict mode rejects unapproved tools."""
+    from llm_do import ApprovalController
 
     def runner(definition, user_input, context, output_model):
         return ("should not reach here", [])
 
-    with pytest.raises(PermissionError, match="not pre-approved"):
+    with pytest.raises(PermissionError, match="Strict mode"):
         run_worker(
             worker="writer",
             agent_runner=runner,
-            approval_callback=strict_mode_callback,  # Rejects all
+            approval_controller=ApprovalController(mode="strict"),  # Rejects all
         )
 ```
 

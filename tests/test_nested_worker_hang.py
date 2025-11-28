@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 from llm_do import (
+    ApprovalController,
     WorkerRegistry,
-    approve_all_callback,
     run_worker,
 )
 from tests.test_examples import ToolCallingModel
@@ -144,7 +144,7 @@ This project aims to create an automated system for converting whiteboard photos
             worker="whiteboard_orchestrator",
             input_data={},
             cli_model=orchestrator_model,
-            approval_callback=approve_all_callback,
+            approval_controller=ApprovalController(mode="approve_all"),
         )
 
         assert result is not None
@@ -204,7 +204,7 @@ A simple test project.
         input_data={"original_filename": "test_board.png"},
         attachments=[str(test_image.absolute())],
         cli_model=planner_model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     assert result is not None

@@ -130,7 +130,8 @@ class ApprovalToolset(AbstractToolset):
     def _check_approval(self, name: str, args: dict) -> ApprovalRequest | None:
         """Check if tool call needs approval."""
         if hasattr(self._inner, "check_approval"):
-            return self._inner.check_approval(name, args)
+            # Pass memory so toolset can do pattern-based session checks
+            return self._inner.check_approval(name, args, self._memory)
         return None
 
     def _get_approval(self, request: ApprovalRequest) -> ApprovalDecision:
@@ -212,24 +213,34 @@ class ApprovalMemory:
 class ApprovalAware(Protocol):
     """Protocol for toolsets that support approval checking."""
 
-    def check_approval(self, tool_name: str, args: dict) -> Optional[ApprovalRequest]:
+    def check_approval(
+        self, tool_name: str, args: dict, memory: ApprovalMemory
+    ) -> Optional[ApprovalRequest]:
         """Return ApprovalRequest if approval needed, None otherwise.
 
-        This allows tools to provide rich presentation (diffs, syntax highlighting)
-        for the approval prompt.
+        Args:
+            tool_name: Name of the tool being called
+            args: Tool arguments
+            memory: Session approval cache - toolset can check for pattern matches
+
+        This allows tools to:
+        - Provide rich presentation (diffs, syntax highlighting)
+        - Implement pattern-based session approvals (e.g., "approve all writes to /data")
         """
         ...
 ```
 
-### Example: FileSandbox with Rich Presentation
+### Example: FileSandbox with Rich Presentation and Pattern Matching
 
-Shows how `FileSandboxImpl.check_approval()` can provide diff presentation for write operations:
+Shows how `FileSandboxImpl.check_approval()` can provide diff presentation and use session memory for pattern-based approvals:
 
 ```python
 class FileSandboxImpl(AbstractToolset):
     """File sandbox with approval-aware check_approval()."""
 
-    def check_approval(self, tool_name: str, args: dict) -> Optional[ApprovalRequest]:
+    def check_approval(
+        self, tool_name: str, args: dict, memory: ApprovalMemory
+    ) -> Optional[ApprovalRequest]:
         """Check if tool call needs approval, with optional rich presentation."""
         if tool_name == "write_file":
             path = args.get("path", "")
@@ -245,6 +256,12 @@ class FileSandboxImpl(AbstractToolset):
 
             if not config.write_approval:
                 return None  # Pre-approved by config
+
+            # Check if sandbox is already approved for this session
+            # (pattern-based: any previous write to this sandbox approves future writes)
+            sandbox_pattern = {"sandbox": sandbox_name, "path": "*"}
+            if memory.lookup(tool_name, sandbox_pattern) is not None:
+                return None  # Sandbox already approved for session
 
             # Build rich presentation if file exists (show diff)
             presentation = None
@@ -328,7 +345,7 @@ async def call_tool(self, name: str, args: dict, ctx: Any, tool: Any) -> Any:
 
     # Check for approval-aware toolsets
     elif hasattr(self._inner, "check_approval"):
-        request = self._inner.check_approval(name, args)
+        request = self._inner.check_approval(name, args, self._memory)
         if request is not None:
             decision = self._get_approval(request)
             if not decision.approved:
@@ -460,16 +477,23 @@ Where `ApprovalContext` bundles `tool_name`, `args`, and `metadata`. Options:
 
 | Option | Signature | Pros | Cons |
 |--------|-----------|------|------|
-| **A. Direct args** | `check_approval(tool_name: str, args: dict)` | Simplest, matches protocol in this doc | Loses metadata extensibility |
-| **B. Keep ApprovalContext** | `check_approval(ctx: ApprovalContext)` | No migration needed, keeps metadata | More boilerplate, metadata rarely used |
-| **C. Kwargs for extensibility** | `check_approval(tool_name: str, args: dict, **kwargs)` | Simple + extensible | kwargs are implicit |
+| **A. Direct args only** | `check_approval(tool_name, args)` | Simplest | No session awareness |
+| **B. With memory** | `check_approval(tool_name, args, memory)` | Pattern-based session approvals | Couples toolset to approval system |
+| **C. Keep ApprovalContext** | `check_approval(ctx: ApprovalContext)` | No migration | More boilerplate |
 
-**Recommendation: Option A (Direct args)**
+**Decision: Option B (With memory)**
+
+New signature:
+```python
+def check_approval(
+    self, tool_name: str, args: dict, memory: ApprovalMemory
+) -> Optional[ApprovalRequest]
+```
 
 Rationale:
-- Current `metadata` field is only used for `toolset_id` which is never read
-- Simpler signature is easier to implement and test
-- If extensibility is needed later, can add kwargs without breaking existing implementations
+- Enables pattern-based session approvals (e.g., "approve all writes to /data after first")
+- Toolset can check memory for related approvals before requiring new prompt
+- `ApprovalContext.metadata` was unused anyway - memory is actually useful
 - Per AGENTS.md: "Do not preserve backwards compatibility" - clean break is acceptable
 
 ### Phase 2: Simplify Wrapper
@@ -491,12 +515,12 @@ Rationale:
 - **Natural error handling** - denials are `PermissionError`s the LLM responds to
 - **`ApprovalRequest`** - needed for session matching via `payload` field
 - **`ApprovalPresentation`** - enables rich UI (diffs, syntax highlighting)
-- **`check_approval() -> ApprovalRequest | None`** - allows tools to provide rich presentation
+- **`check_approval(name, args, memory)`** - toolsets can do pattern-based session checks
 
 ## What We Remove
 
 - **`ApprovalController` class** - replaced by simple prompt function + memory
-- **`ApprovalContext`** - over-engineered, just pass tool_name and args directly
+- **`ApprovalContext`** - replaced by direct args + memory parameter
 - **Duplicate types in filesystem_sandbox.py** - ~170 lines
 - **Manual wrapper delegation** - ~50 lines
 

@@ -5,7 +5,7 @@
 
 ## Summary
 
-Simplify the tool approval architecture while keeping the synchronous blocking pattern that works well for CLI use cases. Remove duplication, reduce boilerplate, and align with PydanticAI conventions where possible.
+Simplify the tool approval architecture while keeping the synchronous blocking pattern that works well for CLI use cases. Remove duplication, reduce boilerplate, and keep `check_approval()` synchronous (approval prompting/blocking happens in the controller, not the check).
 
 ## Background
 
@@ -211,39 +211,6 @@ from llm_do.approval_controller import ApprovalController
 from llm_do.approval_toolset import ApprovalToolset
 ```
 
-### 5. Optional Async Check Support
-
-Add optional async variant for cases needing I/O:
-
-```python
-class ApprovalAware(Protocol):
-    """Protocol for toolsets that support approval checking."""
-
-    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
-        """Sync check - fast, no I/O. Required."""
-        ...
-
-    async def check_approval_async(
-        self, ctx: ApprovalContext
-    ) -> Optional[ApprovalRequest]:
-        """Async check - can do I/O for presentation. Optional."""
-        ...
-```
-
-Wrapper checks for async version first:
-
-```python
-async def _get_approval_request(self, name, args) -> Optional[ApprovalRequest]:
-    ctx = ApprovalContext(tool_name=name, args=args)
-
-    # Prefer async if available
-    if hasattr(self._inner, "check_approval_async"):
-        return await self._inner.check_approval_async(ctx)
-    elif hasattr(self._inner, "check_approval"):
-        return self._inner.check_approval(ctx)
-    return None
-```
-
 ## File Structure After Redesign
 
 ```
@@ -323,9 +290,7 @@ llm_do/
 
 1. **Keep tool_approval.py as re-export layer?** For backwards compat, or force migration?
 
-2. **Async check_approval_async worth it?** Adds complexity, but enables richer presentation without blocking.
-
-3. **Align with PydanticAI signature exactly?** Their `approval_func(ctx, tool_def, args) -> bool` vs our `check_approval(ctx) -> Optional[ApprovalRequest]`. Ours is richer but different.
+2. **Align with PydanticAI signature exactly?** Their `approval_func(ctx, tool_def, args) -> bool` vs our `check_approval(ctx) -> Optional[ApprovalRequest]`. Ours is richer but different.
 
 ## References
 

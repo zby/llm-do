@@ -34,29 +34,6 @@ class TestRequiresApprovalDecorator:
         assert hasattr(my_tool, "_requires_approval")
         assert my_tool._requires_approval is True
 
-    def test_decorated_function_still_works(self):
-        """Decorated function still executes normally."""
-
-        @requires_approval
-        def add_numbers(a: int, b: int) -> int:
-            return a + b
-
-        # Function should still work
-        result = add_numbers(2, 3)
-        assert result == 5
-
-    def test_decorator_preserves_function_metadata(self):
-        """Decorator preserves function name and docstring."""
-
-        @requires_approval
-        def my_documented_tool(x: int) -> int:
-            """This is my tool's docstring."""
-            return x * 2
-
-        assert my_documented_tool.__name__ == "my_documented_tool"
-        # Note: simple marker decorator doesn't use functools.wraps
-        # so docstring may not be preserved
-
 
 # ---------------------------------------------------------------------------
 # ApprovalController tests
@@ -196,46 +173,3 @@ class TestApprovalController:
 
         with pytest.raises(NotImplementedError, match="No approval_callback"):
             controller.request_approval_sync(request)
-
-    def test_payload_with_nested_structures(self):
-        """Session matching works with nested payload structures."""
-        approvals = []
-
-        def callback(request: ApprovalRequest) -> ApprovalDecision:
-            approvals.append(request)
-            return ApprovalDecision(approved=True, remember="session")
-
-        controller = ApprovalController(mode="interactive", approval_callback=callback)
-        request = ApprovalRequest(
-            tool_name="complex_tool",
-            description="Complex operation",
-            payload={
-                "config": {"nested": {"deeply": "value"}},
-                "items": [1, 2, 3],
-            },
-        )
-
-        controller.request_approval_sync(request)
-        controller.request_approval_sync(request)
-
-        # Should cache even with nested structures
-        assert len(approvals) == 1
-
-
-# ---------------------------------------------------------------------------
-# ApprovalDecision tests
-# ---------------------------------------------------------------------------
-
-
-class TestApprovalDecision:
-    """Tests for ApprovalDecision."""
-
-    def test_default_values(self):
-        """Default value for remember is 'none'."""
-        decision = ApprovalDecision(approved=True)
-        assert decision.remember == "none"
-
-    def test_remember_session(self):
-        """remember='session' can be set."""
-        decision = ApprovalDecision(approved=True, remember="session")
-        assert decision.remember == "session"

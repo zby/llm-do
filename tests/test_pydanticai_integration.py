@@ -101,7 +101,7 @@ def test_integration_strict_mode_blocks_write(tmp_path, registry, tool_calling_m
         ]
     )
 
-    with pytest.raises(PermissionError, match="Approval denied for write_file.*Strict mode"):
+    with pytest.raises(PermissionError, match="User denied write_file.*Strict mode"):
         run_worker(
             registry=registry,
             worker="writer",

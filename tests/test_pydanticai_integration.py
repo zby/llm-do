@@ -159,7 +159,7 @@ def test_integration_multiple_tool_calls_with_session_approval(
         nonlocal call_count
         call_count += 1
         # First call: approve for session (subsequent identical calls auto-approved)
-        return ApprovalDecision(approved=True, scope="session")
+        return ApprovalDecision(approved=True, remember="session")
 
     session_controller = ApprovalController(mode="interactive", approval_callback=session_approval_callback)
 

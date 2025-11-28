@@ -306,7 +306,7 @@ def my_callback(request: ApprovalRequest) -> ApprovalDecision:
     print(f"Approve {request.tool_name}? {request.description}")
     return ApprovalDecision(
         approved=True,
-        scope="session",  # Don't ask again for same operation
+        remember="session",  # Don't ask again for same operation
         note="User approved via CLI",
     )
 

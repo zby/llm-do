@@ -61,17 +61,6 @@ class ApprovalDecision(BaseModel):
     approved: bool
     note: Optional[str] = None
     remember: Literal["none", "session"] = "none"
-    # Backward compatibility alias for "remember"
-    scope: Literal["once", "session"] = "once"
-
-    def model_post_init(self, __context: Any) -> None:
-        """Sync scope and remember fields for backward compatibility."""
-        # If scope was explicitly set to "session", also set remember
-        if self.scope == "session" and self.remember == "none":
-            object.__setattr__(self, "remember", "session")
-        # If remember was explicitly set to "session", also set scope
-        elif self.remember == "session" and self.scope == "once":
-            object.__setattr__(self, "scope", "session")
 
 
 # ---------------------------------------------------------------------------
@@ -356,15 +345,9 @@ class ApprovalController:
             )
         decision = self._approval_callback(request)
 
-        # Cache if scope is "session" (compatibility with old API)
-        # Note: old API used "scope", new uses "remember" - handle both
-        scope = getattr(decision, "scope", None) or getattr(decision, "remember", "none")
-        if decision.approved and scope == "session":
-            # Store with remember="session" so it gets cached
-            cached_decision = ApprovalDecision(
-                approved=True, remember="session", note=decision.note
-            )
-            self._memory.store(request.tool_name, request.payload, cached_decision)
+        # Cache if remember="session"
+        if decision.approved and decision.remember == "session":
+            self._memory.store(request.tool_name, request.payload, decision)
 
         return decision
 

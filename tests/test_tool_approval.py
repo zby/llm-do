@@ -99,7 +99,7 @@ class TestApprovalController:
 
         def callback(request: ApprovalRequest) -> ApprovalDecision:
             approvals.append(request)
-            return ApprovalDecision(approved=True, scope="session")
+            return ApprovalDecision(approved=True, remember="session")
 
         controller = ApprovalController(mode="interactive", approval_callback=callback)
         request = ApprovalRequest(
@@ -124,7 +124,7 @@ class TestApprovalController:
 
         def callback(request: ApprovalRequest) -> ApprovalDecision:
             approvals.append(request)
-            return ApprovalDecision(approved=True, scope="session")
+            return ApprovalDecision(approved=True, remember="session")
 
         controller = ApprovalController(mode="interactive", approval_callback=callback)
 
@@ -145,13 +145,13 @@ class TestApprovalController:
         # Both should trigger callback (different payloads)
         assert len(approvals) == 2
 
-    def test_session_approval_once_scope_not_cached(self):
-        """scope='once' approvals are not cached."""
+    def test_session_approval_remember_none_not_cached(self):
+        """remember='none' approvals are not cached."""
         approvals = []
 
         def callback(request: ApprovalRequest) -> ApprovalDecision:
             approvals.append(request)
-            return ApprovalDecision(approved=True, scope="once")
+            return ApprovalDecision(approved=True, remember="none")
 
         controller = ApprovalController(mode="interactive", approval_callback=callback)
         request = ApprovalRequest(
@@ -163,14 +163,14 @@ class TestApprovalController:
         controller.request_approval_sync(request)
         controller.request_approval_sync(request)
 
-        # Both calls should trigger callback (once scope doesn't cache)
+        # Both calls should trigger callback (remember='none' doesn't cache)
         assert len(approvals) == 2
 
     def test_clear_session_approvals(self):
         """clear_session_approvals removes all cached approvals."""
 
         def callback(request: ApprovalRequest) -> ApprovalDecision:
-            return ApprovalDecision(approved=True, scope="session")
+            return ApprovalDecision(approved=True, remember="session")
 
         controller = ApprovalController(mode="interactive", approval_callback=callback)
         request = ApprovalRequest(
@@ -203,7 +203,7 @@ class TestApprovalController:
 
         def callback(request: ApprovalRequest) -> ApprovalDecision:
             approvals.append(request)
-            return ApprovalDecision(approved=True, scope="session")
+            return ApprovalDecision(approved=True, remember="session")
 
         controller = ApprovalController(mode="interactive", approval_callback=callback)
         request = ApprovalRequest(
@@ -223,25 +223,19 @@ class TestApprovalController:
 
 
 # ---------------------------------------------------------------------------
-# ApprovalDecision compatibility tests
+# ApprovalDecision tests
 # ---------------------------------------------------------------------------
 
 
-class TestApprovalDecisionCompatibility:
-    """Tests for ApprovalDecision scope/remember compatibility."""
-
-    def test_scope_session_sets_remember(self):
-        """Setting scope='session' also sets remember='session'."""
-        decision = ApprovalDecision(approved=True, scope="session")
-        assert decision.remember == "session"
-
-    def test_remember_session_sets_scope(self):
-        """Setting remember='session' also sets scope='session'."""
-        decision = ApprovalDecision(approved=True, remember="session")
-        assert decision.scope == "session"
+class TestApprovalDecision:
+    """Tests for ApprovalDecision."""
 
     def test_default_values(self):
-        """Default values are scope='once' and remember='none'."""
+        """Default value for remember is 'none'."""
         decision = ApprovalDecision(approved=True)
-        assert decision.scope == "once"
         assert decision.remember == "none"
+
+    def test_remember_session(self):
+        """remember='session' can be set."""
+        decision = ApprovalDecision(approved=True, remember="session")
+        assert decision.remember == "session"

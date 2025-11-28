@@ -5,390 +5,311 @@
 
 ## Summary
 
-Adopt PydanticAI's deferred tool approval pattern (`DeferredToolRequests`/`DeferredToolResults`) instead of our custom blocking wrapper. This aligns with PydanticAI's official approach while providing a clean synchronous API for CLI use cases.
+Keep the synchronous blocking wrapper approach for tool approval. After evaluating PydanticAI's deferred pattern (`DeferredToolRequests`/`DeferredToolResults`), we concluded it doesn't fit our CLI use case well. Simplify the existing blocking implementation instead.
 
 ## Background
 
 ### PydanticAI's Deferred Pattern
 
-PydanticAI v1.0+ provides native human-in-the-loop approval via:
-- `ApprovalRequiredToolset` - wraps toolsets to require approval
-- `DeferredToolRequests` - returned when tools need approval
-- `DeferredToolResults` - passed back with approval decisions
+PydanticAI v1.0+ provides `ApprovalRequired` exception and `ApprovalRequiredToolset` for human-in-the-loop approval. These use a **deferred pattern**:
 
 ```python
-# Agent stops and returns DeferredToolRequests
 result = agent.run_sync(prompt)
 if isinstance(result.output, DeferredToolRequests):
-    # Collect approvals (can be interactive CLI, web UI, etc.)
-    approvals = collect_approvals_sync(result.output, ui=cli_ui)
-    # Resume with approval decisions
+    # Agent has stopped - collect approvals
+    approvals = collect_approvals(result.output)
+    # Resume with new run
     result = agent.run_sync(
         message_history=result.all_messages(),
         deferred_tool_results=approvals,
     )
 ```
 
-### Why Adopt This Pattern?
+### Why Deferred Doesn't Fit
 
-| Aspect | Old (Blocking Wrapper) | New (Deferred) |
-|--------|----------------------|----------------|
-| PydanticAI alignment | Diverges | Native pattern |
-| Batching approvals | One at a time | All pending at once |
-| Code complexity | Custom wrapper (~200 lines) | Thin adapter (~100 lines) |
-| UI flexibility | Tied to wrapper | Clean `ApprovalUI` protocol |
-| Testability | Hard to test | Pure functions |
+The deferred pattern is designed for:
+- **External async operations** - call an API, wait for webhook hours later
+- **Out-of-band approval** - a different person/system approves later
+- **Batch processing** - collect multiple deferrals, handle elsewhere
 
-**Decision:** Adopt PydanticAI's deferred pattern with a synchronous collection API.
+Our CLI use case is different:
+- **Synchronous interaction** - user is right there at the terminal
+- **Immediate feedback** - approval/rejection happens in real-time
+- **Conversational flow** - rejection is just user feedback the LLM should respond to
+
+The deferred pattern adds unnecessary friction:
+1. Multiple agent runs with manual message history passing
+2. The "loop" is really just a conversation, not a retry mechanism
+3. When user denies, the LLM should naturally adjust - that's normal conversation
+
+### The Right Model for CLI
+
+What we actually want:
+
+```
+LLM: "I'll write to config.json"
+     ↓
+Tool blocks for approval
+     ↓
+User: [approves] → tool executes → LLM continues
+      [denies]  → tool returns error → LLM sees error and adjusts
+```
+
+This is a single continuous conversation. Denial is just an error the LLM handles like any tool failure - it can retry differently, ask for clarification, or give up gracefully.
+
+**Decision:** Keep synchronous blocking wrapper. Simplify the implementation.
 
 ## Current Problems
 
-### 1. Custom Wrapper Diverges from PydanticAI
+### 1. Duplicate Type Definitions
 
-Our `ApprovalToolset` intercepts `call_tool()` and blocks inside the agent run. This fights PydanticAI's design rather than embracing it.
+Types duplicated in `tool_approval.py` and `filesystem_sandbox.py` (~170 lines).
 
-### 2. Duplicate Type Definitions
+### 2. Wrapper Boilerplate
 
-Types duplicated in `tool_approval.py` and `filesystem_sandbox.py`.
+`ApprovalToolset` manually delegates every `AbstractToolset` method (~50 lines of delegation).
 
-### 3. Complex Integration
+### 3. Two Integration Patterns
 
-Two different patterns: `@requires_approval` decorator vs `check_approval()` method.
+Function tools use `@requires_approval` decorator, class toolsets use `check_approval()` method.
 
 ## Proposed Design
+
+### Simplified Blocking Wrapper
+
+```python
+class ApprovalToolset(AbstractToolset):
+    """Wraps a toolset with synchronous approval checking."""
+
+    def __init__(
+        self,
+        inner: AbstractToolset,
+        prompt_fn: Callable[[str, dict], ApprovalDecision],
+        memory: ApprovalMemory | None = None,
+    ):
+        self._inner = inner
+        self._prompt_fn = prompt_fn
+        self._memory = memory or ApprovalMemory()
+
+    def __getattr__(self, name: str) -> Any:
+        """Forward unknown attributes to inner toolset."""
+        return getattr(self._inner, name)
+
+    async def call_tool(self, name: str, args: dict, ctx: Any, tool: Any) -> Any:
+        """Intercept tool calls for approval."""
+        if self._needs_approval(name, args):
+            decision = self._get_approval(name, args)
+            if not decision.approved:
+                # Return error to LLM - it will adjust naturally
+                raise ToolError(f"User denied {name}: {decision.note or 'no reason given'}")
+
+        return await self._inner.call_tool(name, args, ctx, tool)
+
+    def _needs_approval(self, name: str, args: dict) -> bool:
+        """Check if tool call needs approval."""
+        if hasattr(self._inner, "needs_approval"):
+            return self._inner.needs_approval(name, args)
+        return False
+
+    def _get_approval(self, name: str, args: dict) -> ApprovalDecision:
+        """Get approval from cache or prompt user."""
+        # Check session cache
+        cached = self._memory.lookup(name, args)
+        if cached is not None:
+            return cached
+
+        # Prompt user (blocks)
+        decision = self._prompt_fn(name, args)
+
+        # Cache if requested
+        self._memory.store(name, args, decision)
+
+        return decision
+```
 
 ### Core Types
 
 ```python
-# llm_do/tool_approval.py
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Literal, Protocol
-
-from pydantic_ai import DeferredToolRequests, DeferredToolResults, ToolApproved, ToolDenied
-
-ApprovalMode = Literal["interactive", "auto_approve", "auto_deny"]
-
-
-@dataclass
-class ApprovalRequest:
-    """
-    A single tool call that needs human approval.
-    Presentation-friendly view of a ToolCallPart from DeferredToolRequests.
-    """
-    tool_call_id: str
-    tool_name: str
-    args: Mapping[str, Any]
-    metadata: Mapping[str, Any] | None = None
-    summary: str | None = None  # e.g. "delete file .env"
-
+from typing import Any, Literal
 
 @dataclass
 class ApprovalDecision:
-    """Human (or policy) decision about a single tool call."""
+    """User's decision about a tool call."""
     approved: bool
     note: str | None = None
-    override_args: Mapping[str, Any] | None = None
-    remember: Literal["none", "session", "always"] = "none"
+    remember: Literal["none", "session"] = "none"
+
+
+@dataclass
+class ApprovalMemory:
+    """Session cache to avoid re-prompting for identical calls."""
+    _cache: dict[tuple[str, str], ApprovalDecision] = field(default_factory=dict)
+
+    def lookup(self, tool_name: str, args: dict) -> ApprovalDecision | None:
+        key = self._make_key(tool_name, args)
+        return self._cache.get(key)
+
+    def store(self, tool_name: str, args: dict, decision: ApprovalDecision) -> None:
+        if decision.remember == "none":
+            return
+        key = self._make_key(tool_name, args)
+        self._cache[key] = decision
+
+    @staticmethod
+    def _make_key(tool_name: str, args: dict) -> tuple[str, str]:
+        import json
+        return (tool_name, json.dumps(args, sort_keys=True, default=str))
 ```
 
-### UI Protocol
+### Toolset Protocol
 
 ```python
-class ApprovalUI(Protocol):
-    """
-    Sync UI hook for interactive workflows.
-    Implementations: CLI prompts, TUI, web handler, etc.
-    """
-    def choose(self, request: ApprovalRequest, *, mode: ApprovalMode) -> ApprovalDecision:
+class ApprovalAware(Protocol):
+    """Protocol for toolsets that support approval checking."""
+
+    def needs_approval(self, tool_name: str, args: dict) -> bool:
+        """Return True if this tool call requires user approval."""
         ...
 ```
 
-### Session Memory
+### CLI Prompt Function
 
 ```python
-@dataclass
-class ApprovalMemory:
-    """Cache to avoid re-asking for identical tool calls."""
-    decisions: dict[tuple[str, str], ApprovalDecision] = field(default_factory=dict)
-
-    def lookup(self, req: ApprovalRequest) -> ApprovalDecision | None:
-        key = (req.tool_name, self._stable_arg_key(req.args))
-        return self.decisions.get(key)
-
-    def store(self, req: ApprovalRequest, decision: ApprovalDecision) -> None:
-        if decision.remember == "none":
-            return
-        key = (req.tool_name, self._stable_arg_key(req.args))
-        self.decisions[key] = decision
-
-    @staticmethod
-    def _stable_arg_key(args: Mapping[str, Any]) -> str:
-        import json
-        return json.dumps(args, sort_keys=True, default=str)
-```
-
-### Pure Transformation
-
-```python
-def build_approval_requests(requests: DeferredToolRequests) -> list[ApprovalRequest]:
-    """
-    Transform PydanticAI's DeferredToolRequests into our ApprovalRequest objects.
-    """
-    out: list[ApprovalRequest] = []
-    for call in requests.approvals:
-        metadata = (
-            requests.metadata.get(call.tool_call_id)
-            if requests.metadata else None
-        )
-        summary = None
-        if isinstance(metadata, Mapping):
-            summary = metadata.get("summary") or metadata.get("reason") or metadata.get("path")
-
-        out.append(ApprovalRequest(
-            tool_call_id=call.tool_call_id,
-            tool_name=call.tool_name,
-            args=call.args,
-            metadata=metadata,
-            summary=summary,
-        ))
-    return out
-```
-
-### Main API
-
-```python
-def collect_approvals_sync(
-    requests: DeferredToolRequests,
-    *,
-    ui: ApprovalUI,
-    mode: ApprovalMode = "interactive",
-    memory: ApprovalMemory | None = None,
-) -> DeferredToolResults:
-    """
-    Synchronously collect approvals for all tool calls in `requests`.
-
-    This is the main API for CLI/UI code.
-    """
-    results = DeferredToolResults()
-    memory = memory or ApprovalMemory()
-
-    for req in build_approval_requests(requests):
-        # 1. Check cached decision
-        cached = memory.lookup(req)
-        if cached is not None:
-            decision = cached
-        # 2. Policy shortcuts
-        elif mode == "auto_approve":
-            decision = ApprovalDecision(approved=True)
-        elif mode == "auto_deny":
-            decision = ApprovalDecision(approved=False)
-        # 3. Human-in-the-loop
-        else:
-            decision = ui.choose(req, mode=mode)
-
-        # Store if user asked to remember
-        if decision.remember != "none":
-            memory.store(req, decision)
-
-        # Convert to PydanticAI types
-        if decision.approved:
-            if decision.override_args:
-                results.approvals[req.tool_call_id] = ToolApproved(
-                    override_args=dict(decision.override_args)
-                )
-            else:
-                results.approvals[req.tool_call_id] = True
-        else:
-            if decision.note:
-                results.approvals[req.tool_call_id] = ToolDenied(decision.note)
-            else:
-                results.approvals[req.tool_call_id] = False
-
-    return results
-```
-
-## How Tools Request Approval
-
-### Option 1: ApprovalRequiredToolset (for toolsets)
-
-```python
-from pydantic_ai.toolsets import ApprovalRequiredToolset
-
-# Wrap FileSandbox to require approval for writes
-def needs_approval(ctx, tool_def, args) -> bool:
-    if tool_def.name == "write_file":
-        return True
-    if tool_def.name == "read_file":
-        # Check if path config requires read approval
-        return sandbox.needs_read_approval(args.get("path"))
-    return False
-
-approved_sandbox = sandbox.approval_required(needs_approval)
-agent = Agent(..., toolsets=[approved_sandbox])
-```
-
-### Option 2: Metadata for Rich Context
-
-Tools can provide metadata for better approval UX:
-
-```python
-from pydantic_ai.exceptions import ApprovalRequired
-
-@agent.tool
-def write_file(ctx: RunContext, path: str, content: str) -> str:
-    if not ctx.tool_call_approved:
-        raise ApprovalRequired(
-            metadata={"summary": f"Write {len(content)} chars to {path}", "path": path}
-        )
-    return do_write(path, content)
-```
-
-## Usage Pattern
-
-### Simple Case
-
-```python
-from llm_do.tool_approval import collect_approvals_sync, ApprovalMemory
-
-memory = ApprovalMemory()
-
-result = agent.run_sync(prompt, output_type=[OutputT, DeferredToolRequests])
-
-while isinstance(result.output, DeferredToolRequests):
-    approvals = collect_approvals_sync(
-        result.output,
-        ui=cli_ui,
-        mode="interactive",
-        memory=memory,
-    )
-    result = agent.run_sync(
-        message_history=result.all_messages(),
-        deferred_tool_results=approvals,
-    )
-
-return result.output
-```
-
-### Helper Function
-
-```python
-def run_with_approval(
-    agent: Agent,
-    prompt: str,
-    *,
-    ui: ApprovalUI,
-    mode: ApprovalMode = "interactive",
-    memory: ApprovalMemory | None = None,
-) -> Any:
-    """Run agent with automatic approval handling."""
-    memory = memory or ApprovalMemory()
-    history = None
-    deferred = None
+def cli_prompt(tool_name: str, args: dict) -> ApprovalDecision:
+    """Prompt user for approval in terminal."""
+    print(f"\n🔒 APPROVAL REQUIRED: {tool_name}")
+    print(f"   Args: {args}")
+    print()
+    print("[a] Approve once")
+    print("[s] Approve for session")
+    print("[d] Deny")
 
     while True:
-        result = agent.run_sync(
-            prompt,
-            message_history=history,
-            deferred_tool_results=deferred,
-            output_type=[Any, DeferredToolRequests],
-        )
-
-        if not isinstance(result.output, DeferredToolRequests):
-            return result.output
-
-        deferred = collect_approvals_sync(result.output, ui=ui, mode=mode, memory=memory)
-        history = result.all_messages()
+        choice = input("Choice: ").strip().lower()
+        if choice == "a":
+            return ApprovalDecision(approved=True)
+        elif choice == "s":
+            return ApprovalDecision(approved=True, remember="session")
+        elif choice == "d":
+            reason = input("Reason (optional): ").strip() or None
+            return ApprovalDecision(approved=False, note=reason)
 ```
+
+### Usage
+
+```python
+# Setup
+sandbox = FileSandboxImpl(config)
+memory = ApprovalMemory()
+
+approved_sandbox = ApprovalToolset(
+    inner=sandbox,
+    prompt_fn=cli_prompt,
+    memory=memory,
+)
+
+agent = Agent(
+    "openai:gpt-4",
+    toolsets=[approved_sandbox],
+)
+
+# Single continuous run - approvals happen inline
+result = agent.run_sync("Create a summary in output.txt")
+```
+
+### What Happens on Denial
+
+```
+User: "Delete the .env file"
+
+LLM: Calls write_file(path=".env", content="")
+     ↓
+ApprovalToolset: Prompts user
+     ↓
+User: Denies with "Don't touch env files"
+     ↓
+ApprovalToolset: Raises ToolError("User denied write_file: Don't touch env files")
+     ↓
+LLM: Sees error, responds naturally:
+     "I understand, I won't modify .env. Is there something else I can help with?"
+```
+
+The denial flows through as a normal tool error. The LLM handles it like any other failure.
 
 ## File Structure After Redesign
 
 ```
 llm_do/
-├── tool_approval.py         # REWRITTEN: Deferred-based approval
-│   ├── ApprovalRequest      # Our presentation type
-│   ├── ApprovalDecision     # Our decision type
-│   ├── ApprovalUI           # Protocol for UI implementations
-│   ├── ApprovalMemory       # Session caching
-│   ├── build_approval_requests()
-│   └── collect_approvals_sync()
+├── tool_approval.py         # SIMPLIFIED
+│   ├── ApprovalDecision     # User's decision
+│   ├── ApprovalMemory       # Session cache
+│   ├── ApprovalToolset      # Blocking wrapper (simplified with __getattr__)
+│   └── ApprovalAware        # Protocol for toolsets
 │
-├── cli.py                   # CLI implementation of ApprovalUI
-├── filesystem_sandbox.py    # SIMPLIFIED: Remove approval types, use ApprovalRequiredToolset
-├── execution.py             # Use run_with_approval() helper
+├── cli.py                   # cli_prompt() implementation
+├── filesystem_sandbox.py    # SIMPLIFIED: Remove inline types, implement needs_approval()
 └── ...
 ```
 
 ## Migration Steps
 
-### Phase 1: Add New Module (Non-breaking)
+### Phase 1: Simplify Types
 
-1. Create new `tool_approval.py` with deferred-based types
-2. Keep old code working alongside
-3. Add `run_with_approval()` helper
+1. Remove duplicate types from `filesystem_sandbox.py`
+2. Consolidate to single `ApprovalDecision` type
+3. Remove `ApprovalRequest`, `ApprovalContext`, `ApprovalPresentation` (not needed)
 
-### Phase 2: Update FileSandbox
+### Phase 2: Simplify Wrapper
 
-1. Remove inline approval types from `filesystem_sandbox.py`
-2. Use `ApprovalRequiredToolset` wrapper instead of custom `check_approval()`
-3. Add metadata to approval requests for better UX
+1. Replace manual delegation with `__getattr__`
+2. Replace `check_approval() -> ApprovalRequest` with `needs_approval() -> bool`
+3. Move prompt logic to injected function
 
-### Phase 3: Update Runtime
+### Phase 3: Simplify FileSandbox
 
-1. Update `execution.py` to use `run_with_approval()`
-2. Update CLI to implement `ApprovalUI` protocol
-3. Remove old `ApprovalToolset` wrapper
-
-### Phase 4: Cleanup
-
-1. Remove old approval controller code
-2. Remove `@requires_approval` decorator (use PydanticAI's native approach)
-3. Update tests
-
-## What Changes
-
-| Before | After |
-|--------|-------|
-| `ApprovalToolset` wrapper | `ApprovalRequiredToolset` (PydanticAI native) |
-| `check_approval()` method | `approval_required(func)` on toolset |
-| `ApprovalController` class | `collect_approvals_sync()` function |
-| Blocking inside `call_tool()` | Stop/resume with message history |
-| One approval at a time | Batch all pending approvals |
+1. Remove `check_approval()` method
+2. Add simple `needs_approval(tool_name, args) -> bool`
+3. Remove inline approval controller
 
 ## What We Keep
 
-- **Session caching** via `ApprovalMemory` (remember="session")
-- **Approval modes** - interactive/auto_approve/auto_deny
-- **Rich presentation** - metadata passed through for summaries, diffs
-- **Synchronous CLI UX** - `collect_approvals_sync()` blocks for user input
+- **Synchronous blocking** - right for CLI, single continuous agent run
+- **Session caching** - "approve for session" via `ApprovalMemory`
+- **Natural error handling** - denials are tool errors the LLM responds to
 
 ## What We Remove
 
-- **Custom `ApprovalToolset` wrapper** - ~200 lines
-- **Custom `ApprovalController` class** - ~100 lines
+- **`ApprovalController` class** - replaced by simple prompt function + memory
+- **`ApprovalRequest` / `ApprovalContext`** - over-engineered, just need tool name + args
+- **`ApprovalPresentation`** - presentation is the prompt function's job
+- **`check_approval()` returning rich objects** - just need `needs_approval() -> bool`
 - **Duplicate types in filesystem_sandbox.py** - ~170 lines
-- **`@requires_approval` decorator** - use PydanticAI's native approach
-- **`ApprovalAware` protocol** - not needed with deferred pattern
+- **Manual wrapper delegation** - ~50 lines
 
 ## Estimated Impact
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| tool_approval.py | 524 lines | ~150 lines | -71% |
-| filesystem_sandbox.py | 911 lines | ~600 lines | -34% |
-| Custom approval code | ~700 lines | ~150 lines | -79% |
-| PydanticAI alignment | Diverges | Native | ✓ |
+| tool_approval.py | 524 lines | ~100 lines | -81% |
+| filesystem_sandbox.py | 911 lines | ~550 lines | -40% |
+| Total approval code | ~700 lines | ~150 lines | -79% |
+| Type definitions | 6 types | 2 types | -67% |
 
-## Open Questions
+## Why Not Deferred Pattern
 
-1. **Upgrade PydanticAI version?** Current requirement is `>=0.0.13`. Need `>=1.0.0` for `DeferredToolRequests`.
+| Aspect | Deferred | Blocking |
+|--------|----------|----------|
+| Agent runs | Multiple with message history | Single continuous |
+| Denial handling | Explicit in results, model sees on next run | Tool error, model sees immediately |
+| Complexity | Loop + history management | Just blocks |
+| Fits CLI | Awkward | Natural |
+| Fits web/async | Natural | Would need threading |
 
-2. **Async version needed?** Should we also provide `collect_approvals_async()` for async runtimes?
-
-3. **Nested workers** - When worker A calls worker B, how do approvals bubble up? Need to test this flow.
+The deferred pattern makes sense for web apps where approval might come from a different user/session hours later. For an interactive CLI where the user is right there, blocking is simpler and more natural.
 
 ## References
 
-- PydanticAI Deferred Tools: https://ai.pydantic.dev/deferred-tools/
-- PydanticAI Toolsets: https://ai.pydantic.dev/toolsets/
 - Current implementation: `llm_do/tool_approval.py`
 - Current sandbox: `llm_do/filesystem_sandbox.py`
+- PydanticAI deferred tools: https://ai.pydantic.dev/deferred-tools/

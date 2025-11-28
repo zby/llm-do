@@ -6,10 +6,6 @@ This module provides a standalone, reusable filesystem sandbox for PydanticAI:
 - FileSandboxImpl implementation as a PydanticAI AbstractToolset
 - Built-in approval checking support (optional)
 
-This module is designed to be fully self-contained and can be extracted
-as a standalone PydanticAI package. It has no dependencies beyond
-pydantic and pydantic-ai.
-
 Usage (standalone):
     from filesystem_sandbox import FileSandboxImpl, FileSandboxConfig, PathConfig
 
@@ -20,57 +16,23 @@ Usage (standalone):
     agent = Agent(..., toolsets=[sandbox])
 
 Usage (with approval):
-    from filesystem_sandbox import FileSandboxImpl, ApprovalToolsetWrapper
+    from filesystem_sandbox import FileSandboxImpl
+    from tool_approval import ApprovalToolset, ApprovalMemory
 
     sandbox = FileSandboxImpl(config)
-    approved_sandbox = ApprovalToolsetWrapper(sandbox, controller)
+    approved_sandbox = ApprovalToolset(sandbox, prompt_fn=cli_prompt)
     agent = Agent(..., toolsets=[approved_sandbox])
 """
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Literal, Mapping, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import RunContext, ToolDefinition
 
-
-# ---------------------------------------------------------------------------
-# Approval Types (self-contained for standalone use)
-# ---------------------------------------------------------------------------
-
-
-class ApprovalContext(BaseModel):
-    """Context passed to check_approval.
-
-    This is the input to the approval check - it contains the tool name
-    and arguments that the LLM is trying to execute.
-    """
-
-    tool_name: str
-    args: dict[str, Any]
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class ApprovalRequest(BaseModel):
-    """Returned by check_approval when approval is needed.
-
-    The payload is used for "approve for session" matching - identical
-    payloads will be auto-approved after the first approval.
-    """
-
-    tool_name: str
-    description: str
-    payload: dict[str, Any]
-
-
-class ApprovalDecision(BaseModel):
-    """Result of an approval request."""
-
-    approved: bool
-    scope: Literal["once", "session"] = "once"
-    note: Optional[str] = None
+from .tool_approval import ApprovalMemory, ApprovalRequest
 
 
 # ---------------------------------------------------------------------------
@@ -389,14 +351,18 @@ class FileSandboxImpl(AbstractToolset[Any]):
     # Approval Interface (ApprovalAware protocol)
     # ---------------------------------------------------------------------------
 
-    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+    def check_approval(
+        self, tool_name: str, args: dict, memory: ApprovalMemory
+    ) -> Optional[ApprovalRequest]:
         """Check if the tool call requires approval.
 
         This is the single entry point for all tools in this toolset.
-        It dispatches based on ctx.tool_name.
+        It dispatches based on tool_name.
 
         Args:
-            ctx: Approval context with tool_name and args
+            tool_name: Name of the tool being called
+            args: Tool arguments
+            memory: Session approval cache for pattern-based checks
 
         Returns:
             ApprovalRequest if approval is needed, None otherwise
@@ -404,21 +370,23 @@ class FileSandboxImpl(AbstractToolset[Any]):
         Raises:
             PermissionError: If operation is blocked entirely (path not in sandbox, etc.)
         """
-        if ctx.tool_name == "write_file":
-            return self._check_write_approval(ctx)
-        elif ctx.tool_name == "read_file":
-            return self._check_read_approval(ctx)
+        if tool_name == "write_file":
+            return self._check_write_approval(tool_name, args, memory)
+        elif tool_name == "read_file":
+            return self._check_read_approval(tool_name, args, memory)
         # list_files doesn't require approval
         return None
 
-    def _check_write_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+    def _check_write_approval(
+        self, tool_name: str, args: dict, memory: ApprovalMemory
+    ) -> Optional[ApprovalRequest]:
         """Check if a write operation requires approval.
 
         Note: Path validation here is intentionally duplicated in write().
         This provides defense in depth - early rejection here gives better error
         messages, while write() remains safe as a standalone method.
         """
-        path = ctx.args.get("path", "")
+        path = args.get("path", "")
 
         try:
             sandbox_name, resolved, config = self._find_path_for(path)
@@ -429,38 +397,50 @@ class FileSandboxImpl(AbstractToolset[Any]):
         if config.mode != "rw":
             raise PermissionError(f"Path is read-only: {path}")
 
-        if config.write_approval:
-            return ApprovalRequest(
-                tool_name=ctx.tool_name,
-                description=f"Write to {sandbox_name}:{path}",
-                payload={"sandbox": sandbox_name, "path": path},
-                # Note: presentation (diff) is generated lazily by the controller
-            )
+        if not config.write_approval:
+            return None  # Pre-approved by config
 
-        return None  # Pre-approved by config
+        # Check if sandbox is already approved for this session
+        # (pattern-based: any previous write to this sandbox approves future writes)
+        sandbox_pattern = {"sandbox": sandbox_name, "path": "*"}
+        if memory.lookup(tool_name, sandbox_pattern) is not None:
+            return None  # Sandbox already approved for session
 
-    def _check_read_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
+        return ApprovalRequest(
+            tool_name=tool_name,
+            description=f"Write to {sandbox_name}:{path}",
+            payload={"sandbox": sandbox_name, "path": path},
+        )
+
+    def _check_read_approval(
+        self, tool_name: str, args: dict, memory: ApprovalMemory
+    ) -> Optional[ApprovalRequest]:
         """Check if a read operation requires approval.
 
         Note: Path validation here is intentionally duplicated in read().
         This provides defense in depth - early rejection here gives better error
         messages, while read() remains safe as a standalone method.
         """
-        path = ctx.args.get("path", "")
+        path = args.get("path", "")
 
         try:
             sandbox_name, resolved, config = self._find_path_for(path)
         except PathNotInSandboxError:
             raise PermissionError(f"Path not in any sandbox: {path}")
 
-        if config.read_approval:
-            return ApprovalRequest(
-                tool_name=ctx.tool_name,
-                description=f"Read from {sandbox_name}:{path}",
-                payload={"sandbox": sandbox_name, "path": path},
-            )
+        if not config.read_approval:
+            return None  # Pre-approved by config
 
-        return None  # Pre-approved by config
+        # Check if sandbox is already approved for this session
+        sandbox_pattern = {"sandbox": sandbox_name, "path": "*"}
+        if memory.lookup(tool_name, sandbox_pattern) is not None:
+            return None  # Sandbox already approved for session
+
+        return ApprovalRequest(
+            tool_name=tool_name,
+            description=f"Read from {sandbox_name}:{path}",
+            payload={"sandbox": sandbox_name, "path": path},
+        )
 
     # ---------------------------------------------------------------------------
     # File Operations
@@ -737,174 +717,3 @@ class FileSandboxImpl(AbstractToolset[Any]):
 
         else:
             raise ValueError(f"Unknown tool: {name}")
-
-
-# ---------------------------------------------------------------------------
-# Approval Controller (self-contained for standalone use)
-# ---------------------------------------------------------------------------
-
-
-class ApprovalController:
-    """Manages approval requests, session memory, and user prompts.
-
-    This is a self-contained approval controller for standalone use.
-    It handles:
-    - Runtime mode interpretation (interactive, approve_all, strict)
-    - Session approval caching (don't prompt twice for same operation)
-    - User prompt dispatch via callback
-
-    Usage:
-        # Auto-approve everything (for tests)
-        controller = ApprovalController(mode="approve_all")
-
-        # Reject everything (for CI/production)
-        controller = ApprovalController(mode="strict")
-
-        # Interactive mode with custom callback
-        def my_callback(request: ApprovalRequest) -> ApprovalDecision:
-            # Show UI, get user input
-            return ApprovalDecision(approved=True, scope="session")
-
-        controller = ApprovalController(mode="interactive", approval_callback=my_callback)
-    """
-
-    def __init__(
-        self,
-        mode: Literal["interactive", "approve_all", "strict"] = "interactive",
-        approval_callback: Optional[Callable[[ApprovalRequest], ApprovalDecision]] = None,
-    ):
-        self.mode = mode
-        self._approval_callback = approval_callback
-        self._session_approvals: set[tuple[str, frozenset]] = set()
-
-    def _make_key(self, request: ApprovalRequest) -> tuple[str, frozenset]:
-        """Create hashable key for session matching."""
-
-        def freeze(obj: Any) -> Any:
-            if isinstance(obj, dict):
-                return frozenset((k, freeze(v)) for k, v in sorted(obj.items()))
-            elif isinstance(obj, (list, tuple)):
-                return tuple(freeze(x) for x in obj)
-            return obj
-
-        return (request.tool_name, freeze(request.payload))
-
-    def is_session_approved(self, request: ApprovalRequest) -> bool:
-        """Check if this request is already approved for the session."""
-        return self._make_key(request) in self._session_approvals
-
-    def add_session_approval(self, request: ApprovalRequest) -> None:
-        """Add a request to the session approval cache."""
-        self._session_approvals.add(self._make_key(request))
-
-    async def request_approval(self, request: ApprovalRequest) -> ApprovalDecision:
-        """Request approval for a tool call.
-
-        This handles mode interpretation, session caching, and user prompts.
-        """
-        if self.mode == "approve_all":
-            return ApprovalDecision(approved=True)
-        if self.mode == "strict":
-            return ApprovalDecision(
-                approved=False, note=f"Strict mode: {request.tool_name} requires approval"
-            )
-
-        if self.is_session_approved(request):
-            return ApprovalDecision(approved=True, scope="session")
-
-        if self._approval_callback is None:
-            raise NotImplementedError(
-                "No approval_callback provided for interactive mode"
-            )
-
-        decision = self._approval_callback(request)
-
-        if decision.approved and decision.scope == "session":
-            self.add_session_approval(request)
-
-        return decision
-
-
-# ---------------------------------------------------------------------------
-# Approval Toolset Wrapper (self-contained for standalone use)
-# ---------------------------------------------------------------------------
-
-
-class ApprovalToolsetWrapper(AbstractToolset):
-    """Wraps a toolset with approval checking.
-
-    This intercepts tool calls and checks if they need approval before
-    executing. It works with any toolset that implements `check_approval()`.
-
-    Usage:
-        sandbox = FileSandboxImpl(config)
-        controller = ApprovalController(mode="interactive", approval_callback=...)
-        approved_sandbox = ApprovalToolsetWrapper(sandbox, controller)
-        agent = Agent(..., toolsets=[approved_sandbox])
-    """
-
-    def __init__(
-        self,
-        inner: AbstractToolset,
-        controller: ApprovalController,
-    ):
-        self._inner = inner
-        self._controller = controller
-
-    @property
-    def id(self) -> Optional[str]:
-        return getattr(self._inner, "id", None)
-
-    @property
-    def label(self) -> str:
-        return getattr(self._inner, "label", self.__class__.__name__)
-
-    @property
-    def tool_name_conflict_hint(self) -> str:
-        return getattr(
-            self._inner,
-            "tool_name_conflict_hint",
-            "Rename the tool or use a PrefixedToolset.",
-        )
-
-    async def __aenter__(self) -> "ApprovalToolsetWrapper":
-        if hasattr(self._inner, "__aenter__"):
-            await self._inner.__aenter__()
-        return self
-
-    async def __aexit__(self, *args: Any) -> Optional[bool]:
-        if hasattr(self._inner, "__aexit__"):
-            return await self._inner.__aexit__(*args)
-        return None
-
-    async def get_tools(self, ctx: Any) -> dict:
-        return await self._inner.get_tools(ctx)
-
-    async def call_tool(
-        self,
-        name: str,
-        tool_args: dict[str, Any],
-        ctx: Any,
-        tool: Any,
-    ) -> Any:
-        """Call tool with approval checking."""
-        if hasattr(self._inner, "check_approval"):
-            approval_ctx = ApprovalContext(
-                tool_name=name,
-                args=tool_args,
-                metadata={"toolset_id": self.id},
-            )
-
-            try:
-                approval_request = self._inner.check_approval(approval_ctx)
-            except PermissionError:
-                raise
-
-            if approval_request is not None:
-                decision = await self._controller.request_approval(approval_request)
-
-                if not decision.approved:
-                    note = f": {decision.note}" if decision.note else ""
-                    raise PermissionError(f"Approval denied for {name}{note}")
-
-        return await self._inner.call_tool(name, tool_args, ctx, tool)

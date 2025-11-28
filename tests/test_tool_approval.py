@@ -1,20 +1,17 @@
 """Tests for the tool_approval module.
 
 This module tests the framework-agnostic approval types and utilities:
-- @requires_approval decorator (Pattern 1)
+- @requires_approval decorator (marker-only)
 - ApprovalController session approval matching
-- simple_approval_request factory
 - ApprovalToolset wrapper
 """
 import pytest
 
 from llm_do.tool_approval import (
-    ApprovalContext,
     ApprovalController,
     ApprovalDecision,
     ApprovalRequest,
     requires_approval,
-    simple_approval_request,
 )
 
 
@@ -24,152 +21,18 @@ from llm_do.tool_approval import (
 
 
 class TestRequiresApprovalDecorator:
-    """Tests for the @requires_approval decorator (Pattern 1)."""
+    """Tests for the @requires_approval decorator (marker-only)."""
 
-    def test_basic_decorator_attaches_check_approval(self):
-        """Decorator attaches check_approval to function."""
+    def test_decorator_marks_function(self):
+        """Decorator marks function with _requires_approval attribute."""
 
-        @requires_approval()
+        @requires_approval
         def my_tool(arg: str) -> str:
             return f"done: {arg}"
 
-        # Function should have check_approval attribute
-        assert hasattr(my_tool, "check_approval")
-
-        # check_approval should return ApprovalRequest
-        ctx = ApprovalContext(tool_name="my_tool", args={"arg": "test"})
-        request = my_tool.check_approval(ctx)
-
-        assert isinstance(request, ApprovalRequest)
-        assert request.tool_name == "my_tool"
-        assert request.payload == {"arg": "test"}
-
-    def test_decorator_auto_generates_description(self):
-        """Decorator auto-generates description from function name and args."""
-
-        @requires_approval()
-        def delete_file(path: str) -> str:
-            return f"deleted: {path}"
-
-        ctx = ApprovalContext(tool_name="delete_file", args={"path": "/tmp/test.txt"})
-        request = delete_file.check_approval(ctx)
-
-        assert "delete_file" in request.description
-        assert "/tmp/test.txt" in request.description
-
-    def test_decorator_custom_description_string(self):
-        """Decorator accepts custom static description."""
-
-        @requires_approval(description="Delete a file permanently")
-        def delete_file(path: str) -> str:
-            return f"deleted: {path}"
-
-        ctx = ApprovalContext(tool_name="delete_file", args={"path": "/tmp/test.txt"})
-        request = delete_file.check_approval(ctx)
-
-        assert request.description == "Delete a file permanently"
-
-    def test_decorator_custom_description_callable(self):
-        """Decorator accepts callable for dynamic description."""
-
-        @requires_approval(description=lambda args: f"Delete {args['path']}")
-        def delete_file(path: str) -> str:
-            return f"deleted: {path}"
-
-        ctx = ApprovalContext(tool_name="delete_file", args={"path": "/tmp/test.txt"})
-        request = delete_file.check_approval(ctx)
-
-        assert request.description == "Delete /tmp/test.txt"
-
-    def test_decorator_exclude_keys(self):
-        """Decorator excludes specified keys from payload."""
-
-        @requires_approval(exclude_keys={"content", "secret"})
-        def write_file(path: str, content: str, secret: str = "") -> str:
-            return f"written: {path}"
-
-        ctx = ApprovalContext(
-            tool_name="write_file",
-            args={"path": "/tmp/test.txt", "content": "sensitive data", "secret": "key123"},
-        )
-        request = write_file.check_approval(ctx)
-
-        # Only path should be in payload
-        assert request.payload == {"path": "/tmp/test.txt"}
-        assert "content" not in request.payload
-        assert "secret" not in request.payload
-
-    def test_decorator_custom_payload(self):
-        """Decorator accepts custom payload generator."""
-
-        @requires_approval(payload=lambda args: {"normalized_path": args["path"].lower()})
-        def access_file(path: str) -> str:
-            return f"accessed: {path}"
-
-        ctx = ApprovalContext(tool_name="access_file", args={"path": "/TMP/Test.TXT"})
-        request = access_file.check_approval(ctx)
-
-        assert request.payload == {"normalized_path": "/tmp/test.txt"}
-
-    def test_decorated_function_still_works(self):
-        """Decorated function still executes normally."""
-
-        @requires_approval()
-        def add_numbers(a: int, b: int) -> int:
-            return a + b
-
-        # Function should still work
-        result = add_numbers(2, 3)
-        assert result == 5
-
-    def test_decorator_preserves_function_metadata(self):
-        """Decorator preserves function name and docstring."""
-
-        @requires_approval()
-        def my_documented_tool(x: int) -> int:
-            """This is my tool's docstring."""
-            return x * 2
-
-        assert my_documented_tool.__name__ == "my_documented_tool"
-        assert "docstring" in my_documented_tool.__doc__
-
-
-# ---------------------------------------------------------------------------
-# simple_approval_request factory tests
-# ---------------------------------------------------------------------------
-
-
-class TestSimpleApprovalRequest:
-    """Tests for the simple_approval_request factory function."""
-
-    def test_basic_request(self):
-        """Factory creates basic approval request."""
-        request = simple_approval_request("my_tool", {"arg1": "value1", "arg2": 42})
-
-        assert request.tool_name == "my_tool"
-        assert request.payload == {"arg1": "value1", "arg2": 42}
-        assert "my_tool" in request.description
-
-    def test_custom_description(self):
-        """Factory accepts custom description."""
-        request = simple_approval_request(
-            "send_email",
-            {"to": "user@example.com"},
-            description="Send an email",
-        )
-
-        assert request.description == "Send an email"
-
-    def test_exclude_keys(self):
-        """Factory excludes specified keys from payload."""
-        request = simple_approval_request(
-            "write_file",
-            {"path": "/tmp/file.txt", "content": "secret data"},
-            exclude_keys={"content"},
-        )
-
-        assert request.payload == {"path": "/tmp/file.txt"}
-        assert "content" not in request.payload
+        # Function should have _requires_approval attribute
+        assert hasattr(my_tool, "_requires_approval")
+        assert my_tool._requires_approval is True
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +76,7 @@ class TestApprovalController:
 
         def callback(request: ApprovalRequest) -> ApprovalDecision:
             approvals.append(request)
-            return ApprovalDecision(approved=True, scope="session")
+            return ApprovalDecision(approved=True, remember="session")
 
         controller = ApprovalController(mode="interactive", approval_callback=callback)
         request = ApprovalRequest(
@@ -238,7 +101,7 @@ class TestApprovalController:
 
         def callback(request: ApprovalRequest) -> ApprovalDecision:
             approvals.append(request)
-            return ApprovalDecision(approved=True, scope="session")
+            return ApprovalDecision(approved=True, remember="session")
 
         controller = ApprovalController(mode="interactive", approval_callback=callback)
 
@@ -259,13 +122,13 @@ class TestApprovalController:
         # Both should trigger callback (different payloads)
         assert len(approvals) == 2
 
-    def test_session_approval_once_scope_not_cached(self):
-        """scope='once' approvals are not cached."""
+    def test_session_approval_remember_none_not_cached(self):
+        """remember='none' approvals are not cached."""
         approvals = []
 
         def callback(request: ApprovalRequest) -> ApprovalDecision:
             approvals.append(request)
-            return ApprovalDecision(approved=True, scope="once")
+            return ApprovalDecision(approved=True, remember="none")
 
         controller = ApprovalController(mode="interactive", approval_callback=callback)
         request = ApprovalRequest(
@@ -277,14 +140,14 @@ class TestApprovalController:
         controller.request_approval_sync(request)
         controller.request_approval_sync(request)
 
-        # Both calls should trigger callback (once scope doesn't cache)
+        # Both calls should trigger callback (remember='none' doesn't cache)
         assert len(approvals) == 2
 
     def test_clear_session_approvals(self):
         """clear_session_approvals removes all cached approvals."""
 
         def callback(request: ApprovalRequest) -> ApprovalDecision:
-            return ApprovalDecision(approved=True, scope="session")
+            return ApprovalDecision(approved=True, remember="session")
 
         controller = ApprovalController(mode="interactive", approval_callback=callback)
         request = ApprovalRequest(
@@ -310,27 +173,3 @@ class TestApprovalController:
 
         with pytest.raises(NotImplementedError, match="No approval_callback"):
             controller.request_approval_sync(request)
-
-    def test_payload_with_nested_structures(self):
-        """Session matching works with nested payload structures."""
-        approvals = []
-
-        def callback(request: ApprovalRequest) -> ApprovalDecision:
-            approvals.append(request)
-            return ApprovalDecision(approved=True, scope="session")
-
-        controller = ApprovalController(mode="interactive", approval_callback=callback)
-        request = ApprovalRequest(
-            tool_name="complex_tool",
-            description="Complex operation",
-            payload={
-                "config": {"nested": {"deeply": "value"}},
-                "items": [1, 2, 3],
-            },
-        )
-
-        controller.request_approval_sync(request)
-        controller.request_approval_sync(request)
-
-        # Should cache even with nested structures
-        assert len(approvals) == 1

@@ -191,7 +191,9 @@ def prepare_agent_execution(
     if context.sandbox is not None:
         # Wrap sandbox with approval checking using unified controller
         approval_sandbox = ApprovalToolset(
-            context.sandbox, context.approval_controller
+            inner=context.sandbox,
+            prompt_fn=context.approval_controller.approval_callback,
+            memory=context.approval_controller.memory,
         )
         agent_kwargs["toolsets"] = [approval_sandbox]  # Sandbox provides read_file, write_file, list_files
 

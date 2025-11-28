@@ -109,7 +109,7 @@ When the user selects "approve for session", the controller caches the approval:
 ```python
 # Check if already approved
 if controller.is_session_approved(request):
-    return ApprovalDecision(approved=True, scope="session")
+    return ApprovalDecision(approved=True, remember="session")
 
 # Add to session cache
 controller.add_session_approval(request)

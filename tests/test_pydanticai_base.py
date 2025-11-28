@@ -185,7 +185,7 @@ def test_sandbox_write_requires_approval(tmp_path, registry, tool_calling_model_
 
     reject_controller = ApprovalController(mode="interactive", approval_callback=reject_callback)
 
-    with pytest.raises(PermissionError, match="Approval denied for write_file: Test rejection"):
+    with pytest.raises(PermissionError, match="User denied write_file: Test rejection"):
         run_worker(
             registry=registry,
             worker="writer",
@@ -567,7 +567,7 @@ def test_strict_mode_rejects(tmp_path, registry, tool_calling_model_cls):
         ]
     )
 
-    with pytest.raises(PermissionError, match="Approval denied for write_file.*Strict mode"):
+    with pytest.raises(PermissionError, match="User denied write_file.*Strict mode"):
         run_worker(
             registry=registry,
             worker="writer",

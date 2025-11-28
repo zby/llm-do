@@ -3,9 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_do import WorkerDefinition, WorkerRegistry, WorkerCreationDefaults
+from llm_do import ApprovalController, WorkerDefinition, WorkerRegistry, WorkerCreationDefaults
 from llm_do.runtime import _prepare_worker_context
-from llm_do.base import approve_all_callback
 
 
 def test_shell_cwd_none_by_default(tmp_path):
@@ -27,7 +26,7 @@ def test_shell_cwd_none_by_default(tmp_path):
         caller_effective_model=None,
         cli_model=None,
         creation_defaults=WorkerCreationDefaults(),
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
         message_callback=None,
     )
 
@@ -58,7 +57,7 @@ def test_shell_cwd_resolves_relative_path(tmp_path):
         caller_effective_model=None,
         cli_model=None,
         creation_defaults=WorkerCreationDefaults(),
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
         message_callback=None,
     )
 
@@ -90,7 +89,7 @@ def test_shell_cwd_accepts_absolute_path(tmp_path):
         caller_effective_model=None,
         cli_model=None,
         creation_defaults=WorkerCreationDefaults(),
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
         message_callback=None,
     )
 
@@ -132,7 +131,7 @@ def test_shell_cwd_can_be_overridden_via_set(tmp_path):
         caller_effective_model=None,
         cli_model=None,
         creation_defaults=WorkerCreationDefaults(),
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
         message_callback=None,
     )
 
@@ -170,7 +169,7 @@ def test_shell_cwd_dot_means_current_directory(tmp_path):
         caller_effective_model=None,
         cli_model=None,
         creation_defaults=WorkerCreationDefaults(),
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
         message_callback=None,
     )
 

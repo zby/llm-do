@@ -43,8 +43,6 @@ from .worker_sandbox import Sandbox, SandboxConfig
 from .types import (
     AgentExecutionContext,
     AgentRunner,
-    ApprovalCallback,
-    ApprovalDecision,
     MessageCallback,
     ModelLike,
     OutputSchemaResolver,
@@ -56,9 +54,10 @@ from .types import (
     WorkerDefinition,
     WorkerRunResult,
     WorkerSpec,
-    approve_all_callback,
-    strict_mode_callback,
 )
+
+# Re-export approval types from unified module
+from .tool_approval import ApprovalController, ApprovalDecision
 
 # Re-export shell module
 from .shell import (
@@ -70,9 +69,6 @@ from .shell import (
 
 # Re-export registry
 from .registry import WorkerRegistry
-
-# Re-export approval types from unified module
-from .tool_approval import ApprovalController
 
 # Re-export protocols
 from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
@@ -94,11 +90,8 @@ from .runtime import (
 __all__: Iterable[str] = [
     "AgentRunner",
     "AttachmentPayload",
-    "ApprovalCallback",
     "ApprovalController",
     "ApprovalDecision",
-    "approve_all_callback",
-    "strict_mode_callback",
     "AttachmentPolicy",
     "SandboxConfig",
     "WorkerDefinition",

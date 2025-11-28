@@ -29,10 +29,9 @@ import pytest
 from pydantic_ai.models.test import TestModel
 
 from llm_do import (
+    ApprovalController,
     WorkerRegistry,
-    approve_all_callback,
     run_worker,
-    strict_mode_callback,
 )
 from tests.tool_calling_model import ToolCallingModel
 
@@ -161,7 +160,7 @@ def test_save_note_example(approvals_demo_registry, tool_calling_model_cls):
         worker="save_note",
         input_data={"note": "Test note from integration test"},
         cli_model=model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     # Verify the worker executed successfully
@@ -201,7 +200,7 @@ def test_save_note_with_string_input(approvals_demo_registry, tool_calling_model
         worker="save_note",
         input_data="Plain string note",
         cli_model=model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     assert result is not None
@@ -242,7 +241,7 @@ def test_save_note_strict_mode_blocks_write(approvals_demo_registry, tool_callin
             worker="save_note",
             input_data="This should be blocked",
             cli_model=model,
-            approval_callback=strict_mode_callback,
+            approval_controller=ApprovalController(mode="strict"),
         )
 
     # Verify no file was written (it was deleted before the test)
@@ -353,7 +352,7 @@ def test_pitch_orchestrator_example(pitchdeck_eval_registry):
         worker="pitch_orchestrator",
         input_data="Evaluate all pitch decks",
         cli_model=model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     assert result is not None

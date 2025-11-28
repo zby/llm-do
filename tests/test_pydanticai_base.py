@@ -7,7 +7,6 @@ from pydantic_ai.messages import BinaryContent, ModelRequest, ModelResponse, Tex
 from pydantic_ai.models import Model
 
 from llm_do import (
-    ApprovalCallback,
     ApprovalController,
     ApprovalDecision,
     WorkerContext,
@@ -19,6 +18,7 @@ from llm_do import (
     create_worker,
     run_worker,
 )
+from llm_do.tool_approval import ApprovalRequest
 from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
 from llm_do.filesystem_sandbox import PathConfig
 
@@ -180,8 +180,10 @@ def test_sandbox_write_requires_approval(tmp_path, registry, tool_calling_model_
         ]
     )
 
-    def reject_callback(tool_name, payload, reason):
+    def reject_callback(request: ApprovalRequest) -> ApprovalDecision:
         return ApprovalDecision(approved=False, note="Test rejection")
+
+    reject_controller = ApprovalController(mode="interactive", approval_callback=reject_callback)
 
     with pytest.raises(PermissionError, match="Approval denied for write_file: Test rejection"):
         run_worker(
@@ -189,7 +191,7 @@ def test_sandbox_write_requires_approval(tmp_path, registry, tool_calling_model_
             worker="writer",
             input_data="",
             cli_model=mock_model,
-            approval_callback=reject_callback,
+            approval_controller=reject_controller,
         )
 
     assert not (sandbox_path / "note.txt").exists()
@@ -498,10 +500,8 @@ def test_run_worker_without_model_errors(registry):
         )
 
 
-def test_approve_all_callback_mode(tmp_path, registry, tool_calling_model_cls):
+def test_approve_all_mode(tmp_path, registry, tool_calling_model_cls):
     """Test Story 6: --approve-all flag auto-approves all tools."""
-    from llm_do import approve_all_callback
-
     sandbox_path = tmp_path / "out"
     path_cfg = PathConfig(
         root=str(sandbox_path),
@@ -532,7 +532,7 @@ def test_approve_all_callback_mode(tmp_path, registry, tool_calling_model_cls):
         worker="writer",
         input_data="",
         cli_model=mock_model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     # Tool executed successfully
@@ -540,10 +540,8 @@ def test_approve_all_callback_mode(tmp_path, registry, tool_calling_model_cls):
     assert (sandbox_path / "note.txt").read_text() == "hello"
 
 
-def test_strict_mode_callback_rejects(tmp_path, registry, tool_calling_model_cls):
+def test_strict_mode_rejects(tmp_path, registry, tool_calling_model_cls):
     """Test Story 7: --strict flag rejects all non-preapproved tools."""
-    from llm_do import strict_mode_callback
-
     sandbox_path = tmp_path / "out"
     path_cfg = PathConfig(
         root=str(sandbox_path),
@@ -569,13 +567,13 @@ def test_strict_mode_callback_rejects(tmp_path, registry, tool_calling_model_cls
         ]
     )
 
-    with pytest.raises(PermissionError, match="Strict mode.*write_file"):
+    with pytest.raises(PermissionError, match="Approval denied for write_file.*Strict mode"):
         run_worker(
             registry=registry,
             worker="writer",
             input_data="",
             cli_model=mock_model,
-            approval_callback=strict_mode_callback,
+            approval_controller=ApprovalController(mode="strict"),
         )
 
     # Tool did not execute

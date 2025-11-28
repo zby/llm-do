@@ -256,7 +256,7 @@ def test_cli_uses_interactive_approval_when_tty(tmp_path, monkeypatch):
     sentinel = object()
 
     with patch(
-        "llm_do.cli._build_interactive_approval_callback",
+        "llm_do.cli._build_interactive_approval_controller",
         return_value=sentinel,
     ) as mock_builder, patch("llm_do.cli.run_worker") as mock_run:
         mock_run.return_value = WorkerRunResult(output="ok")
@@ -264,7 +264,7 @@ def test_cli_uses_interactive_approval_when_tty(tmp_path, monkeypatch):
         assert main(["worker", "hello"]) == 0
 
     mock_builder.assert_called_once()
-    assert mock_run.call_args.kwargs["approval_callback"] is sentinel
+    assert mock_run.call_args.kwargs["approval_controller"] is sentinel
 
 
 def test_cli_requires_tty_for_interactive_mode(tmp_path, monkeypatch, capsys):

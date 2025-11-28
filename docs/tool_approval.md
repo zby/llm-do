@@ -129,8 +129,10 @@ decision = await controller.request_approval(request)
 # Sync - for use in sync contexts
 decision = controller.request_approval_sync(request)
 
-# Get legacy callback for run_worker() compatibility
-legacy_callback = controller.get_legacy_callback()
+# Session approval management
+controller.is_session_approved(request)  # Check if already approved
+controller.add_session_approval(request)  # Add to session cache
+controller.clear_session_approvals()      # Clear all cached approvals
 ```
 
 ## Integration Patterns

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Type, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
@@ -166,30 +166,6 @@ class WorkerRunResult(BaseModel):
 # ---------------------------------------------------------------------------
 # Type aliases and callbacks
 # ---------------------------------------------------------------------------
-
-
-ApprovalCallback = Callable[[str, Mapping[str, Any], Optional[str]], ApprovalDecision]
-
-
-def approve_all_callback(
-    tool_name: str, payload: Mapping[str, Any], reason: Optional[str]
-) -> ApprovalDecision:
-    """Default callback that auto-approves all requests (for tests/non-interactive)."""
-    return ApprovalDecision(approved=True)
-
-
-def strict_mode_callback(
-    tool_name: str, payload: Mapping[str, Any], reason: Optional[str]
-) -> ApprovalDecision:
-    """Callback that rejects all approval-required tools (strict/production mode).
-
-    Use with --strict flag to ensure only pre-approved tools execute.
-    Provides "deny by default" security posture.
-    """
-    return ApprovalDecision(
-        approved=False,
-        note=f"Strict mode: tool '{tool_name}' not pre-approved in worker config"
-    )
 
 
 OutputSchemaResolver = Callable[[WorkerDefinition], Optional[Type[BaseModel]]]

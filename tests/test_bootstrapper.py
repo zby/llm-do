@@ -14,7 +14,7 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models import Model
 
 import llm_do.runtime
-from llm_do import WorkerRegistry, WorkerRunResult, approve_all_callback, run_worker
+from llm_do import ApprovalController, WorkerRegistry, WorkerRunResult, run_worker
 
 
 class SequentialToolCallingModel(Model):
@@ -168,7 +168,7 @@ Moderate investor interest likely.
             worker="worker_bootstrapper",
             input_data="Analyze pitch decks and save evaluations",
             cli_model=bootstrapper_model,
-            approval_callback=approve_all_callback,
+            approval_controller=ApprovalController(mode="approve_all"),
         )
 
         assert result is not None
@@ -207,7 +207,7 @@ def test_bootstrapper_lists_files_correctly(bootstrapper_registry):
         worker="worker_bootstrapper",
         input_data="List files in input",
         cli_model=model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     assert result is not None
@@ -235,7 +235,7 @@ def test_bootstrapper_creates_worker(bootstrapper_registry):
         worker="worker_bootstrapper",
         input_data="Create a test analyzer worker",
         cli_model=model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     assert result is not None
@@ -273,7 +273,7 @@ def test_bootstrapper_writes_output(bootstrapper_registry):
         worker="worker_bootstrapper",
         input_data="Write a test file",
         cli_model=model,
-        approval_callback=approve_all_callback,
+        approval_controller=ApprovalController(mode="approve_all"),
     )
 
     assert result is not None

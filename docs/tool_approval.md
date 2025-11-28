@@ -1,14 +1,14 @@
 # Tool Approval System
 
-The tool approval system provides framework-agnostic approval handling for LLM agent tools. It intercepts tool calls, checks if approval is needed, and routes through an approval controller before execution.
+The tool approval system provides framework-agnostic approval handling for LLM agent tools. It intercepts tool calls, checks if approval is needed, and prompts the user before execution.
 
 ## Overview
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Approval Layer                                          │
+│  Approval Layer (ApprovalToolset)                        │
 │  - Checks if operation needs approval                    │
-│  - Prompts user (interactive) or auto-decides (modes)   │
+│  - Prompts user (via prompt_fn) or auto-decides (modes) │
 │  - Session memory for "approve for session"              │
 └─────────────────────────────────────────────────────────┘
                             │
@@ -27,54 +27,62 @@ All types are defined in `llm_do.tool_approval`:
 
 ```python
 from llm_do.tool_approval import (
-    ApprovalContext,
     ApprovalRequest,
     ApprovalDecision,
+    ApprovalMemory,
     ApprovalController,
     ApprovalToolset,
     requires_approval,
-    simple_approval_request,
 )
-```
-
-### ApprovalContext
-
-Context passed to `check_approval()` methods:
-
-```python
-class ApprovalContext(BaseModel):
-    tool_name: str              # Name of the tool being called
-    args: dict[str, Any]        # Arguments passed to the tool
-    metadata: dict[str, Any]    # Framework-specific context (run_id, session_id, etc.)
 ```
 
 ### ApprovalRequest
 
-Returned by tools to request user approval:
+Returned by `check_approval()` to request user approval:
 
 ```python
 class ApprovalRequest(BaseModel):
     tool_name: str                          # What the operator sees
     description: str                        # Human-readable description
     payload: dict[str, Any]                 # Fingerprint for session matching
-    presentation: Optional[ApprovalPresentation] = None  # Rich UI hints (future)
-    group_id: Optional[str] = None          # For batch approvals (future)
+    presentation: Optional[ApprovalPresentation] = None  # Rich UI hints
 ```
 
 ### ApprovalDecision
 
-Returned by the approval controller after user interaction:
+Returned after user interaction:
 
 ```python
 class ApprovalDecision(BaseModel):
     approved: bool                          # Whether to proceed
-    scope: Literal["once", "session"] = "once"  # "session" = don't ask again
     note: Optional[str] = None              # Reason for rejection or comment
+    remember: Literal["none", "session"] = "none"  # "session" = don't ask again
 ```
+
+### ApprovalMemory
+
+Session cache to avoid re-prompting for identical calls:
+
+```python
+class ApprovalMemory:
+    def lookup(self, tool_name: str, args: dict) -> Optional[ApprovalDecision]:
+        """Look up a previous approval decision."""
+        ...
+
+    def store(self, tool_name: str, args: dict, decision: ApprovalDecision) -> None:
+        """Store an approval decision for session reuse."""
+        ...
+
+    def clear(self) -> None:
+        """Clear all session approvals."""
+        ...
+```
+
+Session matching uses `(tool_name, payload)` as the key. Tools control what goes in `payload` to determine matching granularity.
 
 ## ApprovalController
 
-The controller manages approval requests, session memory, and user prompts.
+The controller manages approval mode and provides prompt functions.
 
 ### Modes
 
@@ -102,74 +110,43 @@ controller = ApprovalController(mode="strict")
 | `ApprovalRequest` | Prompt user | Auto-approve | Auto-deny |
 | Raises `PermissionError` | Block | Block | Block |
 
-### Session Approval
-
-When the user selects "approve for session", the controller caches the approval:
-
-```python
-# Check if already approved
-if controller.is_session_approved(request):
-    return ApprovalDecision(approved=True, remember="session")
-
-# Add to session cache
-controller.add_session_approval(request)
-
-# Clear all session approvals
-controller.clear_session_approvals()
-```
-
-Session matching uses `(tool_name, payload)` as the key. Tools control what goes in `payload` to determine matching granularity.
-
 ### Methods
 
 ```python
-# Async - for use in async contexts
-decision = await controller.request_approval(request)
+# Check if already approved for session
+controller.is_session_approved(request)
 
-# Sync - for use in sync contexts
-decision = controller.request_approval_sync(request)
+# Clear all session approvals
+controller.clear_session_approvals()
 
-# Session approval management
-controller.is_session_approved(request)  # Check if already approved
-controller.add_session_approval(request)  # Add to session cache
-controller.clear_session_approvals()      # Clear all cached approvals
+# Get approval callback for ApprovalToolset
+controller.approval_callback  # Returns Callable[[ApprovalRequest], ApprovalDecision]
+
+# Get memory for ApprovalToolset
+controller.memory  # Returns ApprovalMemory
 ```
 
 ## Integration Patterns
 
 ### Pattern 1: @requires_approval Decorator
 
-For standalone tool functions:
+For standalone tool functions, use the marker decorator:
 
 ```python
 from llm_do.tool_approval import requires_approval
 
-@requires_approval()
+@requires_approval
 def send_email(to: str, subject: str, body: str) -> str:
     """Send an email - requires user approval."""
     return f"Email sent to {to}"
 
-# With custom description
-@requires_approval(
-    description=lambda args: f"Send email to {args['to']}: {args['subject']}",
-)
-def send_email(to: str, subject: str, body: str) -> str:
-    ...
-
-# Exclude sensitive data from payload
-@requires_approval(exclude_keys={"body", "password"})
-def send_email(to: str, subject: str, body: str) -> str:
-    ...
-
-# Custom payload generator
-@requires_approval(
-    payload=lambda args: {"recipient": args["to"]},
-)
-def send_email(to: str, subject: str, body: str) -> str:
+@requires_approval
+def delete_file(path: str) -> str:
+    """Delete a file - requires user approval."""
     ...
 ```
 
-The decorator attaches `check_approval()` to the function. The runtime discovers it via `hasattr(func, 'check_approval')`.
+The decorator marks the function as requiring approval. `ApprovalToolset` detects this marker and creates a basic `ApprovalRequest` from the function name and args.
 
 ### Pattern 2: Toolset-level check_approval()
 
@@ -177,13 +154,28 @@ For class-based toolsets (like `FileSandboxImpl`):
 
 ```python
 class MyToolset:
-    def check_approval(self, ctx: ApprovalContext) -> Optional[ApprovalRequest]:
-        """Single entry point for all tools in this toolset."""
-        if ctx.tool_name == "dangerous_operation":
+    def check_approval(
+        self, tool_name: str, args: dict, memory: ApprovalMemory
+    ) -> Optional[ApprovalRequest]:
+        """Single entry point for all tools in this toolset.
+
+        Args:
+            tool_name: Name of the tool being called
+            args: Tool arguments
+            memory: Session approval cache - can check for pattern matches
+
+        Returns:
+            None - No approval needed, proceed with execution
+            ApprovalRequest - Approval required before execution
+
+        Raises:
+            PermissionError - Operation is blocked entirely
+        """
+        if tool_name == "dangerous_operation":
             return ApprovalRequest(
-                tool_name=ctx.tool_name,
+                tool_name=tool_name,
                 description=f"Execute dangerous operation",
-                payload=ctx.args,
+                payload=args,
             )
         return None  # No approval needed for other tools
 
@@ -199,24 +191,36 @@ class MyToolset:
 Wraps any PydanticAI toolset with approval checking:
 
 ```python
-from llm_do.tool_approval import ApprovalToolset, ApprovalController
+from llm_do.tool_approval import ApprovalToolset, ApprovalController, ApprovalMemory
 from pydantic_ai import Agent
 
 # Create inner toolset
 sandbox = FileSandboxImpl(config)
 
-# Wrap with approval
+# Option A: Use ApprovalController for mode-based approval
 controller = ApprovalController(mode="interactive", approval_callback=my_callback)
-approval_sandbox = ApprovalToolset(sandbox, controller)
+approval_sandbox = ApprovalToolset(
+    inner=sandbox,
+    prompt_fn=controller.approval_callback,
+    memory=controller.memory,
+)
+
+# Option B: Use prompt function directly
+memory = ApprovalMemory()
+approval_sandbox = ApprovalToolset(
+    inner=sandbox,
+    prompt_fn=cli_prompt,
+    memory=memory,
+)
 
 # Use with agent
 agent = Agent(..., toolsets=[approval_sandbox])
 ```
 
 The `ApprovalToolset`:
-1. Checks if inner toolset has `check_approval()`
+1. Checks if inner toolset has `check_approval(tool_name, args, memory)`
 2. Calls it before each tool execution
-3. Routes `ApprovalRequest` through the controller
+3. Prompts via `prompt_fn` if approval required
 4. Raises `PermissionError` if denied
 
 ## Configuration
@@ -277,24 +281,9 @@ shell_rules:
     approval_required: true
 ```
 
-## Factory Function
-
-For simple approval requests:
-
-```python
-from llm_do.tool_approval import simple_approval_request
-
-request = simple_approval_request(
-    tool_name="my_tool",
-    args={"path": "/data/file.txt", "content": "..."},
-    description="Write to file",           # Optional, auto-generated if None
-    exclude_keys={"content"},              # Optional, exclude from payload
-)
-```
-
 ## Usage in Tools
 
-### Reading Context
+Tools typically don't need to handle approvals directly - they implement `check_approval()` and let `ApprovalToolset` handle the prompting. However, for manual approval handling:
 
 ```python
 from pydantic_ai import RunContext
@@ -370,13 +359,12 @@ payload={"path": path}
 
 ```
 llm_do/tool_approval.py
-├── ApprovalPresentation    # Rich UI hints (future)
-├── ApprovalContext         # Context for check_approval()
-├── ApprovalRequest         # Returned to request approval
-├── ApprovalDecision        # Returned after user interaction
-├── ApprovalAware           # Protocol for approval-aware tools
-├── ApprovalController      # Manages approvals and session memory
-├── ApprovalToolset         # PydanticAI toolset wrapper
-├── requires_approval()     # Decorator for tool functions
-└── simple_approval_request()  # Factory for basic requests
+├── ApprovalPresentation    # Rich UI hints (diffs, syntax highlighting)
+├── ApprovalRequest         # Returned by check_approval()
+├── ApprovalDecision        # User's decision
+├── ApprovalMemory          # Session cache for "approve for session"
+├── ApprovalAware           # Protocol for approval-aware toolsets
+├── ApprovalController      # Mode-based prompt function provider
+├── ApprovalToolset         # PydanticAI toolset wrapper (uses __getattr__ delegation)
+└── requires_approval       # Marker decorator for functions
 ```

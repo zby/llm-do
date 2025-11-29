@@ -1,11 +1,13 @@
 # Tool Approval Redesign
 
-**Status:** Phase 0 Complete
+**Status:** ✅ Complete
 **Date:** 2025-11-28
 
-## Completed: Phase 0 - Remove Legacy Callback Pattern
+## Implementation Complete
 
-The legacy `ApprovalCallback` pattern has been removed:
+The tool approval system has been fully redesigned. All phases have been implemented:
+
+### Phase 0 - Remove Legacy Callback Pattern ✅
 
 - `run_worker()` now accepts `approval_controller: ApprovalController` directly
 - Removed `ApprovalCallback` type alias and `approve_all_callback`/`strict_mode_callback` functions
@@ -13,15 +15,30 @@ The legacy `ApprovalCallback` pattern has been removed:
 - CLI now creates `ApprovalController` directly instead of building callbacks
 - Worker delegation passes controllers directly (no more round-trip conversion)
 
-This eliminates the wasteful conversion chain that was:
-```
-CLI callback -> ApprovalController -> get_legacy_callback() -> child's ApprovalController
-```
+### Phase 1 - Simplify Types ✅
 
-Now it's simply:
-```
-CLI ApprovalController -> child inherits same controller
-```
+- Removed `ApprovalContext` - `check_approval()` now takes direct args: `(tool_name, args, memory)`
+- Consolidated types in `tool_approval.py` - removed duplicates from `filesystem_sandbox.py`
+- Changed `ApprovalDecision.scope` to `ApprovalDecision.remember` with values `"none"` / `"session"`
+- Added `ApprovalMemory` class for session caching
+
+### Phase 2 - Simplify Wrapper ✅
+
+- `ApprovalToolset` now uses `__getattr__` for delegation (removed ~50 lines of boilerplate)
+- Takes `prompt_fn: Callable[[ApprovalRequest], ApprovalDecision]` instead of controller
+- Memory is passed to `check_approval()` for pattern-based session approvals
+
+### Phase 3 - Simplify FileSandbox ✅
+
+- `FileSandboxImpl.check_approval()` uses new signature with `memory` parameter
+- Inline approval types removed
+
+### Migration from Old API
+
+- `ApprovalDecision.scope` → `ApprovalDecision.remember`
+- `"once"` → `"none"` (don't remember)
+- `check_approval(ctx: ApprovalContext)` → `check_approval(tool_name, args, memory)`
+- `@requires_approval(description=..., payload=...)` → `@requires_approval` (marker only)
 
 ---
 

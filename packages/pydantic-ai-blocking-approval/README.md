@@ -2,14 +2,44 @@
 
 Synchronous, blocking approval system for PydanticAI agent tools.
 
-## Overview
+## Why This Package?
 
-This package provides human-in-the-loop approval handling for LLM agent tools. Unlike deferred/async approval patterns (like PydanticAI's `DeferredToolRequests`), this system **blocks execution** until the user decides, making it ideal for CLI and interactive use cases where the user is present.
+PydanticAI provides `DeferredToolRequests` for human-in-the-loop approval, but it's designed for **asynchronous, out-of-band** approval flows. This package provides an alternative for **synchronous, blocking** approval - a fundamentally different pattern.
 
-| Pattern | Use Case |
-|---------|----------|
-| **Deferred (async)** | Web apps, APIs, out-of-band approvals via webhooks |
-| **Blocking (this package)** | CLI tools, interactive sessions, user present at terminal |
+### PydanticAI's Deferred Tools (async/out-of-band)
+
+```
+Agent Run → Returns with pending tools → [Time passes] → User approves via API/webhook → Resume agent
+```
+
+The deferred pattern is ideal when:
+- User isn't present during execution (web apps, background jobs)
+- Approval happens out-of-band (email links, admin dashboards, Slack buttons)
+- Hours or days may pass between request and approval
+- You need to serialize/persist the pending state
+
+### Blocking Approval (this package)
+
+```
+Agent Run → Tool needs approval → [Blocks] → User prompted immediately → [Decides] → Execution continues
+```
+
+The blocking pattern is ideal when:
+- User is present at the terminal (CLI tools, interactive sessions)
+- Approval must happen immediately, inline with execution
+- The agent run should complete in one continuous session
+- You want simple "approve and continue" UX without state management
+
+### Comparison
+
+| Aspect | Deferred (PydanticAI) | Blocking (this package) |
+|--------|----------------------|-------------------------|
+| **Execution** | Agent run completes, returns pending | Agent run pauses mid-execution |
+| **Timing** | Minutes to days between request/approval | Immediate, synchronous |
+| **User presence** | Not required during execution | Must be present |
+| **State** | Must serialize/persist pending state | No state management needed |
+| **Resume** | Explicit resume call with decisions | Automatic after user input |
+| **Best for** | Web apps, APIs, async workflows | CLI tools, interactive sessions |
 
 ## Installation
 

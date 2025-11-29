@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pydantic-ai-blocking-approval"
+version = "0.1.0"
+description = "Synchronous, blocking approval system for PydanticAI agent tools"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Zbigniew Braniecki" },
+]
+keywords = [
+    "pydantic-ai",
+    "llm",
+    "agent",
+    "tools",
+    "approval",
+    "human-in-the-loop",
+    "hitl",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-ai>=0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.urls]
+Homepage = "https://github.com/zby/pydantic-ai-blocking-approval"
+Repository = "https://github.com/zby/pydantic-ai-blocking-approval"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pydantic_ai_blocking_approval"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

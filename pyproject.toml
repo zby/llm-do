@@ -23,6 +23,7 @@ dependencies = [
     "pydantic-ai>=0.0.13",
     "pydantic>=2.7",
     "pydantic-ai-blocking-approval>=0.1.0",
+    "pydantic-ai-filesystem-sandbox>=0.1.0",
     "PyYAML",
     "jinja2>=3.0",
     "rich>=13.0",
@@ -66,3 +67,7 @@ markers = [
     "live: tests that hit real external services",
     "custom_deps: tests that require optional/custom dependency extras",
 ]
+
+[tool.uv.sources]
+pydantic-ai-blocking-approval = { path = "../pydantic-ai-blocking-approval", editable = true }
+pydantic-ai-filesystem-sandbox = { path = "../pydantic-ai-filesystem-sandbox", editable = true }

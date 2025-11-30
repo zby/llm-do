@@ -8,7 +8,7 @@ See docs/notes/tool_approval_redesign.md for full design details.
 
 # Re-export everything from the standalone package
 from pydantic_ai_blocking_approval import (
-    ApprovalAware,
+    ApprovalConfigurable,
     ApprovalController,
     ApprovalDecision,
     ApprovalMemory,
@@ -19,7 +19,7 @@ from pydantic_ai_blocking_approval import (
 )
 
 __all__ = [
-    "ApprovalAware",
+    "ApprovalConfigurable",
     "ApprovalController",
     "ApprovalDecision",
     "ApprovalMemory",

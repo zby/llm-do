@@ -25,7 +25,7 @@ from typing import Iterable
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 
 # Re-export new sandbox types
-from .filesystem_sandbox import (
+from pydantic_ai_filesystem_sandbox import (
     DEFAULT_MAX_READ_CHARS,
     FileSandboxConfig,
     FileSandboxError,

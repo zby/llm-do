@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from pydantic import Field
 
-from .filesystem_sandbox import (
+from pydantic_ai_filesystem_sandbox import (
     FileSandboxConfig,
     FileSandboxImpl,
     PathConfig,

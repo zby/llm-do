@@ -11,10 +11,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
-from .filesystem_sandbox import DEFAULT_MAX_READ_CHARS
+from pydantic_ai_filesystem_sandbox import DEFAULT_MAX_READ_CHARS
 
 if TYPE_CHECKING:
-    from .filesystem_sandbox import ReadResult
+    from pydantic_ai_filesystem_sandbox import ReadResult
 
 
 # ---------------------------------------------------------------------------

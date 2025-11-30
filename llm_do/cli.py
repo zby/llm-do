@@ -37,7 +37,7 @@ from .base import (
     WorkerRegistry,
     run_worker,
 )
-from .tool_approval import (
+from pydantic_ai_blocking_approval import (
     ApprovalController,
     ApprovalDecision,
     ApprovalRequest,

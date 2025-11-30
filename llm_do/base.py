@@ -56,8 +56,8 @@ from .types import (
     WorkerSpec,
 )
 
-# Re-export approval types from unified module
-from .tool_approval import ApprovalController, ApprovalDecision
+# Re-export approval types from standalone package
+from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision
 
 # Re-export shell module
 from .shell import (

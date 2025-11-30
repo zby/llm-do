@@ -25,7 +25,7 @@ from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
 from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
-from .tool_approval import (
+from pydantic_ai_blocking_approval import (
     ApprovalController,
     ApprovalDecision,
     ApprovalRequest,

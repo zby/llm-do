@@ -26,7 +26,7 @@ from .shell import (
     match_shell_rules,
     parse_command,
 )
-from .tool_approval import ApprovalRequest
+from pydantic_ai_blocking_approval import ApprovalRequest
 from .types import ShellResult, WorkerContext
 
 logger = logging.getLogger(__name__)
@@ -318,24 +318,22 @@ def load_custom_tools(agent: Agent, context: WorkerContext) -> None:
             )
 
             # Check if function has @requires_approval decorator
-            has_approval = hasattr(func, 'check_approval')
+            has_approval = getattr(func, '_requires_approval', False)
 
             # Create wrapper function
             def wrapped_tool(ctx, **tool_kwargs):
                 """Wrapped custom tool that enforces approval if decorated."""
                 # Check if tool has @requires_approval decorator
                 if has_approval:
-                    from .tool_approval import ApprovalContext
-                    approval_ctx = ApprovalContext(
+                    request = ApprovalRequest(
                         tool_name=name,
-                        args=tool_kwargs,
+                        tool_args=tool_kwargs,
+                        description=f"Custom tool: {name}",
                     )
-                    request = func.check_approval(approval_ctx)
-                    if request is not None:
-                        decision = ctx.deps.approval_controller.request_approval_sync(request)
-                        if not decision.approved:
-                            note = f": {decision.note}" if decision.note else ""
-                            raise PermissionError(f"Approval denied for {name}{note}")
+                    decision = ctx.deps.approval_controller.request_approval_sync(request)
+                    if not decision.approved:
+                        note = f": {decision.note}" if decision.note else ""
+                        raise PermissionError(f"Approval denied for {name}{note}")
 
                 # Call the original function with the tool arguments
                 return func(**tool_kwargs)

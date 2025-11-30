@@ -17,7 +17,7 @@ from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
-from .tool_approval import ApprovalToolset
+from pydantic_ai_blocking_approval import ApprovalToolset
 from .types import (
     AgentExecutionContext,
     ModelLike,

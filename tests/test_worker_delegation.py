@@ -26,7 +26,7 @@ from llm_do.worker_sandbox import (
     SandboxConfig,
 )
 from llm_do.filesystem_sandbox import PathConfig, ReadResult
-from llm_do.tool_approval import ApprovalRequest
+from pydantic_ai_blocking_approval import ApprovalRequest
 
 
 def _registry(tmp_path):

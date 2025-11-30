@@ -1,10 +1,10 @@
 """PydanticAI-based runtime for llm-do workers."""
 from __future__ import annotations
 
+from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision
+
 from .base import (
     AgentRunner,
-    ApprovalController,
-    ApprovalDecision,
     AttachmentPayload,
     RuntimeCreator,
     RuntimeDelegator,

@@ -209,8 +209,8 @@ def test_custom_tools_approval_via_decorator(calculator_registry):
     # Create tools.py with a function that uses @requires_approval
     tools_py = test_worker_dir / "tools.py"
     tools_py.write_text(
-        "from llm_do.tool_approval import requires_approval\n\n"
-        "@requires_approval()\n"
+        "from pydantic_ai_blocking_approval import requires_approval\n\n"
+        "@requires_approval\n"
         "def calculate_with_approval(n: int) -> int:\n"
         "    '''Calculate something that requires approval.'''\n"
         "    return n * 2\n"

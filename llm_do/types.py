@@ -14,8 +14,9 @@ from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.toolsets import AbstractToolset
 
+from pydantic_ai_blocking_approval import ApprovalDecision
+
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
-from .tool_approval import ApprovalDecision
 from .worker_sandbox import AttachmentValidator, SandboxConfig
 
 

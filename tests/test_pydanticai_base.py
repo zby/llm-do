@@ -18,7 +18,7 @@ from llm_do import (
     create_worker,
     run_worker,
 )
-from llm_do.tool_approval import ApprovalRequest
+from pydantic_ai_blocking_approval import ApprovalRequest
 from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
 from llm_do.filesystem_sandbox import PathConfig
 

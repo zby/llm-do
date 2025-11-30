@@ -207,7 +207,7 @@ class RuntimeDelegator:
         request = ApprovalRequest(
             tool_name=tool_name,
             description=description,
-            payload=payload,
+            tool_args=payload,
         )
         decision = self.context.approval_controller.request_approval_sync(request)
         if not decision.approved:
@@ -349,7 +349,7 @@ class RuntimeCreator:
         request = ApprovalRequest(
             tool_name="worker.create",
             description=f"Create new worker '{name}'",
-            payload=payload,
+            tool_args=payload,
         )
         decision = self.context.approval_controller.request_approval_sync(request)
         if not decision.approved:

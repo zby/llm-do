@@ -371,13 +371,13 @@ def test_worker_call_tool_includes_attachment_metadata(monkeypatch, tmp_path):
     # First should be sandbox.read for the attachment
     sandbox_read_request = captured_requests[0]
     assert sandbox_read_request.tool_name == "sandbox.read"
-    assert sandbox_read_request.payload["path"] == "input/deck.pdf"
-    assert sandbox_read_request.payload["bytes"] == len(payload_bytes)
+    assert sandbox_read_request.tool_args["path"] == "input/deck.pdf"
+    assert sandbox_read_request.tool_args["bytes"] == len(payload_bytes)
 
     # Second should be worker.call with attachment metadata
     worker_call_request = captured_requests[1]
     assert worker_call_request.tool_name == "worker.call"
-    attachment_info = worker_call_request.payload["attachments"][0]
+    attachment_info = worker_call_request.tool_args["attachments"][0]
     assert attachment_info["sandbox"] == "input"
     assert attachment_info["path"] == "deck.pdf"
     assert attachment_info["bytes"] == len(payload_bytes)
@@ -456,7 +456,7 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
     approval_requests = []
 
     def tracking_callback(request: ApprovalRequest) -> ApprovalDecision:
-        approval_requests.append({"tool": request.tool_name, "payload": request.payload})
+        approval_requests.append({"tool": request.tool_name, "tool_args": request.tool_args})
         return ApprovalDecision(approved=True)
 
     controller = ApprovalController(mode="interactive", approval_callback=tracking_callback)
@@ -494,9 +494,9 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
     assert len(sandbox_read_requests) == 1
 
     req = sandbox_read_requests[0]
-    assert req["payload"]["path"] == "input/secret.pdf"
-    assert req["payload"]["target_worker"] == "child"
-    assert req["payload"]["bytes"] == len(b"sensitive data")
+    assert req["tool_args"]["path"] == "input/secret.pdf"
+    assert req["tool_args"]["target_worker"] == "child"
+    assert req["tool_args"]["bytes"] == len(b"sensitive data")
 
 
 def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):

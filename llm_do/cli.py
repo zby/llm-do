@@ -110,8 +110,8 @@ def _build_interactive_approval_controller(
         reason_text = request.description or "Approval required"
         body = Group(
             Text(f"Reason: {reason_text}\n", style="bold red"),
-            Text("Payload:", style="bold"),
-            render_json_or_text(request.payload),
+            Text("Tool args:", style="bold"),
+            render_json_or_text(request.tool_args),
         )
         console.print()
         console.print(

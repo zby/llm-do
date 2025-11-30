@@ -143,7 +143,7 @@ def _register_shell_tool(
             request = ApprovalRequest(
                 tool_name="shell",
                 description=f"Execute: {command[:80]}{'...' if len(command) > 80 else ''}",
-                payload={"command": command},
+                tool_args={"command": command},
             )
             decision = ctx.deps.approval_controller.request_approval_sync(request)
             if not decision.approved:

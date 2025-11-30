@@ -67,7 +67,3 @@ markers = [
     "live: tests that hit real external services",
     "custom_deps: tests that require optional/custom dependency extras",
 ]
-
-[tool.uv.sources]
-pydantic-ai-blocking-approval = { path = "../pydantic-ai-blocking-approval", editable = true }
-pydantic-ai-filesystem-sandbox = { path = "../pydantic-ai-filesystem-sandbox", editable = true }

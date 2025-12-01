@@ -19,8 +19,6 @@ from pydantic_ai_blocking_approval import ApprovalDecision
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 from .worker_sandbox import AttachmentValidator, SandboxConfig
 
-# Make SandboxConfig available for forward references in ToolsetsConfig
-# (it's imported above from worker_sandbox)
 
 
 # ---------------------------------------------------------------------------
@@ -188,11 +186,11 @@ class WorkerDefinition(BaseModel):
     )
 
     # Legacy fields for backward compatibility - these are migrated to toolsets
-    sandbox: Optional[SandboxConfig] = Field(default=None, exclude=True)
-    shell_rules: List["ShellRule"] = Field(default_factory=list, exclude=True)
-    shell_default: Optional["ShellDefault"] = Field(default=None, exclude=True)
-    allow_workers: List[str] = Field(default_factory=list, exclude=True)
-    custom_tools: List[str] = Field(default_factory=list, exclude=True)
+    sandbox_legacy: Optional[SandboxConfig] = Field(default=None, alias="sandbox", exclude=True)
+    shell_rules_legacy: List["ShellRule"] = Field(default_factory=list, alias="shell_rules", exclude=True)
+    shell_default_legacy: Optional["ShellDefault"] = Field(default=None, alias="shell_default", exclude=True)
+    allow_workers_legacy: List[str] = Field(default_factory=list, alias="allow_workers", exclude=True)
+    custom_tools_legacy: List[str] = Field(default_factory=list, alias="custom_tools", exclude=True)
 
     # Attachment policy (applies to worker_call delegation)
     attachment_policy: AttachmentPolicy = Field(default_factory=AttachmentPolicy)
@@ -205,7 +203,7 @@ class WorkerDefinition(BaseModel):
 
     locked: bool = False
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
 
     @model_validator(mode="after")
     def migrate_legacy_fields_to_toolsets(self) -> "WorkerDefinition":
@@ -214,14 +212,14 @@ class WorkerDefinition(BaseModel):
         if object.__getattribute__(self, "toolsets") is not None:
             return self
 
-        # Access legacy fields directly (bypass __getattribute__ override)
+        # Access legacy fields directly (bypass property overrides)
         model_fields = object.__getattribute__(self, "__dict__")
 
-        sandbox_val = model_fields.get("sandbox")
-        shell_rules_val = model_fields.get("shell_rules", [])
-        shell_default_val = model_fields.get("shell_default")
-        allow_workers_val = model_fields.get("allow_workers", [])
-        custom_tools_val = model_fields.get("custom_tools", [])
+        sandbox_val = model_fields.get("sandbox_legacy")
+        shell_rules_val = model_fields.get("shell_rules_legacy", [])
+        shell_default_val = model_fields.get("shell_default_legacy")
+        allow_workers_val = model_fields.get("allow_workers_legacy", [])
+        custom_tools_val = model_fields.get("custom_tools_legacy", [])
 
         # Check if any legacy fields are set
         has_legacy = any([
@@ -263,57 +261,40 @@ class WorkerDefinition(BaseModel):
 
         return self
 
-    # Computed accessors that read from toolsets
-    # These override the legacy field values by using __getattribute__
-    def __getattribute__(self, name: str) -> Any:
-        # For legacy field names, read from toolsets instead
-        if name == "sandbox":
-            toolsets = object.__getattribute__(self, "toolsets")
-            if toolsets:
-                return toolsets.sandbox
-            return None
-        elif name == "shell_rules":
-            toolsets = object.__getattribute__(self, "toolsets")
-            if toolsets and toolsets.shell:
-                return toolsets.shell.rules
-            return []
-        elif name == "shell_default":
-            toolsets = object.__getattribute__(self, "toolsets")
-            if toolsets and toolsets.shell:
-                return toolsets.shell.default
-            return None
-        elif name == "allow_workers":
-            toolsets = object.__getattribute__(self, "toolsets")
-            if toolsets and toolsets.delegation:
-                return toolsets.delegation.allow_workers
-            return []
-        elif name == "custom_tools":
-            toolsets = object.__getattribute__(self, "toolsets")
-            if toolsets and toolsets.custom:
-                return toolsets.custom
-            return {}
-        return object.__getattribute__(self, name)
-
-    # Explicit accessor methods (for clarity in code)
-    def get_sandbox_config(self) -> Optional[SandboxConfig]:
+    @property
+    def sandbox(self) -> Optional[SandboxConfig]:
         """Get sandbox config from toolsets."""
-        return self.sandbox
+        if self.toolsets:
+            return self.toolsets.sandbox
+        return None
 
-    def get_shell_rules(self) -> List[ShellRule]:
+    @property
+    def shell_rules(self) -> List[ShellRule]:
         """Get shell rules from toolsets."""
-        return self.shell_rules
+        if self.toolsets and self.toolsets.shell:
+            return self.toolsets.shell.rules
+        return []
 
-    def get_shell_default(self) -> Optional[ShellDefault]:
+    @property
+    def shell_default(self) -> Optional[ShellDefault]:
         """Get shell default from toolsets."""
-        return self.shell_default
+        if self.toolsets and self.toolsets.shell:
+            return self.toolsets.shell.default
+        return None
 
-    def get_allow_workers(self) -> List[str]:
+    @property
+    def allow_workers(self) -> List[str]:
         """Get allow_workers from toolsets."""
-        return self.allow_workers
+        if self.toolsets and self.toolsets.delegation:
+            return self.toolsets.delegation.allow_workers
+        return []
 
-    def get_custom_tools_config(self) -> Dict[str, CustomToolConfig]:
+    @property
+    def custom_tools(self) -> Dict[str, CustomToolConfig]:
         """Get custom tools config from toolsets."""
-        return self.custom_tools
+        if self.toolsets and self.toolsets.custom:
+            return self.toolsets.custom
+        return {}
 
 
 class WorkerSpec(BaseModel):
@@ -339,11 +320,11 @@ class WorkerCreationDefaults(BaseModel):
     )
 
     # Legacy fields for backward compatibility
-    default_sandbox: Optional[SandboxConfig] = Field(default=None, exclude=True)
-    default_allow_workers: List[str] = Field(default_factory=list, exclude=True)
-    default_custom_tools: List[str] = Field(default_factory=list, exclude=True)
+    default_sandbox_legacy: Optional[SandboxConfig] = Field(default=None, alias="default_sandbox", exclude=True)
+    default_allow_workers_legacy: List[str] = Field(default_factory=list, alias="default_allow_workers", exclude=True)
+    default_custom_tools_legacy: List[str] = Field(default_factory=list, alias="default_custom_tools", exclude=True)
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
 
     @model_validator(mode="after")
     def migrate_legacy_defaults_to_toolsets(self) -> "WorkerCreationDefaults":
@@ -351,10 +332,15 @@ class WorkerCreationDefaults(BaseModel):
         if self.default_toolsets is not None:
             return self
 
+        model_fields = object.__getattribute__(self, "__dict__")
+        sandbox_val = model_fields.get("default_sandbox_legacy")
+        allow_workers_val = model_fields.get("default_allow_workers_legacy", [])
+        custom_tools_val = model_fields.get("default_custom_tools_legacy", [])
+
         has_legacy = any([
-            self.default_sandbox is not None,
-            len(self.default_allow_workers) > 0,
-            len(self.default_custom_tools) > 0,
+            sandbox_val is not None,
+            len(allow_workers_val) > 0,
+            len(custom_tools_val) > 0,
         ])
 
         if not has_legacy:
@@ -362,17 +348,17 @@ class WorkerCreationDefaults(BaseModel):
 
         toolsets_dict: Dict[str, Any] = {}
 
-        if self.default_sandbox is not None:
-            toolsets_dict["sandbox"] = self.default_sandbox
+        if sandbox_val is not None:
+            toolsets_dict["sandbox"] = sandbox_val
 
-        if self.default_allow_workers:
+        if allow_workers_val:
             toolsets_dict["delegation"] = DelegationToolsetConfig(
-                allow_workers=self.default_allow_workers
+                allow_workers=allow_workers_val
             )
 
-        if self.default_custom_tools:
+        if custom_tools_val:
             toolsets_dict["custom"] = {
-                name: CustomToolConfig() for name in self.default_custom_tools
+                name: CustomToolConfig() for name in custom_tools_val
             }
 
         if toolsets_dict:
@@ -380,8 +366,8 @@ class WorkerCreationDefaults(BaseModel):
 
         return self
 
-    # Accessor for sandbox (reads from toolsets)
-    def get_default_sandbox(self) -> Optional[SandboxConfig]:
+    @property
+    def default_sandbox(self) -> Optional[SandboxConfig]:
         """Get default sandbox from toolsets."""
         if self.default_toolsets:
             return self.default_toolsets.sandbox

@@ -20,6 +20,14 @@
 - [ ] Support absolute sandbox paths
 - [ ] Template variables in paths (`{CWD}`, `{REGISTRY_ROOT}`)
 
+## Toolset Architecture
+
+- [ ] **Plugin architecture**: Workers declare toolsets by class name, dynamic loading
+  - See [design doc](docs/notes/toolset_plugin_architecture.md)
+  - Add `create()` classmethod to `ApprovalToolset` in `pydantic-ai-blocking-approval`
+  - Inner toolsets accept `(config, context)` for uniform DI
+  - Generic toolset loading in `execution.py` (no toolset-specific code)
+
 ## Bootstrapper
 
 - [ ] Iterative refinement: create worker → run → evaluate → refine

@@ -1,13 +1,51 @@
-# Code Analyzer (llm-do shell tool example)
+# Code Analyzer
 
-This example demonstrates **shell command execution** with pattern-based approval rules. The worker analyzes codebases using safe, read-only shell commands.
+Analyze any codebase using safe shell commands. This example demonstrates **shell command execution** with pattern-based approval rules.
+
+## Usage
+
+Run from the directory you want to analyze:
+
+```bash
+# Analyze any project - just cd into it first
+cd /path/to/your/project
+llm-do /path/to/llm-do/examples/code_analyzer/workers/code_analyzer/worker.worker \
+  "How many Python files are there?" \
+  --model anthropic:claude-haiku-4-5
+
+# Or with OpenAI
+llm-do /path/to/llm-do/examples/code_analyzer/workers/code_analyzer/worker.worker \
+  "Find all TODO comments" \
+  --model openai:gpt-4o-mini
+```
+
+Shell commands run from your **current directory**, so the worker analyzes whatever codebase you're in.
+
+## Example Session
+
+```bash
+$ cd ~/my-project
+$ llm-do ~/llm-do/examples/code_analyzer/workers/code_analyzer/worker.worker \
+    "How many Python files and total lines of code?" \
+    --model anthropic:claude-haiku-4-5
+
+> Using tool: shell
+  Command: find . -name "*.py" -type f
+
+[Lists Python files]
+
+> Using tool: shell
+  Command: wc -l ./src/main.py ./src/utils.py ...
+
+There are 12 Python files with 1,847 total lines of code.
+```
 
 ## What This Shows
 
 - **Shell tool integration**: Execute shell commands from within workers
-- **Pattern-based approval**: `shell_rules` allow specific commands without user approval
+- **Pattern-based approval**: `shell_rules` allow specific commands without prompts
 - **Security defaults**: Block all commands by default, allow only safe ones
-- **Read-only operations**: All commands are non-destructive analysis tools
+- **Portable execution**: Analyze any directory by running from there
 
 ## Shell Rules Configuration
 
@@ -21,6 +59,12 @@ shell_rules:
     approval_required: false
   - pattern: "grep"         # Search patterns
     approval_required: false
+  - pattern: "ls"           # List directories
+    approval_required: false
+  - pattern: "cat"          # Display files
+    approval_required: false
+  - pattern: "git log"      # Git history
+    approval_required: false
   # ... more safe commands
 
 shell_default:
@@ -31,97 +75,43 @@ shell_default:
 **How it works:**
 - Commands matching a pattern (e.g., `wc -l file.py`) are auto-approved
 - Unmatched commands are blocked by default
-- Shell metacharacters (`|`, `>`, `<`, `;`, `&`) are **always blocked for security**
-- The `repo` sandbox provides read access to the repository root
+- Shell metacharacters (`|`, `>`, `<`, `;`, `&`) are **always blocked** for security
 
-## Prerequisites
+## Security
+
+### Allowed Commands (read-only)
+- `ls`, `cat` - view files and directories
+- `wc`, `find`, `grep` - analysis tools
+- `head`, `tail`, `sort`, `uniq` - text processing
+- `git log`, `git diff`, `git show`, `git status` - read git history
+
+### Blocked
+- All other commands (rm, mv, cp, etc.)
+- Shell metacharacters - no pipes, redirects, or command chaining
+- The LLM must run commands individually and combine results itself
+
+## Sample Queries
 
 ```bash
-pip install -e .
-export MODEL=anthropic:claude-3-5-sonnet-20241022
+# File statistics
+"How many Python files are there?"
+"What are the largest files by line count?"
+"Count total lines of code"
+
+# Code search
+"Find all TODO comments"
+"Search for uses of 'async def'"
+"Find files containing 'import requests'"
+
+# Git analysis
+"Show the most recent 5 commits"
+"What files changed in the last commit?"
+"Show git status"
 ```
-
-## Usage
-
-```bash
-cd examples/code_analyzer
-
-# Analyze the llm-do codebase (commands run from repo root)
-llm-do code_analyzer "How many Python files are in the llm_do/ directory?"
-
-# Other queries
-llm-do code_analyzer "Count total lines of code in llm_do/"
-llm-do code_analyzer "Find all TODO comments in Python files"
-llm-do code_analyzer "Show the most recent commit"
-llm-do code_analyzer "What are the largest Python files by line count?"
-```
-
-**How it works:** Shell commands execute from the repo root (2 dirs up from example), so paths like `llm_do/` work correctly.
-
-## Example Session
-
-```
-$ cd examples/code_analyzer
-$ llm-do code_analyzer "How many Python files are in the llm_do/ directory?"
-
-> Using tool: shell
-  Command: find ../../llm_do -name "*.py" -type f
-
-[Lists all Python files]
-
-> Agent counts the results
-
-There are 23 Python files in the llm_do/ directory.
-```
-
-**Key points:**
-- Pipes are blocked for security - agent runs `find` and counts results itself
-- Shell commands execute from the repository root (../../ from example dir)
-- Worker has no write access (read-only analysis only)
-
-## Key Features
-
-### 1. Pattern Matching
-Shell rules match command prefixes:
-- `pattern: "wc"` matches `wc`, `wc -l file.py`, `wc -w *.txt`
-- First matching rule wins
-
-### 2. Security by Default
-- Only explicitly allowed commands can run
-- Shell metacharacters (`|`, `>`, `<`, `;`, `&`) are blocked to prevent injection
-- Commands run with `shell=False` (no shell interpretation)
-- No pipes means the LLM must combine results programmatically
-
-### 3. Read-Only Safety
-All allowed commands are read-only:
-- ✅ `wc`, `find`, `grep` - analysis tools
-- ✅ `git log`, `git show` - read git history
-- ❌ `rm`, `mv`, `git commit` - blocked by default
-
-## Comparison to Other Examples
-
-| Example | Focus | Shell Tool | Custom Tools |
-|---------|-------|------------|--------------|
-| **code_analyzer** | Shell commands | ✅ Pattern rules | ❌ |
-| calculator | Custom Python tools | ❌ | ✅ |
-| web_research_agent | Multi-worker orchestration | ❌ | ✅ HTTP tools |
-
-## Advanced: Sandbox Path Validation
-
-For write operations, you can restrict commands to specific sandbox paths:
-
-```yaml
-shell_rules:
-  - pattern: "mkdir"
-    sandbox_paths: ["workspace"]  # Only allow in workspace/
-    approval_required: false
-```
-
-See the documentation for details on `sandbox_paths` validation.
 
 ## Notes
 
-- Commands run from the repository root directory
+- Commands run from your current working directory
 - Output is truncated at 50KB to prevent token overflow
 - Commands timeout after 30 seconds by default
-- This example has no custom tools - it uses only the built-in shell tool
+- No pipes means the LLM counts/processes results itself

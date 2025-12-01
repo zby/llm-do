@@ -248,7 +248,8 @@ class TestIntegration:
         )
         result = apply_cli_overrides(
             defn,
-            set_overrides=["sandbox.paths.work.root=/tmp/work"]
+            # Note: With new toolsets structure, sandbox is under toolsets
+            set_overrides=["toolsets.sandbox.paths.work.root=/tmp/work"]
         )
         assert result.sandbox.paths["work"].root == "/tmp/work"
         assert result.sandbox.paths["work"].mode == "rw"  # Preserved

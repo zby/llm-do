@@ -127,8 +127,9 @@ def _prepare_worker_context(
 
     # Resolve shell_cwd: if worker specifies one, make it absolute (relative to registry.root)
     resolved_shell_cwd: Optional[Path] = None
-    if definition.shell_cwd is not None:
-        cwd_path = Path(definition.shell_cwd)
+    shell_cwd_config = definition.get_shell_cwd()
+    if shell_cwd_config is not None:
+        cwd_path = Path(shell_cwd_config)
         if cwd_path.is_absolute():
             resolved_shell_cwd = cwd_path
         else:

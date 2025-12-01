@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.toolsets import AbstractToolset
@@ -19,6 +19,9 @@ from pydantic_ai_blocking_approval import ApprovalDecision
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 from .worker_sandbox import AttachmentValidator, SandboxConfig
 
+# Make SandboxConfig available for forward references in ToolsetsConfig
+# (it's imported above from worker_sandbox)
+
 
 # ---------------------------------------------------------------------------
 # Worker artifact models
@@ -26,7 +29,76 @@ from .worker_sandbox import AttachmentValidator, SandboxConfig
 
 
 # ---------------------------------------------------------------------------
-# Shell tool types
+# Toolset configuration types
+# ---------------------------------------------------------------------------
+
+
+class CustomToolConfig(BaseModel):
+    """Configuration for a single custom tool."""
+
+    approval_required: bool = Field(
+        default=True,
+        description="Whether this tool requires user approval (secure by default)"
+    )
+    allowed: bool = Field(
+        default=True,
+        description="Whether this tool is allowed at all"
+    )
+
+
+class ShellToolsetConfig(BaseModel):
+    """Configuration for the shell toolset."""
+
+    rules: List["ShellRule"] = Field(
+        default_factory=list,
+        description="Pattern-based rules for shell command approval"
+    )
+    default: Optional["ShellDefault"] = Field(
+        default=None,
+        description="Default behavior for commands not matching any rule"
+    )
+    cwd: Optional[str] = Field(
+        default=None,
+        description="Working directory for shell commands"
+    )
+
+
+class DelegationToolsetConfig(BaseModel):
+    """Configuration for the delegation toolset."""
+
+    allow_workers: List[str] = Field(
+        default_factory=list,
+        description="List of workers that can be delegated to. Use ['*'] for all."
+    )
+
+
+class ToolsetsConfig(BaseModel):
+    """Configuration for all toolsets.
+
+    Each key corresponds to a toolset type. Toolsets are only enabled
+    if their config is present and non-null.
+    """
+
+    sandbox: Optional["SandboxConfig"] = Field(
+        default=None,
+        description="File sandbox configuration (read_file, write_file, etc.)"
+    )
+    shell: Optional[ShellToolsetConfig] = Field(
+        default=None,
+        description="Shell command execution configuration"
+    )
+    delegation: Optional[DelegationToolsetConfig] = Field(
+        default=None,
+        description="Worker delegation configuration"
+    )
+    custom: Optional[Dict[str, CustomToolConfig]] = Field(
+        default=None,
+        description="Custom tools from tools.py. Keys are function names."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Shell tool types (used within ShellToolsetConfig)
 # ---------------------------------------------------------------------------
 
 
@@ -112,38 +184,154 @@ class WorkerDefinition(BaseModel):
     instructions: Optional[str] = None  # Acts as the worker's system prompt. Optional: can load from prompts/{name}.{txt,jinja2,j2,md}
     model: Optional[str] = None
     output_schema_ref: Optional[str] = None
-    # Unified sandbox config
-    sandbox: Optional[SandboxConfig] = Field(
+
+    # Unified toolsets configuration (new format)
+    toolsets: Optional[ToolsetsConfig] = Field(
         default=None,
-        description="Unified sandbox configuration"
+        description="Configuration for all toolsets (sandbox, shell, delegation, custom)"
     )
+
+    # Legacy fields for backward compatibility - these are migrated to toolsets
+    sandbox: Optional[SandboxConfig] = Field(default=None, exclude=True)
+    shell_rules: List["ShellRule"] = Field(default_factory=list, exclude=True)
+    shell_default: Optional["ShellDefault"] = Field(default=None, exclude=True)
+    shell_cwd: Optional[str] = Field(default=None, exclude=True)
+    allow_workers: List[str] = Field(default_factory=list, exclude=True)
+    custom_tools: List[str] = Field(default_factory=list, exclude=True)
+
+    # Attachment policy (applies to worker_call delegation)
     attachment_policy: AttachmentPolicy = Field(default_factory=AttachmentPolicy)
-    allow_workers: List[str] = Field(default_factory=list)
-    custom_tools: List[str] = Field(
-        default_factory=list,
-        description="Allowlist of custom tool function names from tools.py"
-    )
-    # Server-side tools (executed by LLM provider)
+
+    # Server-side tools (executed by LLM provider, not local toolsets)
     server_side_tools: List[ServerSideToolConfig] = Field(
         default_factory=list,
         description="Server-side tools executed by the LLM provider (web_search, code_execution, etc.)"
     )
-    # Shell tool configuration
-    shell_rules: List[ShellRule] = Field(
-        default_factory=list,
-        description="Pattern-based rules for shell command approval"
-    )
-    shell_default: Optional[ShellDefault] = Field(
-        default=None,
-        description="Default behavior for shell commands not matching any rule"
-    )
-    shell_cwd: Optional[str] = Field(
-        default=None,
-        description="Working directory for shell commands. Can be absolute or relative to registry root. None means registry root."
-    )
+
     locked: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @model_validator(mode="after")
+    def migrate_legacy_fields_to_toolsets(self) -> "WorkerDefinition":
+        """Migrate legacy top-level fields to the new toolsets structure."""
+        # If toolsets is already set, use it
+        if object.__getattribute__(self, "toolsets") is not None:
+            return self
+
+        # Access legacy fields directly (bypass __getattribute__ override)
+        legacy_sandbox = object.__getattribute__(self, "__pydantic_fields_set__")
+        model_fields = object.__getattribute__(self, "__dict__")
+
+        sandbox_val = model_fields.get("sandbox")
+        shell_rules_val = model_fields.get("shell_rules", [])
+        shell_default_val = model_fields.get("shell_default")
+        shell_cwd_val = model_fields.get("shell_cwd")
+        allow_workers_val = model_fields.get("allow_workers", [])
+        custom_tools_val = model_fields.get("custom_tools", [])
+
+        # Check if any legacy fields are set
+        has_legacy = any([
+            sandbox_val is not None,
+            len(shell_rules_val) > 0,
+            shell_default_val is not None,
+            shell_cwd_val is not None,
+            len(allow_workers_val) > 0,
+            len(custom_tools_val) > 0,
+        ])
+
+        if not has_legacy:
+            return self
+
+        # Migrate legacy fields to new toolsets structure
+        toolsets_dict: Dict[str, Any] = {}
+
+        if sandbox_val is not None:
+            toolsets_dict["sandbox"] = sandbox_val
+
+        if shell_rules_val or shell_default_val or shell_cwd_val:
+            toolsets_dict["shell"] = ShellToolsetConfig(
+                rules=shell_rules_val,
+                default=shell_default_val,
+                cwd=shell_cwd_val,
+            )
+
+        if allow_workers_val:
+            toolsets_dict["delegation"] = DelegationToolsetConfig(
+                allow_workers=allow_workers_val
+            )
+
+        if custom_tools_val:
+            # Convert list of tool names to dict with default config
+            toolsets_dict["custom"] = {
+                name: CustomToolConfig() for name in custom_tools_val
+            }
+
+        if toolsets_dict:
+            object.__setattr__(self, "toolsets", ToolsetsConfig(**toolsets_dict))
+
+        return self
+
+    # Computed accessors that read from toolsets
+    # These override the legacy field values by using __getattribute__
+    def __getattribute__(self, name: str) -> Any:
+        # For legacy field names, read from toolsets instead
+        if name == "sandbox":
+            toolsets = object.__getattribute__(self, "toolsets")
+            if toolsets:
+                return toolsets.sandbox
+            return None
+        elif name == "shell_rules":
+            toolsets = object.__getattribute__(self, "toolsets")
+            if toolsets and toolsets.shell:
+                return toolsets.shell.rules
+            return []
+        elif name == "shell_default":
+            toolsets = object.__getattribute__(self, "toolsets")
+            if toolsets and toolsets.shell:
+                return toolsets.shell.default
+            return None
+        elif name == "shell_cwd":
+            toolsets = object.__getattribute__(self, "toolsets")
+            if toolsets and toolsets.shell:
+                return toolsets.shell.cwd
+            return None
+        elif name == "allow_workers":
+            toolsets = object.__getattribute__(self, "toolsets")
+            if toolsets and toolsets.delegation:
+                return toolsets.delegation.allow_workers
+            return []
+        elif name == "custom_tools":
+            toolsets = object.__getattribute__(self, "toolsets")
+            if toolsets and toolsets.custom:
+                return toolsets.custom
+            return {}
+        return object.__getattribute__(self, name)
+
+    # Explicit accessor methods (for clarity in code)
+    def get_sandbox_config(self) -> Optional[SandboxConfig]:
+        """Get sandbox config from toolsets."""
+        return self.sandbox
+
+    def get_shell_rules(self) -> List[ShellRule]:
+        """Get shell rules from toolsets."""
+        return self.shell_rules
+
+    def get_shell_default(self) -> Optional[ShellDefault]:
+        """Get shell default from toolsets."""
+        return self.shell_default
+
+    def get_shell_cwd(self) -> Optional[str]:
+        """Get shell cwd from toolsets."""
+        return self.shell_cwd
+
+    def get_allow_workers(self) -> List[str]:
+        """Get allow_workers from toolsets."""
+        return self.allow_workers
+
+    def get_custom_tools_config(self) -> Dict[str, CustomToolConfig]:
+        """Get custom tools config from toolsets."""
+        return self.custom_tools
 
 
 class WorkerSpec(BaseModel):
@@ -160,35 +348,76 @@ class WorkerCreationDefaults(BaseModel):
     """Host-configured defaults used when persisting workers."""
 
     default_model: Optional[str] = None
-    # Unified sandbox config
-    default_sandbox: Optional[SandboxConfig] = Field(
+    default_toolsets: Optional[ToolsetsConfig] = Field(
         default=None,
-        description="Unified sandbox configuration"
+        description="Default toolsets configuration"
     )
     default_attachment_policy: AttachmentPolicy = Field(
         default_factory=AttachmentPolicy
     )
-    default_allow_workers: List[str] = Field(default_factory=list)
-    default_custom_tools: List[str] = Field(default_factory=list)
+
+    # Legacy fields for backward compatibility
+    default_sandbox: Optional[SandboxConfig] = Field(default=None, exclude=True)
+    default_allow_workers: List[str] = Field(default_factory=list, exclude=True)
+    default_custom_tools: List[str] = Field(default_factory=list, exclude=True)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @model_validator(mode="after")
+    def migrate_legacy_defaults_to_toolsets(self) -> "WorkerCreationDefaults":
+        """Migrate legacy default fields to the new toolsets structure."""
+        if self.default_toolsets is not None:
+            return self
+
+        has_legacy = any([
+            self.default_sandbox is not None,
+            len(self.default_allow_workers) > 0,
+            len(self.default_custom_tools) > 0,
+        ])
+
+        if not has_legacy:
+            return self
+
+        toolsets_dict: Dict[str, Any] = {}
+
+        if self.default_sandbox is not None:
+            toolsets_dict["sandbox"] = self.default_sandbox
+
+        if self.default_allow_workers:
+            toolsets_dict["delegation"] = DelegationToolsetConfig(
+                allow_workers=self.default_allow_workers
+            )
+
+        if self.default_custom_tools:
+            toolsets_dict["custom"] = {
+                name: CustomToolConfig() for name in self.default_custom_tools
+            }
+
+        if toolsets_dict:
+            object.__setattr__(self, "default_toolsets", ToolsetsConfig(**toolsets_dict))
+
+        return self
+
+    # Accessor for sandbox (reads from toolsets)
+    def get_default_sandbox(self) -> Optional[SandboxConfig]:
+        """Get default sandbox from toolsets."""
+        if self.default_toolsets:
+            return self.default_toolsets.sandbox
+        return None
 
     def expand_spec(self, spec: WorkerSpec) -> WorkerDefinition:
         """Apply defaults to a ``WorkerSpec`` to create a full definition."""
 
         attachment_policy = self.default_attachment_policy.model_copy()
-        allow_workers = list(self.default_allow_workers)
-        custom_tools = list(self.default_custom_tools)
+        toolsets = self.default_toolsets.model_copy() if self.default_toolsets else None
         return WorkerDefinition(
             name=spec.name,
             description=spec.description,
             instructions=spec.instructions,
             model=spec.model or self.default_model,
             output_schema_ref=spec.output_schema_ref,
-            sandbox=self.default_sandbox.model_copy() if self.default_sandbox else None,
+            toolsets=toolsets,
             attachment_policy=attachment_policy,
-            allow_workers=allow_workers,
-            custom_tools=custom_tools,
             locked=False,
         )
 

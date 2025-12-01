@@ -24,6 +24,9 @@ from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
 from pydantic_ai_filesystem_sandbox.approval import FileSandboxApprovalToolset
+from .custom_toolset import CustomApprovalToolset
+from .delegation_toolset import DelegationApprovalToolset
+from .protocols import WorkerCreator, WorkerDelegator
 from .shell_toolset import ShellApprovalToolset
 from .types import (
     AgentExecutionContext,
@@ -112,6 +115,9 @@ def prepare_agent_execution(
     user_input: Any,
     context: WorkerContext,
     output_model: Optional[Type[BaseModel]],
+    *,
+    delegator: Optional[WorkerDelegator] = None,
+    creator: Optional[WorkerCreator] = None,
 ) -> AgentExecutionContext:
     """Prepare everything needed for agent execution (sync or async).
 
@@ -119,7 +125,7 @@ def prepare_agent_execution(
     agent runners, including:
     - Building the prompt with attachments
     - Setting up streaming callbacks
-    - Preparing agent kwargs
+    - Preparing agent kwargs with toolsets
     - Initializing status tracking
 
     Args:
@@ -127,6 +133,8 @@ def prepare_agent_execution(
         user_input: Input data for the worker
         context: Worker execution context with tools and dependencies
         output_model: Optional Pydantic model for structured output
+        delegator: Optional worker delegator for worker_call tool
+        creator: Optional worker creator for worker_create tool
 
     Returns:
         AgentExecutionContext with all prepared state for agent execution
@@ -252,6 +260,30 @@ def prepare_agent_execution(
         )
         toolsets.append(shell_toolset)
 
+    # Delegation toolset (provides worker_call, worker_create with approval)
+    if delegator is not None and creator is not None:
+        delegation_toolset = DelegationApprovalToolset(
+            delegator=delegator,
+            creator=creator,
+            allow_workers=definition.allow_workers,
+            approval_callback=context.approval_controller.approval_callback,
+            memory=context.approval_controller.memory,
+        )
+        toolsets.append(delegation_toolset)
+
+    # Custom toolset (provides custom tools from tools.py with approval)
+    if context.custom_tools_path and context.custom_tools_path.exists():
+        allowed_tools = definition.custom_tools or []
+        if allowed_tools:
+            custom_toolset = CustomApprovalToolset(
+                worker_name=definition.name,
+                tools_path=context.custom_tools_path,
+                allowed_tools=allowed_tools,
+                approval_callback=context.approval_controller.approval_callback,
+                memory=context.approval_controller.memory,
+            )
+            toolsets.append(custom_toolset)
+
     # Only pass toolsets if we have any
     if toolsets:
         agent_kwargs["toolsets"] = toolsets
@@ -279,7 +311,9 @@ async def default_agent_runner_async(
     context: WorkerContext,
     output_model: Optional[Type[BaseModel]],
     *,
-    register_tools_fn: Callable[[Agent, WorkerContext], None],
+    delegator: Optional[WorkerDelegator] = None,
+    creator: Optional[WorkerCreator] = None,
+    register_tools_fn: Optional[Callable[[Agent, WorkerContext], None]] = None,
 ) -> tuple[Any, List[Any]]:
     """Async version of the default agent runner.
 
@@ -291,20 +325,26 @@ async def default_agent_runner_async(
         user_input: Input data for the worker
         context: Worker execution context with tools and dependencies
         output_model: Optional Pydantic model for structured output
-        register_tools_fn: Function to register tools (injected via DI)
+        delegator: Optional worker delegator for delegation toolset
+        creator: Optional worker creator for delegation toolset
+        register_tools_fn: Optional function to register additional tools
 
     Returns:
         Tuple of (output, messages) where messages is the list of all messages
         exchanged with the LLM during execution.
     """
     # Prepare execution context (prompt, callbacks, agent kwargs)
-    exec_ctx = prepare_agent_execution(definition, user_input, context, output_model)
+    exec_ctx = prepare_agent_execution(
+        definition, user_input, context, output_model,
+        delegator=delegator, creator=creator
+    )
 
     # Create Agent
     agent = Agent(**exec_ctx.agent_kwargs)
 
-    # Register tools using injected function
-    register_tools_fn(agent, context)
+    # Register any additional tools using injected function
+    if register_tools_fn is not None:
+        register_tools_fn(agent, context)
 
     # Run the agent asynchronously
     run_result = await agent.run(
@@ -328,7 +368,9 @@ def default_agent_runner(
     context: WorkerContext,
     output_model: Optional[Type[BaseModel]],
     *,
-    register_tools_fn: Callable[[Agent, WorkerContext], None],
+    delegator: Optional[WorkerDelegator] = None,
+    creator: Optional[WorkerCreator] = None,
+    register_tools_fn: Optional[Callable[[Agent, WorkerContext], None]] = None,
 ) -> tuple[Any, List[Any]]:
     """Synchronous wrapper around the async agent runner.
 
@@ -340,7 +382,9 @@ def default_agent_runner(
         user_input: Input data for the worker
         context: Worker execution context with tools and dependencies
         output_model: Optional Pydantic model for structured output
-        register_tools_fn: Function to register tools (injected via DI)
+        delegator: Optional worker delegator for delegation toolset
+        creator: Optional worker creator for delegation toolset
+        register_tools_fn: Optional function to register additional tools
 
     Returns:
         Tuple of (output, messages) where messages is the list of all messages
@@ -350,6 +394,8 @@ def default_agent_runner(
     return asyncio.run(
         default_agent_runner_async(
             definition, user_input, context, output_model,
+            delegator=delegator,
+            creator=creator,
             register_tools_fn=register_tools_fn
         )
     )

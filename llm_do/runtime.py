@@ -33,7 +33,7 @@ from pydantic_ai_blocking_approval import (
 from .protocols import WorkerCreator, WorkerDelegator
 from .sandbox import AttachmentInput, AttachmentPayload
 from .worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
-from .tools import register_worker_tools
+# Tools are now provided via toolsets in execution.py
 from .types import (
     AgentExecutionContext,
     AgentRunner,
@@ -60,7 +60,8 @@ class _WorkerExecutionPrep:
     context: WorkerContext
     definition: WorkerDefinition
     output_model: Optional[Type[BaseModel]]
-    register_tools_fn: Callable
+    delegator: WorkerDelegator
+    creator: WorkerCreator
     sandbox: Optional[Sandbox]
 
 
@@ -149,17 +150,16 @@ def _prepare_worker_context(
 
     output_model = registry.resolve_output_schema(definition)
 
-    # Create a closure for tool registration using protocol implementations
-    def _register_tools_for_worker(agent, ctx):
-        delegator = RuntimeDelegator(ctx)
-        creator = RuntimeCreator(ctx)
-        register_worker_tools(agent, ctx, delegator, creator)
+    # Create protocol implementations for delegation toolset
+    delegator = RuntimeDelegator(context)
+    creator = RuntimeCreator(context)
 
     return _WorkerExecutionPrep(
         context=context,
         definition=definition,
         output_model=output_model,
-        register_tools_fn=_register_tools_for_worker,
+        delegator=delegator,
+        creator=creator,
         sandbox=new_sandbox,
     )
 
@@ -549,7 +549,7 @@ async def run_worker_async(
     if agent_runner is None:
         result = await default_agent_runner_async(
             prep.definition, input_data, prep.context, prep.output_model,
-            register_tools_fn=prep.register_tools_fn
+            delegator=prep.delegator, creator=prep.creator
         )
     else:
         # Support both sync and async agent runners
@@ -618,7 +618,7 @@ def run_worker(
     if agent_runner is None:
         result = default_agent_runner(
             prep.definition, input_data, prep.context, prep.output_model,
-            register_tools_fn=prep.register_tools_fn
+            delegator=prep.delegator, creator=prep.creator
         )
     else:
         result = agent_runner(prep.definition, input_data, prep.context, prep.output_model)

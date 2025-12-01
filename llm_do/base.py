@@ -74,8 +74,8 @@ from .registry import WorkerRegistry
 # Re-export protocols
 from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
 
-# Re-export tools
-from .tools import load_custom_tools, register_worker_tools
+# Tools are now provided via toolsets in execution.py:
+# - FileSandboxApprovalToolset, ShellApprovalToolset, DelegationApprovalToolset, CustomApprovalToolset
 
 # Re-export runtime functions and implementations
 from .runtime import (
@@ -113,9 +113,6 @@ __all__: Iterable[str] = [
     # Protocol implementations
     "RuntimeCreator",
     "RuntimeDelegator",
-    # Tools
-    "load_custom_tools",
-    "register_worker_tools",
     # New sandbox classes
     "DEFAULT_MAX_READ_CHARS",
     "FileSandboxConfig",

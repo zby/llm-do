@@ -452,6 +452,7 @@ def test_default_agent_runner_uses_pydantic_ai(registry):
     assert set(model.tool_names) == {
         "read_file",
         "write_file",
+        "edit_file",
         "list_files",
         "shell",
         "worker_call",

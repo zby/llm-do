@@ -272,5 +272,4 @@ llm-do production_worker "task" \
 ## Related Documentation
 
 - [Worker Delegation](worker_delegation.md) — Worker-to-worker calls
-- [Sandbox Design](sandbox.md) — Filesystem access control
-- [Runtime Architecture](runtime.md) — Execution model
+- [Architecture](architecture.md) — Sandbox, runtime, and approval system

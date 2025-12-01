@@ -151,4 +151,4 @@ All without asking. **Review `workers/generated/` afterward to see what emerged.
 
 ## Future Work
 
-See `docs/notes/todos/future_work.md` for planned enhancements including automatic iterative refinement.
+See `TODO.md` in the project root for planned enhancements including automatic iterative refinement.

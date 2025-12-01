@@ -20,6 +20,7 @@ from pydantic_ai_filesystem_sandbox import (
     FileSandboxImpl,
     PathConfig,
     # Re-export errors for convenience
+    EditError,
     FileSandboxError,
     FileTooLargeError,
     PathNotInSandboxError,
@@ -266,6 +267,7 @@ class AttachmentValidator:
 # Re-export for convenience
 __all__ = [
     "AttachmentValidator",
+    "EditError",
     "FileSandboxError",
     "FileTooLargeError",
     "PathConfig",

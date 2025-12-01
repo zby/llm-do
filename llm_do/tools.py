@@ -233,13 +233,12 @@ def load_custom_tools(agent: Agent, context: WorkerContext) -> None:
     Custom tools are functions defined in the tools.py file in the worker's directory.
     Only functions explicitly listed in the worker's custom_tools are registered.
 
-    Approval is determined by whether the function has a check_approval method
-    (added via @requires_approval decorator). Functions without the decorator
-    execute without approval prompts.
+    **Secure by default**: All custom tools require approval before execution.
+    This matches the pydantic-ai-blocking-approval v0.4.0 philosophy.
 
     Security guarantees:
     - Only functions listed in definition.custom_tools are registered (allowlist)
-    - Functions with @requires_approval go through approval_controller
+    - All custom tools require approval via approval_controller
     """
     tools_path = context.custom_tools_path
     if not tools_path or not tools_path.exists():
@@ -285,9 +284,9 @@ def load_custom_tools(agent: Agent, context: WorkerContext) -> None:
             logger.warning(f"Custom tool '{tool_name}' is not a function in {tools_path}")
             continue
 
-        # Wrap the function to enforce approval via @requires_approval decorator
+        # Wrap the function to enforce approval (secure by default)
         def make_wrapped_tool(func, name):
-            """Create a wrapped tool that goes through approval controller if decorated."""
+            """Create a wrapped tool that goes through approval controller."""
             # Get the original function's signature
             orig_sig = inspect.signature(func)
             orig_params = list(orig_sig.parameters.values())
@@ -317,23 +316,19 @@ def load_custom_tools(agent: Agent, context: WorkerContext) -> None:
                 return_annotation=orig_sig.return_annotation
             )
 
-            # Check if function has @requires_approval decorator
-            has_approval = getattr(func, '_requires_approval', False)
-
-            # Create wrapper function
+            # Create wrapper function that always requires approval (secure by default)
             def wrapped_tool(ctx, **tool_kwargs):
-                """Wrapped custom tool that enforces approval if decorated."""
-                # Check if tool has @requires_approval decorator
-                if has_approval:
-                    request = ApprovalRequest(
-                        tool_name=name,
-                        tool_args=tool_kwargs,
-                        description=f"Custom tool: {name}",
-                    )
-                    decision = ctx.deps.approval_controller.request_approval_sync(request)
-                    if not decision.approved:
-                        note = f": {decision.note}" if decision.note else ""
-                        raise PermissionError(f"Approval denied for {name}{note}")
+                """Wrapped custom tool that enforces approval (secure by default)."""
+                # All custom tools require approval (secure by default)
+                request = ApprovalRequest(
+                    tool_name=name,
+                    tool_args=tool_kwargs,
+                    description=f"Custom tool: {name}",
+                )
+                decision = ctx.deps.approval_controller.request_approval_sync(request)
+                if not decision.approved:
+                    note = f": {decision.note}" if decision.note else ""
+                    raise PermissionError(f"Approval denied for {name}{note}")
 
                 # Call the original function with the tool arguments
                 return func(**tool_kwargs)

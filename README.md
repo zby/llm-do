@@ -105,7 +105,7 @@ Check the `examples/` directory for additional patterns:
 - `allow_workers`: Which workers can be delegated to
 - **Body** (after `---`): System prompt / instructions with optional Jinja2 templating
 
-See [`docs/notes/worker_format_migration.md`](docs/notes/worker_format_migration.md) for complete field documentation.
+See [`docs/notes/archive/worker_format_migration.md`](docs/notes/archive/worker_format_migration.md) for complete field documentation.
 
 **Sandbox** limits file access:
 ```yaml
@@ -190,9 +190,9 @@ This architecture achieves clean separation of concerns, with `runtime.py` reduc
 ## Documentation
 
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference and configuration overrides
-- **[`docs/concept_spec.md`](docs/concept_spec.md)** — Design philosophy and motivation
+- **[`docs/concept.md`](docs/concept.md)** — Design philosophy and motivation
+- **[`docs/architecture.md`](docs/architecture.md)** — Internal architecture (runtime, sandbox, approval)
 - **[`docs/worker_delegation.md`](docs/worker_delegation.md)** — Worker-to-worker delegation
-- **[`examples/greeter/README.md`](examples/greeter/README.md)** — Simple greeter example
 - **[`examples/pitchdeck_eval/README.md`](examples/pitchdeck_eval/README.md)** — Multi-worker example walkthrough
 - **[`AGENTS.md`](AGENTS.md)** — Development guide (for AI agents and humans)
 

@@ -2,7 +2,7 @@
 
 This document covers the technical implementation of worker-to-worker delegation in `llm-do`.
 
-For design philosophy and motivation, see [`concept_spec.md`](concept_spec.md). For examples, see [`../examples/pitchdeck_eval/`](../examples/pitchdeck_eval/).
+For design philosophy and motivation, see [`concept.md`](concept.md). For architecture details, see [`architecture.md`](architecture.md). For examples, see [`../examples/pitchdeck_eval/`](../examples/pitchdeck_eval/).
 
 ## Programmer vs LLM Perspective
 

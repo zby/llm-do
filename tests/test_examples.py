@@ -364,18 +364,19 @@ def test_pitch_orchestrator_sandboxes_configured(pitchdeck_eval_registry):
     definition = pitchdeck_eval_registry.load_definition("pitch_orchestrator")
 
     # Verify sandboxes are configured
-    assert definition.sandbox is not None
-    assert "input" in definition.sandbox.paths
-    assert "evaluations" in definition.sandbox.paths
+    sandbox = definition.toolsets.sandbox if definition.toolsets else None
+    assert sandbox is not None
+    assert "input" in sandbox.paths
+    assert "evaluations" in sandbox.paths
 
     # Verify input is read-only
-    assert definition.sandbox.paths["input"].mode == "ro"
+    assert sandbox.paths["input"].mode == "ro"
 
     # Verify evaluations is writable
-    assert definition.sandbox.paths["evaluations"].mode == "rw"
+    assert sandbox.paths["evaluations"].mode == "rw"
 
     # Verify allowed suffixes
-    assert ".pdf" in definition.sandbox.paths["input"].suffixes
+    assert ".pdf" in sandbox.paths["input"].suffixes
 
 def test_all_example_workers_load_successfully():
     """Test that all example worker definitions can be loaded.
@@ -395,8 +396,9 @@ def test_all_example_workers_load_successfully():
     approvals_registry = WorkerRegistry(examples_dir / "approvals_demo")
     save_note_def = approvals_registry.load_definition("save_note")
     assert save_note_def.name == "save_note"
-    assert save_note_def.sandbox is not None
-    assert "notes" in save_note_def.sandbox.paths
+    assert save_note_def.toolsets is not None
+    assert save_note_def.toolsets.sandbox is not None
+    assert "notes" in save_note_def.toolsets.sandbox.paths
 
     # Pitch evaluator (in examples/pitchdeck_eval/workers/pitch_evaluator.worker)
     pitch_registry = WorkerRegistry(examples_dir / "pitchdeck_eval")
@@ -407,7 +409,9 @@ def test_all_example_workers_load_successfully():
     # Pitch orchestrator (in examples/pitchdeck_eval/workers/pitch_orchestrator.worker)
     orchestrator_def = pitch_registry.load_definition("pitch_orchestrator")
     assert orchestrator_def.name == "pitch_orchestrator"
-    assert orchestrator_def.allow_workers is not None
+    assert orchestrator_def.toolsets is not None
+    assert orchestrator_def.toolsets.delegation is not None
+    assert orchestrator_def.toolsets.delegation.allow_workers is not None
 
     # Whiteboard planner (in examples/whiteboard_planner/workers/whiteboard_planner.worker)
     whiteboard_registry = WorkerRegistry(examples_dir / "whiteboard_planner")
@@ -418,7 +422,9 @@ def test_all_example_workers_load_successfully():
     # Whiteboard orchestrator (in examples/whiteboard_planner/workers/whiteboard_orchestrator.worker)
     wb_orchestrator_def = whiteboard_registry.load_definition("whiteboard_orchestrator")
     assert wb_orchestrator_def.name == "whiteboard_orchestrator"
-    assert wb_orchestrator_def.allow_workers is not None
+    assert wb_orchestrator_def.toolsets is not None
+    assert wb_orchestrator_def.toolsets.delegation is not None
+    assert wb_orchestrator_def.toolsets.delegation.allow_workers is not None
 
     # Calculator (in examples/calculator/workers/calculator/worker.worker)
     calculator_registry = WorkerRegistry(examples_dir / "calculator")

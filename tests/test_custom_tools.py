@@ -75,9 +75,10 @@ def test_custom_tools_allowlist(calculator_registry):
     definition = calculator_registry.load_definition("calculator")
 
     # Verify custom_tools allowlist is configured
-    assert "calculate_fibonacci" in definition.custom_tools
-    assert "calculate_factorial" in definition.custom_tools
-    assert "calculate_prime_factors" in definition.custom_tools
+    custom_tools = definition.toolsets.custom if definition.toolsets else {}
+    assert "calculate_fibonacci" in custom_tools
+    assert "calculate_factorial" in custom_tools
+    assert "calculate_prime_factors" in custom_tools
 
 
 def test_multiple_custom_tools_registered(calculator_registry):
@@ -91,8 +92,9 @@ def test_multiple_custom_tools_registered(calculator_registry):
         "calculate_prime_factors"
     ]
 
+    custom_tools = definition.toolsets.custom if definition.toolsets else {}
     for tool_name in custom_tool_names:
-        assert tool_name in definition.custom_tools, f"Tool {tool_name} should be in custom_tools"
+        assert tool_name in custom_tools, f"Tool {tool_name} should be in custom_tools"
 
 
 def test_custom_tools_module_error_handling(calculator_registry, tmp_path):
@@ -141,9 +143,10 @@ def test_private_functions_not_registered(calculator_registry, tmp_path):
     definition = calculator_registry.load_definition("calculator")
 
     # Verify _validate_input is NOT in custom_tools
-    assert "_validate_input" not in definition.custom_tools
-    assert "__init__" not in definition.custom_tools
-    assert "__name__" not in definition.custom_tools
+    custom_tools = definition.toolsets.custom if definition.toolsets else {}
+    assert "_validate_input" not in custom_tools
+    assert "__init__" not in custom_tools
+    assert "__name__" not in custom_tools
 
 
 def test_custom_tools_require_allowlist(calculator_registry, tmp_path):
@@ -178,7 +181,8 @@ def test_custom_tools_require_allowlist(calculator_registry, tmp_path):
     assert custom_tools is not None
 
     # Verify custom_tools is empty
-    assert len(definition.custom_tools) == 0
+    custom_tools = definition.toolsets.custom if definition.toolsets else {}
+    assert len(custom_tools) == 0
 
     # The security guarantee is in load_custom_tools:
     # It only registers tools that are in custom_tools list
@@ -200,8 +204,9 @@ def test_custom_tools_approval_via_decorator(calculator_registry):
         "---\n"
         "name: test_approval_decorator\n"
         "model: test\n"
-        "custom_tools:\n"
-        "  - calculate_with_approval\n"
+        "toolsets:\n"
+        "  custom:\n"
+        "    calculate_with_approval: {}\n"
         "---\n"
         "Calculate with approval"
     )
@@ -220,7 +225,8 @@ def test_custom_tools_approval_via_decorator(calculator_registry):
     definition = calculator_registry.load_definition("test_approval_decorator")
 
     # Verify the tool is in the allowlist
-    assert "calculate_with_approval" in definition.custom_tools
+    custom_tools = definition.toolsets.custom if definition.toolsets else {}
+    assert "calculate_with_approval" in custom_tools
 
     # The security guarantee is enforced in load_custom_tools:
     # When a function has check_approval (from @requires_approval), the wrapper

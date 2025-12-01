@@ -1,24 +1,24 @@
 ---
-allow_workers:
-- web_research_extractor
-- web_research_consolidator
-- web_research_reporter
 description: Orchestrate live web research, extraction, consolidation, and reporting.
 name: web_research_orchestrator
-sandbox:
-  paths:
-    reports:
-      max_file_bytes: 500000
-      mode: rw
-      root: ./reports
-      suffixes:
-      - .md
-      - .json
-      write_approval: true
-custom_tools:
-- search_web
-shell_default:
-  allowed: false
+toolsets:
+  delegation:
+    allow_workers:
+    - web_research_extractor
+    - web_research_consolidator
+    - web_research_reporter
+  sandbox:
+    paths:
+      reports:
+        max_file_bytes: 500000
+        mode: rw
+        root: ./reports
+        suffixes:
+        - .md
+        - .json
+        write_approval: true
+  custom:
+    search_web: {}
 ---
 
 You orchestrate a live web research pipeline and write both Markdown and JSON

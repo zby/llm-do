@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.toolsets import AbstractToolset
@@ -185,13 +185,6 @@ class WorkerDefinition(BaseModel):
         description="Configuration for all toolsets (sandbox, shell, delegation, custom)"
     )
 
-    # Legacy fields for backward compatibility - these are migrated to toolsets
-    sandbox_legacy: Optional[SandboxConfig] = Field(default=None, alias="sandbox", exclude=True)
-    shell_rules_legacy: List["ShellRule"] = Field(default_factory=list, alias="shell_rules", exclude=True)
-    shell_default_legacy: Optional["ShellDefault"] = Field(default=None, alias="shell_default", exclude=True)
-    allow_workers_legacy: List[str] = Field(default_factory=list, alias="allow_workers", exclude=True)
-    custom_tools_legacy: List[str] = Field(default_factory=list, alias="custom_tools", exclude=True)
-
     # Attachment policy (applies to worker_call delegation)
     attachment_policy: AttachmentPolicy = Field(default_factory=AttachmentPolicy)
 
@@ -203,98 +196,7 @@ class WorkerDefinition(BaseModel):
 
     locked: bool = False
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
-
-    @model_validator(mode="after")
-    def migrate_legacy_fields_to_toolsets(self) -> "WorkerDefinition":
-        """Migrate legacy top-level fields to the new toolsets structure."""
-        # If toolsets is already set, use it
-        if object.__getattribute__(self, "toolsets") is not None:
-            return self
-
-        # Access legacy fields directly (bypass property overrides)
-        model_fields = object.__getattribute__(self, "__dict__")
-
-        sandbox_val = model_fields.get("sandbox_legacy")
-        shell_rules_val = model_fields.get("shell_rules_legacy", [])
-        shell_default_val = model_fields.get("shell_default_legacy")
-        allow_workers_val = model_fields.get("allow_workers_legacy", [])
-        custom_tools_val = model_fields.get("custom_tools_legacy", [])
-
-        # Check if any legacy fields are set
-        has_legacy = any([
-            sandbox_val is not None,
-            len(shell_rules_val) > 0,
-            shell_default_val is not None,
-            len(allow_workers_val) > 0,
-            len(custom_tools_val) > 0,
-        ])
-
-        if not has_legacy:
-            return self
-
-        # Migrate legacy fields to new toolsets structure
-        toolsets_dict: Dict[str, Any] = {}
-
-        if sandbox_val is not None:
-            toolsets_dict["sandbox"] = sandbox_val
-
-        if shell_rules_val or shell_default_val:
-            toolsets_dict["shell"] = ShellToolsetConfig(
-                rules=shell_rules_val,
-                default=shell_default_val,
-            )
-
-        if allow_workers_val:
-            toolsets_dict["delegation"] = DelegationToolsetConfig(
-                allow_workers=allow_workers_val
-            )
-
-        if custom_tools_val:
-            # Convert list of tool names to dict with default config
-            toolsets_dict["custom"] = {
-                name: CustomToolConfig() for name in custom_tools_val
-            }
-
-        if toolsets_dict:
-            object.__setattr__(self, "toolsets", ToolsetsConfig(**toolsets_dict))
-
-        return self
-
-    @property
-    def sandbox(self) -> Optional[SandboxConfig]:
-        """Get sandbox config from toolsets."""
-        if self.toolsets:
-            return self.toolsets.sandbox
-        return None
-
-    @property
-    def shell_rules(self) -> List[ShellRule]:
-        """Get shell rules from toolsets."""
-        if self.toolsets and self.toolsets.shell:
-            return self.toolsets.shell.rules
-        return []
-
-    @property
-    def shell_default(self) -> Optional[ShellDefault]:
-        """Get shell default from toolsets."""
-        if self.toolsets and self.toolsets.shell:
-            return self.toolsets.shell.default
-        return None
-
-    @property
-    def allow_workers(self) -> List[str]:
-        """Get allow_workers from toolsets."""
-        if self.toolsets and self.toolsets.delegation:
-            return self.toolsets.delegation.allow_workers
-        return []
-
-    @property
-    def custom_tools(self) -> Dict[str, CustomToolConfig]:
-        """Get custom tools config from toolsets."""
-        if self.toolsets and self.toolsets.custom:
-            return self.toolsets.custom
-        return {}
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class WorkerSpec(BaseModel):
@@ -319,59 +221,7 @@ class WorkerCreationDefaults(BaseModel):
         default_factory=AttachmentPolicy
     )
 
-    # Legacy fields for backward compatibility
-    default_sandbox_legacy: Optional[SandboxConfig] = Field(default=None, alias="default_sandbox", exclude=True)
-    default_allow_workers_legacy: List[str] = Field(default_factory=list, alias="default_allow_workers", exclude=True)
-    default_custom_tools_legacy: List[str] = Field(default_factory=list, alias="default_custom_tools", exclude=True)
-
-    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
-
-    @model_validator(mode="after")
-    def migrate_legacy_defaults_to_toolsets(self) -> "WorkerCreationDefaults":
-        """Migrate legacy default fields to the new toolsets structure."""
-        if self.default_toolsets is not None:
-            return self
-
-        model_fields = object.__getattribute__(self, "__dict__")
-        sandbox_val = model_fields.get("default_sandbox_legacy")
-        allow_workers_val = model_fields.get("default_allow_workers_legacy", [])
-        custom_tools_val = model_fields.get("default_custom_tools_legacy", [])
-
-        has_legacy = any([
-            sandbox_val is not None,
-            len(allow_workers_val) > 0,
-            len(custom_tools_val) > 0,
-        ])
-
-        if not has_legacy:
-            return self
-
-        toolsets_dict: Dict[str, Any] = {}
-
-        if sandbox_val is not None:
-            toolsets_dict["sandbox"] = sandbox_val
-
-        if allow_workers_val:
-            toolsets_dict["delegation"] = DelegationToolsetConfig(
-                allow_workers=allow_workers_val
-            )
-
-        if custom_tools_val:
-            toolsets_dict["custom"] = {
-                name: CustomToolConfig() for name in custom_tools_val
-            }
-
-        if toolsets_dict:
-            object.__setattr__(self, "default_toolsets", ToolsetsConfig(**toolsets_dict))
-
-        return self
-
-    @property
-    def default_sandbox(self) -> Optional[SandboxConfig]:
-        """Get default sandbox from toolsets."""
-        if self.default_toolsets:
-            return self.default_toolsets.sandbox
-        return None
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def expand_spec(self, spec: WorkerSpec) -> WorkerDefinition:
         """Apply defaults to a ``WorkerSpec`` to create a full definition."""

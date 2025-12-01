@@ -20,7 +20,8 @@ from llm_do import (
 )
 from pydantic_ai_blocking_approval import ApprovalRequest
 from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
-from llm_do.filesystem_sandbox import PathConfig
+from llm_do.types import ToolsetsConfig, ShellToolsetConfig, DelegationToolsetConfig, ShellDefault
+from pydantic_ai_filesystem_sandbox import PathConfig
 
 
 class EchoPayload(BaseModel):
@@ -165,8 +166,8 @@ def test_sandbox_write_requires_approval(tmp_path, registry, tool_calling_model_
 
     definition = WorkerDefinition(
         name="writer",
-        system_prompt="Write a test file",
-        sandbox=SandboxConfig(paths={"out": path_cfg}),
+        instructions="Write a test file",
+        toolsets=ToolsetsConfig(sandbox=SandboxConfig(paths={"out": path_cfg})),
     )
     registry.save_definition(definition)
 
@@ -200,18 +201,20 @@ def test_sandbox_write_requires_approval(tmp_path, registry, tool_calling_model_
 def test_create_worker_applies_creation_defaults(registry, tmp_path):
     defaults = WorkerCreationDefaults(
         default_model="gpt-4",
-        default_sandbox=SandboxConfig(paths={
-            "rw": PathConfig(root=str(tmp_path / "rw"), mode="rw"),
-        }),
+        default_toolsets=ToolsetsConfig(
+            sandbox=SandboxConfig(paths={
+                "rw": PathConfig(root=str(tmp_path / "rw"), mode="rw"),
+            })
+        ),
     )
     spec = WorkerSpec(name="beta", instructions="collect data")
 
     created = create_worker(registry, spec, defaults=defaults)
 
     assert created.model == "gpt-4"
-    assert "rw" in created.sandbox.paths
+    assert "rw" in created.toolsets.sandbox.paths
     loaded = registry.load_definition("beta")
-    assert loaded.sandbox.paths["rw"].root == str((tmp_path / "rw").resolve())
+    assert loaded.toolsets.sandbox.paths["rw"].root == str((tmp_path / "rw").resolve())
     # Generated workers are directories: {name}/worker.worker
     generated_path = registry.generated_dir / "beta" / "worker.worker"
     assert generated_path.exists()
@@ -313,7 +316,7 @@ def test_call_worker_respects_allowlist(registry):
     parent_def = WorkerDefinition(
         name="parent",
         instructions="",
-        allow_workers=["child"],
+        toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=["child"])),
     )
     child_def = WorkerDefinition(name="child", instructions="")
     registry.save_definition(parent_def)
@@ -351,7 +354,7 @@ def test_call_worker_supports_wildcard_allowlist(registry):
     parent_def = WorkerDefinition(
         name="parent",
         instructions="",
-        allow_workers=["*"],
+        toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=["*"])),
     )
     child_def = WorkerDefinition(name="child", instructions="")
     registry.save_definition(parent_def)
@@ -388,7 +391,7 @@ def test_call_worker_propagates_message_callback(registry):
     parent_def = WorkerDefinition(
         name="parent",
         instructions="",
-        allow_workers=["child"],
+        toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=["child"])),
     )
     child_def = WorkerDefinition(name="child", instructions="")
     registry.save_definition(parent_def)
@@ -430,14 +433,14 @@ def test_call_worker_propagates_message_callback(registry):
 
 
 def test_default_agent_runner_uses_pydantic_ai(registry):
-    from llm_do.worker_sandbox import SandboxConfig
-    from llm_do.types import ShellDefault
     definition = WorkerDefinition(
         name="pydantic-worker",
         instructions="Summarize input",
-        sandbox=SandboxConfig(),  # Need sandbox for file tools
-        shell_default=ShellDefault(allowed=True, approval_required=True),  # Enable shell tool
-        allow_workers=["*"],  # Enable delegation tools
+        toolsets=ToolsetsConfig(
+            sandbox=SandboxConfig(),  # Need sandbox for file tools
+            shell=ShellToolsetConfig(default=ShellDefault(allowed=True, approval_required=True)),  # Enable shell tool
+            delegation=DelegationToolsetConfig(allow_workers=["*"]),  # Enable delegation tools
+        ),
     )
     registry.save_definition(definition)
 
@@ -516,8 +519,8 @@ def test_approve_all_mode(tmp_path, registry, tool_calling_model_cls):
 
     definition = WorkerDefinition(
         name="writer",
-        system_prompt="Write a test file",
-        sandbox=SandboxConfig(paths={"out": path_cfg}),
+        instructions="Write a test file",
+        toolsets=ToolsetsConfig(sandbox=SandboxConfig(paths={"out": path_cfg})),
     )
     registry.save_definition(definition)
 
@@ -556,8 +559,8 @@ def test_strict_mode_rejects(tmp_path, registry, tool_calling_model_cls):
 
     definition = WorkerDefinition(
         name="writer",
-        system_prompt="Write a test file",
-        sandbox=SandboxConfig(paths={"out": path_cfg}),
+        instructions="Write a test file",
+        toolsets=ToolsetsConfig(sandbox=SandboxConfig(paths={"out": path_cfg})),
     )
     registry.save_definition(definition)
 

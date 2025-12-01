@@ -7,6 +7,9 @@ from llm_do.config_overrides import (
     apply_set_override,
     parse_set_override,
 )
+from llm_do.types import ToolsetsConfig, DelegationToolsetConfig
+from llm_do.worker_sandbox import SandboxConfig
+from pydantic_ai_filesystem_sandbox import PathConfig
 
 
 class TestParseSetOverride:
@@ -169,12 +172,16 @@ class TestApplyCliOverrides:
             )
 
     def test_override_list_field(self):
-        defn = WorkerDefinition(name="test", instructions="test")
+        defn = WorkerDefinition(
+            name="test",
+            instructions="test",
+            toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=[])),
+        )
         result = apply_cli_overrides(
             defn,
-            set_overrides=['allow_workers=["worker1", "worker2"]']
+            set_overrides=['toolsets.delegation.allow_workers=["worker1", "worker2"]']
         )
-        assert result.allow_workers == ["worker1", "worker2"]
+        assert result.toolsets.delegation.allow_workers == ["worker1", "worker2"]
 
     def test_override_boolean_field(self):
         defn = WorkerDefinition(name="test", instructions="test", locked=False)
@@ -234,22 +241,20 @@ class TestIntegration:
 
     def test_sandbox_path_override(self):
         """Test overriding sandbox paths for different environments."""
-        from llm_do.worker_sandbox import SandboxConfig
-        from llm_do.filesystem_sandbox import PathConfig
-
         defn = WorkerDefinition(
             name="worker",
             instructions="Test",
-            sandbox=SandboxConfig(
-                paths={
-                    "work": PathConfig(root="./work", mode="rw")
-                }
+            toolsets=ToolsetsConfig(
+                sandbox=SandboxConfig(
+                    paths={
+                        "work": PathConfig(root="./work", mode="rw")
+                    }
+                )
             )
         )
         result = apply_cli_overrides(
             defn,
-            # Note: With new toolsets structure, sandbox is under toolsets
             set_overrides=["toolsets.sandbox.paths.work.root=/tmp/work"]
         )
-        assert result.sandbox.paths["work"].root == "/tmp/work"
-        assert result.sandbox.paths["work"].mode == "rw"  # Preserved
+        assert result.toolsets.sandbox.paths["work"].root == "/tmp/work"
+        assert result.toolsets.sandbox.paths["work"].mode == "rw"  # Preserved

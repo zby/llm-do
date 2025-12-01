@@ -1,15 +1,16 @@
 ---
 description: Mathematical calculator with custom computation tools
 name: calculator
-sandbox:
-  paths:
-    scratch:
-      mode: rw
-      root: ./scratch
-custom_tools:
-  - calculate_factorial
-  - calculate_fibonacci
-  - calculate_prime_factors
+toolsets:
+  sandbox:
+    paths:
+      scratch:
+        mode: rw
+        root: ./scratch
+  custom:
+    calculate_factorial: {}
+    calculate_fibonacci: {}
+    calculate_prime_factors: {}
 ---
 
 You are a mathematical calculator assistant with access to custom tools for advanced calculations.

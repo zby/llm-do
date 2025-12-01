@@ -11,8 +11,7 @@ This module provides:
 The design favors testability and deterministic enforcement through pluggable
 agent runners and approval callbacks.
 
-This module now serves as a backward-compatible re-export layer. The actual
-implementations are in:
+This module serves as a re-export layer. The actual implementations are in:
 - types.py: Data models and type definitions
 - registry.py: WorkerRegistry implementation
 - runtime.py: Async runtime core and execution logic
@@ -21,10 +20,10 @@ from __future__ import annotations
 
 from typing import Iterable
 
-# Re-export sandbox types (legacy)
+# Re-export sandbox types
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 
-# Re-export new sandbox types
+# Re-export sandbox types from standalone package
 from pydantic_ai_filesystem_sandbox import (
     DEFAULT_MAX_READ_CHARS,
     FileSandboxConfig,

@@ -16,70 +16,70 @@ instructions: |
   - Run shell commands for data transformation
   - Use custom tools for calculations and notifications
 
-# Sandbox configuration
-# Uses FileSandboxApprovalToolset which respects PathConfig approval settings
-sandbox:
-  paths:
-    # Read-only input data - no approval needed
-    input:
-      root: ./input
-      mode: ro
-      suffixes: [.csv, .json, .txt]
-      # read_approval: false  # default
+# Toolsets configuration - all tool-related config goes here
+toolsets:
+  # Sandbox configuration
+  # Uses FileSandboxApprovalToolset which respects PathConfig approval settings
+  sandbox:
+    paths:
+      # Read-only input data - no approval needed
+      input:
+        root: ./input
+        mode: ro
+        suffixes: [.csv, .json, .txt]
+        # read_approval: false  # default
 
-    # Output directory - approval required for writes
-    output:
-      root: ./output
-      mode: rw
-      suffixes: [.csv, .json, .txt, .log]
-      write_approval: true   # <-- Triggers approval for write_file/edit_file
-      max_file_bytes: 1000000
+      # Output directory - approval required for writes
+      output:
+        root: ./output
+        mode: rw
+        suffixes: [.csv, .json, .txt, .log]
+        write_approval: true   # <-- Triggers approval for write_file/edit_file
+        max_file_bytes: 1000000
 
-    # Temp directory - no approval needed (trusted scratch space)
-    temp:
-      root: ./temp
-      mode: rw
-      suffixes: [.tmp, .csv]
-      write_approval: false  # <-- No approval needed
+      # Temp directory - no approval needed (trusted scratch space)
+      temp:
+        root: ./temp
+        mode: rw
+        suffixes: [.tmp, .csv]
+        write_approval: false  # <-- No approval needed
 
-# Shell configuration
-shell_default:
-  allowed: false  # Deny by default
+  # Shell configuration
+  shell:
+    default:
+      allowed: false  # Deny by default
 
-shell_rules:
-  # Safe read-only commands - auto-approved
-  - pattern: "ls *"
-    allowed: true
-    approval_required: false
-  - pattern: "cat *"
-    allowed: true
-    approval_required: false
-  - pattern: "head *"
-    allowed: true
-    approval_required: false
-  - pattern: "wc *"
-    allowed: true
-    approval_required: false
+    rules:
+      # Safe read-only commands - auto-approved
+      - pattern: "ls *"
+        allowed: true
+        approval_required: false
+      - pattern: "cat *"
+        allowed: true
+        approval_required: false
+      - pattern: "head *"
+        allowed: true
+        approval_required: false
+      - pattern: "wc *"
+        allowed: true
+        approval_required: false
 
-  # Data processing - require approval
-  - pattern: "sort *"
-    allowed: true
-    approval_required: true
-  - pattern: "awk *"
-    allowed: true
-    approval_required: true
+      # Data processing - require approval
+      - pattern: "sort *"
+        allowed: true
+        approval_required: true
+      - pattern: "awk *"
+        allowed: true
+        approval_required: true
 
-  # Dangerous - always deny
-  - pattern: "rm *"
-    allowed: false
+      # Dangerous - always deny
+      - pattern: "rm *"
+        allowed: false
 
-# Custom tools from tools.py
-# NOTE: In v0.4.0, ALL custom tools require approval by default (secure by default).
-# The @requires_approval decorator has been removed.
-custom_tools:
-  - calculate_stats      # Will prompt for approval
-  - send_notification    # Will prompt for approval
-  - format_output        # Will prompt for approval
-
-# Worker delegation
-allow_workers: []
+  # Custom tools from tools.py
+  # NOTE: In v0.4.0, ALL custom tools require approval by default (secure by default).
+  # The @requires_approval decorator has been removed.
+  custom:
+    calculate_stats: {}      # Will prompt for approval
+    send_notification: {}    # Will prompt for approval
+    format_output: {}        # Will prompt for approval

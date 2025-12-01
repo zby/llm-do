@@ -20,6 +20,7 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 - Style: black, 4 spaces, snake_case/PascalCase
 - Do not preserve backwards compatibility; with no external consumers, always prioritize cleaner design over keeping old behavior alive
 - Favor clear architecture over hacks; delete dead code when possible
+- If backcompat code is ever needed, mark it with `# BACKCOMPAT: <reason> - remove after <condition>` so it can be identified and removed later
 
 ---
 

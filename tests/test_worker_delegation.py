@@ -25,7 +25,8 @@ from llm_do.worker_sandbox import (
     Sandbox,
     SandboxConfig,
 )
-from llm_do.filesystem_sandbox import PathConfig, ReadResult
+from llm_do.types import ToolsetsConfig, DelegationToolsetConfig
+from pydantic_ai_filesystem_sandbox import PathConfig, ReadResult
 from pydantic_ai_blocking_approval import ApprovalRequest
 
 
@@ -53,8 +54,9 @@ def _parent_context(registry, worker, defaults=None, approval_callback=None):
         controller = ApprovalController(mode="approve_all")
 
     # Create new sandbox from worker definition
-    if worker.sandbox and worker.sandbox.paths:
-        sandbox = Sandbox(worker.sandbox, base_path=registry.root)
+    sandbox_config = worker.toolsets.sandbox if worker.toolsets else None
+    if sandbox_config and sandbox_config.paths:
+        sandbox = Sandbox(sandbox_config, base_path=registry.root)
     else:
         sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
@@ -81,14 +83,16 @@ def _parent_with_sandbox(
     parent = WorkerDefinition(
         name="parent",
         instructions="",
-        allow_workers=["child"],
-        sandbox=SandboxConfig(paths={
-            "input": PathConfig(
-                root=str(sandbox_root),
-                mode="ro",
-                suffixes=[".pdf", ".txt"],
-            )
-        }),
+        toolsets=ToolsetsConfig(
+            delegation=DelegationToolsetConfig(allow_workers=["child"]),
+            sandbox=SandboxConfig(paths={
+                "input": PathConfig(
+                    root=str(sandbox_root),
+                    mode="ro",
+                    suffixes=[".pdf", ".txt"],
+                )
+            }),
+        ),
         attachment_policy=attachment_policy or AttachmentPolicy(),
     )
     return parent, sandbox_root
@@ -96,7 +100,7 @@ def _parent_with_sandbox(
 
 def test_call_worker_forwards_attachments(tmp_path):
     registry = _registry(tmp_path)
-    parent = WorkerDefinition(name="parent", instructions="", allow_workers=["child"])
+    parent = WorkerDefinition(name="parent", instructions="", toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=["child"])))
     child = WorkerDefinition(
         name="child",
         instructions="",
@@ -129,7 +133,7 @@ def test_call_worker_forwards_attachments(tmp_path):
 
 def test_call_worker_rejects_disallowed_attachments(tmp_path):
     registry = _registry(tmp_path)
-    parent = WorkerDefinition(name="parent", instructions="", allow_workers=["child"])
+    parent = WorkerDefinition(name="parent", instructions="", toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=["child"])))
     child = WorkerDefinition(
         name="child",
         instructions="",
@@ -157,8 +161,10 @@ def test_create_worker_defaults_allow_delegation(tmp_path):
     path_cfg = PathConfig(root=str(tmp_path / "shared"), mode="rw")
     defaults = WorkerCreationDefaults(
         default_model="defaults-model",
-        default_sandbox=SandboxConfig(paths={"shared": path_cfg}),
-        default_allow_workers=["child"],
+        default_toolsets=ToolsetsConfig(
+            sandbox=SandboxConfig(paths={"shared": path_cfg}),
+            delegation=DelegationToolsetConfig(allow_workers=["child"]),
+        ),
     )
 
     spec = WorkerSpec(name="parent", instructions="delegate")
@@ -194,7 +200,7 @@ def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
     parent = WorkerDefinition(
         name="parent",
         instructions="",
-        allow_workers=["child"],
+        toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=["child"])),
     )
     registry.save_definition(parent)
     context = _parent_context(registry, parent)
@@ -443,13 +449,6 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
     """Test that attachments trigger sandbox.read approval before sharing."""
     registry = _registry(tmp_path)
     parent, sandbox_root = _parent_with_sandbox(tmp_path)
-    # Add sandbox.read rule requiring approval (no longer used, kept for backwards compat)
-    parent = WorkerDefinition(
-        name="parent",
-        instructions="",
-        allow_workers=["child"],
-        sandbox=parent.sandbox,
-    )
     registry.save_definition(parent)
 
     # Track approval requests
@@ -460,7 +459,7 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
         return ApprovalDecision(approved=True)
 
     controller = ApprovalController(mode="interactive", approval_callback=tracking_callback)
-    sandbox = Sandbox(parent.sandbox, base_path=registry.root)
+    sandbox = Sandbox(parent.toolsets.sandbox, base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
 
     context = WorkerContext(
@@ -503,12 +502,6 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
     """Test that denying sandbox.read approval prevents attachment sharing."""
     registry = _registry(tmp_path)
     parent, sandbox_root = _parent_with_sandbox(tmp_path)
-    parent = WorkerDefinition(
-        name="parent",
-        instructions="",
-        allow_workers=["child"],
-        sandbox=parent.sandbox,
-    )
     registry.save_definition(parent)
 
     # Deny approval
@@ -516,7 +509,7 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
         return ApprovalDecision(approved=False, note="User denied")
 
     controller = ApprovalController(mode="interactive", approval_callback=denying_callback)
-    sandbox = Sandbox(parent.sandbox, base_path=registry.root)
+    sandbox = Sandbox(parent.toolsets.sandbox, base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
 
     context = WorkerContext(

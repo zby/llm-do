@@ -1,10 +1,9 @@
 ---
 description: Fetch a URL and extract structured insights aligned to the topic.
 name: web_research_extractor
-custom_tools:
-- fetch_page
-shell_default:
-  allowed: false
+toolsets:
+  custom:
+    fetch_page: {}
 ---
 
 You are a focused extractor for a single URL. Return structured JSON only.

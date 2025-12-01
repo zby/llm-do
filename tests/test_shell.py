@@ -19,7 +19,7 @@ from llm_do.shell import (
     validate_paths_in_sandbox,
 )
 from llm_do.types import ShellResult
-from llm_do.filesystem_sandbox import FileSandboxError
+from pydantic_ai_filesystem_sandbox import FileSandboxError
 
 
 class TestParseCommand:

@@ -91,14 +91,17 @@ def _prepare_worker_context(
     new_sandbox: Optional[Sandbox] = None
     attachment_validator: Optional[AttachmentValidator] = None
 
-    if definition.sandbox is not None:
+    sandbox_config = definition.toolsets.sandbox if definition.toolsets else None
+    default_sandbox_config = defaults.default_toolsets.sandbox if defaults.default_toolsets else None
+
+    if sandbox_config is not None:
         # Worker has explicit sandbox config
-        new_sandbox = Sandbox(definition.sandbox, base_path=registry.root)
+        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
         attachment_validator = AttachmentValidator(new_sandbox)
         logger.debug(f"Using unified sandbox for worker '{worker}'")
-    elif defaults.default_sandbox is not None:
+    elif default_sandbox_config is not None:
         # Use default sandbox from creation defaults
-        new_sandbox = Sandbox(defaults.default_sandbox, base_path=registry.root)
+        new_sandbox = Sandbox(default_sandbox_config, base_path=registry.root)
         attachment_validator = AttachmentValidator(new_sandbox)
         logger.debug(f"Using default sandbox for worker '{worker}'")
     else:
@@ -370,7 +373,8 @@ class RuntimeCreator:
 
 def _check_delegation_allowed(caller_context: WorkerContext, worker: str) -> None:
     """Check if delegation to a worker is allowed (shared by sync and async)."""
-    allowed = caller_context.worker.allow_workers
+    toolsets = caller_context.worker.toolsets
+    allowed = toolsets.delegation.allow_workers if toolsets and toolsets.delegation else []
     if allowed:
         allowed_set = set(allowed)
         if "*" not in allowed_set and worker not in allowed_set:

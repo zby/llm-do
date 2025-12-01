@@ -1,44 +1,33 @@
 ---
-allow_workers:
-- '*'
 description: Turn free-form tasks into concrete multi-step workflows by designing
   workers and invoking them
 name: worker_bootstrapper
-sandbox:
-  paths:
-    input:
-      max_file_bytes: 20000000
-      mode: ro
-      root: ./input
-      suffixes:
-      - .md
-      - .txt
-      - .yaml
-      - .json
-      - .py
-      - .pdf
-    output:
-      max_file_bytes: 20000000
-      mode: rw
-      root: ./output
-      suffixes:
-      - .yaml
-      - .md
-      - .txt
-      - .json
-tool_rules:
-  sandbox.read:
-    allowed: true
-    approval_required: false
-  sandbox.write:
-    allowed: true
-    approval_required: true
-  worker.call:
-    allowed: true
-    approval_required: false
-  worker.create:
-    allowed: true
-    approval_required: true
+toolsets:
+  delegation:
+    allow_workers:
+    - '*'
+  sandbox:
+    paths:
+      input:
+        max_file_bytes: 20000000
+        mode: ro
+        root: ./input
+        suffixes:
+        - .md
+        - .txt
+        - .yaml
+        - .json
+        - .py
+        - .pdf
+      output:
+        max_file_bytes: 20000000
+        mode: rw
+        root: ./output
+        suffixes:
+        - .yaml
+        - .md
+        - .txt
+        - .json
 ---
 
 You are the **worker_bootstrapper**. You turn free-form tasks into concrete

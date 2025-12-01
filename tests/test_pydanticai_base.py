@@ -437,6 +437,7 @@ def test_default_agent_runner_uses_pydantic_ai(registry):
         instructions="Summarize input",
         sandbox=SandboxConfig(),  # Need sandbox for file tools
         shell_default=ShellDefault(allowed=True, approval_required=True),  # Enable shell tool
+        allow_workers=["*"],  # Enable delegation tools
     )
     registry.save_definition(definition)
 

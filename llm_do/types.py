@@ -57,10 +57,6 @@ class ShellToolsetConfig(BaseModel):
         default=None,
         description="Default behavior for commands not matching any rule"
     )
-    cwd: Optional[str] = Field(
-        default=None,
-        description="Working directory for shell commands"
-    )
 
 
 class DelegationToolsetConfig(BaseModel):
@@ -195,7 +191,6 @@ class WorkerDefinition(BaseModel):
     sandbox: Optional[SandboxConfig] = Field(default=None, exclude=True)
     shell_rules: List["ShellRule"] = Field(default_factory=list, exclude=True)
     shell_default: Optional["ShellDefault"] = Field(default=None, exclude=True)
-    shell_cwd: Optional[str] = Field(default=None, exclude=True)
     allow_workers: List[str] = Field(default_factory=list, exclude=True)
     custom_tools: List[str] = Field(default_factory=list, exclude=True)
 
@@ -220,13 +215,11 @@ class WorkerDefinition(BaseModel):
             return self
 
         # Access legacy fields directly (bypass __getattribute__ override)
-        legacy_sandbox = object.__getattribute__(self, "__pydantic_fields_set__")
         model_fields = object.__getattribute__(self, "__dict__")
 
         sandbox_val = model_fields.get("sandbox")
         shell_rules_val = model_fields.get("shell_rules", [])
         shell_default_val = model_fields.get("shell_default")
-        shell_cwd_val = model_fields.get("shell_cwd")
         allow_workers_val = model_fields.get("allow_workers", [])
         custom_tools_val = model_fields.get("custom_tools", [])
 
@@ -235,7 +228,6 @@ class WorkerDefinition(BaseModel):
             sandbox_val is not None,
             len(shell_rules_val) > 0,
             shell_default_val is not None,
-            shell_cwd_val is not None,
             len(allow_workers_val) > 0,
             len(custom_tools_val) > 0,
         ])
@@ -249,11 +241,10 @@ class WorkerDefinition(BaseModel):
         if sandbox_val is not None:
             toolsets_dict["sandbox"] = sandbox_val
 
-        if shell_rules_val or shell_default_val or shell_cwd_val:
+        if shell_rules_val or shell_default_val:
             toolsets_dict["shell"] = ShellToolsetConfig(
                 rules=shell_rules_val,
                 default=shell_default_val,
-                cwd=shell_cwd_val,
             )
 
         if allow_workers_val:
@@ -291,11 +282,6 @@ class WorkerDefinition(BaseModel):
             if toolsets and toolsets.shell:
                 return toolsets.shell.default
             return None
-        elif name == "shell_cwd":
-            toolsets = object.__getattribute__(self, "toolsets")
-            if toolsets and toolsets.shell:
-                return toolsets.shell.cwd
-            return None
         elif name == "allow_workers":
             toolsets = object.__getattribute__(self, "toolsets")
             if toolsets and toolsets.delegation:
@@ -320,10 +306,6 @@ class WorkerDefinition(BaseModel):
     def get_shell_default(self) -> Optional[ShellDefault]:
         """Get shell default from toolsets."""
         return self.shell_default
-
-    def get_shell_cwd(self) -> Optional[str]:
-        """Get shell cwd from toolsets."""
-        return self.shell_cwd
 
     def get_allow_workers(self) -> List[str]:
         """Get allow_workers from toolsets."""
@@ -465,7 +447,6 @@ class WorkerContext:
     attachments: List[AttachmentPayload] = field(default_factory=list)
     message_callback: Optional[MessageCallback] = None
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
-    shell_cwd: Optional[Path] = None  # Working directory for shell commands (overrides worker.shell_cwd)
 
     def validate_attachments(
         self, attachment_specs: Optional[Sequence[AttachmentInput]]

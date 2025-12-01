@@ -177,18 +177,18 @@ class DelegationApprovalToolset(ApprovalToolset):
 
     def __init__(
         self,
+        config: dict,
         delegator: WorkerDelegator,
         creator: WorkerCreator,
-        allow_workers: Optional[List[str]],
         approval_callback: Callable,
         memory: Optional[ApprovalMemory] = None,
     ):
         """Initialize delegation approval toolset.
 
         Args:
+            config: Delegation toolset configuration dict (allow_workers)
             delegator: Implementation of worker delegation (DI)
             creator: Implementation of worker creation (DI)
-            allow_workers: List of allowed worker names for delegation (None = all allowed)
             approval_callback: Callback for approval decisions
             memory: Optional approval memory for session caching
         """
@@ -197,8 +197,8 @@ class DelegationApprovalToolset(ApprovalToolset):
             inner=inner,
             approval_callback=approval_callback,
             memory=memory,
+            config=config,
         )
-        self.allow_workers = allow_workers
 
     def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
         """Determine if delegation tool needs approval.
@@ -218,15 +218,15 @@ class DelegationApprovalToolset(ApprovalToolset):
             target_worker = tool_args.get("worker", "")
 
             # Check if target worker is allowed
-            # allow_workers=None means no delegation (no worker_call tool exposed)
+            # allow_workers=[] means no delegation allowed
             # allow_workers=['*'] means all workers allowed
             # allow_workers=['foo', 'bar'] means only specific workers allowed
-            if self.allow_workers is not None:
-                if '*' not in self.allow_workers and target_worker not in self.allow_workers:
-                    raise PermissionError(
-                        f"Worker '{target_worker}' not in allow_workers list. "
-                        f"Allowed: {self.allow_workers}"
-                    )
+            allow_workers = self.config.get("allow_workers", [])
+            if '*' not in allow_workers and target_worker not in allow_workers:
+                raise PermissionError(
+                    f"Worker '{target_worker}' not in allow_workers list. "
+                    f"Allowed: {allow_workers}"
+                )
 
             # Worker call always requires approval
             return {"description": f"Delegate to worker: {target_worker}"}

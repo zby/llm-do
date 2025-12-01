@@ -104,7 +104,6 @@ class WorkerContext:
     attachments: List[AttachmentPayload]
     message_callback: Optional[MessageCallback]
     custom_tools_path: Optional[Path]
-    shell_cwd: Optional[Path]
 ```
 
 Tools access context via `RunContext[WorkerContext]`:

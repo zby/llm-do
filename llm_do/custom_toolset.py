@@ -230,27 +230,33 @@ class CustomToolsetInner(AbstractToolset[WorkerContext]):
 class CustomApprovalToolset(ApprovalToolset):
     """Custom toolset with approval.
 
-    Wraps CustomToolsetInner with approval logic.
-    All custom tools require approval (secure by default).
+    Wraps CustomToolsetInner with per-tool approval configuration.
+    Tools default to requiring approval (secure by default).
     """
 
     def __init__(
         self,
+        config: dict,
         worker_name: str,
         tools_path: Path,
-        allowed_tools: List[str],
         approval_callback: Callable,
         memory: Optional[ApprovalMemory] = None,
     ):
         """Initialize custom approval toolset.
 
         Args:
+            config: Custom tools configuration dict (tool_name -> {approval_required, allowed})
             worker_name: Name of the worker (for module naming)
             tools_path: Path to the tools.py file
-            allowed_tools: List of function names to expose as tools
             approval_callback: Callback for approval decisions
             memory: Optional approval memory for session caching
         """
+        # Filter to only allowed tools
+        allowed_tools = [
+            name for name, tool_config in config.items()
+            if tool_config.get("allowed", True)
+        ]
+
         inner = CustomToolsetInner(
             worker_name=worker_name,
             tools_path=tools_path,
@@ -260,18 +266,34 @@ class CustomApprovalToolset(ApprovalToolset):
             inner=inner,
             approval_callback=approval_callback,
             memory=memory,
+            config=config,
         )
 
     def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
-        """All custom tools require approval (secure by default).
+        """Check per-tool approval configuration.
 
         Args:
             name: Tool name
             tool_args: Tool arguments
 
         Returns:
-            dict with description for approval prompt
+            - False: No approval needed (approval_required=false in config)
+            - dict with description for approval prompt
+
+        Raises:
+            PermissionError: If tool is not allowed
         """
+        # Get tool config (default to secure: approval required, allowed)
+        tool_config = self.config.get(name, {})
+
+        # Check if tool is allowed (default: True)
+        if not tool_config.get("allowed", True):
+            raise PermissionError(f"Custom tool '{name}' is not allowed")
+
+        # Check if approval is required (default: True - secure by default)
+        if not tool_config.get("approval_required", True):
+            return False  # Pre-approved
+
         # Format args for display
         args_preview = ", ".join(f"{k}={v!r}" for k, v in list(tool_args.items())[:3])
         if len(tool_args) > 3:

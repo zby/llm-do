@@ -159,8 +159,8 @@ def validate_paths_in_sandbox(
 def match_shell_rules(
     command: str,
     args: List[str],
-    rules: List[ShellRule],
-    default: Optional[ShellDefault],
+    rules: List[dict],
+    default: Optional[dict],
     file_sandbox: Optional[FileSandbox],
 ) -> Tuple[bool, bool]:
     """Match command against shell rules.
@@ -168,32 +168,32 @@ def match_shell_rules(
     Args:
         command: Original command string
         args: Parsed command arguments
-        rules: List of shell rules to match against
-        default: Default behavior for unmatched commands
+        rules: List of shell rule dicts with keys: pattern, sandbox_paths, allowed, approval_required
+        default: Default behavior dict with keys: allowed, approval_required
         file_sandbox: FileSandbox for path validation (optional)
 
     Returns:
         Tuple of (allowed, approval_required)
     """
-    # Reconstruct command prefix for matching
-    # We match against the original command, not parsed args
     for rule in rules:
+        pattern = rule.get("pattern", "")
         # Simple prefix match
-        if command.startswith(rule.pattern) or command == rule.pattern:
-            logger.debug(f"Command '{command}' matches rule pattern '{rule.pattern}'")
+        if command.startswith(pattern) or command == pattern:
+            logger.debug(f"Command '{command}' matches rule pattern '{pattern}'")
 
             # If rule has sandbox_paths, validate path arguments
-            if rule.sandbox_paths and file_sandbox is not None:
+            sandbox_paths = rule.get("sandbox_paths", [])
+            if sandbox_paths and file_sandbox is not None:
                 path_args = extract_path_arguments(args)
-                if not validate_paths_in_sandbox(path_args, rule.sandbox_paths, file_sandbox):
-                    logger.debug(f"Path validation failed for rule '{rule.pattern}'")
+                if not validate_paths_in_sandbox(path_args, sandbox_paths, file_sandbox):
+                    logger.debug(f"Path validation failed for rule '{pattern}'")
                     continue  # Try next rule
 
-            return (rule.allowed, rule.approval_required)
+            return (rule.get("allowed", True), rule.get("approval_required", True))
 
     # No rule matched, use default
     if default is not None:
-        return (default.allowed, default.approval_required)
+        return (default.get("allowed", True), default.get("approval_required", True))
 
     # Ultimate fallback: allow with approval required
     return (True, True)

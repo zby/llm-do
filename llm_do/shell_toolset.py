@@ -28,7 +28,7 @@ from .shell import (
     match_shell_rules,
     parse_command,
 )
-from .types import ShellDefault, ShellResult, ShellRule, WorkerContext
+from .types import ShellResult, WorkerContext
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,6 @@ class ShellToolsetInner(AbstractToolset[WorkerContext]):
 
     def __init__(
         self,
-        cwd: Optional[Path] = None,
         sandbox: Optional[FileSandbox] = None,
         id: Optional[str] = None,
         max_retries: int = 1,
@@ -50,12 +49,10 @@ class ShellToolsetInner(AbstractToolset[WorkerContext]):
         """Initialize shell toolset.
 
         Args:
-            cwd: Working directory for shell commands. If None, uses current directory.
             sandbox: FileSandbox for enhancing error messages with context.
             id: Optional toolset ID for durable execution.
             max_retries: Maximum retries for tool calls.
         """
-        self.cwd = cwd
         self.sandbox = sandbox
         self._id = id
         self._max_retries = max_retries
@@ -124,13 +121,9 @@ class ShellToolsetInner(AbstractToolset[WorkerContext]):
         # Enforce timeout limits
         timeout = min(max(timeout, 1), 300)
 
-        # Determine working directory
-        working_dir = self.cwd if self.cwd is not None else Path.cwd()
-
         try:
             result = execute_shell(
                 command=command,
-                working_dir=working_dir,
                 timeout=timeout,
             )
             # Enhance errors with sandbox context
@@ -147,8 +140,7 @@ class ShellToolsetInner(AbstractToolset[WorkerContext]):
 class ShellApprovalToolset(ApprovalToolset):
     """Shell toolset with pattern-based approval.
 
-    Wraps ShellToolsetInner with approval logic based on shell_rules
-    and shell_default configuration.
+    Wraps ShellToolsetInner with approval logic based on shell configuration.
 
     The `needs_approval()` method implements pattern matching:
     - Commands matching a rule with `allowed: false` are blocked
@@ -158,9 +150,7 @@ class ShellApprovalToolset(ApprovalToolset):
 
     def __init__(
         self,
-        rules: list[ShellRule],
-        default: Optional[ShellDefault],
-        cwd: Optional[Path],
+        config: dict,
         sandbox: Optional[FileSandbox],
         approval_callback: Callable,
         memory: Optional[ApprovalMemory] = None,
@@ -168,21 +158,18 @@ class ShellApprovalToolset(ApprovalToolset):
         """Initialize shell approval toolset.
 
         Args:
-            rules: List of shell rules for pattern matching
-            default: Default behavior for commands not matching any rule
-            cwd: Working directory for shell commands
+            config: Shell toolset configuration dict (rules, default)
             sandbox: FileSandbox for path validation and error enhancement
             approval_callback: Callback for approval decisions
             memory: Optional approval memory for session caching
         """
-        inner = ShellToolsetInner(cwd=cwd, sandbox=sandbox)
+        inner = ShellToolsetInner(sandbox=sandbox)
         super().__init__(
             inner=inner,
             approval_callback=approval_callback,
             memory=memory,
+            config=config,
         )
-        self.rules = rules
-        self.default = default
         self.sandbox = sandbox
 
     def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
@@ -212,12 +199,12 @@ class ShellApprovalToolset(ApprovalToolset):
             # Let call_tool handle the error - don't block here
             return False
 
-        # Match against shell_rules
+        # Match against shell rules from config
         allowed, approval_required = match_shell_rules(
             command=command,
             args=args,
-            rules=self.rules,
-            default=self.default,
+            rules=self.config.get("rules", []),
+            default=self.config.get("default"),
             file_sandbox=self.sandbox,
         )
 

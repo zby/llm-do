@@ -12,7 +12,6 @@
 
 - [x] Attachment approval UX in CLI
 - [x] Shell commands run from user's cwd by default
-- [x] `shell_cwd` field for worker-specific directories
 - [ ] Defer/resume for long approval-gated runs (complex)
 
 ## Worker System

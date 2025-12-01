@@ -181,35 +181,7 @@ llm-do processor "data" \
 | `sandbox.network_enabled` | `--set sandbox.network_enabled=false` | Disable network (future) |
 | `sandbox.paths.NAME.root` | `--set sandbox.paths.work.root=/tmp` | Change directories |
 | `sandbox.paths.NAME.mode` | `--set sandbox.paths.work.mode=ro` | Make read-only |
-| `shell_cwd` | `--set shell_cwd=/path/to/dir` | Override shell working directory |
 | `server_side_tools` | `--set server_side_tools='[{"tool_type":"web_search"}]'` | Enable provider tools (PydanticAI `builtin_tools`) |
-
-### Shell Working Directory
-
-By default, shell commands run from the **user's current directory** (`cwd`). Workers can override this with the `shell_cwd` field:
-
-```yaml
-# Worker definition
-name: analyzer
-shell_cwd: "."  # Run from registry root
-```
-
-Override at runtime:
-```bash
-# Run shell commands from specific directory
-llm-do code_analyzer "analyze" --set shell_cwd=/some/project
-
-# Run from registry root
-llm-do code_analyzer "analyze" --set shell_cwd=.
-```
-
-**Behavior:**
-- **No `shell_cwd` specified**: Shell runs from user's current directory
-- **Relative path** (e.g., `subdir`): Resolved relative to registry root
-- **Absolute path** (e.g., `/tmp/work`): Used as-is
-- **`.` (dot)**: Explicitly use registry root
-
-**Worker creation:** New workers always go to `{registry.root}/workers/generated/`, regardless of `shell_cwd`.
 
 ### Validation
 

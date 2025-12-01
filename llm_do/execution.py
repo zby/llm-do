@@ -249,11 +249,10 @@ def prepare_agent_execution(
         toolsets.append(approval_sandbox)
 
     # Shell toolset (provides shell command execution with pattern-based approval)
-    if definition.shell_rules or definition.shell_default:
+    shell_config = definition.toolsets.shell if definition.toolsets else None
+    if shell_config is not None:
         shell_toolset = ShellApprovalToolset(
-            rules=definition.shell_rules,
-            default=definition.shell_default,
-            cwd=context.shell_cwd,
+            config=shell_config.model_dump(),
             sandbox=context.sandbox,
             approval_callback=context.approval_controller.approval_callback,
             memory=context.approval_controller.memory,
@@ -261,28 +260,30 @@ def prepare_agent_execution(
         toolsets.append(shell_toolset)
 
     # Delegation toolset (provides worker_call, worker_create with approval)
-    if delegator is not None and creator is not None:
+    delegation_config = definition.toolsets.delegation if definition.toolsets else None
+    if delegation_config is not None and delegator is not None and creator is not None:
         delegation_toolset = DelegationApprovalToolset(
+            config=delegation_config.model_dump(),
             delegator=delegator,
             creator=creator,
-            allow_workers=definition.allow_workers,
             approval_callback=context.approval_controller.approval_callback,
             memory=context.approval_controller.memory,
         )
         toolsets.append(delegation_toolset)
 
     # Custom toolset (provides custom tools from tools.py with approval)
-    if context.custom_tools_path and context.custom_tools_path.exists():
-        allowed_tools = definition.custom_tools or []
-        if allowed_tools:
-            custom_toolset = CustomApprovalToolset(
-                worker_name=definition.name,
-                tools_path=context.custom_tools_path,
-                allowed_tools=allowed_tools,
-                approval_callback=context.approval_controller.approval_callback,
-                memory=context.approval_controller.memory,
-            )
-            toolsets.append(custom_toolset)
+    custom_config = definition.toolsets.custom if definition.toolsets else None
+    if custom_config and context.custom_tools_path and context.custom_tools_path.exists():
+        # Convert Dict[str, CustomToolConfig] to Dict[str, dict]
+        config_dict = {name: cfg.model_dump() for name, cfg in custom_config.items()}
+        custom_toolset = CustomApprovalToolset(
+            config=config_dict,
+            worker_name=definition.name,
+            tools_path=context.custom_tools_path,
+            approval_callback=context.approval_controller.approval_callback,
+            memory=context.approval_controller.memory,
+        )
+        toolsets.append(custom_toolset)
 
     # Only pass toolsets if we have any
     if toolsets:

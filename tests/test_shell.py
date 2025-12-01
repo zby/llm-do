@@ -18,7 +18,7 @@ from llm_do.shell import (
     parse_command,
     validate_paths_in_sandbox,
 )
-from llm_do.types import ShellDefault, ShellResult, ShellRule
+from llm_do.types import ShellResult
 from llm_do.filesystem_sandbox import FileSandboxError
 
 
@@ -99,40 +99,40 @@ class TestMatchShellRules:
     """Tests for shell rule pattern matching."""
 
     def test_exact_match(self):
-        rules = [ShellRule(pattern="git status", approval_required=False, allowed=True)]
+        rules = [{"pattern": "git status", "approval_required": False, "allowed": True}]
         allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None, None)
         assert allowed is True
         assert approval is False
 
     def test_prefix_match(self):
-        rules = [ShellRule(pattern="git", approval_required=False, allowed=True)]
+        rules = [{"pattern": "git", "approval_required": False, "allowed": True}]
         allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None, None)
         assert allowed is True
         assert approval is False
 
     def test_no_match_uses_default(self):
-        rules = [ShellRule(pattern="git", approval_required=False, allowed=True)]
-        default = ShellDefault(allowed=True, approval_required=True)
+        rules = [{"pattern": "git", "approval_required": False, "allowed": True}]
+        default = {"allowed": True, "approval_required": True}
         allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, default, None)
         assert allowed is True
         assert approval is True
 
     def test_no_match_no_default_fallback(self):
-        rules = [ShellRule(pattern="git", approval_required=False, allowed=True)]
+        rules = [{"pattern": "git", "approval_required": False, "allowed": True}]
         allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, None, None)
         assert allowed is True
         assert approval is True  # Ultimate fallback
 
     def test_first_match_wins(self):
         rules = [
-            ShellRule(pattern="git status", approval_required=False, allowed=True),
-            ShellRule(pattern="git", approval_required=True, allowed=True),
+            {"pattern": "git status", "approval_required": False, "allowed": True},
+            {"pattern": "git", "approval_required": True, "allowed": True},
         ]
         allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None, None)
         assert approval is False  # First rule wins
 
     def test_blocked_command(self):
-        rules = [ShellRule(pattern="rm", approval_required=False, allowed=False)]
+        rules = [{"pattern": "rm", "approval_required": False, "allowed": False}]
         allowed, approval = match_shell_rules("rm -rf /", ["rm", "-rf", "/"], rules, None, None)
         assert allowed is False
 
@@ -260,12 +260,12 @@ class TestShellRuleWithSandboxPaths:
         mock_sandbox.resolve.return_value = Path("/sandbox/output/file.txt")
 
         rules = [
-            ShellRule(
-                pattern="cat",
-                sandbox_paths=["output"],
-                approval_required=False,
-                allowed=True,
-            )
+            {
+                "pattern": "cat",
+                "sandbox_paths": ["output"],
+                "approval_required": False,
+                "allowed": True,
+            }
         ]
 
         allowed, approval = match_shell_rules(
@@ -284,18 +284,18 @@ class TestShellRuleWithSandboxPaths:
         mock_sandbox.can_read.return_value = False
 
         rules = [
-            ShellRule(
-                pattern="cat",
-                sandbox_paths=["output"],  # Will fail validation
-                approval_required=False,
-                allowed=True,
-            ),
-            ShellRule(
-                pattern="cat",
-                sandbox_paths=[],  # No validation
-                approval_required=True,
-                allowed=True,
-            ),
+            {
+                "pattern": "cat",
+                "sandbox_paths": ["output"],  # Will fail validation
+                "approval_required": False,
+                "allowed": True,
+            },
+            {
+                "pattern": "cat",
+                "sandbox_paths": [],  # No validation
+                "approval_required": True,
+                "allowed": True,
+            },
         ]
 
         allowed, approval = match_shell_rules(
@@ -314,13 +314,13 @@ class TestShellDefault:
     """Tests for shell default behavior."""
 
     def test_default_allow_no_approval(self):
-        default = ShellDefault(allowed=True, approval_required=False)
+        default = {"allowed": True, "approval_required": False}
         allowed, approval = match_shell_rules("xyz", ["xyz"], [], default, None)
         assert allowed is True
         assert approval is False
 
     def test_default_block(self):
-        default = ShellDefault(allowed=False, approval_required=True)
+        default = {"allowed": False, "approval_required": True}
         allowed, approval = match_shell_rules("xyz", ["xyz"], [], default, None)
         assert allowed is False
         assert approval is True

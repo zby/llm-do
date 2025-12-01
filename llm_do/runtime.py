@@ -125,16 +125,6 @@ def _prepare_worker_context(
 
     effective_model = definition.model or caller_effective_model or cli_model
 
-    # Resolve shell_cwd: if worker specifies one, make it absolute (relative to registry.root)
-    resolved_shell_cwd: Optional[Path] = None
-    shell_cwd_config = definition.get_shell_cwd()
-    if shell_cwd_config is not None:
-        cwd_path = Path(shell_cwd_config)
-        if cwd_path.is_absolute():
-            resolved_shell_cwd = cwd_path
-        else:
-            resolved_shell_cwd = (Path(registry.root) / cwd_path).resolve()
-
     context = WorkerContext(
         registry=registry,
         worker=definition,
@@ -146,7 +136,6 @@ def _prepare_worker_context(
         attachments=attachment_payloads,
         message_callback=message_callback,
         custom_tools_path=custom_tools_path,
-        shell_cwd=resolved_shell_cwd,
     )
 
     output_model = registry.resolve_output_schema(definition)

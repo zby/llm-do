@@ -1,7 +1,7 @@
 """Tool registration for llm-do workers.
 
-This module registers both built-in tools (sandbox_*, worker_*) and
-custom tools loaded from workers/{name}/tools.py files.
+This module registers worker delegation tools and custom tools.
+Shell and sandbox tools are now provided via toolsets in execution.py.
 
 Uses protocol-based DI to avoid circular imports with runtime.py.
 """
@@ -11,7 +11,6 @@ import inspect
 import importlib.util
 import logging
 import sys
-import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -19,15 +18,8 @@ from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 
 from .protocols import WorkerCreator, WorkerDelegator
-from .shell import (
-    ShellBlockedError,
-    execute_shell,
-    enhance_error_with_sandbox_context,
-    match_shell_rules,
-    parse_command,
-)
 from pydantic_ai_blocking_approval import ApprovalRequest
-from .types import ShellResult, WorkerContext
+from .types import WorkerContext
 
 logger = logging.getLogger(__name__)
 
@@ -47,134 +39,19 @@ def register_worker_tools(
         creator: Implementation of worker creation (DI)
 
     Registers:
-    1. Shell tool (if enabled)
-    2. Worker delegation tool (worker_call)
-    3. Worker creation tool (worker_create)
-    4. Custom tools from tools.py if available
+    1. Worker delegation tool (worker_call)
+    2. Worker creation tool (worker_create)
+    3. Custom tools from tools.py if available
 
-    Note: Sandbox tools (read_file, write_file, list_files) are provided
-    by the Sandbox toolset passed to the Agent constructor.
+    Note: Sandbox tools (read_file, write_file, edit_file, list_files) and
+    shell tool are provided via toolsets in execution.py.
     """
-    # Register shell tool if enabled
-    _register_shell_tool(agent, context)
-
     # Register worker delegation/creation tools with injected implementations
     _register_worker_delegation_tools(agent, context, delegator, creator)
 
     # Load and register custom tools if available
     if context.custom_tools_path:
         load_custom_tools(agent, context)
-
-
-def _register_shell_tool(
-    agent: Agent,
-    context: WorkerContext,
-) -> None:
-    """Register the shell tool for executing commands.
-
-    The shell tool:
-    1. Matches command against shell_rules for approval decision
-    2. Falls back to shell_default if no rule matches
-    3. Routes through approval controller if approval required
-    4. Executes command and returns result
-
-    To disable shell entirely, use: shell_default: {allowed: false}
-    """
-    @agent.tool(
-        name="shell",
-        description="Execute a shell command. Commands are parsed with shlex and "
-                    "executed without a shell for security. Shell metacharacters "
-                    "(|, >, <, ;, &, `, $() are blocked."
-    )
-    def shell_tool(
-        ctx: RunContext[WorkerContext],
-        command: str,
-        timeout: int = 30,
-    ) -> ShellResult:
-        """Execute a shell command.
-
-        Args:
-            command: Command to execute (parsed with shlex)
-            timeout: Timeout in seconds (default 30, max 300)
-
-        Returns:
-            ShellResult with stdout, stderr, exit_code, and truncated flag
-        """
-        # Enforce timeout limits
-        timeout = min(max(timeout, 1), 300)
-
-        # Get worker's shell configuration
-        worker = ctx.deps.worker
-        shell_rules = worker.shell_rules
-        shell_default = worker.shell_default
-
-        # Parse command for rule matching
-        try:
-            args = parse_command(command)
-        except ShellBlockedError as e:
-            return ShellResult(
-                stdout="",
-                stderr=str(e),
-                exit_code=1,
-                truncated=False,
-            )
-
-        # Match against shell_rules
-        allowed, approval_required = match_shell_rules(
-            command=command,
-            args=args,
-            rules=shell_rules,
-            default=shell_default,
-            file_sandbox=ctx.deps.sandbox,
-        )
-
-        # Check if command is allowed
-        if not allowed:
-            return ShellResult(
-                stdout="",
-                stderr=f"Command not allowed by shell rules: {command}",
-                exit_code=1,
-                truncated=False,
-            )
-
-        # Check approval if required (determined by shell_rules or shell_default)
-        if approval_required:
-            # Route through approval controller using new pattern
-            request = ApprovalRequest(
-                tool_name="shell",
-                description=f"Execute: {command[:80]}{'...' if len(command) > 80 else ''}",
-                tool_args={"command": command},
-            )
-            decision = ctx.deps.approval_controller.request_approval_sync(request)
-            if not decision.approved:
-                note = f": {decision.note}" if decision.note else ""
-                return ShellResult(
-                    stdout="",
-                    stderr=f"Approval denied for shell{note}",
-                    exit_code=1,
-                    truncated=False,
-                )
-
-        # Execute command
-        try:
-            # Determine working directory:
-            # 1. If context.shell_cwd is set (from worker.shell_cwd or --set override), use it
-            # 2. Otherwise, use current working directory
-            working_dir = ctx.deps.shell_cwd if ctx.deps.shell_cwd is not None else Path.cwd()
-            result = execute_shell(
-                command=command,
-                working_dir=working_dir,
-                timeout=timeout,
-            )
-            # Enhance errors with sandbox context
-            return enhance_error_with_sandbox_context(result, ctx.deps.sandbox)
-        except ShellBlockedError as e:
-            return ShellResult(
-                stdout="",
-                stderr=str(e),
-                exit_code=1,
-                truncated=False,
-            )
 
 
 def _register_worker_delegation_tools(

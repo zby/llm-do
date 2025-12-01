@@ -24,6 +24,7 @@ from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
 from pydantic_ai_filesystem_sandbox.approval import FileSandboxApprovalToolset
+from .shell_toolset import ShellApprovalToolset
 from .types import (
     AgentExecutionContext,
     ModelLike,
@@ -227,17 +228,33 @@ def prepare_agent_execution(
         deps_type=WorkerContext,
     )
 
-    # Conditionally include sandbox toolset if configured
-    # Only pass toolsets parameter if we have a sandbox to avoid empty list issues
+    # Build toolsets list
+    toolsets = []
+
+    # Sandbox toolset (provides read_file, write_file, edit_file, list_files)
     if context.sandbox is not None:
-        # Wrap sandbox with approval checking using FileSandboxApprovalToolset
-        # This uses PathConfig.write_approval/read_approval settings for approval logic
         approval_sandbox = FileSandboxApprovalToolset(
             inner=context.sandbox,
             approval_callback=context.approval_controller.approval_callback,
             memory=context.approval_controller.memory,
         )
-        agent_kwargs["toolsets"] = [approval_sandbox]  # Sandbox provides read_file, write_file, edit_file, list_files
+        toolsets.append(approval_sandbox)
+
+    # Shell toolset (provides shell command execution with pattern-based approval)
+    if definition.shell_rules or definition.shell_default:
+        shell_toolset = ShellApprovalToolset(
+            rules=definition.shell_rules,
+            default=definition.shell_default,
+            cwd=context.shell_cwd,
+            sandbox=context.sandbox,
+            approval_callback=context.approval_controller.approval_callback,
+            memory=context.approval_controller.memory,
+        )
+        toolsets.append(shell_toolset)
+
+    # Only pass toolsets if we have any
+    if toolsets:
+        agent_kwargs["toolsets"] = toolsets
 
     if output_model is not None:
         agent_kwargs["output_type"] = output_model

@@ -431,10 +431,12 @@ def test_call_worker_propagates_message_callback(registry):
 
 def test_default_agent_runner_uses_pydantic_ai(registry):
     from llm_do.worker_sandbox import SandboxConfig
+    from llm_do.types import ShellDefault
     definition = WorkerDefinition(
         name="pydantic-worker",
         instructions="Summarize input",
-        sandbox=SandboxConfig()  # Need sandbox for file tools
+        sandbox=SandboxConfig(),  # Need sandbox for file tools
+        shell_default=ShellDefault(allowed=True, approval_required=True),  # Enable shell tool
     )
     registry.save_definition(definition)
 

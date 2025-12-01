@@ -159,7 +159,7 @@ class ShellApprovalToolset(ApprovalToolset):
 
         Args:
             config: Shell toolset configuration dict (rules, default)
-            sandbox: FileSandbox for path validation and error enhancement
+            sandbox: FileSandbox for enhancing error messages and rule matching
             approval_callback: Callback for approval decisions
             memory: Optional approval memory for session caching
         """
@@ -170,7 +170,6 @@ class ShellApprovalToolset(ApprovalToolset):
             memory=memory,
             config=config,
         )
-        self.sandbox = sandbox
 
     def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
         """Determine if shell command needs approval based on rules.

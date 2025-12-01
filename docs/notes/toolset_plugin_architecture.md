@@ -71,8 +71,8 @@ Add a `create` classmethod to `ApprovalToolset` in `pydantic-ai-blocking-approva
 class ApprovalToolset(AbstractToolset):
     """Wraps a toolset with synchronous approval checking."""
 
-    # Subclasses set this to their inner toolset class
-    inner_class: type[AbstractToolset] = None
+    # Subclasses set this to their default inner toolset class
+    default_inner_class: type[AbstractToolset] = None
 
     def __init__(
         self,
@@ -93,10 +93,12 @@ class ApprovalToolset(AbstractToolset):
         context: Any,
         approval_callback: Callable[[ApprovalRequest], ApprovalDecision],
         memory: Optional[ApprovalMemory] = None,
+        inner_class: Optional[type[AbstractToolset]] = None,
     ) -> "ApprovalToolset":
         """Factory method to create toolset from config and context.
 
-        Subclasses set `inner_class` to specify which inner toolset to create.
+        Subclasses set `default_inner_class` to specify which inner toolset to create.
+        The inner class can be overridden at runtime via `inner_class` parameter.
         The inner class must accept (config, context) in its __init__.
 
         Args:
@@ -104,15 +106,17 @@ class ApprovalToolset(AbstractToolset):
             context: Runtime context (e.g., WorkerContext) with dependencies
             approval_callback: Callback for approval decisions
             memory: Optional approval memory for session caching
+            inner_class: Override the default inner class (optional)
 
         Returns:
             Configured ApprovalToolset instance
         """
-        if cls.inner_class is None:
+        actual_inner_class = inner_class or getattr(cls, "default_inner_class", None)
+        if actual_inner_class is None:
             raise NotImplementedError(
-                f"{cls.__name__} must set inner_class or override create()"
+                f"{cls.__name__} must set default_inner_class or pass inner_class"
             )
-        inner = cls.inner_class(config, context)
+        inner = actual_inner_class(config, context)
         return cls(
             inner=inner,
             approval_callback=approval_callback,
@@ -129,6 +133,11 @@ class ApprovalToolset(AbstractToolset):
 
     # ... rest of existing implementation
 ```
+
+This design allows:
+1. Subclasses to set `default_inner_class` for standard behavior
+2. Runtime override via `inner_class` parameter
+3. Config-driven override (see below)
 
 ### Inner Toolset Convention
 
@@ -162,14 +171,14 @@ class DelegationToolsetInner(AbstractToolset[WorkerContext]):
 ### Approval Subclasses Become Minimal
 
 With the base class handling creation, subclasses only define:
-1. `inner_class` - which inner toolset to wrap
+1. `default_inner_class` - which inner toolset to wrap by default
 2. `needs_approval()` - custom approval logic
 
 ```python
 class ShellApprovalToolset(ApprovalToolset):
     """Shell toolset with pattern-based approval."""
 
-    inner_class = ShellToolsetInner
+    default_inner_class = ShellToolsetInner
 
     def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
         if name != "shell":
@@ -198,7 +207,7 @@ class ShellApprovalToolset(ApprovalToolset):
 class DelegationApprovalToolset(ApprovalToolset):
     """Delegation toolset with allow_workers enforcement."""
 
-    inner_class = DelegationToolsetInner
+    default_inner_class = DelegationToolsetInner
 
     def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
         if name == "worker_call":
@@ -221,6 +230,12 @@ class DelegationApprovalToolset(ApprovalToolset):
 ```python
 import importlib
 
+def _import_class(class_path: str) -> type:
+    """Dynamically import a class from its fully-qualified path."""
+    module_path, class_name = class_path.rsplit(".", 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)
+
 def build_toolsets(
     definition: WorkerDefinition,
     context: WorkerContext,
@@ -231,10 +246,12 @@ def build_toolsets(
     toolsets = []
 
     for class_path, toolset_config in definition.toolsets.items():
-        # Dynamic import
-        module_path, class_name = class_path.rsplit(".", 1)
-        module = importlib.import_module(module_path)
-        toolset_class = getattr(module, class_name)
+        toolset_class = _import_class(class_path)
+
+        # Check for inner_class override in config
+        inner_class = None
+        if "inner_class" in toolset_config:
+            inner_class = _import_class(toolset_config.pop("inner_class"))
 
         # Uniform creation interface
         toolset = toolset_class.create(
@@ -242,10 +259,20 @@ def build_toolsets(
             context=context,
             approval_callback=approval_callback,
             memory=memory,
+            inner_class=inner_class,
         )
         toolsets.append(toolset)
 
     return toolsets
+```
+
+This supports config-driven inner class override:
+
+```yaml
+toolsets:
+  llm_do.shell_toolset.ShellApprovalToolset:
+    inner_class: mycompany.toolsets.MyShellInner  # optional override
+    rules: [...]
 ```
 
 ### WorkerContext as Dependency Container
@@ -275,16 +302,18 @@ class WorkerContext:
 ## Benefits
 
 1. **Decoupled execution.py**: No toolset-specific code, just dynamic loading
-2. **No boilerplate __init__**: Subclasses only define `inner_class` and `needs_approval`
+2. **No boilerplate __init__**: Subclasses only define `default_inner_class` and `needs_approval`
 3. **Third-party toolsets**: Just implement the convention, no registration needed
 4. **Explicit DI**: Dependencies flow through WorkerContext
 5. **Testable**: Easy to mock context for testing toolsets
+6. **Flexible inner class**: Can override default inner class via config or parameter
 
 ## Migration Path
 
 1. Add `create()` classmethod to `ApprovalToolset` in `pydantic-ai-blocking-approval`
+   - See: `/home/zby/llm/pydantic-ai-blocking-approval/TODO.md`
 2. Update inner toolsets to accept `(config, context)`
-3. Simplify approval subclasses (remove custom `__init__`, set `inner_class`)
+3. Simplify approval subclasses (remove custom `__init__`, set `default_inner_class`)
 4. Update `WorkerDefinition.toolsets` to use class paths as keys
 5. Replace hardcoded toolset creation in `execution.py` with generic loop
 6. Add backward compatibility layer for old config format (optional)
@@ -333,7 +362,7 @@ class DatabaseToolsetInner(AbstractToolset):
             return self._run_execute(tool_args["sql"])
 
 class DatabaseApprovalToolset(ApprovalToolset):
-    inner_class = DatabaseToolsetInner
+    default_inner_class = DatabaseToolsetInner
 
     def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
         sql = tool_args.get("sql", "")

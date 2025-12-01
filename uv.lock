@@ -1213,7 +1213,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai" },
     { name = "pydantic-ai-blocking-approval" },
-    { name = "pydantic-ai-filesystem-sandbox" },
+    { name = "pydantic-ai-filesystem-sandbox", extra = ["approval"] },
     { name = "pytest" },
     { name = "python-frontmatter" },
     { name = "pyyaml" },
@@ -1234,8 +1234,8 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.0" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-ai", specifier = ">=0.0.13" },
-    { name = "pydantic-ai-blocking-approval", specifier = ">=0.3.0" },
-    { name = "pydantic-ai-filesystem-sandbox", specifier = ">=0.1.0" },
+    { name = "pydantic-ai-blocking-approval", specifier = ">=0.4.0" },
+    { name = "pydantic-ai-filesystem-sandbox", extras = ["approval"], specifier = ">=0.5.0" },
     { name = "pytest", specifier = ">=9.0.1" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
@@ -1793,28 +1793,33 @@ wheels = [
 
 [[package]]
 name = "pydantic-ai-blocking-approval"
-version = "0.3.0"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3f/8f/e7fb0b5f8fad5b3f2bafc43b097ccd4ffaa3190c335a3eeb3807626898be/pydantic_ai_blocking_approval-0.3.0.tar.gz", hash = "sha256:1c6abbf3b2e039b5e7cc525b39f7b531c3f4ad2cd2282aca09662ccf073b0bc2", size = 200983 }
+sdist = { url = "https://files.pythonhosted.org/packages/86/8e/e81a637f0ace8efaf3e4bc4a4f3939af4390c7b1c1725599d63c40294cea/pydantic_ai_blocking_approval-0.4.0.tar.gz", hash = "sha256:5c1ec300941b2cc7a57ed05b83500bb85467a62d05e5aae57edf3e95fdee5ae6", size = 205442 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/53/88/3f64235fe3ec4a1008a176332321df2aeca23a8953698a5760bf937b336d/pydantic_ai_blocking_approval-0.3.0-py3-none-any.whl", hash = "sha256:5bfd8721a4d866e06995c8f5c0743288348cd05a7e67243e2d0621285004b314", size = 14656 },
+    { url = "https://files.pythonhosted.org/packages/f5/23/aeccf3d750134cdc8e52fcf0cb12e173250963db177b15369b166bcb707e/pydantic_ai_blocking_approval-0.4.0-py3-none-any.whl", hash = "sha256:f3c15e1f11c8d70c540dabb6a29a919c5f8d5be5e6574e83dbe785ae26ca061d", size = 12754 },
 ]
 
 [[package]]
 name = "pydantic-ai-filesystem-sandbox"
-version = "0.1.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/13/8e31d539096e3629381a2f5e8514828c3aa7ba04a54a4d52d579845cb378/pydantic_ai_filesystem_sandbox-0.1.0.tar.gz", hash = "sha256:c9914835bbbaecd30823a29863e2e88c2a73211f5629ad06deb5f97a2345fa6d", size = 177147 }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/39/87a45f9e419ff22a62e696e7f311dbf4146ba100a70cd954662d3f1dfdf7/pydantic_ai_filesystem_sandbox-0.5.0.tar.gz", hash = "sha256:277db836adce9ef4347c322840524642de088f88d78b2ea224ea399a213ef108", size = 180561 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a7/4e/d230097394f2dc5f070bf5b57193e852f4469296bc30fab1bd19cb068c62/pydantic_ai_filesystem_sandbox-0.1.0-py3-none-any.whl", hash = "sha256:c4bb37d1c72e8d8948672ee1ed424388b8b95f93050cc8576c928be410e158c8", size = 10617 },
+    { url = "https://files.pythonhosted.org/packages/e7/5b/83734faaf1c94017eeea5de0af4f22b27643fecdb665b481236e20f5584b/pydantic_ai_filesystem_sandbox-0.5.0-py3-none-any.whl", hash = "sha256:0b475fe8db431307e952e825f20aa5be8e74524275231a4cc41c952d4e3feffc", size = 12659 },
+]
+
+[package.optional-dependencies]
+approval = [
+    { name = "pydantic-ai-blocking-approval" },
 ]
 
 [[package]]

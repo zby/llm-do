@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Dict, List, Optional, Sequence, Type, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Type, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
@@ -73,6 +73,37 @@ class ShellDefault(BaseModel):
     )
 
 
+# ---------------------------------------------------------------------------
+# Server-side tools (provider-executed)
+# ---------------------------------------------------------------------------
+
+
+class ServerSideToolConfig(BaseModel):
+    """Configuration for a server-side tool executed by the LLM provider.
+
+    These tools run on the provider's infrastructure (Anthropic, OpenAI, etc.),
+    not locally. Examples: web search, code execution, image generation.
+
+    Provider support varies - check pydantic-ai docs for compatibility.
+    """
+
+    tool_type: Literal["web_search", "code_execution", "image_generation", "url_context"] = Field(
+        description="Type of server-side tool"
+    )
+    max_uses: Optional[int] = Field(
+        default=None,
+        description="Maximum number of times the tool can be used (web_search only, Anthropic)"
+    )
+    blocked_domains: Optional[List[str]] = Field(
+        default=None,
+        description="Domains to block (web_search only, mutually exclusive with allowed_domains for Anthropic)"
+    )
+    allowed_domains: Optional[List[str]] = Field(
+        default=None,
+        description="Only allow these domains (web_search only, mutually exclusive with blocked_domains for Anthropic)"
+    )
+
+
 class WorkerDefinition(BaseModel):
     """Persisted worker artifact."""
 
@@ -91,6 +122,11 @@ class WorkerDefinition(BaseModel):
     custom_tools: List[str] = Field(
         default_factory=list,
         description="Allowlist of custom tool function names from tools.py"
+    )
+    # Server-side tools (executed by LLM provider)
+    server_side_tools: List[ServerSideToolConfig] = Field(
+        default_factory=list,
+        description="Server-side tools executed by the LLM provider (web_search, code_execution, etc.)"
     )
     # Shell tool configuration
     shell_rules: List[ShellRule] = Field(

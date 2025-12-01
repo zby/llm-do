@@ -182,6 +182,7 @@ llm-do processor "data" \
 | `sandbox.paths.NAME.root` | `--set sandbox.paths.work.root=/tmp` | Change directories |
 | `sandbox.paths.NAME.mode` | `--set sandbox.paths.work.mode=ro` | Make read-only |
 | `shell_cwd` | `--set shell_cwd=/path/to/dir` | Override shell working directory |
+| `server_side_tools` | `--set server_side_tools='[{"tool_type":"web_search"}]'` | Enable provider tools (PydanticAI `builtin_tools`) |
 
 ### Shell Working Directory
 

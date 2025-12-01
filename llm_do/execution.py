@@ -13,6 +13,12 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
+from pydantic_ai.builtin_tools import (
+    CodeExecutionTool,
+    ImageGenerationTool,
+    UrlContextTool,
+    WebSearchTool,
+)
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
@@ -21,6 +27,7 @@ from pydantic_ai_filesystem_sandbox.approval import FileSandboxApprovalToolset
 from .types import (
     AgentExecutionContext,
     ModelLike,
+    ServerSideToolConfig,
     WorkerContext,
     WorkerDefinition,
 )
@@ -63,6 +70,40 @@ def format_user_prompt(user_input: Any) -> str:
     if isinstance(user_input, str):
         return user_input
     return json.dumps(user_input, indent=2, sort_keys=True)
+
+
+def build_server_side_tools(
+    configs: List[ServerSideToolConfig],
+) -> List[Any]:
+    """Convert server_side_tools config to pydantic-ai builtin_tools.
+
+    Args:
+        configs: List of ServerSideToolConfig from worker definition
+
+    Returns:
+        List of pydantic-ai builtin tool instances
+
+    Raises:
+        ValueError: If an unknown tool_type is specified
+    """
+    tools = []
+    for config in configs:
+        if config.tool_type == "web_search":
+            tool = WebSearchTool(
+                max_uses=config.max_uses,
+                blocked_domains=config.blocked_domains,
+                allowed_domains=config.allowed_domains,
+            )
+        elif config.tool_type == "url_context":
+            tool = UrlContextTool()
+        elif config.tool_type == "code_execution":
+            tool = CodeExecutionTool()
+        elif config.tool_type == "image_generation":
+            tool = ImageGenerationTool()
+        else:
+            raise ValueError(f"Unknown server-side tool type: {config.tool_type}")
+        tools.append(tool)
+    return tools
 
 
 def prepare_agent_execution(
@@ -200,6 +241,10 @@ def prepare_agent_execution(
 
     if output_model is not None:
         agent_kwargs["output_type"] = output_model
+
+    # Add server-side tools (provider-executed) if configured
+    if definition.server_side_tools:
+        agent_kwargs["builtin_tools"] = build_server_side_tools(definition.server_side_tools)
 
     return AgentExecutionContext(
         prompt=prompt,

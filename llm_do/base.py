@@ -46,6 +46,7 @@ from .types import (
     MessageCallback,
     ModelLike,
     OutputSchemaResolver,
+    ServerSideToolConfig,
     ShellDefault,
     ShellResult,
     ShellRule,
@@ -135,4 +136,6 @@ __all__: Iterable[str] = [
     "ShellRule",
     "execute_shell",
     "match_shell_rules",
+    # Server-side tools
+    "ServerSideToolConfig",
 ]

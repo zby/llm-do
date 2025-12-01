@@ -81,6 +81,7 @@ Check the `examples/` directory for additional patterns:
 - **[`pitchdeck_eval/`](examples/pitchdeck_eval/)** — Multi-worker orchestration with PDF analysis (shown above)
 - **[`approvals_demo/`](examples/approvals_demo/)** — A demo for tool approval system
 - **[`calculator/`](examples/calculator/)** — Custom tools example with mathematical functions
+- **[`web_searcher/`](examples/web_searcher/)** — Server-side tools with web search
 - **`bootstrapping_pitchdeck_eval/`** — Autonomous worker creation workflow
 
 ## Key Features
@@ -88,6 +89,7 @@ Check the `examples/` directory for additional patterns:
 - **Sandboxed file access**: Workers can only read/write within declared directories, with suffix filters and size limits
 - **Worker delegation**: Workers call other workers like functions, with built-in allowlists and validation
 - **Custom tools**: Add Python functions as tools in `workers/name/tools.py` for domain-specific operations
+- **Server-side tools**: Enable provider-executed capabilities like web search and code execution (maps to PydanticAI's `builtin_tools`)
 - **Tool approval system**: Configure which operations run automatically vs. require human review
 - **Autonomous worker creation**: Let workers draft new worker definitions (requires approval)
 - **Jinja2 templating**: Include files and compose prompts with `{{ file() }}` and `{% include %}`
@@ -146,6 +148,20 @@ def calculate_fibonacci(n: int) -> int:
 ```
 
 Functions in `tools.py` are automatically registered as [tools](https://ai.pydantic.dev/api/tools/) the LLM can call. Workers also have access to [toolsets](https://ai.pydantic.dev/api/toolsets/) for file operations (when a sandbox is configured). See [`examples/calculator/`](examples/calculator/) for a complete example.
+
+**Server-side tools** enable provider-executed capabilities (web search, code execution) without local tool overhead:
+```yaml
+# workers/researcher.worker
+---
+name: researcher
+server_side_tools:
+  - tool_type: web_search
+    max_uses: 5
+---
+You are a research assistant with web search capability...
+```
+
+These map to PydanticAI's [`builtin_tools`](https://ai.pydantic.dev/builtin-tools/). Available types: `web_search`, `code_execution`, `image_generation`, `url_context`. Provider support varies—see PydanticAI docs for compatibility. See [`examples/web_searcher/`](examples/web_searcher/) for a complete example.
 
 See [`docs/worker_delegation.md`](docs/worker_delegation.md) for detailed design.
 

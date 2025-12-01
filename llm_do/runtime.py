@@ -207,22 +207,21 @@ class RuntimeDelegator:
             note = f": {decision.note}" if decision.note else ""
             raise PermissionError(f"Approval denied for {tool_name}{note}")
 
-    async def call_async(
+    def _prepare_delegation(
         self,
         worker: str,
-        input_data: Any = None,
-        attachments: Optional[List[str]] = None,
-    ) -> Any:
-        """Async worker delegation with approval enforcement."""
-        resolved_attachments: List[Path]
-        attachment_metadata: List[Dict[str, Any]]
+        attachments: Optional[List[str]],
+    ) -> Optional[List[AttachmentPayload]]:
+        """Validate attachments and check approvals for worker delegation.
+
+        Returns attachment payloads ready for call_worker/call_worker_async.
+        """
         if attachments:
             resolved_attachments, attachment_metadata = self.context.validate_attachments(attachments)
         else:
             resolved_attachments, attachment_metadata = ([], [])
 
         # Check sandbox.read approval for each attachment before sharing
-        # Done after validation so we have full metadata (sandbox, path, size)
         for meta in attachment_metadata:
             self._check_approval(
                 "sandbox.read",
@@ -240,18 +239,22 @@ class RuntimeDelegator:
                 for path, meta in zip(resolved_attachments, attachment_metadata)
             ]
 
+        # Check worker.call approval
         payload: Dict[str, Any] = {"worker": worker}
         if attachment_metadata:
             payload["attachments"] = attachment_metadata
+        self._check_approval("worker.call", payload, f"Delegate to worker '{worker}'")
 
-        # Check worker.call approval
-        self._check_approval(
-            "worker.call",
-            payload,
-            f"Delegate to worker '{worker}'",
-        )
+        return attachment_payloads
 
-        # Now execute async
+    async def call_async(
+        self,
+        worker: str,
+        input_data: Any = None,
+        attachments: Optional[List[str]] = None,
+    ) -> Any:
+        """Async worker delegation with approval enforcement."""
+        attachment_payloads = self._prepare_delegation(worker, attachments)
         result = await call_worker_async(
             registry=self.context.registry,
             worker=worker,
@@ -268,44 +271,7 @@ class RuntimeDelegator:
         attachments: Optional[List[str]] = None,
     ) -> Any:
         """Sync worker delegation with approval enforcement."""
-        resolved_attachments: List[Path]
-        attachment_metadata: List[Dict[str, Any]]
-        if attachments:
-            resolved_attachments, attachment_metadata = self.context.validate_attachments(attachments)
-        else:
-            resolved_attachments, attachment_metadata = ([], [])
-
-        # Check sandbox.read approval for each attachment before sharing
-        # Done after validation so we have full metadata (sandbox, path, size)
-        for meta in attachment_metadata:
-            self._check_approval(
-                "sandbox.read",
-                {"path": f"{meta['sandbox']}/{meta['path']}", "bytes": meta["bytes"], "target_worker": worker},
-                f"Share file '{meta['sandbox']}/{meta['path']}' with worker '{worker}'",
-            )
-
-        attachment_payloads: Optional[List[AttachmentPayload]] = None
-        if resolved_attachments:
-            attachment_payloads = [
-                AttachmentPayload(
-                    path=path,
-                    display_name=f"{meta['sandbox']}/{meta['path']}",
-                )
-                for path, meta in zip(resolved_attachments, attachment_metadata)
-            ]
-
-        payload: Dict[str, Any] = {"worker": worker}
-        if attachment_metadata:
-            payload["attachments"] = attachment_metadata
-
-        # Check worker.call approval
-        self._check_approval(
-            "worker.call",
-            payload,
-            f"Delegate to worker '{worker}'",
-        )
-
-        # Execute
+        attachment_payloads = self._prepare_delegation(worker, attachments)
         result = call_worker(
             registry=self.context.registry,
             worker=worker,

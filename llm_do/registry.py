@@ -8,13 +8,12 @@ This module provides the WorkerRegistry class which handles:
 """
 from __future__ import annotations
 
-import os
 from pathlib import Path
+from typing import Dict, Optional, Set, Type
 
 # Generated workers go to a temp directory, not project directory.
 # This keeps generated workers ephemeral - use `cp` to persist them.
 GENERATED_DIR = Path("/tmp/llm-do/generated")
-from typing import Dict, Optional, Set, Type
 
 import frontmatter
 import yaml
@@ -247,18 +246,6 @@ class WorkerRegistry:
             # but we want to be sure we checked all of them in the error message
             raise FileNotFoundError(f"Worker definition not found: {name}")
         data = self._load_raw(path)
-
-        # Inject sandbox names from dictionary keys
-        if "sandboxes" in data and isinstance(data["sandboxes"], dict):
-            for sandbox_name, sandbox_config in data["sandboxes"].items():
-                if isinstance(sandbox_config, dict) and "name" not in sandbox_config:
-                    sandbox_config["name"] = sandbox_name
-
-        # Inject tool rule names from dictionary keys
-        if "tool_rules" in data and isinstance(data["tool_rules"], dict):
-            for rule_name, rule_config in data["tool_rules"].items():
-                if isinstance(rule_config, dict) and "name" not in rule_config:
-                    rule_config["name"] = rule_name
 
         try:
             return WorkerDefinition.model_validate(data)

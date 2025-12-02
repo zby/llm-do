@@ -75,7 +75,11 @@ class ToolsetsConfig(BaseModel):
 
     sandbox: Optional["SandboxConfig"] = Field(
         default=None,
-        description="File sandbox configuration (read_file, write_file, etc.)"
+        description="Sandbox policy (paths, modes, network)"
+    )
+    file_tools: bool = Field(
+        default=True,
+        description="Enable FileSystemToolset (read_file, write_file, etc.)"
     )
     shell: Optional[ShellToolsetConfig] = Field(
         default=None,

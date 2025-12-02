@@ -1,24 +1,23 @@
 """Shell command execution as a PydanticAI toolset with pattern-based approval.
 
-This module provides ShellApprovalToolset which:
+This module provides ShellToolset which:
 1. Exposes the `shell` tool to LLMs
 2. Implements pattern-based approval via `needs_approval()`
 3. Delegates execution to shell.py
 
 Security note: Pattern rules are UX only, not security. Security comes from:
-- FileSandbox for Python I/O validation
+- Sandbox for Python I/O validation
 - OS sandbox (Seatbelt/bwrap) for shell subprocess enforcement (future)
 """
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from pydantic import TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
-from pydantic_ai_blocking_approval import ApprovalToolset, ApprovalMemory
 
 from .protocols import FileSandbox
 from .shell import (
@@ -33,15 +32,23 @@ from .types import ShellResult, WorkerContext
 logger = logging.getLogger(__name__)
 
 
-class ShellToolsetInner(AbstractToolset[WorkerContext]):
-    """Core shell command execution toolset (no approval logic).
+class ShellToolset(AbstractToolset[WorkerContext]):
+    """Shell command execution toolset with pattern-based approval.
 
-    This provides the actual shell tool implementation. Approval logic
-    is handled by the ShellApprovalToolset wrapper.
+    This toolset exposes the `shell` tool to LLMs and implements approval
+    logic based on shell configuration rules. The `needs_approval()` method
+    is called by ApprovalToolset wrapper to determine if a command needs
+    user approval.
+
+    Approval logic:
+    - Commands matching a rule with `allowed: false` raise PermissionError
+    - Commands matching a rule with `approval_required: false` are pre-approved
+    - Other commands require approval
     """
 
     def __init__(
         self,
+        config: dict,
         sandbox: Optional[FileSandbox] = None,
         id: Optional[str] = None,
         max_retries: int = 1,
@@ -49,11 +56,13 @@ class ShellToolsetInner(AbstractToolset[WorkerContext]):
         """Initialize shell toolset.
 
         Args:
-            sandbox: FileSandbox for enhancing error messages with context.
+            config: Shell toolset configuration dict (rules, default)
+            sandbox: FileSandbox for enhancing error messages and rule matching.
             id: Optional toolset ID for durable execution.
             max_retries: Maximum retries for tool calls.
         """
-        self.sandbox = sandbox
+        self._config = config
+        self._sandbox = sandbox
         self._id = id
         self._max_retries = max_retries
 
@@ -61,6 +70,64 @@ class ShellToolsetInner(AbstractToolset[WorkerContext]):
     def id(self) -> str | None:
         """Return toolset ID for durable execution."""
         return self._id
+
+    @property
+    def config(self) -> dict:
+        """Return the toolset configuration."""
+        return self._config
+
+    @property
+    def sandbox(self) -> Optional[FileSandbox]:
+        """Return the sandbox for path validation."""
+        return self._sandbox
+
+    def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
+        """Determine if shell command needs approval based on rules.
+
+        Args:
+            name: Tool name (should be "shell")
+            tool_args: Tool arguments with "command"
+
+        Returns:
+            - False: No approval needed (pre-approved by rule)
+            - dict with "description": Approval needed with custom message
+
+        Raises:
+            PermissionError: If command is blocked by rules
+        """
+        if name != "shell":
+            # Unknown tool - require approval
+            return True
+
+        command = tool_args.get("command", "")
+
+        # Parse command for rule matching
+        try:
+            args = parse_command(command)
+        except ShellBlockedError:
+            # Let call_tool handle the error - don't block here
+            return False
+
+        # Match against shell rules from config
+        allowed, approval_required = match_shell_rules(
+            command=command,
+            args=args,
+            rules=self._config.get("rules", []),
+            default=self._config.get("default"),
+            file_sandbox=self._sandbox,
+        )
+
+        # Check if command is blocked
+        if not allowed:
+            raise PermissionError(f"Command not allowed by shell rules: {command}")
+
+        # Check if approval is required
+        if not approval_required:
+            return False  # Pre-approved
+
+        # Approval required - return description
+        truncated = command[:80] + "..." if len(command) > 80 else command
+        return {"description": f"Execute: {truncated}"}
 
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool]:
         """Return the shell tool definition."""
@@ -127,7 +194,7 @@ class ShellToolsetInner(AbstractToolset[WorkerContext]):
                 timeout=timeout,
             )
             # Enhance errors with sandbox context
-            return enhance_error_with_sandbox_context(result, self.sandbox)
+            return enhance_error_with_sandbox_context(result, self._sandbox)
         except ShellBlockedError as e:
             return ShellResult(
                 stdout="",
@@ -135,86 +202,3 @@ class ShellToolsetInner(AbstractToolset[WorkerContext]):
                 exit_code=1,
                 truncated=False,
             )
-
-
-class ShellApprovalToolset(ApprovalToolset):
-    """Shell toolset with pattern-based approval.
-
-    Wraps ShellToolsetInner with approval logic based on shell configuration.
-
-    The `needs_approval()` method implements pattern matching:
-    - Commands matching a rule with `allowed: false` are blocked
-    - Commands matching a rule with `approval_required: false` are pre-approved
-    - Other commands require approval
-    """
-
-    def __init__(
-        self,
-        config: dict,
-        sandbox: Optional[FileSandbox],
-        approval_callback: Callable,
-        memory: Optional[ApprovalMemory] = None,
-    ):
-        """Initialize shell approval toolset.
-
-        Args:
-            config: Shell toolset configuration dict (rules, default)
-            sandbox: FileSandbox for enhancing error messages and rule matching
-            approval_callback: Callback for approval decisions
-            memory: Optional approval memory for session caching
-        """
-        inner = ShellToolsetInner(sandbox=sandbox)
-        super().__init__(
-            inner=inner,
-            approval_callback=approval_callback,
-            memory=memory,
-            config=config,
-        )
-
-    def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
-        """Determine if shell command needs approval based on rules.
-
-        Args:
-            name: Tool name (should be "shell")
-            tool_args: Tool arguments with "command"
-
-        Returns:
-            - False: No approval needed (pre-approved by rule)
-            - dict with "description": Approval needed with custom message
-
-        Raises:
-            PermissionError: If command is blocked by rules
-        """
-        if name != "shell":
-            # Unknown tool - require approval
-            return True
-
-        command = tool_args.get("command", "")
-
-        # Parse command for rule matching
-        try:
-            args = parse_command(command)
-        except ShellBlockedError:
-            # Let call_tool handle the error - don't block here
-            return False
-
-        # Match against shell rules from config
-        allowed, approval_required = match_shell_rules(
-            command=command,
-            args=args,
-            rules=self.config.get("rules", []),
-            default=self.config.get("default"),
-            file_sandbox=self.sandbox,
-        )
-
-        # Check if command is blocked
-        if not allowed:
-            raise PermissionError(f"Command not allowed by shell rules: {command}")
-
-        # Check if approval is required
-        if not approval_required:
-            return False  # Pre-approved
-
-        # Approval required - return description
-        truncated = command[:80] + "..." if len(command) > 80 else command
-        return {"description": f"Execute: {truncated}"}

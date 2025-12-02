@@ -50,7 +50,7 @@ class FileSandbox(Protocol):
             Resolved absolute Path
 
         Raises:
-            FileSandboxError: If path is outside sandbox boundaries
+            SandboxError: If path is outside sandbox boundaries
         """
         ...
 
@@ -66,7 +66,7 @@ class FileSandbox(Protocol):
             ReadResult with content, truncation info, and metadata
 
         Raises:
-            FileSandboxError: If path outside sandbox, suffix not allowed, etc.
+            SandboxError: If path outside sandbox, suffix not allowed, etc.
             FileNotFoundError: If file doesn't exist
         """
         ...
@@ -82,7 +82,7 @@ class FileSandbox(Protocol):
             Confirmation message
 
         Raises:
-            FileSandboxError: If path outside sandbox, not writable, etc.
+            SandboxError: If path outside sandbox, not writable, etc.
         """
         ...
 

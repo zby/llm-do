@@ -1,27 +1,26 @@
 """Extended sandbox with llm-do specific features.
 
-This module extends the reusable FileSandbox with:
-- Network control configuration
-- OS sandbox requirement flag
+This module extends the reusable Sandbox with:
 - Attachment validation for worker delegation
 
 The Sandbox class here is the llm-do specific version.
-The base FileSandboxImpl is in filesystem_sandbox.py.
+The base Sandbox is from pydantic_ai_filesystem_sandbox.
+
+Note: For kernel-level isolation, run llm-do inside a Docker container
+with appropriate bind mounts and network settings.
 """
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-from pydantic import Field
-
 from pydantic_ai_filesystem_sandbox import (
-    FileSandboxConfig,
-    FileSandboxImpl,
+    SandboxConfig as BaseSandboxConfig,
+    Sandbox as BaseSandbox,
     PathConfig,
     # Re-export errors for convenience
     EditError,
-    FileSandboxError,
+    SandboxError,
     FileTooLargeError,
     PathNotInSandboxError,
     PathNotWritableError,
@@ -35,20 +34,8 @@ from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 # ---------------------------------------------------------------------------
 
 
-class SandboxConfig(FileSandboxConfig):
-    """Extended configuration for llm-do sandbox.
-
-    Adds llm-do specific options on top of FileSandboxConfig.
-    """
-
-    network: bool = Field(
-        default=False,
-        description="Whether network access is allowed for shell commands",
-    )
-    require_os_sandbox: bool = Field(
-        default=False,
-        description="If True, fail when OS sandbox (Seatbelt/bwrap) is unavailable",
-    )
+# SandboxConfig is just an alias - no llm-do specific extensions currently needed
+SandboxConfig = BaseSandboxConfig
 
 
 # ---------------------------------------------------------------------------
@@ -56,36 +43,12 @@ class SandboxConfig(FileSandboxConfig):
 # ---------------------------------------------------------------------------
 
 
-class Sandbox(FileSandboxImpl):
+class Sandbox(BaseSandbox):
     """Extended sandbox with llm-do specific features.
 
     This is the main sandbox class used in llm-do workers.
-    It extends FileSandboxImpl with network control and OS sandbox options.
+    Currently just adds attachment validation compatibility.
     """
-
-    def __init__(
-        self,
-        config: SandboxConfig,
-        base_path: Optional[Path] = None,
-    ):
-        """Initialize the sandbox.
-
-        Args:
-            config: Extended sandbox configuration
-            base_path: Base path for resolving relative roots (defaults to cwd)
-        """
-        super().__init__(config, base_path)
-        self._extended_config = config
-
-    @property
-    def network_enabled(self) -> bool:
-        """Whether network access is allowed for shell commands."""
-        return self._extended_config.network
-
-    @property
-    def require_os_sandbox(self) -> bool:
-        """Whether to fail when OS sandbox is unavailable."""
-        return self._extended_config.require_os_sandbox
 
     @property
     def sandboxes(self) -> Dict[str, Any]:
@@ -186,7 +149,7 @@ class AttachmentValidator:
                 sandbox_name = name
                 relative = rel_path.as_posix()
                 break
-            except (ValueError, FileSandboxError):
+            except (ValueError, SandboxError):
                 continue
 
         return {"sandbox": sandbox_name, "path": relative, "bytes": size}
@@ -246,7 +209,7 @@ class AttachmentValidator:
 
         try:
             target = self._sandbox.resolve(full_path)
-        except FileSandboxError as e:
+        except SandboxError as e:
             raise PermissionError(f"Cannot access attachment '{value}': {e}")
 
         # Verify it's a readable file
@@ -268,7 +231,7 @@ class AttachmentValidator:
 __all__ = [
     "AttachmentValidator",
     "EditError",
-    "FileSandboxError",
+    "SandboxError",
     "FileTooLargeError",
     "PathConfig",
     "PathNotInSandboxError",

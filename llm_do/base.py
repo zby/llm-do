@@ -26,9 +26,9 @@ from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 # Re-export sandbox types from standalone package
 from pydantic_ai_filesystem_sandbox import (
     DEFAULT_MAX_READ_CHARS,
-    FileSandboxConfig,
-    FileSandboxError,
-    FileSandboxImpl,
+    SandboxConfig as BaseSandboxConfig,
+    SandboxError,
+    Sandbox as BaseSandbox,
     FileTooLargeError,
     PathConfig,
     PathNotInSandboxError,
@@ -74,7 +74,7 @@ from .registry import WorkerRegistry
 from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
 
 # Tools are now provided via toolsets in execution.py:
-# - FileSandboxApprovalToolset, ShellApprovalToolset, DelegationApprovalToolset, CustomApprovalToolset
+# - FileSystemToolset (wrapped with ApprovalToolset), ShellToolset, DelegationToolset, CustomToolset
 
 # Re-export runtime functions and implementations
 from .runtime import (
@@ -112,11 +112,11 @@ __all__: Iterable[str] = [
     # Protocol implementations
     "RuntimeCreator",
     "RuntimeDelegator",
-    # New sandbox classes
+    # Sandbox classes
     "DEFAULT_MAX_READ_CHARS",
-    "FileSandboxConfig",
-    "FileSandboxError",
-    "FileSandboxImpl",
+    "BaseSandboxConfig",
+    "SandboxError",
+    "BaseSandbox",
     "FileTooLargeError",
     "PathConfig",
     "PathNotInSandboxError",

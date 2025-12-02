@@ -19,7 +19,7 @@ from llm_do.shell import (
     validate_paths_in_sandbox,
 )
 from llm_do.types import ShellResult
-from pydantic_ai_filesystem_sandbox import FileSandboxError
+from pydantic_ai_filesystem_sandbox import SandboxError
 
 
 class TestParseCommand:
@@ -158,7 +158,7 @@ class TestValidatePathsInSandbox:
 
     def test_path_not_in_sandbox(self):
         mock_sandbox = Mock()
-        mock_sandbox.resolve.side_effect = FileSandboxError("Not in sandbox")
+        mock_sandbox.resolve.side_effect = SandboxError("Not in sandbox")
         mock_sandbox.can_read.return_value = False
 
         result = validate_paths_in_sandbox(["/etc/passwd"], ["output"], mock_sandbox)
@@ -280,7 +280,7 @@ class TestShellRuleWithSandboxPaths:
 
     def test_sandbox_paths_validation_fails_tries_next_rule(self):
         mock_sandbox = Mock()
-        mock_sandbox.resolve.side_effect = FileSandboxError("Not in sandbox")
+        mock_sandbox.resolve.side_effect = SandboxError("Not in sandbox")
         mock_sandbox.can_read.return_value = False
 
         rules = [

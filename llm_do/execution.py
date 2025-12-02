@@ -23,11 +23,13 @@ from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
-from pydantic_ai_filesystem_sandbox.approval import FileSandboxApprovalToolset
-from .custom_toolset import CustomApprovalToolset
-from .delegation_toolset import DelegationApprovalToolset
+from pydantic_ai_filesystem_sandbox import FileSystemToolset
+from pydantic_ai_blocking_approval import ApprovalToolset
+
+from .custom_toolset import CustomToolset
+from .delegation_toolset import DelegationToolset
 from .protocols import WorkerCreator, WorkerDelegator
-from .shell_toolset import ShellApprovalToolset
+from .shell_toolset import ShellToolset
 from .types import (
     AgentExecutionContext,
     ModelLike,
@@ -238,52 +240,67 @@ def prepare_agent_execution(
 
     # Build toolsets list
     toolsets = []
+    toolsets_config = definition.toolsets
 
-    # Sandbox toolset (provides read_file, write_file, edit_file, list_files)
-    if context.sandbox is not None:
-        approval_sandbox = FileSandboxApprovalToolset(
-            inner=context.sandbox,
+    # FileSystemToolset (provides read_file, write_file, edit_file, list_files)
+    # file_tools defaults to True for backward compatibility
+    file_tools_enabled = toolsets_config.file_tools if toolsets_config else True
+
+    # FileSystemToolset requires sandbox - workers without sandbox simply don't get file tools
+    if context.sandbox is not None and file_tools_enabled:
+        file_toolset = FileSystemToolset(sandbox=context.sandbox)
+        approved = ApprovalToolset(
+            inner=file_toolset,
             approval_callback=context.approval_controller.approval_callback,
             memory=context.approval_controller.memory,
         )
-        toolsets.append(approval_sandbox)
+        toolsets.append(approved)
 
     # Shell toolset (provides shell command execution with pattern-based approval)
-    shell_config = definition.toolsets.shell if definition.toolsets else None
+    shell_config = toolsets_config.shell if toolsets_config else None
     if shell_config is not None:
-        shell_toolset = ShellApprovalToolset(
+        shell_toolset = ShellToolset(
             config=shell_config.model_dump(),
             sandbox=context.sandbox,
+        )
+        approved = ApprovalToolset(
+            inner=shell_toolset,
             approval_callback=context.approval_controller.approval_callback,
             memory=context.approval_controller.memory,
         )
-        toolsets.append(shell_toolset)
+        toolsets.append(approved)
 
     # Delegation toolset (provides worker_call, worker_create with approval)
-    delegation_config = definition.toolsets.delegation if definition.toolsets else None
+    delegation_config = toolsets_config.delegation if toolsets_config else None
     if delegation_config is not None and delegator is not None and creator is not None:
-        delegation_toolset = DelegationApprovalToolset(
+        delegation_toolset = DelegationToolset(
             config=delegation_config.model_dump(),
             delegator=delegator,
             creator=creator,
+        )
+        approved = ApprovalToolset(
+            inner=delegation_toolset,
             approval_callback=context.approval_controller.approval_callback,
             memory=context.approval_controller.memory,
         )
-        toolsets.append(delegation_toolset)
+        toolsets.append(approved)
 
     # Custom toolset (provides custom tools from tools.py with approval)
-    custom_config = definition.toolsets.custom if definition.toolsets else None
+    custom_config = toolsets_config.custom if toolsets_config else None
     if custom_config and context.custom_tools_path and context.custom_tools_path.exists():
         # Convert Dict[str, CustomToolConfig] to Dict[str, dict]
         config_dict = {name: cfg.model_dump() for name, cfg in custom_config.items()}
-        custom_toolset = CustomApprovalToolset(
+        custom_toolset = CustomToolset(
             config=config_dict,
             worker_name=definition.name,
             tools_path=context.custom_tools_path,
+        )
+        approved = ApprovalToolset(
+            inner=custom_toolset,
             approval_callback=context.approval_controller.approval_callback,
             memory=context.approval_controller.memory,
         )
-        toolsets.append(custom_toolset)
+        toolsets.append(approved)
 
     # Only pass toolsets if we have any
     if toolsets:

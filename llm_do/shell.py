@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from pydantic_ai_filesystem_sandbox import FileSandboxError
+from pydantic_ai_filesystem_sandbox import SandboxError
 from .protocols import FileSandbox
 from .types import ShellDefault, ShellResult, ShellRule
 
@@ -134,7 +134,7 @@ def validate_paths_in_sandbox(
                 file_sandbox.resolve(f"{sandbox_name}/{path}")
                 found_in_allowed = True
                 break
-            except FileSandboxError:
+            except SandboxError:
                 continue
 
         if not found_in_allowed:
@@ -146,7 +146,7 @@ def validate_paths_in_sandbox(
                     if file_sandbox.can_read(f"{sandbox_name}/{path}"):
                         found_in_allowed = True
                         break
-            except FileSandboxError:
+            except SandboxError:
                 pass
 
         if not found_in_allowed:

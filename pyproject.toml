@@ -22,8 +22,8 @@ requires-python = ">=3.10"
 dependencies = [
     "pydantic-ai>=0.0.13",
     "pydantic>=2.7",
-    "pydantic-ai-blocking-approval>=0.4.0",
-    "pydantic-ai-filesystem-sandbox[approval]>=0.5.0",
+    "pydantic-ai-blocking-approval @ git+https://github.com/zby/pydantic-ai-blocking-approval.git@main",
+    "pydantic-ai-filesystem-sandbox @ git+https://github.com/zby/pydantic-ai-filesystem-sandbox.git@main",
     "PyYAML",
     "jinja2>=3.0",
     "rich>=13.0",

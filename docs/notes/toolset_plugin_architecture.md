@@ -51,25 +51,27 @@ Workers declare toolsets by fully-qualified class name:
 ```yaml
 # worker.yaml
 toolsets:
+  # llm-do convention toolset (has needs_approval) → wrapped with ApprovalToolset
   llm_do.toolsets.shell.ShellToolset:
     rules:
       - pattern: "git *"
         approval_required: false
     default:
-      allowed: true
       approval_required: true
 
+  # llm-do convention toolset
   llm_do.toolsets.delegation.DelegationToolset:
     allow_workers: ["helper", "analyzer"]
 
-  # Third-party toolset following llm-do convention
+  # Third-party toolset following llm-do convention (has needs_approval)
   mycompany.toolsets.DatabaseToolset:
     connection_string: "postgres://..."
 
-  # Arbitrary pydantic-ai toolset (wrapped automatically)
+  # Arbitrary pydantic-ai toolset (no needs_approval) → wrapped with SimpleApprovalToolset
   some_library.SomeToolset:
-    _approval: default  # use SimpleApprovalToolset wrapper
     some_option: value
+    _approval_config:
+      some_tool: {pre_approved: true}
 ```
 
 ### Toolset Loader in llm-do
@@ -98,51 +100,36 @@ def create_toolset(
 ) -> AbstractToolset:
     """Factory to create toolsets from config.
 
-    Supports three patterns:
-    1. llm-do convention: class has `inner_class` attribute, inner follows (config, context)
-    2. llm-do simple: class itself follows (config, context) convention
-    3. Arbitrary pydantic-ai: wrap with SimpleApprovalToolset
+    Three patterns:
+    1. Already an approval wrapper → instantiate directly
+    2. Has needs_approval() method → wrap with ApprovalToolset
+    3. No needs_approval() → wrap with SimpleApprovalToolset
     """
     toolset_class = _import_class(class_path)
     config = dict(config)  # copy to avoid mutation
 
-    # Pattern 1: ApprovalToolset subclass with inner_class attribute
-    if hasattr(toolset_class, "inner_class"):
-        inner_class = toolset_class.inner_class
-        # Allow config override of inner class
-        if "_inner_class" in config:
-            inner_class = _import_class(config.pop("_inner_class"))
-        inner = inner_class(config, context)
+    # Pattern 1: Already an approval wrapper - instantiate directly
+    if issubclass(toolset_class, (ApprovalToolset, SimpleApprovalToolset)):
         return toolset_class(
-            inner=inner,
+            config=config,
+            context=context,
             approval_callback=approval_callback,
             memory=memory,
-            config=config,
         )
 
-    # Pattern 2: Toolset follows (config, context) convention directly
-    if _has_config_context_init(toolset_class):
-        toolset = toolset_class(config, context)
-        # If it has needs_approval, wrap with ApprovalToolset
-        if hasattr(toolset, "needs_approval"):
-            return ApprovalToolset(
-                inner=toolset,
-                approval_callback=approval_callback,
-                memory=memory,
-                config=config,
-            )
-        # Otherwise wrap with SimpleApprovalToolset
-        return SimpleApprovalToolset(
+    # Instantiate the toolset (llm-do convention: config, context)
+    toolset = toolset_class(config=config, context=context)
+
+    # Pattern 2: Has needs_approval - wrap with ApprovalToolset
+    if hasattr(toolset, 'needs_approval'):
+        return ApprovalToolset(
             inner=toolset,
             approval_callback=approval_callback,
             memory=memory,
-            config=config.get("_approval_config", {}),
         )
 
-    # Pattern 3: Arbitrary pydantic-ai toolset
-    # Extract approval config, pass rest to toolset
+    # Pattern 3: No needs_approval - wrap with SimpleApprovalToolset
     approval_config = config.pop("_approval_config", {})
-    toolset = toolset_class(**config)
     return SimpleApprovalToolset(
         inner=toolset,
         approval_callback=approval_callback,
@@ -150,13 +137,6 @@ def create_toolset(
         config=approval_config,
     )
 
-def _has_config_context_init(cls: type) -> bool:
-    """Check if class __init__ accepts (config, context) signature."""
-    import inspect
-    sig = inspect.signature(cls.__init__)
-    params = list(sig.parameters.keys())
-    # Expect: self, config, context
-    return len(params) >= 3 and params[1] == "config" and params[2] == "context"
 
 def build_toolsets(
     definition: "WorkerDefinition",
@@ -180,26 +160,35 @@ def build_toolsets(
 
 ### llm-do Convention for Toolsets
 
-Toolsets following the llm-do convention have:
+Toolsets following the llm-do convention:
 
-1. **Inner class attribute**: Points to the core toolset implementation
-2. **Inner class `(config, context)` signature**: Receives config dict and WorkerContext
-3. **`needs_approval()` method**: On inner class for approval logic
+1. **Implement `AbstractToolset`**: Standard pydantic-ai toolset interface
+2. **Accept `(config, context)` in `__init__`**: Receives config dict and WorkerContext
+3. **Implement `needs_approval()` method** (optional): Enables smart approval logic
+
+The factory uses **duck typing** to detect `needs_approval()`:
+- If present → wrap with `ApprovalToolset` (calls `needs_approval()` before each tool)
+- If absent → wrap with `SimpleApprovalToolset` (uses `_approval_config` from config)
 
 ```python
 # llm_do/toolsets/shell.py
 from pydantic_ai.toolsets import AbstractToolset
-from pydantic_ai_blocking_approval import BaseApprovalToolset
 
-class ShellToolsetInner(AbstractToolset):
-    """Core shell command execution."""
+class ShellToolset(AbstractToolset):
+    """Shell command execution with approval logic."""
 
     def __init__(self, config: dict, context: "WorkerContext"):
         self.sandbox = context.sandbox
         self.config = config
 
     def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
-        """Approval logic lives here, close to the implementation."""
+        """Approval logic lives here, close to the implementation.
+
+        Returns:
+            False: Pre-approved, no user prompt
+            True: Requires approval with default description
+            dict: Requires approval with custom {"description": "..."}
+        """
         if name != "shell":
             return True
         command = tool_args.get("command", "")
@@ -213,11 +202,17 @@ class ShellToolsetInner(AbstractToolset):
 
     async def call_tool(self, name, tool_args, ctx, tool) -> Any:
         # ... execution logic
+```
 
+The factory automatically wraps based on duck typing:
 
-class ShellToolset(BaseApprovalToolset):
-    """Shell toolset with approval wrapper."""
-    inner_class = ShellToolsetInner
+```python
+# Factory detects needs_approval and wraps appropriately
+toolset = ShellToolset(config=config, context=context)
+if hasattr(toolset, 'needs_approval'):
+    wrapped = ApprovalToolset(inner=toolset, ...)  # uses needs_approval()
+else:
+    wrapped = SimpleApprovalToolset(inner=toolset, config=approval_config, ...)
 ```
 
 ### WorkerContext as Dependency Container
@@ -256,11 +251,10 @@ class WorkerContext:
 ## Migration Path
 
 1. Create `llm_do/toolset_loader.py` with factory functions
-2. Update inner toolsets to accept `(config, context)` and implement `needs_approval()`
-3. Add `inner_class` attribute to approval wrapper classes
-4. Update `WorkerDefinition.toolsets` to use class paths as keys
-5. Replace hardcoded toolset creation in `execution.py` with `build_toolsets()`
-6. Add backward compatibility layer for old config format (optional)
+2. Update toolsets to accept `(config, context)` and implement `needs_approval()`
+3. Update `WorkerDefinition.toolsets` to use class paths as keys
+4. Replace hardcoded toolset creation in `execution.py` with `build_toolsets()`
+5. Add backward compatibility layer for old config format (optional)
 
 ## Default Toolsets
 
@@ -286,9 +280,10 @@ toolsets:
 ```python
 # mycompany/toolsets/database.py
 from pydantic_ai.toolsets import AbstractToolset
-from pydantic_ai_blocking_approval import BaseApprovalToolset
 
-class DatabaseToolsetInner(AbstractToolset):
+class DatabaseToolset(AbstractToolset):
+    """Database toolset with approval logic."""
+
     def __init__(self, config: dict, context: Any):
         self.connection_string = config["connection_string"]
         self.readonly = config.get("readonly", True)
@@ -307,10 +302,6 @@ class DatabaseToolsetInner(AbstractToolset):
 
     async def call_tool(self, name, tool_args, ctx, tool):
         # ... implementation
-
-
-class DatabaseToolset(BaseApprovalToolset):
-    inner_class = DatabaseToolsetInner
 ```
 
 Usage:
@@ -339,4 +330,4 @@ toolsets:
 2. **Aliases**: Support short names like `shell` -> `llm_do.toolsets.shell.ShellToolset`?
 3. **Security**: Should there be an allowlist of loadable toolset classes?
 4. **Context protocol**: Should we define a Protocol for context instead of using WorkerContext directly?
-5. **Inner class detection**: Is inspecting `__init__` signature reliable enough?
+5. **Duck typing vs Protocol**: Currently using `hasattr(toolset, 'needs_approval')` for detection. Could use a Protocol for better type checking, but duck typing is simpler and sufficient.

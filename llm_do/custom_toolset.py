@@ -1,9 +1,9 @@
-"""Custom tools as a PydanticAI toolset with approval.
+"""Custom tools as a PydanticAI toolset.
 
 This module provides CustomToolset which:
 1. Loads custom tools from a tools.py module
-2. Exposes them as PydanticAI tools
-3. Enforces approval for all custom tools (secure by default)
+2. Exposes only tools listed in config (whitelist model)
+3. Wraps with SimpleApprovalToolset for approval handling
 """
 from __future__ import annotations
 
@@ -93,13 +93,12 @@ def _build_schema_from_function(func: Callable) -> dict[str, Any]:
 
 
 class CustomToolset(AbstractToolset[WorkerContext]):
-    """Custom tools toolset with per-tool approval configuration.
+    """Custom tools toolset with whitelist-based tool exposure.
 
     This toolset loads and exposes custom tools from a Python module.
-    The `needs_approval()` method is called by ApprovalToolset wrapper
-    to determine if a tool call needs user approval.
+    Only tools listed in config are exposed to the LLM (whitelist model).
 
-    Tools default to requiring approval (secure by default).
+    Approval is handled by wrapping with SimpleApprovalToolset.
     """
 
     def __init__(
@@ -113,7 +112,8 @@ class CustomToolset(AbstractToolset[WorkerContext]):
         """Initialize custom toolset.
 
         Args:
-            config: Custom tools configuration dict (tool_name -> {approval_required, allowed})
+            config: Custom tools configuration dict (tool_name -> {pre_approved}).
+                    Only tools in config are exposed (whitelist model).
             worker_name: Name of the worker (for module naming)
             tools_path: Path to the tools.py file
             id: Optional toolset ID for durable execution.
@@ -127,12 +127,6 @@ class CustomToolset(AbstractToolset[WorkerContext]):
         self._module = None
         self._functions: dict[str, Callable] = {}
 
-        # Filter to only allowed tools
-        self._allowed_tools = [
-            name for name, tool_config in config.items()
-            if tool_config.get("allowed", True)
-        ]
-
     @property
     def id(self) -> str | None:
         """Return toolset ID for durable execution."""
@@ -142,38 +136,6 @@ class CustomToolset(AbstractToolset[WorkerContext]):
     def config(self) -> dict:
         """Return the toolset configuration."""
         return self._config
-
-    def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
-        """Check per-tool approval configuration.
-
-        Args:
-            name: Tool name
-            tool_args: Tool arguments
-
-        Returns:
-            - False: No approval needed (approval_required=false in config)
-            - dict with description for approval prompt
-
-        Raises:
-            PermissionError: If tool is not allowed
-        """
-        # Get tool config (default to secure: approval required, allowed)
-        tool_config = self._config.get(name, {})
-
-        # Check if tool is allowed (default: True)
-        if not tool_config.get("allowed", True):
-            raise PermissionError(f"Custom tool '{name}' is not allowed")
-
-        # Check if approval is required (default: True - secure by default)
-        if not tool_config.get("approval_required", True):
-            return False  # Pre-approved
-
-        # Format args for display
-        args_preview = ", ".join(f"{k}={v!r}" for k, v in list(tool_args.items())[:3])
-        if len(tool_args) > 3:
-            args_preview += ", ..."
-
-        return {"description": f"Custom tool: {name}({args_preview})"}
 
     def _load_module(self) -> None:
         """Load the tools module and discover functions."""
@@ -203,8 +165,8 @@ class CustomToolset(AbstractToolset[WorkerContext]):
 
         self._module = module
 
-        # Discover allowed functions
-        for tool_name in self._allowed_tools:
+        # Discover whitelisted functions (only tools in config are exposed)
+        for tool_name in self._config.keys():
             if not hasattr(module, tool_name):
                 logger.warning(f"Custom tool '{tool_name}' not found in {self._tools_path}")
                 continue

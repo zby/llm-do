@@ -9,10 +9,12 @@ llm_do/
 ├── runtime.py           # Worker execution and delegation
 ├── execution.py         # Agent execution strategies
 ├── types.py             # Type definitions and data models
-├── tools.py             # Tool registration
 ├── protocols.py         # Dependency injection protocols
 ├── worker_sandbox.py    # Sandbox extension for llm-do
 ├── registry.py          # Worker definition loading/persistence
+├── shell_toolset.py     # Shell command toolset
+├── delegation_toolset.py # Worker delegation toolset
+├── custom_toolset.py    # Custom Python tools toolset
 └── cli.py               # CLI entry point
 ```
 
@@ -129,41 +131,48 @@ def my_tool(ctx: RunContext[WorkerContext], arg: str) -> str:
 │                    llm-do Sandbox                            │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │           FileSandboxImpl (reusable core)              │ │
+│  │           Sandbox (from pydantic-ai-filesystem-sandbox)│ │
 │  │                                                        │ │
-│  │  Tools: read_file, write_file, edit_file, list_files   │ │
 │  │  Boundaries: readable_roots, writable_roots            │ │
 │  │  Query API: can_read(), can_write(), resolve()         │ │
 │  │  LLM-friendly errors guide correction                  │ │
 │  └────────────────────────────────────────────────────────┘ │
 │                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │           FileSystemToolset (wrapped with approval)    │ │
+│  │                                                        │ │
+│  │  Tools: read_file, write_file, edit_file, list_files   │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                              │
 │  llm-do extensions:                                          │
 │    network_enabled: bool                                     │
-│    require_os_sandbox: bool                                  │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-1. **FileSandboxImpl** (from `pydantic-ai-filesystem-sandbox`) — File access boundaries, tools, LLM-friendly errors
-2. **Sandbox** (llm-do specific) — Extends with network control and OS enforcement hooks
+1. **Sandbox** (from `pydantic-ai-filesystem-sandbox`) — File access boundaries, LLM-friendly errors
+2. **FileSystemToolset** — Provides file tools, wrapped with ApprovalToolset for approval gating
+
+**Note:** For kernel-level isolation, run llm-do in a Docker container.
 
 ### Configuration
 
 ```yaml
 # In worker.worker file
-sandbox:
-  paths:
-    input:
-      root: ./input
-      mode: ro
-      suffixes: [.pdf, .txt]
-    output:
-      root: ./output
-      mode: rw
-      write_approval: true
-      max_file_bytes: 10000000
-  network: false
-  require_os_sandbox: false
+toolsets:
+  sandbox:
+    paths:
+      input:
+        root: ./input
+        mode: ro
+        suffixes: [.pdf, .txt]
+      output:
+        root: ./output
+        mode: rw
+        write_approval: true
+        max_file_bytes: 10000000
+    network_enabled: false
+  file_tools: true  # Enable FileSystemToolset (default: true)
 ```
 
 **PathConfig options:**
@@ -244,54 +253,58 @@ controller = ApprovalController(mode="strict")
 | `approve_all` | Auto-approves all requests |
 | `strict` | Auto-denies all requests |
 
-### FileSandboxApprovalToolset
+### FileSystemToolset with Approval
 
-The sandbox is wrapped with `FileSandboxApprovalToolset` from `pydantic-ai-filesystem-sandbox`:
+The sandbox's file tools are wrapped with `ApprovalToolset` from `pydantic-ai-blocking-approval`:
 
 ```python
-from pydantic_ai_filesystem_sandbox.approval import FileSandboxApprovalToolset
+from pydantic_ai_filesystem_sandbox import FileSystemToolset
+from pydantic_ai_blocking_approval import ApprovalToolset
 
-approval_sandbox = FileSandboxApprovalToolset(
-    inner=sandbox,
+file_toolset = FileSystemToolset(sandbox=sandbox)
+approved = ApprovalToolset(
+    inner=file_toolset,
     approval_callback=controller.approval_callback,
     memory=controller.memory,
 )
-agent = Agent(..., toolsets=[approval_sandbox])
+agent = Agent(..., toolsets=[approved])
 ```
 
 This respects `PathConfig.write_approval` and `PathConfig.read_approval` settings.
 
 ### Custom Tool Approval
 
-**Secure by default**: All custom tools require approval. The wrapper in `tools.py` creates an `ApprovalRequest` before executing any custom tool:
+**Secure by default**: All custom tools require approval. The `CustomToolset` implements `needs_approval()` which is called by the `ApprovalToolset` wrapper:
 
 ```python
-# In tools.py - custom tools always require approval
-request = ApprovalRequest(
-    tool_name=name,
-    tool_args=tool_kwargs,
-    description=f"Custom tool: {name}",
-)
-decision = ctx.deps.approval_controller.request_approval_sync(request)
-if not decision.approved:
-    raise PermissionError(f"Approval denied for {name}")
+# In custom_toolset.py
+class CustomToolset(AbstractToolset):
+    def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
+        tool_config = self._config.get(name, {})
+        if not tool_config.get("allowed", True):
+            raise PermissionError(f"Custom tool '{name}' is not allowed")
+        if not tool_config.get("approval_required", True):
+            return False  # Pre-approved
+        return {"description": f"Custom tool: {name}(...)"}
 ```
 
 ### Shell Tool Approval
 
-Shell commands use pattern-based rules:
+Shell commands use pattern-based rules configured under `toolsets.shell`:
 
 ```yaml
-shell_default:
-  allowed: false
-  approval_required: true
-
-shell_rules:
-  - pattern: "git status"
-    allowed: true
-    approval_required: false
-  - pattern: "rm *"
-    allowed: false
+toolsets:
+  shell:
+    default:
+      allowed: true
+      approval_required: true
+    rules:
+      - pattern: "git status"
+        approval_required: false
+      - pattern: "git diff"
+        approval_required: false
+      - pattern: "rm -rf"
+        allowed: false
 ```
 
 ### Approval Configuration Summary
@@ -300,7 +313,7 @@ shell_rules:
 |------|------------------|
 | `write_file` / `edit_file` | `PathConfig.write_approval: true` |
 | `read_file` (for attachments) | `PathConfig.read_approval: true` |
-| `shell` | `shell_rules` match or `shell_default.approval_required` |
+| `shell` | `toolsets.shell.rules` match or `toolsets.shell.default.approval_required` |
 | `worker_call` | Always (controller mode determines behavior) |
 | `worker_create` | Always (controller mode determines behavior) |
 | Custom tools | Always (secure by default) |
@@ -409,8 +422,10 @@ CLI / run_worker()
 |------|-------|----------------|
 | `runtime.py` | ~540 | Worker orchestration, delegation, creation |
 | `execution.py` | ~280 | Agent execution, ApprovalToolset wrapping |
-| `tools.py` | ~360 | Tool registration (shell, delegation, custom) |
-| `worker_sandbox.py` | ~100 | Sandbox extension with llm-do features |
+| `shell_toolset.py` | ~200 | Shell command toolset with pattern rules |
+| `delegation_toolset.py` | ~150 | Worker delegation toolset |
+| `custom_toolset.py` | ~150 | Custom Python tools toolset |
+| `worker_sandbox.py` | ~250 | Sandbox extension, attachment validation |
 | `protocols.py` | ~100 | Interface definitions for DI |
 | `types.py` | ~200 | Data models (WorkerDefinition, WorkerContext) |
 | `registry.py` | ~200 | Worker loading and persistence |

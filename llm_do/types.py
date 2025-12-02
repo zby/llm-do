@@ -32,15 +32,15 @@ from .worker_sandbox import AttachmentValidator, SandboxConfig
 
 
 class CustomToolConfig(BaseModel):
-    """Configuration for a single custom tool."""
+    """Configuration for a single custom tool.
 
-    approval_required: bool = Field(
-        default=True,
-        description="Whether this tool requires user approval (secure by default)"
-    )
-    allowed: bool = Field(
-        default=True,
-        description="Whether this tool is allowed at all"
+    Presence in config means the tool is allowed (whitelist model).
+    Tools not in config are not exposed to the LLM.
+    """
+
+    pre_approved: bool = Field(
+        default=False,
+        description="If True, skip approval for this tool. Secure by default (requires approval)."
     )
 
 

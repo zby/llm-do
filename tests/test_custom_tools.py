@@ -231,3 +231,48 @@ def test_custom_tools_approval_via_decorator(calculator_registry):
     # The security guarantee is enforced in load_custom_tools:
     # When a function has check_approval (from @requires_approval), the wrapper
     # calls it before executing the function
+
+
+def test_custom_tools_rejects_non_whitelisted_tool(calculator_registry):
+    """Test that calling a non-whitelisted tool raises ValueError.
+
+    This simulates an LLM hallucinating a tool that exists in tools.py
+    but is not in the whitelist config.
+    """
+    import asyncio
+    from llm_do.custom_toolset import CustomToolset
+
+    # Create a worker with tools.py containing multiple functions
+    # but only whitelist one of them
+    test_worker_dir = calculator_registry.root / "workers" / "test_whitelist"
+    test_worker_dir.mkdir(parents=True)
+
+    tools_py = test_worker_dir / "tools.py"
+    tools_py.write_text(
+        "def allowed_tool(x: int) -> int:\n"
+        "    '''An allowed tool.'''\n"
+        "    return x * 2\n"
+        "\n"
+        "def secret_tool(x: int) -> int:\n"
+        "    '''A tool that exists but is NOT whitelisted.'''\n"
+        "    return x * 100\n"
+    )
+
+    # Only whitelist allowed_tool, not secret_tool
+    config = {"allowed_tool": {"pre_approved": False}}
+
+    toolset = CustomToolset(
+        config=config,
+        worker_name="test_whitelist",
+        tools_path=tools_py,
+    )
+
+    # Load the module and verify only allowed_tool is exposed
+    tools = asyncio.run(toolset.get_tools(None))
+    assert "allowed_tool" in tools
+    assert "secret_tool" not in tools
+
+    # Now simulate LLM hallucinating secret_tool call
+    # This should raise ValueError
+    with pytest.raises(ValueError, match="Unknown custom tool: secret_tool"):
+        asyncio.run(toolset.call_tool("secret_tool", {"x": 5}, None, None))

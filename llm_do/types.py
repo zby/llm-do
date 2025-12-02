@@ -124,19 +124,15 @@ class ShellRule(BaseModel):
         default=True,
         description="Whether this command requires user approval"
     )
-    allowed: bool = Field(
-        default=True,
-        description="Whether this command is allowed at all"
-    )
 
 
 class ShellDefault(BaseModel):
-    """Default behavior for shell commands that don't match any rule."""
+    """Default behavior for shell commands that don't match any rule.
 
-    allowed: bool = Field(
-        default=True,
-        description="Whether unmatched commands are allowed"
-    )
+    Presence of a default section means unmatched commands are allowed.
+    Absence of default means unmatched commands are blocked (whitelist model).
+    """
+
     approval_required: bool = Field(
         default=True,
         description="Whether unmatched commands require approval"

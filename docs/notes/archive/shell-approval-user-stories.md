@@ -49,21 +49,20 @@ toolsets:
 toolsets:
   shell:
     rules:
-      - pattern: "rm -rf"
-        allowed: false
-      - pattern: "sudo "
-        allowed: false
-      - pattern: "chmod 777"
-        allowed: false
+      # Only whitelist safe commands - dangerous ones are blocked by omission
+      - pattern: "rm "
+        approval_required: true  # Single file rm allowed with approval
+      # rm -rf, sudo, chmod 777 NOT in rules = blocked
     default:
-      allowed: true
       approval_required: true
 ```
 
 **Acceptance criteria:**
-- `rm -rf /` returns error immediately, no prompt
-- `sudo apt install` returns error immediately
-- `rm single-file.txt` still prompts for approval
+- `rm -rf /` returns error immediately (not in rules, doesn't match "rm " pattern due to first-match)
+- `sudo apt install` returns error immediately (not in rules)
+- `rm single-file.txt` prompts for approval (matches "rm " rule)
+
+**Note:** Whitelist model - dangerous commands are blocked by NOT including them in rules.
 
 ---
 
@@ -162,14 +161,13 @@ toolsets:
         approval_required: true
       - pattern: "wget "
         approval_required: true
-      - pattern: "ssh "
-        allowed: false  # Block entirely
+      # ssh NOT in rules = blocked (whitelist model)
 ```
 
 **Acceptance criteria:**
 - `curl https://example.com` prompts with full URL visible
 - `wget http://malicious.com/script.sh` prompts for approval
-- `ssh user@host` blocked entirely
+- `ssh user@host` blocked entirely (not in rules)
 
 ---
 
@@ -216,14 +214,13 @@ toolsets:
         approval_required: false
       - pattern: "cat "
         approval_required: false
-    default:
-      allowed: false  # Block everything else
+    # NO default section = block everything not in rules (whitelist model)
 ```
 
 **Acceptance criteria:**
 - `ls -la` executes without prompt
 - `cat file.txt` executes without prompt
-- `echo hello` blocked (not in rules, default denies)
+- `echo hello` blocked (not in rules, no default)
 - `python script.py` blocked
 
 ---
@@ -280,16 +277,9 @@ docker run \
 ```yaml
 toolsets:
   shell:
-    mode: yolo  # Pre-approve everything except explicit blocklist
-    rules:
-      # Still block the truly catastrophic
-      - pattern: "rm -rf /"
-        allowed: false
-      - pattern: ":(){ :|:& };:"  # fork bomb
-        allowed: false
+    # No rules needed - default allows everything
     default:
-      allowed: true
-      approval_required: false  # <-- The key difference
+      approval_required: false  # <-- Pre-approve all commands
 ```
 
 Or via CLI flag:
@@ -307,7 +297,8 @@ LLM_DO_APPROVE_ALL=1 llm-do worker run code-analyzer
 - `curl https://api.example.com` executes without prompt
 - `git commit -m "..."` executes without prompt
 - `git push` executes without prompt
-- Only explicitly blocked patterns are rejected
+
+**Note:** With whitelist model, YOLO mode is achieved via permissive default, not by blocking specific commands. Container isolation is the security boundary.
 
 **Use case:**
 ```bash
@@ -351,21 +342,21 @@ docker run --rm -it \
 
 2. **Path validation default**: Should `sandbox_paths` validation be opt-in (current) or opt-out?
 
-3. **Blocked vs prompted**: When should commands be blocked entirely vs require approval? Current model lets user configure this.
+3. **Output visibility**: Should user see command output before approving next command? (Currently yes, via streaming)
 
-4. **Output visibility**: Should user see command output before approving next command? (Currently yes, via streaming)
-
-5. **Timeout handling**: Long-running commands - should there be a way to cancel mid-execution?
+4. **Timeout handling**: Long-running commands - should there be a way to cancel mid-execution?
 
 ---
 
-## Summary Matrix
+## Summary Matrix (Whitelist Model)
 
-| Scenario | Pattern rule | sandbox_paths | allowed | approval_required |
-|----------|--------------|---------------|---------|-------------------|
-| Safe read commands | `ls `, `cat ` | optional | true | false |
-| Dangerous commands | `rm -rf`, `sudo ` | - | false | - |
-| File commands in sandbox | `cat `, `head ` | [project] | true | false |
-| Git/build commands | `git `, `npm ` | - | true | false |
-| Network commands | `curl `, `wget ` | - | true | true |
-| Unknown commands | (default) | - | true/false | true |
+| Scenario | In rules? | Has default? | Result |
+|----------|-----------|--------------|--------|
+| Safe read commands | Yes (approval_required: false) | - | Pre-approved |
+| Dangerous commands | No | No | **Blocked** |
+| Dangerous commands | No | Yes | Falls through to default |
+| File commands in sandbox | Yes (with sandbox_paths) | - | Allowed if path validates |
+| Git/build commands | Yes (approval_required: false) | - | Pre-approved |
+| Network commands | Yes (approval_required: true) | - | Requires approval |
+| Unknown commands | No | Yes | Default's approval_required |
+| Unknown commands | No | No | **Blocked** |

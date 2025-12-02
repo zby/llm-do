@@ -1,13 +1,16 @@
-"""Shell command execution as a PydanticAI toolset with pattern-based approval.
+"""Shell command execution as a PydanticAI toolset with whitelist-based approval.
 
 This module provides ShellToolset which:
 1. Exposes the `shell` tool to LLMs
-2. Implements pattern-based approval via `needs_approval()`
+2. Implements whitelist-based approval via `needs_approval()`
 3. Delegates execution to shell.py
 
-Security note: Pattern rules are UX only, not security. Security comes from:
-- Sandbox for Python I/O validation
-- OS sandbox (Seatbelt/bwrap) for shell subprocess enforcement (future)
+Whitelist model:
+- Commands must match a rule OR have a default to be allowed
+- No rule + no default = command is blocked
+
+Security note: Pattern rules are UX only, not security. For kernel-level
+isolation, run llm-do in a Docker container.
 """
 from __future__ import annotations
 
@@ -33,17 +36,17 @@ logger = logging.getLogger(__name__)
 
 
 class ShellToolset(AbstractToolset[WorkerContext]):
-    """Shell command execution toolset with pattern-based approval.
+    """Shell command execution toolset with pattern-based approval (whitelist model).
 
     This toolset exposes the `shell` tool to LLMs and implements approval
     logic based on shell configuration rules. The `needs_approval()` method
     is called by ApprovalToolset wrapper to determine if a command needs
     user approval.
 
-    Approval logic:
-    - Commands matching a rule with `allowed: false` raise PermissionError
-    - Commands matching a rule with `approval_required: false` are pre-approved
-    - Other commands require approval
+    Whitelist semantics:
+    - Command matches a rule → allowed (with rule's approval_required setting)
+    - No rule matches but default exists → allowed (with default's approval_required)
+    - No rule matches and no default → BLOCKED (PermissionError)
     """
 
     def __init__(
@@ -82,18 +85,18 @@ class ShellToolset(AbstractToolset[WorkerContext]):
         return self._sandbox
 
     def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
-        """Determine if shell command needs approval based on rules.
+        """Determine if shell command needs approval based on whitelist rules.
 
         Args:
             name: Tool name (should be "shell")
             tool_args: Tool arguments with "command"
 
         Returns:
-            - False: No approval needed (pre-approved by rule)
+            - False: No approval needed (rule/default has approval_required=false)
             - dict with "description": Approval needed with custom message
 
         Raises:
-            PermissionError: If command is blocked by rules
+            PermissionError: If command not in whitelist (no matching rule and no default)
         """
         if name != "shell":
             # Unknown tool - require approval
@@ -117,9 +120,9 @@ class ShellToolset(AbstractToolset[WorkerContext]):
             file_sandbox=self._sandbox,
         )
 
-        # Check if command is blocked
+        # Check if command is in whitelist
         if not allowed:
-            raise PermissionError(f"Command not allowed by shell rules: {command}")
+            raise PermissionError(f"Command not in whitelist (no matching rule and no default): {command}")
 
         # Check if approval is required
         if not approval_required:

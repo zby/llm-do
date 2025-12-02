@@ -111,30 +111,34 @@ class TestMatchShellRules:
         assert approval is False
 
     def test_no_match_uses_default(self):
-        rules = [{"pattern": "git", "approval_required": False, "allowed": True}]
-        default = {"allowed": True, "approval_required": True}
+        rules = [{"pattern": "git", "approval_required": False}]
+        default = {"approval_required": True}
         allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, default, None)
-        assert allowed is True
+        assert allowed is True  # Default exists
         assert approval is True
 
-    def test_no_match_no_default_fallback(self):
-        rules = [{"pattern": "git", "approval_required": False, "allowed": True}]
+    def test_no_match_no_default_blocks(self):
+        """Whitelist model: no matching rule + no default = blocked."""
+        rules = [{"pattern": "git", "approval_required": False}]
         allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, None, None)
-        assert allowed is True
-        assert approval is True  # Ultimate fallback
+        assert allowed is False  # Whitelist blocks unmatched commands
+        assert approval is True
 
     def test_first_match_wins(self):
         rules = [
-            {"pattern": "git status", "approval_required": False, "allowed": True},
-            {"pattern": "git", "approval_required": True, "allowed": True},
+            {"pattern": "git status", "approval_required": False},
+            {"pattern": "git", "approval_required": True},
         ]
         allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None, None)
+        assert allowed is True  # Matched first rule
         assert approval is False  # First rule wins
 
-    def test_blocked_command(self):
-        rules = [{"pattern": "rm", "approval_required": False, "allowed": False}]
+    def test_rule_match_means_allowed(self):
+        """Whitelist model: presence in rules = allowed."""
+        rules = [{"pattern": "rm", "approval_required": True}]
         allowed, approval = match_shell_rules("rm -rf /", ["rm", "-rf", "/"], rules, None, None)
-        assert allowed is False
+        assert allowed is True  # In rules = allowed
+        assert approval is True
 
 
 class TestValidatePathsInSandbox:
@@ -264,7 +268,6 @@ class TestShellRuleWithSandboxPaths:
                 "pattern": "cat",
                 "sandbox_paths": ["output"],
                 "approval_required": False,
-                "allowed": True,
             }
         ]
 
@@ -288,13 +291,11 @@ class TestShellRuleWithSandboxPaths:
                 "pattern": "cat",
                 "sandbox_paths": ["output"],  # Will fail validation
                 "approval_required": False,
-                "allowed": True,
             },
             {
                 "pattern": "cat",
                 "sandbox_paths": [],  # No validation
                 "approval_required": True,
-                "allowed": True,
             },
         ]
 
@@ -311,16 +312,17 @@ class TestShellRuleWithSandboxPaths:
 
 
 class TestShellDefault:
-    """Tests for shell default behavior."""
+    """Tests for shell default behavior (whitelist model)."""
 
-    def test_default_allow_no_approval(self):
-        default = {"allowed": True, "approval_required": False}
+    def test_default_allows_unmatched(self):
+        """Presence of default = unmatched commands are allowed."""
+        default = {"approval_required": False}
         allowed, approval = match_shell_rules("xyz", ["xyz"], [], default, None)
-        assert allowed is True
+        assert allowed is True  # Default exists = allowed
         assert approval is False
 
-    def test_default_block(self):
-        default = {"allowed": False, "approval_required": True}
-        allowed, approval = match_shell_rules("xyz", ["xyz"], [], default, None)
-        assert allowed is False
+    def test_no_default_blocks_unmatched(self):
+        """Absence of default = unmatched commands are blocked."""
+        allowed, approval = match_shell_rules("xyz", ["xyz"], [], None, None)
+        assert allowed is False  # No default = blocked
         assert approval is True

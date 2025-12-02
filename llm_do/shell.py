@@ -163,13 +163,18 @@ def match_shell_rules(
     default: Optional[dict],
     file_sandbox: Optional[FileSandbox],
 ) -> Tuple[bool, bool]:
-    """Match command against shell rules.
+    """Match command against shell rules (whitelist model).
+
+    Whitelist semantics:
+    - Rule in config → command is allowed (with rule's approval_required)
+    - No rule but default exists → allowed (with default's approval_required)
+    - No rule and no default → BLOCKED
 
     Args:
         command: Original command string
         args: Parsed command arguments
-        rules: List of shell rule dicts with keys: pattern, sandbox_paths, allowed, approval_required
-        default: Default behavior dict with keys: allowed, approval_required
+        rules: List of shell rule dicts with keys: pattern, sandbox_paths, approval_required
+        default: Default behavior dict with key: approval_required (presence = allow unmatched)
         file_sandbox: FileSandbox for path validation (optional)
 
     Returns:
@@ -189,14 +194,16 @@ def match_shell_rules(
                     logger.debug(f"Path validation failed for rule '{pattern}'")
                     continue  # Try next rule
 
-            return (rule.get("allowed", True), rule.get("approval_required", True))
+            # Rule matched → allowed with rule's approval setting
+            return (True, rule.get("approval_required", True))
 
-    # No rule matched, use default
+    # No rule matched - check for default
     if default is not None:
-        return (default.get("allowed", True), default.get("approval_required", True))
+        # Default exists → allow with default's approval setting
+        return (True, default.get("approval_required", True))
 
-    # Ultimate fallback: allow with approval required
-    return (True, True)
+    # No rule and no default → blocked (whitelist model)
+    return (False, True)
 
 
 def execute_shell(

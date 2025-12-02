@@ -290,22 +290,26 @@ class CustomToolset(AbstractToolset):
 
 ### Shell Tool Approval
 
-Shell commands use pattern-based rules configured under `toolsets.shell`:
+Shell commands use a **whitelist model** configured under `toolsets.shell`:
 
 ```yaml
 toolsets:
   shell:
-    default:
-      allowed: true
-      approval_required: true
     rules:
       - pattern: "git status"
-        approval_required: false
-      - pattern: "git diff"
-        approval_required: false
-      - pattern: "rm -rf"
-        allowed: false
+        approval_required: false  # Pre-approved
+      - pattern: "git commit"
+        approval_required: true   # Requires approval
+      # rm -rf is NOT in rules = blocked
+    default:
+      approval_required: true  # Unmatched commands allowed with approval
+      # Omit default entirely to block all unmatched commands
 ```
+
+**Whitelist semantics:**
+- Command matches a rule → allowed (with rule's `approval_required`)
+- No rule matches but `default` exists → allowed (with default's `approval_required`)
+- No rule matches and no `default` → **blocked**
 
 ### Approval Configuration Summary
 

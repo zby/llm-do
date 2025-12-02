@@ -143,3 +143,4 @@ examples/bootstrapping_pitchdeck_eval/output/
 examples/approvals_demo/notes/
 examples/pitchdeck_eval/evaluations/
 
+pydantic_ai_blocking_approval

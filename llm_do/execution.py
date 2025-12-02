@@ -29,7 +29,7 @@ from pydantic_ai_blocking_approval import ApprovalToolset, SimpleApprovalToolset
 from .custom_toolset import CustomToolset
 from .delegation_toolset import DelegationToolset
 from .protocols import WorkerCreator, WorkerDelegator
-from .shell_toolset import ShellToolset
+from .shell.toolset import ShellToolset
 from .types import (
     AgentExecutionContext,
     ModelLike,

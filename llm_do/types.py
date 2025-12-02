@@ -96,47 +96,10 @@ class ToolsetsConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Shell tool types (used within ShellToolsetConfig)
+# Shell tool types (imported from shell subpackage)
 # ---------------------------------------------------------------------------
 
-
-class ShellResult(BaseModel):
-    """Result from a shell command execution."""
-
-    stdout: str
-    stderr: str
-    exit_code: int
-    truncated: bool = False  # True if output exceeded limit
-
-
-class ShellRule(BaseModel):
-    """Pattern-based rule for shell command approval.
-
-    Rules are matched in order. First match wins.
-    """
-
-    pattern: str = Field(description="Command prefix to match (e.g., 'git status')")
-    sandbox_paths: List[str] = Field(
-        default_factory=list,
-        description="Sandboxes for path argument validation. Empty means no path validation."
-    )
-    approval_required: bool = Field(
-        default=True,
-        description="Whether this command requires user approval"
-    )
-
-
-class ShellDefault(BaseModel):
-    """Default behavior for shell commands that don't match any rule.
-
-    Presence of a default section means unmatched commands are allowed.
-    Absence of default means unmatched commands are blocked (whitelist model).
-    """
-
-    approval_required: bool = Field(
-        default=True,
-        description="Whether unmatched commands require approval"
-    )
+from .shell.types import ShellDefault, ShellResult, ShellRule
 
 
 # ---------------------------------------------------------------------------

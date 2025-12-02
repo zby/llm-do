@@ -1,14 +1,13 @@
-"""Shell command execution with pattern-based approval.
+"""Shell command execution with whitelist-based approval.
 
 This module provides:
 - Shell command execution with subprocess
-- Pattern matching for shell_rules
+- Pattern matching for shell rules (whitelist model)
 - Path validation using FileSandbox
 - Integration with the approval system
 
-Security note: Pattern rules are UX only, not security. Security comes from:
-- FileSandbox for Python I/O validation
-- OS sandbox (Seatbelt/bwrap) for shell subprocess enforcement
+Security note: Pattern rules are UX only, not security. For kernel-level
+isolation, run llm-do in a Docker container.
 """
 from __future__ import annotations
 
@@ -19,8 +18,9 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from pydantic_ai_filesystem_sandbox import SandboxError
-from .protocols import FileSandbox
-from .types import ShellDefault, ShellResult, ShellRule
+
+from ..protocols import FileSandbox
+from .types import ShellResult
 
 logger = logging.getLogger(__name__)
 

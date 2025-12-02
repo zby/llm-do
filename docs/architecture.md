@@ -12,7 +12,11 @@ llm_do/
 ├── protocols.py         # Dependency injection protocols
 ├── worker_sandbox.py    # Sandbox extension for llm-do
 ├── registry.py          # Worker definition loading/persistence
-├── shell_toolset.py     # Shell command toolset
+├── shell/               # Shell toolset package
+│   ├── __init__.py      # Package exports
+│   ├── execution.py     # Shell command execution
+│   ├── toolset.py       # PydanticAI toolset wrapper
+│   └── types.py         # Shell-specific types
 ├── delegation_toolset.py # Worker delegation toolset
 ├── custom_toolset.py    # Custom Python tools toolset
 └── cli.py               # CLI entry point
@@ -426,7 +430,7 @@ CLI / run_worker()
 |------|-------|----------------|
 | `runtime.py` | ~540 | Worker orchestration, delegation, creation |
 | `execution.py` | ~280 | Agent execution, ApprovalToolset wrapping |
-| `shell_toolset.py` | ~200 | Shell command toolset with pattern rules |
+| `shell/` | ~350 | Shell toolset package (whitelist-based approval) |
 | `delegation_toolset.py` | ~150 | Worker delegation toolset |
 | `custom_toolset.py` | ~150 | Custom Python tools toolset |
 | `worker_sandbox.py` | ~250 | Sandbox extension, attachment validation |

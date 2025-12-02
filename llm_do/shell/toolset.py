@@ -22,15 +22,16 @@ from pydantic import TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
 
-from .protocols import FileSandbox
-from .shell import (
+from ..protocols import FileSandbox
+from ..types import WorkerContext
+from .execution import (
     ShellBlockedError,
     execute_shell,
     enhance_error_with_sandbox_context,
     match_shell_rules,
     parse_command,
 )
-from .types import ShellResult, WorkerContext
+from .types import ShellResult
 
 logger = logging.getLogger(__name__)
 

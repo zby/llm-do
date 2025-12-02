@@ -81,7 +81,7 @@ The factory logic lives entirely in llm-do:
 ```python
 # llm_do/toolset_loader.py
 import importlib
-from typing import Any, Callable, Optional
+from typing import Callable
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai_blocking_approval import ApprovalToolset, SimpleApprovalToolset, ApprovalMemory
 
@@ -100,42 +100,31 @@ def create_toolset(
 ) -> AbstractToolset:
     """Factory to create toolsets from config.
 
-    Three patterns:
-    1. Already an approval wrapper → instantiate directly
-    2. Has needs_approval() method → wrap with ApprovalToolset
-    3. No needs_approval() → wrap with SimpleApprovalToolset
+    Two patterns based on duck typing:
+    1. Has needs_approval() → wrap with ApprovalToolset
+    2. No needs_approval() → wrap with SimpleApprovalToolset
     """
     toolset_class = _import_class(class_path)
     config = dict(config)  # copy to avoid mutation
 
-    # Pattern 1: Already an approval wrapper - instantiate directly
-    if issubclass(toolset_class, (ApprovalToolset, SimpleApprovalToolset)):
-        return toolset_class(
-            config=config,
-            context=context,
-            approval_callback=approval_callback,
-            memory=memory,
-        )
-
     # Instantiate the toolset (llm-do convention: config, context)
     toolset = toolset_class(config=config, context=context)
 
-    # Pattern 2: Has needs_approval - wrap with ApprovalToolset
+    # Duck type check - wrap appropriately
     if hasattr(toolset, 'needs_approval'):
         return ApprovalToolset(
             inner=toolset,
             approval_callback=approval_callback,
             memory=memory,
         )
-
-    # Pattern 3: No needs_approval - wrap with SimpleApprovalToolset
-    approval_config = config.pop("_approval_config", {})
-    return SimpleApprovalToolset(
-        inner=toolset,
-        approval_callback=approval_callback,
-        memory=memory,
-        config=approval_config,
-    )
+    else:
+        approval_config = config.pop("_approval_config", {})
+        return SimpleApprovalToolset(
+            inner=toolset,
+            approval_callback=approval_callback,
+            memory=memory,
+            config=approval_config,
+        )
 
 
 def build_toolsets(

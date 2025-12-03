@@ -125,14 +125,18 @@ def _prepare_worker_context(
     effective_model = definition.model or caller_effective_model or cli_model
 
     context = WorkerContext(
-        registry=registry,
+        # Core
         worker=definition,
-        attachment_validator=attachment_validator,
-        creation_defaults=defaults,
         effective_model=effective_model,
         approval_controller=approval_controller,
+        # Delegation
+        registry=registry,
+        creation_defaults=defaults,
+        attachment_validator=attachment_validator,
+        # I/O
         sandbox=new_sandbox,
         attachments=attachment_payloads,
+        # Callbacks
         message_callback=message_callback,
         custom_tools_path=custom_tools_path,
     )

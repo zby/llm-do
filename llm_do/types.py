@@ -224,16 +224,28 @@ class WorkerContext:
     """Runtime context passed to worker execution.
 
     This contains all the dependencies and state needed during worker execution,
-    including registry, sandboxes, approvals, and callbacks.
+    grouped by concern:
+    - Core: worker definition, model, approval handling
+    - Delegation: registry access, worker creation (when delegation toolset enabled)
+    - I/O: sandbox and attachments for file operations
+    - Callbacks: streaming and custom tools
     """
-    registry: Any  # WorkerRegistry - avoid circular import
+
+    # Core - always needed
     worker: WorkerDefinition
-    attachment_validator: Optional[AttachmentValidator]
-    creation_defaults: WorkerCreationDefaults
     effective_model: Optional[ModelLike]
     approval_controller: Any  # ApprovalController - defined in tool_approval.py
+
+    # Delegation - populated when delegation toolset is enabled
+    registry: Any = None  # WorkerRegistry - avoid circular import
+    creation_defaults: Optional[WorkerCreationDefaults] = None
+    attachment_validator: Optional[AttachmentValidator] = None
+
+    # I/O - sandbox and attachments for file operations
     sandbox: Optional[AbstractToolset] = None  # None if worker doesn't use file I/O
     attachments: List[AttachmentPayload] = field(default_factory=list)
+
+    # Callbacks and extensions
     message_callback: Optional[MessageCallback] = None
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
 

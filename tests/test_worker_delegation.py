@@ -62,12 +62,15 @@ def _parent_context(registry, worker, defaults=None, approval_callback=None):
         sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     return WorkerContext(
-        registry=registry,
+        # Core
         worker=worker,
-        attachment_validator=attachment_validator,
-        creation_defaults=defaults or WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        # Delegation
+        registry=registry,
+        creation_defaults=defaults or WorkerCreationDefaults(),
+        attachment_validator=attachment_validator,
+        # I/O
         sandbox=sandbox,
     )
 
@@ -519,12 +522,15 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
     attachment_validator = AttachmentValidator(sandbox)
 
     context = WorkerContext(
-        registry=registry,
+        # Core
         worker=parent,
-        attachment_validator=attachment_validator,
-        creation_defaults=WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        # Delegation
+        registry=registry,
+        creation_defaults=WorkerCreationDefaults(),
+        attachment_validator=attachment_validator,
+        # I/O
         sandbox=sandbox,
     )
 
@@ -570,12 +576,15 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
     attachment_validator = AttachmentValidator(sandbox)
 
     context = WorkerContext(
-        registry=registry,
+        # Core
         worker=parent,
-        attachment_validator=attachment_validator,
-        creation_defaults=WorkerCreationDefaults(),
         effective_model="cli-model",
         approval_controller=controller,
+        # Delegation
+        registry=registry,
+        creation_defaults=WorkerCreationDefaults(),
+        attachment_validator=attachment_validator,
+        # I/O
         sandbox=sandbox,
     )
 

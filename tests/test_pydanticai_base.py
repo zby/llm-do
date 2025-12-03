@@ -329,12 +329,15 @@ def test_call_worker_respects_allowlist(registry):
     sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
-        registry=registry,
+        # Core
         worker=parent_def,
-        attachment_validator=attachment_validator,
-        creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        # Delegation
+        registry=registry,
+        creation_defaults=WorkerCreationDefaults(),
+        attachment_validator=attachment_validator,
+        # I/O
         sandbox=sandbox,
     )
 
@@ -367,12 +370,15 @@ def test_call_worker_supports_wildcard_allowlist(registry):
     sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
-        registry=registry,
+        # Core
         worker=parent_def,
-        attachment_validator=attachment_validator,
-        creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        # Delegation
+        registry=registry,
+        creation_defaults=WorkerCreationDefaults(),
+        attachment_validator=attachment_validator,
+        # I/O
         sandbox=sandbox,
     )
 
@@ -411,13 +417,17 @@ def test_call_worker_propagates_message_callback(registry):
     sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
-        registry=registry,
+        # Core
         worker=parent_def,
-        attachment_validator=attachment_validator,
-        creation_defaults=WorkerCreationDefaults(),
         effective_model="cli",
         approval_controller=controller,
+        # Delegation
+        registry=registry,
+        creation_defaults=WorkerCreationDefaults(),
+        attachment_validator=attachment_validator,
+        # I/O
         sandbox=sandbox,
+        # Callbacks
         message_callback=callback,
     )
 

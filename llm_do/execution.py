@@ -24,7 +24,7 @@ from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
 from pydantic_ai_filesystem_sandbox import FileSystemToolset
-from pydantic_ai_blocking_approval import ApprovalToolset, SimpleApprovalToolset
+from pydantic_ai_blocking_approval import ApprovalToolset
 
 from .custom_toolset import CustomToolset
 from .delegation_toolset import DelegationToolset
@@ -295,12 +295,12 @@ def prepare_agent_execution(
             worker_name=definition.name,
             tools_path=context.custom_tools_path,
         )
-        # Build SimpleApprovalToolset config from CustomToolConfig.pre_approved
+        # Build ApprovalToolset config from CustomToolConfig.pre_approved
         approval_config = {
             name: {"pre_approved": cfg.pre_approved}
             for name, cfg in custom_config.items()
         }
-        approved = SimpleApprovalToolset(
+        approved = ApprovalToolset(
             inner=custom_toolset,
             approval_callback=context.approval_controller.approval_callback,
             memory=context.approval_controller.memory,

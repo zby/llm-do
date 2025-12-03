@@ -42,7 +42,12 @@ Problems:
 
 ### Design Principle: Keep pydantic-ai-blocking-approval Generic
 
-The `pydantic-ai-blocking-approval` library should remain a generic approval wrapper with no llm-do-specific conventions. All plugin/factory logic lives in llm-do.
+The `pydantic-ai-blocking-approval` library provides a unified `ApprovalToolset` that:
+- Auto-detects if inner toolset implements `SupportsNeedsApproval` protocol
+- If yes: delegates approval decision to `inner.needs_approval()`
+- If no: uses config dict to determine pre-approved tools (secure by default)
+
+All plugin/factory logic lives in llm-do.
 
 ### Worker Configuration
 
@@ -51,7 +56,7 @@ Workers declare toolsets by fully-qualified class name:
 ```yaml
 # worker.yaml
 toolsets:
-  # llm-do convention toolset (has needs_approval) → wrapped with ApprovalToolset
+  # llm-do convention toolset (has needs_approval for smart approval logic)
   llm_do.toolsets.shell.ShellToolset:
     rules:
       - pattern: "git *"
@@ -67,7 +72,7 @@ toolsets:
   mycompany.toolsets.DatabaseToolset:
     connection_string: "postgres://..."
 
-  # Arbitrary pydantic-ai toolset (no needs_approval) → wrapped with SimpleApprovalToolset
+  # Arbitrary pydantic-ai toolset (no needs_approval - uses config-based approval)
   some_library.SomeToolset:
     some_option: value
     _approval_config:
@@ -83,7 +88,7 @@ The factory logic lives entirely in llm-do:
 import importlib
 from typing import Callable
 from pydantic_ai.toolsets import AbstractToolset
-from pydantic_ai_blocking_approval import ApprovalToolset, SimpleApprovalToolset, ApprovalMemory
+from pydantic_ai_blocking_approval import ApprovalToolset, ApprovalMemory
 
 def _import_class(class_path: str) -> type:
     """Dynamically import a class from its fully-qualified path."""
@@ -100,31 +105,26 @@ def create_toolset(
 ) -> AbstractToolset:
     """Factory to create toolsets from config.
 
-    Two patterns based on duck typing:
-    1. Has needs_approval() → wrap with ApprovalToolset
-    2. No needs_approval() → wrap with SimpleApprovalToolset
+    ApprovalToolset auto-detects whether inner has needs_approval():
+    - If yes: delegates approval decision to inner.needs_approval()
+    - If no: uses config for pre_approved check (secure by default)
     """
     toolset_class = _import_class(class_path)
     config = dict(config)  # copy to avoid mutation
 
+    # Extract approval config (for toolsets without needs_approval)
+    approval_config = config.pop("_approval_config", {})
+
     # Instantiate the toolset (llm-do convention: config, context)
     toolset = toolset_class(config=config, context=context)
 
-    # Duck type check - wrap appropriately
-    if hasattr(toolset, 'needs_approval'):
-        return ApprovalToolset(
-            inner=toolset,
-            approval_callback=approval_callback,
-            memory=memory,
-        )
-    else:
-        approval_config = config.pop("_approval_config", {})
-        return SimpleApprovalToolset(
-            inner=toolset,
-            approval_callback=approval_callback,
-            memory=memory,
-            config=approval_config,
-        )
+    # Wrap with ApprovalToolset - it auto-detects needs_approval
+    return ApprovalToolset(
+        inner=toolset,
+        approval_callback=approval_callback,
+        memory=memory,
+        config=approval_config,
+    )
 
 
 def build_toolsets(
@@ -155,9 +155,9 @@ Toolsets following the llm-do convention:
 2. **Accept `(config, context)` in `__init__`**: Receives config dict and WorkerContext
 3. **Implement `needs_approval()` method** (optional): Enables smart approval logic
 
-The factory uses **duck typing** to detect `needs_approval()`:
-- If present → wrap with `ApprovalToolset` (calls `needs_approval()` before each tool)
-- If absent → wrap with `SimpleApprovalToolset` (uses `_approval_config` from config)
+The `ApprovalToolset` wrapper auto-detects `needs_approval()` via the `SupportsNeedsApproval` protocol:
+- If present → delegates approval decision to `inner.needs_approval()`
+- If absent → uses `config` dict for `pre_approved` check (secure by default)
 
 ```python
 # llm_do/toolsets/shell.py
@@ -193,15 +193,13 @@ class ShellToolset(AbstractToolset):
         # ... execution logic
 ```
 
-The factory automatically wraps based on duck typing:
+The factory just wraps with `ApprovalToolset` - it handles the detection automatically:
 
 ```python
-# Factory detects needs_approval and wraps appropriately
+# Factory wraps all toolsets uniformly
 toolset = ShellToolset(config=config, context=context)
-if hasattr(toolset, 'needs_approval'):
-    wrapped = ApprovalToolset(inner=toolset, ...)  # uses needs_approval()
-else:
-    wrapped = SimpleApprovalToolset(inner=toolset, config=approval_config, ...)
+wrapped = ApprovalToolset(inner=toolset, config=approval_config, ...)
+# ApprovalToolset detects if toolset has needs_approval() and acts accordingly
 ```
 
 ### WorkerContext as Dependency Container
@@ -231,9 +229,9 @@ class WorkerContext:
 ## Benefits
 
 1. **Decoupled execution.py**: No toolset-specific code, just calls `build_toolsets()`
-2. **pydantic-ai-blocking-approval stays generic**: No llm-do conventions leak into the library
-3. **Third-party toolsets**: Follow convention or get auto-wrapped
-4. **Arbitrary pydantic-ai toolsets**: Work out of the box with SimpleApprovalToolset wrapper
+2. **pydantic-ai-blocking-approval stays generic**: Unified `ApprovalToolset` with auto-detection
+3. **Third-party toolsets**: Follow convention or use config-based approval
+4. **Arbitrary pydantic-ai toolsets**: Work out of the box with config-based approval
 5. **Explicit DI**: Dependencies flow through WorkerContext
 6. **Testable**: Easy to mock context for testing toolsets
 
@@ -319,4 +317,3 @@ toolsets:
 2. **Aliases**: Support short names like `shell` -> `llm_do.toolsets.shell.ShellToolset`?
 3. **Security**: Should there be an allowlist of loadable toolset classes?
 4. **Context protocol**: Should we define a Protocol for context instead of using WorkerContext directly?
-5. **Duck typing vs Protocol**: Currently using `hasattr(toolset, 'needs_approval')` for detection. Could use a Protocol for better type checking, but duck typing is simpler and sufficient.

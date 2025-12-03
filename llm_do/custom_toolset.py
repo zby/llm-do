@@ -3,7 +3,7 @@
 This module provides CustomToolset which:
 1. Loads custom tools from a tools.py module
 2. Exposes only tools listed in config (whitelist model)
-3. Wraps with SimpleApprovalToolset for approval handling
+3. Wraps with ApprovalToolset for approval handling
 """
 from __future__ import annotations
 
@@ -98,7 +98,7 @@ class CustomToolset(AbstractToolset[WorkerContext]):
     This toolset loads and exposes custom tools from a Python module.
     Only tools listed in config are exposed to the LLM (whitelist model).
 
-    Approval is handled by wrapping with SimpleApprovalToolset.
+    Approval is handled by wrapping with ApprovalToolset.
     """
 
     def __init__(

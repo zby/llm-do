@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Sequence, Type, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Type, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
@@ -18,9 +18,6 @@ from pydantic_ai_blocking_approval import ApprovalDecision
 
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 from .worker_sandbox import AttachmentValidator, SandboxConfig
-
-if TYPE_CHECKING:
-    from .protocols import WorkerCreator, WorkerDelegator
 
 
 
@@ -239,9 +236,8 @@ class WorkerContext:
     This contains all the dependencies and state needed during worker execution,
     including registry, sandboxes, approvals, and callbacks.
 
-    The delegator and creator fields provide protocol implementations for
-    worker delegation and creation. They are initialized by the runtime
-    and accessed by DelegationToolset via ctx.deps.
+    Delegation and worker creation methods are provided directly on this class,
+    accessed by DelegationToolset via ctx.deps.
     """
     registry: Any  # WorkerRegistry - avoid circular import
     worker: WorkerDefinition
@@ -253,8 +249,6 @@ class WorkerContext:
     attachments: List[AttachmentPayload] = field(default_factory=list)
     message_callback: Optional[MessageCallback] = None
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
-    delegator: Optional[WorkerDelegator] = None  # Protocol impl for worker_call
-    creator: Optional[WorkerCreator] = None  # Protocol impl for worker_create
 
     def validate_attachments(
         self, attachment_specs: Optional[Sequence[AttachmentInput]]
@@ -265,6 +259,146 @@ class WorkerContext:
         return self.attachment_validator.validate_attachments(
             attachment_specs, self.worker.attachment_policy
         )
+
+    def _check_approval(self, tool_name: str, payload: Dict[str, Any], description: str) -> None:
+        """Check approval using the unified ApprovalController.
+
+        Raises PermissionError if approval is denied.
+        """
+        from pydantic_ai_blocking_approval import ApprovalRequest
+
+        request = ApprovalRequest(
+            tool_name=tool_name,
+            description=description,
+            tool_args=payload,
+        )
+        decision = self.approval_controller.request_approval_sync(request)
+        if not decision.approved:
+            note = f": {decision.note}" if decision.note else ""
+            raise PermissionError(f"Approval denied for {tool_name}{note}")
+
+    def _prepare_delegation(
+        self,
+        worker: str,
+        attachments: Optional[List[str]],
+    ) -> Optional[List[AttachmentPayload]]:
+        """Validate attachments and check approvals for worker delegation.
+
+        Returns attachment payloads ready for call_worker/call_worker_async.
+        """
+        if attachments:
+            resolved_attachments, attachment_metadata = self.validate_attachments(attachments)
+        else:
+            resolved_attachments, attachment_metadata = ([], [])
+
+        # Check sandbox.read approval for each attachment before sharing
+        for meta in attachment_metadata:
+            self._check_approval(
+                "sandbox.read",
+                {"path": f"{meta['sandbox']}/{meta['path']}", "bytes": meta["bytes"], "target_worker": worker},
+                f"Share file '{meta['sandbox']}/{meta['path']}' with worker '{worker}'",
+            )
+
+        attachment_payloads: Optional[List[AttachmentPayload]] = None
+        if resolved_attachments:
+            attachment_payloads = [
+                AttachmentPayload(
+                    path=path,
+                    display_name=f"{meta['sandbox']}/{meta['path']}",
+                )
+                for path, meta in zip(resolved_attachments, attachment_metadata)
+            ]
+
+        # Check worker.call approval
+        payload: Dict[str, Any] = {"worker": worker}
+        if attachment_metadata:
+            payload["attachments"] = attachment_metadata
+        self._check_approval("worker.call", payload, f"Delegate to worker '{worker}'")
+
+        return attachment_payloads
+
+    async def delegate_async(
+        self,
+        worker: str,
+        input_data: Any = None,
+        attachments: Optional[List[str]] = None,
+    ) -> Any:
+        """Async worker delegation with approval enforcement."""
+        # Lazy import to avoid circular dependency
+        from .runtime import call_worker_async
+
+        attachment_payloads = self._prepare_delegation(worker, attachments)
+        result = await call_worker_async(
+            registry=self.registry,
+            worker=worker,
+            input_data=input_data,
+            caller_context=self,
+            attachments=attachment_payloads,
+        )
+        return result.output
+
+    def delegate_sync(
+        self,
+        worker: str,
+        input_data: Any = None,
+        attachments: Optional[List[str]] = None,
+    ) -> Any:
+        """Sync worker delegation with approval enforcement."""
+        # Lazy import to avoid circular dependency
+        from .runtime import call_worker
+
+        attachment_payloads = self._prepare_delegation(worker, attachments)
+        result = call_worker(
+            registry=self.registry,
+            worker=worker,
+            input_data=input_data,
+            caller_context=self,
+            attachments=attachment_payloads,
+        )
+        return result.output
+
+    def create_worker(
+        self,
+        name: str,
+        instructions: str,
+        description: Optional[str] = None,
+        model: Optional[str] = None,
+        output_schema_ref: Optional[str] = None,
+        force: bool = False,
+    ) -> Dict[str, Any]:
+        """Create worker with approval enforcement."""
+        # Lazy import to avoid circular dependency
+        from pydantic_ai_blocking_approval import ApprovalRequest
+        from .runtime import create_worker as runtime_create_worker
+
+        payload = {"worker": name}
+
+        # Check worker.create approval
+        request = ApprovalRequest(
+            tool_name="worker.create",
+            description=f"Create new worker '{name}'",
+            tool_args=payload,
+        )
+        decision = self.approval_controller.request_approval_sync(request)
+        if not decision.approved:
+            note = f": {decision.note}" if decision.note else ""
+            raise PermissionError(f"Approval denied for worker.create{note}")
+
+        # Execute
+        spec = WorkerSpec(
+            name=name,
+            instructions=instructions,
+            description=description,
+            model=model,
+            output_schema_ref=output_schema_ref,
+        )
+        created = runtime_create_worker(
+            registry=self.registry,
+            spec=spec,
+            defaults=self.creation_defaults,
+            force=force,
+        )
+        return created.model_dump(mode="json")
 
 
 @dataclass

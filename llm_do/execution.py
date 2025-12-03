@@ -126,9 +126,6 @@ def prepare_agent_execution(
     - Preparing agent kwargs with toolsets
     - Initializing status tracking
 
-    The delegator and creator for DelegationToolset are accessed via
-    context.delegator and context.creator.
-
     Args:
         definition: Worker definition with instructions and configuration
         user_input: Input data for the worker
@@ -268,9 +265,9 @@ def prepare_agent_execution(
         toolsets.append(approved)
 
     # Delegation toolset (provides worker_call, worker_create with approval)
-    # Delegator/creator are accessed from context where they were set by runtime
+    # Methods are called directly on WorkerContext (ctx.deps)
     delegation_config = toolsets_config.delegation if toolsets_config else None
-    if delegation_config is not None and context.delegator is not None and context.creator is not None:
+    if delegation_config is not None:
         delegation_toolset = DelegationToolset(
             config=delegation_config.model_dump(),
         )
@@ -349,8 +346,6 @@ async def default_agent_runner_async(
         Tuple of (output, messages) where messages is the list of all messages
         exchanged with the LLM during execution.
     """
-    # Prepare execution context (prompt, callbacks, agent kwargs)
-    # Delegator/creator are accessed via context.delegator/.creator
     exec_ctx = prepare_agent_execution(
         definition, user_input, context, output_model
     )

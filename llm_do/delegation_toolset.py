@@ -5,8 +5,8 @@ This module provides DelegationToolset which:
 2. Implements approval logic via `needs_approval()`
 3. Enforces allow_workers restrictions
 
-The delegator and creator protocol implementations are accessed via
-ctx.deps.delegator and ctx.deps.creator (set by runtime in WorkerContext).
+Delegation and creation are performed via methods on WorkerContext
+(ctx.deps.delegate_async, ctx.deps.create_worker).
 """
 from __future__ import annotations
 
@@ -48,9 +48,8 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             max_retries: Maximum retries for tool calls.
 
         Note:
-            The delegator and creator are accessed via ctx.deps at call time,
-            not passed here. This simplifies DI by using WorkerContext as
-            the single source of dependencies.
+            Delegation and creation methods are called directly on ctx.deps
+            (WorkerContext) at call time.
         """
         self._config = config
         self._id = id
@@ -193,23 +192,23 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         Args:
             name: Tool name ("worker_call" or "worker_create")
             tool_args: Tool arguments
-            ctx: Run context with deps.delegator and deps.creator
+            ctx: Run context with WorkerContext as deps
             tool: Tool definition
 
         Returns:
             Result from the delegated worker or creation status
         """
-        # Access delegator/creator via context deps (set by runtime)
+        # Access WorkerContext methods directly
         worker_ctx: WorkerContext = ctx.deps
 
         if name == "worker_call":
             worker = tool_args["worker"]
             input_data = tool_args.get("input_data")
             attachments = tool_args.get("attachments")
-            return await worker_ctx.delegator.call_async(worker, input_data, attachments)
+            return await worker_ctx.delegate_async(worker, input_data, attachments)
 
         elif name == "worker_create":
-            return worker_ctx.creator.create(
+            return worker_ctx.create_worker(
                 name=tool_args["name"],
                 instructions=tool_args["instructions"],
                 description=tool_args.get("description"),

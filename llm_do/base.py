@@ -71,15 +71,13 @@ from .shell import (
 from .registry import WorkerRegistry
 
 # Re-export protocols
-from .protocols import FileSandbox, WorkerCreator, WorkerDelegator
+from .protocols import FileSandbox
 
 # Tools are now provided via toolsets in execution.py:
 # - FileSystemToolset (wrapped with ApprovalToolset), ShellToolset, DelegationToolset, CustomToolset
 
-# Re-export runtime functions and implementations
+# Re-export runtime functions
 from .runtime import (
-    RuntimeCreator,
-    RuntimeDelegator,
     call_worker,
     call_worker_async,
     create_worker,
@@ -107,11 +105,6 @@ __all__: Iterable[str] = [
     "WorkerContext",
     # Protocols
     "FileSandbox",
-    "WorkerCreator",
-    "WorkerDelegator",
-    # Protocol implementations
-    "RuntimeCreator",
-    "RuntimeDelegator",
     # Sandbox classes
     "DEFAULT_MAX_READ_CHARS",
     "BaseSandboxConfig",

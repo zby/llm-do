@@ -9,8 +9,6 @@ from llm_do import (
     AttachmentPolicy,
     ApprovalController,
     ApprovalDecision,
-    RuntimeCreator,
-    RuntimeDelegator,
     WorkerCreationDefaults,
     WorkerDefinition,
     WorkerRegistry,
@@ -193,7 +191,7 @@ def test_create_worker_defaults_allow_delegation(tmp_path):
 def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
     """Worker delegation always goes through approval controller.
 
-    In the new architecture, RuntimeDelegator always creates an ApprovalRequest.
+    WorkerContext.delegate_sync always creates an ApprovalRequest.
     The controller's mode determines if it prompts (interactive) or auto-approves.
     """
     registry = _registry(tmp_path)
@@ -215,7 +213,7 @@ def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
     monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
 
     # With default auto-approve callback, the tool executes
-    result = RuntimeDelegator(context).call_sync(worker="child", input_data={"task": "demo"})
+    result = context.delegate_sync(worker="child", input_data={"task": "demo"})
 
     # Tool executed successfully
     assert result == {"ok": True}
@@ -238,7 +236,7 @@ def test_worker_call_tool_passes_attachments(monkeypatch, tmp_path):
 
     monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
 
-    result = RuntimeDelegator(context).call_sync(
+    result = context.delegate_sync(
         worker="child",
         input_data={"task": "demo"},
         attachments=["input/deck.pdf"],
@@ -264,7 +262,7 @@ def test_worker_call_tool_rejects_disallowed_sandbox_attachment(tmp_path):
     disallowed.write_text("memo", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Attachment suffix '.txt' not allowed"):
-        RuntimeDelegator(context).call_sync(
+        context.delegate_sync(
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/note.txt"],
@@ -282,7 +280,7 @@ def test_worker_call_tool_parent_policy_suffix(tmp_path):
     pdf_path.write_text("memo", encoding="utf-8")
 
     with pytest.raises(ValueError):
-        RuntimeDelegator(context).call_sync(
+        context.delegate_sync(
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/deck.pdf"],
@@ -301,7 +299,7 @@ def test_worker_call_tool_parent_policy_counts(tmp_path):
         path.write_text("memo", encoding="utf-8")
 
     with pytest.raises(ValueError):
-        RuntimeDelegator(context).call_sync(
+        context.delegate_sync(
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/deck-0.pdf", "input/deck-1.pdf"],
@@ -319,7 +317,7 @@ def test_worker_call_tool_parent_policy_bytes(tmp_path):
     path.write_text("12345", encoding="utf-8")
 
     with pytest.raises(ValueError):
-        RuntimeDelegator(context).call_sync(
+        context.delegate_sync(
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/deck.pdf"],
@@ -335,7 +333,7 @@ def test_worker_call_tool_rejects_path_escape(tmp_path):
     outside.write_text("memo", encoding="utf-8")
 
     with pytest.raises(PermissionError):
-        RuntimeDelegator(context).call_sync(
+        context.delegate_sync(
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/../secret.pdf"],
@@ -363,7 +361,7 @@ def test_worker_call_tool_includes_attachment_metadata(monkeypatch, tmp_path):
 
     monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
 
-    result = RuntimeDelegator(context).call_sync(
+    result = context.delegate_sync(
         worker="child",
         input_data={"task": "demo"},
         attachments=["input/deck.pdf"],
@@ -395,7 +393,7 @@ def test_worker_create_tool_persists_definition(tmp_path):
     registry.save_definition(parent)
     context = _parent_context(registry, parent)
 
-    payload = RuntimeCreator(context).create(
+    payload = context.create_worker(
         name="child",
         instructions="delegate",
         description="desc",
@@ -409,7 +407,7 @@ def test_worker_create_tool_persists_definition(tmp_path):
 def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
     """Worker creation always goes through approval controller.
 
-    In the new architecture, RuntimeCreator always creates an ApprovalRequest.
+    WorkerContext.create_worker always creates an ApprovalRequest.
     The controller's mode determines if it prompts (interactive) or auto-approves.
     """
     registry = _registry(tmp_path)
@@ -437,7 +435,7 @@ def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
     monkeypatch.setattr("llm_do.runtime.create_worker", fake_create_worker)
 
     # With default auto-approve callback, the tool executes
-    result = RuntimeCreator(context).create(name="child", instructions="demo")
+    result = context.create_worker(name="child", instructions="demo")
 
     # Tool executed successfully
     assert result["name"] == "child"
@@ -482,7 +480,7 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
     monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
 
     # Call with attachment
-    RuntimeDelegator(context).call_sync(
+    context.delegate_sync(
         worker="child",
         input_data={"task": "analyze"},
         attachments=["input/secret.pdf"],
@@ -537,7 +535,7 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
 
     # Call should raise PermissionError
     with pytest.raises(PermissionError, match="sandbox.read"):
-        RuntimeDelegator(context).call_sync(
+        context.delegate_sync(
             worker="child",
             input_data={"task": "analyze"},
             attachments=["input/secret.pdf"],

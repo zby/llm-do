@@ -28,9 +28,7 @@ from .execution import default_agent_runner_async, default_agent_runner, prepare
 from pydantic_ai_blocking_approval import (
     ApprovalController,
     ApprovalDecision,
-    ApprovalRequest,
 )
-from .protocols import WorkerCreator, WorkerDelegator
 from .sandbox import AttachmentInput, AttachmentPayload
 from .worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
 # Tools are now provided via toolsets in execution.py
@@ -139,11 +137,6 @@ def _prepare_worker_context(
         custom_tools_path=custom_tools_path,
     )
 
-    # Create protocol implementations and attach to context
-    # This allows DelegationToolset to access them via ctx.deps
-    context.delegator = RuntimeDelegator(context)
-    context.creator = RuntimeCreator(context)
-
     output_model = registry.resolve_output_schema(definition)
 
     return _WorkerExecutionPrep(
@@ -172,161 +165,6 @@ def _handle_result(
         output = raw_output
 
     return WorkerRunResult(output=output, messages=messages)
-
-
-# ---------------------------------------------------------------------------
-# Protocol implementations for dependency injection
-# ---------------------------------------------------------------------------
-
-
-class RuntimeDelegator:
-    """Concrete implementation of WorkerDelegator protocol.
-
-    This handles worker delegation with approval enforcement and attachment validation.
-    Injected into tools to enable recursive worker calls without circular imports.
-    """
-
-    def __init__(self, context: WorkerContext):
-        self.context = context
-
-    def _check_approval(self, tool_name: str, payload: Dict[str, Any], description: str) -> None:
-        """Check approval using the unified ApprovalController.
-
-        Raises PermissionError if approval is denied.
-        """
-        request = ApprovalRequest(
-            tool_name=tool_name,
-            description=description,
-            tool_args=payload,
-        )
-        decision = self.context.approval_controller.request_approval_sync(request)
-        if not decision.approved:
-            note = f": {decision.note}" if decision.note else ""
-            raise PermissionError(f"Approval denied for {tool_name}{note}")
-
-    def _prepare_delegation(
-        self,
-        worker: str,
-        attachments: Optional[List[str]],
-    ) -> Optional[List[AttachmentPayload]]:
-        """Validate attachments and check approvals for worker delegation.
-
-        Returns attachment payloads ready for call_worker/call_worker_async.
-        """
-        if attachments:
-            resolved_attachments, attachment_metadata = self.context.validate_attachments(attachments)
-        else:
-            resolved_attachments, attachment_metadata = ([], [])
-
-        # Check sandbox.read approval for each attachment before sharing
-        for meta in attachment_metadata:
-            self._check_approval(
-                "sandbox.read",
-                {"path": f"{meta['sandbox']}/{meta['path']}", "bytes": meta["bytes"], "target_worker": worker},
-                f"Share file '{meta['sandbox']}/{meta['path']}' with worker '{worker}'",
-            )
-
-        attachment_payloads: Optional[List[AttachmentPayload]] = None
-        if resolved_attachments:
-            attachment_payloads = [
-                AttachmentPayload(
-                    path=path,
-                    display_name=f"{meta['sandbox']}/{meta['path']}",
-                )
-                for path, meta in zip(resolved_attachments, attachment_metadata)
-            ]
-
-        # Check worker.call approval
-        payload: Dict[str, Any] = {"worker": worker}
-        if attachment_metadata:
-            payload["attachments"] = attachment_metadata
-        self._check_approval("worker.call", payload, f"Delegate to worker '{worker}'")
-
-        return attachment_payloads
-
-    async def call_async(
-        self,
-        worker: str,
-        input_data: Any = None,
-        attachments: Optional[List[str]] = None,
-    ) -> Any:
-        """Async worker delegation with approval enforcement."""
-        attachment_payloads = self._prepare_delegation(worker, attachments)
-        result = await call_worker_async(
-            registry=self.context.registry,
-            worker=worker,
-            input_data=input_data,
-            caller_context=self.context,
-            attachments=attachment_payloads,
-        )
-        return result.output
-
-    def call_sync(
-        self,
-        worker: str,
-        input_data: Any = None,
-        attachments: Optional[List[str]] = None,
-    ) -> Any:
-        """Sync worker delegation with approval enforcement."""
-        attachment_payloads = self._prepare_delegation(worker, attachments)
-        result = call_worker(
-            registry=self.context.registry,
-            worker=worker,
-            input_data=input_data,
-            caller_context=self.context,
-            attachments=attachment_payloads,
-        )
-        return result.output
-
-
-class RuntimeCreator:
-    """Concrete implementation of WorkerCreator protocol.
-
-    Handles worker creation with approval enforcement.
-    Injected into tools to enable the worker_create tool.
-    """
-
-    def __init__(self, context: WorkerContext):
-        self.context = context
-
-    def create(
-        self,
-        name: str,
-        instructions: str,
-        description: Optional[str] = None,
-        model: Optional[str] = None,
-        output_schema_ref: Optional[str] = None,
-        force: bool = False,
-    ) -> Dict[str, Any]:
-        """Create worker with approval enforcement."""
-        payload = {"worker": name}
-
-        # Check worker.create approval
-        request = ApprovalRequest(
-            tool_name="worker.create",
-            description=f"Create new worker '{name}'",
-            tool_args=payload,
-        )
-        decision = self.context.approval_controller.request_approval_sync(request)
-        if not decision.approved:
-            note = f": {decision.note}" if decision.note else ""
-            raise PermissionError(f"Approval denied for worker.create{note}")
-
-        # Execute
-        spec = WorkerSpec(
-            name=name,
-            instructions=instructions,
-            description=description,
-            model=model,
-            output_schema_ref=output_schema_ref,
-        )
-        created = create_worker(
-            registry=self.context.registry,
-            spec=spec,
-            defaults=self.context.creation_defaults,
-            force=force,
-        )
-        return created.model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------

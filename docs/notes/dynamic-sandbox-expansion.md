@@ -76,6 +76,8 @@ This decision simplifies dynamic expansion significantly - no process restart ne
 Since there's no OS sandbox, dynamic expansion is straightforward:
 
 ```python
+from pydantic_ai_blocking_approval import ApprovalResult
+
 class FileSystemToolset(AbstractToolset):
     def __init__(
         self,
@@ -86,7 +88,7 @@ class FileSystemToolset(AbstractToolset):
         self._dynamic_expansion = dynamic_expansion
         self._expanded_paths: dict[str, PathConfig] = {}
 
-    def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
+    def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> ApprovalResult:
         path = tool_args.get("path", "")
 
         # Check if path is in configured sandbox
@@ -94,14 +96,14 @@ class FileSystemToolset(AbstractToolset):
             self._sandbox.get_path_config(path)
             # Path is in sandbox - normal approval logic
             if name in ("write_file", "edit_file"):
-                return {"description": f"Write to {path}"}
-            return False
+                return ApprovalResult.needs_approval()
+            return ApprovalResult.pre_approved()
         except PathNotInSandboxError:
             pass
 
         # Path outside sandbox
         if not self._dynamic_expansion:
-            raise PermissionError(f"Path not in sandbox: {path}")
+            return ApprovalResult.blocked(f"Path not in sandbox: {path}")
 
         # Check if already expanded in this session
         directory = self._get_parent_directory(path)
@@ -109,18 +111,23 @@ class FileSystemToolset(AbstractToolset):
             config = self._expanded_paths[directory]
             if name in ("write_file", "edit_file") and config.mode != "rw":
                 # Need write but only have read - request upgrade
-                return {
-                    "description": f"Upgrade to write access: {directory}",
-                    "expansion": {"directory": directory, "mode": "rw"},
-                }
-            return False
+                # Store expansion info for get_approval_description
+                self._pending_expansion = {"directory": directory, "mode": "rw"}
+                return ApprovalResult.needs_approval()
+            return ApprovalResult.pre_approved()
 
         # Request expansion approval
         mode = "rw" if name in ("write_file", "edit_file") else "ro"
-        return {
-            "description": f"Allow {mode} access to: {directory}",
-            "expansion": {"directory": directory, "mode": mode},
-        }
+        self._pending_expansion = {"directory": directory, "mode": mode}
+        return ApprovalResult.needs_approval()
+
+    def get_approval_description(self, name: str, tool_args: dict, ctx: Any) -> str:
+        """Return description for approval prompt."""
+        if hasattr(self, "_pending_expansion") and self._pending_expansion:
+            exp = self._pending_expansion
+            return f"Allow {exp['mode']} access to: {exp['directory']}"
+        path = tool_args.get("path", "")
+        return f"Write to {path}" if name in ("write_file", "edit_file") else f"Access {path}"
 
     def approve_expansion(self, directory: str, mode: str) -> None:
         """Called when user approves expansion."""

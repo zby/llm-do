@@ -110,23 +110,29 @@ This breaks OCP - adding new toolsets with different constructor signatures requ
 
 ### Issues
 
-**1. `needs_approval` return type inconsistency**
+**1. ~~`needs_approval` return type inconsistency~~ (FIXED)**
 
-Looking at the different toolsets:
-- Returns `False` (pre-approved)
-- Returns `True` (require approval)
-- Returns `dict` with description
-- Raises `PermissionError` (blocked)
-
-While this is documented, it's a union type that's hard to reason about. Consider:
+Implemented `ApprovalResult` structured type in `pydantic-ai-blocking-approval`. All toolsets now return:
 ```python
-@dataclass
+@dataclass(frozen=True)
 class ApprovalResult:
-    needs_approval: bool
-    description: Optional[str] = None
-    blocked: bool = False
+    status: Literal["blocked", "pre_approved", "needs_approval"]
     block_reason: Optional[str] = None
+
+    @classmethod
+    def blocked(cls, reason: str) -> ApprovalResult: ...
+    @classmethod
+    def pre_approved(cls) -> ApprovalResult: ...
+    @classmethod
+    def needs_approval(cls) -> ApprovalResult: ...
 ```
+
+Description generation split into separate `get_approval_description()` method (Single Responsibility).
+
+Updated toolsets:
+- `ShellToolset` - returns `ApprovalResult`, implements `get_approval_description()`
+- `DelegationToolset` - returns `ApprovalResult`, implements `get_approval_description()`
+- `FileSystemToolset` - returns `ApprovalResult`, implements `get_approval_description()`
 
 ---
 
@@ -203,7 +209,7 @@ Both `runtime.py` and `delegation_toolset.py` import from this package directly.
 |-----------|-------|-------|
 | **S** - Single Responsibility | B+ | Good module separation; `WorkerContext` is overloaded |
 | **O** - Open/Closed | A- | Excellent plugin system; minor if/elif chains |
-| **L** - Liskov Substitution | A | All toolsets properly substitutable |
+| **L** - Liskov Substitution | A+ | All toolsets substitutable; `ApprovalResult` approach standardized |
 | **I** - Interface Segregation | B+ | Protocols are focused; context is too broad |
 | **D** - Dependency Inversion | A- | Strong protocol use; some concrete exception coupling |
 
@@ -213,7 +219,7 @@ Both `runtime.py` and `delegation_toolset.py` import from this package directly.
 
 1. **Split `WorkerContext`** into focused sub-contexts for different tool needs
 
-2. **Standardize `needs_approval` return type** with an explicit result class
+2. ~~**Standardize `needs_approval` return type**~~ (DONE) - Implemented `ApprovalResult` in `pydantic-ai-blocking-approval`, split description into `get_approval_description()` method
 
 3. ~~**Registry pattern for server-side tools**~~ (DONE) - Implemented `SERVER_SIDE_TOOL_FACTORIES` in `execution.py`
 

@@ -2239,8 +2239,8 @@ wheels = [
 
 [[package]]
 name = "pydantic-ai-blocking-approval"
-version = "0.5.0"
-source = { git = "https://github.com/zby/pydantic-ai-blocking-approval.git?rev=main#3f973c23e59a9ae17210fc8abc962f483349d0f7" }
+version = "0.6.0"
+source = { git = "https://github.com/zby/pydantic-ai-blocking-approval.git?rev=main#1c278b3c93021d74e84605e62371a31821a83f9e" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai" },
@@ -2249,7 +2249,7 @@ dependencies = [
 [[package]]
 name = "pydantic-ai-filesystem-sandbox"
 version = "0.6.0"
-source = { git = "https://github.com/zby/pydantic-ai-filesystem-sandbox.git?rev=main#3f015eaf6a80c9a3a565229227e56c188ee75ba3" }
+source = { git = "https://github.com/zby/pydantic-ai-filesystem-sandbox.git?rev=main#4b0dba58fd24d92c4e18338d086aebc133dd5faa" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-ai" },

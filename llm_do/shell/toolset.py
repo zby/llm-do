@@ -2,8 +2,9 @@
 
 This module provides ShellToolset which:
 1. Exposes the `shell` tool to LLMs
-2. Implements whitelist-based approval via `needs_approval()`
-3. Delegates execution to shell.py
+2. Implements whitelist-based approval via `needs_approval()` returning ApprovalResult
+3. Provides custom descriptions via `get_approval_description()`
+4. Delegates execution to shell.py
 
 Whitelist model:
 - Commands must match a rule OR have a default to be allowed
@@ -21,6 +22,7 @@ from typing import Any, Optional
 from pydantic import TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
+from pydantic_ai_blocking_approval import ApprovalResult
 
 from ..protocols import FileSandbox
 from ..types import WorkerContext
@@ -47,7 +49,7 @@ class ShellToolset(AbstractToolset[WorkerContext]):
     Whitelist semantics:
     - Command matches a rule → allowed (with rule's approval_required setting)
     - No rule matches but default exists → allowed (with default's approval_required)
-    - No rule matches and no default → BLOCKED (PermissionError)
+    - No rule matches and no default → BLOCKED (ApprovalResult.blocked)
     """
 
     def __init__(
@@ -83,7 +85,7 @@ class ShellToolset(AbstractToolset[WorkerContext]):
             return getattr(ctx.deps, "sandbox", None)
         return None
 
-    def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> bool | dict:
+    def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> ApprovalResult:
         """Determine if shell command needs approval based on whitelist rules.
 
         Args:
@@ -92,15 +94,11 @@ class ShellToolset(AbstractToolset[WorkerContext]):
             ctx: RunContext with deps
 
         Returns:
-            - False: No approval needed (rule/default has approval_required=false)
-            - dict with "description": Approval needed with custom message
-
-        Raises:
-            PermissionError: If command not in whitelist (no matching rule and no default)
+            ApprovalResult with status: blocked, pre_approved, or needs_approval
         """
         if name != "shell":
             # Unknown tool - require approval
-            return True
+            return ApprovalResult.needs_approval()
 
         command = tool_args.get("command", "")
 
@@ -109,7 +107,8 @@ class ShellToolset(AbstractToolset[WorkerContext]):
             args = parse_command(command)
         except ShellBlockedError:
             # Let call_tool handle the error - don't block here
-            return False
+            # (ShellBlockedError is for shell metacharacters like |, >, etc.)
+            return ApprovalResult.pre_approved()
 
         # Match against shell rules from config
         allowed, approval_required = match_shell_rules(
@@ -122,15 +121,34 @@ class ShellToolset(AbstractToolset[WorkerContext]):
 
         # Check if command is in whitelist
         if not allowed:
-            raise PermissionError(f"Command not in whitelist (no matching rule and no default): {command}")
+            return ApprovalResult.blocked(
+                f"Command not in whitelist (no matching rule and no default): {command}"
+            )
 
         # Check if approval is required
         if not approval_required:
-            return False  # Pre-approved
+            return ApprovalResult.pre_approved()
 
-        # Approval required - return description
+        # Approval required
+        return ApprovalResult.needs_approval()
+
+    def get_approval_description(self, name: str, tool_args: dict, ctx: Any) -> str:
+        """Return human-readable description for approval prompt.
+
+        Args:
+            name: Tool name (should be "shell")
+            tool_args: Tool arguments with "command"
+            ctx: RunContext with deps
+
+        Returns:
+            Description string to show user
+        """
+        if name != "shell":
+            return f"{name}({tool_args})"
+
+        command = tool_args.get("command", "")
         truncated = command[:80] + "..." if len(command) > 80 else command
-        return {"description": f"Execute: {truncated}"}
+        return f"Execute: {truncated}"
 
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool]:
         """Return the shell tool definition."""

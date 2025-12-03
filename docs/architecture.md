@@ -355,18 +355,18 @@ This respects `PathConfig.write_approval` and `PathConfig.read_approval` setting
 
 ### Custom Tool Approval
 
-**Secure by default**: All custom tools require approval. The `CustomToolset` implements `needs_approval()` which is called by the `ApprovalToolset` wrapper:
+**Secure by default**: All custom tools require approval. `CustomToolset` uses config-based approval via the `ApprovalToolset` wrapper (it doesn't implement `needs_approval()` itself):
 
 ```python
-# In custom_toolset.py
-class CustomToolset(AbstractToolset):
-    def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
-        tool_config = self._config.get(name, {})
-        if not tool_config.get("allowed", True):
-            raise PermissionError(f"Custom tool '{name}' is not allowed")
-        if not tool_config.get("approval_required", True):
-            return False  # Pre-approved
-        return {"description": f"Custom tool: {name}(...)"}
+# ApprovalToolset wraps CustomToolset with config-based approval
+approved = ApprovalToolset(
+    inner=custom_toolset,
+    approval_callback=callback,
+    config={
+        "my_safe_tool": {"pre_approved": True},
+        # All other tools require approval (secure by default)
+    },
+)
 ```
 
 ### Shell Tool Approval
@@ -426,6 +426,8 @@ async def my_tool(ctx: RunContext[WorkerContext], path: str):
 Toolsets receive `config` in constructor and access runtime deps via `ctx.deps`:
 
 ```python
+from pydantic_ai_blocking_approval import ApprovalResult
+
 class MyToolset(AbstractToolset[WorkerContext]):
     def __init__(self, config: dict):
         self._config = config
@@ -436,15 +438,24 @@ class MyToolset(AbstractToolset[WorkerContext]):
         registry = ctx.deps.registry
         ...
 
-    def needs_approval(self, name: str, tool_args: dict, ctx: RunContext) -> bool | dict:
-        # Can also access ctx.deps here for context-aware approval
-        ...
+    def needs_approval(self, name: str, tool_args: dict, ctx: RunContext) -> ApprovalResult:
+        """Return approval status for tool call."""
+        if self._is_blocked(name, tool_args):
+            return ApprovalResult.blocked("Reason for blocking")
+        if self._is_pre_approved(name, tool_args):
+            return ApprovalResult.pre_approved()
+        return ApprovalResult.needs_approval()
+
+    def get_approval_description(self, name: str, tool_args: dict, ctx: RunContext) -> str:
+        """Return human-readable description for approval prompt."""
+        return f"Execute {name} with {tool_args}"
 ```
 
 This achieves:
 - Simple, consistent pattern across all toolsets
 - Runtime deps available where needed (not constructor-injected)
 - Testability (mock ctx.deps in tests)
+- Clean separation: `needs_approval()` for decision, `get_approval_description()` for presentation
 
 ---
 

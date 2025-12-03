@@ -2,8 +2,9 @@
 
 This module provides DelegationToolset which:
 1. Exposes worker_call and worker_create tools to LLMs
-2. Implements approval logic via `needs_approval()`
-3. Enforces allow_workers restrictions
+2. Implements approval logic via `needs_approval()` returning ApprovalResult
+3. Provides custom descriptions via `get_approval_description()`
+4. Enforces allow_workers restrictions
 
 Delegation and creation logic is implemented directly in this module,
 importing from runtime.py (no circular dependency since types.py doesn't
@@ -17,6 +18,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
+from pydantic_ai_blocking_approval import ApprovalResult
 
 from .sandbox import AttachmentPayload
 from .types import WorkerContext, WorkerSpec
@@ -63,7 +65,7 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         """Return the toolset configuration."""
         return self._config
 
-    def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> bool | dict:
+    def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> ApprovalResult:
         """Determine if delegation tool needs approval.
 
         Args:
@@ -72,11 +74,7 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             ctx: RunContext with deps
 
         Returns:
-            - False: No approval needed (pre-approved)
-            - dict with "description": Approval needed with custom message
-
-        Raises:
-            PermissionError: If worker_call targets a worker not in allow_workers
+            ApprovalResult with status: blocked, pre_approved, or needs_approval
         """
         if name == "worker_call":
             target_worker = tool_args.get("worker", "")
@@ -87,21 +85,48 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             # allow_workers=['foo', 'bar'] means only specific workers allowed
             allow_workers = self._config.get("allow_workers", [])
             if '*' not in allow_workers and target_worker not in allow_workers:
-                raise PermissionError(
+                return ApprovalResult.blocked(
                     f"Worker '{target_worker}' not in allow_workers list. "
                     f"Allowed: {allow_workers}"
                 )
 
             # Worker call always requires approval
-            return {"description": f"Delegate to worker: {target_worker}"}
+            return ApprovalResult.needs_approval()
 
         elif name == "worker_create":
-            worker_name = tool_args.get("name", "")
             # Worker creation always requires approval
-            return {"description": f"Create new worker: {worker_name}"}
+            return ApprovalResult.needs_approval()
 
         # Unknown tool - require approval
-        return True
+        return ApprovalResult.needs_approval()
+
+    def get_approval_description(self, name: str, tool_args: dict, ctx: Any) -> str:
+        """Return human-readable description for approval prompt.
+
+        Args:
+            name: Tool name ("worker_call" or "worker_create")
+            tool_args: Tool arguments
+            ctx: RunContext with deps
+
+        Returns:
+            Description string to show user
+        """
+        if name == "worker_call":
+            target_worker = tool_args.get("worker", "?")
+            input_data = tool_args.get("input_data")
+            if input_data:
+                # Truncate input data for display
+                input_str = str(input_data)
+                if len(input_str) > 50:
+                    input_str = input_str[:50] + "..."
+                return f"Delegate to worker '{target_worker}' with: {input_str}"
+            return f"Delegate to worker: {target_worker}"
+
+        elif name == "worker_create":
+            worker_name = tool_args.get("name", "?")
+            return f"Create new worker: {worker_name}"
+
+        return f"{name}({tool_args})"
 
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool]:
         """Return the worker_call and worker_create tool definitions."""

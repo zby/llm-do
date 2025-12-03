@@ -16,7 +16,7 @@ from pydantic_ai import Agent
 from pydantic_ai.builtin_tools import (
     CodeExecutionTool,
     ImageGenerationTool,
-    UrlContextTool,
+    WebFetchTool,
     WebSearchTool,
 )
 from pydantic_ai.messages import BinaryContent
@@ -72,6 +72,21 @@ def format_user_prompt(user_input: Any) -> str:
     return json.dumps(user_input, indent=2, sort_keys=True)
 
 
+# Registry of server-side tool factories
+# Each factory takes a ServerSideToolConfig and returns a tool instance
+SERVER_SIDE_TOOL_FACTORIES: Dict[str, Callable[[ServerSideToolConfig], Any]] = {
+    "web_search": lambda cfg: WebSearchTool(
+        max_uses=cfg.max_uses,
+        blocked_domains=cfg.blocked_domains,
+        allowed_domains=cfg.allowed_domains,
+    ),
+    "web_fetch": lambda cfg: WebFetchTool(),
+    "url_context": lambda cfg: WebFetchTool(),  # Deprecated alias for web_fetch
+    "code_execution": lambda cfg: CodeExecutionTool(),
+    "image_generation": lambda cfg: ImageGenerationTool(),
+}
+
+
 def build_server_side_tools(
     configs: List[ServerSideToolConfig],
 ) -> List[Any]:
@@ -88,21 +103,13 @@ def build_server_side_tools(
     """
     tools = []
     for config in configs:
-        if config.tool_type == "web_search":
-            tool = WebSearchTool(
-                max_uses=config.max_uses,
-                blocked_domains=config.blocked_domains,
-                allowed_domains=config.allowed_domains,
+        factory = SERVER_SIDE_TOOL_FACTORIES.get(config.tool_type)
+        if factory is None:
+            raise ValueError(
+                f"Unknown server-side tool type: {config.tool_type}. "
+                f"Available: {list(SERVER_SIDE_TOOL_FACTORIES.keys())}"
             )
-        elif config.tool_type == "url_context":
-            tool = UrlContextTool()
-        elif config.tool_type == "code_execution":
-            tool = CodeExecutionTool()
-        elif config.tool_type == "image_generation":
-            tool = ImageGenerationTool()
-        else:
-            raise ValueError(f"Unknown server-side tool type: {config.tool_type}")
-        tools.append(tool)
+        tools.append(factory(config))
     return tools
 
 

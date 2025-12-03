@@ -3,7 +3,7 @@ import pytest
 from pydantic_ai.builtin_tools import (
     CodeExecutionTool,
     ImageGenerationTool,
-    UrlContextTool,
+    WebFetchTool,
     WebSearchTool,
 )
 
@@ -54,12 +54,20 @@ class TestBuildServerSideTools:
         assert tool.blocked_domains is None
 
     def test_url_context_basic(self):
-        """Test url_context tool conversion."""
+        """Test url_context tool conversion (deprecated alias for web_fetch)."""
         configs = [ServerSideToolConfig(tool_type="url_context")]
         tools = build_server_side_tools(configs)
 
         assert len(tools) == 1
-        assert isinstance(tools[0], UrlContextTool)
+        assert isinstance(tools[0], WebFetchTool)
+
+    def test_web_fetch_basic(self):
+        """Test web_fetch tool conversion."""
+        configs = [ServerSideToolConfig(tool_type="web_fetch")]
+        tools = build_server_side_tools(configs)
+
+        assert len(tools) == 1
+        assert isinstance(tools[0], WebFetchTool)
 
     def test_code_execution(self):
         """Test code_execution tool conversion."""
@@ -89,7 +97,7 @@ class TestBuildServerSideTools:
         assert len(tools) == 3
         assert isinstance(tools[0], WebSearchTool)
         assert isinstance(tools[1], CodeExecutionTool)
-        assert isinstance(tools[2], UrlContextTool)
+        assert isinstance(tools[2], WebFetchTool)
 
     def test_empty_config(self):
         """Test empty config list returns empty tools list."""

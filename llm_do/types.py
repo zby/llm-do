@@ -14,7 +14,7 @@ from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.toolsets import AbstractToolset
 
-from pydantic_ai_blocking_approval import ApprovalDecision
+from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision
 
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 from .worker_sandbox import AttachmentValidator, SandboxConfig
@@ -234,7 +234,7 @@ class WorkerContext:
     # Core - always needed
     worker: WorkerDefinition
     effective_model: Optional[ModelLike]
-    approval_controller: Any  # ApprovalController - defined in tool_approval.py
+    approval_controller: ApprovalController
 
     # Delegation - populated when delegation toolset is enabled
     registry: Any = None  # WorkerRegistry - avoid circular import

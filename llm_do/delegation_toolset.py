@@ -4,6 +4,9 @@ This module provides DelegationToolset which:
 1. Exposes worker_call and worker_create tools to LLMs
 2. Implements approval logic via `needs_approval()`
 3. Enforces allow_workers restrictions
+
+The delegator and creator protocol implementations are accessed via
+ctx.deps.delegator and ctx.deps.creator (set by runtime in WorkerContext).
 """
 from __future__ import annotations
 
@@ -14,7 +17,6 @@ from pydantic import TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
 
-from .protocols import WorkerCreator, WorkerDelegator
 from .types import WorkerContext
 
 logger = logging.getLogger(__name__)
@@ -35,8 +37,6 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
     def __init__(
         self,
         config: dict,
-        delegator: WorkerDelegator,
-        creator: WorkerCreator,
         id: Optional[str] = None,
         max_retries: int = 1,
     ):
@@ -44,14 +44,15 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
 
         Args:
             config: Delegation toolset configuration dict (allow_workers)
-            delegator: Implementation of worker delegation (DI)
-            creator: Implementation of worker creation (DI)
             id: Optional toolset ID for durable execution.
             max_retries: Maximum retries for tool calls.
+
+        Note:
+            The delegator and creator are accessed via ctx.deps at call time,
+            not passed here. This simplifies DI by using WorkerContext as
+            the single source of dependencies.
         """
         self._config = config
-        self._delegator = delegator
-        self._creator = creator
         self._id = id
         self._max_retries = max_retries
 
@@ -192,20 +193,23 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         Args:
             name: Tool name ("worker_call" or "worker_create")
             tool_args: Tool arguments
-            ctx: Run context (unused here, approval already handled by wrapper)
+            ctx: Run context with deps.delegator and deps.creator
             tool: Tool definition
 
         Returns:
             Result from the delegated worker or creation status
         """
+        # Access delegator/creator via context deps (set by runtime)
+        worker_ctx: WorkerContext = ctx.deps
+
         if name == "worker_call":
             worker = tool_args["worker"]
             input_data = tool_args.get("input_data")
             attachments = tool_args.get("attachments")
-            return await self._delegator.call_async(worker, input_data, attachments)
+            return await worker_ctx.delegator.call_async(worker, input_data, attachments)
 
         elif name == "worker_create":
-            return self._creator.create(
+            return worker_ctx.creator.create(
                 name=tool_args["name"],
                 instructions=tool_args["instructions"],
                 description=tool_args.get("description"),

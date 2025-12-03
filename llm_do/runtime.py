@@ -60,8 +60,6 @@ class _WorkerExecutionPrep:
     context: WorkerContext
     definition: WorkerDefinition
     output_model: Optional[Type[BaseModel]]
-    delegator: WorkerDelegator
-    creator: WorkerCreator
     sandbox: Optional[Sandbox]
 
 
@@ -141,18 +139,17 @@ def _prepare_worker_context(
         custom_tools_path=custom_tools_path,
     )
 
-    output_model = registry.resolve_output_schema(definition)
+    # Create protocol implementations and attach to context
+    # This allows DelegationToolset to access them via ctx.deps
+    context.delegator = RuntimeDelegator(context)
+    context.creator = RuntimeCreator(context)
 
-    # Create protocol implementations for delegation toolset
-    delegator = RuntimeDelegator(context)
-    creator = RuntimeCreator(context)
+    output_model = registry.resolve_output_schema(definition)
 
     return _WorkerExecutionPrep(
         context=context,
         definition=definition,
         output_model=output_model,
-        delegator=delegator,
-        creator=creator,
         sandbox=new_sandbox,
     )
 
@@ -506,10 +503,10 @@ async def run_worker_async(
     )
 
     # Use the provided agent_runner or default to the async version
+    # Delegator/creator are now accessed via prep.context.delegator/.creator
     if agent_runner is None:
         result = await default_agent_runner_async(
-            prep.definition, input_data, prep.context, prep.output_model,
-            delegator=prep.delegator, creator=prep.creator
+            prep.definition, input_data, prep.context, prep.output_model
         )
     else:
         # Support both sync and async agent runners
@@ -574,11 +571,10 @@ def run_worker(
 
     # Real agent integration would expose toolsets to the model here. The base
     # implementation simply forwards to the agent runner with the constructed
-    # context.
+    # context. Delegator/creator are accessed via prep.context.
     if agent_runner is None:
         result = default_agent_runner(
-            prep.definition, input_data, prep.context, prep.output_model,
-            delegator=prep.delegator, creator=prep.creator
+            prep.definition, input_data, prep.context, prep.output_model
         )
     else:
         result = agent_runner(prep.definition, input_data, prep.context, prep.output_model)

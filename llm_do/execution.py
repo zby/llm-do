@@ -28,7 +28,6 @@ from pydantic_ai_blocking_approval import ApprovalToolset
 
 from .custom_toolset import CustomToolset
 from .delegation_toolset import DelegationToolset
-from .protocols import WorkerCreator, WorkerDelegator
 from .shell.toolset import ShellToolset
 from .types import (
     AgentExecutionContext,
@@ -117,9 +116,6 @@ def prepare_agent_execution(
     user_input: Any,
     context: WorkerContext,
     output_model: Optional[Type[BaseModel]],
-    *,
-    delegator: Optional[WorkerDelegator] = None,
-    creator: Optional[WorkerCreator] = None,
 ) -> AgentExecutionContext:
     """Prepare everything needed for agent execution (sync or async).
 
@@ -130,13 +126,14 @@ def prepare_agent_execution(
     - Preparing agent kwargs with toolsets
     - Initializing status tracking
 
+    The delegator and creator for DelegationToolset are accessed via
+    context.delegator and context.creator.
+
     Args:
         definition: Worker definition with instructions and configuration
         user_input: Input data for the worker
         context: Worker execution context with tools and dependencies
         output_model: Optional Pydantic model for structured output
-        delegator: Optional worker delegator for worker_call tool
-        creator: Optional worker creator for worker_create tool
 
     Returns:
         AgentExecutionContext with all prepared state for agent execution
@@ -271,12 +268,11 @@ def prepare_agent_execution(
         toolsets.append(approved)
 
     # Delegation toolset (provides worker_call, worker_create with approval)
+    # Delegator/creator are accessed from context where they were set by runtime
     delegation_config = toolsets_config.delegation if toolsets_config else None
-    if delegation_config is not None and delegator is not None and creator is not None:
+    if delegation_config is not None and context.delegator is not None and context.creator is not None:
         delegation_toolset = DelegationToolset(
             config=delegation_config.model_dump(),
-            delegator=delegator,
-            creator=creator,
         )
         approved = ApprovalToolset(
             inner=delegation_toolset,
@@ -335,8 +331,6 @@ async def default_agent_runner_async(
     context: WorkerContext,
     output_model: Optional[Type[BaseModel]],
     *,
-    delegator: Optional[WorkerDelegator] = None,
-    creator: Optional[WorkerCreator] = None,
     register_tools_fn: Optional[Callable[[Agent, WorkerContext], None]] = None,
 ) -> tuple[Any, List[Any]]:
     """Async version of the default agent runner.
@@ -349,8 +343,6 @@ async def default_agent_runner_async(
         user_input: Input data for the worker
         context: Worker execution context with tools and dependencies
         output_model: Optional Pydantic model for structured output
-        delegator: Optional worker delegator for delegation toolset
-        creator: Optional worker creator for delegation toolset
         register_tools_fn: Optional function to register additional tools
 
     Returns:
@@ -358,9 +350,9 @@ async def default_agent_runner_async(
         exchanged with the LLM during execution.
     """
     # Prepare execution context (prompt, callbacks, agent kwargs)
+    # Delegator/creator are accessed via context.delegator/.creator
     exec_ctx = prepare_agent_execution(
-        definition, user_input, context, output_model,
-        delegator=delegator, creator=creator
+        definition, user_input, context, output_model
     )
 
     # Create Agent
@@ -392,8 +384,6 @@ def default_agent_runner(
     context: WorkerContext,
     output_model: Optional[Type[BaseModel]],
     *,
-    delegator: Optional[WorkerDelegator] = None,
-    creator: Optional[WorkerCreator] = None,
     register_tools_fn: Optional[Callable[[Agent, WorkerContext], None]] = None,
 ) -> tuple[Any, List[Any]]:
     """Synchronous wrapper around the async agent runner.
@@ -406,8 +396,6 @@ def default_agent_runner(
         user_input: Input data for the worker
         context: Worker execution context with tools and dependencies
         output_model: Optional Pydantic model for structured output
-        delegator: Optional worker delegator for delegation toolset
-        creator: Optional worker creator for delegation toolset
         register_tools_fn: Optional function to register additional tools
 
     Returns:
@@ -418,8 +406,6 @@ def default_agent_runner(
     return asyncio.run(
         default_agent_runner_async(
             definition, user_input, context, output_model,
-            delegator=delegator,
-            creator=creator,
             register_tools_fn=register_tools_fn
         )
     )

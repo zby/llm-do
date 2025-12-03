@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Sequence, Type, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
@@ -18,6 +18,9 @@ from pydantic_ai_blocking_approval import ApprovalDecision
 
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
 from .worker_sandbox import AttachmentValidator, SandboxConfig
+
+if TYPE_CHECKING:
+    from .protocols import WorkerCreator, WorkerDelegator
 
 
 
@@ -235,6 +238,10 @@ class WorkerContext:
 
     This contains all the dependencies and state needed during worker execution,
     including registry, sandboxes, approvals, and callbacks.
+
+    The delegator and creator fields provide protocol implementations for
+    worker delegation and creation. They are initialized by the runtime
+    and accessed by DelegationToolset via ctx.deps.
     """
     registry: Any  # WorkerRegistry - avoid circular import
     worker: WorkerDefinition
@@ -246,6 +253,8 @@ class WorkerContext:
     attachments: List[AttachmentPayload] = field(default_factory=list)
     message_callback: Optional[MessageCallback] = None
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
+    delegator: Optional[WorkerDelegator] = None  # Protocol impl for worker_call
+    creator: Optional[WorkerCreator] = None  # Protocol impl for worker_create
 
     def validate_attachments(
         self, attachment_specs: Optional[Sequence[AttachmentInput]]

@@ -1,10 +1,11 @@
 # SOLID Principles Code Review: llm-do
 
 **Date**: 2025-12-03
+**Last Updated**: 2025-12-03
 
 ## Executive Summary
 
-The codebase demonstrates **strong SOLID adherence overall**, with a well-designed protocol-based architecture that eliminates circular dependencies and enables extensibility. There are a few areas for improvement.
+The codebase demonstrates **strong SOLID adherence overall**, with a well-designed protocol-based architecture that eliminates circular dependencies and enables extensibility.
 
 ---
 
@@ -21,24 +22,9 @@ The codebase demonstrates **strong SOLID adherence overall**, with a well-design
 
 2. **Helper extraction**: `_prepare_worker_context()` and `_handle_result()` properly extract shared logic
 
-### Issues
+### Open Issues
 
-**1. `WorkerContext` is a "God Object"** (`types.py:223-248`)
-
-```python
-@dataclass
-class WorkerContext:
-    registry: Any
-    worker: WorkerDefinition
-    attachment_validator: Optional[AttachmentValidator]
-    creation_defaults: WorkerCreationDefaults
-    effective_model: Optional[ModelLike]
-    approval_controller: Any
-    sandbox: Optional[AbstractToolset] = None
-    attachments: List[AttachmentPayload] = field(default_factory=list)
-    message_callback: Optional[MessageCallback] = None
-    custom_tools_path: Optional[Path] = None
-```
+**1. `WorkerContext` is a "God Object"** (`types.py`)
 
 This carries 10 different concerns. Consider splitting into:
 - `RuntimeDeps` (registry, approval_controller)
@@ -46,7 +32,7 @@ This carries 10 different concerns. Consider splitting into:
 - `IOContext` (sandbox, attachments, attachment_validator)
 - `CallbackContext` (message_callback)
 
-**2. `DelegationToolset._prepare_attachments` mixes concerns** (`delegation_toolset.py:205-240`)
+**2. `DelegationToolset._prepare_attachments` mixes concerns**
 
 This method does three things:
 - Validates attachments
@@ -61,28 +47,19 @@ Consider extracting approval checking to a separate method.
 
 ### Strengths
 
-1. **Excellent plugin architecture** (`toolset_loader.py:27-32`)
-```python
-ALIASES: Dict[str, str] = {
-    "shell": "llm_do.shell.toolset.ShellToolset",
-    "delegation": "llm_do.delegation_toolset.DelegationToolset",
-    "filesystem": "pydantic_ai_filesystem_sandbox.FileSystemToolset",
-    "custom": "llm_do.custom_toolset.CustomToolset",
-}
-```
-New toolsets can be added without modifying existing code - just add class path.
+1. **Excellent plugin architecture** (`toolset_loader.py`)
+   - New toolsets can be added without modifying existing code - just add class path.
 
 2. **Protocol-based extension** (`protocols.py`): Any sandbox implementation works if it satisfies the protocol.
 
-3. **AgentRunner type alias** (`types.py:267-273`): Allows swapping execution strategies.
+3. **AgentRunner type alias** (`types.py`): Allows swapping execution strategies.
 
-### Issues
+4. **Server-side tools registry** (`execution.py`): `SERVER_SIDE_TOOL_FACTORIES` pattern for extensibility.
 
-**1. ~~`build_server_side_tools` uses if/elif chain~~ (FIXED)**
+### Open Issues
 
-Implemented `SERVER_SIDE_TOOL_FACTORIES` registry pattern in `execution.py:75-87`. Also updated deprecated `UrlContextTool` to `WebFetchTool` with backward compatibility.
+**1. Special case for FileSystemToolset** (`toolset_loader.py`)
 
-**2. Special case for FileSystemToolset** (`toolset_loader.py:92-97`)
 ```python
 if class_path == "filesystem" or resolved_path == ALIASES.get("filesystem"):
     toolset = toolset_class(sandbox=context.sandbox)
@@ -104,35 +81,11 @@ This breaks OCP - adding new toolsets with different constructor signatures requ
    - `ShellToolset`, `DelegationToolset`, `CustomToolset` all have:
      - `async get_tools(ctx) -> dict[str, ToolsetTool]`
      - `async call_tool(name, tool_args, ctx, tool)`
-     - `needs_approval(name, tool_args, ctx)`
+     - `needs_approval(name, tool_args, ctx) -> ApprovalResult`
 
 2. **`ApprovalToolset` wraps any toolset uniformly** - truly substitutable.
 
-### Issues
-
-**1. ~~`needs_approval` return type inconsistency~~ (FIXED)**
-
-Implemented `ApprovalResult` structured type in `pydantic-ai-blocking-approval`. All toolsets now return:
-```python
-@dataclass(frozen=True)
-class ApprovalResult:
-    status: Literal["blocked", "pre_approved", "needs_approval"]
-    block_reason: Optional[str] = None
-
-    @classmethod
-    def blocked(cls, reason: str) -> ApprovalResult: ...
-    @classmethod
-    def pre_approved(cls) -> ApprovalResult: ...
-    @classmethod
-    def needs_approval(cls) -> ApprovalResult: ...
-```
-
-Description generation split into separate `get_approval_description()` method (Single Responsibility).
-
-Updated toolsets:
-- `ShellToolset` - returns `ApprovalResult`, implements `get_approval_description()`
-- `DelegationToolset` - returns `ApprovalResult`, implements `get_approval_description()`
-- `FileSystemToolset` - returns `ApprovalResult`, implements `get_approval_description()`
+3. **Standardized `ApprovalResult` type** - all toolsets return consistent structured results.
 
 ---
 
@@ -140,7 +93,7 @@ Updated toolsets:
 
 ### Strengths
 
-1. **`FileSandbox` protocol is focused** (`protocols.py:22-106`):
+1. **`FileSandbox` protocol is focused** (`protocols.py`):
    - Only methods that tools actually need
    - Clear separation of concerns (read/write/list/resolve)
 
@@ -148,9 +101,9 @@ Updated toolsets:
    - `get_tools()`, `call_tool()` - that's it for basic operation
    - `needs_approval()` only required if toolset handles its own approval logic
 
-### Issues
+### Open Issues
 
-**1. `WorkerContext` exposes too much to tools** (`types.py:223-248`)
+**1. `WorkerContext` exposes too much to tools**
 
 Tools receive the full context but only need subsets:
 - Shell tools: only need sandbox for path validation
@@ -170,32 +123,13 @@ Tools receive the full context but only need subsets:
    - `WorkerContext` carries interfaces, not implementations
    - No circular imports achieved through careful layering
 
-2. **Type annotations use `Any` strategically** to avoid circular imports:
-```python
-registry: Any  # WorkerRegistry - avoid circular import
-approval_controller: Any  # ApprovalController
-```
+2. **Type annotations use `Any` strategically** to avoid circular imports.
 
 3. **Toolsets receive runtime deps via `ctx.deps`**, not constructor.
 
-### Issues
+### Open Issues
 
-**1. Direct exception types** (`delegation_toolset.py:90`, `shell/toolset.py:125`)
-```python
-raise PermissionError(f"Worker '{target_worker}' not in allow_workers list.")
-```
-
-Using Python's built-in `PermissionError` couples to a specific exception hierarchy. Consider custom exceptions:
-```python
-class ToolBlockedError(Exception):
-    """Raised when a tool call is blocked by policy."""
-    pass
-
-class DelegationNotAllowedError(ToolBlockedError):
-    pass
-```
-
-**2. Direct import of `pydantic_ai_blocking_approval` in multiple places**
+**1. Direct import of `pydantic_ai_blocking_approval` in multiple places**
 
 Both `runtime.py` and `delegation_toolset.py` import from this package directly. If you wanted to swap approval systems, you'd need to change multiple files.
 
@@ -208,20 +142,16 @@ Both `runtime.py` and `delegation_toolset.py` import from this package directly.
 | Principle | Grade | Notes |
 |-----------|-------|-------|
 | **S** - Single Responsibility | B+ | Good module separation; `WorkerContext` is overloaded |
-| **O** - Open/Closed | A- | Excellent plugin system; minor if/elif chains |
-| **L** - Liskov Substitution | A+ | All toolsets substitutable; `ApprovalResult` approach standardized |
+| **O** - Open/Closed | A- | Excellent plugin system; FileSystemToolset special case |
+| **L** - Liskov Substitution | A+ | All toolsets substitutable; `ApprovalResult` standardized |
 | **I** - Interface Segregation | B+ | Protocols are focused; context is too broad |
-| **D** - Dependency Inversion | A- | Strong protocol use; some concrete exception coupling |
+| **D** - Dependency Inversion | A- | Strong protocol use; some concrete coupling |
 
 ---
 
-## Top 3 Recommended Improvements
+## Remaining Improvements
 
 1. **Split `WorkerContext`** into focused sub-contexts for different tool needs
-
-2. ~~**Standardize `needs_approval` return type**~~ (DONE) - Implemented `ApprovalResult` in `pydantic-ai-blocking-approval`, split description into `get_approval_description()` method
-
-3. ~~**Registry pattern for server-side tools**~~ (DONE) - Implemented `SERVER_SIDE_TOOL_FACTORIES` in `execution.py`
 
 ---
 

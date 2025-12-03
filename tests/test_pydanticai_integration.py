@@ -1,5 +1,8 @@
-"""Integration tests using mocked LLM models with predefined tool calls."""
-import json
+"""Integration tests using mocked LLM models with predefined tool calls.
+
+Note: Basic approve_all and strict_mode tests are in test_pydanticai_base.py.
+This file focuses on multi-step integration scenarios.
+"""
 from pathlib import Path
 
 import pytest
@@ -25,95 +28,6 @@ def _project_root(tmp_path):
 @pytest.fixture
 def registry(tmp_path):
     return WorkerRegistry(_project_root(tmp_path))
-
-
-def test_integration_approve_all_allows_write(tmp_path, registry, tool_calling_model_cls):
-    """Integration test: worker writes file with --approve-all."""
-    sandbox_path = tmp_path / "output"
-    path_cfg = PathConfig(
-        root=str(sandbox_path),
-        mode="rw",
-        suffixes=[".txt"],
-        write_approval=True,  # Require approval for writes
-    )
-
-    definition = WorkerDefinition(
-        name="writer",
-        instructions="Write a test file",
-        sandbox=SandboxConfig(paths={"out": path_cfg}),
-        toolsets={"filesystem": {}},
-    )
-    registry.save_definition(definition)
-
-    # Mock LLM that calls sandbox_write_text
-    mock_model = tool_calling_model_cls(
-        [
-            {
-                "name": "write_file",
-                "args": {
-                    "path": "out/test.txt",
-                    "content": "Hello from test!",
-                },
-            }
-        ]
-    )
-
-    result = run_worker(
-        registry=registry,
-        worker="writer",
-        input_data="Write a test file",
-        cli_model=mock_model,
-        approval_controller=ApprovalController(mode="approve_all"),
-    )
-
-    # Verify file was written
-    assert (sandbox_path / "test.txt").exists()
-    assert (sandbox_path / "test.txt").read_text() == "Hello from test!"
-    assert result.output == "Task completed"
-
-
-def test_integration_strict_mode_blocks_write(tmp_path, registry, tool_calling_model_cls):
-    """Integration test: worker fails in --strict mode."""
-    sandbox_path = tmp_path / "output"
-    path_cfg = PathConfig(
-        root=str(sandbox_path),
-        mode="rw",
-        suffixes=[".txt"],
-        write_approval=True,  # Require approval for writes
-    )
-
-    definition = WorkerDefinition(
-        name="writer",
-        instructions="Write a test file",
-        sandbox=SandboxConfig(paths={"out": path_cfg}),
-        toolsets={"filesystem": {}},
-    )
-    registry.save_definition(definition)
-
-    # Mock LLM that tries to call sandbox_write_text
-    mock_model = tool_calling_model_cls(
-        [
-            {
-                "name": "write_file",
-                "args": {
-                    "path": "out/test.txt",
-                    "content": "Hello from test!",
-                },
-            }
-        ]
-    )
-
-    with pytest.raises(PermissionError, match="User denied write_file.*Strict mode"):
-        run_worker(
-            registry=registry,
-            worker="writer",
-            input_data="Write a test file",
-            cli_model=mock_model,
-            approval_controller=ApprovalController(mode="strict"),
-        )
-
-    # Verify file was NOT written
-    assert not (sandbox_path / "test.txt").exists()
 
 
 def test_integration_multiple_tool_calls_with_session_approval(

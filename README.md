@@ -110,6 +110,29 @@ Check the `examples/` directory for additional patterns:
 
 See [`docs/notes/archive/worker_format_migration.md`](docs/notes/archive/worker_format_migration.md) for complete field documentation.
 
+**Two worker models** - choose based on your needs:
+
+| Model | Structure | Capabilities | Use When |
+|-------|-----------|--------------|----------|
+| **Single-file** | `workers/name.worker` | Built-in tools, server-side tools | Simple helpers, shareable workers |
+| **Directory** | `workers/name/worker.worker` | + Custom Python tools, + Jinja templates | Complex workers with custom logic |
+
+Single-file workers are **truly portable** - copy one file and it works. This is intentional: no hidden `tools.py`, no adjacent template directories. If you need custom tools or `{{ file() }}` includes, use the directory model.
+
+```
+workers/
+  # Single-file: portable, self-contained
+  git-helper.worker
+  code-reviewer.worker
+
+  # Directory: full power
+  report-generator/
+    worker.worker     # Definition
+    tools.py          # Custom Python tools
+    templates/        # Jinja includes
+      report.md
+```
+
 **Sandbox** limits file access:
 ```yaml
 sandbox:

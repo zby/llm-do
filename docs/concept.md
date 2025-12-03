@@ -18,6 +18,15 @@ Workers live as `.worker` files (YAML front matter + instructions) and can be:
 - Locked to prevent accidental edits
 - Composed (workers can call other workers)
 
+**Two forms** with different trade-offs:
+
+| Form | Path | Capabilities |
+|------|------|--------------|
+| **Single-file** | `workers/name.worker` | Portable - one file, no dependencies. Built-in tools only. |
+| **Directory** | `workers/name/worker.worker` | Full power - custom Python tools (`tools.py`), Jinja templates. |
+
+Single-file workers are intentionally limited to enable **truly portable LLM executables** - copy one `.worker` file and it works anywhere. For custom tools or worker-specific templates, use the directory model.
+
 ### Lifecycle
 
 1. **Definition** - `.worker` file describes instructions, sandbox boundaries, tool policies

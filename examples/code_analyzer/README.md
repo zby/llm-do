@@ -49,27 +49,26 @@ There are 12 Python files with 1,847 total lines of code.
 
 ## Shell Rules Configuration
 
-The worker defines explicit rules for allowed commands:
+The worker defines explicit rules for allowed commands in the `toolsets.shell` config:
 
 ```yaml
-shell_rules:
-  - pattern: "wc"           # Count lines, words, bytes
-    approval_required: false
-  - pattern: "find"         # Locate files
-    approval_required: false
-  - pattern: "grep"         # Search patterns
-    approval_required: false
-  - pattern: "ls"           # List directories
-    approval_required: false
-  - pattern: "cat"          # Display files
-    approval_required: false
-  - pattern: "git log"      # Git history
-    approval_required: false
-  # ... more safe commands
-
-shell_default:
-  allowed: false            # Block everything else
-  approval_required: true
+toolsets:
+  shell:
+    rules:
+      - pattern: wc           # Count lines, words, bytes
+        approval_required: false
+      - pattern: find         # Locate files
+        approval_required: false
+      - pattern: grep         # Search patterns
+        approval_required: false
+      - pattern: ls           # List directories
+        approval_required: false
+      - pattern: cat          # Display files
+        approval_required: false
+      - pattern: git log      # Git history
+        approval_required: false
+      # ... more safe commands
+    # No default = block everything else
 ```
 
 **How it works:**

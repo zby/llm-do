@@ -1,22 +1,23 @@
 ---
 description: Orchestrate live web research, extraction, consolidation, and reporting.
 name: web_research_orchestrator
+sandbox:
+  paths:
+    reports:
+      max_file_bytes: 500000
+      mode: rw
+      root: ./reports
+      suffixes:
+      - .md
+      - .json
+      write_approval: true
 toolsets:
   delegation:
     allow_workers:
     - web_research_extractor
     - web_research_consolidator
     - web_research_reporter
-  sandbox:
-    paths:
-      reports:
-        max_file_bytes: 500000
-        mode: rw
-        root: ./reports
-        suffixes:
-        - .md
-        - .json
-        write_approval: true
+  filesystem: {}
   custom:
     search_web: {}
 ---

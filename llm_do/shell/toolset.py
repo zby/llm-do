@@ -53,7 +53,6 @@ class ShellToolset(AbstractToolset[WorkerContext]):
     def __init__(
         self,
         config: dict,
-        sandbox: Optional[FileSandbox] = None,
         id: Optional[str] = None,
         max_retries: int = 1,
     ):
@@ -61,12 +60,10 @@ class ShellToolset(AbstractToolset[WorkerContext]):
 
         Args:
             config: Shell toolset configuration dict (rules, default)
-            sandbox: FileSandbox for enhancing error messages and rule matching.
             id: Optional toolset ID for durable execution.
             max_retries: Maximum retries for tool calls.
         """
         self._config = config
-        self._sandbox = sandbox
         self._id = id
         self._max_retries = max_retries
 
@@ -80,17 +77,19 @@ class ShellToolset(AbstractToolset[WorkerContext]):
         """Return the toolset configuration."""
         return self._config
 
-    @property
-    def sandbox(self) -> Optional[FileSandbox]:
-        """Return the sandbox for path validation."""
-        return self._sandbox
+    def _get_sandbox(self, ctx: Any) -> Optional[FileSandbox]:
+        """Get sandbox from ctx.deps (WorkerContext)."""
+        if ctx is not None and hasattr(ctx, "deps") and ctx.deps is not None:
+            return getattr(ctx.deps, "sandbox", None)
+        return None
 
-    def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
+    def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> bool | dict:
         """Determine if shell command needs approval based on whitelist rules.
 
         Args:
             name: Tool name (should be "shell")
             tool_args: Tool arguments with "command"
+            ctx: RunContext with deps
 
         Returns:
             - False: No approval needed (rule/default has approval_required=false)
@@ -118,7 +117,7 @@ class ShellToolset(AbstractToolset[WorkerContext]):
             args=args,
             rules=self._config.get("rules", []),
             default=self._config.get("default"),
-            file_sandbox=self._sandbox,
+            file_sandbox=self._get_sandbox(ctx),
         )
 
         # Check if command is in whitelist
@@ -198,7 +197,7 @@ class ShellToolset(AbstractToolset[WorkerContext]):
                 timeout=timeout,
             )
             # Enhance errors with sandbox context
-            return enhance_error_with_sandbox_context(result, self._sandbox)
+            return enhance_error_with_sandbox_context(result, self._get_sandbox(ctx))
         except ShellBlockedError as e:
             return ShellResult(
                 stdout="",

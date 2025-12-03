@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -18,12 +20,13 @@ from llm_do import (
     call_worker,
     create_worker,
 )
+from llm_do.delegation_toolset import DelegationToolset
 from llm_do.worker_sandbox import (
     AttachmentValidator,
     Sandbox,
     SandboxConfig,
 )
-from llm_do.types import ToolsetsConfig, DelegationToolsetConfig
+# DelegationToolsetConfig no longer needed - using dict config
 from pydantic_ai_filesystem_sandbox import PathConfig, ReadResult
 from pydantic_ai_blocking_approval import ApprovalRequest
 
@@ -52,7 +55,7 @@ def _parent_context(registry, worker, defaults=None, approval_callback=None):
         controller = ApprovalController(mode="approve_all")
 
     # Create new sandbox from worker definition
-    sandbox_config = worker.toolsets.sandbox if worker.toolsets else None
+    sandbox_config = worker.sandbox
     if sandbox_config and sandbox_config.paths:
         sandbox = Sandbox(sandbox_config, base_path=registry.root)
     else:
@@ -81,24 +84,81 @@ def _parent_with_sandbox(
     parent = WorkerDefinition(
         name="parent",
         instructions="",
-        toolsets=ToolsetsConfig(
-            delegation=DelegationToolsetConfig(allow_workers=["child"]),
-            sandbox=SandboxConfig(paths={
-                "input": PathConfig(
-                    root=str(sandbox_root),
-                    mode="ro",
-                    suffixes=[".pdf", ".txt"],
-                )
-            }),
-        ),
+        sandbox=SandboxConfig(paths={
+            "input": PathConfig(
+                root=str(sandbox_root),
+                mode="ro",
+                suffixes=[".pdf", ".txt"],
+            )
+        }),
+        toolsets={"delegation": {"allow_workers": ["child"]}},
         attachment_policy=attachment_policy or AttachmentPolicy(),
     )
     return parent, sandbox_root
 
 
+def _create_toolset_and_context(context: WorkerContext):
+    """Create a DelegationToolset and mock RunContext for testing."""
+    toolsets = context.worker.toolsets or {}
+    delegation_config = toolsets.get("delegation", {"allow_workers": []})
+    toolset = DelegationToolset(config=delegation_config)
+
+    # Create mock RunContext with deps=context
+    mock_ctx = MagicMock()
+    mock_ctx.deps = context
+
+    return toolset, mock_ctx
+
+
+def _delegate_sync(
+    context: WorkerContext,
+    worker: str,
+    input_data: Any = None,
+    attachments: list[str] | None = None,
+) -> Any:
+    """Sync helper to call DelegationToolset.call_tool for worker_call.
+
+    This mimics the old context.delegate_sync() behavior for testing.
+    """
+    toolset, mock_ctx = _create_toolset_and_context(context)
+
+    tool_args = {"worker": worker}
+    if input_data is not None:
+        tool_args["input_data"] = input_data
+    if attachments:
+        tool_args["attachments"] = attachments
+
+    return asyncio.run(toolset.call_tool("worker_call", tool_args, mock_ctx, None))
+
+
+def _create_worker_via_toolset(
+    context: WorkerContext,
+    name: str,
+    instructions: str,
+    description: str | None = None,
+    model: str | None = None,
+    output_schema_ref: str | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Sync helper to call DelegationToolset.call_tool for worker_create."""
+    toolset, mock_ctx = _create_toolset_and_context(context)
+
+    tool_args = {"name": name, "instructions": instructions}
+    if description:
+        tool_args["description"] = description
+    if model:
+        tool_args["model"] = model
+    if output_schema_ref:
+        tool_args["output_schema_ref"] = output_schema_ref
+    if force:
+        tool_args["force"] = force
+
+    return asyncio.run(toolset.call_tool("worker_create", tool_args, mock_ctx, None))
+
+
 def test_call_worker_forwards_attachments(tmp_path):
     registry = _registry(tmp_path)
-    parent = WorkerDefinition(name="parent", instructions="", toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=["child"])))
+    parent = WorkerDefinition(name="parent", instructions="", toolsets={"delegation": {"allow_workers": ["child"]}})
     child = WorkerDefinition(
         name="child",
         instructions="",
@@ -131,7 +191,7 @@ def test_call_worker_forwards_attachments(tmp_path):
 
 def test_call_worker_rejects_disallowed_attachments(tmp_path):
     registry = _registry(tmp_path)
-    parent = WorkerDefinition(name="parent", instructions="", toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=["child"])))
+    parent = WorkerDefinition(name="parent", instructions="", toolsets={"delegation": {"allow_workers": ["child"]}})
     child = WorkerDefinition(
         name="child",
         instructions="",
@@ -159,10 +219,8 @@ def test_create_worker_defaults_allow_delegation(tmp_path):
     path_cfg = PathConfig(root=str(tmp_path / "shared"), mode="rw")
     defaults = WorkerCreationDefaults(
         default_model="defaults-model",
-        default_toolsets=ToolsetsConfig(
-            sandbox=SandboxConfig(paths={"shared": path_cfg}),
-            delegation=DelegationToolsetConfig(allow_workers=["child"]),
-        ),
+        default_sandbox=SandboxConfig(paths={"shared": path_cfg}),
+        default_toolsets={"delegation": {"allow_workers": ["child"]}},
     )
 
     spec = WorkerSpec(name="parent", instructions="delegate")
@@ -189,31 +247,30 @@ def test_create_worker_defaults_allow_delegation(tmp_path):
     assert result.output["worker"] == "child"
 
 def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
-    """Worker delegation always goes through approval controller.
+    """Worker delegation goes through DelegationToolset which checks approval via ApprovalToolset.
 
-    WorkerContext.delegate_sync always creates an ApprovalRequest.
-    The controller's mode determines if it prompts (interactive) or auto-approves.
+    In this test we verify the toolset calls call_worker_async when invoked.
     """
     registry = _registry(tmp_path)
     parent = WorkerDefinition(
         name="parent",
         instructions="",
-        toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=["child"])),
+        toolsets={"delegation": {"allow_workers": ["child"]}},
     )
     registry.save_definition(parent)
     context = _parent_context(registry, parent)
 
     invoked = False
 
-    def fake_call_worker(**_):
+    async def fake_call_worker_async(**_):
         nonlocal invoked
         invoked = True
         return WorkerRunResult(output={"ok": True})
 
-    monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
+    monkeypatch.setattr("llm_do.runtime.call_worker_async", fake_call_worker_async)
 
     # With default auto-approve callback, the tool executes
-    result = context.delegate_sync(worker="child", input_data={"task": "demo"})
+    result = _delegate_sync(context, worker="child", input_data={"task": "demo"})
 
     # Tool executed successfully
     assert result == {"ok": True}
@@ -230,13 +287,14 @@ def test_worker_call_tool_passes_attachments(monkeypatch, tmp_path):
 
     captured = {}
 
-    def fake_call_worker(**kwargs):
+    async def fake_call_worker_async(**kwargs):
         captured.update(kwargs)
         return WorkerRunResult(output={"status": "ok"})
 
-    monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
+    monkeypatch.setattr("llm_do.runtime.call_worker_async", fake_call_worker_async)
 
-    result = context.delegate_sync(
+    result = _delegate_sync(
+        context,
         worker="child",
         input_data={"task": "demo"},
         attachments=["input/deck.pdf"],
@@ -262,7 +320,8 @@ def test_worker_call_tool_rejects_disallowed_sandbox_attachment(tmp_path):
     disallowed.write_text("memo", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Attachment suffix '.txt' not allowed"):
-        context.delegate_sync(
+        _delegate_sync(
+            context,
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/note.txt"],
@@ -280,7 +339,8 @@ def test_worker_call_tool_parent_policy_suffix(tmp_path):
     pdf_path.write_text("memo", encoding="utf-8")
 
     with pytest.raises(ValueError):
-        context.delegate_sync(
+        _delegate_sync(
+            context,
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/deck.pdf"],
@@ -299,7 +359,8 @@ def test_worker_call_tool_parent_policy_counts(tmp_path):
         path.write_text("memo", encoding="utf-8")
 
     with pytest.raises(ValueError):
-        context.delegate_sync(
+        _delegate_sync(
+            context,
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/deck-0.pdf", "input/deck-1.pdf"],
@@ -317,7 +378,8 @@ def test_worker_call_tool_parent_policy_bytes(tmp_path):
     path.write_text("12345", encoding="utf-8")
 
     with pytest.raises(ValueError):
-        context.delegate_sync(
+        _delegate_sync(
+            context,
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/deck.pdf"],
@@ -333,7 +395,8 @@ def test_worker_call_tool_rejects_path_escape(tmp_path):
     outside.write_text("memo", encoding="utf-8")
 
     with pytest.raises(PermissionError):
-        context.delegate_sync(
+        _delegate_sync(
+            context,
             worker="child",
             input_data={"task": "demo"},
             attachments=["input/../secret.pdf"],
@@ -341,6 +404,7 @@ def test_worker_call_tool_rejects_path_escape(tmp_path):
 
 
 def test_worker_call_tool_includes_attachment_metadata(monkeypatch, tmp_path):
+    """Test that sandbox.read approval is requested with attachment metadata."""
     registry = _registry(tmp_path)
     parent, sandbox_root = _parent_with_sandbox(tmp_path)
     registry.save_definition(parent)
@@ -356,12 +420,13 @@ def test_worker_call_tool_includes_attachment_metadata(monkeypatch, tmp_path):
     payload_bytes = "memo".encode("utf-8")
     attachment.write_bytes(payload_bytes)
 
-    def fake_call_worker(**_):
+    async def fake_call_worker_async(**_):
         return WorkerRunResult(output={"status": "ok"})
 
-    monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
+    monkeypatch.setattr("llm_do.runtime.call_worker_async", fake_call_worker_async)
 
-    result = context.delegate_sync(
+    result = _delegate_sync(
+        context,
         worker="child",
         input_data={"task": "demo"},
         attachments=["input/deck.pdf"],
@@ -369,22 +434,15 @@ def test_worker_call_tool_includes_attachment_metadata(monkeypatch, tmp_path):
 
     assert result == {"status": "ok"}
 
-    # Should have 2 approval requests: sandbox.read (for attachment) + worker.call
-    assert len(captured_requests) == 2
+    # Should have 1 approval request: sandbox.read (for attachment)
+    # Note: worker.call approval is now handled by ApprovalToolset wrapper, not here
+    assert len(captured_requests) == 1
 
-    # First should be sandbox.read for the attachment
+    # Should be sandbox.read for the attachment
     sandbox_read_request = captured_requests[0]
     assert sandbox_read_request.tool_name == "sandbox.read"
     assert sandbox_read_request.tool_args["path"] == "input/deck.pdf"
     assert sandbox_read_request.tool_args["bytes"] == len(payload_bytes)
-
-    # Second should be worker.call with attachment metadata
-    worker_call_request = captured_requests[1]
-    assert worker_call_request.tool_name == "worker.call"
-    attachment_info = worker_call_request.tool_args["attachments"][0]
-    assert attachment_info["sandbox"] == "input"
-    assert attachment_info["path"] == "deck.pdf"
-    assert attachment_info["bytes"] == len(payload_bytes)
 
 
 def test_worker_create_tool_persists_definition(tmp_path):
@@ -393,7 +451,8 @@ def test_worker_create_tool_persists_definition(tmp_path):
     registry.save_definition(parent)
     context = _parent_context(registry, parent)
 
-    payload = context.create_worker(
+    payload = _create_worker_via_toolset(
+        context,
         name="child",
         instructions="delegate",
         description="desc",
@@ -405,10 +464,9 @@ def test_worker_create_tool_persists_definition(tmp_path):
 
 
 def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
-    """Worker creation always goes through approval controller.
+    """Worker creation goes through DelegationToolset.
 
-    WorkerContext.create_worker always creates an ApprovalRequest.
-    The controller's mode determines if it prompts (interactive) or auto-approves.
+    In this test we verify the toolset calls create_worker when invoked.
     """
     registry = _registry(tmp_path)
     parent = WorkerDefinition(
@@ -435,7 +493,7 @@ def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
     monkeypatch.setattr("llm_do.runtime.create_worker", fake_create_worker)
 
     # With default auto-approve callback, the tool executes
-    result = context.create_worker(name="child", instructions="demo")
+    result = _create_worker_via_toolset(context, name="child", instructions="demo")
 
     # Tool executed successfully
     assert result["name"] == "child"
@@ -457,7 +515,7 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
         return ApprovalDecision(approved=True)
 
     controller = ApprovalController(mode="interactive", approval_callback=tracking_callback)
-    sandbox = Sandbox(parent.toolsets.sandbox, base_path=registry.root)
+    sandbox = Sandbox(parent.sandbox, base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
 
     context = WorkerContext(
@@ -474,13 +532,14 @@ def test_attachment_triggers_sandbox_read_approval(monkeypatch, tmp_path):
     attachment = sandbox_root / "secret.pdf"
     attachment.write_bytes(b"sensitive data")
 
-    def fake_call_worker(**kwargs):
+    async def fake_call_worker_async(**kwargs):
         return WorkerRunResult(output={"status": "ok"})
 
-    monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
+    monkeypatch.setattr("llm_do.runtime.call_worker_async", fake_call_worker_async)
 
     # Call with attachment
-    context.delegate_sync(
+    _delegate_sync(
+        context,
         worker="child",
         input_data={"task": "analyze"},
         attachments=["input/secret.pdf"],
@@ -507,7 +566,7 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
         return ApprovalDecision(approved=False, note="User denied")
 
     controller = ApprovalController(mode="interactive", approval_callback=denying_callback)
-    sandbox = Sandbox(parent.toolsets.sandbox, base_path=registry.root)
+    sandbox = Sandbox(parent.sandbox, base_path=registry.root)
     attachment_validator = AttachmentValidator(sandbox)
 
     context = WorkerContext(
@@ -526,16 +585,17 @@ def test_attachment_denied_by_sandbox_read_approval(monkeypatch, tmp_path):
 
     call_invoked = False
 
-    def fake_call_worker(**kwargs):
+    async def fake_call_worker_async(**kwargs):
         nonlocal call_invoked
         call_invoked = True
         return WorkerRunResult(output={"status": "ok"})
 
-    monkeypatch.setattr("llm_do.runtime.call_worker", fake_call_worker)
+    monkeypatch.setattr("llm_do.runtime.call_worker_async", fake_call_worker_async)
 
     # Call should raise PermissionError
     with pytest.raises(PermissionError, match="sandbox.read"):
-        context.delegate_sync(
+        _delegate_sync(
+            context,
             worker="child",
             input_data={"task": "analyze"},
             attachments=["input/secret.pdf"],

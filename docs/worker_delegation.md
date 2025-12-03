@@ -76,15 +76,9 @@ result = call_worker(
 # workers/orchestrator.worker
 name: orchestrator
 description: Orchestrates multi-step pitch deck evaluation
-instructions: |
-  You coordinate pitch deck evaluations. First list PDFs in the input sandbox,
-  then process each one using the locked evaluator worker.
-  Write results to the output sandbox.
-
 model: claude-sonnet-4
-allow_workers:
-  - evaluator  # Only allow calling the evaluator worker
 
+# Sandbox at top level
 sandbox:
   paths:
     input:
@@ -97,6 +91,18 @@ sandbox:
       root: ./evaluations
       mode: rw
       write_approval: true  # Writes require approval
+
+# Toolsets as class paths or aliases
+toolsets:
+  filesystem: {}
+  delegation:
+    allow_workers:
+      - evaluator  # Only allow calling the evaluator worker
+---
+
+You coordinate pitch deck evaluations. First list PDFs in the input sandbox,
+then process each one using the locked evaluator worker.
+Write results to the output sandbox.
 ```
 
 ## Attachment Resolution

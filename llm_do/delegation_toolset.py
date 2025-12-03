@@ -5,19 +5,21 @@ This module provides DelegationToolset which:
 2. Implements approval logic via `needs_approval()`
 3. Enforces allow_workers restrictions
 
-Delegation and creation are performed via methods on WorkerContext
-(ctx.deps.delegate_async, ctx.deps.create_worker).
+Delegation and creation logic is implemented directly in this module,
+importing from runtime.py (no circular dependency since types.py doesn't
+import from runtime.py).
 """
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
 
-from .types import WorkerContext
+from .sandbox import AttachmentPayload
+from .types import WorkerContext, WorkerSpec
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +48,6 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             config: Delegation toolset configuration dict (allow_workers)
             id: Optional toolset ID for durable execution.
             max_retries: Maximum retries for tool calls.
-
-        Note:
-            Delegation and creation methods are called directly on ctx.deps
-            (WorkerContext) at call time.
         """
         self._config = config
         self._id = id
@@ -65,12 +63,13 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         """Return the toolset configuration."""
         return self._config
 
-    def needs_approval(self, name: str, tool_args: dict) -> bool | dict:
+    def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> bool | dict:
         """Determine if delegation tool needs approval.
 
         Args:
             name: Tool name ("worker_call" or "worker_create")
             tool_args: Tool arguments
+            ctx: RunContext with deps
 
         Returns:
             - False: No approval needed (pre-approved)
@@ -180,6 +179,66 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             ),
         }
 
+    def _check_approval(
+        self,
+        ctx: WorkerContext,
+        tool_name: str,
+        payload: Dict[str, Any],
+        description: str,
+    ) -> None:
+        """Check approval using the unified ApprovalController.
+
+        Raises PermissionError if approval is denied.
+        """
+        from pydantic_ai_blocking_approval import ApprovalRequest
+
+        request = ApprovalRequest(
+            tool_name=tool_name,
+            description=description,
+            tool_args=payload,
+        )
+        decision = ctx.approval_controller.request_approval_sync(request)
+        if not decision.approved:
+            note = f": {decision.note}" if decision.note else ""
+            raise PermissionError(f"Approval denied for {tool_name}{note}")
+
+    def _prepare_attachments(
+        self,
+        ctx: WorkerContext,
+        worker: str,
+        attachments: Optional[List[str]],
+    ) -> Optional[List[AttachmentPayload]]:
+        """Validate attachments and check sandbox.read approvals.
+
+        Returns attachment payloads ready for call_worker_async.
+
+        Note: This does NOT check worker.call approval - that's handled by
+        ApprovalToolset via needs_approval(). Only sandbox.read for attachments.
+        """
+        if not attachments:
+            return None
+
+        resolved_attachments, attachment_metadata = ctx.validate_attachments(attachments)
+
+        # Check sandbox.read approval for each attachment before sharing
+        for meta in attachment_metadata:
+            self._check_approval(
+                ctx,
+                "sandbox.read",
+                {"path": f"{meta['sandbox']}/{meta['path']}", "bytes": meta["bytes"], "target_worker": worker},
+                f"Share file '{meta['sandbox']}/{meta['path']}' with worker '{worker}'",
+            )
+
+        attachment_payloads = [
+            AttachmentPayload(
+                path=path,
+                display_name=f"{meta['sandbox']}/{meta['path']}",
+            )
+            for path, meta in zip(resolved_attachments, attachment_metadata)
+        ]
+
+        return attachment_payloads
+
     async def call_tool(
         self,
         name: str,
@@ -198,24 +257,45 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         Returns:
             Result from the delegated worker or creation status
         """
-        # Access WorkerContext methods directly
+        # Import here to avoid circular dependency (types.py doesn't import runtime)
+        from .runtime import call_worker_async, create_worker
+
         worker_ctx: WorkerContext = ctx.deps
 
         if name == "worker_call":
             worker = tool_args["worker"]
             input_data = tool_args.get("input_data")
             attachments = tool_args.get("attachments")
-            return await worker_ctx.delegate_async(worker, input_data, attachments)
+
+            # Validate attachments and check sandbox.read approvals
+            # (worker.call approval already handled by ApprovalToolset)
+            attachment_payloads = self._prepare_attachments(worker_ctx, worker, attachments)
+
+            result = await call_worker_async(
+                registry=worker_ctx.registry,
+                worker=worker,
+                input_data=input_data,
+                caller_context=worker_ctx,
+                attachments=attachment_payloads,
+            )
+            return result.output
 
         elif name == "worker_create":
-            return worker_ctx.create_worker(
+            # (worker.create approval already handled by ApprovalToolset)
+            spec = WorkerSpec(
                 name=tool_args["name"],
                 instructions=tool_args["instructions"],
                 description=tool_args.get("description"),
                 model=tool_args.get("model"),
                 output_schema_ref=tool_args.get("output_schema_ref"),
+            )
+            created = create_worker(
+                registry=worker_ctx.registry,
+                spec=spec,
+                defaults=worker_ctx.creation_defaults,
                 force=tool_args.get("force", False),
             )
+            return created.model_dump(mode="json")
 
         else:
             raise ValueError(f"Unknown delegation tool: {name}")

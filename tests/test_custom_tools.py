@@ -75,7 +75,7 @@ def test_custom_tools_allowlist(calculator_registry):
     definition = calculator_registry.load_definition("calculator")
 
     # Verify custom_tools allowlist is configured
-    custom_tools = definition.toolsets.custom if definition.toolsets else {}
+    custom_tools = (definition.toolsets or {}).get("custom", {})
     assert "calculate_fibonacci" in custom_tools
     assert "calculate_factorial" in custom_tools
     assert "calculate_prime_factors" in custom_tools
@@ -92,7 +92,7 @@ def test_multiple_custom_tools_registered(calculator_registry):
         "calculate_prime_factors"
     ]
 
-    custom_tools = definition.toolsets.custom if definition.toolsets else {}
+    custom_tools = (definition.toolsets or {}).get("custom", {})
     for tool_name in custom_tool_names:
         assert tool_name in custom_tools, f"Tool {tool_name} should be in custom_tools"
 
@@ -143,7 +143,7 @@ def test_private_functions_not_registered(calculator_registry, tmp_path):
     definition = calculator_registry.load_definition("calculator")
 
     # Verify _validate_input is NOT in custom_tools
-    custom_tools = definition.toolsets.custom if definition.toolsets else {}
+    custom_tools = (definition.toolsets or {}).get("custom", {})
     assert "_validate_input" not in custom_tools
     assert "__init__" not in custom_tools
     assert "__name__" not in custom_tools
@@ -181,7 +181,7 @@ def test_custom_tools_require_allowlist(calculator_registry, tmp_path):
     assert custom_tools is not None
 
     # Verify custom_tools is empty
-    custom_tools = definition.toolsets.custom if definition.toolsets else {}
+    custom_tools = (definition.toolsets or {}).get("custom", {})
     assert len(custom_tools) == 0
 
     # The security guarantee is in load_custom_tools:
@@ -225,7 +225,7 @@ def test_custom_tools_approval_via_decorator(calculator_registry):
     definition = calculator_registry.load_definition("test_approval_decorator")
 
     # Verify the tool is in the allowlist
-    custom_tools = definition.toolsets.custom if definition.toolsets else {}
+    custom_tools = (definition.toolsets or {}).get("custom", {})
     assert "calculate_with_approval" in custom_tools
 
     # The security guarantee is enforced in load_custom_tools:
@@ -240,6 +240,7 @@ def test_custom_tools_rejects_non_whitelisted_tool(calculator_registry):
     but is not in the whitelist config.
     """
     import asyncio
+    from unittest.mock import MagicMock
     from llm_do.custom_toolset import CustomToolset
 
     # Create a worker with tools.py containing multiple functions
@@ -261,18 +262,23 @@ def test_custom_tools_rejects_non_whitelisted_tool(calculator_registry):
     # Only whitelist allowed_tool, not secret_tool
     config = {"allowed_tool": {"pre_approved": False}}
 
-    toolset = CustomToolset(
-        config=config,
-        worker_name="test_whitelist",
-        tools_path=tools_py,
-    )
+    toolset = CustomToolset(config=config)
+
+    # Create mock ctx with deps that has worker info and tools_path
+    mock_worker = MagicMock()
+    mock_worker.name = "test_whitelist"
+    mock_deps = MagicMock()
+    mock_deps.worker = mock_worker
+    mock_deps.custom_tools_path = tools_py
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_deps
 
     # Load the module and verify only allowed_tool is exposed
-    tools = asyncio.run(toolset.get_tools(None))
+    tools = asyncio.run(toolset.get_tools(mock_ctx))
     assert "allowed_tool" in tools
     assert "secret_tool" not in tools
 
     # Now simulate LLM hallucinating secret_tool call
     # This should raise ValueError
     with pytest.raises(ValueError, match="Unknown custom tool: secret_tool"):
-        asyncio.run(toolset.call_tool("secret_tool", {"x": 5}, None, None))
+        asyncio.run(toolset.call_tool("secret_tool", {"x": 5}, mock_ctx, None))

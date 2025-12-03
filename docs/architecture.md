@@ -8,8 +8,9 @@ This document covers the internal architecture of llm-do: runtime API, sandbox s
 llm_do/
 ├── runtime.py           # Worker execution and delegation
 ├── execution.py         # Agent execution strategies
+├── toolset_loader.py    # Dynamic toolset loading factory
 ├── types.py             # Type definitions and data models
-├── protocols.py         # Dependency injection protocols
+├── protocols.py         # Protocol definitions (FileSandbox)
 ├── worker_sandbox.py    # Sandbox extension for llm-do
 ├── registry.py          # Worker definition loading/persistence
 ├── shell/               # Shell toolset package
@@ -163,20 +164,25 @@ def my_tool(ctx: RunContext[WorkerContext], arg: str) -> str:
 
 ```yaml
 # In worker.worker file
+name: my_worker
+description: A worker with file access
+
+# Sandbox config at top level (separate from toolsets)
+sandbox:
+  paths:
+    input:
+      root: ./input
+      mode: ro
+      suffixes: [.pdf, .txt]
+    output:
+      root: ./output
+      mode: rw
+      write_approval: true
+      max_file_bytes: 10000000
+
+# Toolsets as class paths or aliases
 toolsets:
-  sandbox:
-    paths:
-      input:
-        root: ./input
-        mode: ro
-        suffixes: [.pdf, .txt]
-      output:
-        root: ./output
-        mode: rw
-        write_approval: true
-        max_file_bytes: 10000000
-    network_enabled: false
-  file_tools: true  # Enable FileSystemToolset (default: true)
+  filesystem: {}  # FileSystemToolset - uses sandbox above
 ```
 
 **PathConfig options:**
@@ -216,6 +222,77 @@ FileTooLargeError
 EditError
 # "Cannot edit '{path}': text not found in file."
 ```
+
+---
+
+## Toolset System
+
+Workers declare toolsets in their definition. The `toolset_loader.py` module dynamically loads and wraps them.
+
+### Configuration
+
+```yaml
+# worker.worker file
+name: my_worker
+sandbox:
+  paths:
+    data: {root: ./data, mode: rw}
+
+toolsets:
+  # Built-in aliases
+  filesystem: {}           # File I/O tools (requires sandbox)
+  shell:                   # Shell commands (sandbox optional)
+    rules:
+      - pattern: "git *"
+        approval_required: false
+  delegation:              # Worker delegation
+    allow_workers: [helper]
+  custom:                  # Custom Python tools from tools.py
+    my_tool: {}
+
+  # Or full class paths for third-party toolsets
+  mycompany.toolsets.DatabaseToolset:
+    connection_string: "..."
+```
+
+### Built-in Aliases
+
+| Alias | Class Path | Requires |
+|-------|-----------|----------|
+| `filesystem` | `pydantic_ai_filesystem_sandbox.FileSystemToolset` | sandbox |
+| `shell` | `llm_do.shell.toolset.ShellToolset` | - |
+| `delegation` | `llm_do.delegation_toolset.DelegationToolset` | - |
+| `custom` | `llm_do.custom_toolset.CustomToolset` | tools.py |
+
+### Toolset Loading
+
+All toolsets are wrapped with `ApprovalToolset` for unified approval handling:
+
+```python
+# toolset_loader.py
+def create_toolset(class_path, config, context, ...):
+    toolset_class = _import_class(class_path)
+
+    # FileSystemToolset needs sandbox in constructor (external package)
+    if class_path == "filesystem":
+        toolset = toolset_class(sandbox=context.sandbox)
+    else:
+        # All others: config in constructor, ctx.deps at runtime
+        toolset = toolset_class(config=config)
+
+    return ApprovalToolset(inner=toolset, ...)
+```
+
+### Future: REQUIRED_DEPS Validation
+
+Toolsets could declare required dependencies for early validation:
+
+```python
+class CustomToolset(AbstractToolset):
+    REQUIRED_DEPS = ["custom_tools_path"]  # Validate at creation time
+```
+
+This would fail fast if a required dep (like `custom_tools_path` for custom toolset) is missing, rather than failing at runtime.
 
 ---
 
@@ -330,57 +407,44 @@ toolsets:
 
 ## Dependency Injection
 
-llm-do uses two complementary DI systems:
-
-### PydanticAI's Built-in DI
-
-Passes runtime context into tools:
+llm-do uses PydanticAI's built-in dependency injection via `ctx.deps`:
 
 ```python
 agent = Agent(model=..., deps_type=WorkerContext)
 result = await agent.run(input_data, deps=context)
 
+# Tools access runtime context via ctx.deps
 @agent.tool
 async def my_tool(ctx: RunContext[WorkerContext], path: str):
-    # Access context via ctx.deps
+    sandbox = ctx.deps.sandbox
+    registry = ctx.deps.registry
     ...
 ```
 
-### Protocol-Based DI
+### Toolset Pattern
 
-Enables recursive worker calls without circular imports:
+Toolsets receive `config` in constructor and access runtime deps via `ctx.deps`:
 
 ```python
-# protocols.py - Abstract interfaces
-class WorkerDelegator(Protocol):
-    async def call_async(self, worker: str, ...) -> Any: ...
+class MyToolset(AbstractToolset[WorkerContext]):
+    def __init__(self, config: dict):
+        self._config = config
 
-# tools.py - Depends on protocols, not runtime
-def register_worker_tools(agent, context, delegator: WorkerDelegator, ...):
-    @agent.tool(name="worker_call")
-    async def worker_call_tool(...):
-        return await delegator.call_async(...)
-
-# runtime.py - Provides concrete implementation
-class RuntimeDelegator:
-    async def call_async(self, worker: str, ...) -> Any:
-        # Actual delegation logic
+    async def call_tool(self, name, tool_args, ctx, tool):
+        # Access runtime deps at call time
+        sandbox = ctx.deps.sandbox
+        registry = ctx.deps.registry
         ...
 
-# Wired together in runtime.py
-delegator = RuntimeDelegator(context)
-register_worker_tools(agent, context, delegator=delegator, ...)
+    def needs_approval(self, name: str, tool_args: dict, ctx: RunContext) -> bool | dict:
+        # Can also access ctx.deps here for context-aware approval
+        ...
 ```
 
-**Why both?**
-- **PydanticAI's DI**: Passes data/state into tools
-- **Protocol-based DI**: Enables callbacks without coupling
-
 This achieves:
-- Clean separation of concerns
-- Zero circular dependencies
-- Testability (inject mock implementations)
-- Recursive worker calls
+- Simple, consistent pattern across all toolsets
+- Runtime deps available where needed (not constructor-injected)
+- Testability (mock ctx.deps in tests)
 
 ---
 

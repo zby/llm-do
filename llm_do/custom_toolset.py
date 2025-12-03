@@ -104,8 +104,6 @@ class CustomToolset(AbstractToolset[WorkerContext]):
     def __init__(
         self,
         config: dict,
-        worker_name: str,
-        tools_path: Path,
         id: Optional[str] = None,
         max_retries: int = 1,
     ):
@@ -114,14 +112,10 @@ class CustomToolset(AbstractToolset[WorkerContext]):
         Args:
             config: Custom tools configuration dict (tool_name -> {pre_approved}).
                     Only tools in config are exposed (whitelist model).
-            worker_name: Name of the worker (for module naming)
-            tools_path: Path to the tools.py file
             id: Optional toolset ID for durable execution.
             max_retries: Maximum retries for tool calls.
         """
         self._config = config
-        self._worker_name = worker_name
-        self._tools_path = tools_path
         self._id = id
         self._max_retries = max_retries
         self._module = None
@@ -137,21 +131,26 @@ class CustomToolset(AbstractToolset[WorkerContext]):
         """Return the toolset configuration."""
         return self._config
 
-    def _load_module(self) -> None:
-        """Load the tools module and discover functions."""
+    def _load_module(self, worker_name: str, tools_path: Path) -> None:
+        """Load the tools module and discover functions.
+
+        Args:
+            worker_name: Name of the worker (for module naming)
+            tools_path: Path to the tools.py file
+        """
         if self._module is not None:
             return
 
-        if not self._tools_path.exists():
-            logger.warning(f"Custom tools path does not exist: {self._tools_path}")
+        if not tools_path.exists():
+            logger.warning(f"Custom tools path does not exist: {tools_path}")
             return
 
         # Load the module from the file path
         spec = importlib.util.spec_from_file_location(
-            f"{self._worker_name}_tools", self._tools_path
+            f"{worker_name}_tools", tools_path
         )
         if spec is None or spec.loader is None:
-            logger.warning(f"Could not load custom tools from {self._tools_path}")
+            logger.warning(f"Could not load custom tools from {tools_path}")
             return
 
         module = importlib.util.module_from_spec(spec)
@@ -160,7 +159,7 @@ class CustomToolset(AbstractToolset[WorkerContext]):
         try:
             spec.loader.exec_module(module)
         except Exception as e:
-            logger.error(f"Error loading custom tools from {self._tools_path}: {e}")
+            logger.error(f"Error loading custom tools from {tools_path}: {e}")
             return
 
         self._module = module
@@ -168,7 +167,7 @@ class CustomToolset(AbstractToolset[WorkerContext]):
         # Discover whitelisted functions (only tools in config are exposed)
         for tool_name in self._config.keys():
             if not hasattr(module, tool_name):
-                logger.warning(f"Custom tool '{tool_name}' not found in {self._tools_path}")
+                logger.warning(f"Custom tool '{tool_name}' not found in {tools_path}")
                 continue
 
             obj = getattr(module, tool_name)
@@ -177,15 +176,27 @@ class CustomToolset(AbstractToolset[WorkerContext]):
                 and inspect.isfunction(obj)
                 and obj.__module__ == module.__name__
             ):
-                logger.warning(f"Custom tool '{tool_name}' is not a function in {self._tools_path}")
+                logger.warning(f"Custom tool '{tool_name}' is not a function in {tools_path}")
                 continue
 
             self._functions[tool_name] = obj
             logger.debug(f"Discovered custom tool: {tool_name}")
 
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool]:
-        """Return tool definitions for all discovered custom tools."""
-        self._load_module()
+        """Return tool definitions for all discovered custom tools.
+
+        Loads the tools module lazily from ctx.deps on first call.
+        """
+        # Get worker_name and tools_path from context
+        worker_context: WorkerContext = ctx.deps
+        worker_name = worker_context.worker.name
+        tools_path = worker_context.custom_tools_path
+
+        if tools_path is None:
+            logger.warning(f"No custom tools path for worker '{worker_name}'")
+            return {}
+
+        self._load_module(worker_name, tools_path)
 
         tools = {}
         for name, func in self._functions.items():

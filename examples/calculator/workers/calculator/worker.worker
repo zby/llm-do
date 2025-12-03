@@ -1,12 +1,13 @@
 ---
 description: Mathematical calculator with custom computation tools
 name: calculator
+sandbox:
+  paths:
+    scratch:
+      mode: rw
+      root: ./scratch
 toolsets:
-  sandbox:
-    paths:
-      scratch:
-        mode: rw
-        root: ./scratch
+  filesystem: {}
   custom:
     calculate_factorial: {}
     calculate_fibonacci: {}

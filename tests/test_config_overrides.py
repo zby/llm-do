@@ -7,7 +7,7 @@ from llm_do.config_overrides import (
     apply_set_override,
     parse_set_override,
 )
-from llm_do.types import ToolsetsConfig, DelegationToolsetConfig
+# Typed config classes no longer used - using dict config
 from llm_do.worker_sandbox import SandboxConfig
 from pydantic_ai_filesystem_sandbox import PathConfig
 
@@ -175,13 +175,13 @@ class TestApplyCliOverrides:
         defn = WorkerDefinition(
             name="test",
             instructions="test",
-            toolsets=ToolsetsConfig(delegation=DelegationToolsetConfig(allow_workers=[])),
+            toolsets={"delegation": {"allow_workers": []}},
         )
         result = apply_cli_overrides(
             defn,
             set_overrides=['toolsets.delegation.allow_workers=["worker1", "worker2"]']
         )
-        assert result.toolsets.delegation.allow_workers == ["worker1", "worker2"]
+        assert result.toolsets["delegation"]["allow_workers"] == ["worker1", "worker2"]
 
     def test_override_boolean_field(self):
         defn = WorkerDefinition(name="test", instructions="test", locked=False)
@@ -244,17 +244,15 @@ class TestIntegration:
         defn = WorkerDefinition(
             name="worker",
             instructions="Test",
-            toolsets=ToolsetsConfig(
-                sandbox=SandboxConfig(
-                    paths={
-                        "work": PathConfig(root="./work", mode="rw")
-                    }
-                )
-            )
+            sandbox=SandboxConfig(
+                paths={
+                    "work": PathConfig(root="./work", mode="rw")
+                }
+            ),
         )
         result = apply_cli_overrides(
             defn,
-            set_overrides=["toolsets.sandbox.paths.work.root=/tmp/work"]
+            set_overrides=["sandbox.paths.work.root=/tmp/work"]
         )
-        assert result.toolsets.sandbox.paths["work"].root == "/tmp/work"
-        assert result.toolsets.sandbox.paths["work"].mode == "rw"  # Preserved
+        assert result.sandbox.paths["work"].root == "/tmp/work"
+        assert result.sandbox.paths["work"].mode == "rw"  # Preserved

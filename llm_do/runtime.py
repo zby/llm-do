@@ -87,8 +87,8 @@ def _prepare_worker_context(
     new_sandbox: Optional[Sandbox] = None
     attachment_validator: Optional[AttachmentValidator] = None
 
-    sandbox_config = definition.toolsets.sandbox if definition.toolsets else None
-    default_sandbox_config = defaults.default_toolsets.sandbox if defaults.default_toolsets else None
+    sandbox_config = definition.sandbox
+    default_sandbox_config = defaults.default_sandbox
 
     if sandbox_config is not None:
         # Worker has explicit sandbox config
@@ -174,8 +174,9 @@ def _handle_result(
 
 def _check_delegation_allowed(caller_context: WorkerContext, worker: str) -> None:
     """Check if delegation to a worker is allowed (shared by sync and async)."""
-    toolsets = caller_context.worker.toolsets
-    allowed = toolsets.delegation.allow_workers if toolsets and toolsets.delegation else []
+    toolsets = caller_context.worker.toolsets or {}
+    delegation_config = toolsets.get("delegation", {})
+    allowed = delegation_config.get("allow_workers", [])
     if allowed:
         allowed_set = set(allowed)
         if "*" not in allowed_set and worker not in allowed_set:

@@ -23,12 +23,7 @@ from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
-from pydantic_ai_filesystem_sandbox import FileSystemToolset
-from pydantic_ai_blocking_approval import ApprovalToolset
-
-from .custom_toolset import CustomToolset
-from .delegation_toolset import DelegationToolset
-from .shell.toolset import ShellToolset
+from .toolset_loader import build_toolsets
 from .types import (
     AgentExecutionContext,
     ModelLike,
@@ -232,78 +227,11 @@ def prepare_agent_execution(
         deps_type=WorkerContext,
     )
 
-    # Build toolsets list
-    toolsets = []
-    toolsets_config = definition.toolsets
-
-    # FileSystemToolset (provides read_file, write_file, edit_file, list_files)
-    # file_tools defaults to True for backward compatibility
-    file_tools_enabled = toolsets_config.file_tools if toolsets_config else True
-
-    # FileSystemToolset requires sandbox - workers without sandbox simply don't get file tools
-    if context.sandbox is not None and file_tools_enabled:
-        file_toolset = FileSystemToolset(sandbox=context.sandbox)
-        approved = ApprovalToolset(
-            inner=file_toolset,
-            approval_callback=context.approval_controller.approval_callback,
-            memory=context.approval_controller.memory,
-        )
-        toolsets.append(approved)
-
-    # Shell toolset (provides shell command execution with pattern-based approval)
-    shell_config = toolsets_config.shell if toolsets_config else None
-    if shell_config is not None:
-        shell_toolset = ShellToolset(
-            config=shell_config.model_dump(),
-            sandbox=context.sandbox,
-        )
-        approved = ApprovalToolset(
-            inner=shell_toolset,
-            approval_callback=context.approval_controller.approval_callback,
-            memory=context.approval_controller.memory,
-        )
-        toolsets.append(approved)
-
-    # Delegation toolset (provides worker_call, worker_create with approval)
-    # Methods are called directly on WorkerContext (ctx.deps)
-    delegation_config = toolsets_config.delegation if toolsets_config else None
-    if delegation_config is not None:
-        delegation_toolset = DelegationToolset(
-            config=delegation_config.model_dump(),
-        )
-        approved = ApprovalToolset(
-            inner=delegation_toolset,
-            approval_callback=context.approval_controller.approval_callback,
-            memory=context.approval_controller.memory,
-        )
-        toolsets.append(approved)
-
-    # Custom toolset (provides custom tools from tools.py with approval)
-    custom_config = toolsets_config.custom if toolsets_config else None
-    if custom_config and context.custom_tools_path and context.custom_tools_path.exists():
-        # Convert Dict[str, CustomToolConfig] to Dict[str, dict] for CustomToolset
-        config_dict = {name: cfg.model_dump() for name, cfg in custom_config.items()}
-        custom_toolset = CustomToolset(
-            config=config_dict,
-            worker_name=definition.name,
-            tools_path=context.custom_tools_path,
-        )
-        # Build ApprovalToolset config from CustomToolConfig.pre_approved
-        approval_config = {
-            name: {"pre_approved": cfg.pre_approved}
-            for name, cfg in custom_config.items()
-        }
-        approved = ApprovalToolset(
-            inner=custom_toolset,
-            approval_callback=context.approval_controller.approval_callback,
-            memory=context.approval_controller.memory,
-            config=approval_config,
-        )
-        toolsets.append(approved)
-
-    # Only pass toolsets if we have any
-    if toolsets:
-        agent_kwargs["toolsets"] = toolsets
+    # Build toolsets using the plugin loader
+    if definition.toolsets:
+        toolsets = build_toolsets(definition.toolsets, context)
+        if toolsets:
+            agent_kwargs["toolsets"] = toolsets
 
     if output_model is not None:
         agent_kwargs["output_type"] = output_model

@@ -364,7 +364,7 @@ def test_pitch_orchestrator_sandboxes_configured(pitchdeck_eval_registry):
     definition = pitchdeck_eval_registry.load_definition("pitch_orchestrator")
 
     # Verify sandboxes are configured
-    sandbox = definition.toolsets.sandbox if definition.toolsets else None
+    sandbox = definition.sandbox
     assert sandbox is not None
     assert "input" in sandbox.paths
     assert "evaluations" in sandbox.paths
@@ -396,9 +396,8 @@ def test_all_example_workers_load_successfully():
     approvals_registry = WorkerRegistry(examples_dir / "approvals_demo")
     save_note_def = approvals_registry.load_definition("save_note")
     assert save_note_def.name == "save_note"
-    assert save_note_def.toolsets is not None
-    assert save_note_def.toolsets.sandbox is not None
-    assert "notes" in save_note_def.toolsets.sandbox.paths
+    assert save_note_def.sandbox is not None
+    assert "notes" in save_note_def.sandbox.paths
 
     # Pitch evaluator (in examples/pitchdeck_eval/workers/pitch_evaluator.worker)
     pitch_registry = WorkerRegistry(examples_dir / "pitchdeck_eval")
@@ -410,8 +409,8 @@ def test_all_example_workers_load_successfully():
     orchestrator_def = pitch_registry.load_definition("pitch_orchestrator")
     assert orchestrator_def.name == "pitch_orchestrator"
     assert orchestrator_def.toolsets is not None
-    assert orchestrator_def.toolsets.delegation is not None
-    assert orchestrator_def.toolsets.delegation.allow_workers is not None
+    assert "delegation" in orchestrator_def.toolsets
+    assert orchestrator_def.toolsets["delegation"].get("allow_workers") is not None
 
     # Whiteboard planner (in examples/whiteboard_planner/workers/whiteboard_planner.worker)
     whiteboard_registry = WorkerRegistry(examples_dir / "whiteboard_planner")
@@ -423,8 +422,8 @@ def test_all_example_workers_load_successfully():
     wb_orchestrator_def = whiteboard_registry.load_definition("whiteboard_orchestrator")
     assert wb_orchestrator_def.name == "whiteboard_orchestrator"
     assert wb_orchestrator_def.toolsets is not None
-    assert wb_orchestrator_def.toolsets.delegation is not None
-    assert wb_orchestrator_def.toolsets.delegation.allow_workers is not None
+    assert "delegation" in wb_orchestrator_def.toolsets
+    assert wb_orchestrator_def.toolsets["delegation"].get("allow_workers") is not None
 
     # Calculator (in examples/calculator/workers/calculator/worker.worker)
     calculator_registry = WorkerRegistry(examples_dir / "calculator")

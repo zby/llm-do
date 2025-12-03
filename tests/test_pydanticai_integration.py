@@ -13,7 +13,6 @@ from llm_do import (
 )
 from pydantic_ai_blocking_approval import ApprovalRequest
 from llm_do.worker_sandbox import SandboxConfig
-from llm_do.types import ToolsetsConfig
 from pydantic_ai_filesystem_sandbox import PathConfig
 
 
@@ -41,7 +40,8 @@ def test_integration_approve_all_allows_write(tmp_path, registry, tool_calling_m
     definition = WorkerDefinition(
         name="writer",
         instructions="Write a test file",
-        toolsets=ToolsetsConfig(sandbox=SandboxConfig(paths={"out": path_cfg})),
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
+        toolsets={"filesystem": {}},
     )
     registry.save_definition(definition)
 
@@ -85,7 +85,8 @@ def test_integration_strict_mode_blocks_write(tmp_path, registry, tool_calling_m
     definition = WorkerDefinition(
         name="writer",
         instructions="Write a test file",
-        toolsets=ToolsetsConfig(sandbox=SandboxConfig(paths={"out": path_cfg})),
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
+        toolsets={"filesystem": {}},
     )
     registry.save_definition(definition)
 
@@ -130,7 +131,8 @@ def test_integration_multiple_tool_calls_with_session_approval(
     definition = WorkerDefinition(
         name="multi-writer",
         instructions="Write multiple files",
-        toolsets=ToolsetsConfig(sandbox=SandboxConfig(paths={"out": path_cfg})),
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
+        toolsets={"filesystem": {}},
     )
     registry.save_definition(definition)
 
@@ -197,7 +199,8 @@ def test_integration_read_and_write_flow(tmp_path, registry, tool_calling_model_
     definition = WorkerDefinition(
         name="processor",
         instructions="Read input, process, write output",
-        toolsets=ToolsetsConfig(sandbox=SandboxConfig(paths={"in": input_cfg, "out": output_cfg})),
+        sandbox=SandboxConfig(paths={"in": input_cfg, "out": output_cfg}),
+        toolsets={"filesystem": {}},
     )
     registry.save_definition(definition)
 
@@ -248,7 +251,8 @@ def test_integration_rejection_stops_workflow(tmp_path, registry, tool_calling_m
     definition = WorkerDefinition(
         name="writer",
         instructions="Write files",
-        toolsets=ToolsetsConfig(sandbox=SandboxConfig(paths={"out": path_cfg})),
+        sandbox=SandboxConfig(paths={"out": path_cfg}),
+        toolsets={"filesystem": {}},
     )
     registry.save_definition(definition)
 

@@ -9,6 +9,7 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 - `README.md` — setup, CLI usage, examples
 - `docs/worker_delegation.md` — read when implementing worker hierarchies or delegation
 - `docs/worker_pitfalls.md` — read before creating or modifying workers
+- `docs/notes/` — working design documents and explorations (see Notes section)
 - `examples/pitchdeck_eval/` — reference implementation for multi-worker patterns
 
 ---
@@ -38,6 +39,15 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 - **Never** `git add -A` — review `git status` and stage specific files
 - Check `git diff` before committing
 - Write clear commit messages (why, not just what)
+
+---
+
+## Notes
+
+- `docs/notes/` — working design documents, explorations, bug investigations
+- Create notes to offload complex thinking that doesn't fit in a commit or TODO
+- Include "Open Questions" section for unresolved decisions
+- Move to `docs/notes/archive/` when resolved or implemented
 
 ---
 

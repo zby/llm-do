@@ -7,8 +7,9 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 ## Key References
 
 - `README.md` — setup, CLI usage, examples
-- `docs/worker_delegation.md` — how `worker_call`/`worker_create` behave
-- `examples/pitchdeck_eval/` — end-to-end multi-worker example
+- `docs/worker_delegation.md` — read when implementing worker hierarchies or delegation
+- `docs/worker_pitfalls.md` — read before creating or modifying workers
+- `examples/pitchdeck_eval/` — reference implementation for multi-worker patterns
 
 ---
 
@@ -17,7 +18,6 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 - Run `.venv/bin/pytest` before committing (tests use dummy models, no live API calls)
 - For executing python scripts use `.venv/bin/python` - the global environment does not have all dependencies
 - Prefer creating/editing workers via `workers/*.worker` and run them with `llm-do`
-- Style: black, 4 spaces, snake_case/PascalCase
 - Do not preserve backwards compatibility; with no external consumers, always prioritize cleaner design over keeping old behavior alive
 - Favor clear architecture over hacks; delete dead code when possible
 - If backcompat code is ever needed, mark it with `# BACKCOMPAT: <reason> - remove after <condition>` so it can be identified and removed later
@@ -38,15 +38,6 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 - **Never** `git add -A` — review `git status` and stage specific files
 - Check `git diff` before committing
 - Write clear commit messages (why, not just what)
-
----
-
-## Common Pitfalls
-
-- Forgetting to configure sandboxes leads to runtime `KeyError`
-- Approval rules default to auto-approve; lock down `tool_rules` for critical workers
-- Model inheritance is worker → caller → CLI flag; set `model` in YAML if a worker needs a specific model
-
 
 ---
 

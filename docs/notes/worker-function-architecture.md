@@ -789,17 +789,18 @@ def detect_invocation_mode(arg: str) -> InvocationMode:
 #### Phase 2: Resolution
 - [x] Implement template search paths
 - [x] Implement tool aggregation
-- [x] Add library reference syntax (`lib:worker`) - placeholder, full impl in Phase 3
+- [x] Add library reference syntax (`lib:worker`) - placeholder error, full impl in Phase 3
 - [x] Add explicit path syntax (`./workers/helper`)
 
-#### Phase 3: Libraries
-- [ ] Define `lib.yaml` schema
-- [ ] Implement library resolution
-- [ ] Add `llm-do lib` commands
-- [ ] Support versioned libraries
+#### Phase 3: Libraries (NOT IMPLEMENTED)
+- [ ] Define `lib.yaml` schema (LibraryConfig model)
+- [ ] Implement library resolution (resolve_library, resolve_library_dependencies)
+- [ ] Add `llm-do lib` commands (install, list, remove, info)
+- [ ] Support versioned libraries (name@version syntax)
+- [ ] Integrate library workers/tools/templates into registry
 
-#### Phase 4: CLI Enhancement
-- [ ] Add `--entry` flag
+#### Phase 4: CLI Enhancement (PARTIALLY IMPLEMENTED)
+- [x] Add `--entry` flag (implemented in Phase 1)
 - [ ] Add `llm-do init` command
 - [ ] Add project templates
 - [ ] Update help text and documentation

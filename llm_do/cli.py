@@ -43,6 +43,14 @@ from pydantic_ai_blocking_approval import (
     ApprovalRequest,
 )
 from .config_overrides import apply_cli_overrides
+from .project import (
+    InvalidProjectError,
+    detect_invocation_mode,
+    find_entry_worker_path,
+    load_project_config,
+    resolve_project,
+)
+from .types import InvocationMode
 from .cli_display import (
     display_worker_request,
     display_worker_status,
@@ -261,6 +269,13 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
              "Supports dot notation for nested fields (e.g., --set sandbox.network_enabled=false). "
              "Can be specified multiple times.",
     )
+    parser.add_argument(
+        "--entry",
+        dest="entry_worker",
+        default=None,
+        help="Override entry point for project execution (default: main). "
+             "Use when running a project directory to start from a different worker.",
+    )
     return parser.parse_args(argv)
 
 
@@ -270,22 +285,36 @@ def main(argv: Optional[list[str]] = None) -> int:
     prompt_console = console if not args.json else Console(stderr=True)
 
     try:
-        # Determine worker name and registry
-        worker_path = Path(args.worker)
-        if worker_path.exists() and worker_path.suffix in {".yaml", ".yml"}:
-            # Worker is a file path
-            worker_name = worker_path.stem
-        else:
-            # Worker is a name
-            worker_name = args.worker
+        # Resolve invocation mode and project context
+        mode, project_context, worker_name = resolve_project(
+            args.worker,
+            entry_override=args.entry_worker,
+        )
 
-        # Registry defaults to current working directory
-        if args.registry is None:
-            registry_root = Path.cwd()
-        else:
+        # Determine registry root based on invocation mode
+        if mode == InvocationMode.PROJECT:
+            # Project mode: registry root is project directory
+            registry_root = project_context.project_root
+            project_config = project_context.config
+        elif mode == InvocationMode.SINGLE_FILE:
+            # Single file: registry root is file's parent directory
+            worker_path = Path(worker_name)
+            registry_root = worker_path.parent
+            worker_name = worker_path.stem
+            project_config = None
+        else:  # SEARCH_PATH
+            # Search mode: use --registry or cwd
+            if args.registry is None:
+                registry_root = Path.cwd()
+            else:
+                registry_root = args.registry
+            project_config = None
+
+        # Override registry root if explicitly provided
+        if args.registry is not None:
             registry_root = args.registry
 
-        registry = WorkerRegistry(registry_root)
+        registry = WorkerRegistry(registry_root, project_config=project_config)
 
         # Load worker definition
         definition = registry.load_definition(worker_name)
@@ -377,6 +406,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
+
+    except InvalidProjectError as e:
+        print(f"Project error: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1

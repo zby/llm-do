@@ -42,9 +42,11 @@ from .worker_sandbox import Sandbox, SandboxConfig
 from .types import (
     AgentExecutionContext,
     AgentRunner,
+    InvocationMode,
     MessageCallback,
     ModelLike,
     OutputSchemaResolver,
+    ProjectConfig,
     ServerSideToolConfig,
     ShellDefault,
     ShellResult,
@@ -54,6 +56,16 @@ from .types import (
     WorkerDefinition,
     WorkerRunResult,
     WorkerSpec,
+)
+
+# Re-export project module
+from .project import (
+    InvalidProjectError,
+    ProjectContext,
+    detect_invocation_mode,
+    find_entry_worker_path,
+    load_project_config,
+    resolve_project,
 )
 
 # Re-export approval types from standalone package
@@ -103,6 +115,15 @@ __all__: Iterable[str] = [
     "call_worker_async",
     "create_worker",
     "WorkerContext",
+    # Project types (Phase 1 worker-function architecture)
+    "InvocationMode",
+    "InvalidProjectError",
+    "ProjectConfig",
+    "ProjectContext",
+    "detect_invocation_mode",
+    "find_entry_worker_path",
+    "load_project_config",
+    "resolve_project",
     # Protocols
     "FileSandbox",
     # Sandbox classes

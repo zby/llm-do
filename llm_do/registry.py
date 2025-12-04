@@ -20,7 +20,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, UndefinedError
 from pydantic import BaseModel, ValidationError
 
-from .types import OutputSchemaResolver, WorkerDefinition
+from .types import OutputSchemaResolver, ProjectConfig, WorkerDefinition
 
 
 def _default_resolver(definition: WorkerDefinition) -> Optional[Type[BaseModel]]:
@@ -98,6 +98,7 @@ class WorkerRegistry:
         *,
         output_schema_resolver: OutputSchemaResolver = _default_resolver,
         generated_dir: Optional[Path] = None,
+        project_config: Optional[ProjectConfig] = None,
     ):
         self.root = Path(root).expanduser().resolve()
         self.output_schema_resolver = output_schema_resolver
@@ -107,6 +108,10 @@ class WorkerRegistry:
         self.generated_dir = Path(generated_dir) if generated_dir else GENERATED_DIR
         # Track workers generated in this session - only these are searchable
         self._generated_workers: Set[str] = set()
+        # Project configuration for inheritance
+        self.project_config = project_config
+        # Cache for loaded definitions (used by CLI for override injection)
+        self._definitions_cache: Dict[str, WorkerDefinition] = {}
 
     # paths -----------------------------------------------------------------
     def _get_search_paths(self, name: str) -> list[Path]:
@@ -114,12 +119,19 @@ class WorkerRegistry:
         if base.suffix:
             return [base if base.is_absolute() else (self.root / base)]
 
-        candidates = [
+        candidates = []
+
+        # Special case: "main" worker can be at project root
+        if name == "main":
+            candidates.append(self.root / "main.worker")
+
+        # Standard locations in workers/
+        candidates.extend([
             # Simple form: workers/name.worker
             self.root / "workers" / f"{name}.worker",
             # Directory form: workers/name/worker.worker
             self.root / "workers" / name / "worker.worker",
-        ]
+        ])
 
         # Only include generated path if this worker was generated in this session
         # Generated workers are always directories: {generated_dir}/{name}/worker.worker
@@ -217,6 +229,63 @@ class WorkerRegistry:
             return True
         return False
 
+    def _apply_project_config(self, definition: WorkerDefinition) -> WorkerDefinition:
+        """Apply project configuration inheritance to a worker definition.
+
+        Merge rules (per spec):
+        - Scalar values: worker overrides project
+        - toolsets: deep merge (worker toolsets add to project toolsets)
+        - sandbox.paths: deep merge (worker paths add to project paths)
+        - Lists: worker replaces project (no merge)
+
+        Args:
+            definition: Worker definition to enhance
+
+        Returns:
+            WorkerDefinition with project defaults applied
+        """
+        if self.project_config is None:
+            return definition
+
+        # Start with worker's values
+        updates = {}
+
+        # Model: worker overrides project
+        if definition.model is None and self.project_config.model is not None:
+            updates["model"] = self.project_config.model
+
+        # Toolsets: deep merge (project provides base, worker adds/overrides)
+        if self.project_config.toolsets:
+            merged_toolsets = dict(self.project_config.toolsets)
+            if definition.toolsets:
+                merged_toolsets.update(definition.toolsets)
+            updates["toolsets"] = merged_toolsets
+        elif definition.toolsets is None:
+            # Worker has no toolsets and neither does project - keep as None
+            pass
+
+        # Sandbox: deep merge paths
+        if self.project_config.sandbox:
+            if definition.sandbox is None:
+                updates["sandbox"] = self.project_config.sandbox.model_copy()
+            else:
+                # Merge sandbox paths
+                merged_sandbox = definition.sandbox.model_copy()
+                if self.project_config.sandbox.paths and merged_sandbox.paths:
+                    # Worker paths override project paths with same name
+                    merged_paths = dict(self.project_config.sandbox.paths)
+                    merged_paths.update(merged_sandbox.paths)
+                    merged_sandbox.paths = merged_paths
+                elif self.project_config.sandbox.paths and not merged_sandbox.paths:
+                    merged_sandbox.paths = dict(self.project_config.sandbox.paths)
+                updates["sandbox"] = merged_sandbox
+
+        if not updates:
+            return definition
+
+        # Create new definition with merged values
+        return definition.model_copy(update=updates)
+
     def load_definition(self, name: str) -> WorkerDefinition:
         """Load a worker definition by name.
 
@@ -230,6 +299,9 @@ class WorkerRegistry:
         in this session via register_generated(). This prevents leakage from
         old sessions.
 
+        If a project_config is set, project-level defaults are merged into
+        the worker definition (worker values take precedence).
+
         Args:
             name: Worker name to load
 
@@ -240,6 +312,10 @@ class WorkerRegistry:
             FileNotFoundError: If worker not found in any location
             ValueError: If worker definition is invalid
         """
+        # Check cache first (used for CLI override injection)
+        if name in self._definitions_cache:
+            return self._definitions_cache[name]
+
         path = self._definition_path(name)
         if not path.exists():
             # _definition_path returns the first candidate if none exist,
@@ -248,9 +324,12 @@ class WorkerRegistry:
         data = self._load_raw(path)
 
         try:
-            return WorkerDefinition.model_validate(data)
+            definition = WorkerDefinition.model_validate(data)
         except ValidationError as exc:
             raise ValueError(f"Invalid worker definition at {path}: {exc}") from exc
+
+        # Apply project configuration inheritance
+        return self._apply_project_config(definition)
 
     def save_definition(
         self,

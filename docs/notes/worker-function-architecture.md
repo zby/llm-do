@@ -781,10 +781,10 @@ def detect_invocation_mode(arg: str) -> InvocationMode:
 ### 12. Implementation Phases
 
 #### Phase 1: Foundation
-- [ ] Add `project.yaml` parsing
-- [ ] Implement project detection in CLI
-- [ ] Add `main.worker` convention
-- [ ] Update `WorkerRegistry` for project-scoped resolution
+- [x] Add `project.yaml` parsing
+- [x] Implement project detection in CLI
+- [x] Add `main.worker` convention
+- [x] Update `WorkerRegistry` for project-scoped resolution
 
 #### Phase 2: Resolution
 - [ ] Implement template search paths

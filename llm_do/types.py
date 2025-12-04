@@ -6,6 +6,7 @@ the llm-do system, including worker definitions, contexts, and results.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Type, Union
 
@@ -195,6 +196,81 @@ class WorkerCreationDefaults(BaseModel):
             toolsets=toolsets,
             attachment_policy=attachment_policy,
             locked=False,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Project configuration
+# ---------------------------------------------------------------------------
+
+
+class InvocationMode(Enum):
+    """How the CLI argument should be interpreted."""
+
+    PROJECT = "project"  # Directory with main.worker
+    SINGLE_FILE = "single_file"  # Direct .worker file
+    SEARCH_PATH = "search_path"  # Worker name, search LLM_DO_PATH
+
+
+class ProjectConfig(BaseModel):
+    """Project-level configuration from project.yaml.
+
+    Projects provide a boundary for worker resolution, shared configuration,
+    and library dependencies. This model represents the project manifest.
+    """
+
+    # Metadata
+    name: Optional[str] = Field(
+        default=None,
+        description="Project identifier (used when published as library)"
+    )
+    version: Optional[str] = Field(
+        default=None,
+        description="Semantic version"
+    )
+    description: Optional[str] = Field(
+        default=None,
+        description="Human-readable description"
+    )
+
+    # Default model for all workers (overridable per-worker)
+    model: Optional[str] = Field(
+        default=None,
+        description="Default model for all workers in this project"
+    )
+
+    # Library dependencies (Phase 3)
+    dependencies: List[str] = Field(
+        default_factory=list,
+        description="Library dependencies (e.g., ['utils', 'legal@2.0'])"
+    )
+
+    # Global sandbox configuration (inherited by all workers)
+    sandbox: Optional["SandboxConfig"] = Field(
+        default=None,
+        description="Default sandbox configuration for all workers"
+    )
+
+    # Default toolsets for all workers (merged with worker-specific)
+    toolsets: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Default toolsets configuration for all workers"
+    )
+
+    # Exported workers (if this project is also a library)
+    exports: List[str] = Field(
+        default_factory=list,
+        description="Workers exposed when used as library"
+    )
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def to_creation_defaults(self) -> "WorkerCreationDefaults":
+        """Convert project config to WorkerCreationDefaults for worker expansion."""
+        return WorkerCreationDefaults(
+            default_model=self.model,
+            default_sandbox=self.sandbox,
+            default_toolsets=self.toolsets,
         )
 
 

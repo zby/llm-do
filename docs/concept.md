@@ -8,6 +8,21 @@ Just like source code is packaged with build configs and dependencies to become 
 
 A **worker** = prompt template + configuration + tools, packaged as an executable unit that the LLM interprets.
 
+### Workers as Functions, Not Programs
+
+The mapping from traditional programming to LLM orchestration:
+
+| Programming | LLM Orchestration |
+|-------------|-------------------|
+| Function | Worker |
+| Program | Composition of workers |
+| Function call | `worker_call` |
+| Return value | Worker result |
+
+Most programs have many functions. Similarly, **any complex LLM work requires many workers**. This isn't a limitation—it's essential. Limiting context is critical for getting good performance from LLMs. Each worker should do one focused thing well, just like each function should have a single responsibility.
+
+A single monolithic worker trying to do everything is like a single function with thousands of lines—it will bloat, drift, and fail unpredictably.
+
 ## What Is a Worker?
 
 A **worker** is an executable prompt artifact: a persisted configuration that defines *how* to run an LLM-backed task (instructions, tools, sandboxes, models, outputs) rather than *what code to call*.
@@ -50,6 +65,8 @@ Single-file workers are intentionally limited to enable **truly portable LLM exe
 ## Why This Matters
 
 **The LLM context problem**: LLM behavior is context-sensitive. Unlike traditional compilers where unused code is ignored, adding more text to an LLM prompt can degrade results. Large prompts bloat, drift, and fail unpredictably. When you batch everything into a single prompt, the LLM loses focus.
+
+This is why the worker-as-function mapping matters: just as good code decomposes into focused functions, good LLM orchestration decomposes into focused workers. You wouldn't write a 1000-line function; don't write a 1000-line worker prompt.
 
 **The solution**: Workers with isolated contexts, connected through three mechanisms:
 

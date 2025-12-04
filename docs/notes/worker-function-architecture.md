@@ -201,6 +201,7 @@ exports:
 | `version` | string | Semantic version |
 | `description` | string | Human-readable description |
 | `model` | string | Default model for all workers |
+| `compatible_models` | list[string] | Model compatibility patterns (worker-level only) |
 | `dependencies` | list[string] | Library dependencies |
 | `sandbox` | SandboxConfig | Global sandbox configuration |
 | `toolsets` | dict | Default toolsets for all workers |
@@ -223,6 +224,33 @@ effective configuration
 - `toolsets`: deep merge (worker toolsets add to project toolsets)
 - `sandbox.paths`: deep merge (worker paths add to project paths)
 - Lists: worker replaces project (no merge)
+
+#### 2.3 Model Compatibility
+
+Workers can declare which models they're compatible with using glob-style patterns in the `compatible_models` field:
+
+```yaml
+# workers/pdf_analyzer.worker
+---
+name: pdf_analyzer
+compatible_models:
+  - "anthropic:*"    # Only Anthropic models (required for native PDF reading)
+---
+```
+
+**Pattern syntax:**
+- `None` (unset): any model allowed (backward compatible default)
+- `["*"]`: explicitly allows any model
+- `["anthropic:*"]`: any Anthropic model
+- `["anthropic:claude-haiku-*"]`: specific model family
+- `[]`: empty list is invalid (use `["*"]` for any)
+
+**Validation:**
+- CLI `--model` is validated against `compatible_models`
+- Caller's model (via delegation) is validated against `compatible_models`
+- Worker's own `model` field bypasses validation (trusted)
+
+This enables workers to enforce model requirements. For example, workers that process PDFs natively require Anthropic models, so they should specify `compatible_models: ["anthropic:*"]`.
 
 ---
 

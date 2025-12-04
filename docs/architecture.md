@@ -8,6 +8,7 @@ This document covers the internal architecture of llm-do: runtime API, sandbox s
 llm_do/
 ├── runtime.py           # Worker execution and delegation
 ├── execution.py         # Agent execution strategies
+├── model_compat.py      # Model compatibility validation
 ├── toolset_loader.py    # Dynamic toolset loading factory
 ├── types.py             # Type definitions and data models
 ├── protocols.py         # Protocol definitions (FileSandbox)
@@ -73,6 +74,7 @@ result = await call_worker_async(
 
 **Enforces:**
 - `allow_workers` allowlist from caller's definition
+- `compatible_models` validation (caller's model must match target worker's patterns)
 - Attachment approval via sandbox with full metadata
 - Attachment policy limits (max count, total size, allowed suffixes)
 
@@ -505,6 +507,7 @@ CLI / run_worker()
 |------|-------|----------------|
 | `runtime.py` | ~540 | Worker orchestration, delegation, creation |
 | `execution.py` | ~280 | Agent execution, ApprovalToolset wrapping |
+| `model_compat.py` | ~180 | Model compatibility validation |
 | `shell/` | ~350 | Shell toolset package (whitelist-based approval) |
 | `delegation_toolset.py` | ~150 | Worker delegation toolset |
 | `custom_toolset.py` | ~150 | Custom Python tools toolset |

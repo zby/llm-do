@@ -47,6 +47,15 @@ llm-do greeter "hello" --model openai:gpt-4o
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/).
 
+**Model Compatibility:** Workers can declare `compatible_models` patterns to restrict which models can be used. If specified, the `--model` value is validated against these patterns:
+```bash
+# Worker declares: compatible_models: ["anthropic:*"]
+llm-do pdf_analyzer --model openai:gpt-4o  # Error: incompatible model
+llm-do pdf_analyzer --model anthropic:claude-sonnet-4  # OK
+```
+
+See [Model Compatibility](#model-compatibility) below for pattern syntax.
+
 **`--registry PATH`**
 Specify worker registry root (defaults to current working directory):
 ```bash
@@ -173,6 +182,7 @@ llm-do processor "data" \
 | Field | Example | Use Case |
 |-------|---------|----------|
 | `model` | `--set model=openai:gpt-4o` | Try different models |
+| `compatible_models` | `--set compatible_models='["anthropic:*"]'` | Restrict allowed models |
 | `description` | `--set description="Updated desc"` | Document runtime purpose |
 | `locked` | `--set locked=true` | Prevent worker creation |
 | `allow_workers` | `--set allow_workers='["child"]'` | Control delegation |
@@ -199,6 +209,50 @@ When multiple `--set` flags target the same field, **last wins**:
 ```bash
 llm-do worker --set model=gpt-4 --set model=claude-sonnet
 # Uses: claude-sonnet
+```
+
+## Model Compatibility
+
+Workers can declare which models they're compatible with using the `compatible_models` field in their definition. This enables workers to enforce model requirements—for example, workers that process PDFs natively require Anthropic models.
+
+### Worker Definition
+
+```yaml
+# workers/pdf_analyzer.worker
+---
+name: pdf_analyzer
+compatible_models:
+  - "anthropic:*"    # Only Anthropic models
+---
+You analyze PDF documents...
+```
+
+### Pattern Syntax
+
+| Pattern | Matches |
+|---------|---------|
+| `*` | Any model |
+| `anthropic:*` | Any Anthropic model |
+| `anthropic:claude-haiku-*` | Claude Haiku variants |
+| `openai:gpt-4*` | GPT-4 variants |
+| `anthropic:claude-sonnet-4` | Exact model match |
+
+### Behavior
+
+- **Unset (`compatible_models: null`)**: Any model allowed (default, backward compatible)
+- **Wildcard (`["*"]`)**: Explicitly allows any model
+- **Patterns (`["anthropic:*", "openai:gpt-4o"]`)**: Model must match at least one pattern
+- **Empty list (`[]`)**: Invalid configuration (error)
+
+### Validation
+
+The `--model` CLI flag and caller's model (during delegation) are validated against `compatible_models`. The worker's own `model` field bypasses validation (trusted).
+
+```bash
+# Worker has compatible_models: ["anthropic:*"]
+$ llm-do pdf_analyzer --model openai:gpt-4o
+Error: Model 'openai:gpt-4o' is not compatible with worker 'pdf_analyzer'.
+Compatible patterns: 'anthropic:*'
 ```
 
 ## Exit Codes

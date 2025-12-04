@@ -72,7 +72,7 @@ llm-do pitch_evaluator --attachments input/deck.pdf \
   --set attachment_policy.max_total_bytes=20000000
 ```
 
-**Note:** This example requires a model with native PDF reading (e.g., Anthropic Claude models). Not all models support PDF attachments.
+**Note:** This worker has `compatible_models: ["anthropic:*"]` since native PDF reading requires Anthropic models. The CLI will reject incompatible models.
 
 ## More Examples
 
@@ -103,6 +103,7 @@ Check the `examples/` directory for additional patterns:
 - `name`: Worker identifier
 - `description`: What the worker does
 - `model`: Which LLM to use (optional, can override with `--model`)
+- `compatible_models`: Model compatibility patterns (e.g., `["anthropic:*"]` for PDF processing)
 - `sandbox`: File access configuration (paths, permissions, file filters)
 - `tool_rules`: Which tools require approval
 - `allow_workers`: Which workers can be delegated to

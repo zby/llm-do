@@ -1,15 +1,22 @@
 # CLI Reference
 
-The `llm-do` command-line interface provides flexible control over worker execution with runtime configuration, approval modes, and output formatting.
+The `llm-do` command-line interface runs projects and workers with runtime configuration, approval modes, and output formatting.
 
 ## Basic Usage
 
 ```bash
-llm-do WORKER [MESSAGE] [OPTIONS]
+# Run a project (finds main.worker in directory)
+llm-do ./my-project "input message"
+
+# Run a single worker file
+llm-do ./path/to/worker.worker "input message"
+
+# Run with options
+llm-do TARGET [MESSAGE] [OPTIONS]
 ```
 
 **Arguments:**
-- `WORKER` — Worker name or path to `.yaml` file (e.g., `greeter` or `examples/greeter.yaml`)
+- `TARGET` — Project directory (with `main.worker`) or path to `.worker` file
 - `MESSAGE` — Optional plain text input message. Use `--input` for JSON instead.
 
 ## Core Options
@@ -56,8 +63,15 @@ llm-do pdf_analyzer --model anthropic:claude-sonnet-4  # OK
 
 See [Model Compatibility](#model-compatibility) below for pattern syntax.
 
+**`--entry WORKER`**
+Override the entry point when running a project (default is `main`):
+```bash
+llm-do ./my-project --entry analyzer "input"
+llm-do ./my-project --entry workers/helper "input"
+```
+
 **`--registry PATH`**
-Specify worker registry root (defaults to current working directory):
+Specify worker registry root (defaults to project directory or current working directory):
 ```bash
 llm-do worker "hello" --registry /path/to/workers
 ```
@@ -255,6 +269,22 @@ Error: Model 'openai:gpt-4o' is not compatible with worker 'pdf_analyzer'.
 Compatible patterns: 'anthropic:*'
 ```
 
+## Project Initialization
+
+Create a new project with `llm-do init`:
+
+```bash
+llm-do init my-project
+```
+
+Creates:
+```
+my-project/
+├── main.worker
+├── input/
+└── output/
+```
+
 ## Exit Codes
 
 - `0` — Success
@@ -262,35 +292,35 @@ Compatible patterns: 'anthropic:*'
 
 ## Examples
 
-**Basic conversation:**
+**Run a project:**
 ```bash
-llm-do greeter "Tell me a joke" --model anthropic:claude-3-5-haiku-20241022
+llm-do ./examples/greeter "Tell me a joke"
+```
+
+**Run with different entry point:**
+```bash
+llm-do ./my-project --entry analyzer "input"
 ```
 
 **JSON output for scripting:**
 ```bash
-result=$(llm-do worker "query" --json)
+result=$(llm-do ./my-project "query" --json)
 echo "$result" | jq '.output'
-```
-
-**Attachment processing:**
-```bash
-llm-do pitch_evaluator --attachments input/deck.pdf --model $MODEL
 ```
 
 **Auto-approve for CI/CD:**
 ```bash
-llm-do worker "automated task" --approve-all --json > output.json
+llm-do ./my-project "automated task" --approve-all --json > output.json
 ```
 
-**Runtime model override:**
+**Runtime config override:**
 ```bash
-llm-do worker "task" --set model=openai:gpt-4o --approve-all
+llm-do ./my-project "task" --set model=openai:gpt-4o --approve-all
 ```
 
 **Production hardening:**
 ```bash
-llm-do production_worker "task" \
+llm-do ./my-project "task" \
   --set locked=true \
   --set attachment_policy.max_attachments=1 \
   --strict

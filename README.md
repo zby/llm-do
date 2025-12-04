@@ -102,28 +102,7 @@ llm-do init my-project
 
 ## Workers
 
-Workers are `.worker` files with YAML front matter + instructions:
-
-```yaml
-# main.worker
----
-name: main
-description: Orchestrate document analysis
-model: anthropic:claude-haiku-4-5
-toolsets:
-  worker_call: {}
-allow_workers:
-  - analyzer
-  - formatter
----
-You orchestrate document analysis.
-1. Call "analyzer" to extract key points
-2. Call "formatter" to create the final report
-```
-
-Workers call other workers via the `worker_call` tool—like function calls.
-
-### Worker Types
+Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via the `worker_call` tool—like function calls.
 
 | Type | Structure | Use When |
 |------|-----------|----------|
@@ -132,106 +111,29 @@ Workers call other workers via the `worker_call` tool—like function calls.
 
 Directory workers can have their own `tools.py` and templates that override project-level ones.
 
-## Project Configuration
-
-`project.yaml` provides defaults inherited by all workers:
-
-```yaml
-# project.yaml
-name: my-project
-model: anthropic:claude-haiku-4-5
-
-sandbox:
-  paths:
-    input:  { root: ./input, mode: ro }
-    output: { root: ./output, mode: rw }
-
-toolsets:
-  filesystem: {}
-```
-
-Workers inherit and can override:
-- `model` — worker value wins
-- `toolsets` — deep merged (worker adds to project)
-- `sandbox.paths` — deep merged (worker adds paths)
-
 ## Key Features
 
-**Sandboxed file access** — Workers only access declared directories:
-```yaml
-sandbox:
-  paths:
-    input:  { root: ./input, mode: ro, suffixes: [.pdf, .txt] }
-    output: { root: ./output, mode: rw }
-```
+- **Sandboxed file access** — Workers only access declared directories with permission controls
+- **Worker delegation** — Workers call other workers, with allowlists
+- **Custom tools** — Python functions in `tools.py` become LLM-callable tools
+- **Jinja2 templating** — Compose prompts from reusable templates
+- **Tool approvals** — Gate dangerous operations for human review
+- **Attachment policies** — Control file inputs (size, count, types)
+- **Server-side tools** — Provider-executed capabilities (web search, code execution)
+- **Config inheritance** — `project.yaml` provides defaults, workers override
 
-**Custom tools** — Add Python functions in `tools.py`:
-```python
-# tools.py (project-level) or workers/name/tools.py (worker-level)
-def calculate(expression: str) -> float:
-    """Evaluate a math expression."""
-    return eval(expression)
-```
+## Examples
 
-**Jinja2 templating** — Compose prompts from templates:
-```yaml
----
-name: reporter
----
-{% include 'report_template.jinja' %}
+See [`examples/`](examples/) for working code:
 
-Additional instructions here.
-```
-
-Templates are searched: worker directory → project `templates/` → built-ins.
-
-**Tool approval system** — Gate dangerous operations:
-```yaml
-tool_rules:
-  - pattern: "shell_*"
-    approval: always
-  - pattern: "file_write"
-    approval: once
-```
-
-**Attachment handling** — Control file inputs:
-```yaml
-attachment_policy:
-  max_attachments: 1
-  max_total_bytes: 10000000
-  allowed_suffixes: [.pdf]
-```
-
-**Server-side tools** — Provider-executed capabilities:
-```yaml
-server_side_tools:
-  - tool_type: web_search
-    max_uses: 5
-```
-
-## Example: Multi-Worker Pipeline
-
-```
-pitchdeck_eval/
-├── main.worker              # Entry: orchestrates evaluation
-├── project.yaml             # Shared model and sandbox config
-└── workers/
-    ├── pitch_evaluator.worker   # Analyzes pitch decks
-    └── report_formatter.worker  # Formats results
-```
-
-```bash
-llm-do ./pitchdeck_eval --attachments deck.pdf "Evaluate this pitch"
-```
-
-The main worker delegates to specialized workers, each with focused context.
-
-See [`examples/`](examples/) for more patterns:
-- **`greeter/`** — Minimal project
-- **`pitchdeck_eval/`** — Multi-worker orchestration
-- **`calculator/`** — Custom tools
-- **`code_analyzer/`** — Shell with approval rules
-- **`web_searcher/`** — Server-side tools
+| Example | Demonstrates |
+|---------|--------------|
+| [`greeter/`](examples/greeter/) | Minimal project structure |
+| [`pitchdeck_eval/`](examples/pitchdeck_eval/) | Multi-worker orchestration, PDF attachments |
+| [`calculator/`](examples/calculator/) | Custom Python tools |
+| [`approvals_demo/`](examples/approvals_demo/) | Write approval for sandbox files |
+| [`code_analyzer/`](examples/code_analyzer/) | Shell commands with approval rules |
+| [`web_searcher/`](examples/web_searcher/) | Server-side tools (web search) |
 
 ## Documentation
 

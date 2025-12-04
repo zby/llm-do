@@ -2,11 +2,39 @@
 
 ## Core Idea
 
-**Treat prompts as executables, with LLMs as the interpreter.**
+**Projects are programs. Workers are functions.**
 
-Just like source code is packaged with build configs and dependencies to become executable programs, prompts need to be packaged with configuration (model, tools, schemas, security constraints) to become executable workers.
+Just like programs compose focused functions, LLM workflows compose focused workers. Each worker does one thing well with tight context—no bloated multi-purpose prompts.
 
-A **worker** = prompt template + configuration + tools, packaged as an executable unit that the LLM interprets.
+| Programming | llm-do |
+|-------------|--------|
+| Program | Project directory |
+| `main()` | `main.worker` |
+| Function | `.worker` file |
+| Function call | `worker_call` tool |
+
+A **project** is a directory with a `main.worker` entry point. A **worker** is a prompt template + configuration + tools, packaged as an executable unit that the LLM interprets.
+
+## What Is a Project?
+
+A **project** is a directory that packages workers together:
+
+```
+my-project/
+├── main.worker           # Entry point (required)
+├── project.yaml          # Shared config (optional)
+├── tools.py              # Project-wide Python tools (optional)
+├── templates/            # Shared Jinja templates (optional)
+├── workers/              # Helper workers (optional)
+│   ├── analyzer.worker
+│   └── formatter/
+│       ├── worker.worker
+│       └── tools.py      # Worker-specific tools
+├── input/                # Input sandbox (convention)
+└── output/               # Output sandbox (convention)
+```
+
+**Configuration inheritance**: `project.yaml` provides defaults (model, sandbox, toolsets) inherited by all workers. Workers can override.
 
 ## What Is a Worker?
 
@@ -22,8 +50,8 @@ Workers live as `.worker` files (YAML front matter + instructions) and can be:
 
 | Form | Path | Capabilities |
 |------|------|--------------|
-| **Single-file** | `workers/name.worker` | Portable - one file, no dependencies. Built-in tools only. |
-| **Directory** | `workers/name/worker.worker` | Full power - custom Python tools (`tools.py`), Jinja templates. |
+| **Single-file** | `name.worker` | Portable - one file, no dependencies. Built-in tools only. |
+| **Directory** | `name/worker.worker` | Full power - custom Python tools (`tools.py`), Jinja templates. |
 
 Single-file workers are intentionally limited to enable **truly portable LLM executables** - copy one `.worker` file and it works anywhere. For custom tools or worker-specific templates, use the directory model.
 
@@ -117,17 +145,19 @@ Workers start flexible, then harden as patterns stabilize:
 
 ## Design Principles
 
-1. **Prompts as executables** — Workers are self-contained units you can run from CLI or invoke from other workers
+1. **Projects as programs** — A project directory is the executable unit, `main.worker` is the entry point
 
-2. **Workers as artifacts** — Saved to disk, version controlled, auditable, refinable by programmers
+2. **Workers as functions** — Focused, composable units that do one thing well
 
-3. **Security by construction** — Sandboxes, attachment validation, approval enforcement happen in code, not by hoping the LLM follows instructions
+3. **Workers as artifacts** — Saved to disk, version controlled, auditable, refinable by programmers
 
-4. **Explicit configuration** — Tool access and worker allowlists declared in definitions, not inherited
+4. **Guardrails by construction** — Sandboxes, attachment validation, approval enforcement happen in code, guarding against LLM mistakes (not security against attackers)
 
-5. **Recursive composability** — Workers calling workers should feel like function calls
+5. **Explicit configuration** — Tool access and worker allowlists declared in definitions, not inherited
 
-6. **Approval controls** — Balance autonomy with safety. Pre-approve benign operations, require approval for consequential actions
+6. **Recursive composability** — Workers calling workers should feel like function calls
+
+7. **Progressive hardening** — Start with prompts for flexibility, extract deterministic logic to Python as patterns stabilize
 
 ## Architecture Overview
 

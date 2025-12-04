@@ -1,0 +1,180 @@
+"""Model compatibility checking for workers.
+
+This module provides utilities for validating that a model is compatible
+with a worker's declared compatible_models patterns.
+
+Pattern syntax:
+- "*" matches any model
+- "anthropic:*" matches any model from the anthropic provider
+- "anthropic:claude-haiku-*" matches claude-haiku variants
+- "anthropic:claude-haiku-4-5" matches exactly that model
+"""
+from __future__ import annotations
+
+import fnmatch
+from dataclasses import dataclass
+from typing import List, Optional
+
+
+class ModelCompatibilityError(ValueError):
+    """Raised when a model is incompatible with worker requirements."""
+    pass
+
+
+class NoModelError(ValueError):
+    """Raised when no model is available for a worker."""
+    pass
+
+
+class InvalidCompatibleModelsError(ValueError):
+    """Raised when compatible_models configuration is invalid (e.g., empty list)."""
+    pass
+
+
+@dataclass
+class ModelValidationResult:
+    """Result of model compatibility validation."""
+
+    valid: bool
+    model: str
+    message: Optional[str] = None
+
+
+def _normalize_pattern(pattern: str) -> str:
+    """Normalize a pattern for matching."""
+    return pattern.strip().lower()
+
+
+def _normalize_model(model: str) -> str:
+    """Normalize a model identifier for matching."""
+    return model.strip().lower()
+
+
+def model_matches_pattern(model: str, pattern: str) -> bool:
+    """Check if a model matches a compatibility pattern.
+
+    Uses fnmatch for glob-style matching:
+    - "*" matches everything
+    - "anthropic:*" matches "anthropic:claude-sonnet-4"
+    - "anthropic:claude-*" matches "anthropic:claude-sonnet-4", "anthropic:claude-haiku-4-5"
+
+    Args:
+        model: The model identifier to check (e.g., "anthropic:claude-sonnet-4")
+        pattern: The pattern to match against (e.g., "anthropic:*")
+
+    Returns:
+        True if the model matches the pattern
+    """
+    normalized_model = _normalize_model(model)
+    normalized_pattern = _normalize_pattern(pattern)
+    return fnmatch.fnmatch(normalized_model, normalized_pattern)
+
+
+def validate_model_compatibility(
+    model: str,
+    compatible_models: Optional[List[str]],
+    *,
+    worker_name: str = "worker",
+) -> ModelValidationResult:
+    """Validate that a model is compatible with the worker's requirements.
+
+    Compatibility rules:
+    - None (unset): Any model is allowed
+    - ["*"]: Explicitly allows any model
+    - []: Empty list is invalid (configuration error)
+    - ["pattern1", "pattern2", ...]: Model must match at least one pattern
+
+    Args:
+        model: The model identifier to validate
+        compatible_models: List of compatibility patterns from worker definition
+        worker_name: Name of the worker (for error messages)
+
+    Returns:
+        ModelValidationResult indicating if the model is valid
+
+    Raises:
+        ValueError: If compatible_models is an empty list (invalid configuration)
+    """
+    # None means any model is allowed
+    if compatible_models is None:
+        return ModelValidationResult(valid=True, model=model)
+
+    # Empty list is a configuration error
+    if len(compatible_models) == 0:
+        raise InvalidCompatibleModelsError(
+            f"Worker '{worker_name}' has empty compatible_models list. "
+            "Use ['*'] for any model, or specify compatible patterns."
+        )
+
+    # Check if model matches any pattern
+    for pattern in compatible_models:
+        if model_matches_pattern(model, pattern):
+            return ModelValidationResult(valid=True, model=model)
+
+    # No match found
+    patterns_display = ", ".join(f"'{p}'" for p in compatible_models)
+    return ModelValidationResult(
+        valid=False,
+        model=model,
+        message=(
+            f"Model '{model}' is not compatible with worker '{worker_name}'. "
+            f"Compatible patterns: {patterns_display}"
+        ),
+    )
+
+
+def select_model(
+    *,
+    worker_model: Optional[str],
+    cli_model: Optional[str],
+    caller_model: Optional[str],
+    compatible_models: Optional[List[str]],
+    worker_name: str = "worker",
+) -> str:
+    """Select and validate the effective model for a worker.
+
+    Resolution order:
+    1. Worker's own model (if set)
+    2. CLI model (if provided and compatible)
+    3. Caller's model (inherited from parent worker)
+
+    Args:
+        worker_model: Model from worker definition
+        cli_model: Model from --model CLI flag
+        caller_model: Model inherited from parent worker (delegation)
+        compatible_models: Worker's compatibility patterns
+        worker_name: Name of the worker (for error messages)
+
+    Returns:
+        The selected model identifier
+
+    Raises:
+        ValueError: If no model is available or CLI model is incompatible
+    """
+    # Worker's own model takes precedence
+    if worker_model is not None:
+        return worker_model
+
+    # CLI model next - must be validated against compatible_models
+    if cli_model is not None:
+        result = validate_model_compatibility(
+            cli_model, compatible_models, worker_name=worker_name
+        )
+        if not result.valid:
+            raise ModelCompatibilityError(result.message)
+        return cli_model
+
+    # Caller model (delegation) - also validated
+    if caller_model is not None:
+        result = validate_model_compatibility(
+            caller_model, compatible_models, worker_name=worker_name
+        )
+        if not result.valid:
+            raise ModelCompatibilityError(result.message)
+        return caller_model
+
+    # No model available
+    raise NoModelError(
+        f"No model configured for worker '{worker_name}'. "
+        "Set worker.model, pass --model, or provide a custom agent_runner."
+    )

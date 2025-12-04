@@ -25,6 +25,7 @@ from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
 from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
+from .model_compat import select_model, ModelCompatibilityError, NoModelError
 from pydantic_ai_blocking_approval import (
     ApprovalController,
     ApprovalDecision,
@@ -122,7 +123,24 @@ def _prepare_worker_context(
     if attachment_payloads:
         definition.attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
 
-    effective_model = definition.model or caller_effective_model or cli_model
+    # Select model with compatibility validation
+    # Resolution: worker.model > cli_model > caller_model, validated against compatible_models
+    # ModelCompatibilityError propagates immediately (user error)
+    # NoModelError is deferred to execution (backward compat with custom agent_runners)
+    effective_model: Optional[ModelLike] = None
+    try:
+        effective_model = select_model(
+            worker_model=definition.model,
+            cli_model=cli_model,
+            caller_model=caller_effective_model,
+            compatible_models=definition.compatible_models,
+            worker_name=worker,
+        )
+    except NoModelError:
+        # No model available - will be caught later in execution
+        # This keeps backward compatibility with workers that use custom agent_runner
+        pass
+    # ModelCompatibilityError propagates - user needs to fix the incompatible model
 
     context = WorkerContext(
         # Core

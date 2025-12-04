@@ -17,6 +17,11 @@ from .base import (
     create_worker,
     run_worker,
 )
+from .model_compat import (
+    InvalidCompatibleModelsError,
+    ModelCompatibilityError,
+    NoModelError,
+)
 from .sandbox import AttachmentPolicy
 
 __all__ = [
@@ -25,6 +30,9 @@ __all__ = [
     "ApprovalDecision",
     "AttachmentPayload",
     "AttachmentPolicy",
+    "InvalidCompatibleModelsError",
+    "ModelCompatibilityError",
+    "NoModelError",
     "ServerSideToolConfig",
     "WorkerContext",
     "WorkerCreationDefaults",

@@ -35,7 +35,7 @@ pip install -e .
 export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 
 # Run a project
-llm-do ./examples/greeter "Tell me a joke"
+llm-do ./examples/greeter "Tell me a joke" --model anthropic:claude-haiku-4-5
 ```
 
 That's it. The CLI finds `main.worker` in the project directory and runs it.
@@ -83,16 +83,16 @@ This progression reflects **progressive hardening**: initially you might prompt 
 
 ```bash
 # Run project (finds main.worker)
-llm-do ./my-project "input message"
+llm-do ./my-project "input message" --model anthropic:claude-haiku-4-5
 
 # Run with different entry point
-llm-do ./my-project --entry analyzer "input"
+llm-do ./my-project --entry analyzer "input" --model anthropic:claude-haiku-4-5
 
 # Run single worker file directly
-llm-do ./standalone.worker "input"
+llm-do ./standalone.worker "input" --model anthropic:claude-haiku-4-5
 
-# Override config at runtime
-llm-do ./my-project "input" --set model=anthropic:claude-sonnet-4
+# Override other config at runtime
+llm-do ./my-project "input" --model anthropic:claude-sonnet-4 --set locked=true
 ```
 
 Create a new project:

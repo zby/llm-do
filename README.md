@@ -141,11 +141,10 @@ See [`examples/`](examples/) for working code:
 
 ## Documentation
 
-- **[`docs/cli.md`](docs/cli.md)** — CLI reference
-- **[`docs/architecture.md`](docs/architecture.md)** — Internal design
-- **[`docs/worker_delegation.md`](docs/worker_delegation.md)** — Worker-to-worker calls
 - **[`docs/concept.md`](docs/concept.md)** — Design philosophy
-- **[`AGENTS.md`](AGENTS.md)** — Development guide
+- **[`docs/cli.md`](docs/cli.md)** — CLI reference
+- **[`docs/worker_delegation.md`](docs/worker_delegation.md)** — Worker-to-worker calls
+- **[`docs/architecture.md`](docs/architecture.md)** — Internal design
 
 ## Status
 

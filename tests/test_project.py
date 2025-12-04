@@ -389,60 +389,6 @@ class TestPhase2TemplateSearchPaths:
         assert "Worker version" in definition.instructions
 
 
-class TestPhase2ToolAggregation:
-    """Tests for Phase 2: Tool aggregation."""
-
-    def test_find_all_custom_tools_worker_only(self, tmp_path):
-        """Test finding tools from worker directory only."""
-        workers_dir = tmp_path / "workers" / "with_tools"
-        workers_dir.mkdir(parents=True)
-        (workers_dir / "worker.worker").write_text("---\nname: with_tools\n---\n")
-        (workers_dir / "tools.py").write_text("def my_tool(): pass")
-
-        registry = WorkerRegistry(tmp_path)
-        tools_paths = registry.find_all_custom_tools("with_tools")
-
-        assert len(tools_paths) == 1
-        assert tools_paths[0] == workers_dir / "tools.py"
-
-    def test_find_all_custom_tools_with_project(self, tmp_path):
-        """Test finding tools from both worker and project."""
-        # Worker with tools
-        workers_dir = tmp_path / "workers" / "with_tools"
-        workers_dir.mkdir(parents=True)
-        (workers_dir / "worker.worker").write_text("---\nname: with_tools\n---\n")
-        (workers_dir / "tools.py").write_text("def worker_tool(): pass")
-
-        # Project tools
-        (tmp_path / "tools.py").write_text("def project_tool(): pass")
-
-        project_config = ProjectConfig()
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
-        tools_paths = registry.find_all_custom_tools("with_tools")
-
-        assert len(tools_paths) == 2
-        assert workers_dir / "tools.py" in tools_paths  # Worker tools first
-        assert tmp_path / "tools.py" in tools_paths  # Project tools second
-
-    def test_find_all_custom_tools_package(self, tmp_path):
-        """Test finding tools/ package."""
-        workers_dir = tmp_path / "workers" / "pkg_tools"
-        workers_dir.mkdir(parents=True)
-        (workers_dir / "worker.worker").write_text("---\nname: pkg_tools\n---\n")
-
-        # Create tools package
-        tools_pkg = workers_dir / "tools"
-        tools_pkg.mkdir()
-        (tools_pkg / "__init__.py").write_text("from .helpers import *")
-        (tools_pkg / "helpers.py").write_text("def helper(): pass")
-
-        registry = WorkerRegistry(tmp_path)
-        tools_paths = registry.find_all_custom_tools("pkg_tools")
-
-        assert len(tools_paths) == 1
-        assert tools_paths[0] == tools_pkg
-
-
 class TestPhase2ExplicitPathSyntax:
     """Tests for Phase 2: Explicit path syntax (./workers/helper)."""
 
@@ -488,4 +434,3 @@ class TestPhase2ExplicitPathSyntax:
             registry.load_definition("utils:summarizer")
 
         assert "not yet supported" in str(exc_info.value)
-        assert "Phase 3" in str(exc_info.value)

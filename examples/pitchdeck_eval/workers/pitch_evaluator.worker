@@ -4,6 +4,8 @@ attachment_policy:
   - .pdf
   max_attachments: 1
   max_total_bytes: 10000000
+compatible_models:
+  - "anthropic:*"
 description: Analyze a PDF pitch deck and return a markdown evaluation report.
 name: pitch_evaluator
 ---

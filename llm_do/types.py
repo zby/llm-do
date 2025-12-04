@@ -93,8 +93,8 @@ class ServerSideToolConfig(BaseModel):
     Provider support varies - check pydantic-ai docs for compatibility.
     """
 
-    tool_type: Literal["web_search", "web_fetch", "code_execution", "image_generation", "url_context"] = Field(
-        description="Type of server-side tool. Note: 'url_context' is deprecated, use 'web_fetch' instead."
+    tool_type: Literal["web_search", "web_fetch", "code_execution", "image_generation"] = Field(
+        description="Type of server-side tool."
     )
     max_uses: Optional[int] = Field(
         default=None,

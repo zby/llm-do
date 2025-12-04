@@ -81,7 +81,6 @@ SERVER_SIDE_TOOL_FACTORIES: Dict[str, Callable[[ServerSideToolConfig], Any]] = {
         allowed_domains=cfg.allowed_domains,
     ),
     "web_fetch": lambda cfg: WebFetchTool(),
-    "url_context": lambda cfg: WebFetchTool(),  # Deprecated alias for web_fetch
     "code_execution": lambda cfg: CodeExecutionTool(),
     "image_generation": lambda cfg: ImageGenerationTool(),
 }

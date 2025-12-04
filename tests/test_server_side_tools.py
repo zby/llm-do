@@ -53,14 +53,6 @@ class TestBuildServerSideTools:
         assert tool.allowed_domains == ["trusted.com"]
         assert tool.blocked_domains is None
 
-    def test_url_context_basic(self):
-        """Test url_context tool conversion (deprecated alias for web_fetch)."""
-        configs = [ServerSideToolConfig(tool_type="url_context")]
-        tools = build_server_side_tools(configs)
-
-        assert len(tools) == 1
-        assert isinstance(tools[0], WebFetchTool)
-
     def test_web_fetch_basic(self):
         """Test web_fetch tool conversion."""
         configs = [ServerSideToolConfig(tool_type="web_fetch")]
@@ -90,7 +82,7 @@ class TestBuildServerSideTools:
         configs = [
             ServerSideToolConfig(tool_type="web_search", max_uses=3),
             ServerSideToolConfig(tool_type="code_execution"),
-            ServerSideToolConfig(tool_type="url_context"),
+            ServerSideToolConfig(tool_type="web_fetch"),
         ]
         tools = build_server_side_tools(configs)
 
@@ -120,14 +112,14 @@ class TestWorkerDefinitionServerSideTools:
             instructions="Research the topic",
             server_side_tools=[
                 ServerSideToolConfig(tool_type="web_search", max_uses=5),
-                ServerSideToolConfig(tool_type="url_context"),
+                ServerSideToolConfig(tool_type="web_fetch"),
             ],
         )
 
         assert len(definition.server_side_tools) == 2
         assert definition.server_side_tools[0].tool_type == "web_search"
         assert definition.server_side_tools[0].max_uses == 5
-        assert definition.server_side_tools[1].tool_type == "url_context"
+        assert definition.server_side_tools[1].tool_type == "web_fetch"
 
     def test_serialization_round_trip(self):
         """Test that server_side_tools survive serialization."""

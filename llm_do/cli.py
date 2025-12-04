@@ -190,11 +190,39 @@ def _build_streaming_callback(console: Console):
 
 
 
+def _parse_init_args(argv: list[str]) -> argparse.Namespace:
+    """Parse arguments for 'llm-do init' command."""
+    parser = argparse.ArgumentParser(
+        prog="llm-do init",
+        description="Initialize a new llm-do project"
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Directory to initialize (default: current directory)",
+    )
+    parser.add_argument(
+        "--name",
+        default=None,
+        help="Project name (default: directory name)",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Default model for the project (e.g., anthropic:claude-haiku-4-5)",
+    )
+    return parser.parse_args(argv)
+
+
 def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a PydanticAI worker")
+    parser = argparse.ArgumentParser(
+        description="Run a PydanticAI worker",
+        epilog="Use 'llm-do init' to create a new project."
+    )
     parser.add_argument(
         "worker",
-        help="Worker name or path to .yaml file (e.g., 'greeter' or 'examples/greeter.yaml')",
+        help="Worker name, path to .worker file, or project directory",
     )
     parser.add_argument(
         "message",
@@ -276,8 +304,71 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def init_project(argv: list[str]) -> int:
+    """Initialize a new llm-do project.
+
+    Creates:
+    - main.worker: Entry point worker
+    - project.yaml: Project configuration (if --name or --model specified)
+    """
+    args = _parse_init_args(argv)
+    console = Console()
+
+    project_path = Path(args.path).resolve()
+
+    # Create directory if needed
+    if not project_path.exists():
+        project_path.mkdir(parents=True)
+        console.print(f"Created directory: {project_path}")
+
+    # Check for existing project
+    main_worker = project_path / "main.worker"
+    project_yaml = project_path / "project.yaml"
+
+    if main_worker.exists():
+        console.print(f"[yellow]Project already initialized: {main_worker} exists[/yellow]")
+        return 1
+
+    # Determine project name
+    project_name = args.name or project_path.name
+
+    # Create main.worker
+    main_worker_content = f"""---
+name: main
+description: Main entry point for {project_name}
+---
+You are a helpful assistant for the {project_name} project.
+
+Respond to the user's request.
+"""
+    main_worker.write_text(main_worker_content)
+    console.print(f"Created: {main_worker}")
+
+    # Create project.yaml if name or model specified
+    if args.name or args.model:
+        project_config = f"name: {project_name}\n"
+        if args.model:
+            project_config += f"model: {args.model}\n"
+        project_yaml.write_text(project_config)
+        console.print(f"Created: {project_yaml}")
+
+    console.print(f"\n[green]Project initialized![/green]")
+    console.print(f"\nRun your project with:")
+    console.print(f"  llm-do {project_path} \"your message\"")
+
+    return 0
+
+
 def main(argv: Optional[list[str]] = None) -> int:
-    args = _parse_args(argv)
+    # Handle 'init' subcommand
+    if argv is None:
+        argv = sys.argv[1:]
+
+    if argv and argv[0] == "init":
+        return init_project(argv[1:])
+
+    # Parse args for normal worker execution
+    args = _parse_args(argv if argv else None)
     console = Console()
     prompt_console = console if not args.json else Console(stderr=True)
 

@@ -793,8 +793,8 @@ def detect_invocation_mode(arg: str) -> InvocationMode:
 
 #### Phase 3: CLI Enhancement
 - [x] Add `--entry` flag (implemented in Phase 1)
-- [ ] Add `llm-do init` command
-- [ ] Update help text and documentation
+- [x] Add `llm-do init` command
+- [x] Update help text and documentation
 
 #### Phase 4: Examples & Polish
 - [ ] Update all examples to project structure

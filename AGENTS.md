@@ -8,7 +8,6 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 - `README.md` — setup, CLI usage, examples
 - `docs/worker_delegation.md` — read when implementing worker hierarchies or delegation
-- `docs/worker_pitfalls.md` — read before creating or modifying workers
 - `docs/notes/` — working design documents and explorations (see Notes section)
 - `examples/pitchdeck_eval/` — reference implementation for multi-worker patterns
 

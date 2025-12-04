@@ -281,10 +281,11 @@ class WorkerRegistry:
         return data
 
     def find_custom_tools(self, name: str) -> Optional[Path]:
-        """Find custom tools module for a worker (single path, for backward compatibility).
+        """Find custom tools module for a worker.
 
-        Checks for tools.py in the same directory as the worker definition.
-        Only applies to directory-based workers (workers/name/worker.worker).
+        Search order:
+        1. Worker directory: workers/name/tools.py (for directory-form workers)
+        2. Project root: tools.py (when project_config is set)
 
         Args:
             name: Worker name
@@ -296,12 +297,17 @@ class WorkerRegistry:
         if not path.exists():
             return None
 
-        # Only directory-based workers can have custom tools
-        # Check if this is workers/name/worker.worker pattern
+        # 1. Check worker directory (for directory-form workers)
         if path.name == "worker.worker":
             tools_path = path.parent / "tools.py"
             if tools_path.exists():
                 return tools_path
+
+        # 2. Check project root (when in project mode)
+        if self.project_config is not None:
+            project_tools = self.root / "tools.py"
+            if project_tools.exists():
+                return project_tools
 
         return None
 

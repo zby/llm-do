@@ -389,6 +389,65 @@ class TestPhase2TemplateSearchPaths:
         assert "Worker version" in definition.instructions
 
 
+class TestProjectLevelTools:
+    """Tests for project-level tools.py discovery."""
+
+    def test_find_custom_tools_at_project_root(self, tmp_path):
+        """Test that tools.py at project root is found in project mode."""
+        # Create main.worker at root
+        (tmp_path / "main.worker").write_text("---\nname: main\n---\nMain worker")
+
+        # Create tools.py at project root
+        (tmp_path / "tools.py").write_text("def my_tool(): pass")
+
+        # Without project_config, tools should NOT be found
+        registry = WorkerRegistry(tmp_path)
+        assert registry.find_custom_tools("main") is None
+
+        # With project_config, tools SHOULD be found
+        project_config = ProjectConfig()
+        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        tools_path = registry.find_custom_tools("main")
+
+        assert tools_path is not None
+        assert tools_path == tmp_path / "tools.py"
+
+    def test_worker_tools_take_precedence_over_project(self, tmp_path):
+        """Test that worker-level tools.py takes precedence over project-level."""
+        # Create directory-form worker with its own tools
+        worker_dir = tmp_path / "workers" / "myworker"
+        worker_dir.mkdir(parents=True)
+        (worker_dir / "worker.worker").write_text("---\nname: myworker\n---\n")
+        (worker_dir / "tools.py").write_text("def worker_tool(): pass")
+
+        # Create project-level tools
+        (tmp_path / "tools.py").write_text("def project_tool(): pass")
+
+        project_config = ProjectConfig()
+        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        tools_path = registry.find_custom_tools("myworker")
+
+        # Worker-level tools should win
+        assert tools_path == worker_dir / "tools.py"
+
+    def test_simple_worker_uses_project_tools(self, tmp_path):
+        """Test that simple-form workers can use project-level tools."""
+        # Create simple-form worker (not directory-based)
+        workers_dir = tmp_path / "workers"
+        workers_dir.mkdir()
+        (workers_dir / "simple.worker").write_text("---\nname: simple\n---\n")
+
+        # Create project-level tools
+        (tmp_path / "tools.py").write_text("def shared_tool(): pass")
+
+        project_config = ProjectConfig()
+        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        tools_path = registry.find_custom_tools("simple")
+
+        # Project-level tools should be found
+        assert tools_path == tmp_path / "tools.py"
+
+
 class TestPhase2ExplicitPathSyntax:
     """Tests for Phase 2: Explicit path syntax (./workers/helper)."""
 

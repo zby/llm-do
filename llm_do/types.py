@@ -116,6 +116,11 @@ class WorkerDefinition(BaseModel):
     description: Optional[str] = None
     instructions: Optional[str] = None  # Acts as the worker's system prompt. Optional: can load from prompts/{name}.{txt,jinja2,j2,md}
     model: Optional[str] = None
+    compatible_models: Optional[List[str]] = Field(
+        default=None,
+        description="Model compatibility patterns. Supports wildcards: '*' (any), 'anthropic:*' (provider), "
+                    "'anthropic:claude-haiku-*' (family). None/unset means any model. Empty list is invalid."
+    )
     output_schema_ref: Optional[str] = None
 
     # Sandbox configuration (creates the sandbox object for file I/O)

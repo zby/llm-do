@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import fnmatch
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional
 
 
 class ModelCompatibilityError(ValueError):
@@ -126,11 +126,11 @@ def validate_model_compatibility(
 def select_model(
     *,
     worker_model: Optional[str],
-    cli_model: Optional[str],
-    caller_model: Optional[str],
+    cli_model: Optional[Any],  # str or Model object
+    caller_model: Optional[Any],  # str or Model object
     compatible_models: Optional[List[str]],
     worker_name: str = "worker",
-) -> str:
+) -> Any:
     """Select and validate the effective model for a worker.
 
     Resolution order:
@@ -156,21 +156,25 @@ def select_model(
         return worker_model
 
     # CLI model next - must be validated against compatible_models
+    # Only validate string model identifiers; Model objects are used as-is
     if cli_model is not None:
-        result = validate_model_compatibility(
-            cli_model, compatible_models, worker_name=worker_name
-        )
-        if not result.valid:
-            raise ModelCompatibilityError(result.message)
+        if isinstance(cli_model, str):
+            result = validate_model_compatibility(
+                cli_model, compatible_models, worker_name=worker_name
+            )
+            if not result.valid:
+                raise ModelCompatibilityError(result.message)
         return cli_model
 
     # Caller model (delegation) - also validated
+    # Only validate string model identifiers; Model objects are used as-is
     if caller_model is not None:
-        result = validate_model_compatibility(
-            caller_model, compatible_models, worker_name=worker_name
-        )
-        if not result.valid:
-            raise ModelCompatibilityError(result.message)
+        if isinstance(caller_model, str):
+            result = validate_model_compatibility(
+                caller_model, compatible_models, worker_name=worker_name
+            )
+            if not result.valid:
+                raise ModelCompatibilityError(result.message)
         return caller_model
 
     # No model available

@@ -797,7 +797,7 @@ def detect_invocation_mode(arg: str) -> InvocationMode:
 - [x] Update help text and documentation
 
 #### Phase 4: Examples & Polish
-- [ ] Update all examples to project structure
+- [x] Update all examples to project structure
 
 #### Phase 5: Libraries (FUTURE)
 - [ ] Define `lib.yaml` schema (LibraryConfig model)

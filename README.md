@@ -1,10 +1,20 @@
 # llm-do
 
-Build LLM workflows where **projects are programs** and **workers are functions**.
+Package prompts with configuration to create executables.
 
-Just as complex programs compose focused functions, complex LLM workflows compose focused workers. Each worker does one thing well with tight context—no bloated multi-purpose prompts.
+## Why llm-do?
+
+**Tight context.** Each worker does one thing well. No bloated multi-purpose prompts that try to handle everything.
+
+**Composability.** Workers call other workers like functions. Build complex workflows from simple, focused pieces.
+
+**Guardrails by construction.** Sandboxes limit file access, attachment policies cap resources, tool approvals gate dangerous operations. Guards against LLM mistakes, enforced in code rather than prompt instructions.
+
+**Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code.
 
 ## The Model
+
+A **project** is a directory with a `main.worker` entry point. Workers are focused prompt units that compose like functions:
 
 | Programming | llm-do |
 |-------------|--------|
@@ -52,20 +62,22 @@ my-project/
     └── formatter.worker  # Another focused worker
 ```
 
-**Full project** — tools, templates, and structure:
+**With hardened operations** — extract reliable logic to Python:
 ```
 my-project/
 ├── main.worker
 ├── project.yaml
+├── tools.py              # Deterministic operations as functions
 ├── workers/
 │   └── specialist/
 │       ├── worker.worker
 │       └── tools.py      # Worker-specific tools
-├── tools.py              # Project-wide tools
 ├── templates/            # Shared Jinja templates
-├── input/                # Input files (convention)
-└── output/               # Output files (convention)
+├── input/
+└── output/
 ```
+
+This progression reflects **progressive hardening**: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability.
 
 ## Running Projects
 
@@ -86,7 +98,6 @@ llm-do ./my-project "input" --set model=anthropic:claude-sonnet-4
 Create a new project:
 ```bash
 llm-do init my-project
-llm-do init my-project --template pipeline
 ```
 
 ## Workers
@@ -221,16 +232,6 @@ See [`examples/`](examples/) for more patterns:
 - **`calculator/`** — Custom tools
 - **`code_analyzer/`** — Shell with approval rules
 - **`web_searcher/`** — Server-side tools
-
-## Why This Model?
-
-**Tight context.** LLMs perform dramatically better with focused, limited context. A worker trying to do everything is like a 500-line function.
-
-**Composability.** Complex tasks decompose into workers that call workers. The orchestrator doesn't need to know implementation details.
-
-**Guardrails by construction.** Sandboxes, attachment policies, and tool approvals are enforced in code—not suggestions the LLM might ignore.
-
-**Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to Python tools.
 
 ## Documentation
 

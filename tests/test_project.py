@@ -457,3 +457,177 @@ class TestProjectConfigToCreationDefaults:
         assert defaults.default_toolsets == {"filesystem": {}}
         assert defaults.default_sandbox is not None
         assert "data" in defaults.default_sandbox.paths
+
+
+class TestPhase2TemplateSearchPaths:
+    """Tests for Phase 2: Template search paths."""
+
+    def test_worker_local_templates(self, tmp_path):
+        """Test that worker-local templates are found."""
+        # Create project structure
+        workers_dir = tmp_path / "workers" / "templated"
+        workers_dir.mkdir(parents=True)
+
+        # Create worker with template include
+        (workers_dir / "worker.worker").write_text(
+            "---\nname: templated\n---\n{% include 'header.jinja' %}\nMain content"
+        )
+
+        # Create worker-local template
+        (workers_dir / "header.jinja").write_text("# Worker Header\n")
+
+        registry = WorkerRegistry(tmp_path)
+        definition = registry.load_definition("templated")
+
+        assert "# Worker Header" in definition.instructions
+        assert "Main content" in definition.instructions
+
+    def test_project_templates_directory(self, tmp_path):
+        """Test that project templates/ directory is searched."""
+        # Create project structure
+        workers_dir = tmp_path / "workers"
+        workers_dir.mkdir()
+        templates_dir = tmp_path / "templates"
+        templates_dir.mkdir()
+
+        # Create worker with template include
+        (workers_dir / "test.worker").write_text(
+            "---\nname: test\n---\n{% include 'shared.jinja' %}"
+        )
+
+        # Create project-level template
+        (templates_dir / "shared.jinja").write_text("Shared project content")
+
+        # Need project config to enable project templates
+        project_config = ProjectConfig()
+        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        definition = registry.load_definition("test")
+
+        assert "Shared project content" in definition.instructions
+
+    def test_worker_templates_override_project(self, tmp_path):
+        """Test that worker-local templates take precedence over project templates."""
+        # Create structure
+        workers_dir = tmp_path / "workers" / "override"
+        workers_dir.mkdir(parents=True)
+        templates_dir = tmp_path / "templates"
+        templates_dir.mkdir()
+
+        # Create worker
+        (workers_dir / "worker.worker").write_text(
+            "---\nname: override\n---\n{% include 'common.jinja' %}"
+        )
+
+        # Create worker-local template (should win)
+        (workers_dir / "common.jinja").write_text("Worker version")
+
+        # Create project template
+        (templates_dir / "common.jinja").write_text("Project version")
+
+        project_config = ProjectConfig()
+        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        definition = registry.load_definition("override")
+
+        assert "Worker version" in definition.instructions
+
+
+class TestPhase2ToolAggregation:
+    """Tests for Phase 2: Tool aggregation."""
+
+    def test_find_all_custom_tools_worker_only(self, tmp_path):
+        """Test finding tools from worker directory only."""
+        workers_dir = tmp_path / "workers" / "with_tools"
+        workers_dir.mkdir(parents=True)
+        (workers_dir / "worker.worker").write_text("---\nname: with_tools\n---\n")
+        (workers_dir / "tools.py").write_text("def my_tool(): pass")
+
+        registry = WorkerRegistry(tmp_path)
+        tools_paths = registry.find_all_custom_tools("with_tools")
+
+        assert len(tools_paths) == 1
+        assert tools_paths[0] == workers_dir / "tools.py"
+
+    def test_find_all_custom_tools_with_project(self, tmp_path):
+        """Test finding tools from both worker and project."""
+        # Worker with tools
+        workers_dir = tmp_path / "workers" / "with_tools"
+        workers_dir.mkdir(parents=True)
+        (workers_dir / "worker.worker").write_text("---\nname: with_tools\n---\n")
+        (workers_dir / "tools.py").write_text("def worker_tool(): pass")
+
+        # Project tools
+        (tmp_path / "tools.py").write_text("def project_tool(): pass")
+
+        project_config = ProjectConfig()
+        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        tools_paths = registry.find_all_custom_tools("with_tools")
+
+        assert len(tools_paths) == 2
+        assert workers_dir / "tools.py" in tools_paths  # Worker tools first
+        assert tmp_path / "tools.py" in tools_paths  # Project tools second
+
+    def test_find_all_custom_tools_package(self, tmp_path):
+        """Test finding tools/ package."""
+        workers_dir = tmp_path / "workers" / "pkg_tools"
+        workers_dir.mkdir(parents=True)
+        (workers_dir / "worker.worker").write_text("---\nname: pkg_tools\n---\n")
+
+        # Create tools package
+        tools_pkg = workers_dir / "tools"
+        tools_pkg.mkdir()
+        (tools_pkg / "__init__.py").write_text("from .helpers import *")
+        (tools_pkg / "helpers.py").write_text("def helper(): pass")
+
+        registry = WorkerRegistry(tmp_path)
+        tools_paths = registry.find_all_custom_tools("pkg_tools")
+
+        assert len(tools_paths) == 1
+        assert tools_paths[0] == tools_pkg
+
+
+class TestPhase2ExplicitPathSyntax:
+    """Tests for Phase 2: Explicit path syntax (./workers/helper)."""
+
+    def test_explicit_path_simple_form(self, tmp_path):
+        """Test ./path/to/worker resolves to simple form."""
+        workers_dir = tmp_path / "workers" / "nested"
+        workers_dir.mkdir(parents=True)
+        (workers_dir / "helper.worker").write_text("---\nname: helper\n---\nHelper worker")
+
+        registry = WorkerRegistry(tmp_path)
+        definition = registry.load_definition("./workers/nested/helper")
+
+        assert definition.name == "helper"
+        assert definition.instructions == "Helper worker"
+
+    def test_explicit_path_directory_form(self, tmp_path):
+        """Test ./path/to/worker resolves to directory form."""
+        worker_dir = tmp_path / "workers" / "complex_helper"
+        worker_dir.mkdir(parents=True)
+        (worker_dir / "worker.worker").write_text("---\nname: complex_helper\n---\nComplex")
+
+        registry = WorkerRegistry(tmp_path)
+        definition = registry.load_definition("./workers/complex_helper")
+
+        assert definition.name == "complex_helper"
+
+    def test_parent_directory_rejected(self, tmp_path):
+        """Test that ../ paths are rejected."""
+        (tmp_path / "main.worker").write_text("---\nname: main\n---\n")
+
+        registry = WorkerRegistry(tmp_path)
+        with pytest.raises(ValueError) as exc_info:
+            registry.load_definition("../other/worker")
+
+        assert "Parent directory references" in str(exc_info.value)
+
+    def test_library_reference_not_yet_supported(self, tmp_path):
+        """Test that lib:worker syntax raises informative error."""
+        (tmp_path / "main.worker").write_text("---\nname: main\n---\n")
+
+        registry = WorkerRegistry(tmp_path)
+        with pytest.raises(ValueError) as exc_info:
+            registry.load_definition("utils:summarizer")
+
+        assert "not yet supported" in str(exc_info.value)
+        assert "Phase 3" in str(exc_info.value)

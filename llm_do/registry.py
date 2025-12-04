@@ -17,7 +17,7 @@ GENERATED_DIR = Path("/tmp/llm-do/generated")
 
 import frontmatter
 import yaml
-from jinja2 import Environment, FileSystemLoader, TemplateNotFound, UndefinedError
+from jinja2 import Environment, FileSystemLoader, ChoiceLoader, PrefixLoader, TemplateNotFound, UndefinedError
 from pydantic import BaseModel, ValidationError
 
 from .types import OutputSchemaResolver, ProjectConfig, WorkerDefinition
@@ -28,50 +28,99 @@ def _default_resolver(definition: WorkerDefinition) -> Optional[Type[BaseModel]]
     return None
 
 
-def _render_jinja_template(template_str: str, template_root: Path) -> str:
-    """Render a Jinja2 template with worker directory as the base.
+def _build_template_loader(
+    template_roots: list[Path],
+    library_loaders: Optional[Dict[str, "FileSystemLoader"]] = None,
+) -> ChoiceLoader:
+    """Build a Jinja2 loader with multiple search paths.
 
-    Provides a `file(path)` function that loads files relative to template_root.
-    Also supports standard {% include %} directive.
+    Args:
+        template_roots: List of directories to search for templates (in order)
+        library_loaders: Optional dict of library_name -> loader for lib: prefix
+
+    Returns:
+        ChoiceLoader that searches all paths in order
+    """
+    loaders = []
+
+    # Add file system loaders for each root that exists
+    for root in template_roots:
+        if root.exists():
+            loaders.append(FileSystemLoader(root))
+
+    # Add built-in templates
+    builtin_templates = Path(__file__).parent / "templates"
+    if builtin_templates.exists():
+        loaders.append(FileSystemLoader(builtin_templates))
+
+    # Create base choice loader
+    base_loader = ChoiceLoader(loaders) if loaders else FileSystemLoader(".")
+
+    # If we have library loaders, wrap with PrefixLoader for lib: syntax
+    if library_loaders:
+        # PrefixLoader allows {% include 'lib_name:template.jinja' %}
+        prefix_mapping = {name: loader for name, loader in library_loaders.items()}
+        prefix_mapping[""] = base_loader  # Empty prefix for non-library templates
+        return ChoiceLoader([PrefixLoader(prefix_mapping, delimiter=":")])
+
+    return base_loader
+
+
+def _render_jinja_template(
+    template_str: str,
+    template_roots: list[Path],
+    *,
+    library_loaders: Optional[Dict[str, "FileSystemLoader"]] = None,
+) -> str:
+    """Render a Jinja2 template with multiple search paths.
+
+    Provides a `file(path)` function that loads files relative to the first template root.
+    Also supports standard {% include %} directive with multiple search paths.
+
+    Template search order:
+    1. Worker directory (for directory-form workers)
+    2. Project templates/ directory
+    3. Library templates (via lib: prefix)
+    4. Built-in templates
 
     Args:
         template_str: Jinja2 template string
-        template_root: Root directory for template file loading (worker's directory)
+        template_roots: List of directories to search for templates (in order)
+        library_loaders: Optional dict of library_name -> loader for lib: prefix
 
     Returns:
         Rendered template string
 
     Raises:
         FileNotFoundError: If a referenced file doesn't exist
-        PermissionError: If a file path escapes template root directory
+        PermissionError: If a file path escapes allowed directories
         jinja2.TemplateError: If template syntax is invalid
     """
-    # Set up Jinja2 environment with worker directory as base
+    loader = _build_template_loader(template_roots, library_loaders)
+
     env = Environment(
-        loader=FileSystemLoader(template_root),
+        loader=loader,
         autoescape=False,  # Don't escape - we want raw text
         keep_trailing_newline=True,
     )
 
-    # Add custom file() function
+    # Add custom file() function that searches all template roots
     def load_file(path_str: str) -> str:
-        """Load a file relative to template root."""
-        file_path = (template_root / path_str).resolve()
+        """Load a file relative to template roots."""
+        # Try each root in order
+        for root in template_roots:
+            file_path = (root / path_str).resolve()
 
-        # Security: ensure resolved path doesn't escape template root
-        try:
-            file_path.relative_to(template_root)
-        except ValueError:
-            raise PermissionError(
-                f"File path escapes allowed directory: {path_str}"
-            )
+            # Security: ensure resolved path doesn't escape this root
+            try:
+                file_path.relative_to(root)
+            except ValueError:
+                continue  # Try next root
 
-        if not file_path.exists():
-            raise FileNotFoundError(
-                f"File not found: {path_str}"
-            )
+            if file_path.exists():
+                return file_path.read_text(encoding="utf-8")
 
-        return file_path.read_text(encoding="utf-8")
+        raise FileNotFoundError(f"File not found in any template root: {path_str}")
 
     # Make file() available in templates
     env.globals["file"] = load_file
@@ -115,10 +164,57 @@ class WorkerRegistry:
 
     # paths -----------------------------------------------------------------
     def _get_search_paths(self, name: str) -> list[Path]:
+        """Get candidate paths to search for a worker.
+
+        Handles multiple name formats:
+        - Absolute/relative file paths (with .worker suffix)
+        - Library references: "lib:worker" (Phase 3)
+        - Explicit relative paths: "./workers/helper"
+        - Plain worker names: searched in standard locations
+
+        Args:
+            name: Worker name, path, or reference
+
+        Returns:
+            List of candidate paths to check
+
+        Raises:
+            ValueError: If name uses unsupported syntax (e.g., "../")
+        """
+        # Handle library references: "lib:worker" (Phase 3)
+        if ":" in name and not name.startswith("/") and not (len(name) > 1 and name[1] == ":"):
+            # Skip Windows drive letters like "C:\" and absolute paths
+            lib_name, worker_name = name.split(":", 1)
+            # Library resolution will be implemented in Phase 3
+            # For now, raise an error indicating libraries aren't supported yet
+            raise ValueError(
+                f"Library reference '{name}' not yet supported. "
+                "Library resolution will be added in Phase 3."
+            )
+
+        # Handle explicit relative paths: "./workers/helper"
+        if name.startswith("./"):
+            rel_path = name[2:]  # Remove "./"
+            # Try as worker name in the path
+            candidates = [
+                self.root / rel_path / "worker.worker",  # Directory form
+                self.root / f"{rel_path}.worker",  # Simple form
+            ]
+            return candidates
+
+        # Reject parent directory references
+        if name.startswith("../"):
+            raise ValueError(
+                "Parent directory references ('..') are not allowed in worker names. "
+                "Use library references (lib:worker) for cross-project dependencies."
+            )
+
+        # Handle file paths with suffix
         base = Path(name)
         if base.suffix:
             return [base if base.is_absolute() else (self.root / base)]
 
+        # Plain worker name - search in standard locations
         candidates = []
 
         # Special case: "main" worker can be at project root
@@ -153,6 +249,36 @@ class WorkerRegistry:
                 return path
         return paths[0]  # Default to workers/{name}.worker
 
+    def _get_template_roots(self, worker_path: Path) -> list[Path]:
+        """Build list of template search paths for a worker.
+
+        Search order:
+        1. Worker directory (for directory-form workers)
+        2. Project templates/ directory (if project_config is set)
+        3. Built-in templates (added by _render_jinja_template)
+
+        Args:
+            worker_path: Path to the worker file
+
+        Returns:
+            List of template root directories to search
+        """
+        roots = []
+
+        # 1. Worker's own directory (for directory-form workers with local templates)
+        worker_dir = worker_path.parent
+        if (worker_dir / "templates").exists():
+            roots.append(worker_dir / "templates")
+        roots.append(worker_dir)  # Also allow includes relative to worker
+
+        # 2. Project templates directory
+        if self.project_config is not None:
+            project_templates = self.root / "templates"
+            if project_templates.exists():
+                roots.append(project_templates)
+
+        return roots
+
     def _load_raw(self, path: Path) -> Dict[str, any]:
         """Load worker definition from .worker file with front matter."""
         suffix = path.suffix.lower()
@@ -172,9 +298,9 @@ class WorkerRegistry:
         if post.content.strip():
             body = post.content
             if _has_jinja_syntax(body):
-                # Render using worker's directory as template root
-                template_root = path.parent
-                rendered = _render_jinja_template(body, template_root)
+                # Build template search paths
+                template_roots = self._get_template_roots(path)
+                rendered = _render_jinja_template(body, template_roots)
                 data["instructions"] = rendered
             else:
                 data["instructions"] = body
@@ -182,7 +308,7 @@ class WorkerRegistry:
         return data
 
     def find_custom_tools(self, name: str) -> Optional[Path]:
-        """Find custom tools module for a worker.
+        """Find custom tools module for a worker (single path, for backward compatibility).
 
         Checks for tools.py in the same directory as the worker definition.
         Only applies to directory-based workers (workers/name/worker.worker).
@@ -205,6 +331,56 @@ class WorkerRegistry:
                 return tools_path
 
         return None
+
+    def find_all_custom_tools(self, name: str) -> list[Path]:
+        """Find all custom tools modules for a worker (aggregated).
+
+        Tool search order (per spec):
+        1. Worker-local: {worker_dir}/tools.py or {worker_dir}/tools/
+        2. Project tools: {project}/tools.py or {project}/tools/
+        3. Library tools: {lib}/tools/ for each dependency (Phase 3)
+
+        All discovered tools are available to the worker.
+        Name conflicts are resolved by priority (worker-local wins).
+
+        Args:
+            name: Worker name
+
+        Returns:
+            List of paths to tools.py files or tools/ directories, in priority order
+        """
+        tools_paths = []
+
+        path = self._definition_path(name)
+        if not path.exists():
+            return tools_paths
+
+        # 1. Worker-local tools (highest priority)
+        if path.name == "worker.worker":
+            worker_dir = path.parent
+            # Check for tools.py
+            worker_tools_py = worker_dir / "tools.py"
+            if worker_tools_py.exists():
+                tools_paths.append(worker_tools_py)
+            # Check for tools/ package
+            worker_tools_pkg = worker_dir / "tools" / "__init__.py"
+            if worker_tools_pkg.exists():
+                tools_paths.append(worker_tools_pkg.parent)
+
+        # 2. Project tools (if project_config is set)
+        if self.project_config is not None:
+            # Check for project tools.py
+            project_tools_py = self.root / "tools.py"
+            if project_tools_py.exists():
+                tools_paths.append(project_tools_py)
+            # Check for project tools/ package
+            project_tools_pkg = self.root / "tools" / "__init__.py"
+            if project_tools_pkg.exists():
+                tools_paths.append(project_tools_pkg.parent)
+
+        # 3. Library tools would be added here in Phase 3
+
+        return tools_paths
 
     def register_generated(self, name: str) -> None:
         """Register a worker as generated in this session.

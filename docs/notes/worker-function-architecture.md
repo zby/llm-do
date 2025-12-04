@@ -787,10 +787,10 @@ def detect_invocation_mode(arg: str) -> InvocationMode:
 - [x] Update `WorkerRegistry` for project-scoped resolution
 
 #### Phase 2: Resolution
-- [ ] Implement template search paths
-- [ ] Implement tool aggregation
-- [ ] Add library reference syntax (`lib:worker`)
-- [ ] Add explicit path syntax (`./workers/helper`)
+- [x] Implement template search paths
+- [x] Implement tool aggregation
+- [x] Add library reference syntax (`lib:worker`) - placeholder, full impl in Phase 3
+- [x] Add explicit path syntax (`./workers/helper`)
 
 #### Phase 3: Libraries
 - [ ] Define `lib.yaml` schema

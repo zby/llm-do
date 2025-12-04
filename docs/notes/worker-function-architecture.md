@@ -1,7 +1,8 @@
 # Worker-as-Function Architecture
 
-**Status**: Proposal
+**Status**: Approved
 **Created**: 2025-12-04
+**Updated**: 2025-12-04
 
 ## Overview
 
@@ -286,9 +287,13 @@ def resolve_worker(name: str, context: ResolutionContext) -> Path:
         return resolve_in_library(worker_name, lib_path)
 
     # Explicit relative path: "./workers/helper"
-    if name.startswith("./") or name.startswith("../"):
+    # Note: "../" is not supported (see Design Decisions)
+    if name.startswith("./"):
         path = context.project_root / name
         return resolve_worker_path(path)
+
+    if name.startswith("../"):
+        raise InvalidPathError("Parent directory references not allowed")
 
     # Unprefixed name: search in order
     for search_path in context.search_paths:
@@ -779,31 +784,87 @@ def detect_invocation_mode(arg: str) -> InvocationMode:
 
 ---
 
-## Open Questions
+## Design Decisions
 
-1. **Should `project.yaml` be required or optional?**
-   - Current proposal: Optional, only needed for dependencies/exports
-   - Alternative: Always required for explicit project boundary
+Resolved decisions that shaped this specification.
 
-2. **How to handle circular dependencies between libraries?**
-   - Current proposal: Error at resolution time
-   - Alternative: Lazy resolution with cycle detection
+### 1. Project Manifest Optional
 
-3. **Should workers be able to import from parent directories?**
-   - Current proposal: No, explicit project boundary
-   - Alternative: Allow `../` in template/tool references
+**Decision:** `project.yaml` is optional.
 
-4. **Version conflict resolution for libraries?**
-   - Current proposal: First match wins (dependency order)
-   - Alternative: Semantic version resolution like npm/cargo
+The entry point (`main.worker`) is sufficient to define a project boundary. Manifest only needed when you need:
+- Library dependencies
+- Default model/sandbox for all workers
+- Exporting as a library
 
-5. **Should generated workers go in the project or global location?**
-   - Current proposal: `{project}/workers/generated/`
-   - Alternative: Keep current `/tmp/llm-do/generated/`
+Simple projects remain simple.
 
-6. **Template syntax for library references?**
-   - Current proposal: `{% include 'lib:template.jinja' %}`
-   - Alternative: `{% include '@lib/template.jinja' %}`
+### 2. Circular Dependencies Error at Load Time
+
+**Decision:** Detect and error immediately when circular dependencies are found.
+
+```
+Error: Circular dependency detected: lib-a → lib-b → lib-a
+```
+
+Rationale:
+- Simple, predictable behavior
+- Forces clean architecture
+- Cycles indicate poor design—if `lib-a` needs `lib-b` and vice versa, they should be one library or refactored
+
+### 3. No Parent Directory Imports
+
+**Decision:** Workers cannot use `../` to access parent directories.
+
+Workers can only access:
+- Their own directory (for directory-form workers)
+- Project-level resources (`templates/`, `tools/`)
+- Library resources (via `lib:` prefix)
+
+Rationale:
+- Forces clean architecture
+- Shared resources belong at project level
+- Cross-worker access should use `worker_call`, not file sharing
+- Prevents brittle path dependencies
+
+### 4. Version Conflicts Error
+
+**Decision:** Error on version conflict between dependencies.
+
+```
+Error: Version conflict for lib-a
+  - my-project requires lib-a@2.0
+  - lib-b@1.0 requires lib-a@1.0
+```
+
+Rationale:
+- LLM workers are not npm packages—deep dependency trees unlikely
+- Conflicts should be rare; when they occur, human decision is appropriate
+- Explicit resolution documents intent
+- Can evolve to semver later if needed
+
+### 5. Generated Workers in /tmp
+
+**Decision:** Keep generated workers in `/tmp/llm-do/generated/`.
+
+Generated workers are session-specific artifacts, not project resources.
+
+### 6. Colon Syntax for Library References
+
+**Decision:** Use colon separator for all library references.
+
+```python
+worker_call("utils:summarizer")           # Worker from library
+```
+
+```jinja2
+{% include 'utils:disclaimer.jinja' %}    # Template from library
+```
+
+Rationale:
+- Consistent syntax across workers and templates
+- Mental model: `library:resource` works everywhere
+- Clear visual distinction from local paths
 
 ---
 

@@ -104,12 +104,16 @@ llm-do init my-project
 
 Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via the `worker_call` tool—like function calls.
 
-| Type | Structure | Use When |
-|------|-----------|----------|
-| **Single-file** | `name.worker` | Simple, portable workers |
-| **Directory** | `name/worker.worker` | Custom tools, local templates |
+Add custom tools by creating `tools.py` in your project root:
 
-Directory workers can have their own `tools.py` and templates that override project-level ones.
+```python
+# tools.py
+def sanitize_filename(name: str) -> str:
+    """Remove special characters from filename."""
+    return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
+```
+
+Functions become LLM-callable tools. Reference them in your worker's toolsets config.
 
 ## Key Features
 
@@ -140,7 +144,7 @@ See [`examples/`](examples/) for working code:
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference
 - **[`docs/architecture.md`](docs/architecture.md)** — Internal design
 - **[`docs/worker_delegation.md`](docs/worker_delegation.md)** — Worker-to-worker calls
-- **[`docs/notes/worker-function-architecture.md`](docs/notes/worker-function-architecture.md)** — Full specification
+- **[`docs/concept.md`](docs/concept.md)** — Design philosophy
 - **[`AGENTS.md`](AGENTS.md)** — Development guide
 
 ## Status

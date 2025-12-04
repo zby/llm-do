@@ -239,12 +239,6 @@ class ProjectConfig(BaseModel):
         description="Default model for all workers in this project"
     )
 
-    # Library dependencies (Phase 3)
-    dependencies: List[str] = Field(
-        default_factory=list,
-        description="Library dependencies (e.g., ['utils', 'legal@2.0'])"
-    )
-
     # Global sandbox configuration (inherited by all workers)
     sandbox: Optional["SandboxConfig"] = Field(
         default=None,
@@ -257,21 +251,7 @@ class ProjectConfig(BaseModel):
         description="Default toolsets configuration for all workers"
     )
 
-    # Exported workers (if this project is also a library)
-    exports: List[str] = Field(
-        default_factory=list,
-        description="Workers exposed when used as library"
-    )
-
     model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    def to_creation_defaults(self) -> "WorkerCreationDefaults":
-        """Convert project config to WorkerCreationDefaults for worker expansion."""
-        return WorkerCreationDefaults(
-            default_model=self.model,
-            default_sandbox=self.sandbox,
-            default_toolsets=self.toolsets,
-        )
 
 
 class WorkerRunResult(BaseModel):

@@ -1,4 +1,4 @@
-"""Tests for project detection and configuration (Phase 1 of worker-function architecture)."""
+"""Tests for project detection and configuration (worker-function architecture)."""
 
 import pytest
 from pathlib import Path
@@ -7,7 +7,6 @@ from llm_do.project import (
     InvalidProjectError,
     ProjectContext,
     detect_invocation_mode,
-    find_entry_worker_path,
     load_project_config,
     resolve_project,
 )
@@ -83,7 +82,6 @@ class TestLoadProjectConfig:
         config = load_project_config(tmp_path)
         assert config.name == "my-project"
         assert config.model is None
-        assert config.dependencies == []
 
     def test_full_project_yaml(self, tmp_path):
         """Test loading project.yaml with all fields."""
@@ -92,16 +90,10 @@ name: my-project
 version: 1.0.0
 description: A test project
 model: anthropic:claude-haiku-4-5
-dependencies:
-  - utils
-  - legal@2.0
 toolsets:
   filesystem: {}
   shell:
     rules: []
-exports:
-  - main
-  - helper
 """
         (tmp_path / "project.yaml").write_text(yaml_content)
 
@@ -110,9 +102,7 @@ exports:
         assert config.version == "1.0.0"
         assert config.description == "A test project"
         assert config.model == "anthropic:claude-haiku-4-5"
-        assert config.dependencies == ["utils", "legal@2.0"]
         assert config.toolsets == {"filesystem": {}, "shell": {"rules": []}}
-        assert config.exports == ["main", "helper"]
 
     def test_project_yaml_with_sandbox(self, tmp_path):
         """Test loading project.yaml with sandbox config."""
@@ -207,117 +197,6 @@ class TestResolveProject:
         assert mode == InvocationMode.SEARCH_PATH
         assert context is None
         assert worker_name == "my-worker"
-
-
-class TestFindEntryWorkerPath:
-    """Tests for find_entry_worker_path function."""
-
-    def test_main_at_project_root(self, tmp_path):
-        """Test finding main.worker at project root."""
-        (tmp_path / "main.worker").write_text("---\nname: main\n---\n")
-
-        path = find_entry_worker_path(tmp_path, "main")
-        assert path == tmp_path / "main.worker"
-
-    def test_main_in_workers_directory(self, tmp_path):
-        """Test finding main.worker in workers/ directory."""
-        workers_dir = tmp_path / "workers"
-        workers_dir.mkdir()
-        (workers_dir / "main.worker").write_text("---\nname: main\n---\n")
-
-        path = find_entry_worker_path(tmp_path, "main")
-        assert path == workers_dir / "main.worker"
-
-    def test_main_at_root_takes_precedence(self, tmp_path):
-        """Test that main.worker at root takes precedence over workers/."""
-        (tmp_path / "main.worker").write_text("---\nname: main\n---\nRoot main")
-
-        workers_dir = tmp_path / "workers"
-        workers_dir.mkdir()
-        (workers_dir / "main.worker").write_text("---\nname: main\n---\nWorkers main")
-
-        path = find_entry_worker_path(tmp_path, "main")
-        assert path == tmp_path / "main.worker"
-
-    def test_custom_entry_in_workers(self, tmp_path):
-        """Test finding custom entry worker in workers/."""
-        workers_dir = tmp_path / "workers"
-        workers_dir.mkdir()
-        (workers_dir / "custom.worker").write_text("---\nname: custom\n---\n")
-
-        path = find_entry_worker_path(tmp_path, "custom")
-        assert path == workers_dir / "custom.worker"
-
-    def test_directory_form_worker(self, tmp_path):
-        """Test finding directory-form worker."""
-        worker_dir = tmp_path / "workers" / "complex"
-        worker_dir.mkdir(parents=True)
-        (worker_dir / "worker.worker").write_text("---\nname: complex\n---\n")
-
-        path = find_entry_worker_path(tmp_path, "complex")
-        assert path == worker_dir / "worker.worker"
-
-    def test_entry_not_found_raises(self, tmp_path):
-        """Test that missing entry worker raises FileNotFoundError."""
-        with pytest.raises(FileNotFoundError) as exc_info:
-            find_entry_worker_path(tmp_path, "nonexistent")
-
-        assert "Entry worker 'nonexistent' not found" in str(exc_info.value)
-
-
-class TestProjectContext:
-    """Tests for ProjectContext dataclass."""
-
-    def test_workers_dir_property(self, tmp_path):
-        """Test workers_dir property."""
-        context = ProjectContext(
-            project_root=tmp_path,
-            config=ProjectConfig(),
-            entry_worker="main",
-        )
-        assert context.workers_dir == tmp_path / "workers"
-
-    def test_templates_dir_property(self, tmp_path):
-        """Test templates_dir property."""
-        context = ProjectContext(
-            project_root=tmp_path,
-            config=ProjectConfig(),
-            entry_worker="main",
-        )
-        assert context.templates_dir == tmp_path / "templates"
-
-    def test_tools_path_with_tools_py(self, tmp_path):
-        """Test tools_path property with tools.py file."""
-        (tmp_path / "tools.py").write_text("# tools")
-
-        context = ProjectContext(
-            project_root=tmp_path,
-            config=ProjectConfig(),
-            entry_worker="main",
-        )
-        assert context.tools_path == tmp_path / "tools.py"
-
-    def test_tools_path_with_tools_package(self, tmp_path):
-        """Test tools_path property with tools/ package."""
-        tools_dir = tmp_path / "tools"
-        tools_dir.mkdir()
-        (tools_dir / "__init__.py").write_text("# tools package")
-
-        context = ProjectContext(
-            project_root=tmp_path,
-            config=ProjectConfig(),
-            entry_worker="main",
-        )
-        assert context.tools_path == tools_dir
-
-    def test_tools_path_none_when_missing(self, tmp_path):
-        """Test tools_path property when no tools exist."""
-        context = ProjectContext(
-            project_root=tmp_path,
-            config=ProjectConfig(),
-            entry_worker="main",
-        )
-        assert context.tools_path is None
 
 
 class TestRegistryProjectConfigInheritance:
@@ -436,27 +315,6 @@ class TestRegistryProjectConfigInheritance:
 
         assert definition.name == "main"
         assert definition.instructions == "Main entry point"
-
-
-class TestProjectConfigToCreationDefaults:
-    """Tests for ProjectConfig.to_creation_defaults method."""
-
-    def test_converts_to_creation_defaults(self):
-        """Test conversion to WorkerCreationDefaults."""
-        config = ProjectConfig(
-            model="anthropic:claude-haiku-4-5",
-            toolsets={"filesystem": {}},
-            sandbox=SandboxConfig(
-                paths={"data": PathConfig(root="./data", mode="rw")}
-            ),
-        )
-
-        defaults = config.to_creation_defaults()
-
-        assert defaults.default_model == "anthropic:claude-haiku-4-5"
-        assert defaults.default_toolsets == {"filesystem": {}}
-        assert defaults.default_sandbox is not None
-        assert "data" in defaults.default_sandbox.paths
 
 
 class TestPhase2TemplateSearchPaths:

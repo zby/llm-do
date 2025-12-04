@@ -33,27 +33,6 @@ class ProjectContext:
     config: ProjectConfig
     entry_worker: str  # Worker name to run (default: "main")
 
-    @property
-    def workers_dir(self) -> Path:
-        """Path to project's workers directory."""
-        return self.project_root / "workers"
-
-    @property
-    def templates_dir(self) -> Path:
-        """Path to project's templates directory."""
-        return self.project_root / "templates"
-
-    @property
-    def tools_path(self) -> Optional[Path]:
-        """Path to project's tools.py if it exists."""
-        simple = self.project_root / "tools.py"
-        if simple.exists():
-            return simple
-        package = self.project_root / "tools" / "__init__.py"
-        if package.exists():
-            return package.parent
-        return None
-
 
 def detect_invocation_mode(arg: str) -> InvocationMode:
     """Detect whether argument is project, worker file, or worker name.
@@ -163,42 +142,3 @@ def resolve_project(
         return mode, None, arg
 
 
-def find_entry_worker_path(project_root: Path, entry_name: str = "main") -> Path:
-    """Find the entry worker file in a project.
-
-    Searches for the worker in order:
-    1. {project_root}/main.worker (if entry_name == "main")
-    2. {project_root}/workers/{entry_name}.worker
-    3. {project_root}/workers/{entry_name}/worker.worker
-
-    Args:
-        project_root: Path to project directory
-        entry_name: Name of entry worker (default: "main")
-
-    Returns:
-        Path to the worker file
-
-    Raises:
-        FileNotFoundError: If entry worker not found
-    """
-    candidates = []
-
-    # Special case: main.worker at project root
-    if entry_name == "main":
-        root_main = project_root / "main.worker"
-        candidates.append(root_main)
-
-    # Standard locations in workers/
-    candidates.extend([
-        project_root / "workers" / f"{entry_name}.worker",
-        project_root / "workers" / entry_name / "worker.worker",
-    ])
-
-    for path in candidates:
-        if path.exists():
-            return path
-
-    raise FileNotFoundError(
-        f"Entry worker '{entry_name}' not found in project. "
-        f"Searched: {', '.join(str(p) for p in candidates)}"
-    )

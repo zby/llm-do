@@ -62,9 +62,6 @@ from .types import (
 from .project import (
     InvalidProjectError,
     ProjectContext,
-    detect_invocation_mode,
-    find_entry_worker_path,
-    load_project_config,
     resolve_project,
 )
 
@@ -115,14 +112,11 @@ __all__: Iterable[str] = [
     "call_worker_async",
     "create_worker",
     "WorkerContext",
-    # Project types (Phase 1 worker-function architecture)
+    # Project types (worker-function architecture)
     "InvocationMode",
     "InvalidProjectError",
     "ProjectConfig",
     "ProjectContext",
-    "detect_invocation_mode",
-    "find_entry_worker_path",
-    "load_project_config",
     "resolve_project",
     # Protocols
     "FileSandbox",

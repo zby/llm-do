@@ -45,9 +45,6 @@ from pydantic_ai_blocking_approval import (
 from .config_overrides import apply_cli_overrides
 from .project import (
     InvalidProjectError,
-    detect_invocation_mode,
-    find_entry_worker_path,
-    load_project_config,
     resolve_project,
 )
 from .types import InvocationMode

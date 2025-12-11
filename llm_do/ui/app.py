@@ -24,6 +24,8 @@ from .widgets.messages import (
 class LlmDoApp(App[None]):
     """Main Textual application for llm-do TUI."""
 
+    ENABLE_COMMAND_PALETTE = False
+
     CSS = """
     Screen {
         layout: grid;
@@ -95,21 +97,22 @@ class LlmDoApp(App[None]):
     """
 
     BINDINGS = [
-        Binding("ctrl+c", "quit", "Quit", show=True),
+        Binding("q", "quit", "Quit", show=True),
         Binding("a", "approve", "Approve", show=False),
         Binding("s", "approve_session", "Approve Session", show=False),
         Binding("d", "deny", "Deny", show=False),
-        Binding("q", "quit_run", "Quit Run", show=False),
     ]
 
     def __init__(
         self,
         event_queue: asyncio.Queue[Any],
         approval_response_queue: asyncio.Queue[ApprovalDecision] | None = None,
+        worker_coro: Any | None = None,
     ):
         super().__init__()
         self._event_queue = event_queue
         self._approval_response_queue = approval_response_queue
+        self._worker_coro = worker_coro
         self._pending_approval: ApprovalRequest | None = None
         self._worker_task: asyncio.Task[Any] | None = None
         self._done = False
@@ -124,8 +127,10 @@ class LlmDoApp(App[None]):
         yield Footer()
 
     async def on_mount(self) -> None:
-        """Start the event consumer when app mounts."""
+        """Start the event consumer and worker when app mounts."""
         self._event_task = asyncio.create_task(self._consume_events())
+        if self._worker_coro is not None:
+            self._worker_task = asyncio.create_task(self._worker_coro)
 
     async def on_unmount(self) -> None:
         """Clean up on unmount."""
@@ -150,7 +155,8 @@ class LlmDoApp(App[None]):
             if event is None:
                 # Sentinel - worker done
                 self._done = True
-                messages.add_status("Worker completed")
+                messages.add_status("Press 'q' to exit")
+                # Don't auto-exit - let user see the results
                 break
 
             # Handle CLIEvent
@@ -168,6 +174,11 @@ class LlmDoApp(App[None]):
         """Handle a runtime event from the worker."""
         # Handle different pydantic-ai event types
         event_type = type(payload).__name__
+
+        # Handle dict payloads (serialized events)
+        if isinstance(payload, dict):
+            self._handle_dict_event(payload, messages)
+            return
 
         if event_type == "PartDeltaEvent":
             # Streaming text delta
@@ -188,9 +199,71 @@ class LlmDoApp(App[None]):
             messages.add_tool_result(tool_name, payload)
         elif event_type == "FinalResultEvent":
             messages.add_status("Response complete")
+        elif event_type == "str":
+            # Error or status message passed as string
+            messages.add_status(str(payload))
         else:
             # Generic fallback
             messages.add_status(f"Event: {event_type}")
+
+    def _handle_dict_event(self, payload: dict[str, Any], messages: MessageContainer) -> None:
+        """Handle dict-based event payloads from message callback."""
+        from pydantic_ai.messages import (
+            PartEndEvent,
+            TextPart,
+            FunctionToolCallEvent,
+            FunctionToolResultEvent,
+        )
+
+        # Extract worker name and event from wrapper dict
+        worker = payload.get("worker", "worker")
+
+        # Handle initial_request preview
+        if "initial_request" in payload:
+            preview = payload.get("initial_request")
+            if preview:
+                messages.add_status(f"[{worker}] Starting...")
+            return
+
+        # Handle status updates
+        if "status" in payload:
+            status = payload.get("status")
+            if isinstance(status, dict):
+                phase = status.get("phase", "")
+                state = status.get("state", "")
+                model = status.get("model", "")
+                if phase and state:
+                    if model:
+                        messages.add_status(f"[{worker}] {phase} {state} ({model})")
+                    else:
+                        messages.add_status(f"[{worker}] {phase} {state}")
+                else:
+                    messages.add_status(f"[{worker}] {status}")
+            else:
+                messages.add_status(f"[{worker}] {status}")
+            return
+
+        # Get the actual event object
+        event = payload.get("event")
+        if event is None:
+            return
+
+        # Handle pydantic-ai event types
+        if isinstance(event, PartEndEvent):
+            part = event.part
+            if isinstance(part, TextPart):
+                # Display model response text
+                if messages._current_assistant is None:
+                    messages.start_assistant_message()
+                messages.append_to_assistant(part.content)
+        elif isinstance(event, FunctionToolCallEvent):
+            # Tool call
+            tool_name = getattr(event.part, "tool_name", "tool")
+            messages.add_tool_call(tool_name, event.part)
+        elif isinstance(event, FunctionToolResultEvent):
+            # Tool result
+            tool_name = getattr(event, "tool_name", "tool")
+            messages.add_tool_result(tool_name, event.result)
 
     def _handle_deferred_tool(
         self, payload: dict[str, Any], messages: MessageContainer
@@ -247,12 +320,6 @@ class LlmDoApp(App[None]):
             )
             self._pending_approval = None
             self._update_approval_bindings(show=False)
-
-    def action_quit_run(self) -> None:
-        """Handle 'q' key - quit the run."""
-        if self._pending_approval:
-            self._pending_approval = None
-        self.exit()
 
     def signal_done(self) -> None:
         """Signal that the worker is done."""

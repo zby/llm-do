@@ -212,9 +212,6 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     event_queue: asyncio.Queue[Any] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
 
-    # Create the Textual app
-    app = LlmDoApp(event_queue, approval_queue)
-
     # Create backend that forwards to app
     backend = TextualDisplayBackend(event_queue)
 
@@ -304,19 +301,12 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                 raise
             return 1
 
-    # Run the app with the worker as a background task
-    async def run_app_with_worker() -> int:
-        worker_task = asyncio.create_task(run_worker_in_background())
-        try:
-            await app.run_async()
-        finally:
-            if not worker_task.done():
-                worker_task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await worker_task
-        return await worker_task if worker_task.done() else 1
+    # Create the Textual app with worker coroutine
+    app = LlmDoApp(event_queue, approval_queue, worker_coro=run_worker_in_background())
 
-    return await run_app_with_worker()
+    # Run with mouse disabled to allow terminal text selection
+    await app.run_async(mouse=False)
+    return 0
 
 
 def _queue_message_callback_direct(queue: asyncio.Queue[Any]) -> Callable[[list[Any]], None]:

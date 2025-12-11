@@ -2,16 +2,27 @@
 
 The CLI is intentionally lightweight and focused on production use cases.
 It provides a simple interface for running workers with live LLM models.
+
+The CLI supports two execution modes:
+1. Blocking approvals (current default): Uses pydantic-ai-blocking-approval
+2. Async deferred tools (future): Uses native pydantic-ai DeferredToolRequests
 """
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
 
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
+from pydantic_ai.tools import (
+    DeferredToolRequests,
+    DeferredToolResults,
+    ToolApproved,
+)
+from pydantic_ai import ToolDenied
 from pydantic_ai.messages import (
     BinaryContent,
     FunctionToolCallEvent,
@@ -36,6 +47,7 @@ from .base import (
     WorkerCreationDefaults,
     WorkerRegistry,
     run_worker,
+    run_worker_async,
 )
 from pydantic_ai_blocking_approval import (
     ApprovalController,
@@ -150,6 +162,75 @@ def _build_interactive_approval_controller(
             console.print("Unknown choice. Use a/s/d/q.", style="yellow")
 
     return ApprovalController(mode="interactive", approval_callback=_callback)
+
+
+async def _build_deferred_approval_handler(
+    console: Console,
+    *,
+    worker_name: str,
+):
+    """Build an async approval handler for native pydantic-ai deferred tools.
+
+    This handler is used with run_worker_with_deferred_async() and handles
+    ApprovalRequired exceptions raised by tools using the native pydantic-ai
+    deferred tool mechanism.
+
+    Returns:
+        An async function that takes DeferredToolRequests and returns DeferredToolResults.
+    """
+
+    async def _handler(requests: DeferredToolRequests) -> DeferredToolResults:
+        """Handle approval requests for deferred tools."""
+        approvals = {}
+
+        for call in requests.approvals:
+            # Get metadata for this call (set when ApprovalRequired was raised)
+            metadata = requests.metadata.get(call.tool_call_id, {})
+            reason_text = metadata.get("description", "Approval required")
+
+            # Display approval request
+            body = Group(
+                Text(f"Reason: {reason_text}\n", style="bold red"),
+                Text("Tool args:", style="bold"),
+                render_json_or_text(call.args.args_dict if hasattr(call.args, 'args_dict') else call.args),
+            )
+            console.print()
+            console.print(
+                Panel(
+                    body,
+                    title=f"[bold red]{worker_name} ▷ Tool approval: {call.tool_name}[/bold red]",
+                    border_style="red",
+                )
+            )
+
+            options = Text()
+            options.append("[a] Approve and continue\n", style="green")
+            options.append("[d] Deny this tool call\n", style="red")
+            options.append("[q] Quit run", style="red")
+            console.print(Panel(options, title="Approval choices", border_style="cyan"))
+
+            while True:
+                response = console.input(
+                    "[bold cyan]Approval choice [a/d/q][/bold cyan]: "
+                )
+                choice = response.strip().lower()
+
+                if choice in {"", "a"}:
+                    approvals[call.tool_call_id] = True
+                    break
+                if choice == "d":
+                    approvals[call.tool_call_id] = ToolDenied(
+                        message="Rejected via interactive CLI"
+                    )
+                    break
+                if choice == "q":
+                    raise KeyboardInterrupt
+
+                console.print("Unknown choice. Use a/d/q.", style="yellow")
+
+        return DeferredToolResults(approvals=approvals)
+
+    return _handler
 
 
 def _build_streaming_callback(console: Console):
@@ -359,8 +440,19 @@ Respond to the user's request.
     return 0
 
 
-def main(argv: Optional[list[str]] = None) -> int:
-    # Handle 'init' subcommand
+async def main_async(argv: Optional[list[str]] = None) -> int:
+    """Async entry point for CLI execution.
+
+    This is the core async implementation that supports both:
+    1. Blocking approvals (via pydantic-ai-blocking-approval)
+    2. Native deferred tool calls (via pydantic-ai DeferredToolRequests)
+
+    The async design enables future enhancements like:
+    - Non-blocking approval prompts
+    - Background task processing with CallDeferred
+    - State persistence for pause/resume workflows
+    """
+    # Handle 'init' subcommand (sync operation)
     if argv is None:
         argv = sys.argv[1:]
 
@@ -465,7 +557,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         streaming_callback = None if args.json else _build_streaming_callback(console)
 
-        result = run_worker(
+        # Use async worker execution
+        result = await run_worker_async(
             registry=registry,
             worker=worker_name,
             input_data=input_data,
@@ -549,6 +642,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.debug:
             raise
         return 1
+
+
+def main(argv: Optional[list[str]] = None) -> int:
+    """Synchronous entry point for CLI (wrapper around async implementation).
+
+    This maintains backward compatibility while enabling async execution internally.
+    """
+    return asyncio.run(main_async(argv))
 
 
 if __name__ == "__main__":

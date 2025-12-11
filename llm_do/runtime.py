@@ -22,7 +22,13 @@ from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
-from pydantic_ai.tools import RunContext
+from pydantic_ai.tools import (
+    DeferredToolRequests,
+    DeferredToolResults,
+    RunContext,
+    ToolApproved,
+)
+from pydantic_ai import ToolDenied
 
 from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
 from .model_compat import select_model, ModelCompatibilityError, NoModelError
@@ -46,6 +52,25 @@ from .types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Type aliases for deferred tool handling
+# ---------------------------------------------------------------------------
+
+# Callback type for handling deferred tool approval requests
+# Takes DeferredToolRequests, returns DeferredToolResults with approval decisions
+DeferredApprovalHandler = Callable[
+    [DeferredToolRequests],
+    "asyncio.coroutines.Coroutine[Any, Any, DeferredToolResults]"
+]
+
+# Callback type for handling external/background tool calls
+# Takes DeferredToolRequests, returns DeferredToolResults with computed results
+DeferredCallHandler = Callable[
+    [DeferredToolRequests],
+    "asyncio.coroutines.Coroutine[Any, Any, DeferredToolResults]"
+]
 
 
 # ---------------------------------------------------------------------------
@@ -441,3 +466,165 @@ def run_worker(
         result = agent_runner(prep.definition, input_data, prep.context, prep.output_model)
 
     return _handle_result(result, prep.output_model)
+
+
+# ---------------------------------------------------------------------------
+# Deferred tool execution (native pydantic-ai pattern)
+# ---------------------------------------------------------------------------
+
+
+async def run_worker_with_deferred_async(
+    *,
+    registry: Any,  # WorkerRegistry - avoid circular import
+    worker: str,
+    input_data: Any,
+    attachments: Optional[Sequence[AttachmentInput]] = None,
+    caller_effective_model: Optional[ModelLike] = None,
+    cli_model: Optional[ModelLike] = None,
+    creation_defaults: Optional[WorkerCreationDefaults] = None,
+    approval_handler: Optional[DeferredApprovalHandler] = None,
+    call_handler: Optional[DeferredCallHandler] = None,
+    message_callback: Optional[MessageCallback] = None,
+    max_iterations: int = 100,
+) -> WorkerRunResult:
+    """Execute a worker with native pydantic-ai deferred tool support.
+
+    This is an alternative to run_worker_async that uses pydantic-ai's native
+    deferred tool mechanism instead of blocking approvals. When a tool raises
+    ApprovalRequired or CallDeferred, execution pauses and the appropriate
+    handler is called to get the results, then execution resumes.
+
+    This enables:
+    - Non-blocking approval prompts
+    - Background task processing
+    - State persistence for pause/resume workflows
+    - Concurrent I/O during approval waiting
+
+    Args:
+        registry: Source for worker definitions.
+        worker: Name of the worker to run.
+        input_data: Input payload for the worker.
+        attachments: Optional files to expose to the worker.
+        caller_effective_model: Inherited model from parent.
+        cli_model: Fallback model from CLI.
+        creation_defaults: Defaults for any new workers created during this run.
+        approval_handler: Async callback to handle approval requests.
+            Called with DeferredToolRequests when tools need approval.
+            Should return DeferredToolResults with approval decisions.
+        call_handler: Async callback to handle external/background tool calls.
+            Called with DeferredToolRequests when tools are deferred.
+            Should return DeferredToolResults with computed results.
+        message_callback: Callback for streaming events and progress updates.
+        max_iterations: Maximum deferred tool loop iterations (safety limit).
+
+    Returns:
+        WorkerRunResult containing the final output and message history.
+
+    Raises:
+        RuntimeError: If max_iterations is exceeded (likely infinite loop).
+    """
+    from .execution import prepare_agent_execution
+    from .toolset_loader import build_toolsets
+
+    # Use a no-op approval controller since we're handling approvals via deferred mechanism
+    no_op_controller = ApprovalController(mode="approve_all")
+
+    prep = _prepare_worker_context(
+        registry=registry,
+        worker=worker,
+        input_data=input_data,
+        attachments=attachments,
+        caller_effective_model=caller_effective_model,
+        cli_model=cli_model,
+        creation_defaults=creation_defaults,
+        approval_controller=no_op_controller,
+        message_callback=message_callback,
+    )
+
+    # Prepare agent execution context
+    exec_ctx = prepare_agent_execution(
+        prep.definition, input_data, prep.context, prep.output_model
+    )
+
+    # Create Agent
+    agent = Agent(**exec_ctx.agent_kwargs)
+
+    # Run the deferred tool loop
+    message_history = None
+    deferred_results = None
+    iteration = 0
+
+    while iteration < max_iterations:
+        iteration += 1
+
+        # Run agent (first run with prompt, subsequent runs with message_history)
+        if message_history is None:
+            run_result = await agent.run(
+                exec_ctx.prompt,
+                deps=prep.context,
+                event_stream_handler=exec_ctx.event_handler,
+            )
+        else:
+            run_result = await agent.run(
+                message_history=message_history,
+                deferred_tool_results=deferred_results,
+                deps=prep.context,
+                event_stream_handler=exec_ctx.event_handler,
+            )
+
+        # Check if we got deferred tool requests
+        output = run_result.output
+        if isinstance(output, DeferredToolRequests):
+            logger.debug(
+                f"Deferred tool requests: {len(output.approvals)} approvals, "
+                f"{len(output.calls)} external calls"
+            )
+
+            # Handle approval requests
+            if output.approvals and approval_handler:
+                approval_results = await approval_handler(output)
+                message_history = run_result.all_messages()
+                deferred_results = approval_results
+                continue
+            elif output.approvals:
+                # No handler provided - auto-deny all approvals
+                logger.warning("No approval_handler provided, denying all approvals")
+                deferred_results = DeferredToolResults(
+                    approvals={
+                        call.tool_call_id: ToolDenied(message="No approval handler configured")
+                        for call in output.approvals
+                    }
+                )
+                message_history = run_result.all_messages()
+                continue
+
+            # Handle external/background calls
+            if output.calls and call_handler:
+                call_results = await call_handler(output)
+                message_history = run_result.all_messages()
+                deferred_results = call_results
+                continue
+            elif output.calls:
+                # No handler provided - return error to model
+                logger.warning("No call_handler provided, returning errors for external calls")
+                deferred_results = DeferredToolResults(
+                    calls={
+                        call.tool_call_id: {"error": "No external call handler configured"}
+                        for call in output.calls
+                    }
+                )
+                message_history = run_result.all_messages()
+                continue
+
+        # Normal completion - not a DeferredToolRequests
+        if exec_ctx.emit_status is not None and exec_ctx.started_at is not None:
+            from time import perf_counter
+            exec_ctx.emit_status("end", duration=round(perf_counter() - exec_ctx.started_at, 2))
+
+        messages = run_result.all_messages() if hasattr(run_result, 'all_messages') else []
+        return _handle_result((output, messages), prep.output_model)
+
+    raise RuntimeError(
+        f"Deferred tool loop exceeded max_iterations ({max_iterations}). "
+        "This may indicate an infinite loop in tool execution."
+    )

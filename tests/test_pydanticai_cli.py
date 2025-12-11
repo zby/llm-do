@@ -5,7 +5,7 @@ Integration tests in test_pydanticai_integration.py cover end-to-end workflows.
 """
 import json
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from pydantic_ai.messages import FunctionToolResultEvent, ToolReturnPart
@@ -25,8 +25,8 @@ def test_cli_parses_worker_name_and_uses_cwd_registry(tmp_path, monkeypatch):
     # Change to tmp_path directory (simulating user running from project directory)
     monkeypatch.chdir(tmp_path)
 
-    # Mock run_worker to capture how it's called
-    with patch("llm_do.cli.run_worker") as mock_run:
+    # Mock run_worker_async to capture how it's called (CLI now uses async version)
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output="test output")
 
         # Run CLI with worker name (no path, no --registry flag)
@@ -49,7 +49,7 @@ def test_cli_accepts_plain_text_message(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
 
-    with patch("llm_do.cli.run_worker") as mock_run:
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output="Hi there!")
 
         # Worker is now in workers/ subdirectory by convention
@@ -66,7 +66,7 @@ def test_cli_accepts_json_input_instead_of_message(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
 
-    with patch("llm_do.cli.run_worker") as mock_run:
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output="done")
 
         main([
@@ -86,7 +86,7 @@ def test_cli_input_flag_accepts_plain_text(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
 
-    with patch("llm_do.cli.run_worker") as mock_run:
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output="done")
 
         main([
@@ -106,7 +106,7 @@ def test_cli_accepts_worker_name_with_explicit_registry(tmp_path):
     registry = WorkerRegistry(registry_dir)
     registry.save_definition(WorkerDefinition(name="myworker", instructions="demo"))
 
-    with patch("llm_do.cli.run_worker") as mock_run:
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output="result")
 
         main([
@@ -129,7 +129,7 @@ def test_cli_passes_model_override(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
 
-    with patch("llm_do.cli.run_worker") as mock_run:
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output="done")
 
         main(["worker", "hi", "--model", "openai:gpt-4o", "--approve-all"])
@@ -149,7 +149,7 @@ def test_cli_passes_attachments(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
 
-    with patch("llm_do.cli.run_worker") as mock_run:
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output="done")
 
         main([
@@ -189,7 +189,7 @@ def test_cli_displays_rich_output_by_default(tmp_path, monkeypatch):
 
     monkeypatch.setattr("llm_do.cli.Console", fake_console)
 
-    with patch("llm_do.cli.run_worker") as mock_run:
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output={"key": "value", "nested": {"a": 1}})
 
         assert main(["worker", "test", "--approve-all"]) == 0
@@ -208,7 +208,7 @@ def test_cli_json_mode_outputs_structured_result(tmp_path, monkeypatch, capsys):
 
     monkeypatch.chdir(tmp_path)
 
-    with patch("llm_do.cli.run_worker") as mock_run:
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(
             output={"key": "value"},
             messages=[{"role": "user", "content": "hello"}],
@@ -258,7 +258,7 @@ def test_cli_uses_interactive_approval_when_tty(tmp_path, monkeypatch):
     with patch(
         "llm_do.cli._build_interactive_approval_controller",
         return_value=sentinel,
-    ) as mock_builder, patch("llm_do.cli.run_worker") as mock_run:
+    ) as mock_builder, patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output="ok")
 
         assert main(["worker", "hello"]) == 0
@@ -275,7 +275,7 @@ def test_cli_requires_tty_for_interactive_mode(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("llm_do.cli._is_interactive_terminal", lambda: False)
 
-    with patch("llm_do.cli.run_worker") as mock_run:
+    with patch("llm_do.cli.run_worker_async", new_callable=AsyncMock) as mock_run:
         assert main(["worker", "task"]) == 1
         mock_run.assert_not_called()
 

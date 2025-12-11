@@ -92,6 +92,9 @@ from .runtime import (
     create_worker,
     run_worker,
     run_worker_async,
+    run_worker_with_deferred_async,
+    DeferredApprovalHandler,
+    DeferredCallHandler,
 )
 
 __all__: Iterable[str] = [
@@ -108,6 +111,9 @@ __all__: Iterable[str] = [
     "WorkerRunResult",
     "run_worker",
     "run_worker_async",
+    "run_worker_with_deferred_async",
+    "DeferredApprovalHandler",
+    "DeferredCallHandler",
     "call_worker",
     "call_worker_async",
     "create_worker",

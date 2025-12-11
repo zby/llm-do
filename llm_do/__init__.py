@@ -6,6 +6,8 @@ from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision
 from .base import (
     AgentRunner,
     AttachmentPayload,
+    DeferredApprovalHandler,
+    DeferredCallHandler,
     ServerSideToolConfig,
     WorkerContext,
     WorkerCreationDefaults,
@@ -16,6 +18,8 @@ from .base import (
     call_worker,
     create_worker,
     run_worker,
+    run_worker_async,
+    run_worker_with_deferred_async,
 )
 from .model_compat import (
     InvalidCompatibleModelsError,
@@ -30,6 +34,8 @@ __all__ = [
     "ApprovalDecision",
     "AttachmentPayload",
     "AttachmentPolicy",
+    "DeferredApprovalHandler",
+    "DeferredCallHandler",
     "InvalidCompatibleModelsError",
     "ModelCompatibilityError",
     "NoModelError",
@@ -43,6 +49,8 @@ __all__ = [
     "call_worker",
     "create_worker",
     "run_worker",
+    "run_worker_async",
+    "run_worker_with_deferred_async",
     "__version__",
 ]
 

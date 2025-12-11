@@ -9,6 +9,7 @@ llm_do/
 ├── runtime.py           # Worker execution and delegation
 ├── execution.py         # Agent execution strategies
 ├── model_compat.py      # Model compatibility validation
+├── program.py           # Program detection and configuration
 ├── toolset_loader.py    # Dynamic toolset loading factory
 ├── types.py             # Type definitions and data models
 ├── protocols.py         # Protocol definitions (FileSandbox)
@@ -19,9 +20,13 @@ llm_do/
 │   ├── execution.py     # Shell command execution
 │   ├── toolset.py       # PydanticAI toolset wrapper
 │   └── types.py         # Shell-specific types
+├── ui/                  # Display and UI components
+│   ├── __init__.py      # Package exports
+│   └── display.py       # Display backend abstractions
 ├── delegation_toolset.py # Worker delegation toolset
 ├── custom_toolset.py    # Custom Python tools toolset
-└── cli.py               # CLI entry point
+├── cli.py               # Sync CLI (init, programmatic use)
+└── cli_async.py         # Async CLI entry point (default)
 ```
 
 **External packages** (extracted for reuse):

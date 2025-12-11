@@ -38,9 +38,15 @@ llm-do processor --attachments file1.txt file2.csv
 ```
 
 **`--json`**
-Output structured JSON instead of rich formatted display (useful for scripting):
+Output structured JSON instead of TUI display (useful for scripting):
 ```bash
-llm-do worker "hello" --json | jq '.output'
+llm-do worker "hello" --json --approve-all | jq '.output'
+```
+
+**`--headless`**
+Force non-interactive mode regardless of TTY detection (requires `--approve-all` or `--strict`):
+```bash
+llm-do worker "task" --headless --approve-all
 ```
 
 ### Worker Configuration
@@ -142,6 +148,22 @@ Approval choice [a/s/d/q]:
 ```
 
 For non-interactive environments (CI/CD, scripts), you must use `--approve-all` or `--strict`.
+
+### Output Modes
+
+The CLI supports multiple output modes for different use cases:
+
+| Mode | Flag | Requirements | Use Case |
+|------|------|--------------|----------|
+| TUI (default) | — | TTY required | Interactive terminal sessions |
+| JSON | `--json` | `--approve-all` or `--strict` | Scripting and automation |
+| Headless | `--headless` | `--approve-all` or `--strict` | CI/CD, pipes, containers |
+
+**Auto-detection:** Without explicit flags, the CLI detects whether it's running in a TTY:
+- **TTY present:** Textual TUI with interactive approval prompts
+- **No TTY:** Fails unless `--approve-all`, `--strict`, or `--json` is specified
+
+The `--json` and `--headless` flags are mutually exclusive.
 
 ### Debugging
 
@@ -330,3 +352,4 @@ llm-do ./my-project "task" \
 
 - [Worker Delegation](worker_delegation.md) — Worker-to-worker calls
 - [Architecture](architecture.md) — Sandbox, runtime, and approval system
+- [UI Architecture](ui.md) — Display backends and event rendering

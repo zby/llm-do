@@ -27,12 +27,13 @@ dependencies = [
     "PyYAML",
     "jinja2>=3.0",
     "rich>=13.0",
+    "textual>=1.0.0",
     "pytest>=9.0.1",
     "python-frontmatter>=1.0.0",
 ]
 
 [project.scripts]
-llm-do = "llm_do.cli:main"
+llm-do = "llm_do.cli_async:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/llm-do"

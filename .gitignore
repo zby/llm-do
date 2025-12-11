@@ -142,5 +142,6 @@ examples/bootstrapping_pitchdeck_eval/workers/generated/
 examples/bootstrapping_pitchdeck_eval/output/
 examples/approvals_demo/notes/
 examples/pitchdeck_eval/evaluations/
+experiments/
 
 pydantic_ai_blocking_approval

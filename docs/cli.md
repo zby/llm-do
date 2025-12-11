@@ -52,13 +52,31 @@ llm-do worker "task" --headless --approve-all
 ### Worker Configuration
 
 **`--model MODEL`**
-Override the worker's default model. Required if worker has no model specified:
+Override the model for this run. If omitted, `llm-do` resolves an effective model with this precedence (highest to lowest):
+
+1. CLI `--model` flag
+2. Worker's `model` field
+3. Program default in `program.yaml` (`model:`)
+4. `LLM_DO_MODEL` environment variable
+
+If none of these are set, the run errors with “No model configured”.
 ```bash
 llm-do greeter "hello" --model anthropic:claude-sonnet-4-20250514
 llm-do greeter "hello" --model openai:gpt-4o
 ```
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/).
+
+**Default model examples:**
+```bash
+# Global default for all runs
+export LLM_DO_MODEL=anthropic:claude-haiku-4-5
+
+# Per-program default in program root
+cat > program.yaml <<'YAML'
+model: anthropic:claude-sonnet-4-20250514
+YAML
+```
 
 **Model Compatibility:** Workers can declare `compatible_models` patterns to restrict which models can be used. If specified, the `--model` value is validated against these patterns:
 ```bash
@@ -282,7 +300,9 @@ You analyze PDF documents...
 
 ### Validation
 
-The `--model` CLI flag and caller's model (during delegation) are validated against `compatible_models`. The worker's own `model` field bypasses validation (trusted).
+All models selected via the resolution rules are validated against `compatible_models`, including worker defaults, `program.yaml` defaults, and `LLM_DO_MODEL`.
+
+When a worker delegates to another worker, the callee resolves (and validates) its own model using the same precedence; the caller’s model is not inherited.
 
 ```bash
 # Worker has compatible_models: ["anthropic:*"]

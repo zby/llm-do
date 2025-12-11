@@ -120,29 +120,29 @@ class TestSelectModel:
         )
         assert model == "anthropic:claude-haiku-4-5"
 
-    def test_project_model_when_no_cli_or_worker(self):
+    def test_program_model_when_no_cli_or_worker(self):
         model = select_model(
             worker_model=None,
             cli_model=None,
-            project_model="anthropic:claude-sonnet-4",
+            program_model="anthropic:claude-sonnet-4",
             compatible_models=None,
         )
         assert model == "anthropic:claude-sonnet-4"
 
-    def test_cli_overrides_project(self):
+    def test_cli_overrides_program(self):
         model = select_model(
             worker_model=None,
             cli_model="openai:gpt-4o",
-            project_model="anthropic:claude-sonnet-4",
+            program_model="anthropic:claude-sonnet-4",
             compatible_models=None,
         )
         assert model == "openai:gpt-4o"
 
-    def test_worker_overrides_project(self):
+    def test_worker_overrides_program(self):
         model = select_model(
             worker_model="anthropic:claude-haiku-4-5",
             cli_model=None,
-            project_model="anthropic:claude-sonnet-4",
+            program_model="anthropic:claude-sonnet-4",
             compatible_models=None,
         )
         assert model == "anthropic:claude-haiku-4-5"
@@ -152,7 +152,7 @@ class TestSelectModel:
             select_model(
                 worker_model=None,
                 cli_model=None,
-                project_model=None,
+                program_model=None,
                 compatible_models=None,
             )
 
@@ -190,21 +190,21 @@ class TestSelectModel:
                 compatible_models=["anthropic:*"],
             )
 
-    def test_project_model_validated_against_compatible(self):
+    def test_program_model_validated_against_compatible(self):
         model = select_model(
             worker_model=None,
             cli_model=None,
-            project_model="anthropic:claude-haiku-4-5",
+            program_model="anthropic:claude-haiku-4-5",
             compatible_models=["anthropic:*"],
         )
         assert model == "anthropic:claude-haiku-4-5"
 
-    def test_project_model_incompatible_raises(self):
+    def test_program_model_incompatible_raises(self):
         with pytest.raises(ModelCompatibilityError, match="not compatible"):
             select_model(
                 worker_model=None,
                 cli_model=None,
-                project_model="openai:gpt-4o",
+                program_model="openai:gpt-4o",
                 compatible_models=["anthropic:*"],
             )
 
@@ -242,17 +242,17 @@ class TestEnvVarModel:
         model = select_model(
             worker_model=None,
             cli_model=None,
-            project_model=None,
+            program_model=None,
             compatible_models=None,
         )
         assert model == "anthropic:claude-haiku-4-5"
 
-    def test_project_overrides_env_var(self, monkeypatch):
+    def test_program_overrides_env_var(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
         model = select_model(
             worker_model=None,
             cli_model=None,
-            project_model="openai:gpt-4o",
+            program_model="openai:gpt-4o",
             compatible_models=None,
         )
         assert model == "openai:gpt-4o"
@@ -262,7 +262,7 @@ class TestEnvVarModel:
         model = select_model(
             worker_model="openai:gpt-4o",
             cli_model=None,
-            project_model=None,
+            program_model=None,
             compatible_models=None,
         )
         assert model == "openai:gpt-4o"
@@ -272,7 +272,7 @@ class TestEnvVarModel:
         model = select_model(
             worker_model=None,
             cli_model="openai:gpt-4o",
-            project_model=None,
+            program_model=None,
             compatible_models=None,
         )
         assert model == "openai:gpt-4o"
@@ -282,7 +282,7 @@ class TestEnvVarModel:
         model = select_model(
             worker_model=None,
             cli_model=None,
-            project_model=None,
+            program_model=None,
             compatible_models=["anthropic:*"],
         )
         assert model == "anthropic:claude-haiku-4-5"
@@ -293,7 +293,7 @@ class TestEnvVarModel:
             select_model(
                 worker_model=None,
                 cli_model=None,
-                project_model=None,
+                program_model=None,
                 compatible_models=["anthropic:*"],
             )
 
@@ -305,32 +305,32 @@ class TestResolutionPrecedence:
         """Test the resolution precedence as documented:
         1. CLI --model (highest)
         2. Worker model
-        3. Project model
+        3. Program model
         4. LLM_DO_MODEL env var (lowest)
         """
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "env:model")
 
         # CLI overrides all
         assert select_model(
-            worker_model="w", cli_model="c", project_model="p",
+            worker_model="w", cli_model="c", program_model="p",
             compatible_models=None
         ) == "c"
 
         # Worker next if CLI not set
         assert select_model(
-            worker_model="w", cli_model=None, project_model="p",
+            worker_model="w", cli_model=None, program_model="p",
             compatible_models=None
         ) == "w"
 
-        # Project next if worker not set
+        # Program next if worker not set
         assert select_model(
-            worker_model=None, cli_model=None, project_model="p",
+            worker_model=None, cli_model=None, program_model="p",
             compatible_models=None
         ) == "p"
 
         # Env var last
         assert select_model(
-            worker_model=None, cli_model=None, project_model=None,
+            worker_model=None, cli_model=None, program_model=None,
             compatible_models=None
         ) == "env:model"
 

@@ -200,29 +200,29 @@ class WorkerCreationDefaults(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Project configuration
+# Program configuration
 # ---------------------------------------------------------------------------
 
 
 class InvocationMode(Enum):
     """How the CLI argument should be interpreted."""
 
-    PROJECT = "project"  # Directory with main.worker
+    PROGRAM = "program"  # Directory with main.worker
     SINGLE_FILE = "single_file"  # Direct .worker file
     SEARCH_PATH = "search_path"  # Worker name, search LLM_DO_PATH
 
 
-class ProjectConfig(BaseModel):
-    """Project-level configuration from project.yaml.
+class ProgramConfig(BaseModel):
+    """Program-level configuration from program.yaml.
 
-    Projects provide a boundary for worker resolution, shared configuration,
-    and library dependencies. This model represents the project manifest.
+    Programs provide a boundary for worker resolution, shared configuration,
+    and library dependencies. This model represents the program manifest.
     """
 
     # Metadata
     name: Optional[str] = Field(
         default=None,
-        description="Project identifier (used when published as library)"
+        description="Program identifier (used when published as library)"
     )
     version: Optional[str] = Field(
         default=None,
@@ -236,7 +236,7 @@ class ProjectConfig(BaseModel):
     # Default model for all workers (overridable per-worker)
     model: Optional[str] = Field(
         default=None,
-        description="Default model for all workers in this project"
+        description="Default model for all workers in this program"
     )
 
     # Global sandbox configuration (inherited by all workers)

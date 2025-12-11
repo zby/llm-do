@@ -205,15 +205,15 @@ def test_async_cli_requires_approval_mode_for_json(tmp_path, monkeypatch, capsys
 
 def test_main_handles_init_subcommand(tmp_path, monkeypatch):
     """Test that main() delegates 'init' to sync CLI."""
-    monkeypatch.setattr("sys.argv", ["llm-do", "init", str(tmp_path / "project")])
+    monkeypatch.setattr("sys.argv", ["llm-do", "init", str(tmp_path / "program")])
 
-    # Patch at the cli module level since that's where init_project is defined
-    with patch("llm_do.cli.init_project") as mock_init:
+    # Patch at the cli module level since that's where init_program is defined
+    with patch("llm_do.cli.init_program") as mock_init:
         mock_init.return_value = 0
         result = main()
 
     assert result == 0
-    mock_init.assert_called_once_with([str(tmp_path / "project")])
+    mock_init.assert_called_once_with([str(tmp_path / "program")])
 
 
 def test_main_runs_async_cli(tmp_path, monkeypatch):

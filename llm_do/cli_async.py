@@ -22,7 +22,7 @@ from .base import (
     run_worker_async,
 )
 from .config_overrides import apply_cli_overrides
-from .project import InvalidProjectError, resolve_project
+from .program import InvalidProgramError, resolve_program
 from .types import InvocationMode
 from .ui.display import (
     CLIEvent,
@@ -71,11 +71,11 @@ def _load_creation_defaults(value: Optional[str]) -> WorkerCreationDefaults:
 def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a PydanticAI worker",
-        epilog="Use 'llm-do init' to create a new project.",
+        epilog="Use 'llm-do init' to create a new program.",
     )
     parser.add_argument(
         "worker",
-        help="Worker name, .worker file, or project directory",
+        help="Worker name, .worker file, or program directory",
     )
     parser.add_argument(
         "message",
@@ -148,7 +148,7 @@ def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         "--entry",
         dest="entry_worker",
         default=None,
-        help="Override project entry worker",
+        help="Override program entry worker",
     )
     parser.add_argument(
         "--debug",
@@ -218,27 +218,27 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
         try:
-            mode, project_context, worker_name = resolve_project(
+            mode, program_context, worker_name = resolve_program(
                 args.worker,
                 entry_override=args.entry_worker,
             )
 
-            if mode == InvocationMode.PROJECT:
-                registry_root = project_context.project_root
-                project_config = project_context.config
+            if mode == InvocationMode.PROGRAM:
+                registry_root = program_context.program_root
+                program_config = program_context.config
             elif mode == InvocationMode.SINGLE_FILE:
                 worker_path = Path(args.worker)
                 registry_root = worker_path.parent
                 worker_name = worker_path.stem
-                project_config = None
+                program_config = None
             else:
                 registry_root = args.registry or Path.cwd()
-                project_config = None
+                program_config = None
 
             if args.registry is not None:
                 registry_root = args.registry
 
-            registry = WorkerRegistry(registry_root, project_config=project_config)
+            registry = WorkerRegistry(registry_root, program_config=program_config)
             definition = registry.load_definition(worker_name)
 
             if args.config_overrides:
@@ -285,7 +285,7 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                 input_data=input_data,
                 attachments=args.attachments,
                 cli_model=args.cli_model,
-                project_model=project_config.model if project_config else None,
+                program_model=program_config.model if program_config else None,
                 creation_defaults=creation_defaults,
                 approval_controller=approval_controller,
                 message_callback=message_callback,
@@ -333,27 +333,27 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        mode, project_context, worker_name = resolve_project(
+        mode, program_context, worker_name = resolve_program(
             args.worker,
             entry_override=args.entry_worker,
         )
 
-        if mode == InvocationMode.PROJECT:
-            registry_root = project_context.project_root
-            project_config = project_context.config
+        if mode == InvocationMode.PROGRAM:
+            registry_root = program_context.program_root
+            program_config = program_context.config
         elif mode == InvocationMode.SINGLE_FILE:
             worker_path = Path(args.worker)
             registry_root = worker_path.parent
             worker_name = worker_path.stem
-            project_config = None
+            program_config = None
         else:
             registry_root = args.registry or Path.cwd()
-            project_config = None
+            program_config = None
 
         if args.registry is not None:
             registry_root = args.registry
 
-        registry = WorkerRegistry(registry_root, project_config=project_config)
+        registry = WorkerRegistry(registry_root, program_config=program_config)
         definition = registry.load_definition(worker_name)
 
         if args.config_overrides:
@@ -391,7 +391,7 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
                 input_data=input_data,
                 attachments=args.attachments,
                 cli_model=args.cli_model,
-                project_model=project_config.model if project_config else None,
+                program_model=program_config.model if program_config else None,
                 creation_defaults=creation_defaults,
                 approval_controller=approval_controller,
                 message_callback=message_callback,
@@ -411,8 +411,8 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
         if args.debug:
             raise
         return 1
-    except InvalidProjectError as e:
-        print(f"Project error: {e}", file=sys.stderr)
+    except InvalidProgramError as e:
+        print(f"Program error: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1
@@ -454,27 +454,27 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        mode, project_context, worker_name = resolve_project(
+        mode, program_context, worker_name = resolve_program(
             args.worker,
             entry_override=args.entry_worker,
         )
 
-        if mode == InvocationMode.PROJECT:
-            registry_root = project_context.project_root
-            project_config = project_context.config
+        if mode == InvocationMode.PROGRAM:
+            registry_root = program_context.program_root
+            program_config = program_context.config
         elif mode == InvocationMode.SINGLE_FILE:
             worker_path = Path(args.worker)
             registry_root = worker_path.parent
             worker_name = worker_path.stem
-            project_config = None
+            program_config = None
         else:
             registry_root = args.registry or Path.cwd()
-            project_config = None
+            program_config = None
 
         if args.registry is not None:
             registry_root = args.registry
 
-        registry = WorkerRegistry(registry_root, project_config=project_config)
+        registry = WorkerRegistry(registry_root, program_config=program_config)
         definition = registry.load_definition(worker_name)
 
         if args.config_overrides:
@@ -506,7 +506,7 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
             input_data=input_data,
             attachments=args.attachments,
             cli_model=args.cli_model,
-            project_model=project_config.model if project_config else None,
+            program_model=program_config.model if program_config else None,
             creation_defaults=creation_defaults,
             approval_controller=approval_controller,
             message_callback=None,
@@ -524,8 +524,8 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         if args.debug:
             raise
         return 1
-    except InvalidProjectError as e:
-        print(f"Project error: {e}", file=sys.stderr)
+    except InvalidProgramError as e:
+        print(f"Program error: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1
@@ -601,8 +601,8 @@ def main() -> int:
     # Handle 'init' subcommand by delegating to sync CLI
     argv = sys.argv[1:]
     if argv and argv[0] == "init":
-        from .cli import init_project
-        return init_project(argv[1:])
+        from .cli import init_program
+        return init_program(argv[1:])
 
     return asyncio.run(run_async_cli(argv))
 

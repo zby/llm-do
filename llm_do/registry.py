@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Optional, Set, Type
 
-# Generated workers go to a temp directory, not project directory.
+# Generated workers go to a temp directory, not program directory.
 # This keeps generated workers ephemeral - use `cp` to persist them.
 GENERATED_DIR = Path("/tmp/llm-do/generated")
 
@@ -20,7 +20,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, ChoiceLoader, TemplateNotFound, UndefinedError
 from pydantic import BaseModel, ValidationError
 
-from .types import OutputSchemaResolver, ProjectConfig, WorkerDefinition
+from .types import OutputSchemaResolver, ProgramConfig, WorkerDefinition
 
 
 def _default_resolver(definition: WorkerDefinition) -> Optional[Type[BaseModel]]:
@@ -60,7 +60,7 @@ def _render_jinja_template(template_str: str, template_roots: list[Path]) -> str
 
     Template search order:
     1. Worker directory (for directory-form workers)
-    2. Project templates/ directory
+    2. Program templates/ directory
     3. Built-in templates
 
     Args:
@@ -126,7 +126,7 @@ class WorkerRegistry:
         *,
         output_schema_resolver: OutputSchemaResolver = _default_resolver,
         generated_dir: Optional[Path] = None,
-        project_config: Optional[ProjectConfig] = None,
+        program_config: Optional[ProgramConfig] = None,
     ):
         self.root = Path(root).expanduser().resolve()
         self.output_schema_resolver = output_schema_resolver
@@ -136,8 +136,8 @@ class WorkerRegistry:
         self.generated_dir = Path(generated_dir) if generated_dir else GENERATED_DIR
         # Track workers generated in this session - only these are searchable
         self._generated_workers: Set[str] = set()
-        # Project configuration for inheritance
-        self.project_config = project_config
+        # Program configuration for inheritance
+        self.program_config = program_config
         # Cache for loaded definitions (used by CLI for override injection)
         self._definitions_cache: Dict[str, WorkerDefinition] = {}
 
@@ -227,7 +227,7 @@ class WorkerRegistry:
 
         Search order:
         1. Worker directory (for directory-form workers)
-        2. Project templates/ directory (if project_config is set)
+        2. Program templates/ directory (if program_config is set)
         3. Built-in templates (added by _render_jinja_template)
 
         Args:
@@ -244,11 +244,11 @@ class WorkerRegistry:
             roots.append(worker_dir / "templates")
         roots.append(worker_dir)  # Also allow includes relative to worker
 
-        # 2. Project templates directory
-        if self.project_config is not None:
-            project_templates = self.root / "templates"
-            if project_templates.exists():
-                roots.append(project_templates)
+        # 2. Program templates directory
+        if self.program_config is not None:
+            program_templates = self.root / "templates"
+            if program_templates.exists():
+                roots.append(program_templates)
 
         return roots
 
@@ -285,7 +285,7 @@ class WorkerRegistry:
 
         Search order:
         1. Worker directory: workers/name/tools.py (for directory-form workers)
-        2. Project root: tools.py (when project_config is set)
+        2. Program root: tools.py (when program_config is set)
 
         Args:
             name: Worker name
@@ -303,11 +303,11 @@ class WorkerRegistry:
             if tools_path.exists():
                 return tools_path
 
-        # 2. Check project root (when in project mode)
-        if self.project_config is not None:
-            project_tools = self.root / "tools.py"
-            if project_tools.exists():
-                return project_tools
+        # 2. Check program root (when in program mode)
+        if self.program_config is not None:
+            program_tools = self.root / "tools.py"
+            if program_tools.exists():
+                return program_tools
 
         return None
 
@@ -334,55 +334,55 @@ class WorkerRegistry:
             return True
         return False
 
-    def _apply_project_config(self, definition: WorkerDefinition) -> WorkerDefinition:
-        """Apply project configuration inheritance to a worker definition.
+    def _apply_program_config(self, definition: WorkerDefinition) -> WorkerDefinition:
+        """Apply program configuration inheritance to a worker definition.
 
         Merge rules (per spec):
-        - Scalar values: worker overrides project
-        - toolsets: deep merge (worker toolsets add to project toolsets)
-        - sandbox.paths: deep merge (worker paths add to project paths)
-        - Lists: worker replaces project (no merge)
+        - Scalar values: worker overrides program
+        - toolsets: deep merge (worker toolsets add to program toolsets)
+        - sandbox.paths: deep merge (worker paths add to program paths)
+        - Lists: worker replaces program (no merge)
 
         Args:
             definition: Worker definition to enhance
 
         Returns:
-            WorkerDefinition with project defaults applied
+            WorkerDefinition with program defaults applied
         """
-        if self.project_config is None:
+        if self.program_config is None:
             return definition
 
         # Start with worker's values
         updates = {}
 
-        # Model: worker overrides project
-        if definition.model is None and self.project_config.model is not None:
-            updates["model"] = self.project_config.model
+        # Model: worker overrides program
+        if definition.model is None and self.program_config.model is not None:
+            updates["model"] = self.program_config.model
 
-        # Toolsets: deep merge (project provides base, worker adds/overrides)
-        if self.project_config.toolsets:
-            merged_toolsets = dict(self.project_config.toolsets)
+        # Toolsets: deep merge (program provides base, worker adds/overrides)
+        if self.program_config.toolsets:
+            merged_toolsets = dict(self.program_config.toolsets)
             if definition.toolsets:
                 merged_toolsets.update(definition.toolsets)
             updates["toolsets"] = merged_toolsets
         elif definition.toolsets is None:
-            # Worker has no toolsets and neither does project - keep as None
+            # Worker has no toolsets and neither does program - keep as None
             pass
 
         # Sandbox: deep merge paths
-        if self.project_config.sandbox:
+        if self.program_config.sandbox:
             if definition.sandbox is None:
-                updates["sandbox"] = self.project_config.sandbox.model_copy()
+                updates["sandbox"] = self.program_config.sandbox.model_copy()
             else:
                 # Merge sandbox paths
                 merged_sandbox = definition.sandbox.model_copy()
-                if self.project_config.sandbox.paths and merged_sandbox.paths:
-                    # Worker paths override project paths with same name
-                    merged_paths = dict(self.project_config.sandbox.paths)
+                if self.program_config.sandbox.paths and merged_sandbox.paths:
+                    # Worker paths override program paths with same name
+                    merged_paths = dict(self.program_config.sandbox.paths)
                     merged_paths.update(merged_sandbox.paths)
                     merged_sandbox.paths = merged_paths
-                elif self.project_config.sandbox.paths and not merged_sandbox.paths:
-                    merged_sandbox.paths = dict(self.project_config.sandbox.paths)
+                elif self.program_config.sandbox.paths and not merged_sandbox.paths:
+                    merged_sandbox.paths = dict(self.program_config.sandbox.paths)
                 updates["sandbox"] = merged_sandbox
 
         if not updates:
@@ -404,7 +404,7 @@ class WorkerRegistry:
         in this session via register_generated(). This prevents leakage from
         old sessions.
 
-        If a project_config is set, project-level defaults are merged into
+        If a program_config is set, program-level defaults are merged into
         the worker definition (worker values take precedence).
 
         Args:
@@ -433,8 +433,8 @@ class WorkerRegistry:
         except ValidationError as exc:
             raise ValueError(f"Invalid worker definition at {path}: {exc}") from exc
 
-        # Apply project configuration inheritance
-        return self._apply_project_config(definition)
+        # Apply program configuration inheritance
+        return self._apply_program_config(definition)
 
     def save_definition(
         self,

@@ -43,9 +43,9 @@ from pydantic_ai_blocking_approval import (
     ApprovalRequest,
 )
 from .config_overrides import apply_cli_overrides
-from .project import (
-    InvalidProjectError,
-    resolve_project,
+from .program import (
+    InvalidProgramError,
+    resolve_program,
 )
 from .types import InvocationMode
 from .cli_display import (
@@ -194,7 +194,7 @@ def _parse_init_args(argv: list[str]) -> argparse.Namespace:
     """Parse arguments for 'llm-do init' command."""
     parser = argparse.ArgumentParser(
         prog="llm-do init",
-        description="Initialize a new llm-do project"
+        description="Initialize a new llm-do program"
     )
     parser.add_argument(
         "path",
@@ -205,12 +205,12 @@ def _parse_init_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--name",
         default=None,
-        help="Project name (default: directory name)",
+        help="Program name (default: directory name)",
     )
     parser.add_argument(
         "--model",
         default=None,
-        help="Default model for the project (e.g., anthropic:claude-haiku-4-5)",
+        help="Default model for the program (e.g., anthropic:claude-haiku-4-5)",
     )
     return parser.parse_args(argv)
 
@@ -218,11 +218,11 @@ def _parse_init_args(argv: list[str]) -> argparse.Namespace:
 def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a PydanticAI worker",
-        epilog="Use 'llm-do init' to create a new project."
+        epilog="Use 'llm-do init' to create a new program."
     )
     parser.add_argument(
         "worker",
-        help="Worker name, path to .worker file, or project directory",
+        help="Worker name, path to .worker file, or program directory",
     )
     parser.add_argument(
         "message",
@@ -298,63 +298,63 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--entry",
         dest="entry_worker",
         default=None,
-        help="Override entry point for project execution (default: main). "
-             "Use when running a project directory to start from a different worker.",
+        help="Override entry point for program execution (default: main). "
+             "Use when running a program directory to start from a different worker.",
     )
     return parser.parse_args(argv)
 
 
-def init_project(argv: list[str]) -> int:
-    """Initialize a new llm-do project.
+def init_program(argv: list[str]) -> int:
+    """Initialize a new llm-do program.
 
     Creates:
     - main.worker: Entry point worker
-    - project.yaml: Project configuration (if --name or --model specified)
+    - program.yaml: Program configuration (if --name or --model specified)
     """
     args = _parse_init_args(argv)
     console = Console()
 
-    project_path = Path(args.path).resolve()
+    program_path = Path(args.path).resolve()
 
     # Create directory if needed
-    if not project_path.exists():
-        project_path.mkdir(parents=True)
-        console.print(f"Created directory: {project_path}")
+    if not program_path.exists():
+        program_path.mkdir(parents=True)
+        console.print(f"Created directory: {program_path}")
 
-    # Check for existing project
-    main_worker = project_path / "main.worker"
-    project_yaml = project_path / "project.yaml"
+    # Check for existing program
+    main_worker = program_path / "main.worker"
+    program_yaml = program_path / "program.yaml"
 
     if main_worker.exists():
-        console.print(f"[yellow]Project already initialized: {main_worker} exists[/yellow]")
+        console.print(f"[yellow]Program already initialized: {main_worker} exists[/yellow]")
         return 1
 
-    # Determine project name
-    project_name = args.name or project_path.name
+    # Determine program name
+    program_name = args.name or program_path.name
 
     # Create main.worker
     main_worker_content = f"""---
 name: main
-description: Main entry point for {project_name}
+description: Main entry point for {program_name}
 ---
-You are a helpful assistant for the {project_name} project.
+You are a helpful assistant for the {program_name} program.
 
 Respond to the user's request.
 """
     main_worker.write_text(main_worker_content)
     console.print(f"Created: {main_worker}")
 
-    # Create project.yaml if name or model specified
+    # Create program.yaml if name or model specified
     if args.name or args.model:
-        project_config = f"name: {project_name}\n"
+        program_config_content = f"name: {program_name}\n"
         if args.model:
-            project_config += f"model: {args.model}\n"
-        project_yaml.write_text(project_config)
-        console.print(f"Created: {project_yaml}")
+            program_config_content += f"model: {args.model}\n"
+        program_yaml.write_text(program_config_content)
+        console.print(f"Created: {program_yaml}")
 
-    console.print(f"\n[green]Project initialized![/green]")
-    console.print(f"\nRun your project with:")
-    console.print(f"  llm-do {project_path} \"your message\"")
+    console.print(f"\n[green]Program initialized![/green]")
+    console.print(f"\nRun your program with:")
+    console.print(f"  llm-do {program_path} \"your message\"")
 
     return 0
 
@@ -365,7 +365,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         argv = sys.argv[1:]
 
     if argv and argv[0] == "init":
-        return init_project(argv[1:])
+        return init_program(argv[1:])
 
     # Parse args for normal worker execution
     args = _parse_args(argv if argv else None)
@@ -373,36 +373,36 @@ def main(argv: Optional[list[str]] = None) -> int:
     prompt_console = console if not args.json else Console(stderr=True)
 
     try:
-        # Resolve invocation mode and project context
-        mode, project_context, worker_name = resolve_project(
+        # Resolve invocation mode and program context
+        mode, program_context, worker_name = resolve_program(
             args.worker,
             entry_override=args.entry_worker,
         )
 
         # Determine registry root based on invocation mode
-        if mode == InvocationMode.PROJECT:
-            # Project mode: registry root is project directory
-            registry_root = project_context.project_root
-            project_config = project_context.config
+        if mode == InvocationMode.PROGRAM:
+            # Program mode: registry root is program directory
+            registry_root = program_context.program_root
+            program_config = program_context.config
         elif mode == InvocationMode.SINGLE_FILE:
             # Single file: registry root is file's parent directory
             worker_path = Path(worker_name)
             registry_root = worker_path.parent
             worker_name = worker_path.stem
-            project_config = None
+            program_config = None
         else:  # SEARCH_PATH
             # Search mode: use --registry or cwd
             if args.registry is None:
                 registry_root = Path.cwd()
             else:
                 registry_root = args.registry
-            project_config = None
+            program_config = None
 
         # Override registry root if explicitly provided
         if args.registry is not None:
             registry_root = args.registry
 
-        registry = WorkerRegistry(registry_root, project_config=project_config)
+        registry = WorkerRegistry(registry_root, program_config=program_config)
 
         # Load worker definition
         definition = registry.load_definition(worker_name)
@@ -471,7 +471,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             input_data=input_data,
             attachments=args.attachments,
             cli_model=args.cli_model,
-            project_model=project_config.model if project_config else None,
+            program_model=program_config.model if program_config else None,
             creation_defaults=creation_defaults,
             approval_controller=approval_controller,
             message_callback=streaming_callback,
@@ -499,8 +499,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             raise
         return 1
 
-    except InvalidProjectError as e:
-        print(f"Project error: {e}", file=sys.stderr)
+    except InvalidProgramError as e:
+        print(f"Program error: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1

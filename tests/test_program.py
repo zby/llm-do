@@ -1,16 +1,16 @@
-"""Tests for project detection and configuration (worker-function architecture)."""
+"""Tests for program detection and configuration (worker-function architecture)."""
 
 import pytest
 from pathlib import Path
 
-from llm_do.project import (
-    InvalidProjectError,
-    ProjectContext,
+from llm_do.program import (
+    InvalidProgramError,
+    ProgramContext,
     detect_invocation_mode,
-    load_project_config,
-    resolve_project,
+    load_program_config,
+    resolve_program,
 )
-from llm_do.types import InvocationMode, ProjectConfig
+from llm_do.types import InvocationMode, ProgramConfig
 from llm_do.registry import WorkerRegistry
 from llm_do.worker_sandbox import SandboxConfig, PathConfig
 
@@ -26,34 +26,34 @@ class TestDetectInvocationMode:
         mode = detect_invocation_mode(str(worker_file))
         assert mode == InvocationMode.SINGLE_FILE
 
-    def test_project_with_main_worker(self, tmp_path):
-        """Test detection of project directory with main.worker."""
-        project_dir = tmp_path / "my-project"
-        project_dir.mkdir()
-        (project_dir / "main.worker").write_text("---\nname: main\n---\nMain worker")
+    def test_program_with_main_worker(self, tmp_path):
+        """Test detection of program directory with main.worker."""
+        program_dir = tmp_path / "my-program"
+        program_dir.mkdir()
+        (program_dir / "main.worker").write_text("---\nname: main\n---\nMain worker")
 
-        mode = detect_invocation_mode(str(project_dir))
-        assert mode == InvocationMode.PROJECT
+        mode = detect_invocation_mode(str(program_dir))
+        assert mode == InvocationMode.PROGRAM
 
-    def test_project_with_project_yaml(self, tmp_path):
-        """Test detection of project directory with project.yaml only."""
-        project_dir = tmp_path / "my-project"
-        project_dir.mkdir()
-        (project_dir / "project.yaml").write_text("name: my-project")
+    def test_program_with_program_yaml(self, tmp_path):
+        """Test detection of program directory with program.yaml only."""
+        program_dir = tmp_path / "my-program"
+        program_dir.mkdir()
+        (program_dir / "program.yaml").write_text("name: my-program")
         # Note: This is technically invalid (no main.worker), but detection should work
 
-        mode = detect_invocation_mode(str(project_dir))
-        assert mode == InvocationMode.PROJECT
+        mode = detect_invocation_mode(str(program_dir))
+        assert mode == InvocationMode.PROGRAM
 
     def test_directory_without_markers_raises(self, tmp_path):
-        """Test that directory without project markers raises error."""
+        """Test that directory without program markers raises error."""
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
 
-        with pytest.raises(InvalidProjectError) as exc_info:
+        with pytest.raises(InvalidProgramError) as exc_info:
             detect_invocation_mode(str(empty_dir))
 
-        assert "not a valid project" in str(exc_info.value)
+        assert "not a valid program" in str(exc_info.value)
         assert "missing main.worker" in str(exc_info.value)
 
     def test_worker_name_returns_search_path(self):
@@ -67,47 +67,47 @@ class TestDetectInvocationMode:
         assert mode == InvocationMode.SEARCH_PATH
 
 
-class TestLoadProjectConfig:
-    """Tests for load_project_config function."""
+class TestLoadProgramConfig:
+    """Tests for load_program_config function."""
 
-    def test_empty_project_no_yaml(self, tmp_path):
-        """Test that missing project.yaml returns empty config."""
-        config = load_project_config(tmp_path)
-        assert config == ProjectConfig()
+    def test_empty_program_no_yaml(self, tmp_path):
+        """Test that missing program.yaml returns empty config."""
+        config = load_program_config(tmp_path)
+        assert config == ProgramConfig()
 
-    def test_minimal_project_yaml(self, tmp_path):
-        """Test loading minimal project.yaml."""
-        (tmp_path / "project.yaml").write_text("name: my-project")
+    def test_minimal_program_yaml(self, tmp_path):
+        """Test loading minimal program.yaml."""
+        (tmp_path / "program.yaml").write_text("name: my-program")
 
-        config = load_project_config(tmp_path)
-        assert config.name == "my-project"
+        config = load_program_config(tmp_path)
+        assert config.name == "my-program"
         assert config.model is None
 
-    def test_full_project_yaml(self, tmp_path):
-        """Test loading project.yaml with all fields."""
+    def test_full_program_yaml(self, tmp_path):
+        """Test loading program.yaml with all fields."""
         yaml_content = """
-name: my-project
+name: my-program
 version: 1.0.0
-description: A test project
+description: A test program
 model: anthropic:claude-haiku-4-5
 toolsets:
   filesystem: {}
   shell:
     rules: []
 """
-        (tmp_path / "project.yaml").write_text(yaml_content)
+        (tmp_path / "program.yaml").write_text(yaml_content)
 
-        config = load_project_config(tmp_path)
-        assert config.name == "my-project"
+        config = load_program_config(tmp_path)
+        assert config.name == "my-program"
         assert config.version == "1.0.0"
-        assert config.description == "A test project"
+        assert config.description == "A test program"
         assert config.model == "anthropic:claude-haiku-4-5"
         assert config.toolsets == {"filesystem": {}, "shell": {"rules": []}}
 
-    def test_project_yaml_with_sandbox(self, tmp_path):
-        """Test loading project.yaml with sandbox config."""
+    def test_program_yaml_with_sandbox(self, tmp_path):
+        """Test loading program.yaml with sandbox config."""
         yaml_content = """
-name: sandboxed-project
+name: sandboxed-program
 sandbox:
   paths:
     input:
@@ -117,9 +117,9 @@ sandbox:
       root: ./output
       mode: rw
 """
-        (tmp_path / "project.yaml").write_text(yaml_content)
+        (tmp_path / "program.yaml").write_text(yaml_content)
 
-        config = load_project_config(tmp_path)
+        config = load_program_config(tmp_path)
         assert config.sandbox is not None
         assert "input" in config.sandbox.paths
         assert config.sandbox.paths["input"].mode == "ro"
@@ -128,54 +128,54 @@ sandbox:
 
     def test_invalid_yaml_raises(self, tmp_path):
         """Test that invalid YAML raises ValueError."""
-        (tmp_path / "project.yaml").write_text("invalid: yaml: syntax:")
+        (tmp_path / "program.yaml").write_text("invalid: yaml: syntax:")
 
         with pytest.raises(ValueError) as exc_info:
-            load_project_config(tmp_path)
+            load_program_config(tmp_path)
 
         assert "Invalid YAML" in str(exc_info.value)
 
     def test_invalid_schema_raises(self, tmp_path):
         """Test that schema violations raise ValueError."""
-        (tmp_path / "project.yaml").write_text("model: 123")  # model should be string
+        (tmp_path / "program.yaml").write_text("model: 123")  # model should be string
 
         # Pydantic should coerce 123 to "123", but let's test with a more obvious violation
-        (tmp_path / "project.yaml").write_text("sandbox:\n  paths: not-a-dict")
+        (tmp_path / "program.yaml").write_text("sandbox:\n  paths: not-a-dict")
 
         with pytest.raises(ValueError) as exc_info:
-            load_project_config(tmp_path)
+            load_program_config(tmp_path)
 
-        assert "Invalid project configuration" in str(exc_info.value)
+        assert "Invalid program configuration" in str(exc_info.value)
 
 
-class TestResolveProject:
-    """Tests for resolve_project function."""
+class TestResolveProgram:
+    """Tests for resolve_program function."""
 
-    def test_resolve_project_directory(self, tmp_path):
-        """Test resolving a project directory."""
-        project_dir = tmp_path / "my-project"
-        project_dir.mkdir()
-        (project_dir / "main.worker").write_text("---\nname: main\n---\nMain")
+    def test_resolve_program_directory(self, tmp_path):
+        """Test resolving a program directory."""
+        program_dir = tmp_path / "my-program"
+        program_dir.mkdir()
+        (program_dir / "main.worker").write_text("---\nname: main\n---\nMain")
 
-        mode, context, worker_name = resolve_project(str(project_dir))
+        mode, context, worker_name = resolve_program(str(program_dir))
 
-        assert mode == InvocationMode.PROJECT
+        assert mode == InvocationMode.PROGRAM
         assert context is not None
-        assert context.project_root == project_dir.resolve()
+        assert context.program_root == program_dir.resolve()
         assert worker_name == "main"
 
-    def test_resolve_project_with_entry_override(self, tmp_path):
-        """Test resolving project with --entry override."""
-        project_dir = tmp_path / "my-project"
-        project_dir.mkdir()
-        (project_dir / "main.worker").write_text("---\nname: main\n---\nMain")
+    def test_resolve_program_with_entry_override(self, tmp_path):
+        """Test resolving program with --entry override."""
+        program_dir = tmp_path / "my-program"
+        program_dir.mkdir()
+        (program_dir / "main.worker").write_text("---\nname: main\n---\nMain")
 
-        mode, context, worker_name = resolve_project(
-            str(project_dir),
+        mode, context, worker_name = resolve_program(
+            str(program_dir),
             entry_override="custom_entry"
         )
 
-        assert mode == InvocationMode.PROJECT
+        assert mode == InvocationMode.PROGRAM
         assert worker_name == "custom_entry"
         assert context.entry_worker == "custom_entry"
 
@@ -184,7 +184,7 @@ class TestResolveProject:
         worker_file = tmp_path / "task.worker"
         worker_file.write_text("---\nname: task\n---\nTask worker")
 
-        mode, context, worker_name = resolve_project(str(worker_file))
+        mode, context, worker_name = resolve_program(str(worker_file))
 
         assert mode == InvocationMode.SINGLE_FILE
         assert context is None
@@ -192,18 +192,18 @@ class TestResolveProject:
 
     def test_resolve_worker_name(self):
         """Test resolving a worker name (search path mode)."""
-        mode, context, worker_name = resolve_project("my-worker")
+        mode, context, worker_name = resolve_program("my-worker")
 
         assert mode == InvocationMode.SEARCH_PATH
         assert context is None
         assert worker_name == "my-worker"
 
 
-class TestRegistryProjectConfigInheritance:
-    """Tests for project config inheritance in WorkerRegistry."""
+class TestRegistryProgramConfigInheritance:
+    """Tests for program config inheritance in WorkerRegistry."""
 
-    def test_registry_without_project_config(self, tmp_path):
-        """Test that registry works without project config."""
+    def test_registry_without_program_config(self, tmp_path):
+        """Test that registry works without program config."""
         workers_dir = tmp_path / "workers"
         workers_dir.mkdir()
         (workers_dir / "test.worker").write_text(
@@ -216,46 +216,46 @@ class TestRegistryProjectConfigInheritance:
         assert definition.name == "test"
         assert definition.model == "openai:gpt-4o"
 
-    def test_registry_inherits_project_model(self, tmp_path):
-        """Test that worker inherits model from project config."""
+    def test_registry_inherits_program_model(self, tmp_path):
+        """Test that worker inherits model from program config."""
         workers_dir = tmp_path / "workers"
         workers_dir.mkdir()
         (workers_dir / "test.worker").write_text(
             "---\nname: test\n---\nTest worker"
         )
 
-        project_config = ProjectConfig(model="anthropic:claude-haiku-4-5")
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        program_config = ProgramConfig(model="anthropic:claude-haiku-4-5")
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         definition = registry.load_definition("test")
 
         assert definition.model == "anthropic:claude-haiku-4-5"
 
-    def test_worker_model_overrides_project(self, tmp_path):
-        """Test that worker's own model overrides project config."""
+    def test_worker_model_overrides_program(self, tmp_path):
+        """Test that worker's own model overrides program config."""
         workers_dir = tmp_path / "workers"
         workers_dir.mkdir()
         (workers_dir / "test.worker").write_text(
             "---\nname: test\nmodel: openai:gpt-4o\n---\nTest worker"
         )
 
-        project_config = ProjectConfig(model="anthropic:claude-haiku-4-5")
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        program_config = ProgramConfig(model="anthropic:claude-haiku-4-5")
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         definition = registry.load_definition("test")
 
         assert definition.model == "openai:gpt-4o"
 
     def test_registry_merges_toolsets(self, tmp_path):
-        """Test that toolsets are deep merged (project + worker)."""
+        """Test that toolsets are deep merged (program + worker)."""
         workers_dir = tmp_path / "workers"
         workers_dir.mkdir()
         (workers_dir / "test.worker").write_text(
             "---\nname: test\ntoolsets:\n  custom:\n    tools:\n      my_tool: {}\n---\n"
         )
 
-        project_config = ProjectConfig(
+        program_config = ProgramConfig(
             toolsets={"filesystem": {}, "shell": {"rules": []}}
         )
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         definition = registry.load_definition("test")
 
         # Should have all three toolsets
@@ -263,18 +263,18 @@ class TestRegistryProjectConfigInheritance:
         assert "shell" in definition.toolsets
         assert "custom" in definition.toolsets
 
-    def test_worker_toolsets_override_project(self, tmp_path):
-        """Test that worker's toolset config overrides project's same-named toolset."""
+    def test_worker_toolsets_override_program(self, tmp_path):
+        """Test that worker's toolset config overrides program's same-named toolset."""
         workers_dir = tmp_path / "workers"
         workers_dir.mkdir()
         (workers_dir / "test.worker").write_text(
             "---\nname: test\ntoolsets:\n  shell:\n    rules:\n      - pattern: echo\n---\n"
         )
 
-        project_config = ProjectConfig(
+        program_config = ProgramConfig(
             toolsets={"shell": {"rules": []}}
         )
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         definition = registry.load_definition("test")
 
         # Worker's shell config should override
@@ -288,7 +288,7 @@ class TestRegistryProjectConfigInheritance:
             "---\nname: test\nsandbox:\n  paths:\n    scratch:\n      root: ./scratch\n      mode: rw\n---\n"
         )
 
-        project_config = ProjectConfig(
+        program_config = ProgramConfig(
             sandbox=SandboxConfig(
                 paths={
                     "input": PathConfig(root="./input", mode="ro"),
@@ -296,7 +296,7 @@ class TestRegistryProjectConfigInheritance:
                 }
             )
         )
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         definition = registry.load_definition("test")
 
         # Should have all three paths
@@ -304,8 +304,8 @@ class TestRegistryProjectConfigInheritance:
         assert "output" in definition.sandbox.paths
         assert "scratch" in definition.sandbox.paths
 
-    def test_main_worker_at_project_root(self, tmp_path):
-        """Test that main.worker at project root is found."""
+    def test_main_worker_at_program_root(self, tmp_path):
+        """Test that main.worker at program root is found."""
         (tmp_path / "main.worker").write_text(
             "---\nname: main\n---\nMain entry point"
         )
@@ -322,7 +322,7 @@ class TestPhase2TemplateSearchPaths:
 
     def test_worker_local_templates(self, tmp_path):
         """Test that worker-local templates are found."""
-        # Create project structure
+        # Create program structure
         workers_dir = tmp_path / "workers" / "templated"
         workers_dir.mkdir(parents=True)
 
@@ -340,9 +340,9 @@ class TestPhase2TemplateSearchPaths:
         assert "# Worker Header" in definition.instructions
         assert "Main content" in definition.instructions
 
-    def test_project_templates_directory(self, tmp_path):
-        """Test that project templates/ directory is searched."""
-        # Create project structure
+    def test_program_templates_directory(self, tmp_path):
+        """Test that program templates/ directory is searched."""
+        # Create program structure
         workers_dir = tmp_path / "workers"
         workers_dir.mkdir()
         templates_dir = tmp_path / "templates"
@@ -353,18 +353,18 @@ class TestPhase2TemplateSearchPaths:
             "---\nname: test\n---\n{% include 'shared.jinja' %}"
         )
 
-        # Create project-level template
-        (templates_dir / "shared.jinja").write_text("Shared project content")
+        # Create program-level template
+        (templates_dir / "shared.jinja").write_text("Shared program content")
 
-        # Need project config to enable project templates
-        project_config = ProjectConfig()
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        # Need program config to enable program templates
+        program_config = ProgramConfig()
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         definition = registry.load_definition("test")
 
-        assert "Shared project content" in definition.instructions
+        assert "Shared program content" in definition.instructions
 
-    def test_worker_templates_override_project(self, tmp_path):
-        """Test that worker-local templates take precedence over project templates."""
+    def test_worker_templates_override_program(self, tmp_path):
+        """Test that worker-local templates take precedence over program templates."""
         # Create structure
         workers_dir = tmp_path / "workers" / "override"
         workers_dir.mkdir(parents=True)
@@ -379,72 +379,72 @@ class TestPhase2TemplateSearchPaths:
         # Create worker-local template (should win)
         (workers_dir / "common.jinja").write_text("Worker version")
 
-        # Create project template
-        (templates_dir / "common.jinja").write_text("Project version")
+        # Create program template
+        (templates_dir / "common.jinja").write_text("Program version")
 
-        project_config = ProjectConfig()
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        program_config = ProgramConfig()
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         definition = registry.load_definition("override")
 
         assert "Worker version" in definition.instructions
 
 
-class TestProjectLevelTools:
-    """Tests for project-level tools.py discovery."""
+class TestProgramLevelTools:
+    """Tests for program-level tools.py discovery."""
 
-    def test_find_custom_tools_at_project_root(self, tmp_path):
-        """Test that tools.py at project root is found in project mode."""
+    def test_find_custom_tools_at_program_root(self, tmp_path):
+        """Test that tools.py at program root is found in program mode."""
         # Create main.worker at root
         (tmp_path / "main.worker").write_text("---\nname: main\n---\nMain worker")
 
-        # Create tools.py at project root
+        # Create tools.py at program root
         (tmp_path / "tools.py").write_text("def my_tool(): pass")
 
-        # Without project_config, tools should NOT be found
+        # Without program_config, tools should NOT be found
         registry = WorkerRegistry(tmp_path)
         assert registry.find_custom_tools("main") is None
 
-        # With project_config, tools SHOULD be found
-        project_config = ProjectConfig()
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        # With program_config, tools SHOULD be found
+        program_config = ProgramConfig()
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         tools_path = registry.find_custom_tools("main")
 
         assert tools_path is not None
         assert tools_path == tmp_path / "tools.py"
 
-    def test_worker_tools_take_precedence_over_project(self, tmp_path):
-        """Test that worker-level tools.py takes precedence over project-level."""
+    def test_worker_tools_take_precedence_over_program(self, tmp_path):
+        """Test that worker-level tools.py takes precedence over program-level."""
         # Create directory-form worker with its own tools
         worker_dir = tmp_path / "workers" / "myworker"
         worker_dir.mkdir(parents=True)
         (worker_dir / "worker.worker").write_text("---\nname: myworker\n---\n")
         (worker_dir / "tools.py").write_text("def worker_tool(): pass")
 
-        # Create project-level tools
-        (tmp_path / "tools.py").write_text("def project_tool(): pass")
+        # Create program-level tools
+        (tmp_path / "tools.py").write_text("def program_tool(): pass")
 
-        project_config = ProjectConfig()
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        program_config = ProgramConfig()
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         tools_path = registry.find_custom_tools("myworker")
 
         # Worker-level tools should win
         assert tools_path == worker_dir / "tools.py"
 
-    def test_simple_worker_uses_project_tools(self, tmp_path):
-        """Test that simple-form workers can use project-level tools."""
+    def test_simple_worker_uses_program_tools(self, tmp_path):
+        """Test that simple-form workers can use program-level tools."""
         # Create simple-form worker (not directory-based)
         workers_dir = tmp_path / "workers"
         workers_dir.mkdir()
         (workers_dir / "simple.worker").write_text("---\nname: simple\n---\n")
 
-        # Create project-level tools
+        # Create program-level tools
         (tmp_path / "tools.py").write_text("def shared_tool(): pass")
 
-        project_config = ProjectConfig()
-        registry = WorkerRegistry(tmp_path, project_config=project_config)
+        program_config = ProgramConfig()
+        registry = WorkerRegistry(tmp_path, program_config=program_config)
         tools_path = registry.find_custom_tools("simple")
 
-        # Project-level tools should be found
+        # Program-level tools should be found
         assert tools_path == tmp_path / "tools.py"
 
 

@@ -283,51 +283,51 @@ def test_cli_requires_tty_for_interactive_mode(tmp_path, monkeypatch, capsys):
     assert "interactive approvals require a TTY" in captured.err
 
 
-def test_cli_init_creates_project(tmp_path):
-    """Test that 'llm-do init' creates a project structure."""
-    from llm_do.cli import init_project
+def test_cli_init_creates_program(tmp_path):
+    """Test that 'llm-do init' creates a program structure."""
+    from llm_do.cli import init_program
 
-    project_dir = tmp_path / "my-project"
+    program_dir = tmp_path / "my-program"
 
-    result = init_project([str(project_dir), "--name", "My Project", "--model", "anthropic:claude-haiku-4-5"])
+    result = init_program([str(program_dir), "--name", "My Program", "--model", "anthropic:claude-haiku-4-5"])
 
     assert result == 0
-    assert project_dir.exists()
-    assert (project_dir / "main.worker").exists()
-    assert (project_dir / "project.yaml").exists()
+    assert program_dir.exists()
+    assert (program_dir / "main.worker").exists()
+    assert (program_dir / "program.yaml").exists()
 
     # Check main.worker content
-    main_content = (project_dir / "main.worker").read_text()
+    main_content = (program_dir / "main.worker").read_text()
     assert "name: main" in main_content
-    assert "My Project" in main_content
+    assert "My Program" in main_content
 
-    # Check project.yaml content
-    project_content = (project_dir / "project.yaml").read_text()
-    assert "name: My Project" in project_content
-    assert "model: anthropic:claude-haiku-4-5" in project_content
+    # Check program.yaml content
+    program_content = (program_dir / "program.yaml").read_text()
+    assert "name: My Program" in program_content
+    assert "model: anthropic:claude-haiku-4-5" in program_content
 
 
 def test_cli_init_fails_if_exists(tmp_path):
-    """Test that 'llm-do init' fails if project already exists."""
-    from llm_do.cli import init_project
+    """Test that 'llm-do init' fails if program already exists."""
+    from llm_do.cli import init_program
 
     # Create existing main.worker
     (tmp_path / "main.worker").write_text("existing")
 
-    result = init_project([str(tmp_path)])
+    result = init_program([str(tmp_path)])
 
     assert result == 1
 
 
 def test_cli_init_minimal(tmp_path):
     """Test that 'llm-do init' works with minimal args."""
-    from llm_do.cli import init_project
+    from llm_do.cli import init_program
 
-    project_dir = tmp_path / "simple"
+    program_dir = tmp_path / "simple"
 
-    result = init_project([str(project_dir)])
+    result = init_program([str(program_dir)])
 
     assert result == 0
-    assert (project_dir / "main.worker").exists()
-    # No project.yaml without --name or --model
-    assert not (project_dir / "project.yaml").exists()
+    assert (program_dir / "main.worker").exists()
+    # No program.yaml without --name or --model
+    assert not (program_dir / "program.yaml").exists()

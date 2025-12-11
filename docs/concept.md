@@ -2,28 +2,28 @@
 
 ## Core Idea
 
-**Projects are programs. Workers are functions.**
+**Programs are programs. Workers are functions.**
 
 Just like programs compose focused functions, LLM workflows compose focused workers. Each worker does one thing well with tight context—no bloated multi-purpose prompts.
 
 | Programming | llm-do |
 |-------------|--------|
-| Program | Project directory |
+| Program | Program directory |
 | `main()` | `main.worker` |
 | Function | `.worker` file |
 | Function call | `worker_call` tool |
 
-A **project** is a directory with a `main.worker` entry point. A **worker** is a prompt template + configuration + tools, packaged as an executable unit that the LLM interprets.
+A **program** is a directory with a `main.worker` entry point. A **worker** is a prompt template + configuration + tools, packaged as an executable unit that the LLM interprets.
 
-## What Is a Project?
+## What Is a Program?
 
-A **project** is a directory that packages workers together:
+A **program** is a directory that packages workers together:
 
 ```
-my-project/
+my-program/
 ├── main.worker           # Entry point (required)
-├── project.yaml          # Shared config (optional)
-├── tools.py              # Project-wide Python tools (optional)
+├── program.yaml          # Shared config (optional)
+├── tools.py              # Program-wide Python tools (optional)
 ├── templates/            # Shared Jinja templates (optional)
 ├── workers/              # Helper workers (optional)
 │   ├── analyzer.worker
@@ -34,7 +34,7 @@ my-project/
 └── output/               # Output sandbox (convention)
 ```
 
-**Configuration inheritance**: `project.yaml` provides defaults (model, sandbox, toolsets) inherited by all workers. Workers can override.
+**Configuration inheritance**: `program.yaml` provides defaults (model, sandbox, toolsets) inherited by all workers. Workers can override.
 
 ## What Is a Worker?
 
@@ -145,7 +145,7 @@ Workers start flexible, then harden as patterns stabilize:
 
 ## Design Principles
 
-1. **Projects as programs** — A project directory is the executable unit, `main.worker` is the entry point
+1. **Programs as programs** — A program directory is the executable unit, `main.worker` is the entry point
 
 2. **Workers as functions** — Focused, composable units that do one thing well
 

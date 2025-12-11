@@ -1,12 +1,12 @@
 # CLI Reference
 
-The `llm-do` command-line interface runs projects and workers with runtime configuration, approval modes, and output formatting.
+The `llm-do` command-line interface runs programs and workers with runtime configuration, approval modes, and output formatting.
 
 ## Basic Usage
 
 ```bash
-# Run a project (finds main.worker in directory)
-llm-do ./my-project "input message"
+# Run a program (finds main.worker in directory)
+llm-do ./my-program "input message"
 
 # Run a single worker file
 llm-do ./path/to/worker.worker "input message"
@@ -16,7 +16,7 @@ llm-do TARGET [MESSAGE] [OPTIONS]
 ```
 
 **Arguments:**
-- `TARGET` — Project directory (with `main.worker`) or path to `.worker` file
+- `TARGET` — Program directory (with `main.worker`) or path to `.worker` file
 - `MESSAGE` — Optional plain text input message. Use `--input` for JSON instead.
 
 ## Core Options
@@ -70,14 +70,14 @@ llm-do pdf_analyzer --model anthropic:claude-sonnet-4  # OK
 See [Model Compatibility](#model-compatibility) below for pattern syntax.
 
 **`--entry WORKER`**
-Override the entry point when running a project (default is `main`):
+Override the entry point when running a program (default is `main`):
 ```bash
-llm-do ./my-project --entry analyzer "input"
-llm-do ./my-project --entry workers/helper "input"
+llm-do ./my-program --entry analyzer "input"
+llm-do ./my-program --entry workers/helper "input"
 ```
 
 **`--registry PATH`**
-Specify worker registry root (defaults to project directory or current working directory):
+Specify worker registry root (defaults to program directory or current working directory):
 ```bash
 llm-do worker "hello" --registry /path/to/workers
 ```
@@ -291,17 +291,17 @@ Error: Model 'openai:gpt-4o' is not compatible with worker 'pdf_analyzer'.
 Compatible patterns: 'anthropic:*'
 ```
 
-## Project Initialization
+## Program Initialization
 
-Create a new project with `llm-do init`:
+Create a new program with `llm-do init`:
 
 ```bash
-llm-do init my-project
+llm-do init my-program
 ```
 
 Creates:
 ```
-my-project/
+my-program/
 ├── main.worker
 ├── input/
 └── output/
@@ -314,35 +314,35 @@ my-project/
 
 ## Examples
 
-**Run a project:**
+**Run a program:**
 ```bash
 llm-do ./examples/greeter "Tell me a joke"
 ```
 
 **Run with different entry point:**
 ```bash
-llm-do ./my-project --entry analyzer "input"
+llm-do ./my-program --entry analyzer "input"
 ```
 
 **JSON output for scripting:**
 ```bash
-result=$(llm-do ./my-project "query" --json)
+result=$(llm-do ./my-program "query" --json)
 echo "$result" | jq '.output'
 ```
 
 **Auto-approve for CI/CD:**
 ```bash
-llm-do ./my-project "automated task" --approve-all --json > output.json
+llm-do ./my-program "automated task" --approve-all --json > output.json
 ```
 
 **Runtime config override:**
 ```bash
-llm-do ./my-project "task" --set model=openai:gpt-4o --approve-all
+llm-do ./my-program "task" --set model=openai:gpt-4o --approve-all
 ```
 
 **Production hardening:**
 ```bash
-llm-do ./my-project "task" \
+llm-do ./my-program "task" \
   --set locked=true \
   --set attachment_policy.max_attachments=1 \
   --strict

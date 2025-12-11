@@ -318,7 +318,8 @@ def test_call_worker_respects_allowlist(registry):
         instructions="",
         toolsets={"delegation": {"allow_workers": ["child"]}},
     )
-    child_def = WorkerDefinition(name="child", instructions="")
+    # Child has its own model - no inheritance from parent
+    child_def = WorkerDefinition(name="child", instructions="", model="child:model")
     registry.save_definition(parent_def)
     registry.save_definition(child_def)
 
@@ -331,7 +332,7 @@ def test_call_worker_respects_allowlist(registry):
     parent_context = WorkerContext(
         # Core
         worker=parent_def,
-        effective_model="cli",
+        effective_model="parent:model",
         approval_controller=controller,
         # Delegation
         registry=registry,
@@ -350,7 +351,8 @@ def test_call_worker_respects_allowlist(registry):
     )
 
     assert result.output["worker"] == "child"
-    assert result.output["model"] == "cli"
+    # Child resolves its own model - no inheritance from parent
+    assert result.output["model"] == "child:model"
 
 
 def test_call_worker_supports_wildcard_allowlist(registry):

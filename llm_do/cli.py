@@ -471,6 +471,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             input_data=input_data,
             attachments=args.attachments,
             cli_model=args.cli_model,
+            project_model=project_config.model if project_config else None,
             creation_defaults=creation_defaults,
             approval_controller=approval_controller,
             message_callback=streaming_callback,

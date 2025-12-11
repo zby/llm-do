@@ -37,7 +37,6 @@ from .types import (
     AgentExecutionContext,
     AgentRunner,
     MessageCallback,
-    ModelLike,
     WorkerContext,
     WorkerCreationDefaults,
     WorkerDefinition,
@@ -68,8 +67,8 @@ def _prepare_worker_context(
     worker: str,
     input_data: Any,
     attachments: Optional[Sequence[AttachmentInput]],
-    caller_effective_model: Optional[ModelLike],
-    cli_model: Optional[ModelLike],
+    cli_model: Optional[str],
+    project_model: Optional[str],
     creation_defaults: Optional[WorkerCreationDefaults],
     approval_controller: ApprovalController,
     message_callback: Optional[MessageCallback],
@@ -124,15 +123,16 @@ def _prepare_worker_context(
         definition.attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
 
     # Select model with compatibility validation
-    # Resolution: worker.model > cli_model > caller_model, validated against compatible_models
+    # Resolution: cli_model > worker.model > project_model > env var
+    # All validated against compatible_models
     # ModelCompatibilityError propagates immediately (user error)
     # NoModelError is deferred to execution (backward compat with custom agent_runners)
-    effective_model: Optional[ModelLike] = None
+    effective_model: Optional[str] = None
     try:
         effective_model = select_model(
             worker_model=definition.model,
             cli_model=cli_model,
-            caller_model=caller_effective_model,
+            project_model=project_model,
             compatible_models=definition.compatible_models,
             worker_name=worker,
         )
@@ -214,13 +214,23 @@ def call_worker(
     attachments: Optional[Sequence[AttachmentInput]] = None,
     agent_runner: Optional[AgentRunner] = None,
 ) -> WorkerRunResult:
-    """Delegate to another worker (sync version)."""
+    """Delegate to another worker (sync version).
+
+    The delegated worker resolves its own model via the standard precedence:
+    cli_model > worker.model > project_model > LLM_DO_MODEL env var.
+    """
     _check_delegation_allowed(caller_context, worker)
+    # Get project_model from registry if available
+    project_model = None
+    if caller_context.registry and hasattr(caller_context.registry, 'project_config'):
+        pc = caller_context.registry.project_config
+        if pc:
+            project_model = pc.model
     return run_worker(
         registry=registry,
         worker=worker,
         input_data=input_data,
-        caller_effective_model=caller_context.effective_model,
+        project_model=project_model,
         attachments=attachments,
         creation_defaults=caller_context.creation_defaults,
         agent_runner=agent_runner,
@@ -244,6 +254,9 @@ async def call_worker_async(
     By awaiting run_worker_async(), we stay within the same async context
     instead of creating conflicting event loops.
 
+    The delegated worker resolves its own model via the standard precedence:
+    cli_model > worker.model > project_model > LLM_DO_MODEL env var.
+
     Args:
         registry: Source for worker definitions.
         worker: Name of the worker to delegate to.
@@ -256,11 +269,17 @@ async def call_worker_async(
         WorkerRunResult from the delegated worker.
     """
     _check_delegation_allowed(caller_context, worker)
+    # Get project_model from registry if available
+    project_model = None
+    if caller_context.registry and hasattr(caller_context.registry, 'project_config'):
+        pc = caller_context.registry.project_config
+        if pc:
+            project_model = pc.model
     return await run_worker_async(
         registry=registry,
         worker=worker,
         input_data=input_data,
-        caller_effective_model=caller_context.effective_model,
+        project_model=project_model,
         attachments=attachments,
         creation_defaults=caller_context.creation_defaults,
         agent_runner=agent_runner,
@@ -318,8 +337,8 @@ async def run_worker_async(
     worker: str,
     input_data: Any,
     attachments: Optional[Sequence[AttachmentInput]] = None,
-    caller_effective_model: Optional[ModelLike] = None,
-    cli_model: Optional[ModelLike] = None,
+    cli_model: Optional[str] = None,
+    project_model: Optional[str] = None,
     creation_defaults: Optional[WorkerCreationDefaults] = None,
     agent_runner: Optional[Callable] = None,
     approval_controller: Optional[ApprovalController] = None,
@@ -333,13 +352,19 @@ async def run_worker_async(
     3. Creating the execution context.
     4. Awaiting the async agent runner.
 
+    Model resolution order (highest to lowest priority):
+    1. cli_model (--model flag)
+    2. worker.model (from worker definition)
+    3. project_model (from project.yaml)
+    4. LLM_DO_MODEL environment variable
+
     Args:
         registry: Source for worker definitions.
         worker: Name of the worker to run.
         input_data: Input payload for the worker.
         attachments: Optional files to expose to the worker.
-        caller_effective_model: Inherited model from parent (used if worker has no model).
-        cli_model: Fallback model from CLI (used if neither worker nor parent has a model).
+        cli_model: Model from --model CLI flag (highest priority override).
+        project_model: Model from project.yaml config.
         creation_defaults: Defaults for any new workers created during this run.
         agent_runner: Optional async strategy for executing the agent (defaults to async PydanticAI).
         approval_controller: Controller for tool approval (defaults to approve-all mode).
@@ -356,8 +381,8 @@ async def run_worker_async(
         worker=worker,
         input_data=input_data,
         attachments=attachments,
-        caller_effective_model=caller_effective_model,
         cli_model=cli_model,
+        project_model=project_model,
         creation_defaults=creation_defaults,
         approval_controller=approval_controller,
         message_callback=message_callback,
@@ -385,8 +410,8 @@ def run_worker(
     worker: str,
     input_data: Any,
     attachments: Optional[Sequence[AttachmentInput]] = None,
-    caller_effective_model: Optional[ModelLike] = None,
-    cli_model: Optional[ModelLike] = None,
+    cli_model: Optional[str] = None,
+    project_model: Optional[str] = None,
     creation_defaults: Optional[WorkerCreationDefaults] = None,
     agent_runner: Optional[AgentRunner] = None,
     approval_controller: Optional[ApprovalController] = None,
@@ -400,13 +425,19 @@ def run_worker(
     3. Creating the execution context.
     4. Delegating the actual agent loop to the provided ``agent_runner``.
 
+    Model resolution order (highest to lowest priority):
+    1. cli_model (--model flag)
+    2. worker.model (from worker definition)
+    3. project_model (from project.yaml)
+    4. LLM_DO_MODEL environment variable
+
     Args:
         registry: Source for worker definitions.
         worker: Name of the worker to run.
         input_data: Input payload for the worker.
         attachments: Optional files to expose to the worker.
-        caller_effective_model: Inherited model from parent (used if worker has no model).
-        cli_model: Fallback model from CLI (used if neither worker nor parent has a model).
+        cli_model: Model from --model CLI flag (highest priority override).
+        project_model: Model from project.yaml config.
         creation_defaults: Defaults for any new workers created during this run.
         agent_runner: Strategy for executing the agent (defaults to PydanticAI).
         approval_controller: Controller for tool approval (defaults to approve-all mode).
@@ -423,8 +454,8 @@ def run_worker(
         worker=worker,
         input_data=input_data,
         attachments=attachments,
-        caller_effective_model=caller_effective_model,
         cli_model=cli_model,
+        project_model=project_model,
         creation_defaults=creation_defaults,
         approval_controller=approval_controller,
         message_callback=message_callback,

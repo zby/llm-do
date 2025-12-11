@@ -1,19 +1,30 @@
-"""Model compatibility checking for workers.
+"""Model compatibility checking and resolution for workers.
 
-This module provides utilities for validating that a model is compatible
-with a worker's declared compatible_models patterns.
+This module provides utilities for:
+1. Validating model compatibility against worker's compatible_models patterns
+2. Resolving the effective model from multiple sources with proper precedence
 
-Pattern syntax:
+Pattern syntax for compatible_models:
 - "*" matches any model
 - "anthropic:*" matches any model from the anthropic provider
 - "anthropic:claude-haiku-*" matches claude-haiku variants
 - "anthropic:claude-haiku-4-5" matches exactly that model
+
+Model resolution precedence (highest to lowest):
+1. CLI --model flag (explicit override)
+2. Worker's own model (worker definition)
+3. Project config model (project.yaml)
+4. LLM_DO_MODEL environment variable
 """
 from __future__ import annotations
 
 import fnmatch
+import os
 from dataclasses import dataclass
 from typing import Any, List, Optional
+
+# Environment variable for default model
+LLM_DO_MODEL_ENV = "LLM_DO_MODEL"
 
 
 class ModelCompatibilityError(ValueError):
@@ -123,25 +134,54 @@ def validate_model_compatibility(
     )
 
 
+def _validate_and_return(
+    model: Any,
+    compatible_models: Optional[List[str]],
+    worker_name: str,
+) -> Any:
+    """Validate a model against compatibility patterns and return it.
+
+    Only validates string model identifiers; Model objects are used as-is.
+
+    Raises:
+        ModelCompatibilityError: If the model doesn't match compatible_models
+    """
+    if isinstance(model, str):
+        result = validate_model_compatibility(
+            model, compatible_models, worker_name=worker_name
+        )
+        if not result.valid:
+            raise ModelCompatibilityError(result.message)
+    return model
+
+
+def get_env_model() -> Optional[str]:
+    """Get the default model from LLM_DO_MODEL environment variable."""
+    return os.environ.get(LLM_DO_MODEL_ENV)
+
+
 def select_model(
     *,
     worker_model: Optional[str],
-    cli_model: Optional[Any],  # str or Model object
-    caller_model: Optional[Any],  # str or Model object
+    cli_model: Optional[str] = None,
+    project_model: Optional[str] = None,
     compatible_models: Optional[List[str]],
     worker_name: str = "worker",
-) -> Any:
+) -> str:
     """Select and validate the effective model for a worker.
 
-    Resolution order:
-    1. Worker's own model (if set)
-    2. CLI model (if provided and compatible)
-    3. Caller's model (inherited from parent worker)
+    Resolution order (highest to lowest priority):
+    1. CLI --model flag - explicit user override
+    2. Worker's own model - worker definition
+    3. Project config model - project-wide default
+    4. LLM_DO_MODEL env var - user's global default
+
+    The selected model is validated against compatible_models.
 
     Args:
         worker_model: Model from worker definition
         cli_model: Model from --model CLI flag
-        caller_model: Model inherited from parent worker (delegation)
+        project_model: Model from project.yaml config
         compatible_models: Worker's compatibility patterns
         worker_name: Name of the worker (for error messages)
 
@@ -149,36 +189,28 @@ def select_model(
         The selected model identifier
 
     Raises:
-        ValueError: If no model is available or CLI model is incompatible
+        ModelCompatibilityError: If selected model is incompatible with worker
+        NoModelError: If no model is available from any source
     """
-    # Worker's own model takes precedence
-    if worker_model is not None:
-        return worker_model
-
-    # CLI model next - must be validated against compatible_models
-    # Only validate string model identifiers; Model objects are used as-is
+    # 1. CLI model - explicit user override (highest priority)
     if cli_model is not None:
-        if isinstance(cli_model, str):
-            result = validate_model_compatibility(
-                cli_model, compatible_models, worker_name=worker_name
-            )
-            if not result.valid:
-                raise ModelCompatibilityError(result.message)
-        return cli_model
+        return _validate_and_return(cli_model, compatible_models, worker_name)
 
-    # Caller model (delegation) - also validated
-    # Only validate string model identifiers; Model objects are used as-is
-    if caller_model is not None:
-        if isinstance(caller_model, str):
-            result = validate_model_compatibility(
-                caller_model, compatible_models, worker_name=worker_name
-            )
-            if not result.valid:
-                raise ModelCompatibilityError(result.message)
-        return caller_model
+    # 2. Worker's own model
+    if worker_model is not None:
+        return _validate_and_return(worker_model, compatible_models, worker_name)
+
+    # 3. Project config model - project-wide default
+    if project_model is not None:
+        return _validate_and_return(project_model, compatible_models, worker_name)
+
+    # 4. Environment variable - user's global default
+    env_model = get_env_model()
+    if env_model is not None:
+        return _validate_and_return(env_model, compatible_models, worker_name)
 
     # No model available
     raise NoModelError(
         f"No model configured for worker '{worker_name}'. "
-        "Set worker.model, pass --model, or provide a custom agent_runner."
+        f"Set worker.model, project.yaml model, --model flag, or {LLM_DO_MODEL_ENV} env var."
     )

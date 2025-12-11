@@ -1,11 +1,14 @@
 """Tests for model compatibility checking."""
+import os
 import pytest
 
 from llm_do.model_compat import (
     InvalidCompatibleModelsError,
+    LLM_DO_MODEL_ENV,
     ModelCompatibilityError,
     ModelValidationResult,
     NoModelError,
+    get_env_model,
     model_matches_pattern,
     select_model,
     validate_model_compatibility,
@@ -100,39 +103,56 @@ class TestValidateModelCompatibility:
 class TestSelectModel:
     """Tests for the model selection function."""
 
-    def test_worker_model_takes_precedence(self):
+    def test_cli_model_takes_precedence_over_worker(self):
+        """CLI --model overrides worker.model"""
         model = select_model(
             worker_model="anthropic:claude-haiku-4-5",
             cli_model="openai:gpt-4o",
-            caller_model="anthropic:claude-sonnet-4",
-            compatible_models=None,
-        )
-        assert model == "anthropic:claude-haiku-4-5"
-
-    def test_cli_model_when_no_worker_model(self):
-        model = select_model(
-            worker_model=None,
-            cli_model="openai:gpt-4o",
-            caller_model="anthropic:claude-sonnet-4",
             compatible_models=None,
         )
         assert model == "openai:gpt-4o"
 
-    def test_caller_model_when_no_worker_or_cli(self):
+    def test_worker_model_when_no_cli_model(self):
+        model = select_model(
+            worker_model="anthropic:claude-haiku-4-5",
+            cli_model=None,
+            compatible_models=None,
+        )
+        assert model == "anthropic:claude-haiku-4-5"
+
+    def test_project_model_when_no_cli_or_worker(self):
         model = select_model(
             worker_model=None,
             cli_model=None,
-            caller_model="anthropic:claude-sonnet-4",
+            project_model="anthropic:claude-sonnet-4",
             compatible_models=None,
         )
         assert model == "anthropic:claude-sonnet-4"
+
+    def test_cli_overrides_project(self):
+        model = select_model(
+            worker_model=None,
+            cli_model="openai:gpt-4o",
+            project_model="anthropic:claude-sonnet-4",
+            compatible_models=None,
+        )
+        assert model == "openai:gpt-4o"
+
+    def test_worker_overrides_project(self):
+        model = select_model(
+            worker_model="anthropic:claude-haiku-4-5",
+            cli_model=None,
+            project_model="anthropic:claude-sonnet-4",
+            compatible_models=None,
+        )
+        assert model == "anthropic:claude-haiku-4-5"
 
     def test_no_model_raises(self):
         with pytest.raises(NoModelError, match="No model configured"):
             select_model(
                 worker_model=None,
                 cli_model=None,
-                caller_model=None,
+                project_model=None,
                 compatible_models=None,
             )
 
@@ -140,7 +160,6 @@ class TestSelectModel:
         model = select_model(
             worker_model=None,
             cli_model="anthropic:claude-haiku-4-5",
-            caller_model=None,
             compatible_models=["anthropic:*"],
         )
         assert model == "anthropic:claude-haiku-4-5"
@@ -150,45 +169,50 @@ class TestSelectModel:
             select_model(
                 worker_model=None,
                 cli_model="openai:gpt-4o",
-                caller_model=None,
                 compatible_models=["anthropic:*"],
             )
 
-    def test_caller_model_validated_against_compatible(self):
+    def test_worker_model_validated_against_compatible(self):
+        """Worker model is now validated too (changed from previous behavior)"""
         model = select_model(
-            worker_model=None,
+            worker_model="anthropic:claude-haiku-4-5",
             cli_model=None,
-            caller_model="anthropic:claude-haiku-4-5",
             compatible_models=["anthropic:*"],
         )
         assert model == "anthropic:claude-haiku-4-5"
 
-    def test_caller_model_incompatible_raises(self):
+    def test_worker_model_incompatible_raises(self):
+        """Worker model is now validated (changed from previous behavior)"""
+        with pytest.raises(ModelCompatibilityError, match="not compatible"):
+            select_model(
+                worker_model="openai:gpt-4o",
+                cli_model=None,
+                compatible_models=["anthropic:*"],
+            )
+
+    def test_project_model_validated_against_compatible(self):
+        model = select_model(
+            worker_model=None,
+            cli_model=None,
+            project_model="anthropic:claude-haiku-4-5",
+            compatible_models=["anthropic:*"],
+        )
+        assert model == "anthropic:claude-haiku-4-5"
+
+    def test_project_model_incompatible_raises(self):
         with pytest.raises(ModelCompatibilityError, match="not compatible"):
             select_model(
                 worker_model=None,
                 cli_model=None,
-                caller_model="openai:gpt-4o",
+                project_model="openai:gpt-4o",
                 compatible_models=["anthropic:*"],
             )
-
-    def test_worker_model_bypasses_validation(self):
-        # Worker's own model is trusted and not validated against compatible_models
-        # This allows worker authors to lock in a specific model
-        model = select_model(
-            worker_model="mistral:mistral-large",
-            cli_model=None,
-            caller_model=None,
-            compatible_models=["anthropic:*"],  # Would reject mistral
-        )
-        assert model == "mistral:mistral-large"
 
     def test_empty_compatible_models_raises(self):
         with pytest.raises(InvalidCompatibleModelsError, match="empty compatible_models"):
             select_model(
                 worker_model=None,
                 cli_model="openai:gpt-4o",
-                caller_model=None,
                 compatible_models=[],
             )
 
@@ -197,46 +221,128 @@ class TestSelectModel:
             select_model(
                 worker_model=None,
                 cli_model="openai:gpt-4o",
-                caller_model=None,
                 compatible_models=["anthropic:*"],
                 worker_name="my-worker",
+            )
+
+
+class TestEnvVarModel:
+    """Tests for LLM_DO_MODEL environment variable."""
+
+    def test_get_env_model_returns_none_when_unset(self, monkeypatch):
+        monkeypatch.delenv(LLM_DO_MODEL_ENV, raising=False)
+        assert get_env_model() is None
+
+    def test_get_env_model_returns_value_when_set(self, monkeypatch):
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        assert get_env_model() == "anthropic:claude-haiku-4-5"
+
+    def test_env_var_used_as_fallback(self, monkeypatch):
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        model = select_model(
+            worker_model=None,
+            cli_model=None,
+            project_model=None,
+            compatible_models=None,
+        )
+        assert model == "anthropic:claude-haiku-4-5"
+
+    def test_project_overrides_env_var(self, monkeypatch):
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        model = select_model(
+            worker_model=None,
+            cli_model=None,
+            project_model="openai:gpt-4o",
+            compatible_models=None,
+        )
+        assert model == "openai:gpt-4o"
+
+    def test_worker_overrides_env_var(self, monkeypatch):
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        model = select_model(
+            worker_model="openai:gpt-4o",
+            cli_model=None,
+            project_model=None,
+            compatible_models=None,
+        )
+        assert model == "openai:gpt-4o"
+
+    def test_cli_overrides_env_var(self, monkeypatch):
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        model = select_model(
+            worker_model=None,
+            cli_model="openai:gpt-4o",
+            project_model=None,
+            compatible_models=None,
+        )
+        assert model == "openai:gpt-4o"
+
+    def test_env_var_validated_against_compatible(self, monkeypatch):
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        model = select_model(
+            worker_model=None,
+            cli_model=None,
+            project_model=None,
+            compatible_models=["anthropic:*"],
+        )
+        assert model == "anthropic:claude-haiku-4-5"
+
+    def test_env_var_incompatible_raises(self, monkeypatch):
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")
+        with pytest.raises(ModelCompatibilityError, match="not compatible"):
+            select_model(
+                worker_model=None,
+                cli_model=None,
+                project_model=None,
+                compatible_models=["anthropic:*"],
             )
 
 
 class TestResolutionPrecedence:
     """Integration tests for the complete resolution precedence table."""
 
-    def test_precedence_table(self):
-        """Test the resolution precedence as documented."""
-        # Worker model always wins
-        assert select_model(
-            worker_model="w", cli_model="c", caller_model="p",
-            compatible_models=None
-        ) == "w"
+    def test_precedence_table(self, monkeypatch):
+        """Test the resolution precedence as documented:
+        1. CLI --model (highest)
+        2. Worker model
+        3. Project model
+        4. LLM_DO_MODEL env var (lowest)
+        """
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "env:model")
 
-        # CLI next if worker not set
+        # CLI overrides all
         assert select_model(
-            worker_model=None, cli_model="c", caller_model="p",
+            worker_model="w", cli_model="c", project_model="p",
             compatible_models=None
         ) == "c"
 
-        # Caller last
+        # Worker next if CLI not set
         assert select_model(
-            worker_model=None, cli_model=None, caller_model="p",
+            worker_model="w", cli_model=None, project_model="p",
+            compatible_models=None
+        ) == "w"
+
+        # Project next if worker not set
+        assert select_model(
+            worker_model=None, cli_model=None, project_model="p",
             compatible_models=None
         ) == "p"
+
+        # Env var last
+        assert select_model(
+            worker_model=None, cli_model=None, project_model=None,
+            compatible_models=None
+        ) == "env:model"
 
     def test_validation_scenarios(self):
         """Test validation matrix from discussion."""
         compatible = ["anthropic:claude-haiku-4-5", "openai:gpt-4o-mini"]
 
-        # Empty compatible list - uses worker default (first in list? no - None means any)
-        # Actually with compatible_models=None, any model works
+        # None compatible_models means any model works
         result = select_model(
             worker_model=None,
             cli_model="random:model",
-            caller_model=None,
-            compatible_models=None,  # None means any
+            compatible_models=None,
         )
         assert result == "random:model"
 
@@ -244,7 +350,6 @@ class TestResolutionPrecedence:
         result = select_model(
             worker_model=None,
             cli_model="openai:gpt-4o-mini",
-            caller_model=None,
             compatible_models=compatible,
         )
         assert result == "openai:gpt-4o-mini"
@@ -254,6 +359,5 @@ class TestResolutionPrecedence:
             select_model(
                 worker_model=None,
                 cli_model="openai:gpt-4o",  # Not gpt-4o-mini
-                caller_model=None,
                 compatible_models=compatible,
             )

@@ -200,29 +200,29 @@ class WorkerCreationDefaults(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Program configuration
+# Workshop configuration
 # ---------------------------------------------------------------------------
 
 
 class InvocationMode(Enum):
     """How the CLI argument should be interpreted."""
 
-    PROGRAM = "program"  # Directory with main.worker
+    WORKSHOP = "workshop"  # Directory with main.worker
     SINGLE_FILE = "single_file"  # Direct .worker file
     SEARCH_PATH = "search_path"  # Worker name, search LLM_DO_PATH
 
 
-class ProgramConfig(BaseModel):
-    """Program-level configuration from program.yaml.
+class WorkshopConfig(BaseModel):
+    """Workshop-level configuration from workshop.yaml.
 
-    Programs provide a boundary for worker resolution, shared configuration,
-    and library dependencies. This model represents the program manifest.
+    Workshops provide a boundary for worker resolution, shared configuration,
+    and library dependencies. This model represents the workshop manifest.
     """
 
     # Metadata
     name: Optional[str] = Field(
         default=None,
-        description="Program identifier (used when published as library)"
+        description="Workshop identifier (used when published as library)"
     )
     version: Optional[str] = Field(
         default=None,
@@ -236,7 +236,7 @@ class ProgramConfig(BaseModel):
     # Default model for all workers (overridable per-worker)
     model: Optional[str] = Field(
         default=None,
-        description="Default model for all workers in this program"
+        description="Default model for all workers in this workshop"
     )
 
     # Global sandbox configuration (inherited by all workers)

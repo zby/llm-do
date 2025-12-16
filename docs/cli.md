@@ -1,12 +1,12 @@
 # CLI Reference
 
-The `llm-do` command-line interface runs programs and workers with runtime configuration, approval modes, and output formatting.
+The `llm-do` command-line interface runs workshops and workers with runtime configuration, approval modes, and output formatting.
 
 ## Basic Usage
 
 ```bash
-# Run a program (finds main.worker in directory)
-llm-do ./my-program "input message"
+# Run a workshop (finds main.worker in directory)
+llm-do ./my-workshop "input message"
 
 # Run a single worker file
 llm-do ./path/to/worker.worker "input message"
@@ -16,7 +16,7 @@ llm-do TARGET [MESSAGE] [OPTIONS]
 ```
 
 **Arguments:**
-- `TARGET` — Program directory (with `main.worker`) or path to `.worker` file
+- `TARGET` — Workshop directory (with `main.worker`) or path to `.worker` file
 - `MESSAGE` — Optional plain text input message. Use `--input` for JSON instead.
 
 ## Core Options
@@ -56,10 +56,10 @@ Override the model for this run. If omitted, `llm-do` resolves an effective mode
 
 1. CLI `--model` flag
 2. Worker's `model` field
-3. Program default in `program.yaml` (`model:`)
+3. Workshop default in `workshop.yaml` (`model:`)
 4. `LLM_DO_MODEL` environment variable
 
-If none of these are set, the run errors with “No model configured”.
+If none of these are set, the run errors with "No model configured".
 ```bash
 llm-do greeter "hello" --model anthropic:claude-sonnet-4-20250514
 llm-do greeter "hello" --model openai:gpt-4o
@@ -72,8 +72,8 @@ Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/).
 # Global default for all runs
 export LLM_DO_MODEL=anthropic:claude-haiku-4-5
 
-# Per-program default in program root
-cat > program.yaml <<'YAML'
+# Per-workshop default in workshop root
+cat > workshop.yaml <<'YAML'
 model: anthropic:claude-sonnet-4-20250514
 YAML
 ```
@@ -88,14 +88,14 @@ llm-do pdf_analyzer --model anthropic:claude-sonnet-4  # OK
 See [Model Compatibility](#model-compatibility) below for pattern syntax.
 
 **`--entry WORKER`**
-Override the entry point when running a program (default is `main`):
+Override the entry point when running a workshop (default is `main`):
 ```bash
-llm-do ./my-program --entry analyzer "input"
-llm-do ./my-program --entry workers/helper "input"
+llm-do ./my-workshop --entry analyzer "input"
+llm-do ./my-workshop --entry workers/helper "input"
 ```
 
 **`--registry PATH`**
-Specify worker registry root (defaults to program directory or current working directory):
+Specify worker registry root (defaults to workshop directory or current working directory):
 ```bash
 llm-do worker "hello" --registry /path/to/workers
 ```
@@ -300,7 +300,7 @@ You analyze PDF documents...
 
 ### Validation
 
-All models selected via the resolution rules are validated against `compatible_models`, including worker defaults, `program.yaml` defaults, and `LLM_DO_MODEL`.
+All models selected via the resolution rules are validated against `compatible_models`, including worker defaults, `workshop.yaml` defaults, and `LLM_DO_MODEL`.
 
 When a worker delegates to another worker, the callee resolves (and validates) its own model using the same precedence; the caller’s model is not inherited.
 
@@ -311,17 +311,17 @@ Error: Model 'openai:gpt-4o' is not compatible with worker 'pdf_analyzer'.
 Compatible patterns: 'anthropic:*'
 ```
 
-## Program Initialization
+## Workshop Initialization
 
-Create a new program with `llm-do init`:
+Create a new workshop with `llm-do init`:
 
 ```bash
-llm-do init my-program
+llm-do init my-workshop
 ```
 
 Creates:
 ```
-my-program/
+my-workshop/
 ├── main.worker
 ├── input/
 └── output/
@@ -334,35 +334,35 @@ my-program/
 
 ## Examples
 
-**Run a program:**
+**Run a workshop:**
 ```bash
 llm-do ./examples/greeter "Tell me a joke"
 ```
 
 **Run with different entry point:**
 ```bash
-llm-do ./my-program --entry analyzer "input"
+llm-do ./my-workshop --entry analyzer "input"
 ```
 
 **JSON output for scripting:**
 ```bash
-result=$(llm-do ./my-program "query" --json)
+result=$(llm-do ./my-workshop "query" --json)
 echo "$result" | jq '.output'
 ```
 
 **Auto-approve for CI/CD:**
 ```bash
-llm-do ./my-program "automated task" --approve-all --json > output.json
+llm-do ./my-workshop "automated task" --approve-all --json > output.json
 ```
 
 **Runtime config override:**
 ```bash
-llm-do ./my-program "task" --set model=openai:gpt-4o --approve-all
+llm-do ./my-workshop "task" --set model=openai:gpt-4o --approve-all
 ```
 
 **Production hardening:**
 ```bash
-llm-do ./my-program "task" \
+llm-do ./my-workshop "task" \
   --set locked=true \
   --set attachment_policy.max_attachments=1 \
   --strict

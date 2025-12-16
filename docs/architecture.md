@@ -9,7 +9,7 @@ llm_do/
 ├── runtime.py           # Worker execution and delegation
 ├── execution.py         # Agent execution strategies
 ├── model_compat.py      # Model compatibility validation
-├── program.py           # Program detection and configuration
+├── workshop.py          # Workshop detection and configuration
 ├── toolset_loader.py    # Dynamic toolset loading factory
 ├── types.py             # Type definitions and data models
 ├── protocols.py         # Protocol definitions (FileSandbox)

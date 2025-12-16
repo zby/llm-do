@@ -46,7 +46,7 @@ from .types import (
     MessageCallback,
     ModelLike,
     OutputSchemaResolver,
-    ProgramConfig,
+    WorkshopConfig,
     ServerSideToolConfig,
     ShellDefault,
     ShellResult,
@@ -58,11 +58,11 @@ from .types import (
     WorkerSpec,
 )
 
-# Re-export program module
-from .program import (
-    InvalidProgramError,
-    ProgramContext,
-    resolve_program,
+# Re-export workshop module
+from .workshop import (
+    InvalidWorkshopError,
+    WorkshopContext,
+    resolve_workshop,
 )
 
 # Re-export approval types from standalone package
@@ -112,12 +112,12 @@ __all__: Iterable[str] = [
     "call_worker_async",
     "create_worker",
     "WorkerContext",
-    # Program types (worker-function architecture)
+    # Workshop types (worker-function architecture)
     "InvocationMode",
-    "InvalidProgramError",
-    "ProgramConfig",
-    "ProgramContext",
-    "resolve_program",
+    "InvalidWorkshopError",
+    "WorkshopConfig",
+    "WorkshopContext",
+    "resolve_workshop",
     # Protocols
     "FileSandbox",
     # Sandbox classes

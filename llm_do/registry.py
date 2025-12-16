@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Optional, Set, Type
 
-# Generated workers go to a temp directory, not program directory.
+# Generated workers go to a temp directory, not workshop directory.
 # This keeps generated workers ephemeral - use `cp` to persist them.
 GENERATED_DIR = Path("/tmp/llm-do/generated")
 
@@ -20,7 +20,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, ChoiceLoader, TemplateNotFound, UndefinedError
 from pydantic import BaseModel, ValidationError
 
-from .types import OutputSchemaResolver, ProgramConfig, WorkerDefinition
+from .types import OutputSchemaResolver, WorkshopConfig, WorkerDefinition
 
 
 def _default_resolver(definition: WorkerDefinition) -> Optional[Type[BaseModel]]:
@@ -126,7 +126,7 @@ class WorkerRegistry:
         *,
         output_schema_resolver: OutputSchemaResolver = _default_resolver,
         generated_dir: Optional[Path] = None,
-        program_config: Optional[ProgramConfig] = None,
+        workshop_config: Optional[WorkshopConfig] = None,
     ):
         self.root = Path(root).expanduser().resolve()
         self.output_schema_resolver = output_schema_resolver
@@ -136,8 +136,8 @@ class WorkerRegistry:
         self.generated_dir = Path(generated_dir) if generated_dir else GENERATED_DIR
         # Track workers generated in this session - only these are searchable
         self._generated_workers: Set[str] = set()
-        # Program configuration for inheritance
-        self.program_config = program_config
+        # Workshop configuration for inheritance
+        self.workshop_config = workshop_config
         # Cache for loaded definitions (used by CLI for override injection)
         self._definitions_cache: Dict[str, WorkerDefinition] = {}
 
@@ -227,7 +227,7 @@ class WorkerRegistry:
 
         Search order:
         1. Worker directory (for directory-form workers)
-        2. Program templates/ directory (if program_config is set)
+        2. Workshop templates/ directory (if workshop_config is set)
         3. Built-in templates (added by _render_jinja_template)
 
         Args:
@@ -244,11 +244,11 @@ class WorkerRegistry:
             roots.append(worker_dir / "templates")
         roots.append(worker_dir)  # Also allow includes relative to worker
 
-        # 2. Program templates directory
-        if self.program_config is not None:
-            program_templates = self.root / "templates"
-            if program_templates.exists():
-                roots.append(program_templates)
+        # 2. Workshop templates directory
+        if self.workshop_config is not None:
+            workshop_templates = self.root / "templates"
+            if workshop_templates.exists():
+                roots.append(workshop_templates)
 
         return roots
 
@@ -285,7 +285,7 @@ class WorkerRegistry:
 
         Search order:
         1. Worker directory: workers/name/tools.py (for directory-form workers)
-        2. Program root: tools.py (when program_config is set)
+        2. Workshop root: tools.py (when workshop_config is set)
 
         Args:
             name: Worker name
@@ -303,11 +303,11 @@ class WorkerRegistry:
             if tools_path.exists():
                 return tools_path
 
-        # 2. Check program root (when in program mode)
-        if self.program_config is not None:
-            program_tools = self.root / "tools.py"
-            if program_tools.exists():
-                return program_tools
+        # 2. Check workshop root (when in workshop mode)
+        if self.workshop_config is not None:
+            workshop_tools = self.root / "tools.py"
+            if workshop_tools.exists():
+                return workshop_tools
 
         return None
 
@@ -334,55 +334,55 @@ class WorkerRegistry:
             return True
         return False
 
-    def _apply_program_config(self, definition: WorkerDefinition) -> WorkerDefinition:
-        """Apply program configuration inheritance to a worker definition.
+    def _apply_workshop_config(self, definition: WorkerDefinition) -> WorkerDefinition:
+        """Apply workshop configuration inheritance to a worker definition.
 
         Merge rules (per spec):
-        - Scalar values: worker overrides program
-        - toolsets: deep merge (worker toolsets add to program toolsets)
-        - sandbox.paths: deep merge (worker paths add to program paths)
-        - Lists: worker replaces program (no merge)
+        - Scalar values: worker overrides workshop
+        - toolsets: deep merge (worker toolsets add to workshop toolsets)
+        - sandbox.paths: deep merge (worker paths add to workshop paths)
+        - Lists: worker replaces workshop (no merge)
 
         Args:
             definition: Worker definition to enhance
 
         Returns:
-            WorkerDefinition with program defaults applied
+            WorkerDefinition with workshop defaults applied
         """
-        if self.program_config is None:
+        if self.workshop_config is None:
             return definition
 
         # Start with worker's values
         updates = {}
 
-        # Model: worker overrides program
-        if definition.model is None and self.program_config.model is not None:
-            updates["model"] = self.program_config.model
+        # Model: worker overrides workshop
+        if definition.model is None and self.workshop_config.model is not None:
+            updates["model"] = self.workshop_config.model
 
-        # Toolsets: deep merge (program provides base, worker adds/overrides)
-        if self.program_config.toolsets:
-            merged_toolsets = dict(self.program_config.toolsets)
+        # Toolsets: deep merge (workshop provides base, worker adds/overrides)
+        if self.workshop_config.toolsets:
+            merged_toolsets = dict(self.workshop_config.toolsets)
             if definition.toolsets:
                 merged_toolsets.update(definition.toolsets)
             updates["toolsets"] = merged_toolsets
         elif definition.toolsets is None:
-            # Worker has no toolsets and neither does program - keep as None
+            # Worker has no toolsets and neither does workshop - keep as None
             pass
 
         # Sandbox: deep merge paths
-        if self.program_config.sandbox:
+        if self.workshop_config.sandbox:
             if definition.sandbox is None:
-                updates["sandbox"] = self.program_config.sandbox.model_copy()
+                updates["sandbox"] = self.workshop_config.sandbox.model_copy()
             else:
                 # Merge sandbox paths
                 merged_sandbox = definition.sandbox.model_copy()
-                if self.program_config.sandbox.paths and merged_sandbox.paths:
-                    # Worker paths override program paths with same name
-                    merged_paths = dict(self.program_config.sandbox.paths)
+                if self.workshop_config.sandbox.paths and merged_sandbox.paths:
+                    # Worker paths override workshop paths with same name
+                    merged_paths = dict(self.workshop_config.sandbox.paths)
                     merged_paths.update(merged_sandbox.paths)
                     merged_sandbox.paths = merged_paths
-                elif self.program_config.sandbox.paths and not merged_sandbox.paths:
-                    merged_sandbox.paths = dict(self.program_config.sandbox.paths)
+                elif self.workshop_config.sandbox.paths and not merged_sandbox.paths:
+                    merged_sandbox.paths = dict(self.workshop_config.sandbox.paths)
                 updates["sandbox"] = merged_sandbox
 
         if not updates:
@@ -404,7 +404,7 @@ class WorkerRegistry:
         in this session via register_generated(). This prevents leakage from
         old sessions.
 
-        If a program_config is set, program-level defaults are merged into
+        If a workshop_config is set, workshop-level defaults are merged into
         the worker definition (worker values take precedence).
 
         Args:
@@ -433,8 +433,8 @@ class WorkerRegistry:
         except ValidationError as exc:
             raise ValueError(f"Invalid worker definition at {path}: {exc}") from exc
 
-        # Apply program configuration inheritance
-        return self._apply_program_config(definition)
+        # Apply workshop configuration inheritance
+        return self._apply_workshop_config(definition)
 
     def save_definition(
         self,

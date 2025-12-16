@@ -43,9 +43,9 @@ from pydantic_ai_blocking_approval import (
     ApprovalRequest,
 )
 from .config_overrides import apply_cli_overrides
-from .program import (
-    InvalidProgramError,
-    resolve_program,
+from .workshop import (
+    InvalidWorkshopError,
+    resolve_workshop,
 )
 from .types import InvocationMode
 from .cli_display import (
@@ -194,7 +194,7 @@ def _parse_init_args(argv: list[str]) -> argparse.Namespace:
     """Parse arguments for 'llm-do init' command."""
     parser = argparse.ArgumentParser(
         prog="llm-do init",
-        description="Initialize a new llm-do program"
+        description="Initialize a new llm-do workshop"
     )
     parser.add_argument(
         "path",
@@ -205,12 +205,12 @@ def _parse_init_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--name",
         default=None,
-        help="Program name (default: directory name)",
+        help="Workshop name (default: directory name)",
     )
     parser.add_argument(
         "--model",
         default=None,
-        help="Default model for the program (e.g., anthropic:claude-haiku-4-5)",
+        help="Default model for the workshop (e.g., anthropic:claude-haiku-4-5)",
     )
     return parser.parse_args(argv)
 
@@ -218,11 +218,11 @@ def _parse_init_args(argv: list[str]) -> argparse.Namespace:
 def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a PydanticAI worker",
-        epilog="Use 'llm-do init' to create a new program."
+        epilog="Use 'llm-do init' to create a new workshop."
     )
     parser.add_argument(
         "worker",
-        help="Worker name, path to .worker file, or program directory",
+        help="Worker name, path to .worker file, or workshop directory",
     )
     parser.add_argument(
         "message",
@@ -298,63 +298,63 @@ def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--entry",
         dest="entry_worker",
         default=None,
-        help="Override entry point for program execution (default: main). "
-             "Use when running a program directory to start from a different worker.",
+        help="Override entry point for workshop execution (default: main). "
+             "Use when running a workshop directory to start from a different worker.",
     )
     return parser.parse_args(argv)
 
 
-def init_program(argv: list[str]) -> int:
-    """Initialize a new llm-do program.
+def init_workshop(argv: list[str]) -> int:
+    """Initialize a new llm-do workshop.
 
     Creates:
     - main.worker: Entry point worker
-    - program.yaml: Program configuration (if --name or --model specified)
+    - workshop.yaml: Workshop configuration (if --name or --model specified)
     """
     args = _parse_init_args(argv)
     console = Console()
 
-    program_path = Path(args.path).resolve()
+    workshop_path = Path(args.path).resolve()
 
     # Create directory if needed
-    if not program_path.exists():
-        program_path.mkdir(parents=True)
-        console.print(f"Created directory: {program_path}")
+    if not workshop_path.exists():
+        workshop_path.mkdir(parents=True)
+        console.print(f"Created directory: {workshop_path}")
 
-    # Check for existing program
-    main_worker = program_path / "main.worker"
-    program_yaml = program_path / "program.yaml"
+    # Check for existing workshop
+    main_worker = workshop_path / "main.worker"
+    workshop_yaml = workshop_path / "workshop.yaml"
 
     if main_worker.exists():
-        console.print(f"[yellow]Program already initialized: {main_worker} exists[/yellow]")
+        console.print(f"[yellow]Workshop already initialized: {main_worker} exists[/yellow]")
         return 1
 
-    # Determine program name
-    program_name = args.name or program_path.name
+    # Determine workshop name
+    workshop_name = args.name or workshop_path.name
 
     # Create main.worker
     main_worker_content = f"""---
 name: main
-description: Main entry point for {program_name}
+description: Main entry point for {workshop_name}
 ---
-You are a helpful assistant for the {program_name} program.
+You are a helpful assistant for the {workshop_name} workshop.
 
 Respond to the user's request.
 """
     main_worker.write_text(main_worker_content)
     console.print(f"Created: {main_worker}")
 
-    # Create program.yaml if name or model specified
+    # Create workshop.yaml if name or model specified
     if args.name or args.model:
-        program_config_content = f"name: {program_name}\n"
+        workshop_config_content = f"name: {workshop_name}\n"
         if args.model:
-            program_config_content += f"model: {args.model}\n"
-        program_yaml.write_text(program_config_content)
-        console.print(f"Created: {program_yaml}")
+            workshop_config_content += f"model: {args.model}\n"
+        workshop_yaml.write_text(workshop_config_content)
+        console.print(f"Created: {workshop_yaml}")
 
-    console.print(f"\n[green]Program initialized![/green]")
-    console.print(f"\nRun your program with:")
-    console.print(f"  llm-do {program_path} \"your message\"")
+    console.print(f"\n[green]Workshop initialized![/green]")
+    console.print(f"\nRun your workshop with:")
+    console.print(f"  llm-do {workshop_path} \"your message\"")
 
     return 0
 
@@ -365,7 +365,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         argv = sys.argv[1:]
 
     if argv and argv[0] == "init":
-        return init_program(argv[1:])
+        return init_workshop(argv[1:])
 
     # Parse args for normal worker execution
     args = _parse_args(argv if argv else None)
@@ -373,36 +373,36 @@ def main(argv: Optional[list[str]] = None) -> int:
     prompt_console = console if not args.json else Console(stderr=True)
 
     try:
-        # Resolve invocation mode and program context
-        mode, program_context, worker_name = resolve_program(
+        # Resolve invocation mode and workshop context
+        mode, workshop_context, worker_name = resolve_workshop(
             args.worker,
             entry_override=args.entry_worker,
         )
 
         # Determine registry root based on invocation mode
-        if mode == InvocationMode.PROGRAM:
-            # Program mode: registry root is program directory
-            registry_root = program_context.program_root
-            program_config = program_context.config
+        if mode == InvocationMode.WORKSHOP:
+            # Workshop mode: registry root is workshop directory
+            registry_root = workshop_context.workshop_root
+            workshop_config = workshop_context.config
         elif mode == InvocationMode.SINGLE_FILE:
             # Single file: registry root is file's parent directory
             worker_path = Path(worker_name)
             registry_root = worker_path.parent
             worker_name = worker_path.stem
-            program_config = None
+            workshop_config = None
         else:  # SEARCH_PATH
             # Search mode: use --registry or cwd
             if args.registry is None:
                 registry_root = Path.cwd()
             else:
                 registry_root = args.registry
-            program_config = None
+            workshop_config = None
 
         # Override registry root if explicitly provided
         if args.registry is not None:
             registry_root = args.registry
 
-        registry = WorkerRegistry(registry_root, program_config=program_config)
+        registry = WorkerRegistry(registry_root, workshop_config=workshop_config)
 
         # Load worker definition
         definition = registry.load_definition(worker_name)
@@ -471,7 +471,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             input_data=input_data,
             attachments=args.attachments,
             cli_model=args.cli_model,
-            program_model=program_config.model if program_config else None,
+            workshop_model=workshop_config.model if workshop_config else None,
             creation_defaults=creation_defaults,
             approval_controller=approval_controller,
             message_callback=streaming_callback,
@@ -499,8 +499,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             raise
         return 1
 
-    except InvalidProgramError as e:
-        print(f"Program error: {e}", file=sys.stderr)
+    except InvalidWorkshopError as e:
+        print(f"Workshop error: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1

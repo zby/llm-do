@@ -1,149 +1,171 @@
-# Workers as Tools
-
-## Prerequisites
-- [ ] 10-async-cli-adoption complete (async approval callbacks)
-
-**Why dependent on async CLI?**
-The current `DelegationToolset._check_approval()` uses `request_approval_sync()` which raises `TypeError` if the approval callback is async. Once we have async approval callbacks (Task 10), any new toolset must use `await controller.request_approval()` instead. Better to build workers-as-tools on the async foundation.
+# Workers as Tools (Neuro-Symbolic Unification Phase 1)
 
 ## Goal
-Replace `worker_call` indirection with direct tool registration: each allowed worker becomes a tool the LLM can call directly.
+
+Unify workers and tools: a worker is just a tool whose implementation is an LLM agent loop. This is the first step toward neuro-symbolic tool unification.
+
+See `docs/notes/neuro-symbolic-tool-unification.md` for full design.
 
 ## Background
 
-See `docs/notes/workers-as-tools.md` for full analysis.
+**Current state:**
+- Workers and tools are separate concepts
+- Workers called via `worker_call(worker="name", input_data="...")`
+- Tools are deterministic functions
 
-**Current design:**
+**Target state:**
+- Everything is a tool
+- Workers are tools with `type: agent`
+- Tools receive `ToolContext` enabling nested LLM calls
+- Direct invocation: `code_reviewer(input="...")` instead of `worker_call`
+
+## The Spectrum
+
+```
+Pure Tool ←————————————————————→ Agent Tool (Worker)
+(all symbolic)                   (all neural)
+
+read_file ──── smart_refactor ──── code_reviewer
+   │                 │                   │
+no LLM         calls LLM            full LLM
+               when needed          agent loop
+```
+
+## Tasks
+
+### Phase 1: ToolContext Foundation
+
+Add context that flows through all tool calls:
+
+```python
+class ToolContext:
+    cost_tracker: CostTracker
+    approval_controller: ApprovalController
+    depth: int  # nesting depth
+
+    async def llm_ask(self, prompt: str) -> str: ...
+    async def llm_agent(self, system: str, tools: list, input: Any) -> Any: ...
+    async def call_tool(self, name: str, args: dict) -> Any: ...
+```
+
+- [ ] Define `ToolContext` class
+- [ ] Pass context through existing tool calls
+- [ ] Existing tools ignore new context (backwards compatible)
+
+### Phase 2: Agent Tool Type
+
+Support `type: agent` in tool definitions:
+
+```yaml
+name: code-reviewer
+type: agent
+model: claude-sonnet-4
+tools: [read_file, grep, glob]
+---
+You are a senior code reviewer...
+```
+
+- [ ] Add `type` field to tool/worker definition schema
+- [ ] `type: agent` means implementation is `ctx.llm_agent()`
+- [ ] `type: function` (default) means Python function
+
+### Phase 3: WorkerToolset → AgentToolset
+
+Rename and simplify:
+
+- [ ] Rename `DelegationToolset` to `AgentToolset`
+- [ ] Generate tool per allowed agent (not generic `worker_call`)
+- [ ] Tool schema from agent's input/output schema
+- [ ] Remove `worker_call` indirection
+
+**Before:**
 ```
 LLM sees: worker_call(worker="summarizer", input_data="...")
 ```
 
-**Target design:**
+**After:**
 ```
-LLM sees: summarizer(input_data="...")
-```
-
-Benefits:
-- More discoverable (each worker has description in tool list)
-- Flatter, more natural
-- LLM doesn't need to understand "delegation" concept
-- Worker descriptions become tool descriptions
-
-## Current Implementation Notes
-
-The current `DelegationToolset` (in `llm_do/delegation_toolset.py`):
-- Exposes `worker_call` and `worker_create` tools
-- Uses `call_worker_async()` for execution (already async)
-- Has separate `_check_approval()` for attachment approvals (uses sync API)
-- Main tool approval handled by `ApprovalToolset` wrapper
-
-Key functions in `runtime.py`:
-- `call_worker_async()` - the actual delegation logic
-- `create_worker()` - dynamic worker creation
-
-## Tasks
-
-### Phase 1: WorkerToolset Implementation
-Create `llm_do/worker_toolset.py`:
-- [ ] `WorkerToolset(AbstractToolset)` that generates tools from workers
-- [ ] Read `workers` config (list of allowed worker names/patterns)
-- [ ] Generate tool definitions from worker name + description
-- [ ] `call_tool()` delegates to `call_worker_async()` (reuse existing logic)
-- [ ] Handle `input_data` and `attachments` parameters
-- [ ] Use `await controller.request_approval()` for any approval checks (async!)
-
-### Phase 2: Tool Schema Generation
-- [ ] Map worker definition → tool JSON schema
-- [ ] Use worker `description` field as tool description
-- [ ] Fall back to truncated `instructions` if no description
-- [ ] Handle workers with `input_schema` (use as tool parameters)
-- [ ] Handle workers with `output_schema` (for return type hints)
-
-### Phase 3: Approval Integration
-- [ ] Implement `needs_approval()` → always `needs_approval` for worker calls
-- [ ] Implement `get_approval_description()` showing worker + input summary
-- [ ] Handle attachment approvals with async `request_approval()`
-
-### Phase 4: Integration with Toolset Loader
-Update `llm_do/toolset_loader.py`:
-- [ ] Add `worker_tools` as toolset alias
-- [ ] Pass registry and worker list from config
-- [ ] Wrap with ApprovalToolset like other toolsets
-
-### Phase 5: Configuration
-Support in worker definition:
-```yaml
-toolsets:
-  worker_tools:
-    workers: ["summarizer", "code-reviewer"]
-    # Or use glob patterns:
-    # workers: ["*"]
-    # workers: ["analysis-*", "util-*"]
+LLM sees: summarizer(input="...")
 ```
 
-### Phase 6: Migration / Deprecation
-- [ ] Deprecate `delegation` toolset (emit warning if used)
-- [ ] Keep `worker_create` tool available (maybe in separate toolset?)
-- [ ] Update built-in workers that reference `worker_call`
-- [ ] Update examples and documentation
-- [ ] Migration guide for existing configs
+### Phase 4: Implement Nested LLM Calls
 
-## Open Questions
+- [ ] `ctx.llm_ask()` - quick question to LLM (uses parent model)
+- [ ] `ctx.llm_agent()` - full agent loop (what agent tools use)
+- [ ] Context carries cost/approvals through nested calls
+- [ ] Depth tracking and limits
 
-1. **Naming conflicts**: What if worker name conflicts with another tool?
-   - Option A: Prefix with `worker_` (e.g., `worker_summarizer`)
-   - Option B: Error on conflict
-   - Option C: Workers win, other tool gets prefixed
-   - **Recommendation**: Option B (error) - explicit is better
+### Phase 5: Remove Sandbox Layer
 
-2. **Dynamic workers** (`worker_create`):
-   - Keep as separate tool? (in its own toolset)
-   - Or remove entirely? (workers only from files)
-   - **Recommendation**: Keep for now, separate `worker_creation` toolset
+Container isolation replaces per-worker sandbox:
 
-3. **Attachments**: How to expose in tool schema?
-   - Option A: `attachments: list[str]` parameter on every worker tool
-   - Option B: Only if worker has attachment_policy defined
-   - **Recommendation**: Option B (only when relevant)
+- [ ] Remove `SandboxConfig` from types
+- [ ] Simplify filesystem toolset (no path validation)
+- [ ] Remove `pydantic_ai_filesystem_sandbox` or make trivial
+- [ ] Update documentation
 
-4. **Glob patterns**: Should `workers: ["*"]` expose ALL registry workers?
-   - Could be dangerous (exposes workers not meant to be called)
-   - Maybe require explicit listing?
-   - **Recommendation**: Support globs but require at least one explicit pattern
+### Phase 6: Simplify Workshop
+
+- [ ] Remove `sandbox` from `WorkshopConfig`
+- [ ] Workshop becomes directory of tool definitions
+- [ ] Convention over configuration
 
 ## Architecture
 
 ```
-WorkerToolset
-├── __init__(config, registry)
-│   └── workers: list[str]  # from config
-├── get_tools(ctx) → dict[str, ToolsetTool]
-│   ├── for each worker in allowed list:
-│   │   ├── load WorkerDefinition from registry
-│   │   ├── create ToolDefinition(name, description, schema)
-│   │   └── return ToolsetTool
-├── needs_approval(name, args, ctx) → ApprovalResult
-│   └── return ApprovalResult.needs_approval()
-├── get_approval_description(name, args, ctx) → str
-│   └── "Call worker '{name}' with: {truncated_input}"
-└── call_tool(name, args, ctx, tool)
-    ├── validate attachments (if any)
-    ├── await call_worker_async(name, input_data, ...)
-    └── return result.output
+┌──────────────────────────────────────────┐
+│                                          │
+│   LLM ──calls──▶ Tool ──calls──▶ LLM     │
+│    │               │               │     │
+│    ▼               ▼               ▼     │
+│  reason         execute          reason  │
+│  decide         compute          decide  │
+│  generate       validate         assist  │
+│                                          │
+└──────────────────────────────────────────┘
+
+Context flows down: cost_tracker, approval_controller, depth
 ```
 
-## Current State
-Not started. Waiting for 10-async-cli-adoption.
+## Tool Definition Format
 
-## Notes
-- The `call_worker_async()` function already exists and handles the heavy lifting
-- Main change is tool registration, not execution
-- Consider: should we generate richer schemas from `input_schema`?
-- ApprovalToolset wrapper handles the approval flow - we just implement `needs_approval()`
+```yaml
+# Pure tool - references Python function
+name: read_file
+type: function
+function: llm_do.tools.filesystem:read_file
+
+---
+
+# Agent tool (worker) - LLM agent loop
+name: code-reviewer
+type: agent
+model: claude-sonnet-4
+tools: [read_file, grep, glob]
+---
+You are a senior code reviewer...
+```
+
+## Open Questions
+
+1. **Naming conflicts**: What if agent name conflicts with another tool?
+   - Recommendation: Error on conflict (explicit is better)
+
+2. **Recursion limits**: Max nesting depth?
+   - Recommendation: Configurable, default 5
+
+3. **Model for `llm_ask`**: Same as parent or allow override?
+   - Recommendation: Same as parent, cheaper model option later
+
+4. **Attachments**: Keep or simplify?
+   - Recommendation: Simplify — container handles file access
+
+## Current State
+
+Not started.
 
 ## References
-- Design notes: `docs/notes/workers-as-tools.md`
+
+- Design: `docs/notes/neuro-symbolic-tool-unification.md`
 - Current delegation: `llm_do/delegation_toolset.py`
-- Worker execution: `llm_do/runtime.py` (call_worker_async)
-- Toolset loader: `llm_do/toolset_loader.py`
-- Approval controller: `pydantic-ai-blocking-approval/controller.py`
+- Worker execution: `llm_do/runtime.py`

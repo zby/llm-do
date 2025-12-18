@@ -340,7 +340,6 @@ class WorkerRegistry:
         Merge rules (per spec):
         - Scalar values: worker overrides workshop
         - toolsets: deep merge (worker toolsets add to workshop toolsets)
-        - sandbox.paths: deep merge (worker paths add to workshop paths)
         - Lists: worker replaces workshop (no merge)
 
         Args:
@@ -368,22 +367,6 @@ class WorkerRegistry:
         elif definition.toolsets is None:
             # Worker has no toolsets and neither does workshop - keep as None
             pass
-
-        # Sandbox: deep merge paths
-        if self.workshop_config.sandbox:
-            if definition.sandbox is None:
-                updates["sandbox"] = self.workshop_config.sandbox.model_copy()
-            else:
-                # Merge sandbox paths
-                merged_sandbox = definition.sandbox.model_copy()
-                if self.workshop_config.sandbox.paths and merged_sandbox.paths:
-                    # Worker paths override workshop paths with same name
-                    merged_paths = dict(self.workshop_config.sandbox.paths)
-                    merged_paths.update(merged_sandbox.paths)
-                    merged_sandbox.paths = merged_paths
-                elif self.workshop_config.sandbox.paths and not merged_sandbox.paths:
-                    merged_sandbox.paths = dict(self.workshop_config.sandbox.paths)
-                updates["sandbox"] = merged_sandbox
 
         if not updates:
             return definition

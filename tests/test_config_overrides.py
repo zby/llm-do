@@ -7,9 +7,6 @@ from llm_do.config_overrides import (
     apply_set_override,
     parse_set_override,
 )
-# Typed config classes no longer used - using dict config
-from llm_do.worker_sandbox import SandboxConfig
-from pydantic_ai_filesystem_sandbox import PathConfig
 
 
 class TestParseSetOverride:
@@ -21,9 +18,9 @@ class TestParseSetOverride:
         assert value == "gpt-4"
 
     def test_parse_nested_key(self):
-        key, value = parse_set_override("sandbox.network_enabled=false")
-        assert key == "sandbox.network_enabled"
-        assert value is False
+        key, value = parse_set_override("attachment_policy.max_attachments=10")
+        assert key == "attachment_policy.max_attachments"
+        assert value == 10
 
     def test_parse_boolean_true(self):
         for val_str in ["true", "True", "TRUE", "yes", "on"]:
@@ -86,14 +83,14 @@ class TestApplySetOverride:
         assert data["model"] == "new"
 
     def test_apply_nested_override_existing(self):
-        data = {"sandbox": {"network_enabled": True}}
-        apply_set_override(data, "sandbox.network_enabled", False)
-        assert data["sandbox"]["network_enabled"] is False
+        data = {"attachment_policy": {"max_attachments": 4}}
+        apply_set_override(data, "attachment_policy.max_attachments", 10)
+        assert data["attachment_policy"]["max_attachments"] == 10
 
     def test_apply_nested_override_creates_dict(self):
         data = {}
-        apply_set_override(data, "sandbox.network_enabled", False)
-        assert data == {"sandbox": {"network_enabled": False}}
+        apply_set_override(data, "attachment_policy.max_attachments", 10)
+        assert data == {"attachment_policy": {"max_attachments": 10}}
 
     def test_apply_deep_nested_override(self):
         data = {}
@@ -101,11 +98,11 @@ class TestApplySetOverride:
         assert data == {"a": {"b": {"c": {"d": "value"}}}}
 
     def test_apply_override_to_existing_nested(self):
-        data = {"sandbox": {"network_enabled": True, "other": "keep"}}
-        apply_set_override(data, "sandbox.paths", {"work": {"root": "/tmp"}})
-        assert data["sandbox"]["network_enabled"] is True
-        assert data["sandbox"]["other"] == "keep"
-        assert data["sandbox"]["paths"] == {"work": {"root": "/tmp"}}
+        data = {"attachment_policy": {"max_attachments": 4, "other": "keep"}}
+        apply_set_override(data, "attachment_policy.allowed_suffixes", [".txt", ".md"])
+        assert data["attachment_policy"]["max_attachments"] == 4
+        assert data["attachment_policy"]["other"] == "keep"
+        assert data["attachment_policy"]["allowed_suffixes"] == [".txt", ".md"]
 
     def test_apply_override_fails_on_non_dict(self):
         data = {"model": "string-value"}
@@ -239,20 +236,15 @@ class TestIntegration:
         )
         assert result.model == "anthropic:claude-sonnet-4"
 
-    def test_sandbox_path_override(self):
-        """Test overriding sandbox paths for different environments."""
+    def test_toolsets_override(self):
+        """Test overriding toolsets configuration."""
         defn = WorkerDefinition(
             name="worker",
             instructions="Test",
-            sandbox=SandboxConfig(
-                paths={
-                    "work": PathConfig(root="./work", mode="rw")
-                }
-            ),
+            toolsets={"shell": {"rules": []}},
         )
         result = apply_cli_overrides(
             defn,
-            set_overrides=["sandbox.paths.work.root=/tmp/work"]
+            set_overrides=['toolsets.shell.rules=[{"pattern": "git"}]']
         )
-        assert result.sandbox.paths["work"].root == "/tmp/work"
-        assert result.sandbox.paths["work"].mode == "rw"  # Preserved
+        assert result.toolsets["shell"]["rules"] == [{"pattern": "git"}]

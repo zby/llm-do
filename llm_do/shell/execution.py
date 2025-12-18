@@ -3,7 +3,6 @@
 This module provides:
 - Shell command execution with subprocess
 - Pattern matching for shell rules (whitelist model)
-- Path validation using FileSandbox
 - Integration with the approval system
 
 Security note: Pattern rules are UX only, not security. For kernel-level
@@ -17,9 +16,6 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from pydantic_ai_filesystem_sandbox import SandboxError
-
-from ..protocols import FileSandbox
 from .types import ShellResult
 
 logger = logging.getLogger(__name__)
@@ -79,89 +75,11 @@ def parse_command(command: str) -> List[str]:
         raise ShellBlockedError(f"Cannot parse command: {e}")
 
 
-def extract_path_arguments(args: List[str]) -> List[str]:
-    """Extract potential file path arguments from command.
-
-    Heuristic: non-flag arguments that don't start with '-' are potential paths.
-
-    Args:
-        args: Command arguments (first element is the command itself)
-
-    Returns:
-        List of potential path arguments
-    """
-    paths = []
-    # Skip the command itself (args[0])
-    for arg in args[1:]:
-        # Skip flags
-        if arg.startswith('-'):
-            continue
-        # Skip empty args
-        if not arg:
-            continue
-        # Everything else might be a path
-        paths.append(arg)
-    return paths
-
-
-def validate_paths_in_sandbox(
-    paths: List[str],
-    allowed_sandboxes: List[str],
-    file_sandbox: FileSandbox,
-) -> bool:
-    """Validate that all paths are within allowed sandboxes.
-
-    Args:
-        paths: List of path arguments to validate
-        allowed_sandboxes: List of sandbox names that are allowed
-        file_sandbox: FileSandbox instance for path resolution
-
-    Returns:
-        True if all paths are valid, False otherwise
-    """
-    if not paths:
-        return True
-
-    if not allowed_sandboxes:
-        return True
-
-    for path in paths:
-        # Try to resolve the path - check if it's in any allowed sandbox
-        found_in_allowed = False
-        for sandbox_name in allowed_sandboxes:
-            try:
-                # Try sandbox_name/path format
-                file_sandbox.resolve(f"{sandbox_name}/{path}")
-                found_in_allowed = True
-                break
-            except SandboxError:
-                continue
-
-        if not found_in_allowed:
-            # Also try the path directly in case it already includes sandbox name
-            try:
-                resolved = file_sandbox.resolve(path)
-                # Check if it's in any of the allowed sandboxes
-                for sandbox_name in allowed_sandboxes:
-                    if file_sandbox.can_read(f"{sandbox_name}/{path}"):
-                        found_in_allowed = True
-                        break
-            except SandboxError:
-                pass
-
-        if not found_in_allowed:
-            logger.debug(f"Path '{path}' not in allowed sandboxes: {allowed_sandboxes}")
-            return False
-
-    return True
-
-
 def match_shell_rules(
     command: str,
     args: List[str],
     rules: List[dict],
     default: Optional[dict],
-    file_sandbox: Optional[FileSandbox],
 ) -> Tuple[bool, bool]:
     """Match command against shell rules (whitelist model).
 
@@ -173,9 +91,8 @@ def match_shell_rules(
     Args:
         command: Original command string
         args: Parsed command arguments
-        rules: List of shell rule dicts with keys: pattern, sandbox_paths, approval_required
+        rules: List of shell rule dicts with keys: pattern, approval_required
         default: Default behavior dict with key: approval_required (presence = allow unmatched)
-        file_sandbox: FileSandbox for path validation (optional)
 
     Returns:
         Tuple of (allowed, approval_required)
@@ -185,15 +102,6 @@ def match_shell_rules(
         # Simple prefix match
         if command.startswith(pattern) or command == pattern:
             logger.debug(f"Command '{command}' matches rule pattern '{pattern}'")
-
-            # If rule has sandbox_paths, validate path arguments
-            sandbox_paths = rule.get("sandbox_paths", [])
-            if sandbox_paths and file_sandbox is not None:
-                path_args = extract_path_arguments(args)
-                if not validate_paths_in_sandbox(path_args, sandbox_paths, file_sandbox):
-                    logger.debug(f"Path validation failed for rule '{pattern}'")
-                    continue  # Try next rule
-
             # Rule matched → allowed with rule's approval setting
             return (True, rule.get("approval_required", True))
 
@@ -296,42 +204,4 @@ def execute_shell(
         stderr=stderr,
         exit_code=result.returncode,
         truncated=truncated,
-    )
-
-
-def enhance_error_with_sandbox_context(
-    result: ShellResult,
-    file_sandbox: Optional[FileSandbox],
-) -> ShellResult:
-    """Add sandbox context to error messages to help the LLM.
-
-    Args:
-        result: Original shell result
-        file_sandbox: FileSandbox for context
-
-    Returns:
-        ShellResult with enhanced error messages
-    """
-    if result.exit_code == 0 or file_sandbox is None:
-        return result
-
-    stderr = result.stderr
-
-    # Enhance "Permission denied" errors
-    if "Permission denied" in stderr or "permission denied" in stderr:
-        writable = file_sandbox.writable_roots
-        if writable:
-            stderr += f"\n\nNote: This worker's writable paths are: {', '.join(writable)}"
-        else:
-            stderr += "\n\nNote: This worker has no writable paths configured."
-
-    # Enhance "Network unreachable" errors
-    if "Network is unreachable" in stderr or "Could not resolve host" in stderr:
-        stderr += "\n\nNote: Network access may be disabled for this worker."
-
-    return ShellResult(
-        stdout=result.stdout,
-        stderr=stderr,
-        exit_code=result.exit_code,
-        truncated=result.truncated,
     )

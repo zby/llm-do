@@ -16,7 +16,6 @@ isolation, run llm-do in a Docker container.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any, Optional
 
 from pydantic import TypeAdapter
@@ -24,12 +23,9 @@ from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai_blocking_approval import ApprovalResult
 
-from ..protocols import FileSandbox
-from ..types import WorkerContext
 from .execution import (
     ShellBlockedError,
     execute_shell,
-    enhance_error_with_sandbox_context,
     match_shell_rules,
     parse_command,
 )
@@ -38,7 +34,7 @@ from .types import ShellResult
 logger = logging.getLogger(__name__)
 
 
-class ShellToolset(AbstractToolset[WorkerContext]):
+class ShellToolset(AbstractToolset[Any]):
     """Shell command execution toolset with pattern-based approval (whitelist model).
 
     This toolset exposes the `shell` tool to LLMs and implements approval
@@ -79,12 +75,6 @@ class ShellToolset(AbstractToolset[WorkerContext]):
         """Return the toolset configuration."""
         return self._config
 
-    def _get_sandbox(self, ctx: Any) -> Optional[FileSandbox]:
-        """Get sandbox from ctx.deps (WorkerContext)."""
-        if ctx is not None and hasattr(ctx, "deps") and ctx.deps is not None:
-            return getattr(ctx.deps, "sandbox", None)
-        return None
-
     def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> ApprovalResult:
         """Determine if shell command needs approval based on whitelist rules.
 
@@ -110,13 +100,12 @@ class ShellToolset(AbstractToolset[WorkerContext]):
             # (ShellBlockedError is for shell metacharacters like |, >, etc.)
             return ApprovalResult.pre_approved()
 
-        # Match against shell rules from config
+        # Match against shell rules from config (no sandbox path validation)
         allowed, approval_required = match_shell_rules(
             command=command,
             args=args,
             rules=self._config.get("rules", []),
             default=self._config.get("default"),
-            file_sandbox=self._get_sandbox(ctx),
         )
 
         # Check if command is in whitelist
@@ -210,12 +199,10 @@ class ShellToolset(AbstractToolset[WorkerContext]):
         timeout = min(max(timeout, 1), 300)
 
         try:
-            result = execute_shell(
+            return execute_shell(
                 command=command,
                 timeout=timeout,
             )
-            # Enhance errors with sandbox context
-            return enhance_error_with_sandbox_context(result, self._get_sandbox(ctx))
         except ShellBlockedError as e:
             return ShellResult(
                 stdout="",

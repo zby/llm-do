@@ -9,32 +9,19 @@ This module provides the core async runtime implementation:
 """
 from __future__ import annotations
 
-import asyncio
 import inspect
-import json
 import logging
-from dataclasses import dataclass, field
-from pathlib import Path, PurePosixPath
-from time import perf_counter
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Type, Union
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable, List, Optional, Sequence, Type
 
 from pydantic import BaseModel
-from pydantic_ai import Agent
-from pydantic_ai.messages import BinaryContent
-from pydantic_ai.models import Model as PydanticAIModel
-from pydantic_ai.tools import RunContext
 
-from .execution import default_agent_runner_async, default_agent_runner, prepare_agent_execution
-from .model_compat import select_model, ModelCompatibilityError, NoModelError
-from pydantic_ai_blocking_approval import (
-    ApprovalController,
-    ApprovalDecision,
-)
+from .execution import default_agent_runner_async, default_agent_runner
+from .model_compat import select_model, NoModelError
+from pydantic_ai_blocking_approval import ApprovalController
 from .sandbox import AttachmentInput, AttachmentPayload
-from .worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
-# Tools are now provided via toolsets in execution.py
 from .types import (
-    AgentExecutionContext,
     AgentRunner,
     MessageCallback,
     WorkerContext,
@@ -58,7 +45,6 @@ class _WorkerExecutionPrep:
     context: WorkerContext
     definition: WorkerDefinition
     output_model: Optional[Type[BaseModel]]
-    sandbox: Optional[Sandbox]
 
 
 def _prepare_worker_context(
@@ -83,27 +69,6 @@ def _prepare_worker_context(
 
     defaults = creation_defaults or WorkerCreationDefaults()
 
-    # Create sandbox only if configured
-    new_sandbox: Optional[Sandbox] = None
-    attachment_validator: Optional[AttachmentValidator] = None
-
-    sandbox_config = definition.sandbox
-    default_sandbox_config = defaults.default_sandbox
-
-    if sandbox_config is not None:
-        # Worker has explicit sandbox config
-        new_sandbox = Sandbox(sandbox_config, base_path=registry.root)
-        attachment_validator = AttachmentValidator(new_sandbox)
-        logger.debug(f"Using unified sandbox for worker '{worker}'")
-    elif default_sandbox_config is not None:
-        # Use default sandbox from creation defaults
-        new_sandbox = Sandbox(default_sandbox_config, base_path=registry.root)
-        attachment_validator = AttachmentValidator(new_sandbox)
-        logger.debug(f"Using default sandbox for worker '{worker}'")
-    else:
-        # No sandbox - worker doesn't use file I/O
-        logger.debug(f"Worker '{worker}' has no sandbox - file tools disabled")
-
     attachment_payloads: List[AttachmentPayload] = []
     if attachments:
         for item in attachments:
@@ -118,7 +83,6 @@ def _prepare_worker_context(
             )
 
     # Validate attachments against receiver's policy (type/count/size constraints)
-    # Note: Sandbox validation (can caller access?) happens at caller side
     if attachment_payloads:
         definition.attachment_policy.validate_paths([payload.path for payload in attachment_payloads])
 
@@ -150,9 +114,7 @@ def _prepare_worker_context(
         # Delegation
         registry=registry,
         creation_defaults=defaults,
-        attachment_validator=attachment_validator,
         # I/O
-        sandbox=new_sandbox,
         attachments=attachment_payloads,
         # Callbacks
         message_callback=message_callback,
@@ -165,7 +127,6 @@ def _prepare_worker_context(
         context=context,
         definition=definition,
         output_model=output_model,
-        sandbox=new_sandbox,
     )
 
 

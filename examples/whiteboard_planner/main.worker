@@ -1,22 +1,6 @@
 ---
 description: Orchestrate whiteboard → project plan generation for all images in input/
 name: main
-sandbox:
-  paths:
-    input:
-      max_file_bytes: 20971520
-      mode: ro
-      root: ./input
-      suffixes:
-      - .jpg
-      - .jpeg
-      - .png
-    plans:
-      mode: rw
-      root: ./plans
-      suffixes:
-      - .md
-      write_approval: true
 toolsets:
   delegation:
     allow_workers:

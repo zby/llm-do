@@ -19,10 +19,6 @@ from llm_do import (
     run_worker,
 )
 from pydantic_ai_blocking_approval import ApprovalRequest
-from llm_do.worker_sandbox import AttachmentValidator, Sandbox, SandboxConfig
-# Typed config classes no longer used - using dict config
-# ShellDefault still used for shell default behavior
-from pydantic_ai_filesystem_sandbox import PathConfig
 
 
 class EchoPayload(BaseModel):
@@ -156,65 +152,18 @@ def test_run_worker_message_callback_invoked(registry):
     assert seen == [{"worker": "alpha", "event": "chunk"}]
 
 
-def test_sandbox_write_requires_approval(tmp_path, registry, tool_calling_model_cls):
-    sandbox_path = tmp_path / "out"
-    path_cfg = PathConfig(
-        root=str(sandbox_path),
-        mode="rw",
-        suffixes=[".txt"],
-        write_approval=True,  # Require approval for writes
-    )
-
-    definition = WorkerDefinition(
-        name="writer",
-        instructions="Write a test file",
-        sandbox=SandboxConfig(paths={"out": path_cfg}),
-        toolsets={"filesystem": {}},
-    )
-    registry.save_definition(definition)
-
-    # Mock LLM that tries to call write_file tool
-    mock_model = tool_calling_model_cls(
-        [
-            {
-                "name": "write_file",
-                "args": {"path": "out/note.txt", "content": "hello"},
-            }
-        ]
-    )
-
-    def reject_callback(request: ApprovalRequest) -> ApprovalDecision:
-        return ApprovalDecision(approved=False, note="Test rejection")
-
-    reject_controller = ApprovalController(mode="interactive", approval_callback=reject_callback)
-
-    with pytest.raises(PermissionError, match="User denied write_file: Test rejection"):
-        run_worker(
-            registry=registry,
-            worker="writer",
-            input_data="",
-            cli_model=mock_model,
-            approval_controller=reject_controller,
-        )
-
-    assert not (sandbox_path / "note.txt").exists()
 
 
 def test_create_worker_applies_creation_defaults(registry, tmp_path):
     defaults = WorkerCreationDefaults(
         default_model="gpt-4",
-        default_sandbox=SandboxConfig(paths={
-            "rw": PathConfig(root=str(tmp_path / "rw"), mode="rw"),
-        }),
     )
     spec = WorkerSpec(name="beta", instructions="collect data")
 
     created = create_worker(registry, spec, defaults=defaults)
 
     assert created.model == "gpt-4"
-    assert "rw" in created.sandbox.paths
     loaded = registry.load_definition("beta")
-    assert loaded.sandbox.paths["rw"].root == str((tmp_path / "rw").resolve())
     # Generated workers are directories: {name}/worker.worker
     generated_path = registry.generated_dir / "beta" / "worker.worker"
     assert generated_path.exists()
@@ -327,8 +276,6 @@ def test_call_worker_respects_allowlist(registry):
         return {"worker": defn.name, "input": input_data, "model": ctx.effective_model}
 
     controller = ApprovalController(mode="approve_all")
-    sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
-    attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
         # Core
         worker=parent_def,
@@ -337,9 +284,6 @@ def test_call_worker_respects_allowlist(registry):
         # Delegation
         registry=registry,
         creation_defaults=WorkerCreationDefaults(),
-        attachment_validator=attachment_validator,
-        # I/O
-        sandbox=sandbox,
     )
 
     result = call_worker(
@@ -369,8 +313,6 @@ def test_call_worker_supports_wildcard_allowlist(registry):
         return {"worker": defn.name, "input": input_data}
 
     controller = ApprovalController(mode="approve_all")
-    sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
-    attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
         # Core
         worker=parent_def,
@@ -379,9 +321,6 @@ def test_call_worker_supports_wildcard_allowlist(registry):
         # Delegation
         registry=registry,
         creation_defaults=WorkerCreationDefaults(),
-        attachment_validator=attachment_validator,
-        # I/O
-        sandbox=sandbox,
     )
 
     result = call_worker(
@@ -416,8 +355,6 @@ def test_call_worker_propagates_message_callback(registry):
         return ("done", [])
 
     controller = ApprovalController(mode="approve_all")
-    sandbox = Sandbox(SandboxConfig(), base_path=registry.root)
-    attachment_validator = AttachmentValidator(sandbox)
     parent_context = WorkerContext(
         # Core
         worker=parent_def,
@@ -426,9 +363,6 @@ def test_call_worker_propagates_message_callback(registry):
         # Delegation
         registry=registry,
         creation_defaults=WorkerCreationDefaults(),
-        attachment_validator=attachment_validator,
-        # I/O
-        sandbox=sandbox,
         # Callbacks
         message_callback=callback,
     )
@@ -448,7 +382,6 @@ def test_default_agent_runner_uses_pydantic_ai(registry):
     definition = WorkerDefinition(
         name="pydantic-worker",
         instructions="Summarize input",
-        sandbox=SandboxConfig(),  # Need sandbox for file tools
         toolsets={
             "filesystem": {},
             "shell": {"default": {"allowed": True, "approval_required": True}},
@@ -517,86 +450,8 @@ def test_run_worker_without_model_errors(registry):
         )
 
 
-def test_approve_all_mode(tmp_path, registry, tool_calling_model_cls):
-    """Test Story 6: --approve-all flag auto-approves all tools."""
-    sandbox_path = tmp_path / "out"
-    path_cfg = PathConfig(
-        root=str(sandbox_path),
-        mode="rw",
-        suffixes=[".txt"],
-        write_approval=True,  # Require approval for writes
-    )
-
-    definition = WorkerDefinition(
-        name="writer",
-        instructions="Write a test file",
-        sandbox=SandboxConfig(paths={"out": path_cfg}),
-        toolsets={"filesystem": {}},
-    )
-    registry.save_definition(definition)
-
-    # Mock LLM that calls write_file tool
-    mock_model = tool_calling_model_cls(
-        [
-            {
-                "name": "write_file",
-                "args": {"path": "out/note.txt", "content": "hello"},
-            }
-        ]
-    )
-
-    result = run_worker(
-        registry=registry,
-        worker="writer",
-        input_data="",
-        cli_model=mock_model,
-        approval_controller=ApprovalController(mode="approve_all"),
-    )
-
-    # Tool executed successfully
-    assert (sandbox_path / "note.txt").exists()
-    assert (sandbox_path / "note.txt").read_text() == "hello"
 
 
-def test_strict_mode_rejects(tmp_path, registry, tool_calling_model_cls):
-    """Test Story 7: --strict flag rejects all non-preapproved tools."""
-    sandbox_path = tmp_path / "out"
-    path_cfg = PathConfig(
-        root=str(sandbox_path),
-        mode="rw",
-        suffixes=[".txt"],
-        write_approval=True,  # Require approval for writes
-    )
-
-    definition = WorkerDefinition(
-        name="writer",
-        instructions="Write a test file",
-        sandbox=SandboxConfig(paths={"out": path_cfg}),
-        toolsets={"filesystem": {}},
-    )
-    registry.save_definition(definition)
-
-    # Mock LLM that tries to call write_file tool
-    mock_model = tool_calling_model_cls(
-        [
-            {
-                "name": "write_file",
-                "args": {"path": "out/note.txt", "content": "hello"},
-            }
-        ]
-    )
-
-    with pytest.raises(PermissionError, match="User denied write_file.*Strict mode"):
-        run_worker(
-            registry=registry,
-            worker="writer",
-            input_data="",
-            cli_model=mock_model,
-            approval_controller=ApprovalController(mode="strict"),
-        )
-
-    # Tool did not execute
-    assert not (sandbox_path / "note.txt").exists()
 
 
 # ---------------------------------------------------------------------------

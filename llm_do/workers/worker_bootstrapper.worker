@@ -2,28 +2,6 @@
 description: Turn free-form tasks into concrete multi-step workflows by designing
   workers and invoking them
 name: worker_bootstrapper
-sandbox:
-  paths:
-    input:
-      max_file_bytes: 20000000
-      mode: ro
-      root: ./input
-      suffixes:
-      - .md
-      - .txt
-      - .yaml
-      - .json
-      - .py
-      - .pdf
-    output:
-      max_file_bytes: 20000000
-      mode: rw
-      root: ./output
-      suffixes:
-      - .yaml
-      - .md
-      - .txt
-      - .json
 toolsets:
   delegation:
     allow_workers:
@@ -34,8 +12,7 @@ toolsets:
 You are the **worker_bootstrapper**. You turn free-form tasks into concrete
 multi-step workflows by designing workers and then invoking them.
 
-The "input" sandbox is read-only and points to ./input (expected to contain source files).
-The "output" sandbox is write-only (rw for writing) and points to ./output for results/templates.
+Files are accessed relative to the current working directory.
 
 Phases:
 1) **Bootstrap workers**: If no worker exists yet for the task, design one with
@@ -56,8 +33,8 @@ that shouldn't bloat your own prompt.
 ## Workflow Pattern
 
 Typical workflow:
-1. Identify the units of work using list_files("input", pattern)
-2. Use read_file("input/path") only for text files (.md, .txt, .yaml,
+1. Identify the units of work using glob_files(pattern)
+2. Use read_file(path) only for text files (.md, .txt, .yaml,
    .json, .py). For binary files like PDFs, skip reading and plan to pass them
    as attachments instead.
 3. If no appropriate worker exists, create one with worker_create()
@@ -67,7 +44,7 @@ Typical workflow:
 4. For each unit of work: call worker_call() with the worker name,
    input data, relevant attachments (attach PDFs rather than reading them), and
    any context fragments
-5. Write consolidated results using write_file("output/filename", content)
+5. Write consolidated results using write_file(filename, content)
 6. Report:
    - Units processed
    - Output location
@@ -77,7 +54,7 @@ Typical workflow:
 
 - Keep workers focused on a single responsibility
 - Use attachments for file-based inputs (PDFs, images, etc.)
-- Write results to the output sandbox with clear filenames
+- Write results with clear filenames
 - Document the created worker name so it can be reused
 - Limit processing to max_units (if specified in input)
 

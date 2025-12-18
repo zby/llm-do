@@ -28,10 +28,10 @@ def parse_set_override(spec: str) -> tuple[str, Any]:
     Examples:
         >>> parse_set_override("model=gpt-4")
         ('model', 'gpt-4')
-        >>> parse_set_override("sandbox.network_enabled=false")
-        ('sandbox.network_enabled', False)
         >>> parse_set_override("attachment_policy.max_attachments=10")
         ('attachment_policy.max_attachments', 10)
+        >>> parse_set_override("toolsets.shell.rules=[{\"pattern\":\"git\"}]")
+        ('toolsets.shell.rules', [{'pattern': 'git'}])
     """
     if '=' not in spec:
         raise ValueError(
@@ -113,7 +113,7 @@ def apply_set_override(data: Dict[str, Any], key_path: str, value: Any) -> None:
 
     Args:
         data: Worker definition as dict (modified in place)
-        key_path: Dot-separated path (e.g., 'sandbox.network_enabled')
+        key_path: Dot-separated path (e.g., 'toolsets.shell.rules')
         value: Parsed value to set
 
     Raises:
@@ -126,9 +126,9 @@ def apply_set_override(data: Dict[str, Any], key_path: str, value: Any) -> None:
         {'model': 'new'}
 
         >>> data = {}
-        >>> apply_set_override(data, "sandbox.network_enabled", False)
+        >>> apply_set_override(data, "attachment_policy.max_attachments", 10)
         >>> data
-        {'sandbox': {'network_enabled': False}}
+        {'attachment_policy': {'max_attachments': 10}}
     """
     keys = key_path.split('.')
     target = data

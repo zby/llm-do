@@ -12,7 +12,6 @@ from llm_do.workshop import (
 )
 from llm_do.types import InvocationMode, WorkshopConfig
 from llm_do.registry import WorkerRegistry
-from llm_do.worker_sandbox import SandboxConfig, PathConfig
 
 
 class TestDetectInvocationMode:
@@ -104,27 +103,6 @@ toolsets:
         assert config.model == "anthropic:claude-haiku-4-5"
         assert config.toolsets == {"filesystem": {}, "shell": {"rules": []}}
 
-    def test_workshop_yaml_with_sandbox(self, tmp_path):
-        """Test loading workshop.yaml with sandbox config."""
-        yaml_content = """
-name: sandboxed-workshop
-sandbox:
-  paths:
-    input:
-      root: ./input
-      mode: ro
-    output:
-      root: ./output
-      mode: rw
-"""
-        (tmp_path / "workshop.yaml").write_text(yaml_content)
-
-        config = load_workshop_config(tmp_path)
-        assert config.sandbox is not None
-        assert "input" in config.sandbox.paths
-        assert config.sandbox.paths["input"].mode == "ro"
-        assert "output" in config.sandbox.paths
-        assert config.sandbox.paths["output"].mode == "rw"
 
     def test_invalid_yaml_raises(self, tmp_path):
         """Test that invalid YAML raises ValueError."""
@@ -137,10 +115,8 @@ sandbox:
 
     def test_invalid_schema_raises(self, tmp_path):
         """Test that schema violations raise ValueError."""
-        (tmp_path / "workshop.yaml").write_text("model: 123")  # model should be string
-
-        # Pydantic should coerce 123 to "123", but let's test with a more obvious violation
-        (tmp_path / "workshop.yaml").write_text("sandbox:\n  paths: not-a-dict")
+        # toolsets should be a dict, not a string
+        (tmp_path / "workshop.yaml").write_text("toolsets: not-a-dict")
 
         with pytest.raises(ValueError) as exc_info:
             load_workshop_config(tmp_path)
@@ -280,29 +256,6 @@ class TestRegistryWorkshopConfigInheritance:
         # Worker's shell config should override
         assert definition.toolsets["shell"]["rules"] == [{"pattern": "echo"}]
 
-    def test_registry_merges_sandbox_paths(self, tmp_path):
-        """Test that sandbox paths are deep merged."""
-        workers_dir = tmp_path / "workers"
-        workers_dir.mkdir()
-        (workers_dir / "test.worker").write_text(
-            "---\nname: test\nsandbox:\n  paths:\n    scratch:\n      root: ./scratch\n      mode: rw\n---\n"
-        )
-
-        workshop_config = WorkshopConfig(
-            sandbox=SandboxConfig(
-                paths={
-                    "input": PathConfig(root="./input", mode="ro"),
-                    "output": PathConfig(root="./output", mode="rw"),
-                }
-            )
-        )
-        registry = WorkerRegistry(tmp_path, workshop_config=workshop_config)
-        definition = registry.load_definition("test")
-
-        # Should have all three paths
-        assert "input" in definition.sandbox.paths
-        assert "output" in definition.sandbox.paths
-        assert "scratch" in definition.sandbox.paths
 
     def test_main_worker_at_workshop_root(self, tmp_path):
         """Test that main.worker at workshop root is found."""

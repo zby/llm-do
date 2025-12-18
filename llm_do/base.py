@@ -5,7 +5,6 @@ This module provides:
 - Worker artifacts (definition/spec/defaults) with YAML/JSON persistence via
   ``WorkerRegistry``.
 - Runtime orchestration through ``run_worker`` using PydanticAI agents.
-- Sandbox-aware filesystem helpers with optional approval gating.
 - Worker delegation and creation tools that honor allowlists and locks.
 
 The design favors testability and deterministic enforcement through pluggable
@@ -22,21 +21,6 @@ from typing import Iterable
 
 # Re-export sandbox types
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
-
-# Re-export sandbox types from standalone package
-from pydantic_ai_filesystem_sandbox import (
-    DEFAULT_MAX_READ_CHARS,
-    SandboxConfig as BaseSandboxConfig,
-    SandboxError,
-    Sandbox as BaseSandbox,
-    FileTooLargeError,
-    PathConfig,
-    PathNotInSandboxError,
-    PathNotWritableError,
-    ReadResult,
-    SuffixNotAllowedError,
-)
-from .worker_sandbox import Sandbox, SandboxConfig
 
 # Re-export all types
 from .types import (
@@ -79,9 +63,6 @@ from .shell import (
 # Re-export registry
 from .registry import WorkerRegistry
 
-# Re-export protocols
-from .protocols import FileSandbox
-
 # Tools are now provided via toolsets in execution.py:
 # - FileSystemToolset (wrapped with ApprovalToolset), ShellToolset, DelegationToolset, CustomToolset
 
@@ -100,7 +81,6 @@ __all__: Iterable[str] = [
     "ApprovalController",
     "ApprovalDecision",
     "AttachmentPolicy",
-    "SandboxConfig",
     "WorkerDefinition",
     "WorkerSpec",
     "WorkerCreationDefaults",
@@ -118,20 +98,6 @@ __all__: Iterable[str] = [
     "WorkshopConfig",
     "WorkshopContext",
     "resolve_workshop",
-    # Protocols
-    "FileSandbox",
-    # Sandbox classes
-    "DEFAULT_MAX_READ_CHARS",
-    "BaseSandboxConfig",
-    "SandboxError",
-    "BaseSandbox",
-    "FileTooLargeError",
-    "PathConfig",
-    "PathNotInSandboxError",
-    "PathNotWritableError",
-    "ReadResult",
-    "Sandbox",
-    "SuffixNotAllowedError",
     # Shell tool
     "ShellBlockedError",
     "ShellDefault",

@@ -233,34 +233,28 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         worker: str,
         attachments: Optional[List[str]],
     ) -> Optional[List[AttachmentPayload]]:
-        """Validate attachments and check sandbox.read approvals.
+        """Convert attachment paths to AttachmentPayload objects.
 
         Returns attachment payloads ready for call_worker_async.
 
         Note: This does NOT check worker.call approval - that's handled by
-        ApprovalToolset via needs_approval(). Only sandbox.read for attachments.
+        ApprovalToolset via needs_approval().
         """
         if not attachments:
             return None
 
-        resolved_attachments, attachment_metadata = ctx.validate_attachments(attachments)
+        from pathlib import Path
 
-        # Check sandbox.read approval for each attachment before sharing
-        for meta in attachment_metadata:
-            self._check_approval(
-                ctx,
-                "sandbox.read",
-                {"path": f"{meta['sandbox']}/{meta['path']}", "bytes": meta["bytes"], "target_worker": worker},
-                f"Share file '{meta['sandbox']}/{meta['path']}' with worker '{worker}'",
+        attachment_payloads = []
+        for attachment_path in attachments:
+            path = Path(attachment_path).expanduser().resolve()
+            if not path.exists():
+                raise FileNotFoundError(f"Attachment not found: {attachment_path}")
+            if not path.is_file():
+                raise IsADirectoryError(f"Attachment must be a file: {attachment_path}")
+            attachment_payloads.append(
+                AttachmentPayload(path=path, display_name=attachment_path)
             )
-
-        attachment_payloads = [
-            AttachmentPayload(
-                path=path,
-                display_name=f"{meta['sandbox']}/{meta['path']}",
-            )
-            for path, meta in zip(resolved_attachments, attachment_metadata)
-        ]
 
         return attachment_payloads
 

@@ -11,15 +11,11 @@ from llm_do.shell import (
     ShellBlockedError,
     ShellError,
     check_metacharacters,
-    enhance_error_with_sandbox_context,
     execute_shell,
-    extract_path_arguments,
     match_shell_rules,
     parse_command,
-    validate_paths_in_sandbox,
 )
-from llm_do.types import ShellResult
-from pydantic_ai_filesystem_sandbox import SandboxError
+from llm_do.shell.types import ShellResult
 
 
 class TestParseCommand:
@@ -75,52 +71,32 @@ class TestCheckMetacharacters:
             check_metacharacters("echo hello > file.txt")
 
 
-class TestExtractPathArguments:
-    """Tests for path argument extraction."""
-
-    def test_no_paths(self):
-        assert extract_path_arguments(["ls"]) == []
-
-    def test_single_path(self):
-        assert extract_path_arguments(["cat", "file.txt"]) == ["file.txt"]
-
-    def test_multiple_paths(self):
-        assert extract_path_arguments(["cp", "src.txt", "dst.txt"]) == ["src.txt", "dst.txt"]
-
-    def test_skips_flags(self):
-        assert extract_path_arguments(["ls", "-la", "/tmp"]) == ["/tmp"]
-        assert extract_path_arguments(["cat", "-n", "--number", "file.txt"]) == ["file.txt"]
-
-    def test_skips_empty_args(self):
-        assert extract_path_arguments(["echo", "", "hello"]) == ["hello"]
-
-
 class TestMatchShellRules:
     """Tests for shell rule pattern matching."""
 
     def test_exact_match(self):
         rules = [{"pattern": "git status", "approval_required": False, "allowed": True}]
-        allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None, None)
+        allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None)
         assert allowed is True
         assert approval is False
 
     def test_prefix_match(self):
         rules = [{"pattern": "git", "approval_required": False, "allowed": True}]
-        allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None, None)
+        allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None)
         assert allowed is True
         assert approval is False
 
     def test_no_match_uses_default(self):
         rules = [{"pattern": "git", "approval_required": False}]
         default = {"approval_required": True}
-        allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, default, None)
+        allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, default)
         assert allowed is True  # Default exists
         assert approval is True
 
     def test_no_match_no_default_blocks(self):
         """Whitelist model: no matching rule + no default = blocked."""
         rules = [{"pattern": "git", "approval_required": False}]
-        allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, None, None)
+        allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, None)
         assert allowed is False  # Whitelist blocks unmatched commands
         assert approval is True
 
@@ -129,44 +105,18 @@ class TestMatchShellRules:
             {"pattern": "git status", "approval_required": False},
             {"pattern": "git", "approval_required": True},
         ]
-        allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None, None)
+        allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None)
         assert allowed is True  # Matched first rule
         assert approval is False  # First rule wins
 
     def test_rule_match_means_allowed(self):
         """Whitelist model: presence in rules = allowed."""
         rules = [{"pattern": "rm", "approval_required": True}]
-        allowed, approval = match_shell_rules("rm -rf /", ["rm", "-rf", "/"], rules, None, None)
+        allowed, approval = match_shell_rules("rm -rf /", ["rm", "-rf", "/"], rules, None)
         assert allowed is True  # In rules = allowed
         assert approval is True
 
 
-class TestValidatePathsInSandbox:
-    """Tests for path validation against sandbox."""
-
-    def test_no_paths_always_valid(self):
-        mock_sandbox = Mock()
-        assert validate_paths_in_sandbox([], ["output"], mock_sandbox) is True
-
-    def test_no_allowed_sandboxes_always_valid(self):
-        mock_sandbox = Mock()
-        assert validate_paths_in_sandbox(["/some/path"], [], mock_sandbox) is True
-
-    def test_valid_path_in_sandbox(self):
-        mock_sandbox = Mock()
-        mock_sandbox.resolve.return_value = Path("/sandbox/output/file.txt")
-        mock_sandbox.can_read.return_value = True
-
-        assert validate_paths_in_sandbox(["file.txt"], ["output"], mock_sandbox) is True
-        mock_sandbox.resolve.assert_called()
-
-    def test_path_not_in_sandbox(self):
-        mock_sandbox = Mock()
-        mock_sandbox.resolve.side_effect = SandboxError("Not in sandbox")
-        mock_sandbox.can_read.return_value = False
-
-        result = validate_paths_in_sandbox(["/etc/passwd"], ["output"], mock_sandbox)
-        assert result is False
 
 
 class TestExecuteShell:
@@ -213,102 +163,8 @@ class TestExecuteShell:
         assert "test.txt" in result.stdout
 
 
-class TestEnhanceErrorWithSandboxContext:
-    """Tests for LLM-friendly error enhancement."""
-
-    def test_success_not_modified(self):
-        result = ShellResult(stdout="ok", stderr="", exit_code=0, truncated=False)
-        enhanced = enhance_error_with_sandbox_context(result, None)
-        assert enhanced == result
-
-    def test_no_sandbox_not_modified(self):
-        result = ShellResult(stdout="", stderr="error", exit_code=1, truncated=False)
-        enhanced = enhance_error_with_sandbox_context(result, None)
-        assert enhanced == result
-
-    def test_permission_denied_enhanced(self):
-        mock_sandbox = Mock()
-        mock_sandbox.writable_roots = ["/sandbox/output"]
-
-        result = ShellResult(
-            stdout="",
-            stderr="Permission denied: /some/path",
-            exit_code=1,
-            truncated=False,
-        )
-        enhanced = enhance_error_with_sandbox_context(result, mock_sandbox)
-
-        assert "writable paths" in enhanced.stderr
-        assert "/sandbox/output" in enhanced.stderr
-
-    def test_network_error_enhanced(self):
-        mock_sandbox = Mock()
-        mock_sandbox.writable_roots = []
-
-        result = ShellResult(
-            stdout="",
-            stderr="Could not resolve host: example.com",
-            exit_code=1,
-            truncated=False,
-        )
-        enhanced = enhance_error_with_sandbox_context(result, mock_sandbox)
-
-        assert "Network access may be disabled" in enhanced.stderr
 
 
-class TestShellRuleWithSandboxPaths:
-    """Tests for shell rules with sandbox_paths validation."""
-
-    def test_sandbox_paths_validation_passes(self):
-        mock_sandbox = Mock()
-        mock_sandbox.resolve.return_value = Path("/sandbox/output/file.txt")
-
-        rules = [
-            {
-                "pattern": "cat",
-                "sandbox_paths": ["output"],
-                "approval_required": False,
-            }
-        ]
-
-        allowed, approval = match_shell_rules(
-            "cat file.txt",
-            ["cat", "file.txt"],
-            rules,
-            None,
-            mock_sandbox,
-        )
-        assert allowed is True
-        assert approval is False
-
-    def test_sandbox_paths_validation_fails_tries_next_rule(self):
-        mock_sandbox = Mock()
-        mock_sandbox.resolve.side_effect = SandboxError("Not in sandbox")
-        mock_sandbox.can_read.return_value = False
-
-        rules = [
-            {
-                "pattern": "cat",
-                "sandbox_paths": ["output"],  # Will fail validation
-                "approval_required": False,
-            },
-            {
-                "pattern": "cat",
-                "sandbox_paths": [],  # No validation
-                "approval_required": True,
-            },
-        ]
-
-        allowed, approval = match_shell_rules(
-            "cat /etc/passwd",
-            ["cat", "/etc/passwd"],
-            rules,
-            None,
-            mock_sandbox,
-        )
-        # Falls through to second rule
-        assert allowed is True
-        assert approval is True
 
 
 class TestShellDefault:
@@ -317,12 +173,12 @@ class TestShellDefault:
     def test_default_allows_unmatched(self):
         """Presence of default = unmatched commands are allowed."""
         default = {"approval_required": False}
-        allowed, approval = match_shell_rules("xyz", ["xyz"], [], default, None)
+        allowed, approval = match_shell_rules("xyz", ["xyz"], [], default)
         assert allowed is True  # Default exists = allowed
         assert approval is False
 
     def test_no_default_blocks_unmatched(self):
         """Absence of default = unmatched commands are blocked."""
-        allowed, approval = match_shell_rules("xyz", ["xyz"], [], None, None)
+        allowed, approval = match_shell_rules("xyz", ["xyz"], [], None)
         assert allowed is False  # No default = blocked
         assert approval is True

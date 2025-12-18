@@ -17,11 +17,8 @@ from .execution import (
     ShellError,
     check_metacharacters,
     execute_shell,
-    enhance_error_with_sandbox_context,
-    extract_path_arguments,
     match_shell_rules,
     parse_command,
-    validate_paths_in_sandbox,
 )
 from .types import ShellDefault, ShellResult, ShellRule
 
@@ -42,11 +39,8 @@ __all__ = [
     # Execution
     "check_metacharacters",
     "execute_shell",
-    "enhance_error_with_sandbox_context",
-    "extract_path_arguments",
     "match_shell_rules",
     "parse_command",
-    "validate_paths_in_sandbox",
 ]
 
 

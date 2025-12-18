@@ -1,11 +1,6 @@
 ---
 description: Mathematical calculator with custom computation tools
 name: calculator
-sandbox:
-  paths:
-    scratch:
-      mode: rw
-      root: ./scratch
 toolsets:
   filesystem: {}
   custom:

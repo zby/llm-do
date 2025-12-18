@@ -7,8 +7,6 @@ This module contains the data models used by the shell toolset:
 """
 from __future__ import annotations
 
-from typing import List
-
 from pydantic import BaseModel, Field
 
 
@@ -29,10 +27,6 @@ class ShellRule(BaseModel):
     """
 
     pattern: str = Field(description="Command prefix to match (e.g., 'git status')")
-    sandbox_paths: List[str] = Field(
-        default_factory=list,
-        description="Sandboxes for path argument validation. Empty means no path validation."
-    )
     approval_required: bool = Field(
         default=True,
         description="Whether this command requires user approval"

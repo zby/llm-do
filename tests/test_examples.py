@@ -359,24 +359,17 @@ def test_pitch_orchestrator_example(pitchdeck_eval_registry):
     assert result.output is not None
 
 
-def test_pitch_orchestrator_sandboxes_configured(pitchdeck_eval_registry):
-    """Test that pitch_orchestrator has correct sandbox configuration."""
+def test_pitch_orchestrator_toolsets_configured(pitchdeck_eval_registry):
+    """Test that pitch_orchestrator has correct toolsets configuration."""
     definition = pitchdeck_eval_registry.load_definition("pitch_orchestrator")
 
-    # Verify sandboxes are configured
-    sandbox = definition.sandbox
-    assert sandbox is not None
-    assert "input" in sandbox.paths
-    assert "evaluations" in sandbox.paths
+    # Verify toolsets are configured
+    assert definition.toolsets is not None
+    assert "delegation" in definition.toolsets
+    assert "filesystem" in definition.toolsets
 
-    # Verify input is read-only
-    assert sandbox.paths["input"].mode == "ro"
-
-    # Verify evaluations is writable
-    assert sandbox.paths["evaluations"].mode == "rw"
-
-    # Verify allowed suffixes
-    assert ".pdf" in sandbox.paths["input"].suffixes
+    # Verify delegation allows workers
+    assert definition.toolsets["delegation"].get("allow_workers") is not None
 
 def test_all_example_workers_load_successfully():
     """Test that all example worker definitions can be loaded.
@@ -396,8 +389,8 @@ def test_all_example_workers_load_successfully():
     approvals_registry = WorkerRegistry(examples_dir / "approvals_demo")
     save_note_def = approvals_registry.load_definition("save_note")
     assert save_note_def.name == "save_note"
-    assert save_note_def.sandbox is not None
-    assert "notes" in save_note_def.sandbox.paths
+    assert save_note_def.toolsets is not None
+    assert "filesystem" in save_note_def.toolsets
 
     # Pitch evaluator (in examples/pitchdeck_eval/workers/pitch_evaluator.worker)
     pitch_registry = WorkerRegistry(examples_dir / "pitchdeck_eval")

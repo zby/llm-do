@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 ALIASES: Dict[str, str] = {
     "shell": "llm_do.shell.toolset.ShellToolset",
     "delegation": "llm_do.delegation_toolset.DelegationToolset",
-    "filesystem": "pydantic_ai_filesystem_sandbox.FileSystemToolset",
+    "filesystem": "llm_do.filesystem_toolset.FileSystemToolset",
     "custom": "llm_do.custom_toolset.CustomToolset",
 }
 
@@ -64,8 +64,7 @@ def create_toolset(
 ) -> AbstractToolset:
     """Factory to create a single toolset from config.
 
-    Most toolsets receive `config` and access runtime deps via ctx.deps.
-    Exception: FileSystemToolset (external) requires sandbox in constructor.
+    All toolsets receive `config` and access runtime deps via ctx.deps.
 
     Args:
         class_path: Fully qualified class path or alias
@@ -89,16 +88,8 @@ def create_toolset(
     # Extract approval config (for toolsets without needs_approval)
     approval_config = config.pop("_approval_config", {})
 
-    # Special case: FileSystemToolset needs sandbox in constructor
-    # (external package, doesn't know about WorkerContext)
-    if class_path == "filesystem" or resolved_path == ALIASES.get("filesystem"):
-        if context.sandbox is None:
-            raise ValueError("filesystem toolset requires sandbox configuration")
-        toolset = toolset_class(sandbox=context.sandbox)
-    else:
-        # All other toolsets receive config, access ctx.deps at runtime
-        # Shell toolset: sandbox is optional (used for path validation in rules)
-        toolset = toolset_class(config=config)
+    # All toolsets receive config, access ctx.deps at runtime
+    toolset = toolset_class(config=config)
 
     logger.debug("Created toolset %s", resolved_path)
 

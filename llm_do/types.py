@@ -7,18 +7,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Type, Union
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Literal, Optional, Type, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.models import Model as PydanticAIModel
-from pydantic_ai.toolsets import AbstractToolset
 
 from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision
 
 from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
-from .worker_sandbox import AttachmentValidator, SandboxConfig
 
 
 
@@ -124,12 +122,6 @@ class WorkerDefinition(BaseModel):
     )
     output_schema_ref: Optional[str] = None
 
-    # Sandbox configuration (creates the sandbox object for file I/O)
-    sandbox: Optional["SandboxConfig"] = Field(
-        default=None,
-        description="Sandbox policy (paths, modes, network)"
-    )
-
     # Toolsets configuration (class paths -> config dicts)
     # Example: {"shell": {"rules": [...]}, "delegation": {"allow_workers": ["*"]}}
     # Supports aliases (shell, delegation, filesystem) or full class paths
@@ -166,10 +158,6 @@ class WorkerCreationDefaults(BaseModel):
     """Host-configured defaults used when persisting workers."""
 
     default_model: Optional[str] = None
-    default_sandbox: Optional["SandboxConfig"] = Field(
-        default=None,
-        description="Default sandbox configuration"
-    )
     default_toolsets: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Default toolsets configuration (class paths -> config dicts)"
@@ -184,7 +172,6 @@ class WorkerCreationDefaults(BaseModel):
         """Apply defaults to a ``WorkerSpec`` to create a full definition."""
 
         attachment_policy = self.default_attachment_policy.model_copy()
-        sandbox = self.default_sandbox.model_copy() if self.default_sandbox else None
         toolsets = dict(self.default_toolsets) if self.default_toolsets else None
         return WorkerDefinition(
             name=spec.name,
@@ -192,7 +179,6 @@ class WorkerCreationDefaults(BaseModel):
             instructions=spec.instructions,
             model=spec.model or self.default_model,
             output_schema_ref=spec.output_schema_ref,
-            sandbox=sandbox,
             toolsets=toolsets,
             attachment_policy=attachment_policy,
             locked=False,
@@ -239,12 +225,6 @@ class WorkshopConfig(BaseModel):
         description="Default model for all workers in this workshop"
     )
 
-    # Global sandbox configuration (inherited by all workers)
-    sandbox: Optional["SandboxConfig"] = Field(
-        default=None,
-        description="Default sandbox configuration for all workers"
-    )
-
     # Default toolsets for all workers (merged with worker-specific)
     toolsets: Optional[Dict[str, Any]] = Field(
         default=None,
@@ -288,7 +268,7 @@ class WorkerContext:
     grouped by concern:
     - Core: worker definition, model, approval handling
     - Delegation: registry access, worker creation (when delegation toolset enabled)
-    - I/O: sandbox and attachments for file operations
+    - I/O: attachments for file operations
     - Callbacks: streaming and custom tools
     """
 
@@ -300,25 +280,13 @@ class WorkerContext:
     # Delegation - populated when delegation toolset is enabled
     registry: Any = None  # WorkerRegistry - avoid circular import
     creation_defaults: Optional[WorkerCreationDefaults] = None
-    attachment_validator: Optional[AttachmentValidator] = None
 
-    # I/O - sandbox and attachments for file operations
-    sandbox: Optional[AbstractToolset] = None  # None if worker doesn't use file I/O
+    # I/O - attachments for file operations
     attachments: List[AttachmentPayload] = field(default_factory=list)
 
     # Callbacks and extensions
     message_callback: Optional[MessageCallback] = None
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
-
-    def validate_attachments(
-        self, attachment_specs: Optional[Sequence[AttachmentInput]]
-    ) -> tuple[List[Path], List[Dict[str, Any]]]:
-        """Resolve attachment specs to sandboxed files and enforce policy limits."""
-        if self.attachment_validator is None:
-            raise RuntimeError("Worker has no sandbox configured - cannot validate attachments for delegation")
-        return self.attachment_validator.validate_attachments(
-            attachment_specs, self.worker.attachment_policy
-        )
 
 
 @dataclass

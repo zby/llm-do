@@ -53,9 +53,74 @@ Neural ←→ Symbolic ←→ Neural ←→ Symbolic ...
 | Auditability | Hard | Easy |
 | Flexibility | High | Low |
 
+## Sync vs Async Tools
+
+**Not all tools need to be async.** Only tools that make nested LLM calls require async.
+
+```
+Pure Tool (sync)     Hybrid Tool (async)     Agent Tool (async)
+      │                     │                       │
+      ▼                     ▼                       ▼
+  def foo()          async def bar()         async def baz()
+      │                     │                       │
+   no ctx               needs ctx               needs ctx
+   no await            await llm_ask          await llm_agent
+```
+
+**The framework detects and handles both:**
+
+```python
+def call_tool(tool_fn, args, ctx):
+    if inspect.iscoroutinefunction(tool_fn):
+        return await tool_fn(**args, ctx=ctx)
+    else:
+        return tool_fn(**args)  # sync tools don't need ctx
+```
+
+**Benefits:**
+- Simple tools stay simple (no `async def`, no `await`, no `ctx`)
+- Only tools that need LLM access take `ToolContext`
+- Lower barrier for tool authors
+- Framework handles the bridging
+
+### Why Async for LLM Calls?
+
+A natural question: if tool execution is sequential (we always wait for each tool to complete), why use async at all for LLM-calling tools?
+
+```
+Tool execution is logically blocking:
+  LLM → tool → nested LLM → tool → ...
+              ↓
+         we wait at each step anyway
+```
+
+**The async is not for parallelism in tool execution.** It's for the UI plane:
+
+```
+┌─────────────────────────────────────────┐
+│  UI Plane (must stay responsive)        │
+│  - Stream LLM tokens as they arrive     │
+│  - Update display during long ops       │
+│  - Handle Ctrl+C interrupts             │
+│  - Show progress indicators             │
+└─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│  Tool Plane (sequential execution)      │
+│  - Tools run one at a time              │
+│  - Each completes before next starts    │
+│  - Logically synchronous                │
+└─────────────────────────────────────────┘
+```
+
+Async lets us yield control to the event loop so the UI can update while waiting for LLM responses. Without it, the UI would freeze during LLM calls.
+
+**Alternative considered:** Run sync tools in thread pool (`asyncio.to_thread`). Rejected because nested LLM calls from within a thread become awkward - you're in a sync context needing to call async LLM APIs.
+
 ## Tool Context API
 
-Every tool receives a context that enables nested LLM calls and carries shared state:
+Tools that need nested LLM calls receive a context. **Pure tools don't need it.**
 
 ```python
 class ToolContext:
@@ -92,22 +157,31 @@ Cost and approvals are tracked globally, not per-call.
 
 ## Examples
 
-### Pure Tool (no LLM)
+### Pure Tool (sync, no context)
 
 ```python
-async def read_file(path: str, ctx: ToolContext) -> str:
+# Simple - no async, no context needed
+def read_file(path: str) -> str:
     return Path(path).read_text()
+
+def list_directory(path: str) -> list[str]:
+    return os.listdir(path)
+
+def run_grep(pattern: str, path: str) -> str:
+    result = subprocess.run(["grep", "-r", pattern, path], capture_output=True)
+    return result.stdout.decode()
 ```
 
-### Hybrid Tool (nested LLM call)
+### Hybrid Tool (async, needs context)
 
 ```python
 async def smart_refactor(file: str, ctx: ToolContext) -> str:
+    # Sync operations are fine
     code = Path(file).read_text()
     issues = run_linter(code)
 
     if issues.ambiguous:
-        # Call back to LLM for decision
+        # Only this part needs async - nested LLM call
         decision = await ctx.llm_ask(
             f"Found ambiguous issues: {issues}. How to proceed?"
         )
@@ -116,13 +190,13 @@ async def smart_refactor(file: str, ctx: ToolContext) -> str:
     return apply_fixes(code, issues)
 ```
 
-### Agent Tool (Worker)
+### Agent Tool (async, needs context)
 
 ```python
 async def code_reviewer(input: str, ctx: ToolContext) -> str:
     return await ctx.llm_agent(
         system="You are a senior code reviewer...",
-        tools=[read_file, grep, glob],
+        tools=[read_file, grep, glob],  # Can use sync tools
         input=input
     )
 ```
@@ -179,7 +253,8 @@ This is the "neural → symbolic" compilation path. The system learns which part
 
 ### Unified
 - Tools and workers share same interface
-- All tools receive `ToolContext`
+- Tools can be sync or async (framework detects)
+- Only tools needing LLM access receive `ToolContext`
 - Tool calling tool = function calling function
 
 ### Added

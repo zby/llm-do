@@ -14,8 +14,7 @@ See `docs/notes/neuro-symbolic-tool-unification.md` for full design.
 - Tools are deterministic functions
 
 **Target state:**
-- Everything is a tool
-- Workers are tools with `type: agent`
+- Workers exposed as direct tools to the LLM (internally still uses `call_worker_async`)
 - Tools can access `ToolContext` via PydanticAI's standard `ctx.deps` for nested worker calls
 - Direct invocation: `code_reviewer(input="...")` instead of `worker_call`
 
@@ -129,25 +128,7 @@ async def call_worker(self, worker: str, input_data: Any) -> Any:
 
 **Future iteration:** Add `llm_ask` and `llm_agent` methods if needed for hybrid tools.
 
-### Phase 3: Agent Tool Type
-
-Support `type: agent` in tool definitions:
-
-```yaml
-name: code-reviewer
-type: agent
-model: claude-sonnet-4
-tools: [read_file, grep, glob]
----
-You are a senior code reviewer...
-```
-
-- [ ] Add `type` field to `WorkerDefinition` schema (default: `agent` for .worker files)
-- [ ] `type: agent` means full worker execution (via `call_worker_async`)
-- [ ] `type: function` means Python function reference
-- [ ] Update toolset loading to handle both types
-
-### Phase 4: AgentToolset (Rename DelegationToolset)
+### Phase 3: AgentToolset (Rename DelegationToolset)
 
 Rename and simplify:
 
@@ -168,7 +149,7 @@ LLM sees: worker_call(worker="summarizer", input_data="...")
 LLM sees: summarizer(input="...")
 ```
 
-### Phase 5: Simplify Workshop
+### Phase 4: Simplify Workshop
 
 After sandbox removal (see `15-remove-sandbox.md`):
 
@@ -193,25 +174,6 @@ After sandbox removal (see `15-remove-sandbox.md`):
 Context flows down: depth, approval_controller, (future: cost_tracker)
 ```
 
-## Tool Definition Format
-
-```yaml
-# Pure tool - references Python function
-name: read_file
-type: function
-function: llm_do.tools.filesystem:read_file
-
----
-
-# Agent tool (worker) - LLM agent loop
-name: code-reviewer
-type: agent
-model: claude-sonnet-4
-tools: [read_file, grep, glob]
----
-You are a senior code reviewer...
-```
-
 ## Resolved Questions
 
 1. **ToolContext vs WorkerContext**: ToolContext is a Protocol, WorkerContext implements it
@@ -219,12 +181,12 @@ You are a senior code reviewer...
 3. **Recursion limits**: Check at `call_worker_async`, depth counts worker calls only, default max 5
 4. **Cost tracking**: Placeholder field, implementation deferred
 5. **Iteration 1 scope**: Only `call_worker` method, not `llm_ask`/`llm_agent` (add later if needed)
-6. **Naming conflicts**: Error on conflict (explicit is better)
-7. **Attachments**: Simplify after sandbox removal — container handles file access
+6. **Attachments**: Simplify after sandbox removal — container handles file access
+7. **Tool definitions unchanged**: Existing toolsets mechanism stays as-is, no new `type` field
 
 ## Dependencies
 
-- **Prerequisite**: `15-remove-sandbox.md` should be completed first (simplifies Phase 5)
+- **Prerequisite**: `15-remove-sandbox.md` should be completed first (simplifies Phase 4)
 
 ## Current State
 

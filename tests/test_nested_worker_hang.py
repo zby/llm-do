@@ -101,11 +101,11 @@ This project aims to create an automated system for converting whiteboard photos
         # Call the whiteboard_planner worker with attachment
         # In the real scenario with live models, THIS IS WHERE THE HANG OCCURS
         # For this test, we'll mock call_worker to avoid the hang
+        # Note: Uses _agent_* tool format (workers-as-tools)
         {
-            "name": "worker_call",
+            "name": "_agent_whiteboard_planner",
             "args": {
-                "worker": "whiteboard_planner",
-                "input_data": {"original_filename": "white_board_plan.png"},
+                "input": '{"original_filename": "white_board_plan.png"}',
                 "attachments": ["input/white_board_plan.png"]
             }
         },
@@ -126,7 +126,8 @@ This project aims to create an automated system for converting whiteboard photos
     async def mock_call_worker_async(**kwargs):
         # Verify the worker_call was made with correct parameters
         assert kwargs["worker"] == "whiteboard_planner"
-        assert kwargs["input_data"] == {"original_filename": "white_board_plan.png"}
+        # New format: input is a JSON string
+        assert "white_board_plan.png" in kwargs["input_data"]
         assert len(kwargs["attachments"]) == 1
         assert "white_board_plan.png" in str(kwargs["attachments"][0].path)
 

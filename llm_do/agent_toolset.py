@@ -1,14 +1,20 @@
 """Agent toolset - workers exposed as direct tools to LLMs.
 
 This module provides AgentToolset which:
-1. Exposes each allowed worker as a direct tool (e.g., `summarizer(input=...)`)
+1. Exposes each allowed worker as a direct tool (e.g., `_agent_summarizer(input=...)`)
 2. Keeps worker_create as a separate tool for dynamic worker creation
-3. Implements approval logic via `needs_approval()` returning ApprovalResult
-4. Provides custom descriptions via `get_approval_description()`
+3. Keeps worker_call for calling dynamically created workers only
+4. Implements approval logic via `needs_approval()` returning ApprovalResult
+5. Provides custom descriptions via `get_approval_description()`
 
 This replaces the old worker_call indirection with direct tool invocation:
 - Before: `worker_call(worker="summarizer", input_data="...")`
-- After: `summarizer(input="...")`
+- After: `_agent_summarizer(input="...", attachments=[...])`
+
+Tool schema is dynamic:
+- All agent tools have `input: str` (required)
+- If worker accepts attachments (attachment_policy.max_attachments > 0),
+  adds optional `attachments: list[str]` parameter
 """
 from __future__ import annotations
 
@@ -107,7 +113,16 @@ class AgentToolset(AbstractToolset[WorkerContext]):
             return ApprovalResult.needs_approval()
 
         elif name == "worker_call":
-            # Generic worker call - always requires approval
+            # worker_call only for dynamically created workers
+            target_worker = tool_args.get("worker", "")
+            worker_ctx: WorkerContext = ctx.deps
+
+            if worker_ctx.registry and target_worker not in worker_ctx.registry._generated_workers:
+                return ApprovalResult.blocked(
+                    f"worker_call is only for dynamically created workers. "
+                    f"'{target_worker}' was not created in this session."
+                )
+
             return ApprovalResult.needs_approval()
 
         # Unknown tool - require approval
@@ -185,15 +200,15 @@ class AgentToolset(AbstractToolset[WorkerContext]):
                         definition = worker_ctx.registry.load_definition(worker_name)
                         if definition.description:
                             description = definition.description
-                    except Exception:
-                        # Worker not found - skip it
-                        logger.debug(f"Worker '{worker_name}' not found, skipping tool generation")
+                    except (FileNotFoundError, ValueError) as e:
+                        # Worker not found or invalid - skip it
+                        logger.debug(f"Worker '{worker_name}' not available: {e}")
                         continue
 
                 # Cache description for approval messages
                 self._worker_descriptions[worker_name] = description
 
-                # Schema for agent tools: just an input string
+                # Schema for agent tools: input string + optional attachments
                 agent_schema = {
                     "type": "object",
                     "properties": {
@@ -204,6 +219,23 @@ class AgentToolset(AbstractToolset[WorkerContext]):
                     },
                     "required": ["input"],
                 }
+
+                # Add attachments if worker accepts them
+                attachment_policy = definition.attachment_policy
+                if attachment_policy.max_attachments > 0:
+                    # Build description based on policy constraints
+                    attach_desc = "File paths to attach"
+                    if attachment_policy.allowed_suffixes:
+                        suffixes = ", ".join(attachment_policy.allowed_suffixes)
+                        attach_desc += f" (allowed: {suffixes})"
+                    if attachment_policy.max_attachments < 10:
+                        attach_desc += f" (max {attachment_policy.max_attachments})"
+
+                    agent_schema["properties"]["attachments"] = {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": attach_desc,
+                    }
 
                 tool_name = self._tool_name_from_worker(worker_name)
                 tools[tool_name] = ToolsetTool(
@@ -286,7 +318,7 @@ class AgentToolset(AbstractToolset[WorkerContext]):
             toolset=self,
             tool_def=ToolDefinition(
                 name="worker_call",
-                description="Call a worker by name (use for dynamically created workers)",
+                description="Call a worker created via worker_create in this session",
                 parameters_json_schema=worker_call_schema,
             ),
             max_retries=self._max_retries,
@@ -350,12 +382,17 @@ class AgentToolset(AbstractToolset[WorkerContext]):
             # Agent tool - delegate to worker
             worker_name = self._worker_name_from_tool(name)
             input_data = tool_args.get("input")
+            attachments = tool_args.get("attachments")
+
+            # Prepare attachments if provided
+            attachment_payloads = self._prepare_attachments(worker_ctx, worker_name, attachments)
 
             result = await call_worker_async(
                 registry=worker_ctx.registry,
                 worker=worker_name,
                 input_data=input_data,
                 caller_context=worker_ctx,
+                attachments=attachment_payloads,
             )
             return result.output
 

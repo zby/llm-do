@@ -58,6 +58,9 @@ For each feature worth borrowing:
 **Integration notes** (separate from analysis):
 - [tunacode-integration.md](tunacode-integration.md) - How to embed llm-do workers INTO TunaCode
 
+**Deep-dive reports:**
+- [mistral-vibe-borrowing-report.md](mistral-vibe-borrowing-report.md) - Detailed analysis of patterns to borrow from Mistral Vibe
+
 ## Priority for Borrowing
 
 1. **TUI structure** - handlers/renderers/widgets split (Mistral Vibe)
@@ -73,5 +76,105 @@ For each feature worth borrowing:
 | **TUI size** | Medium | Large (40KB app.py) | Small |
 | **LLM** | pydantic-ai (multi) | mistralai (Mistral only) | pydantic-ai |
 | **Protocols** | None | ACP + MCP | Custom |
-| **State** | Singleton | ? | Context passing |
+| **State** | Singleton | Single Agent | Context passing |
 | **Stars** | ~100 | ~2100 | - |
+| **Recursive workers** | No | No | Yes |
+
+---
+
+## Borrowing Strategy: Best of Both
+
+Each project excels in different areas. Here's what to borrow from each:
+
+### From Mistral Vibe (TUI Excellence)
+
+| Pattern | Why Vibe | Effort |
+|---------|----------|--------|
+| **Streaming markdown** | `MarkdownStream` is battle-tested, handles incremental rendering | Medium |
+| **Modal approval UI** | Clean bottom-panel swap with async Future blocking | Medium |
+| **Blinking indicators** | `●/○` toggle with green/red completion states | Easy |
+| **Opacity-based CSS** | `$warning 15%` looks better than `$warning-darken-3` | Easy |
+| **Generator events** | `async for event in agent.act()` - cleaner than callbacks | Medium |
+| **Middleware pipeline** | Turn limits, cost limits, auto-compact - composable guards | Medium |
+
+### From TunaCode (Practical Features)
+
+| Pattern | Why TunaCode | Effort |
+|---------|--------------|--------|
+| **Token/cost tracking** | Simple, already pydantic-ai compatible | Easy |
+| **Slash commands** | Clean registry pattern, familiar UX | Medium |
+| **Output truncation** | Head+tail preservation shows context | Easy |
+| **Session persistence** | JSON serialization of conversation state | Medium |
+| **Shell escape** | `!cmd` for quick shell access | Easy |
+
+### From Both (Security)
+
+| Pattern | TunaCode | Mistral Vibe | Recommendation |
+|---------|----------|--------------|----------------|
+| **Dangerous patterns** | Regex patterns for fork bombs | Three-tier filtering | Use Vibe's approach (more sophisticated) |
+| **Environment hardening** | Basic | `CI=true`, `PAGER=cat`, etc. | Use Vibe's approach |
+| **Command splitting** | Simple | Splits on `&&`, `\|\|`, `;`, `\|` | Use Vibe's approach |
+
+### Unique to Each (Not Both)
+
+| Feature | Only In | Worth Borrowing? |
+|---------|---------|------------------|
+| **MCP/ACP protocols** | Mistral Vibe | Future consideration |
+| **Research agent** | TunaCode | Maybe - read-only exploration mode |
+| **Git branch safety** | TunaCode | Nice-to-have |
+| **Project context scanning** | Mistral Vibe | Already have similar |
+| **Theme system** | Both | Low priority |
+
+---
+
+## Implementation Priority
+
+### Phase 1: Quick Wins (1-2 days)
+From both projects - easy, high-value:
+
+```
+□ Token/cost tracking (TunaCode pattern)
+□ Opacity-based CSS (Mistral Vibe pattern)
+□ Output truncation head+tail (TunaCode pattern)
+□ Environment hardening (Mistral Vibe pattern)
+□ Blinking indicators (Mistral Vibe pattern)
+```
+
+### Phase 2: TUI Improvements (3-5 days)
+Primarily from Mistral Vibe:
+
+```
+□ Streaming markdown widget
+□ Modal approval UI
+□ Generator-based events
+□ Approval theme: warning not error
+```
+
+### Phase 3: UX Features (1 week)
+Mix of both:
+
+```
+□ Slash commands framework (TunaCode)
+□ Session persistence (TunaCode)
+□ Middleware pipeline (Mistral Vibe)
+□ Dangerous command detection (Mistral Vibe)
+```
+
+### Phase 4: Future (when needed)
+```
+□ MCP server support (Mistral Vibe reference)
+□ Research/read-only mode (TunaCode reference)
+```
+
+---
+
+## Architecture Compatibility Note
+
+**Neither TunaCode nor Mistral Vibe supports recursive workers** - both use single-agent architectures:
+
+- **TunaCode**: Global `SessionState` singleton
+- **Mistral Vibe**: Single `Agent` class with `run()` method, tools have no context injection
+
+**llm-do's `WorkerContext` pattern is unique** - workers can call other workers via `ctx.run_worker()`. This is our differentiator.
+
+**Implication:** Borrow their TUI patterns, not their agent/tool architectures.

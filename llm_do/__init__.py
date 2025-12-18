@@ -27,7 +27,7 @@ from .model_compat import (
     ModelCompatibilityError,
     NoModelError,
 )
-from .sandbox import AttachmentPolicy
+from .attachments import AttachmentPolicy
 
 __all__ = [
     "AgentRunner",

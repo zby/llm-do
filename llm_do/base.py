@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from typing import Iterable
 
-# Re-export sandbox types
-from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
+# Re-export attachment types
+from .attachments import AttachmentInput, AttachmentPayload, AttachmentPolicy
 
 # Re-export all types
 from .types import (
@@ -64,7 +64,7 @@ from .shell import (
 from .registry import WorkerRegistry
 
 # Tools are now provided via toolsets in execution.py:
-# - FileSystemToolset (wrapped with ApprovalToolset), ShellToolset, DelegationToolset, CustomToolset
+# - FileSystemToolset (wrapped with ApprovalToolset), ShellToolset, AgentToolset, CustomToolset
 
 # Re-export runtime functions
 from .runtime import (

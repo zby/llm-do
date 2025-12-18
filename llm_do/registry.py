@@ -334,6 +334,44 @@ class WorkerRegistry:
             return True
         return False
 
+    def list_workers(self) -> list[str]:
+        """List all available worker names.
+
+        Scans project workers, built-ins, and generated workers from this session.
+        Used by AgentToolset when allow_workers=['*'].
+
+        Returns:
+            List of worker names (without path or .worker suffix)
+        """
+        workers: set[str] = set()
+
+        # Scan project workers/ directory
+        workers_dir = self.root / "workers"
+        if workers_dir.exists():
+            # Simple form: workers/name.worker
+            for path in workers_dir.glob("*.worker"):
+                workers.add(path.stem)
+            # Directory form: workers/name/worker.worker
+            for path in workers_dir.glob("*/worker.worker"):
+                workers.add(path.parent.name)
+
+        # Check for main.worker at project root
+        if (self.root / "main.worker").exists():
+            workers.add("main")
+
+        # Include generated workers from this session
+        workers.update(self._generated_workers)
+
+        # Scan built-in workers
+        builtin_dir = Path(__file__).parent / "workers"
+        if builtin_dir.exists():
+            for path in builtin_dir.glob("*.worker"):
+                workers.add(path.stem)
+            for path in builtin_dir.glob("*/worker.worker"):
+                workers.add(path.parent.name)
+
+        return sorted(workers)
+
     def _apply_workshop_config(self, definition: WorkerDefinition) -> WorkerDefinition:
         """Apply workshop configuration inheritance to a worker definition.
 

@@ -4,10 +4,7 @@ This module provides factory functions to dynamically load and instantiate
 toolsets based on class paths specified in worker configuration.
 
 All toolsets receive `config` in their constructor. Runtime dependencies
-(sandbox, worker context) are accessed via ctx.deps in get_tools/call_tool.
-
-Exception: FileSystemToolset is an external package that requires sandbox
-in the constructor.
+(worker context) are accessed via ctx.deps in get_tools/call_tool.
 """
 from __future__ import annotations
 
@@ -26,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Aliases for built-in toolsets
 ALIASES: Dict[str, str] = {
     "shell": "llm_do.shell.toolset.ShellToolset",
-    "delegation": "llm_do.delegation_toolset.DelegationToolset",
+    "delegation": "llm_do.agent_toolset.AgentToolset",
     "filesystem": "llm_do.filesystem_toolset.FileSystemToolset",
     "custom": "llm_do.custom_toolset.CustomToolset",
 }

@@ -98,19 +98,19 @@ Infrastructure placeholder:
 
 Define the protocol and extend WorkerContext:
 
-- [ ] Define `ToolContext` Protocol in `types.py` (just `call_worker` method + fields)
-- [ ] Add `depth: int = 0` field to `WorkerContext`
-- [ ] Add `cost_tracker: Optional[Any] = None` field (placeholder)
-- [ ] Update `call_worker_async` in `runtime.py`:
-  - [ ] Add `MAX_WORKER_DEPTH = 5` constant
-  - [ ] Check `caller_context.depth < MAX_WORKER_DEPTH` before execution
-  - [ ] Pass `depth=caller_context.depth + 1` to nested WorkerContext
+- [x] Define `ToolContext` Protocol in `types.py` (just `call_worker` method + fields)
+- [x] Add `depth: int = 0` field to `WorkerContext`
+- [x] Add `cost_tracker: Optional[Any] = None` field (placeholder)
+- [x] Update `call_worker_async` in `runtime.py`:
+  - [x] Add `MAX_WORKER_DEPTH = 5` constant
+  - [x] Check `caller_context.depth < MAX_WORKER_DEPTH` before execution
+  - [x] Pass `depth=caller_context.depth + 1` to nested WorkerContext
 
 ### Phase 2: Implement call_worker on WorkerContext
 
 Add the `call_worker` method to WorkerContext (implements ToolContext Protocol):
 
-- [ ] `call_worker(worker: str, input_data: Any) -> Any`
+- [x] `call_worker(worker: str, input_data: Any) -> Any`
   - Thin wrapper around `call_worker_async`
   - Depth check/increment already handled by `call_worker_async`
   - Returns just the output (unwraps `WorkerRunResult.output`)
@@ -132,12 +132,13 @@ async def call_worker(self, worker: str, input_data: Any) -> Any:
 
 Rename and simplify:
 
-- [ ] Rename `DelegationToolset` to `AgentToolset`
-- [ ] Generate tool per allowed agent (not generic `worker_call`)
-- [ ] Tool name = agent name (e.g., `summarizer` not `worker_call`)
-- [ ] Tool schema from agent's definition (input as string for now)
-- [ ] Remove `worker_call` indirection
-- [ ] Keep `worker_create` for dynamic worker creation (if needed)
+- [x] Rename `DelegationToolset` to `AgentToolset`
+- [x] Generate tool per allowed agent (not generic `worker_call`)
+- [x] Tool name = agent name (e.g., `_agent_summarizer` not `worker_call`)
+- [x] Tool signature: `tool_name(input: str) -> str` (workers don't have formal input schemas)
+- [x] Tool description from worker's `description` field
+- [x] Remove `worker_call` indirection
+- [x] Keep `worker_create` as separate tool for dynamic worker creation
 
 **Before:**
 ```
@@ -146,16 +147,16 @@ LLM sees: worker_call(worker="summarizer", input_data="...")
 
 **After:**
 ```
-LLM sees: summarizer(input="...")
+LLM sees: _agent_summarizer(input="...")
 ```
 
-### Phase 4: Simplify Workshop
+### Phase 4: Cleanup & Documentation
 
-After sandbox removal (see `15-remove-sandbox.md`):
+Sandbox removal is complete (see `docs/tasks/completed/15-remove-sandbox.md`). Remaining cleanup:
 
-- [ ] Remove `sandbox` from `WorkshopConfig`
-- [ ] Workshop becomes directory of tool/agent definitions
-- [ ] Convention over configuration
+- [x] Rename `llm_do/sandbox/` module to `llm_do/attachments/` (only contains attachment types now)
+- [x] Update any stale references to "sandbox" in comments/docstrings
+- [x] Document the new AgentToolset in worker definition docs
 
 ## Architecture
 
@@ -181,20 +182,46 @@ Context flows down: depth, approval_controller, (future: cost_tracker)
 3. **Recursion limits**: Check at `call_worker_async`, depth counts worker calls only, default max 5
 4. **Cost tracking**: Placeholder field, implementation deferred
 5. **Iteration 1 scope**: Only `call_worker` method, not `llm_ask`/`llm_agent` (add later if needed)
-6. **Attachments**: Simplify after sandbox removal — container handles file access
+6. **Attachments**: Sandbox removal done — `llm_do/sandbox/` now only contains attachment types
 7. **Tool definitions unchanged**: Existing toolsets mechanism stays as-is, no new `type` field
+
+## Test Strategy
+
+### Phase 1 Tests
+- Unit test `ToolContext` Protocol definition
+- Test `WorkerContext` has `depth` and `cost_tracker` fields
+- Test `call_worker_async` depth checking (raises at MAX_WORKER_DEPTH)
+- Test depth increments correctly in nested calls
+
+### Phase 2 Tests
+- Test `WorkerContext.call_worker()` delegates to `call_worker_async`
+- Test it returns unwrapped output (not `WorkerRunResult`)
+- Integration test: nested worker call via `call_worker`
+
+### Phase 3 Tests
+- Test `AgentToolset` generates one tool per allowed worker
+- Test tool names match worker names
+- Test tool schema has `input: str` parameter
+- Test `worker_create` still works as separate tool
+- Integration test: LLM can call worker by name directly
+
+### Existing Tests to Update
+- `test_worker_delegation.py` - update to use new AgentToolset
+- Any tests using `worker_call` tool name
 
 ## Dependencies
 
-- **Prerequisite**: `15-remove-sandbox.md` should be completed first (simplifies Phase 4)
+- **Prerequisite**: `15-remove-sandbox.md` ✅ Completed
 
 ## Current State
 
-Not started.
+✅ **Implementation Complete**. All phases implemented and 231 tests passing.
 
 ## References
 
 - Design: `docs/notes/neuro-symbolic-tool-unification.md`
-- Current delegation: `llm_do/delegation_toolset.py`
+- Agent toolset: `llm_do/agent_toolset.py` (renamed from delegation_toolset.py)
 - Worker execution: `llm_do/runtime.py`
-- Sandbox removal: `docs/tasks/active/15-remove-sandbox.md`
+- Types: `llm_do/types.py`
+- Attachments: `llm_do/attachments/` (renamed from sandbox/)
+- Sandbox removal (completed): `docs/tasks/completed/15-remove-sandbox.md`

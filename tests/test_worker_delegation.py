@@ -20,7 +20,7 @@ from llm_do import (
     call_worker,
     create_worker,
 )
-from llm_do.delegation_toolset import DelegationToolset
+from llm_do.agent_toolset import AgentToolset
 from pydantic_ai_blocking_approval import ApprovalRequest
 
 
@@ -73,10 +73,10 @@ def _parent_with_attachment_policy(
 
 
 def _create_toolset_and_context(context: WorkerContext):
-    """Create a DelegationToolset and mock RunContext for testing."""
+    """Create an AgentToolset and mock RunContext for testing."""
     toolsets = context.worker.toolsets or {}
     delegation_config = toolsets.get("delegation", {"allow_workers": []})
-    toolset = DelegationToolset(config=delegation_config)
+    toolset = AgentToolset(config=delegation_config)
 
     # Create mock RunContext with deps=context
     mock_ctx = MagicMock()
@@ -91,19 +91,21 @@ def _delegate_sync(
     input_data: Any = None,
     attachments: list[str] | None = None,
 ) -> Any:
-    """Sync helper to call DelegationToolset.call_tool for worker_call.
+    """Sync helper to call AgentToolset.call_tool for agent tools.
 
     This mimics the old context.delegate_sync() behavior for testing.
+    Uses the new _agent_{worker} tool name format.
     """
     toolset, mock_ctx = _create_toolset_and_context(context)
 
-    tool_args = {"worker": worker}
+    # New format: input as string, tool name is _agent_{worker}
+    tool_name = f"_agent_{worker}"
+    tool_args = {}
     if input_data is not None:
-        tool_args["input_data"] = input_data
-    if attachments:
-        tool_args["attachments"] = attachments
+        # Convert input_data to string for the new API
+        tool_args["input"] = str(input_data) if not isinstance(input_data, str) else input_data
 
-    return asyncio.run(toolset.call_tool("worker_call", tool_args, mock_ctx, None))
+    return asyncio.run(toolset.call_tool(tool_name, tool_args, mock_ctx, None))
 
 
 def _create_worker_via_toolset(
@@ -115,7 +117,7 @@ def _create_worker_via_toolset(
     output_schema_ref: str | None = None,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Sync helper to call DelegationToolset.call_tool for worker_create."""
+    """Sync helper to call AgentToolset.call_tool for worker_create."""
     toolset, mock_ctx = _create_toolset_and_context(context)
 
     tool_args = {"name": name, "instructions": instructions}
@@ -217,7 +219,7 @@ def test_create_worker_defaults_allow_delegation(tmp_path):
     assert result.output["worker"] == "child"
 
 def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
-    """Worker delegation goes through DelegationToolset which checks approval via ApprovalToolset.
+    """Worker delegation goes through AgentToolset which checks approval via ApprovalToolset.
 
     In this test we verify the toolset calls call_worker_async when invoked.
     """
@@ -280,7 +282,7 @@ def test_worker_create_tool_persists_definition(tmp_path):
 
 
 def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
-    """Worker creation goes through DelegationToolset.
+    """Worker creation goes through AgentToolset.
 
     In this test we verify the toolset calls create_worker when invoked.
     """

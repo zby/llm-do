@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from .execution import default_agent_runner_async, default_agent_runner
 from .model_compat import select_model, NoModelError
 from pydantic_ai_blocking_approval import ApprovalController
-from .sandbox import AttachmentInput, AttachmentPayload
+from .attachments import AttachmentInput, AttachmentPayload
 from .types import (
     AgentRunner,
     MessageCallback,
@@ -32,6 +32,9 @@ from .types import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Maximum nesting depth for worker calls (prevents infinite recursion)
+MAX_WORKER_DEPTH = 5
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +61,8 @@ def _prepare_worker_context(
     creation_defaults: Optional[WorkerCreationDefaults],
     approval_controller: ApprovalController,
     message_callback: Optional[MessageCallback],
+    depth: int = 0,
+    cost_tracker: Optional[Any] = None,
 ) -> _WorkerExecutionPrep:
     """Prepare worker context and dependencies (shared by sync and async).
 
@@ -111,6 +116,9 @@ def _prepare_worker_context(
         worker=definition,
         effective_model=effective_model,
         approval_controller=approval_controller,
+        # Nesting control
+        depth=depth,
+        cost_tracker=cost_tracker,
         # Delegation
         registry=registry,
         creation_defaults=defaults,
@@ -179,8 +187,20 @@ def call_worker(
 
     The delegated worker resolves its own model via the standard precedence:
     cli_model > worker.model > workshop_model > LLM_DO_MODEL env var.
+
+    Raises:
+        PermissionError: If delegation to this worker is not allowed.
+        RecursionError: If max worker depth would be exceeded.
     """
     _check_delegation_allowed(caller_context, worker)
+
+    # Check depth limit before executing nested worker
+    if caller_context.depth >= MAX_WORKER_DEPTH:
+        raise RecursionError(
+            f"Maximum worker nesting depth ({MAX_WORKER_DEPTH}) exceeded. "
+            f"Current depth: {caller_context.depth}, attempting to call: {worker}"
+        )
+
     # Get workshop_model from registry if available
     workshop_model = None
     if caller_context.registry and hasattr(caller_context.registry, 'workshop_config'):
@@ -197,6 +217,8 @@ def call_worker(
         agent_runner=agent_runner,
         message_callback=caller_context.message_callback,
         approval_controller=caller_context.approval_controller,
+        depth=caller_context.depth + 1,
+        cost_tracker=caller_context.cost_tracker,
     )
 
 
@@ -228,8 +250,20 @@ async def call_worker_async(
 
     Returns:
         WorkerRunResult from the delegated worker.
+
+    Raises:
+        PermissionError: If delegation to this worker is not allowed.
+        RecursionError: If max worker depth would be exceeded.
     """
     _check_delegation_allowed(caller_context, worker)
+
+    # Check depth limit before executing nested worker
+    if caller_context.depth >= MAX_WORKER_DEPTH:
+        raise RecursionError(
+            f"Maximum worker nesting depth ({MAX_WORKER_DEPTH}) exceeded. "
+            f"Current depth: {caller_context.depth}, attempting to call: {worker}"
+        )
+
     # Get workshop_model from registry if available
     workshop_model = None
     if caller_context.registry and hasattr(caller_context.registry, 'workshop_config'):
@@ -246,6 +280,8 @@ async def call_worker_async(
         agent_runner=agent_runner,
         message_callback=caller_context.message_callback,
         approval_controller=caller_context.approval_controller,
+        depth=caller_context.depth + 1,
+        cost_tracker=caller_context.cost_tracker,
     )
 
 
@@ -304,12 +340,14 @@ async def run_worker_async(
     agent_runner: Optional[Callable] = None,
     approval_controller: Optional[ApprovalController] = None,
     message_callback: Optional[MessageCallback] = None,
+    depth: int = 0,
+    cost_tracker: Optional[Any] = None,
 ) -> WorkerRunResult:
     """Execute a worker by name (async version).
 
     This is the async entry point for running workers. It handles:
     1. Loading the worker definition.
-    2. Setting up the runtime environment (sandboxes, tools, approvals).
+    2. Setting up the runtime environment (tools, approvals).
     3. Creating the execution context.
     4. Awaiting the async agent runner.
 
@@ -330,6 +368,8 @@ async def run_worker_async(
         agent_runner: Optional async strategy for executing the agent (defaults to async PydanticAI).
         approval_controller: Controller for tool approval (defaults to approve-all mode).
         message_callback: Callback for streaming events and progress updates.
+        depth: Current nesting depth for nested worker calls (0 = top-level).
+        cost_tracker: Optional cost tracking across nested calls (future enhancement).
 
     Returns:
         WorkerRunResult containing the final output and message history.
@@ -347,6 +387,8 @@ async def run_worker_async(
         creation_defaults=creation_defaults,
         approval_controller=approval_controller,
         message_callback=message_callback,
+        depth=depth,
+        cost_tracker=cost_tracker,
     )
 
     # Use the provided agent_runner or default to the async version
@@ -377,12 +419,14 @@ def run_worker(
     agent_runner: Optional[AgentRunner] = None,
     approval_controller: Optional[ApprovalController] = None,
     message_callback: Optional[MessageCallback] = None,
+    depth: int = 0,
+    cost_tracker: Optional[Any] = None,
 ) -> WorkerRunResult:
     """Execute a worker by name.
 
     This is the primary entry point for running workers. It handles:
     1. Loading the worker definition.
-    2. Setting up the runtime environment (sandboxes, tools, approvals).
+    2. Setting up the runtime environment (tools, approvals).
     3. Creating the execution context.
     4. Delegating the actual agent loop to the provided ``agent_runner``.
 
@@ -403,6 +447,8 @@ def run_worker(
         agent_runner: Strategy for executing the agent (defaults to PydanticAI).
         approval_controller: Controller for tool approval (defaults to approve-all mode).
         message_callback: Callback for streaming events and progress updates.
+        depth: Current nesting depth for nested worker calls (0 = top-level).
+        cost_tracker: Optional cost tracking across nested calls (future enhancement).
 
     Returns:
         WorkerRunResult containing the final output and message history.
@@ -420,6 +466,8 @@ def run_worker(
         creation_defaults=creation_defaults,
         approval_controller=approval_controller,
         message_callback=message_callback,
+        depth=depth,
+        cost_tracker=cost_tracker,
     )
 
     # Real agent integration would expose toolsets to the model here. The base

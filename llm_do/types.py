@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Protocol, Type, Union, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_ai.messages import BinaryContent
@@ -16,7 +16,7 @@ from pydantic_ai.models import Model as PydanticAIModel
 
 from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision
 
-from .sandbox import AttachmentInput, AttachmentPayload, AttachmentPolicy
+from .attachments import AttachmentInput, AttachmentPayload, AttachmentPolicy
 
 
 
@@ -258,6 +258,54 @@ MessageCallback = Callable[[List[Any]], None]
 # ---------------------------------------------------------------------------
 
 
+@runtime_checkable
+class ToolContext(Protocol):
+    """Interface for tools needing nested agent calls.
+
+    This Protocol defines the minimal interface that tools can depend on
+    when they need to make nested worker/agent calls. WorkerContext implements
+    this protocol.
+
+    The spectrum of tools:
+    - Pure tools: No LLM, just computation (read_file, calculate)
+    - Hybrid tools: Call LLM when needed (smart_refactor)
+    - Agent tools: Full LLM agent loop (code_reviewer)
+
+    Tools that need nested calls declare dependency on ToolContext via
+    PydanticAI's RunContext[ToolContext] mechanism.
+    """
+
+    @property
+    def depth(self) -> int:
+        """Current nesting depth (0 = top-level worker)."""
+        ...
+
+    @property
+    def approval_controller(self) -> Any:  # ApprovalController
+        """Controller for tool approval decisions."""
+        ...
+
+    @property
+    def cost_tracker(self) -> Optional[Any]:
+        """Cost tracking across nested calls (future enhancement)."""
+        ...
+
+    async def call_worker(self, worker: str, input_data: Any) -> Any:
+        """Delegate to another worker.
+
+        Args:
+            worker: Name of the worker to call.
+            input_data: Input payload for the worker.
+
+        Returns:
+            The worker's output (unwrapped from WorkerRunResult).
+
+        Raises:
+            PermissionError: If delegation is not allowed.
+            RecursionError: If max depth exceeded.
+        """
+        ...
+
 
 
 @dataclass
@@ -277,6 +325,10 @@ class WorkerContext:
     effective_model: Optional[ModelLike]
     approval_controller: ApprovalController
 
+    # Nesting control (implements ToolContext protocol)
+    depth: int = 0  # Current nesting depth (0 = top-level worker)
+    cost_tracker: Optional[Any] = None  # Future enhancement: track costs across nested calls
+
     # Delegation - populated when delegation toolset is enabled
     registry: Any = None  # WorkerRegistry - avoid circular import
     creation_defaults: Optional[WorkerCreationDefaults] = None
@@ -287,6 +339,34 @@ class WorkerContext:
     # Callbacks and extensions
     message_callback: Optional[MessageCallback] = None
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
+
+    async def call_worker(self, worker: str, input_data: Any) -> Any:
+        """Delegate to another worker (implements ToolContext protocol).
+
+        This is the primary method for tools to make nested worker calls.
+        Depth checking and increment are handled by call_worker_async.
+
+        Args:
+            worker: Name of the worker to delegate to.
+            input_data: Input payload for the worker.
+
+        Returns:
+            The worker's output (unwrapped from WorkerRunResult).
+
+        Raises:
+            PermissionError: If delegation to this worker is not allowed.
+            RecursionError: If max worker depth would be exceeded.
+        """
+        # Late import to avoid circular dependency (runtime imports types)
+        from .runtime import call_worker_async
+
+        result = await call_worker_async(
+            registry=self.registry,
+            worker=worker,
+            input_data=input_data,
+            caller_context=self,
+        )
+        return result.output
 
 
 @dataclass
@@ -310,5 +390,5 @@ AgentRunner = Callable[[WorkerDefinition, Any, WorkerContext, Optional[Type[Base
 
 This interface allows swapping the underlying agent execution logic (e.g., for
 unit testing or using a different agent framework) while keeping the
-``run_worker`` orchestration logic (sandboxing, approvals, context) intact.
+``run_worker`` orchestration logic (approvals, context) intact.
 """

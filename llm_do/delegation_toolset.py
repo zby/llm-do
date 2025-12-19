@@ -338,10 +338,10 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
                     if definition.description:
                         description = definition.description
                 except (FileNotFoundError, ValueError) as e:
-                    logger.debug(f"Worker '{worker_name}' not available: {e}")
+                    logger.warning(f"Configured worker '{worker_name}' not available: {e}")
                     continue
             else:
-                logger.debug("No registry available; skipping worker tool '%s'", worker_name)
+                logger.warning("No registry available; skipping worker tool '%s'", worker_name)
                 continue
 
             # Schema for worker tools: input string + optional attachments

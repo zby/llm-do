@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
-from pydantic_ai.tools import RunContext, ToolDefinition
+from pydantic_ai.tools import ToolDefinition
 from pydantic_ai_blocking_approval import ApprovalResult
 
 
@@ -35,7 +35,7 @@ class ReadResult(BaseModel):
 class FileSystemToolset(AbstractToolset[Any]):
     """Simple file I/O toolset for PydanticAI agents.
 
-    Provides read_file, write_file, and glob_files tools.
+    Provides read_file, write_file, and list_files tools.
     Works with normal filesystem paths (relative to CWD or absolute).
     No sandbox validation - security is provided by Docker container.
 
@@ -110,6 +110,8 @@ class FileSystemToolset(AbstractToolset[Any]):
             return ApprovalResult.pre_approved()
 
         elif name == "list_files":
+            if self._read_approval:
+                return ApprovalResult.needs_approval()
             return ApprovalResult.pre_approved()
 
         # Unknown tool - require approval

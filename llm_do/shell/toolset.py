@@ -95,10 +95,9 @@ class ShellToolset(AbstractToolset[Any]):
         # Parse command for rule matching
         try:
             args = parse_command(command)
-        except ShellBlockedError:
-            # Let call_tool handle the error - don't block here
-            # (ShellBlockedError is for shell metacharacters like |, >, etc.)
-            return ApprovalResult.pre_approved()
+        except ShellBlockedError as e:
+            # Block commands that fail parsing (e.g., shell metacharacters)
+            return ApprovalResult.blocked(str(e))
 
         # Match against shell rules from config (no sandbox path validation)
         allowed, approval_required = match_shell_rules(

@@ -308,6 +308,10 @@ class WorkerRegistry:
         """
         self._generated_workers.add(name)
 
+    def is_generated(self, name: str) -> bool:
+        """Return True if worker was generated in this session."""
+        return name in self._generated_workers
+
     def worker_exists(self, name: str) -> bool:
         """Check if a worker with this name exists anywhere.
 

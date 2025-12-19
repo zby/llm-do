@@ -378,9 +378,9 @@ def test_default_agent_runner_uses_pydantic_ai(registry):
     # Verify our toolsets were loaded (don't test exact tool names from dependencies)
     tool_names = set(model.tool_names)
     assert "shell" in tool_names, "shell toolset should be loaded"
-    # DelegationToolset generates _worker_{name} tools for each configured worker
-    worker_tools = [t for t in tool_names if t.startswith("_worker_")]
-    assert len(worker_tools) > 0, "delegation toolset should generate worker tools"
+    # DelegationToolset generates tools with worker name directly (no prefix)
+    # The delegated worker is configured as "child" in the toolsets
+    assert "child" in tool_names, "delegation toolset should generate worker tools"
     assert "worker_create" in tool_names, "delegation toolset should include worker_create"
     assert "read_file" in tool_names, "filesystem toolset should be loaded"
 

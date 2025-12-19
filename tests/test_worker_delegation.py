@@ -78,12 +78,12 @@ def _delegate_sync(
     """Sync helper to call DelegationToolset.call_tool for worker tools.
 
     This mimics the old context.delegate_sync() behavior for testing.
-    Uses the new _worker_{name} tool name format.
+    Tool name is the same as worker name (no prefix).
     """
     toolset, mock_ctx = _create_toolset_and_context(context)
 
-    # New format: input as string, tool name is _worker_{name}
-    tool_name = f"_worker_{worker}"
+    # Tool name is the worker name directly (no prefix)
+    tool_name = worker
     tool_args = {}
     if input_data is not None:
         # Convert input_data to string for the new API
@@ -223,6 +223,29 @@ def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
     assert invoked
 
 
+def test_worker_call_blocks_non_generated_worker(tmp_path):
+    """worker_call only works for session-generated workers, not configured ones."""
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={"delegation": {"child": {}, "worker_call": {}}},
+    )
+    registry.save_definition(parent)
+    context = _parent_context(registry, parent)
+
+    toolset, mock_ctx = _create_toolset_and_context(context)
+
+    # Trying to call a configured worker via worker_call should fail
+    # (configured workers should use their direct tool name instead)
+    with pytest.raises(PermissionError, match="worker_call only supports session-generated workers"):
+        asyncio.run(toolset.call_tool("worker_call", {"worker": "child"}, mock_ctx, None))
+
+    # Trying to call an unknown worker should also fail
+    with pytest.raises(PermissionError, match="worker_call only supports session-generated workers"):
+        asyncio.run(toolset.call_tool("worker_call", {"worker": "unknown"}, mock_ctx, None))
+
+
 
 
 
@@ -292,4 +315,3 @@ def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
     assert result["name"] == "child"
     assert result["instructions"] == "demo"
     assert invoked
-

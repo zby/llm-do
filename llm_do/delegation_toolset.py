@@ -1,14 +1,14 @@
 """Delegation toolset - workers exposed as direct tools to LLMs.
 
 This module provides DelegationToolset which:
-1. Exposes configured workers as direct tools (e.g., `_worker_summarizer(input=...)`)
+1. Exposes configured workers as direct tools (e.g., `summarizer(input=...)`)
 2. Optionally exposes worker_create and worker_call tools when configured
 3. Implements approval logic via `needs_approval()` returning ApprovalResult
 4. Provides custom descriptions via `get_approval_description()`
 
-This replaces the old worker_call indirection with direct tool invocation:
-- Before: `worker_call(worker="summarizer", input_data="...")`
-- After: `_worker_summarizer(input="...", attachments=[...])`
+Worker tools use the same name as the worker (no prefix):
+- Configured worker `summarizer` -> tool `summarizer`
+- worker_call is restricted to session-generated workers only
 
 Tool schema is dynamic:
 - All worker tools have `input: str` (required)
@@ -18,7 +18,7 @@ Tool schema is dynamic:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from pydantic import TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
@@ -30,8 +30,7 @@ from .types import WorkerContext, WorkerSpec
 
 logger = logging.getLogger(__name__)
 
-# Prefix for worker tools to identify them in call_tool
-_WORKER_TOOL_PREFIX = "_worker_"
+# Reserved tool names that cannot be used as worker names
 _RESERVED_TOOLS = {"worker_call", "worker_create"}
 
 
@@ -45,7 +44,7 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
     Approval logic:
     - Worker tools (worker names): Always require approval
     - worker_create: Requires approval when enabled (creates new workers)
-    - worker_call: Requires approval when enabled
+    - worker_call: Pre-approved for session-generated workers only, blocked otherwise
     """
 
     def __init__(
@@ -58,21 +57,30 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
 
         Args:
             config: Toolset configuration dict mapping tool names to config.
-                - worker_name: {} to expose _worker_{worker_name}
-                - worker_call: {} to expose worker_call
+                - worker_name: {} to expose worker as a direct tool
+                - worker_call: {} to expose worker_call (session-generated only)
                 - worker_create: {} to expose worker_create
             id: Optional toolset ID for durable execution.
             max_retries: Maximum retries for tool calls.
+
+        Raises:
+            ValueError: If a worker name conflicts with a reserved tool name.
         """
         if config is None:
             config = {}
         if not isinstance(config, dict):
             raise ValueError("Delegation toolset config must be a dict")
+
+        # Validate no name collisions with reserved tools
+        for name in config.keys():
+            if name in _RESERVED_TOOLS:
+                continue  # Reserved tools are allowed in config
+            # This check is for future-proofing if we add more reserved names
+            # Currently worker names can't collide since reserved names are explicit
+
         self._config = config
         self._id = id
         self._max_retries = max_retries
-        # Cache of worker name -> description (populated in get_tools)
-        self._worker_descriptions: Dict[str, str] = {}
 
     @property
     def id(self) -> str | None:
@@ -88,6 +96,24 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         """Get list of worker names configured as tools."""
         return [name for name in self._config.keys() if name not in _RESERVED_TOOLS]
 
+    def _is_configured_worker(self, worker_name: str) -> bool:
+        """Return True if the worker is configured and enabled."""
+        if worker_name in _RESERVED_TOOLS:
+            return False
+        if worker_name not in self._config:
+            return False
+        return self._tool_enabled(worker_name)
+
+    def _is_generated_worker(self, worker_ctx: WorkerContext, worker_name: str) -> bool:
+        """Return True if the worker was generated in this session."""
+        registry = getattr(worker_ctx, "registry", None)
+        if registry is None:
+            return False
+        is_generated = getattr(registry, "is_generated", None)
+        if is_generated is None:
+            return False
+        return bool(is_generated(worker_name))
+
     def _tool_enabled(self, name: str) -> bool:
         """Return True if a tool is enabled in config."""
         if name not in self._config:
@@ -99,37 +125,18 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             return value
         return True
 
-    def _is_worker_tool(self, name: str) -> bool:
-        """Check if tool name is a worker tool (worker invocation)."""
-        return name.startswith(_WORKER_TOOL_PREFIX)
-
-    def _worker_name_from_tool(self, tool_name: str) -> str:
-        """Extract worker name from worker tool name."""
-        return tool_name[len(_WORKER_TOOL_PREFIX):]
-
-    def _tool_name_from_worker(self, worker_name: str) -> str:
-        """Generate tool name from worker name."""
-        return f"{_WORKER_TOOL_PREFIX}{worker_name}"
-
     def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> ApprovalResult:
         """Determine if tool needs approval.
 
         Args:
-            name: Tool name (worker tool, "worker_create", or "worker_call")
+            name: Tool name (worker name, "worker_create", or "worker_call")
             tool_args: Tool arguments
             ctx: RunContext with deps
 
         Returns:
             ApprovalResult with status: blocked, pre_approved, or needs_approval
         """
-        if self._is_worker_tool(name):
-            # Worker tool (worker invocation) - always requires approval
-            worker_name = self._worker_name_from_tool(name)
-            if worker_name not in self._config:
-                return ApprovalResult.blocked(f"Worker tool '{worker_name}' is not configured")
-            return ApprovalResult.needs_approval()
-
-        elif name == "worker_create":
+        if name == "worker_create":
             if not self._tool_enabled("worker_create"):
                 return ApprovalResult.blocked("worker_create tool is not configured")
             # Worker creation always requires approval
@@ -138,54 +145,126 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         elif name == "worker_call":
             if not self._tool_enabled("worker_call"):
                 return ApprovalResult.blocked("worker_call tool is not configured")
+            worker_name = tool_args.get("worker")
+            worker_ctx = getattr(ctx, "deps", None)
+
+            # worker_call is restricted to session-generated workers only
+            if worker_name and worker_ctx:
+                if self._is_generated_worker(worker_ctx, worker_name):
+                    return ApprovalResult.pre_approved()
+
+            # Block if not a session-generated worker
+            return ApprovalResult.blocked(
+                f"worker_call only supports session-generated workers. "
+                f"Use the '{worker_name}' tool directly for configured workers."
+            )
+
+        elif self._is_configured_worker(name):
+            # Configured worker tool - always requires approval
             return ApprovalResult.needs_approval()
 
-        # Unknown tool - require approval
-        return ApprovalResult.needs_approval()
+        # Unknown tool - block it
+        return ApprovalResult.blocked(f"Unknown tool: {name}")
 
     def get_approval_description(self, name: str, tool_args: dict, ctx: Any) -> str:
         """Return human-readable description for approval prompt.
 
         Args:
-            name: Tool name (worker tool, "worker_create", or "worker_call")
+            name: Tool name (worker name, "worker_create", or "worker_call")
             tool_args: Tool arguments
             ctx: RunContext with deps
 
         Returns:
             Description string to show user
         """
-        if self._is_worker_tool(name):
-            worker_name = self._worker_name_from_tool(name)
-            input_data = tool_args.get("input")
-            if input_data:
-                # Truncate input data for display
-                input_str = str(input_data)
-                if len(input_str) > 50:
-                    input_str = input_str[:50] + "..."
-                return f"Call worker '{worker_name}' with: {input_str}"
-            return f"Call worker: {worker_name}"
+        def summarize_input(input_data: Any) -> Optional[str]:
+            if input_data is None:
+                return None
+            input_str = str(input_data)
+            if len(input_str) > 50:
+                input_str = input_str[:50] + "..."
+            return input_str
 
-        elif name == "worker_create":
+        def summarize_attachments(attachments: Optional[List[str]]) -> Optional[str]:
+            if not attachments:
+                return None
+            shown = attachments[:3]
+            summary = ", ".join(shown)
+            if len(attachments) > 3:
+                summary += f", +{len(attachments) - 3} more"
+            return summary
+
+        def build_details(input_data: Any, attachments: Optional[List[str]]) -> Optional[str]:
+            details = []
+            input_str = summarize_input(input_data)
+            if input_str is not None:
+                details.append(f"input: {input_str}")
+            attach_str = summarize_attachments(attachments)
+            if attach_str is not None:
+                details.append(f"attachments: {attach_str}")
+            return ", ".join(details) if details else None
+
+        if name == "worker_create":
             worker_name = tool_args.get("name", "?")
             return f"Create new worker: {worker_name}"
 
         elif name == "worker_call":
             target_worker = tool_args.get("worker", "?")
-            input_data = tool_args.get("input_data")
-            if input_data:
-                input_str = str(input_data)
-                if len(input_str) > 50:
-                    input_str = input_str[:50] + "..."
-                return f"Call worker '{target_worker}' with: {input_str}"
+            details = build_details(tool_args.get("input_data"), tool_args.get("attachments"))
+            if details:
+                return f"Call worker '{target_worker}' with {details}"
             return f"Call worker: {target_worker}"
 
+        elif self._is_configured_worker(name):
+            # Worker tool - name is the worker name directly
+            details = build_details(tool_args.get("input"), tool_args.get("attachments"))
+            if details:
+                return f"Call worker '{name}' with {details}"
+            return f"Call worker: {name}"
+
         return f"{name}({tool_args})"
+
+    async def _invoke_worker(
+        self,
+        worker_ctx: WorkerContext,
+        worker_name: str,
+        input_data: Any,
+        attachments: Optional[List[str]] = None,
+    ) -> Any:
+        """Internal helper to invoke a worker.
+
+        This is the common execution path for both configured worker tools
+        and worker_call. It handles attachment preparation and calls the
+        runtime's call_worker_async.
+
+        Args:
+            worker_ctx: WorkerContext with registry and other context
+            worker_name: Name of the worker to invoke
+            input_data: Input data to pass to the worker
+            attachments: Optional list of file paths to attach
+
+        Returns:
+            The worker's output result
+        """
+        from .runtime import call_worker_async
+
+        # Prepare attachments if provided
+        attachment_payloads = self._prepare_attachments(worker_ctx, worker_name, attachments)
+
+        result = await call_worker_async(
+            registry=worker_ctx.registry,
+            worker=worker_name,
+            input_data=input_data,
+            caller_context=worker_ctx,
+            attachments=attachment_payloads,
+        )
+        return result.output
 
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool]:
         """Return tools: one per configured worker plus optional helpers.
 
         For each configured worker, generates a tool with:
-        - Name: worker name (prefixed internally for routing)
+        - Name: worker name (same as worker, no prefix)
         - Schema: { input: str }
         - Description: from worker definition or default
         """
@@ -212,9 +291,6 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             else:
                 logger.debug("No registry available; skipping worker tool '%s'", worker_name)
                 continue
-
-            # Cache description for approval messages
-            self._worker_descriptions[worker_name] = description
 
             # Schema for worker tools: input string + optional attachments
             worker_schema = {
@@ -244,11 +320,11 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
                     "description": attach_desc,
                 }
 
-            tool_name = self._tool_name_from_worker(worker_name)
-            tools[tool_name] = ToolsetTool(
+            # Tool name is the worker name directly (no prefix)
+            tools[worker_name] = ToolsetTool(
                 toolset=self,
                 tool_def=ToolDefinition(
-                    name=tool_name,
+                    name=worker_name,
                     description=description,
                     parameters_json_schema=worker_schema,
                 ),
@@ -302,12 +378,13 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             )
 
         # Generic worker_call tool (opt-in via config)
+        # Restricted to session-generated workers only
         worker_call_schema = {
             "type": "object",
             "properties": {
                 "worker": {
                     "type": "string",
-                    "description": "Name of the worker to call",
+                    "description": "Name of a session-generated worker to call",
                 },
                 "input_data": {
                     "description": "Input data to pass to the worker (optional)",
@@ -326,7 +403,7 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
                 toolset=self,
                 tool_def=ToolDefinition(
                     name="worker_call",
-                    description="Call a worker by name",
+                    description="Call a session-generated worker by name",
                     parameters_json_schema=worker_call_schema,
                 ),
                 max_retries=self._max_retries,
@@ -373,7 +450,7 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         """Execute a tool.
 
         Args:
-            name: Tool name (worker tool, "worker_create", or "worker_call")
+            name: Tool name (worker name, "worker_create", or "worker_call")
             tool_args: Tool arguments
             ctx: Run context with WorkerContext as deps
             tool: Tool definition
@@ -381,32 +458,11 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         Returns:
             Result from the delegated worker or creation status
         """
-        # Import here to avoid circular dependency
-        from .runtime import call_worker_async, create_worker
+        from .runtime import create_worker
 
         worker_ctx: WorkerContext = ctx.deps
 
-        if self._is_worker_tool(name):
-            # Worker tool - delegate to worker
-            worker_name = self._worker_name_from_tool(name)
-            if not self._tool_enabled(worker_name):
-                raise PermissionError(f"Worker tool '{worker_name}' is not configured")
-            input_data = tool_args.get("input")
-            attachments = tool_args.get("attachments")
-
-            # Prepare attachments if provided
-            attachment_payloads = self._prepare_attachments(worker_ctx, worker_name, attachments)
-
-            result = await call_worker_async(
-                registry=worker_ctx.registry,
-                worker=worker_name,
-                input_data=input_data,
-                caller_context=worker_ctx,
-                attachments=attachment_payloads,
-            )
-            return result.output
-
-        elif name == "worker_create":
+        if name == "worker_create":
             if not self._tool_enabled("worker_create"):
                 raise PermissionError("worker_create tool is not configured")
             spec = WorkerSpec(
@@ -425,23 +481,24 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             return created.model_dump(mode="json")
 
         elif name == "worker_call":
-            # Generic worker_call for dynamic routing by name
+            # Generic worker_call for session-generated workers only
             if not self._tool_enabled("worker_call"):
                 raise PermissionError("worker_call tool is not configured")
             worker_name = tool_args["worker"]
+            if not self._is_generated_worker(worker_ctx, worker_name):
+                raise PermissionError(
+                    f"worker_call only supports session-generated workers. "
+                    f"Worker '{worker_name}' is not available."
+                )
             input_data = tool_args.get("input_data")
             attachments = tool_args.get("attachments")
+            return await self._invoke_worker(worker_ctx, worker_name, input_data, attachments)
 
-            attachment_payloads = self._prepare_attachments(worker_ctx, worker_name, attachments)
-
-            result = await call_worker_async(
-                registry=worker_ctx.registry,
-                worker=worker_name,
-                input_data=input_data,
-                caller_context=worker_ctx,
-                attachments=attachment_payloads,
-            )
-            return result.output
+        elif self._is_configured_worker(name):
+            # Configured worker tool - name is the worker name directly
+            input_data = tool_args.get("input")
+            attachments = tool_args.get("attachments")
+            return await self._invoke_worker(worker_ctx, name, input_data, attachments)
 
         else:
             raise ValueError(f"Unknown tool: {name}")

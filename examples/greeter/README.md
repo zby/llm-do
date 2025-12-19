@@ -1,6 +1,6 @@
 # Greeter Example
 
-A minimal conversational worker demonstrating basic `llm-do` usage. No tools, no file access—just a friendly chat agent.
+A minimal conversational worker demonstrating basic `llm-do` usage. No tools, no file access—just a friendly chat worker.
 
 ## Setup
 

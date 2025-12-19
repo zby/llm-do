@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Aliases for built-in toolsets
 ALIASES: Dict[str, str] = {
     "shell": "llm_do.shell.toolset.ShellToolset",
-    "delegation": "llm_do.agent_toolset.AgentToolset",
+    "delegation": "llm_do.delegation_toolset.DelegationToolset",
     "filesystem": "llm_do.filesystem_toolset.FileSystemToolset",
     "custom": "llm_do.custom_toolset.CustomToolset",
 }
@@ -110,7 +110,7 @@ def build_toolsets(
         context: Worker execution context
 
     Returns:
-        List of wrapped toolsets ready for agent execution
+        List of wrapped toolsets ready for worker execution
     """
     toolsets = []
 

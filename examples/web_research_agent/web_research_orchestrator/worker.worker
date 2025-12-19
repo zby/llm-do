@@ -16,9 +16,9 @@ reports to the `reports` directory.
 
 Available tools (use only these; do not call shell/commands):
 - `search_web(query, num_results=4)` returns [{url, title, snippet}]
-- `_agent_web_research_extractor(input)` - delegate to sub-workers
-- `_agent_web_research_consolidator(input)` - delegate to sub-workers
-- `_agent_web_research_reporter(input)` - delegate to sub-workers
+- `_worker_web_research_extractor(input)` - delegate to sub-workers
+- `_worker_web_research_consolidator(input)` - delegate to sub-workers
+- `_worker_web_research_reporter(input)` - delegate to sub-workers
 - `write_file(path, content)` - write files
 
 Process:
@@ -27,14 +27,14 @@ Process:
 2) Call `search_web(topic, num_results=4)` once. Prefer 3-5 diverse, reputable,
    non-duplicate sources (news, reports, documentation). If fewer than 3 strong hits,
    proceed with what's available.
-3) For each chosen source, call `_agent_web_research_extractor` with JSON input:
+3) For each chosen source, call `_worker_web_research_extractor` with JSON input:
    `{"topic": topic, "url": url, "title": title, "snippet": snippet}`.
    Do not attach files; pass data in the input JSON string.
 4) Collect all extractor outputs (they return structured JSON). Keep the
    original URL list.
-5) Call `_agent_web_research_consolidator` with JSON input:
+5) Call `_worker_web_research_consolidator` with JSON input:
    `{"topic": topic, "extractions": extractions}`.
-6) Call `_agent_web_research_reporter` with JSON input:
+6) Call `_worker_web_research_reporter` with JSON input:
    `{"topic": topic, "consolidated": consolidated}`.
    This returns `{ "markdown": "...", "json": { ... } }`.
 7) Generate a safe slug from the topic:

@@ -55,7 +55,7 @@ worker delegations.
 1. Orchestrator lists `*.pdf` files in the `input` directory
 2. For each PDF:
    - Orchestrator generates a slug from the filename
-   - Calls `_agent_pitch_evaluator(input="Evaluate this pitch deck.", attachments=["input/deck.pdf"])`
+   - Calls `_worker_pitch_evaluator(input="Evaluate this pitch deck.", attachments=["input/deck.pdf"])`
    - Evaluator receives PDF as attachment and reads it natively (vision capabilities)
    - Evaluator returns a complete markdown report
 3. Orchestrator writes each report to `evaluations/{slug}.md`
@@ -85,7 +85,7 @@ Open `evaluations/` afterwards to inspect the generated reports.
 
 **`pitch_orchestrator`** demonstrates:
 - Multiple directories (`input` for input, `evaluations` for output)
-- `_agent_pitch_evaluator` with **attachments** parameter (passes PDF files)
+- `_worker_pitch_evaluator` with **attachments** parameter (passes PDF files)
 - `write_file` for saving reports
 - Delegation config exposes only the `pitch_evaluator` tool
 - File slug generation for consistent naming

@@ -12,7 +12,7 @@ the `input` directory, and reports must be written to the `evaluations` director
 
 Available tools:
 - `list_files(path, pattern)` lists files matching a glob pattern.
-- `_agent_pitch_evaluator(input, attachments)` delegates work to the evaluator.
+- `_worker_pitch_evaluator(input, attachments)` delegates work to the evaluator.
   The `attachments` parameter takes a list of file paths to send to the worker.
 - `write_file(path, content)` writes text to a file.
 
@@ -20,7 +20,7 @@ Follow this process:
 1. Use `list_files("input", "*.pdf")` to find all pitch deck PDFs.
 2. For each PDF file:
    - Generate a file slug (lowercase, hyphenated, no extension) from the filename
-   - Call `_agent_pitch_evaluator(input="Evaluate this pitch deck.", attachments=["input/<pdf-path>"])`
+   - Call `_worker_pitch_evaluator(input="Evaluate this pitch deck.", attachments=["input/<pdf-path>"])`
    - The evaluator will receive the PDF as an attachment and return a Markdown report
 3. For each report returned:
    - Write it to `evaluations/{file_slug}.md` using `write_file()`

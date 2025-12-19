@@ -102,9 +102,9 @@ This project aims to create an automated system for converting whiteboard photos
         # Call the whiteboard_planner worker with attachment
         # In the real scenario with live models, THIS IS WHERE THE HANG OCCURS
         # For this test, we'll mock call_worker_async to avoid the hang
-        # Note: Uses _agent_* tool format (workers-as-tools)
+        # Note: Uses _worker_* tool format (workers-as-tools)
         {
-            "name": "_agent_whiteboard_planner",
+            "name": "_worker_whiteboard_planner",
             "args": {
                 "input": '{"original_filename": "white_board_plan.png"}',
                 "attachments": ["input/white_board_plan.png"]

@@ -19,7 +19,7 @@ from llm_do import (
     call_worker_async,
     create_worker,
 )
-from llm_do.agent_toolset import AgentToolset
+from llm_do.delegation_toolset import DelegationToolset
 
 
 def _registry(tmp_path):
@@ -57,10 +57,10 @@ def _parent_context(registry, worker, defaults=None, approval_callback=None):
 
 
 def _create_toolset_and_context(context: WorkerContext):
-    """Create an AgentToolset and mock RunContext for testing."""
+    """Create a DelegationToolset and mock RunContext for testing."""
     toolsets = context.worker.toolsets or {}
     delegation_config = toolsets.get("delegation", {})
-    toolset = AgentToolset(config=delegation_config)
+    toolset = DelegationToolset(config=delegation_config)
 
     # Create mock RunContext with deps=context
     mock_ctx = MagicMock()
@@ -75,15 +75,15 @@ def _delegate_sync(
     input_data: Any = None,
     attachments: list[str] | None = None,
 ) -> Any:
-    """Sync helper to call AgentToolset.call_tool for agent tools.
+    """Sync helper to call DelegationToolset.call_tool for worker tools.
 
     This mimics the old context.delegate_sync() behavior for testing.
-    Uses the new _agent_{worker} tool name format.
+    Uses the new _worker_{name} tool name format.
     """
     toolset, mock_ctx = _create_toolset_and_context(context)
 
-    # New format: input as string, tool name is _agent_{worker}
-    tool_name = f"_agent_{worker}"
+    # New format: input as string, tool name is _worker_{name}
+    tool_name = f"_worker_{worker}"
     tool_args = {}
     if input_data is not None:
         # Convert input_data to string for the new API

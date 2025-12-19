@@ -23,8 +23,8 @@ You have access to exactly two directories:
   - Use: `list_files("input", "**/*.png")` or `list_files("input")`
 - `write_file(path, content)`: Write a text file.
   - Use: `write_file("plans/filename.md", content)`
-- `_agent_whiteboard_planner(input, attachments)`: Delegate work to the planner.
-  - Use: `_agent_whiteboard_planner('{"original_filename": "image.png"}', ["input/image.png"])`
+- `_worker_whiteboard_planner(input, attachments)`: Delegate work to the planner.
+  - Use: `_worker_whiteboard_planner('{"original_filename": "image.png"}', ["input/image.png"])`
 
 ## Procedure
 1. **List Images**: Use `list_files("input")` to find `.jpg`, `.jpeg`, and `.png` files.

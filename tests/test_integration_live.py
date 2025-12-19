@@ -51,7 +51,7 @@ def test_nested_worker_with_real_api(whiteboard_registry):
 
     What it tests:
     - Orchestrator calls Claude API
-    - Orchestrator uses _agent_whiteboard_planner tool to delegate to whiteboard_planner
+    - Orchestrator uses _worker_whiteboard_planner tool to delegate to whiteboard_planner
     - Nested worker receives attachment and calls Claude API again
     - No hang occurs due to async implementation
     - Result is properly returned and written

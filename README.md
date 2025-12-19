@@ -20,9 +20,11 @@ Workers are focused prompt units that compose like functions:
 |-------------|--------|
 | Project directory | Registry root |
 | Function | `.worker` file |
-| Function call | `_agent_*` tool |
+| Function call | `_worker_*` delegation tool |
 | Arguments | Input payload |
 | Return value | Structured output |
+
+**Why "workers" not "agents"?** llm-do is built on [PydanticAI](https://ai.pydantic.dev/), which uses "agent" for its LLM orchestration primitive. We use "worker" to distinguish our composable, constrained prompt units from the underlying PydanticAI agents that execute them. A worker *defines* what to do; the PydanticAI agent *executes* it.
 
 ## Quick Start
 
@@ -100,7 +102,7 @@ llm-do init my-project
 
 ## Workers
 
-Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via `_agent_*` tools—like function calls.
+Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via `_worker_*` tools—like function calls.
 
 Add custom tools by creating `tools.py` in your project root:
 
@@ -115,7 +117,7 @@ Functions become LLM-callable tools. Reference them in your worker's toolsets co
 
 ## Key Features
 
-- **Worker delegation** — Workers call other workers via `_agent_*` tools, with allowlists
+- **Worker delegation** — Workers call other workers via `_worker_*` tools, with allowlists
 - **Custom tools** — Python functions in `tools.py` become LLM-callable tools
 - **Jinja2 templating** — Compose prompts from reusable templates
 - **Tool approvals** — Gate dangerous operations for human review

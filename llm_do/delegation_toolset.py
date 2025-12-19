@@ -1,17 +1,17 @@
-"""Agent toolset - workers exposed as direct tools to LLMs.
+"""Delegation toolset - workers exposed as direct tools to LLMs.
 
-This module provides AgentToolset which:
-1. Exposes configured workers as direct tools (e.g., `_agent_summarizer(input=...)`)
+This module provides DelegationToolset which:
+1. Exposes configured workers as direct tools (e.g., `_worker_summarizer(input=...)`)
 2. Optionally exposes worker_create and worker_call tools when configured
 3. Implements approval logic via `needs_approval()` returning ApprovalResult
 4. Provides custom descriptions via `get_approval_description()`
 
 This replaces the old worker_call indirection with direct tool invocation:
 - Before: `worker_call(worker="summarizer", input_data="...")`
-- After: `_agent_summarizer(input="...", attachments=[...])`
+- After: `_worker_summarizer(input="...", attachments=[...])`
 
 Tool schema is dynamic:
-- All agent tools have `input: str` (required)
+- All worker tools have `input: str` (required)
 - If worker accepts attachments (attachment_policy.max_attachments > 0),
   adds optional `attachments: list[str]` parameter
 """
@@ -30,20 +30,20 @@ from .types import WorkerContext, WorkerSpec
 
 logger = logging.getLogger(__name__)
 
-# Prefix for agent tools to identify them in call_tool
-_AGENT_TOOL_PREFIX = "_agent_"
+# Prefix for worker tools to identify them in call_tool
+_WORKER_TOOL_PREFIX = "_worker_"
 _RESERVED_TOOLS = {"worker_call", "worker_create"}
 
 
-class AgentToolset(AbstractToolset[WorkerContext]):
-    """Agent toolset - workers exposed as direct tools.
+class DelegationToolset(AbstractToolset[WorkerContext]):
+    """Delegation toolset - workers exposed as direct tools.
 
     Each configured worker is exposed as a tool with the worker's name.
     The `needs_approval()` method is called by ApprovalToolset wrapper
     to determine if a delegation needs user approval.
 
     Approval logic:
-    - Agent tools (worker names): Always require approval
+    - Worker tools (worker names): Always require approval
     - worker_create: Requires approval when enabled (creates new workers)
     - worker_call: Requires approval when enabled
     """
@@ -54,11 +54,11 @@ class AgentToolset(AbstractToolset[WorkerContext]):
         id: Optional[str] = None,
         max_retries: int = 1,
     ):
-        """Initialize agent toolset.
+        """Initialize delegation toolset.
 
         Args:
             config: Toolset configuration dict mapping tool names to config.
-                - worker_name: {} to expose _agent_{worker_name}
+                - worker_name: {} to expose _worker_{worker_name}
                 - worker_call: {} to expose worker_call
                 - worker_create: {} to expose worker_create
             id: Optional toolset ID for durable execution.
@@ -99,31 +99,31 @@ class AgentToolset(AbstractToolset[WorkerContext]):
             return value
         return True
 
-    def _is_agent_tool(self, name: str) -> bool:
-        """Check if tool name is an agent tool (worker invocation)."""
-        return name.startswith(_AGENT_TOOL_PREFIX)
+    def _is_worker_tool(self, name: str) -> bool:
+        """Check if tool name is a worker tool (worker invocation)."""
+        return name.startswith(_WORKER_TOOL_PREFIX)
 
     def _worker_name_from_tool(self, tool_name: str) -> str:
-        """Extract worker name from agent tool name."""
-        return tool_name[len(_AGENT_TOOL_PREFIX):]
+        """Extract worker name from worker tool name."""
+        return tool_name[len(_WORKER_TOOL_PREFIX):]
 
     def _tool_name_from_worker(self, worker_name: str) -> str:
         """Generate tool name from worker name."""
-        return f"{_AGENT_TOOL_PREFIX}{worker_name}"
+        return f"{_WORKER_TOOL_PREFIX}{worker_name}"
 
     def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> ApprovalResult:
         """Determine if tool needs approval.
 
         Args:
-            name: Tool name (agent tool, "worker_create", or "worker_call")
+            name: Tool name (worker tool, "worker_create", or "worker_call")
             tool_args: Tool arguments
             ctx: RunContext with deps
 
         Returns:
             ApprovalResult with status: blocked, pre_approved, or needs_approval
         """
-        if self._is_agent_tool(name):
-            # Agent tool (worker invocation) - always requires approval
+        if self._is_worker_tool(name):
+            # Worker tool (worker invocation) - always requires approval
             worker_name = self._worker_name_from_tool(name)
             if worker_name not in self._config:
                 return ApprovalResult.blocked(f"Worker tool '{worker_name}' is not configured")
@@ -147,14 +147,14 @@ class AgentToolset(AbstractToolset[WorkerContext]):
         """Return human-readable description for approval prompt.
 
         Args:
-            name: Tool name (agent tool, "worker_create", or "worker_call")
+            name: Tool name (worker tool, "worker_create", or "worker_call")
             tool_args: Tool arguments
             ctx: RunContext with deps
 
         Returns:
             Description string to show user
         """
-        if self._is_agent_tool(name):
+        if self._is_worker_tool(name):
             worker_name = self._worker_name_from_tool(name)
             input_data = tool_args.get("input")
             if input_data:
@@ -162,8 +162,8 @@ class AgentToolset(AbstractToolset[WorkerContext]):
                 input_str = str(input_data)
                 if len(input_str) > 50:
                     input_str = input_str[:50] + "..."
-                return f"Call agent '{worker_name}' with: {input_str}"
-            return f"Call agent: {worker_name}"
+                return f"Call worker '{worker_name}' with: {input_str}"
+            return f"Call worker: {worker_name}"
 
         elif name == "worker_create":
             worker_name = tool_args.get("name", "?")
@@ -199,7 +199,7 @@ class AgentToolset(AbstractToolset[WorkerContext]):
             if not self._tool_enabled(worker_name):
                 continue
 
-            description = f"Delegate task to the '{worker_name}' agent"
+            description = f"Delegate task to the '{worker_name}' worker"
             definition = None
             if worker_ctx.registry:
                 try:
@@ -216,13 +216,13 @@ class AgentToolset(AbstractToolset[WorkerContext]):
             # Cache description for approval messages
             self._worker_descriptions[worker_name] = description
 
-            # Schema for agent tools: input string + optional attachments
-            agent_schema = {
+            # Schema for worker tools: input string + optional attachments
+            worker_schema = {
                 "type": "object",
                 "properties": {
                     "input": {
                         "type": "string",
-                        "description": "Input/task description for the agent",
+                        "description": "Input/task description for the worker",
                     },
                 },
                 "required": ["input"],
@@ -238,7 +238,7 @@ class AgentToolset(AbstractToolset[WorkerContext]):
                 if definition.attachment_policy.max_attachments < 10:
                     attach_desc += f" (max {definition.attachment_policy.max_attachments})"
 
-                agent_schema["properties"]["attachments"] = {
+                worker_schema["properties"]["attachments"] = {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": attach_desc,
@@ -250,7 +250,7 @@ class AgentToolset(AbstractToolset[WorkerContext]):
                 tool_def=ToolDefinition(
                     name=tool_name,
                     description=description,
-                    parameters_json_schema=agent_schema,
+                    parameters_json_schema=worker_schema,
                 ),
                 max_retries=self._max_retries,
                 args_validator=TypeAdapter(dict[str, Any]).validator,
@@ -373,7 +373,7 @@ class AgentToolset(AbstractToolset[WorkerContext]):
         """Execute a tool.
 
         Args:
-            name: Tool name (agent tool, "worker_create", or "worker_call")
+            name: Tool name (worker tool, "worker_create", or "worker_call")
             tool_args: Tool arguments
             ctx: Run context with WorkerContext as deps
             tool: Tool definition
@@ -386,8 +386,8 @@ class AgentToolset(AbstractToolset[WorkerContext]):
 
         worker_ctx: WorkerContext = ctx.deps
 
-        if self._is_agent_tool(name):
-            # Agent tool - delegate to worker
+        if self._is_worker_tool(name):
+            # Worker tool - delegate to worker
             worker_name = self._worker_name_from_tool(name)
             if not self._tool_enabled(worker_name):
                 raise PermissionError(f"Worker tool '{worker_name}' is not configured")
@@ -448,4 +448,4 @@ class AgentToolset(AbstractToolset[WorkerContext]):
 
 
 # Backward compatibility alias
-DelegationToolset = AgentToolset
+AgentToolset = DelegationToolset

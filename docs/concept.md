@@ -10,7 +10,7 @@ LLM workflows compose focused workers. Each worker does one thing well with tigh
 |-------------|--------|
 | Project directory | Registry root |
 | Function | `.worker` file |
-| Function call | `_worker_*` tool |
+| Function call | Worker tool |
 
 A **worker** is a prompt template + configuration + tools, packaged as an executable unit that the LLM interprets.
 
@@ -82,7 +82,7 @@ llm-do --worker orchestrator "Process the input files"
 
 **The solution**: Workers with isolated contexts, connected through three mechanisms:
 
-1. **Worker delegation** (`_worker_*` tools) — Decompose workflows into focused sub-calls. Each worker handles one unit of work with its own instructions, model, and tools. No bloated catch-all prompts.
+1. **Worker delegation** (worker tools) — Decompose workflows into focused sub-calls. Each worker handles one unit of work with its own instructions, model, and tools. No bloated catch-all prompts.
 
 2. **Autonomous worker creation** (`worker_create`) — Workers propose specialized sub-workers when needed. This is same-language metaprogramming: the LLM that executes workers also writes them. Created definitions are saved to disk for review.
 
@@ -106,8 +106,8 @@ llm-do relies on a container boundary for isolation.
 - `list_files` is always pre-approved
 
 ### 2. Worker-to-Worker Delegation
-Workers delegate to other workers via `_worker_*` tools (e.g., `_worker_analyzer`, `_worker_formatter`):
-- Delegation config maps worker names to tools in `toolsets.delegation`
+Workers delegate to other workers via worker tools (e.g., `analyzer`, `formatter`):
+- Delegation config maps worker names to tools in `toolsets.delegation` (tool name = worker name)
 - Attachments are validated against the callee's `attachment_policy`
 - Model resolution is per-worker (CLI model > worker model > env var); no implicit inheritance
 - Nested calls are capped (default depth 5)
@@ -136,7 +136,7 @@ The `worker_create` tool, subject to approval:
 **Workers and tools are the same abstraction.** A worker is a tool whose implementation is an LLM agent loop. This unification enables seamless interleaving of neural (LLM) and symbolic (deterministic code) components.
 
 **Two integration points:**
-- **Workers as tools**: Each delegated worker appears as a `_worker_*` tool that the LLM can call like any other tool
+- **Workers as tools**: Each delegated worker appears as a tool with the same name as the worker that the LLM can call like any other tool
 - **Tools calling workers**: Python tools can invoke workers via `ToolContext.call_worker()` for nested LLM reasoning
 
 This creates **dual recursion**:

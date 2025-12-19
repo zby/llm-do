@@ -41,7 +41,7 @@ cat plans/my_whiteboard_session.md
 ## How it works
 
 - The **Orchestrator** uses `list_files` to find files.
-- It iterates through them and calls `_worker_whiteboard_planner` to invoke the **Planner**.
+- It iterates through them and calls `whiteboard_planner` to invoke the **Planner**.
 - The **Planner** receives the image as an attachment.
 - The **Planner** uses a detailed **Rubric** (`workers/RUBRIC.md`) to interpret the board.
 - The **Orchestrator** takes the result and uses `write_file` to save it.

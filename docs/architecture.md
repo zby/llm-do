@@ -14,7 +14,7 @@ llm_do/
 ├── registry.py          # Worker definition loading/persistence
 ├── attachments/         # Attachment policy and payload types
 ├── filesystem_toolset.py # File I/O tools (container boundary)
-├── delegation_toolset.py # Worker delegation toolset (_worker_* tools)
+├── delegation_toolset.py # Worker delegation toolset
 ├── custom_toolset.py    # Custom Python tools toolset
 ├── shell/               # Shell toolset package
 │   ├── __init__.py      # Package exports
@@ -180,7 +180,7 @@ toolsets:
       - pattern: "git *"
         approval_required: false
   delegation:              # Worker delegation (tool map: worker name → config)
-    helper: {}             # Creates _worker_helper tool
+    helper: {}             # Creates helper tool (same name as worker)
     worker_create: {}      # Creates worker_create tool
   custom:                  # Custom Python tools from tools.py
     my_tool: {}
@@ -333,7 +333,7 @@ toolsets:
 | `write_file` | `toolsets.filesystem.write_approval: true` |
 | `read_file` | `toolsets.filesystem.read_approval: true` |
 | `shell` | `toolsets.shell.rules` match or `toolsets.shell.default.approval_required` |
-| `_worker_*` (delegation) | Always (controller mode determines behavior) |
+| Worker tools (delegation) | Always (controller mode determines behavior) |
 | `worker_create` | Always (controller mode determines behavior) |
 | Custom tools | Always (secure by default) |
 
@@ -468,7 +468,7 @@ CLI / run_worker_async()
 
 ### Nested Execution (Dual Recursion)
 
-When a tool calls `ctx.deps.call_worker()` or the LLM uses a `_worker_*` tool:
+When a tool calls `ctx.deps.call_worker()` or the LLM uses a worker delegation tool:
 
 ```
 Worker A (depth=0)

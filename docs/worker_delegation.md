@@ -14,8 +14,8 @@ For design philosophy and motivation, see [`concept.md`](concept.md). For archit
 - Model resolution per worker (CLI model > worker model > env var)
 - Tool approval system for gated operations
 
-**LLMs** see `_worker_*` tools (one per configured worker), plus `worker_create`
-and optional `worker_call` if enabled. The model chooses which worker tool to call,
+**LLMs** see worker tools (one per configured worker, named same as the worker), plus `worker_create`
+and optional `worker_call` (for session-generated workers only). The model chooses which worker tool to call,
 provides input data and attachments, and receives structured or freeform results.
 The callee's instructions, model, and tools are defined in its worker definition;
 the caller only passes arguments.
@@ -26,7 +26,7 @@ the caller only passes arguments.
 
 ```python
 # Conceptual view of the tool the LLM sees
-def _worker_evaluator(
+def evaluator(
     input: str,
     attachments: list[str] | None = None,
 ) -> str:
@@ -101,12 +101,12 @@ toolsets:
     read_approval: false
     write_approval: true
   delegation:
-    evaluator: {}       # Exposes _worker_evaluator tool
+    evaluator: {}       # Exposes evaluator tool (same name as worker)
     worker_create: {}   # Exposes worker_create tool
 ---
 
 You coordinate pitch deck evaluations. First list PDFs in input/,
-then process each one using the evaluator worker via _worker_evaluator.
+then process each one using the evaluator worker via the evaluator tool.
 Write results to evaluations/.
 ```
 
@@ -115,7 +115,7 @@ example, allow `.pdf`) to accept attachments.
 
 ## Attachment Resolution
 
-When a worker passes `attachments` to a delegation tool (`_worker_*`), each entry
+When a worker passes `attachments` to a delegation tool (worker tool), each entry
 is a file path (relative to CWD or absolute).
 
 The delegation toolset:
@@ -160,7 +160,7 @@ toolsets:
     worker_create: {}
 ```
 
-Worker delegation (`_worker_*`/`worker_call`) and creation (`worker_create`) always go through the approval controller. The controller's mode determines behavior:
+Worker delegation (worker tools/`worker_call`) and creation (`worker_create`) always go through the approval controller. The controller's mode determines behavior:
 
 - **`approve_all`**: Auto-approve all requests (testing, non-interactive)
 - **`interactive`**: Prompt user for approval
@@ -179,8 +179,8 @@ They can then approve, reject, or modify before execution. Session approvals rem
 |------|----------|----------------------|
 | `read_file` | Reading files via filesystem toolset | `{path}` |
 | `write_file` | Writing files via filesystem toolset | `{path}` |
-| `_worker_*` | Delegating to another worker | `{worker, attachments}` |
-| `worker_call` | Delegating to another worker by name | `{worker, attachments}` |
+| Worker tools | Delegating to configured workers | `{input, attachments}` |
+| `worker_call` | Delegating to session-generated workers | `{worker, attachments}` |
 | `worker_create` | Creating new worker definitions | `{name, instructions, ...}` |
 
 ## Autonomous Worker Creation
@@ -205,7 +205,7 @@ Worker delegation is implemented in `llm_do/runtime.py` with tool support in
 
 **WorkerRegistry**: Manages loading/saving worker definitions from filesystem
 
-**DelegationToolset**: Exposes `_worker_*` tools and resolves attachment paths
+**DelegationToolset**: Exposes worker tools (named same as worker) and resolves attachment paths
 
 **AttachmentPolicy**: Enforces count/size/suffix limits for inbound attachments
 
@@ -226,4 +226,4 @@ Worker delegation is implemented in `llm_do/runtime.py` with tool support in
 3. Saves to registry (respects locked flag)
 4. Subject to approval via `worker_create`
 
-From the LLM's point of view, all of this is exposed as `_worker_*` tools (one per configured worker) and `worker_create`. The model only decides which worker to invoke, what input to send, which files to attach, and (for creation) what instructions the new worker should have.
+From the LLM's point of view, all of this is exposed as worker tools (one per configured worker, named same as the worker) and `worker_create`. The model only decides which worker to invoke, what input to send, which files to attach, and (for creation) what instructions the new worker should have.

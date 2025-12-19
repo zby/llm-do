@@ -77,7 +77,7 @@ result = asyncio.run(call_worker_async(
 
 ### ToolContext for Nested Calls
 
-Tools can call workers directly via `ToolContext`:
+Tools can call workers directly via `ToolContext`. This enables hybrid tools—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers. See [`concept.md`](concept.md#the-hybrid-pattern) for the pattern and use cases.
 
 ```python
 from pydantic_ai import RunContext

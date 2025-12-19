@@ -26,7 +26,6 @@ from .attachments import AttachmentInput, AttachmentPayload, AttachmentPolicy
 from .types import (
     AgentExecutionContext,
     AgentRunner,
-    InvocationMode,
     MessageCallback,
     ModelLike,
     OutputSchemaResolver,
@@ -40,9 +39,6 @@ from .types import (
     WorkerRunResult,
     WorkerSpec,
 )
-
-# Re-export worker resolution
-from .workshop import resolve_worker
 
 # Re-export approval types from standalone package
 from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision
@@ -83,9 +79,6 @@ __all__: Iterable[str] = [
     "call_worker_async",
     "create_worker",
     "WorkerContext",
-    # Worker resolution
-    "InvocationMode",
-    "resolve_worker",
     # Shell tool
     "ShellBlockedError",
     "ShellDefault",

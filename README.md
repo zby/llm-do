@@ -35,10 +35,10 @@ export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 
 # Run a worker
 cd examples/greeter
-llm-do greeter "Tell me a joke" --model anthropic:claude-haiku-4-5
+llm-do "Tell me a joke" --model anthropic:claude-haiku-4-5
 ```
 
-That's it. The CLI finds `greeter.worker` in the current directory and runs it.
+That's it. The CLI runs `main.worker` in the current directory. Use `--worker` to run a specific worker.
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
 
@@ -79,15 +79,18 @@ This progression reflects **progressive hardening**: initially you might prompt 
 ## Running Workers
 
 ```bash
-# Run worker by name (from project directory)
+# Run main.worker in current directory
 cd my-project
-llm-do orchestrator "input message" --model anthropic:claude-haiku-4-5
+llm-do "input message" --model anthropic:claude-haiku-4-5
 
-# Run worker file by explicit path
-llm-do ./path/to/worker.worker "input" --model anthropic:claude-haiku-4-5
+# Run specific worker
+llm-do --worker orchestrator "input" --model anthropic:claude-haiku-4-5
+
+# Run from a different directory
+llm-do --dir /path/to/project "input" --model anthropic:claude-haiku-4-5
 
 # Override config at runtime
-llm-do orchestrator "input" --model anthropic:claude-sonnet-4 --set locked=true
+llm-do "input" --model anthropic:claude-sonnet-4 --set locked=true
 ```
 
 Create a new project:

@@ -19,17 +19,21 @@ export MODEL=anthropic:claude-3-5-haiku-20241022  # or openai:gpt-4o-mini
 ```bash
 cd examples/greeter
 
-llm-do greeter "Tell me a joke" --model $MODEL
+# Run main.worker (default)
+llm-do "Tell me a joke" --model $MODEL
+
+# Or run a specific worker
+llm-do --worker greeter "Tell me a joke" --model $MODEL
 ```
 
 The CLI automatically:
-- Discovers workers from the `workers/` subdirectory
+- Runs `main.worker` by default (or use `--worker` for others)
 - Accepts plain text messages
 - Returns the worker's response
 
 ## Worker Definition
 
-See `workers/greeter.worker`:
+See `greeter.worker`:
 
 ```yaml
 name: greeter

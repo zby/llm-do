@@ -1,75 +1,9 @@
-"""Tests for worker resolution (simplified from workshop architecture)."""
+"""Tests for worker registry functionality."""
 
 import pytest
 from pathlib import Path
 
-from llm_do.workshop import (
-    detect_invocation_mode,
-    resolve_worker,
-)
-from llm_do.types import InvocationMode
 from llm_do.registry import WorkerRegistry
-
-
-class TestDetectInvocationMode:
-    """Tests for detect_invocation_mode function."""
-
-    def test_single_worker_file(self, tmp_path):
-        """Test detection of single .worker file."""
-        worker_file = tmp_path / "task.worker"
-        worker_file.write_text("---\nname: task\n---\nInstructions here")
-
-        mode = detect_invocation_mode(str(worker_file))
-        assert mode == InvocationMode.SINGLE_FILE
-
-    def test_explicit_path_syntax(self, tmp_path):
-        """Test that ./path syntax returns SINGLE_FILE mode."""
-        # Even if file doesn't exist, explicit path syntax means SINGLE_FILE
-        mode = detect_invocation_mode("./path/to/worker.worker")
-        assert mode == InvocationMode.SINGLE_FILE
-
-    def test_absolute_path(self, tmp_path):
-        """Test that absolute paths return SINGLE_FILE mode."""
-        mode = detect_invocation_mode("/path/to/worker.worker")
-        assert mode == InvocationMode.SINGLE_FILE
-
-    def test_worker_name_returns_search_path(self):
-        """Test that non-path argument returns SEARCH_PATH mode."""
-        mode = detect_invocation_mode("my-worker")
-        assert mode == InvocationMode.SEARCH_PATH
-
-    def test_nonexistent_path_returns_search_path(self):
-        """Test that nonexistent path without .worker suffix is treated as worker name."""
-        mode = detect_invocation_mode("nonexistent_worker")
-        assert mode == InvocationMode.SEARCH_PATH
-
-
-class TestResolveWorker:
-    """Tests for resolve_worker function."""
-
-    def test_resolve_single_file(self, tmp_path):
-        """Test resolving a single worker file."""
-        worker_file = tmp_path / "task.worker"
-        worker_file.write_text("---\nname: task\n---\nTask worker")
-
-        mode, worker_name = resolve_worker(str(worker_file))
-
-        assert mode == InvocationMode.SINGLE_FILE
-        assert worker_name == str(worker_file.resolve())
-
-    def test_resolve_worker_name(self):
-        """Test resolving a worker name (search path mode)."""
-        mode, worker_name = resolve_worker("my-worker")
-
-        assert mode == InvocationMode.SEARCH_PATH
-        assert worker_name == "my-worker"
-
-    def test_resolve_explicit_relative_path(self):
-        """Test resolving explicit relative path."""
-        mode, worker_name = resolve_worker("./path/to/worker.worker")
-
-        assert mode == InvocationMode.SINGLE_FILE
-        # Path should be resolved to absolute
 
 
 class TestRegistryWorkerSearch:

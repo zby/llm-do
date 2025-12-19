@@ -5,19 +5,23 @@ The `llm-do` command-line interface runs workers with runtime configuration, app
 ## Basic Usage
 
 ```bash
-# Run a worker by name (from current directory)
-llm-do greeter "input message"
+# Run main.worker in current directory
+llm-do "input message"
 
-# Run a worker file by explicit path
-llm-do ./path/to/worker.worker "input message"
+# Run specific worker in current directory
+llm-do --worker greeter "input message"
 
-# Run with options
-llm-do TARGET [MESSAGE] [OPTIONS]
+# Run main.worker from a different directory
+llm-do --dir /path/to/project "input message"
+
+# Run specific worker from a different directory
+llm-do --dir /path/to/project --worker analyzer "input message"
 ```
 
 **Arguments:**
-- `TARGET` — Worker name (searches current directory) or path to `.worker` file
-- `MESSAGE` — Optional plain text input message. Use `--input` for JSON instead.
+- `MESSAGE` — Plain text input message. Use `--input` for JSON instead.
+- `--dir` — Registry root directory (defaults to current working directory)
+- `--worker` — Worker name to run (defaults to `main`)
 
 ## Core Options
 
@@ -81,11 +85,18 @@ llm-do pdf_analyzer --model anthropic:claude-sonnet-4  # OK
 
 See [Model Compatibility](#model-compatibility) below for pattern syntax.
 
-**`--registry PATH`**
+**`--dir PATH`**
 Specify worker registry root (defaults to current working directory):
 ```bash
-llm-do worker "hello" --registry /path/to/workers
+llm-do --dir /path/to/workers "hello"
 ```
+
+This is useful for "relocatable workers" — workers that you run against different target directories:
+```bash
+cd /project-to-analyze
+llm-do --dir ~/code-analyzer "analyze the code in current directory"
+```
+The worker loads from `--dir` but filesystem tools operate on the current working directory.
 
 **`--creation-defaults FILE`**
 Provide JSON file with default settings for worker creation (for workers that create other workers):
@@ -302,39 +313,51 @@ my-project/
 
 ## Examples
 
-**Run a worker by name (from project directory):**
+**Run main.worker in current directory:**
 ```bash
 cd examples/greeter
-llm-do greeter "Tell me a joke"
+llm-do "Tell me a joke"
 ```
 
-**Run a worker by explicit path:**
+**Run a specific worker:**
 ```bash
-llm-do ./examples/greeter/greeter.worker "Tell me a joke"
+cd examples/greeter
+llm-do --worker greeter "Tell me a joke"
+```
+
+**Run worker from a different directory:**
+```bash
+llm-do --dir ~/my-project "process this"
 ```
 
 **JSON output for scripting:**
 ```bash
-result=$(llm-do greeter "query" --json --approve-all)
+result=$(llm-do --worker greeter "query" --json --approve-all)
 echo "$result" | jq '.output'
 ```
 
 **Auto-approve for CI/CD:**
 ```bash
-llm-do orchestrator "automated task" --approve-all --json > output.json
+llm-do "automated task" --approve-all --json > output.json
 ```
 
 **Runtime config override:**
 ```bash
-llm-do orchestrator "task" --set model=openai:gpt-4o --approve-all
+llm-do "task" --set model=openai:gpt-4o --approve-all
 ```
 
 **Production hardening:**
 ```bash
-llm-do orchestrator "task" \
+llm-do "task" \
   --set locked=true \
   --set attachment_policy.max_attachments=1 \
   --strict
+```
+
+**Relocatable workers (analyze any directory):**
+```bash
+cd /project-to-analyze
+llm-do --dir ~/code-analyzer "analyze the code"
 ```
 
 ## Related Documentation

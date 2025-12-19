@@ -6,7 +6,6 @@ the llm-do system, including worker definitions, contexts, and results.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Protocol, Type, Union, runtime_checkable
 
@@ -183,18 +182,6 @@ class WorkerCreationDefaults(BaseModel):
             attachment_policy=attachment_policy,
             locked=False,
         )
-
-
-# ---------------------------------------------------------------------------
-# Worker resolution
-# ---------------------------------------------------------------------------
-
-
-class InvocationMode(Enum):
-    """How the CLI argument should be interpreted."""
-
-    SINGLE_FILE = "single_file"  # Direct .worker file path
-    SEARCH_PATH = "search_path"  # Worker name, search registry root
 
 
 class WorkerRunResult(BaseModel):

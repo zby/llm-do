@@ -21,8 +21,6 @@ from .base import (
     run_worker_async,
 )
 from .config_overrides import apply_cli_overrides
-from .workshop import resolve_worker
-from .types import InvocationMode
 from .ui.display import (
     CLIEvent,
     DisplayBackend,
@@ -73,26 +71,27 @@ def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         epilog="Use 'llm-do init' to create a new project.",
     )
     parser.add_argument(
-        "worker",
-        help="Worker name or path to .worker file",
-    )
-    parser.add_argument(
         "message",
         nargs="?",
         default=None,
         help="Plain-text input. Use --input for JSON payloads.",
     )
     parser.add_argument(
+        "--dir",
+        type=Path,
+        default=None,
+        help="Registry root directory (defaults to cwd)",
+    )
+    parser.add_argument(
+        "--worker",
+        default="main",
+        help="Worker name to run (defaults to 'main')",
+    )
+    parser.add_argument(
         "--input",
         dest="input_json",
         default=None,
         help="JSON payload or path to JSON file",
-    )
-    parser.add_argument(
-        "--registry",
-        type=Path,
-        default=None,
-        help="Override registry root (defaults to cwd or project root)",
     )
     parser.add_argument(
         "--model",
@@ -189,14 +188,14 @@ def init_project(argv: list[str]) -> int:
 
     project_name = args.name or project_path.name
 
-    sample_worker = project_path / f"{project_name}.worker"
-    if sample_worker.exists():
-        print(f"Worker already exists: {sample_worker}", file=sys.stderr)
+    main_worker = project_path / "main.worker"
+    if main_worker.exists():
+        print(f"Worker already exists: {main_worker}", file=sys.stderr)
         return 1
 
     front_matter = [
         "---",
-        f"name: {project_name}",
+        "name: main",
         f"description: A helpful assistant for {project_name}",
     ]
     if args.model:
@@ -208,11 +207,11 @@ You are a helpful assistant for the {project_name} project.
 
 Respond to the user's request.
 """
-    sample_worker.write_text(sample_worker_content)
-    print(f"Created: {sample_worker}")
+    main_worker.write_text(sample_worker_content)
+    print(f"Created: {main_worker}")
     print("\nProject initialized!")
     print("\nRun your worker with:")
-    print(f"  cd {project_path} && llm-do {project_name} \"your message\"")
+    print(f"  cd {project_path} && llm-do \"your message\"")
 
     return 0
 
@@ -276,14 +275,8 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
         try:
-            mode, worker_name = resolve_worker(args.worker)
-
-            if mode == InvocationMode.SINGLE_FILE:
-                worker_path = Path(worker_name)
-                registry_root = worker_path.parent
-                worker_name = worker_path.stem
-            else:
-                registry_root = args.registry or Path.cwd()
+            registry_root = args.dir or Path.cwd()
+            worker_name = args.worker
 
             registry = WorkerRegistry(registry_root)
             definition = registry.load_definition(worker_name)
@@ -379,14 +372,8 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        mode, worker_name = resolve_worker(args.worker)
-
-        if mode == InvocationMode.SINGLE_FILE:
-            worker_path = Path(worker_name)
-            registry_root = worker_path.parent
-            worker_name = worker_path.stem
-        else:
-            registry_root = args.registry or Path.cwd()
+        registry_root = args.dir or Path.cwd()
+        worker_name = args.worker
 
         registry = WorkerRegistry(registry_root)
         definition = registry.load_definition(worker_name)
@@ -483,14 +470,8 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        mode, worker_name = resolve_worker(args.worker)
-
-        if mode == InvocationMode.SINGLE_FILE:
-            worker_path = Path(worker_name)
-            registry_root = worker_path.parent
-            worker_name = worker_path.stem
-        else:
-            registry_root = args.registry or Path.cwd()
+        registry_root = args.dir or Path.cwd()
+        worker_name = args.worker
 
         registry = WorkerRegistry(registry_root)
         definition = registry.load_definition(worker_name)

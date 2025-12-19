@@ -178,6 +178,14 @@ class TestApplyCliOverrides:
         )
         assert result.toolsets["delegation"]["summarizer"] == {}
 
+    def test_override_toolset_field_when_none(self):
+        defn = WorkerDefinition(name="test", instructions="test")
+        result = apply_cli_overrides(
+            defn,
+            set_overrides=["toolsets.delegation.summarizer={}"],
+        )
+        assert result.toolsets["delegation"]["summarizer"] == {}
+
     def test_override_boolean_field(self):
         defn = WorkerDefinition(name="test", instructions="test", locked=False)
         result = apply_cli_overrides(defn, set_overrides=["locked=true"])

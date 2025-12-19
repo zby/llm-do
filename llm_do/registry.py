@@ -472,6 +472,7 @@ class WorkerRegistry:
 
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(serialized, encoding="utf-8")
+        self._definitions_cache.pop(definition.name, None)
         return target
 
     def resolve_output_schema(self, definition: WorkerDefinition) -> Optional[Type[BaseModel]]:

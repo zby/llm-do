@@ -281,7 +281,7 @@ class WorkerContext:
 
     # Delegation - populated when delegation toolset is enabled
     registry: Any = None  # WorkerRegistry - avoid circular import
-    creation_defaults: Optional[WorkerCreationDefaults] = None
+    creation_defaults: WorkerCreationDefaults = field(default_factory=WorkerCreationDefaults)
 
     # I/O - attachments for file operations
     attachments: List[AttachmentPayload] = field(default_factory=list)
@@ -289,6 +289,10 @@ class WorkerContext:
     # Callbacks and extensions
     message_callback: Optional[MessageCallback] = None
     custom_tools_path: Optional[Path] = None  # Path to tools.py if worker has custom tools
+
+    def __post_init__(self) -> None:
+        if self.creation_defaults is None:
+            self.creation_defaults = WorkerCreationDefaults()
 
     async def call_worker(self, worker: str, input_data: Any) -> Any:
         """Delegate to another worker (implements ToolContext protocol).

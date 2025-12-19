@@ -135,7 +135,7 @@ def apply_set_override(data: Dict[str, Any], key_path: str, value: Any) -> None:
 
     # Navigate to the parent of the target field, creating dicts as needed
     for key in keys[:-1]:
-        if key not in target:
+        if key not in target or target[key] is None:
             target[key] = {}
         elif not isinstance(target[key], dict):
             raise ValueError(

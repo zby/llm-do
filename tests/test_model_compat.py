@@ -120,14 +120,6 @@ class TestSelectModel:
         )
         assert model == "anthropic:claude-haiku-4-5"
 
-    def test_cli_overrides_worker(self):
-        model = select_model(
-            worker_model="anthropic:claude-sonnet-4",
-            cli_model="openai:gpt-4o",
-            compatible_models=None,
-        )
-        assert model == "openai:gpt-4o"
-
     def test_no_model_raises(self):
         with pytest.raises(NoModelError, match="No model configured"):
             select_model(

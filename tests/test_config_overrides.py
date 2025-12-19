@@ -82,27 +82,25 @@ class TestApplySetOverride:
         apply_set_override(data, "model", "new")
         assert data["model"] == "new"
 
-    def test_apply_nested_override_existing(self):
-        data = {"attachment_policy": {"max_attachments": 4}}
-        apply_set_override(data, "attachment_policy.max_attachments", 10)
-        assert data["attachment_policy"]["max_attachments"] == 10
-
-    def test_apply_nested_override_creates_dict(self):
-        data = {}
-        apply_set_override(data, "attachment_policy.max_attachments", 10)
-        assert data == {"attachment_policy": {"max_attachments": 10}}
-
-    def test_apply_deep_nested_override(self):
-        data = {}
-        apply_set_override(data, "a.b.c.d", "value")
-        assert data == {"a": {"b": {"c": {"d": "value"}}}}
-
-    def test_apply_override_to_existing_nested(self):
-        data = {"attachment_policy": {"max_attachments": 4, "other": "keep"}}
-        apply_set_override(data, "attachment_policy.allowed_suffixes", [".txt", ".md"])
-        assert data["attachment_policy"]["max_attachments"] == 4
-        assert data["attachment_policy"]["other"] == "keep"
-        assert data["attachment_policy"]["allowed_suffixes"] == [".txt", ".md"]
+    @pytest.mark.parametrize("initial,key,value,expected", [
+        # Update existing nested field
+        ({"attachment_policy": {"max_attachments": 4}},
+         "attachment_policy.max_attachments", 10,
+         {"attachment_policy": {"max_attachments": 10}}),
+        # Create nested structure from empty
+        ({}, "attachment_policy.max_attachments", 10,
+         {"attachment_policy": {"max_attachments": 10}}),
+        # Deep nesting
+        ({}, "a.b.c.d", "value",
+         {"a": {"b": {"c": {"d": "value"}}}}),
+        # Add to existing nested, preserving other fields
+        ({"attachment_policy": {"max_attachments": 4, "other": "keep"}},
+         "attachment_policy.allowed_suffixes", [".txt", ".md"],
+         {"attachment_policy": {"max_attachments": 4, "other": "keep", "allowed_suffixes": [".txt", ".md"]}}),
+    ])
+    def test_apply_nested_override(self, initial, key, value, expected):
+        apply_set_override(initial, key, value)
+        assert initial == expected
 
     def test_apply_override_fails_on_non_dict(self):
         data = {"model": "string-value"}

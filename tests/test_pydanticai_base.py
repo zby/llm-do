@@ -157,6 +157,27 @@ def test_run_worker_message_callback_invoked(registry):
     assert seen == [{"worker": "alpha", "event": "chunk"}]
 
 
+def test_run_worker_async_awaits_wrapped_runner(registry):
+    definition = WorkerDefinition(name="alpha", instructions="")
+    registry.save_definition(definition)
+
+    async def async_runner(defn, input_data, ctx, output_model):
+        await asyncio.sleep(0)
+        return ("wrapped", [])
+
+    def wrapper(defn, input_data, ctx, output_model):
+        return async_runner(defn, input_data, ctx, output_model)
+
+    result = asyncio.run(
+        run_worker_async(
+            registry=registry,
+            worker="alpha",
+            input_data="hi",
+            agent_runner=wrapper,
+        )
+    )
+
+    assert result.output == "wrapped"
 
 
 def test_create_worker_applies_creation_defaults(registry, tmp_path):

@@ -251,7 +251,6 @@ class ToolContext(Protocol):
             The worker's output (unwrapped from WorkerRunResult).
 
         Raises:
-            PermissionError: If delegation is not allowed.
             RecursionError: If max depth exceeded.
         """
         ...
@@ -304,7 +303,6 @@ class WorkerContext:
             The worker's output (unwrapped from WorkerRunResult).
 
         Raises:
-            PermissionError: If delegation to this worker is not allowed.
             RecursionError: If max worker depth would be exceeded.
         """
         # Late import to avoid circular dependency (runtime imports types)

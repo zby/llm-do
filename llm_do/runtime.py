@@ -179,7 +179,7 @@ async def call_worker_async(
         registry: Source for worker definitions.
         worker: Name of the worker to delegate to.
         input_data: Input payload for the delegated worker.
-        caller_context: Context from the calling worker (for allowlist checks).
+        caller_context: Context from the calling worker (propagates depth and approvals).
         attachments: Optional files to pass to the delegated worker.
         agent_runner: Optional async agent runner (defaults to async PydanticAI).
 
@@ -319,11 +319,9 @@ async def run_worker_async(
             prep.definition, input_data, prep.context, prep.output_model
         )
     else:
-        # Support both sync and async agent runners
-        if inspect.iscoroutinefunction(agent_runner):
-            result = await agent_runner(prep.definition, input_data, prep.context, prep.output_model)
-        else:
-            result = agent_runner(prep.definition, input_data, prep.context, prep.output_model)
+        # Support both sync and async agent runners (including wrapped coroutines)
+        result = agent_runner(prep.definition, input_data, prep.context, prep.output_model)
+        if inspect.isawaitable(result):
+            result = await result
 
     return _handle_result(result, prep.output_model)
-

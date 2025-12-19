@@ -273,6 +273,7 @@ class WorkerContext:
     worker: WorkerDefinition
     effective_model: Optional[ModelLike]
     approval_controller: ApprovalController
+    cli_model: Optional[str] = None  # Original CLI model for propagation to sub-workers
 
     # Nesting control (implements ToolContext protocol)
     depth: int = 0  # Current nesting depth (0 = top-level worker)

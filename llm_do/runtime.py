@@ -112,6 +112,7 @@ def _prepare_worker_context(
         worker=definition,
         effective_model=effective_model,
         approval_controller=approval_controller,
+        cli_model=cli_model,
         # Nesting control
         depth=depth,
         cost_tracker=cost_tracker,
@@ -172,7 +173,8 @@ async def call_worker_async(
     By awaiting run_worker_async(), we stay within the same async context
     instead of creating conflicting event loops.
 
-    The delegated worker resolves its own model via the standard precedence:
+    The cli_model from the caller is propagated to the delegated worker,
+    which then resolves its model via the standard precedence:
     cli_model > worker.model > LLM_DO_MODEL env var.
 
     Args:
@@ -202,6 +204,7 @@ async def call_worker_async(
         worker=worker,
         input_data=input_data,
         attachments=attachments,
+        cli_model=caller_context.cli_model,
         creation_defaults=caller_context.creation_defaults,
         agent_runner=agent_runner,
         message_callback=caller_context.message_callback,

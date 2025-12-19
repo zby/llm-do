@@ -294,6 +294,38 @@ def test_delegation_toolset_blocks_reserved_worker_name(tmp_path):
 
 
 
+def test_call_worker_propagates_cli_model(tmp_path):
+    """cli_model from parent context should be passed to sub-workers."""
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(name="parent", instructions="")
+    child = WorkerDefinition(name="child", instructions="")
+    registry.save_definition(parent)
+    registry.save_definition(child)
+
+    captured_cli_model = None
+
+    def runner(defn, _input, ctx, _schema):
+        nonlocal captured_cli_model
+        captured_cli_model = ctx.cli_model
+        return {"worker": defn.name}
+
+    # Create parent context with cli_model set
+    context = _parent_context(registry, parent)
+    context.cli_model = "test-cli-model"
+
+    asyncio.run(
+        call_worker_async(
+            registry=registry,
+            worker="child",
+            input_data={"task": "demo"},
+            caller_context=context,
+            agent_runner=runner,
+        )
+    )
+
+    assert captured_cli_model == "test-cli-model"
+
+
 def test_worker_create_tool_persists_definition(tmp_path):
     registry = _registry(tmp_path)
     parent = WorkerDefinition(name="parent", instructions="", toolsets={"delegation": {"worker_create": {}}})

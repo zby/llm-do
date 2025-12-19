@@ -2,87 +2,81 @@
 
 ## Goal
 
-Remove the workshop abstraction entirely. Workers are invoked directly, tools are resolved via a load path.
+Remove the workshop abstraction entirely. Workers are invoked directly, workers are resolved via a search path.
 
 ## Background
 
 Workshop was solving several problems awkwardly:
 - Entry point (`main.worker`) - but you can just call any worker directly
-- Config inheritance - but tool_path + per-worker config is cleaner
+- Config inheritance - but per-worker config is cleaner
 - Namespace - but that's just a directory
 
 **Workers-as-tools is already implemented** (`AgentToolset` in `llm_do/agent_toolset.py`). This task focuses on:
-1. Replacing the `toolsets:` config with a simpler `tools:` list
-2. Adding tool_path resolution
-3. Removing workshop machinery
+1. Removing workshop machinery (`WorkshopContext`, `WorkshopConfig`, `workshop.yaml`)
+2. Simplifying CLI invocation
+3. Keeping the existing `toolsets:` system (it works well)
 
-## New Model
+## What We're Keeping
+
+### Toolsets System (unchanged)
+
+The `toolsets:` configuration stays exactly as-is. It provides:
+- Grouped tools with shared configuration (shell rules, filesystem paths, etc.)
+- Clean alias system (`shell`, `filesystem`, `delegation`, `custom`)
+- Expressive configuration (approval rules, allow_workers lists)
+- Integration with the approval system
+
+```yaml
+# This syntax is NOT changing
+toolsets:
+  shell:
+    rules:
+      - pattern: "wc"
+        approval_required: false
+    default:
+      approval_required: true
+  delegation:
+    allow_workers: ["helper", "summarizer"]
+  custom:
+    calculate_factorial: {}
+```
 
 ### Direct Worker Invocation
 
 ```bash
-# Call any worker directly
+# By name (searches workers/ directory)
 llm-do code_reviewer "Review this PR"
-llm-do ./workers/orchestrator "Do the thing"
-llm-do ~/my-tools/summarizer "Summarize this"
+
+# By explicit path
+llm-do ./workers/orchestrator.worker "Do the thing"
+llm-do ~/my-tools/summarizer.worker "Summarize this"
 ```
 
-### Workers Declare Their Tools
-
-```yaml
-# workers/code_reviewer.worker
----
-name: code_reviewer
-description: Reviews code for issues
-tools:
-  - read_file      # resolved via tool_path
-  - shell          # built-in
-  - summarizer     # another worker (becomes agent-tool via AgentToolset)
----
-You are a code reviewer...
-```
-
-This replaces the current `toolsets:` config:
-```yaml
-# OLD - being removed
-toolsets:
-  shell: {}
-  delegation:
-    allow_workers: ["summarizer"]
-```
-
-### Tool Load Path
-
-Like Python's `sys.path` or shell's `PATH`:
-
+**No more directory invocation.** Previously you could call a directory and it would look for `main.worker`:
 ```bash
-LLM_DO_TOOL_PATH=".:~/.llm-do/tools"
+# OLD - no longer supported
+llm-do ./my-workshop/
 ```
 
-Resolution order for each tool name:
-1. Entries in `LLM_DO_TOOL_PATH` (in order)
-2. Built-ins (always available as fallback)
-
-For each path entry, check:
-1. `{path}/tools.py::{tool_name}` - Python function
-2. `{path}/workers/{tool_name}.worker` - Worker file (simple form)
-3. `{path}/workers/{tool_name}/worker.worker` - Worker directory form
-4. `{path}/{tool_name}.worker` - Worker at path root
-
-Default tool path: `".:~/.llm-do/tools"`
+Now you always specify the worker explicitly:
+```bash
+# NEW - explicit worker
+llm-do ./my-workshop/workers/orchestrator
+```
 
 ### Directory Structure
 
 ```
 my-project/
-├── workers/
-│   ├── code_reviewer.worker
-│   ├── summarizer.worker
-│   └── orchestrator/
-│       ├── worker.worker
-│       └── tools.py          # local tools for this worker
-└── tools.py                   # shared tools for this project
+├── code_reviewer.worker       # simple form
+├── summarizer.worker
+├── orchestrator/              # directory form (for workers with local tools)
+│   ├── worker.worker
+│   └── tools.py               # local tools for this worker
+└── tools.py                   # shared tools for all workers
 ```
+
+Workers live at the project root (no `workers/` subdirectory). This ensures `tools.py` discovery works correctly.
 
 ## What Gets Removed
 
@@ -90,147 +84,187 @@ my-project/
 |-----------|--------|
 | `InvocationMode.WORKSHOP` | Remove |
 | `InvocationMode.SINGLE_FILE` | Keep (direct file path) |
-| `InvocationMode.SEARCH_PATH` | Rename to just "name resolution" |
+| `InvocationMode.SEARCH_PATH` | Keep (worker name resolution) |
 | `WorkshopContext` | Remove |
 | `WorkshopConfig` | Remove |
 | `llm_do/workshop.py` | Remove |
 | `workshop.yaml` detection | Remove |
 | `main.worker` special handling | Remove |
 | `WorkerRegistry.workshop_config` | Remove |
-| `toolsets:` config in workers | Replace with `tools:` list |
+| `_apply_workshop_config()` | Remove |
 
 ## What Changes
 
 ### WorkerRegistry
 
-- Remove `workshop_config` field
-- Change `_get_search_paths()` to use `tool_path` instead of hardcoded paths
-- Add `tool_path: list[Path]` field (from env var or constructor)
+- Remove `workshop_config` parameter from constructor
 - Remove `_apply_workshop_config()` method
+- Remove workshop-level template search (keep worker-local templates)
+- Remove workshop-level `tools.py` fallback for simple workers
+- Update `_get_search_paths()`: remove `workers/` subdirectory, search root directly
+- Update `find_custom_tools()`: search for `tools.py` at registry root for simple-form workers
+- Update `list_workers()`: scan root instead of `workers/` subdirectory
 
 ### CLI
 
-- Remove workshop detection logic
+- Remove workshop detection logic from `resolve_workshop()`
 - Simplify: argument is always a worker name or path
-- Resolve via tool_path
+- Remove `--entry` flag (no workshop entry point concept)
+- Remove `init workshop` command (or repurpose for project scaffolding)
 
-### Tool Resolution (New)
+### Worker Resolution
 
-New module or extend registry. Leverages existing `AgentToolset` for worker-as-tool wrapping:
+After removing workshop, resolution becomes:
 
-```python
-def resolve_tools(tool_names: list[str], tool_path: list[Path]) -> list[Tool]:
-    """Resolve tool names to callable tools."""
-    tools = []
-    for name in tool_names:
-        tool = resolve_single_tool(name, tool_path)
-        tools.append(tool)
-    return tools
-
-def resolve_single_tool(name: str, tool_path: list[Path]) -> Tool:
-    for path in tool_path:
-        # Check tools.py
-        if (tools_py := path / "tools.py").exists():
-            if tool := load_from_tools_py(tools_py, name):
-                return tool
-
-        # Check workers - wrap via AgentToolset mechanism
-        if (worker := find_worker(path, name)):
-            return wrap_as_agent_tool(worker)
-
-    # Check built-ins (shell, filesystem, etc.)
-    if is_builtin(name):
-        return load_builtin(name)
-
-    raise UnknownToolError(f"Tool not found: {name}")
-```
-
-### Worker Definition
-
-Replace `toolsets` with `tools`:
+1. **Explicit path**: `./path/to/worker.worker` or `./path/to/worker/`
+2. **Name search**: Look in `workers/` directory of registry root
 
 ```python
-class WorkerDefinition(BaseModel):
-    # ... existing fields ...
+def resolve_worker(arg: str, registry_root: Path) -> Path:
+    """Resolve worker argument to a path."""
+    path = Path(arg)
 
-    # REMOVE:
-    # toolsets: Optional[Dict[str, Any]] = None
+    # Explicit path (starts with ./ or /)
+    if arg.startswith('./') or arg.startswith('/') or path.suffix == '.worker':
+        return resolve_explicit_path(path, registry_root)
 
-    # ADD:
-    tools: Optional[List[str]] = Field(
-        default=None,
-        description="Tool names to load. Resolved via tool_path."
-    )
+    # Name search in workers/ directory
+    return search_workers_dir(arg, registry_root)
 ```
 
 ## Tasks
 
-### Phase 1: Add tool_path resolution
+### Phase 1: Remove workshop from CLI
 
-- [ ] Add `LLM_DO_TOOL_PATH` env var support
-- [ ] Add `tool_path` field to `WorkerRegistry`
-- [ ] Update `_get_search_paths()` to use tool_path
-- [ ] Default tool_path: `[".", "~/.llm-do/tools"]`
+- [ ] Simplify `resolve_workshop()` to just path/name resolution
+- [ ] Remove `InvocationMode.WORKSHOP` handling
+- [ ] Remove `--entry` CLI flag
+- [ ] Update CLI to not pass `workshop_config` to registry
 
-### Phase 2: Worker declares tools
+### Phase 2: Remove workshop from registry
 
-- [ ] Add `tools: List[str]` field to `WorkerDefinition`
-- [ ] Implement tool resolution logic:
-  - [ ] Load from `tools.py` (Python functions)
-  - [ ] Load workers as tools (uses existing `AgentToolset` wrapping)
-  - [ ] Load built-ins (shell, filesystem, etc.)
-- [ ] Replace `toolsets:` config with `tools:` list in execution
-
-### Phase 3: Remove workshop
-
-- [ ] Remove `InvocationMode.WORKSHOP`
-- [ ] Remove `WorkshopContext`, `WorkshopConfig` from types.py
-- [ ] Remove `llm_do/workshop.py`
-- [ ] Remove `workshop_config` from `WorkerRegistry`
+- [ ] Remove `workshop_config` parameter from `WorkerRegistry.__init__()`
 - [ ] Remove `_apply_workshop_config()` method
-- [ ] Update CLI to remove workshop detection
-- [ ] Update tests
+- [ ] Remove workshop template directory from `_get_template_roots()`
+- [ ] Remove workshop-level `tools.py` fallback from `find_custom_tools()`
 
-### Phase 4: Cleanup
+### Phase 3: Remove workshop types and module
 
-- [ ] Remove `main.worker` special handling
-- [ ] Remove `toolsets` field from `WorkerDefinition` (after migration)
+- [ ] Remove `WorkshopContext` from `types.py`
+- [ ] Remove `WorkshopConfig` from `types.py`
+- [ ] Remove `InvocationMode.WORKSHOP` from enum
+- [ ] Delete `llm_do/workshop.py`
+- [ ] Update imports in `llm_do/base.py`
+
+### Phase 4: Update tests
+
+- [ ] Remove/update `test_workshop.py` tests
+- [ ] Update any integration tests using workshop mode
+- [ ] Ensure worker resolution tests still pass
+
+### Phase 5: Cleanup
+
+- [ ] Remove `main.worker` special handling in search paths
 - [ ] Update documentation
-- [ ] Update examples
+- [ ] Update examples (remove any `workshop.yaml` files, rename `main.worker` to meaningful names)
+
+## Registry Root Determination
+
+After removing workshop mode, registry root is determined by:
+
+1. **Explicit `--registry` flag** (if provided)
+2. **Current working directory** (default)
+
+This is simple and predictable. The expected usage pattern:
+
+```bash
+# From project directory
+cd examples/pitchdeck_eval
+llm-do pitch_orchestrator "Evaluate all decks"
+
+# Or with explicit registry
+llm-do --registry ./examples/pitchdeck_eval pitch_orchestrator "Evaluate all decks"
+```
+
+Workers that delegate to other workers should be run from the project root (or with `--registry`), not by path.
 
 ## Migration
 
-Existing workers with `toolsets:` config:
-```yaml
-# OLD
-toolsets:
-  shell: {}
-  delegation:
-    allow_workers: ["helper"]
+Existing workshops become regular directories:
+- `main.worker` → delete (redundant with the actual orchestrator in `workers/`)
+- `workshop.yaml` → delete (settings move to per-worker config)
+- Workers keep their `toolsets:` configuration unchanged
+- Update any scripts/docs that called the directory
+
+```bash
+# Before (directory invocation - looked for main.worker)
+llm-do ./my-workshop/
+
+# After (run from project directory)
+cd my-workshop && llm-do orchestrator
 ```
 
-Becomes:
-```yaml
-# NEW
-tools:
-  - shell
-  - helper   # worker resolved via tool_path
+### Example Cleanup: pitchdeck_eval
+
+Current state:
+```
+examples/pitchdeck_eval/
+├── main.worker                    # duplicate - DELETE
+├── workers/
+│   ├── pitch_orchestrator.worker
+│   └── pitch_evaluator.worker
+├── input/
+└── evaluations/
 ```
 
-Existing workshops:
-- `main.worker` becomes just another worker, called by name
-- `workshop.yaml` settings are dropped (per-worker config only)
-- Worker resolution via tool_path instead of workshop namespace
+After cleanup (flatten - no `workers/` subdirectory):
+```
+examples/pitchdeck_eval/
+├── pitch_orchestrator.worker      # entry point
+├── pitch_evaluator.worker
+├── tools.py                       # if needed - discovered at same level
+├── input/
+└── evaluations/
+```
+
+Invocation:
+```bash
+cd examples/pitchdeck_eval
+llm-do pitch_orchestrator "Evaluate all decks"
+```
+
+### Why Flatten?
+
+The `workers/` subdirectory convention made sense with workshops (registry root was the workshop directory). Without workshops:
+
+1. **Custom tools discovery**: `find_custom_tools()` looks for `tools.py` in the worker's directory. If workers are in `workers/`, a project-level `tools.py` won't be found.
+
+2. **Simpler mental model**: Project root = registry root. Workers live alongside `tools.py` and other project files.
+
+3. **Registry search**: `_get_search_paths()` will need updating - it currently searches `workers/` subdirectory by convention. After flattening, it searches the registry root directly.
+
+### Updated Search Paths
+
+After removing workshop, worker search becomes:
+```python
+def _get_search_paths(self, name: str) -> list[Path]:
+    # 1. Explicit paths (./foo.worker, /abs/path.worker)
+    # 2. Simple form at root: {root}/{name}.worker
+    # 3. Directory form at root: {root}/{name}/worker.worker
+    # 4. Generated workers (this session only)
+    # 5. Built-in workers
+```
+
+The `workers/` subdirectory search is removed.
 
 ## Test Strategy
 
-- Test tool_path resolution order
-- Test tools.py loading
-- Test worker-as-tool wrapping (integration with AgentToolset)
-- Test built-in fallback
-- Test unknown tool error
-- Test env var parsing
-- Update existing delegation tests to use new `tools:` syntax
+- Test explicit path resolution (`./path/to/worker.worker`)
+- Test name resolution (`worker_name` → `workers/worker_name.worker`)
+- Test directory-form workers (`workers/name/worker.worker`)
+- Test that `toolsets:` configuration still works unchanged
+- Test custom tools discovery (worker-local `tools.py`)
+- Test error cases (worker not found, invalid path)
 
 ## Completed Prerequisites
 
@@ -244,4 +278,4 @@ Existing workshops:
 - Current workshop: `llm_do/workshop.py`
 - Registry: `llm_do/registry.py`
 - Types: `llm_do/types.py`
-- Completed workers-as-tools: `docs/tasks/completed/workers-as-tools.md`
+- Toolset loader: `llm_do/toolset_loader.py`

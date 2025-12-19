@@ -29,6 +29,31 @@ ALIASES: Dict[str, str] = {
 }
 
 
+def _normalize_custom_tool_config(value: Any) -> Dict[str, Any]:
+    """Normalize custom tool config to an approval config dict."""
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, bool):
+        return {"pre_approved": value}
+    return {}
+
+
+def _build_custom_approval_config(
+    tool_config: Dict[str, Any],
+    approval_overrides: Dict[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    """Build approval config from allowed custom tools, with optional overrides."""
+    merged: Dict[str, Dict[str, Any]] = {}
+    for name, config in tool_config.items():
+        merged[name] = _normalize_custom_tool_config(config)
+
+    for name, config in approval_overrides.items():
+        if name in merged:
+            merged[name] = _normalize_custom_tool_config(config)
+
+    return merged
+
+
 def _resolve_class_path(class_path: str) -> str:
     """Resolve alias to full class path if applicable."""
     return ALIASES.get(class_path, class_path)
@@ -84,6 +109,12 @@ def create_toolset(
 
     # Extract approval config (for toolsets without needs_approval)
     approval_config = config.pop("_approval_config", {})
+
+    # Custom toolset uses tool config for approvals (per-tool pre_approved)
+    from .custom_toolset import CustomToolset
+
+    if issubclass(toolset_class, CustomToolset):
+        approval_config = _build_custom_approval_config(config, approval_config)
 
     # All toolsets receive config, access ctx.deps at runtime
     toolset = toolset_class(config=config)

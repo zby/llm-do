@@ -39,15 +39,14 @@ llm_do/
 
 ### Entry Points
 
-#### run_worker / run_worker_async
+#### run_worker_async
 
-Primary entry points for executing workers.
+Primary entry point for executing workers.
 
 ```python
-from llm_do import run_worker, run_worker_async
+from llm_do import run_worker_async
 
-# Sync version
-result = run_worker(
+result = await run_worker_async(
     registry=registry,
     worker="my-worker",
     input_data={"task": "..."},
@@ -56,14 +55,11 @@ result = run_worker(
     approval_controller=controller,
     message_callback=on_message,
 )
-
-# Async version (recommended for nested worker calls)
-result = await run_worker_async(...)
 ```
 
 **Returns:** `WorkerRunResult` with `output` and `messages`.
 
-#### call_worker / call_worker_async
+#### call_worker_async
 
 Delegate to another worker (used internally by `worker_call` tool).
 
@@ -470,7 +466,7 @@ This achieves:
 ## Execution Flow
 
 ```
-CLI / run_worker()
+CLI / run_worker_async()
         │
         ▼
 ┌─────────────────┐

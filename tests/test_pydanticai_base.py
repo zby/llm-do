@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any
 
@@ -14,9 +15,9 @@ from llm_do import (
     WorkerDefinition,
     WorkerRegistry,
     WorkerSpec,
-    call_worker,
+    call_worker_async,
     create_worker,
-    run_worker,
+    run_worker_async,
 )
 from pydantic_ai_blocking_approval import ApprovalRequest
 
@@ -110,16 +111,18 @@ def test_run_worker_applies_model_inheritance(registry):
     )
     registry.save_definition(definition)
 
-    result = run_worker(
-        registry=registry,
-        worker="alpha",
-        input_data={"task": "demo"},
-        cli_model="cli-model",
-        agent_runner=lambda d, i, ctx, model: {
-            "worker": d.name,
-            "input": i,
-            "model": ctx.effective_model,
-        },
+    result = asyncio.run(
+        run_worker_async(
+            registry=registry,
+            worker="alpha",
+            input_data={"task": "demo"},
+            cli_model="cli-model",
+            agent_runner=lambda d, i, ctx, model: {
+                "worker": d.name,
+                "input": i,
+                "model": ctx.effective_model,
+            },
+        )
     )
 
     assert result.output.model == "cli-model"
@@ -140,13 +143,15 @@ def test_run_worker_message_callback_invoked(registry):
         ctx.message_callback([{"worker": defn.name, "event": "chunk"}])
         return ("done", [])
 
-    run_worker(
-        registry=registry,
-        worker="alpha",
-        input_data="hi",
-        cli_model="mock",
-        agent_runner=runner,
-        message_callback=callback,
+    asyncio.run(
+        run_worker_async(
+            registry=registry,
+            worker="alpha",
+            input_data="hi",
+            cli_model="mock",
+            agent_runner=runner,
+            message_callback=callback,
+        )
     )
 
     assert seen == [{"worker": "alpha", "event": "chunk"}]
@@ -283,12 +288,14 @@ def test_call_worker_does_not_require_delegation_toolset(registry):
         creation_defaults=WorkerCreationDefaults(),
     )
 
-    result = call_worker(
-        registry=registry,
-        worker="child",
-        input_data={"from": "parent"},
-        caller_context=parent_context,
-        agent_runner=simple_runner,
+    result = asyncio.run(
+        call_worker_async(
+            registry=registry,
+            worker="child",
+            input_data={"from": "parent"},
+            caller_context=parent_context,
+            agent_runner=simple_runner,
+        )
     )
 
     assert result.output["worker"] == "child"
@@ -328,12 +335,14 @@ def test_call_worker_propagates_message_callback(registry):
         message_callback=callback,
     )
 
-    call_worker(
-        registry=registry,
-        worker="child",
-        input_data={"from": "parent"},
-        caller_context=parent_context,
-        agent_runner=runner,
+    asyncio.run(
+        call_worker_async(
+            registry=registry,
+            worker="child",
+            input_data={"from": "parent"},
+            caller_context=parent_context,
+            agent_runner=runner,
+        )
     )
 
     assert events == [{"worker": "child", "event": "child-event"}]
@@ -354,11 +363,13 @@ def test_default_agent_runner_uses_pydantic_ai(registry):
     registry.save_definition(definition)
 
     model = RecordingModel()
-    result = run_worker(
-        registry=registry,
-        worker="pydantic-worker",
-        input_data={"task": "demo"},
-        cli_model=model,
+    result = asyncio.run(
+        run_worker_async(
+            registry=registry,
+            worker="pydantic-worker",
+            input_data={"task": "demo"},
+            cli_model=model,
+        )
     )
 
     payload = json.loads(result.output)
@@ -387,13 +398,15 @@ def test_default_runner_emits_request_preview(tmp_path, registry):
         events.extend(payload)
 
     model = RecordingModel()
-    run_worker(
-        registry=registry,
-        worker="preview-worker",
-        input_data="Hello",
-        cli_model=model,
-        attachments=[str(attachment)],
-        message_callback=callback,
+    asyncio.run(
+        run_worker_async(
+            registry=registry,
+            worker="preview-worker",
+            input_data="Hello",
+            cli_model=model,
+            attachments=[str(attachment)],
+            message_callback=callback,
+        )
     )
 
     preview_events = [event for event in events if "initial_request" in event]
@@ -408,10 +421,12 @@ def test_run_worker_without_model_errors(registry):
     registry.save_definition(definition)
 
     with pytest.raises(ValueError, match="No model configured"):
-        run_worker(
-            registry=registry,
-            worker="no-model",
-            input_data="hello",
+        asyncio.run(
+            run_worker_async(
+                registry=registry,
+                worker="no-model",
+                input_data="hello",
+            )
         )
 
 

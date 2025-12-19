@@ -1,5 +1,6 @@
 """Tests for custom tools loading and registration."""
 
+import asyncio
 import shutil
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from pydantic_ai.models.test import TestModel
 from llm_do import (
     ApprovalController,
     WorkerRegistry,
-    run_worker,
+    run_worker_async,
 )
 
 
@@ -50,12 +51,14 @@ def test_custom_tools_loaded_and_callable(calculator_registry):
     model = TestModel(call_tools=["calculate_fibonacci"])
 
     # Run calculator worker with TestModel to exercise the tool path without API keys
-    result = run_worker(
-        registry=calculator_registry,
-        worker="calculator",
-        input_data="What is the 10th Fibonacci number?",
-        cli_model=model,
-        approval_controller=ApprovalController(mode="approve_all"),
+    result = asyncio.run(
+        run_worker_async(
+            registry=calculator_registry,
+            worker="calculator",
+            input_data="What is the 10th Fibonacci number?",
+            cli_model=model,
+            approval_controller=ApprovalController(mode="approve_all"),
+        )
     )
 
     # Check that the worker ran successfully

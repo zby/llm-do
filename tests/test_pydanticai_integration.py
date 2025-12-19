@@ -12,7 +12,6 @@ from llm_do import (
     ApprovalDecision,
     WorkerDefinition,
     WorkerRegistry,
-    run_worker,
 )
 from pydantic_ai_blocking_approval import ApprovalRequest
 
@@ -26,7 +25,6 @@ def _project_root(tmp_path):
 @pytest.fixture
 def registry(tmp_path):
     return WorkerRegistry(_project_root(tmp_path))
-
 
 
 

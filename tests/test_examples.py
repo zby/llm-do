@@ -22,6 +22,7 @@ This mimics how users actually run the examples:
 Without changing CWD, relative paths would resolve from the project root,
 causing files to be written to the wrong location.
 """
+import asyncio
 import shutil
 from pathlib import Path
 
@@ -31,9 +32,13 @@ from pydantic_ai.models.test import TestModel
 from llm_do import (
     ApprovalController,
     WorkerRegistry,
-    run_worker,
+    run_worker_async,
 )
 from tests.tool_calling_model import ToolCallingModel
+
+
+def _run_worker(*args, **kwargs):
+    return asyncio.run(run_worker_async(*args, **kwargs))
 
 
 def _copy_example_directory(example_name: str, tmp_path: Path) -> Path:
@@ -89,7 +94,7 @@ def test_greeter_example(greeter_registry):
     # Use TestModel with no tool calling (greeter doesn't use tools)
     model = TestModel(call_tools=[], custom_output_text="Hello! Here's a joke for you...")
 
-    result = run_worker(
+    result = _run_worker(
         registry=greeter_registry,
         worker="greeter",
         input_data="Tell me a joke",
@@ -112,7 +117,7 @@ def test_greeter_with_different_inputs(greeter_registry):
     ]
 
     for input_data in inputs:
-        result = run_worker(
+        result = _run_worker(
             registry=greeter_registry,
             worker="greeter",
             input_data=input_data,
@@ -155,7 +160,7 @@ def test_save_note_example(approvals_demo_registry, tool_calling_model_cls):
         }
     ])
 
-    result = run_worker(
+    result = _run_worker(
         registry=approvals_demo_registry,
         worker="save_note",
         input_data={"note": "Test note from integration test"},
@@ -195,7 +200,7 @@ def test_save_note_with_string_input(approvals_demo_registry, tool_calling_model
         }
     ])
 
-    result = run_worker(
+    result = _run_worker(
         registry=approvals_demo_registry,
         worker="save_note",
         input_data="Plain string note",
@@ -236,7 +241,7 @@ def test_save_note_strict_mode_blocks_write(approvals_demo_registry, tool_callin
 
     # Strict mode should reject the write
     with pytest.raises(PermissionError, match="Strict mode"):
-        run_worker(
+        _run_worker(
             registry=approvals_demo_registry,
             worker="save_note",
             input_data="This should be blocked",
@@ -266,7 +271,7 @@ def test_pitch_evaluator_example(pitchdeck_eval_registry, tmp_path):
     pdf_file = tmp_path / "test_deck.pdf"
     pdf_file.write_text("Mock PDF content", encoding="utf-8")
 
-    result = run_worker(
+    result = _run_worker(
         registry=pitchdeck_eval_registry,
         worker="pitch_evaluator",
         input_data="Evaluate this deck",
@@ -286,7 +291,7 @@ def test_pitch_evaluator_attachment_validation(pitchdeck_eval_registry, tmp_path
 
     # Should fail attachment validation (only .pdf allowed)
     with pytest.raises(ValueError, match="not allowed"):
-        run_worker(
+        _run_worker(
             registry=pitchdeck_eval_registry,
             worker="pitch_evaluator",
             input_data="Evaluate this",
@@ -305,7 +310,7 @@ def test_pitch_evaluator_attachment_count_limit(pitchdeck_eval_registry, tmp_pat
 
     # Should fail because max_attachments=1
     with pytest.raises(ValueError, match="Too many attachments"):
-        run_worker(
+        _run_worker(
             registry=pitchdeck_eval_registry,
             worker="pitch_evaluator",
             input_data="Evaluate these",
@@ -347,7 +352,7 @@ def test_pitch_orchestrator_example(pitchdeck_eval_registry):
     test_pdf = input_dir / "test_deck.pdf"
     test_pdf.write_text("Mock pitch deck PDF", encoding="utf-8")
 
-    result = run_worker(
+    result = _run_worker(
         registry=pitchdeck_eval_registry,
         worker="pitch_orchestrator",
         input_data="Evaluate all pitch decks",

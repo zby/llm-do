@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from llm_do import WorkerDefinition, WorkerRegistry, WorkerRunResult
-from llm_do.cli_async import main, parse_args, run_async_cli
+from llm_do.cli_async import init_project, main, parse_args, run_async_cli
 
 
 def test_parse_args_worker_and_message():
@@ -204,16 +204,52 @@ def test_async_cli_requires_approval_mode_for_json(tmp_path, monkeypatch, capsys
 
 
 def test_main_handles_init_subcommand(tmp_path, monkeypatch):
-    """Test that main() delegates 'init' to sync CLI."""
+    """Test that main() delegates 'init' to init_project."""
     monkeypatch.setattr("sys.argv", ["llm-do", "init", str(tmp_path / "project")])
 
-    # Patch at the cli module level since that's where init_project is defined
-    with patch("llm_do.cli.init_project") as mock_init:
+    with patch("llm_do.cli_async.init_project") as mock_init:
         mock_init.return_value = 0
         result = main()
 
     assert result == 0
     mock_init.assert_called_once_with([str(tmp_path / "project")])
+
+
+def test_cli_init_creates_project(tmp_path):
+    """Test that 'llm-do init' creates a project structure."""
+    project_dir = tmp_path / "my-project"
+
+    result = init_project(
+        [str(project_dir), "--name", "my-project", "--model", "anthropic:claude-haiku-4-5"]
+    )
+
+    assert result == 0
+    assert project_dir.exists()
+    assert (project_dir / "my-project.worker").exists()
+
+    worker_content = (project_dir / "my-project.worker").read_text()
+    assert "name: my-project" in worker_content
+    assert "model: anthropic:claude-haiku-4-5" in worker_content
+
+
+def test_cli_init_fails_if_exists(tmp_path):
+    """Test that 'llm-do init' fails if worker already exists."""
+    worker_name = tmp_path.name
+    (tmp_path / f"{worker_name}.worker").write_text("existing")
+
+    result = init_project([str(tmp_path)])
+
+    assert result == 1
+
+
+def test_cli_init_minimal(tmp_path):
+    """Test that 'llm-do init' works with minimal args."""
+    project_dir = tmp_path / "simple"
+
+    result = init_project([str(project_dir)])
+
+    assert result == 0
+    assert (project_dir / "simple.worker").exists()
 
 
 def test_main_runs_async_cli(tmp_path, monkeypatch):

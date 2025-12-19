@@ -56,17 +56,18 @@ def worker_create(
 ### Programmer-Facing API
 
 ```python
-from llm_do import call_worker, WorkerContext
+import asyncio
 
-# call_worker requires a caller_context (from parent worker)
-# For programmatic use, you'd typically call run_worker instead
-result = call_worker(
+from llm_do import call_worker_async, WorkerContext
+
+# call_worker_async requires a caller_context (from parent worker)
+result = asyncio.run(call_worker_async(
     registry=worker_registry,
     worker="evaluator",
     input_data={"rubric": "Evaluate this pitch deck thoroughly"},
     caller_context=parent_context,  # Required: WorkerContext from calling worker
     attachments=["input/deck.pdf"],
-)
+))
 ```
 
 ## Worker Definition Structure
@@ -224,7 +225,7 @@ Worker delegation is implemented in `llm_do/runtime.py`. Key components:
 
 **ApprovalController**: Manages tool approval rules and user callbacks
 
-**call_worker()** orchestrates the full delegation lifecycle:
+**call_worker_async()** orchestrates the full delegation lifecycle:
 1. Load callee definition from registry
 2. Resolve and validate attachments (via `AttachmentValidator`)
 3. Check `sandbox.read` approval for each attachment

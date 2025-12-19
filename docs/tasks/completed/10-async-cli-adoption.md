@@ -18,7 +18,7 @@ Promote async CLI from experiment to production, replacing the sync CLI as the d
 ### Phase 2: Entry Point Update
 - [x] Update `pyproject.toml` entry point to use async CLI
 - [x] Ensure `llm-do` command uses `asyncio.run(run_async_cli())`
-- [x] Keep sync `run_worker()` available for programmatic use
+- [x] Remove sync `run_worker()` and keep async-only programmatic API
 
 ### Phase 3: Test Coverage
 - [x] Add tests for async CLI argument parsing
@@ -35,10 +35,10 @@ Promote async CLI from experiment to production, replacing the sync CLI as the d
 - **COMPLETED**: Async CLI is now the default entry point
 - `llm_do/cli_async.py` is the new async CLI implementation
 - `llm_do/ui/display.py` contains display backend abstractions
-- Sync CLI (`llm_do/cli.py`) retained for `init_project` and programmatic use
+- Sync CLI removed; `llm_do/cli_async.py` now owns `init_project`
 - 14 new tests in `tests/test_cli_async.py`
 
 ## Key Files
 - Production: `llm_do/cli_async.py`, `llm_do/ui/display.py`
 - Entry point: `pyproject.toml` → `llm_do.cli_async:main`
-- Legacy sync: `llm_do/cli.py` (kept for init and programmatic use)
+- Legacy sync: removed

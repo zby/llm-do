@@ -6,6 +6,7 @@ Tests the bootstrapper's ability to:
 3. Delegate work to the created worker
 4. Write results to output
 """
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,7 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models import Model
 
 import llm_do.runtime
-from llm_do import ApprovalController, WorkerRegistry, WorkerRunResult, run_worker
+from llm_do import ApprovalController, WorkerRegistry, WorkerRunResult, run_worker_async
 
 
 class SequentialToolCallingModel(Model):
@@ -163,12 +164,14 @@ Moderate investor interest likely.
     monkeypatch.setattr(llm_do.runtime, "call_worker_async", mock_call_worker_async)
 
     try:
-        result = run_worker(
-            registry=bootstrapper_registry,
-            worker="worker_bootstrapper",
-            input_data="Analyze pitch decks and save evaluations",
-            cli_model=bootstrapper_model,
-            approval_controller=ApprovalController(mode="approve_all"),
+        result = asyncio.run(
+            run_worker_async(
+                registry=bootstrapper_registry,
+                worker="worker_bootstrapper",
+                input_data="Analyze pitch decks and save evaluations",
+                cli_model=bootstrapper_model,
+                approval_controller=ApprovalController(mode="approve_all"),
+            )
         )
 
         assert result is not None
@@ -202,12 +205,14 @@ def test_bootstrapper_lists_files_correctly(bootstrapper_registry):
         final_text="Found 1 file: test_pitch.pdf",
     )
 
-    result = run_worker(
-        registry=bootstrapper_registry,
-        worker="worker_bootstrapper",
-        input_data="List files in input",
-        cli_model=model,
-        approval_controller=ApprovalController(mode="approve_all"),
+    result = asyncio.run(
+        run_worker_async(
+            registry=bootstrapper_registry,
+            worker="worker_bootstrapper",
+            input_data="List files in input",
+            cli_model=model,
+            approval_controller=ApprovalController(mode="approve_all"),
+        )
     )
 
     assert result is not None
@@ -230,12 +235,14 @@ def test_bootstrapper_creates_worker(bootstrapper_registry):
         final_text="Created worker: test_analyzer",
     )
 
-    result = run_worker(
-        registry=bootstrapper_registry,
-        worker="worker_bootstrapper",
-        input_data="Create a test analyzer worker",
-        cli_model=model,
-        approval_controller=ApprovalController(mode="approve_all"),
+    result = asyncio.run(
+        run_worker_async(
+            registry=bootstrapper_registry,
+            worker="worker_bootstrapper",
+            input_data="Create a test analyzer worker",
+            cli_model=model,
+            approval_controller=ApprovalController(mode="approve_all"),
+        )
     )
 
     assert result is not None
@@ -268,12 +275,14 @@ def test_bootstrapper_writes_output(bootstrapper_registry):
         final_text="Wrote output file.",
     )
 
-    result = run_worker(
-        registry=bootstrapper_registry,
-        worker="worker_bootstrapper",
-        input_data="Write a test file",
-        cli_model=model,
-        approval_controller=ApprovalController(mode="approve_all"),
+    result = asyncio.run(
+        run_worker_async(
+            registry=bootstrapper_registry,
+            worker="worker_bootstrapper",
+            input_data="Write a test file",
+            cli_model=model,
+            approval_controller=ApprovalController(mode="approve_all"),
+        )
     )
 
     assert result is not None

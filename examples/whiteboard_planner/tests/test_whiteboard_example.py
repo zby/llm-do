@@ -1,3 +1,4 @@
+import asyncio
 import shutil
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from pydantic_ai.models.test import TestModel
 from llm_do import (
     ApprovalController,
     WorkerRegistry,
-    run_worker,
+    run_worker_async,
 )
 from tests.test_examples import ToolCallingModel
 
@@ -79,12 +80,14 @@ def test_whiteboard_orchestrator_execution(whiteboard_registry, tmp_path):
         }
     ])
 
-    result = run_worker(
-        registry=whiteboard_registry,
-        worker="whiteboard_orchestrator",
-        input_data="Process images",
-        cli_model=model,
-        approval_controller=ApprovalController(mode="approve_all"),
+    result = asyncio.run(
+        run_worker_async(
+            registry=whiteboard_registry,
+            worker="whiteboard_orchestrator",
+            input_data="Process images",
+            cli_model=model,
+            approval_controller=ApprovalController(mode="approve_all"),
+        )
     )
 
     assert result is not None

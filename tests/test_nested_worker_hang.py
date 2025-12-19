@@ -3,6 +3,7 @@
 This test reproduces the bug where calling a worker that uses attachments
 from within another worker's tool call causes the system to hang.
 """
+import asyncio
 import shutil
 from pathlib import Path
 
@@ -11,7 +12,7 @@ import pytest
 from llm_do import (
     ApprovalController,
     WorkerRegistry,
-    run_worker,
+    run_worker_async,
 )
 from tests.test_examples import ToolCallingModel
 
@@ -100,7 +101,7 @@ This project aims to create an automated system for converting whiteboard photos
         },
         # Call the whiteboard_planner worker with attachment
         # In the real scenario with live models, THIS IS WHERE THE HANG OCCURS
-        # For this test, we'll mock call_worker to avoid the hang
+        # For this test, we'll mock call_worker_async to avoid the hang
         # Note: Uses _agent_* tool format (workers-as-tools)
         {
             "name": "_agent_whiteboard_planner",
@@ -140,12 +141,14 @@ This project aims to create an automated system for converting whiteboard photos
 
     try:
         # Run the orchestrator
-        result = run_worker(
-            registry=whiteboard_registry,
-            worker="whiteboard_orchestrator",
-            input_data={},
-            cli_model=orchestrator_model,
-            approval_controller=ApprovalController(mode="approve_all"),
+        result = asyncio.run(
+            run_worker_async(
+                registry=whiteboard_registry,
+                worker="whiteboard_orchestrator",
+                input_data={},
+                cli_model=orchestrator_model,
+                approval_controller=ApprovalController(mode="approve_all"),
+            )
         )
 
         assert result is not None
@@ -199,13 +202,15 @@ A simple test project.
     planner_model = TestModel(call_tools=[], custom_output_text=plan_text)
 
     # Call whiteboard_planner directly (not through orchestrator)
-    result = run_worker(
-        registry=whiteboard_registry,
-        worker="whiteboard_planner",
-        input_data={"original_filename": "test_board.png"},
-        attachments=[str(test_image.absolute())],
-        cli_model=planner_model,
-        approval_controller=ApprovalController(mode="approve_all"),
+    result = asyncio.run(
+        run_worker_async(
+            registry=whiteboard_registry,
+            worker="whiteboard_planner",
+            input_data={"original_filename": "test_board.png"},
+            attachments=[str(test_image.absolute())],
+            cli_model=planner_model,
+            approval_controller=ApprovalController(mode="approve_all"),
+        )
     )
 
     assert result is not None

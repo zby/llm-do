@@ -16,7 +16,7 @@ from llm_do import (
     WorkerSpec,
     WorkerContext,
     WorkerRunResult,
-    call_worker,
+    call_worker_async,
     create_worker,
 )
 from llm_do.agent_toolset import AgentToolset
@@ -140,13 +140,15 @@ def test_call_worker_forwards_attachments(tmp_path):
         return {"worker": defn.name}
 
     context = _parent_context(registry, parent)
-    call_worker(
-        registry=registry,
-        worker="child",
-        input_data={"task": "demo"},
-        caller_context=context,
-        attachments=[attachment],
-        agent_runner=runner,
+    asyncio.run(
+        call_worker_async(
+            registry=registry,
+            worker="child",
+            input_data={"task": "demo"},
+            caller_context=context,
+            attachments=[attachment],
+            agent_runner=runner,
+        )
     )
 
     assert seen_paths == [attachment.resolve()]
@@ -168,12 +170,14 @@ def test_call_worker_rejects_disallowed_attachments(tmp_path):
 
     context = _parent_context(registry, parent)
     with pytest.raises(ValueError):
-        call_worker(
-            registry=registry,
-            worker="child",
-            input_data={"task": "demo"},
-            caller_context=context,
-            attachments=[bad_attachment],
+        asyncio.run(
+            call_worker_async(
+                registry=registry,
+                worker="child",
+                input_data={"task": "demo"},
+                caller_context=context,
+                attachments=[bad_attachment],
+            )
         )
 
 
@@ -288,5 +292,4 @@ def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
     assert result["name"] == "child"
     assert result["instructions"] == "demo"
     assert invoked
-
 

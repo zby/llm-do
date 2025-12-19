@@ -349,9 +349,9 @@ class AgentExecutionContext:
 
 
 AgentRunner = Callable[[WorkerDefinition, Any, WorkerContext, Optional[Type[BaseModel]]], Any]
-"""Type alias for the execution strategy used by ``run_worker``.
+"""Type alias for the execution strategy used by ``run_worker_async``.
 
 This interface allows swapping the underlying agent execution logic (e.g., for
 unit testing or using a different agent framework) while keeping the
-``run_worker`` orchestration logic (approvals, context) intact.
+``run_worker_async`` orchestration logic (approvals, context) intact.
 """

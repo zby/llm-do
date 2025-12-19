@@ -9,9 +9,8 @@ import argparse
 import asyncio
 import json
 import sys
-from contextlib import suppress
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Callable, Optional
 
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision, ApprovalRequest
@@ -151,6 +150,71 @@ def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         help="Show full stack traces on errors",
     )
     return parser.parse_args(argv)
+
+
+def _parse_init_args(argv: list[str]) -> argparse.Namespace:
+    """Parse arguments for 'llm-do init' command."""
+    parser = argparse.ArgumentParser(
+        prog="llm-do init",
+        description="Initialize a new llm-do project",
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Directory to initialize (default: current directory)",
+    )
+    parser.add_argument(
+        "--name",
+        default=None,
+        help="Project/worker name (default: directory name)",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Default model for the worker (e.g., anthropic:claude-haiku-4-5)",
+    )
+    return parser.parse_args(argv)
+
+
+def init_project(argv: list[str]) -> int:
+    """Initialize a new llm-do project with a sample worker."""
+    args = _parse_init_args(argv)
+
+    project_path = Path(args.path).resolve()
+
+    if not project_path.exists():
+        project_path.mkdir(parents=True)
+        print(f"Created directory: {project_path}")
+
+    project_name = args.name or project_path.name
+
+    sample_worker = project_path / f"{project_name}.worker"
+    if sample_worker.exists():
+        print(f"Worker already exists: {sample_worker}", file=sys.stderr)
+        return 1
+
+    front_matter = [
+        "---",
+        f"name: {project_name}",
+        f"description: A helpful assistant for {project_name}",
+    ]
+    if args.model:
+        front_matter.append(f"model: {args.model}")
+    front_matter.append("---")
+
+    sample_worker_content = "\n".join(front_matter) + f"""
+You are a helpful assistant for the {project_name} project.
+
+Respond to the user's request.
+"""
+    sample_worker.write_text(sample_worker_content)
+    print(f"Created: {sample_worker}")
+    print("\nProject initialized!")
+    print("\nRun your worker with:")
+    print(f"  cd {project_path} && llm-do {project_name} \"your message\"")
+
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -546,10 +610,9 @@ async def run_async_cli(argv: Optional[list[str]] = None) -> int:
 
 def main() -> int:
     """Entry point for the llm-do command."""
-    # Handle 'init' subcommand by delegating to sync CLI
+    # Handle 'init' subcommand
     argv = sys.argv[1:]
     if argv and argv[0] == "init":
-        from .cli import init_project
         return init_project(argv[1:])
 
     return asyncio.run(run_async_cli(argv))

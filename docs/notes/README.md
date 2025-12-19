@@ -11,7 +11,7 @@ Working documents for exploration, design thinking, and capturing insights.
 ## Usage
 
 - **Creating**: Add to `docs/notes/` when exploring something non-trivial
-- **Archiving**: Move to `archive/` when resolved, implemented, or no longer relevant
+- **Archiving**: Move to `archive/` when resolved, implemented, or no longer relevant (archived notes are kept as-is)
 - **Referencing**: Link from AGENTS.md or tasks when the note informs decisions
 
 ## Note Template

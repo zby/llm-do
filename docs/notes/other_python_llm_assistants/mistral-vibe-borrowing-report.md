@@ -369,7 +369,7 @@ In llm-do, workers receive `WorkerContext` via dependency injection:
 # llm-do pattern
 async def create_file(ctx: WorkerContext, file_path: str, content: str):
     # Can call other workers through context
-    result = await ctx.run_worker("validate_syntax", content=content)
+    result = await ctx.call_worker("validate_syntax", content=content)
     # Can access registry, approval controller, etc.
 ```
 
@@ -399,10 +399,10 @@ Agent._conversation_loop()
 ```
 Workshop.run_task()
   └─► Worker executes
-      └─► ctx.run_worker("sub_worker")  ← recursive call
+      └─► ctx.call_worker("sub_worker")  ← recursive call
           └─► Workshop resolves worker
               └─► Sub-worker executes
-                  └─► ctx.run_worker(...)  ← deeper nesting possible
+                  └─► ctx.call_worker(...)  ← deeper nesting possible
 ```
 
 ### What Would Be Needed

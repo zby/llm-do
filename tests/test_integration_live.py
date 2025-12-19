@@ -10,6 +10,7 @@ Requirements:
 - ANTHROPIC_API_KEY environment variable must be set
 - Will make actual API calls (costs money)
 """
+import asyncio
 import shutil
 from pathlib import Path
 
@@ -18,7 +19,7 @@ import pytest
 from llm_do import (
     ApprovalController,
     WorkerRegistry,
-    run_worker,
+    run_worker_async,
 )
 
 
@@ -71,12 +72,14 @@ def test_nested_worker_with_real_api(whiteboard_registry):
     plans_dir.mkdir(exist_ok=True)
 
     # This will now complete successfully (no hang!)
-    result = run_worker(
-        registry=whiteboard_registry,
-        worker="whiteboard_orchestrator",
-        input_data={},
-        cli_model="anthropic:claude-haiku-4-5",
-        approval_controller=ApprovalController(mode="approve_all"),
+    result = asyncio.run(
+        run_worker_async(
+            registry=whiteboard_registry,
+            worker="whiteboard_orchestrator",
+            input_data={},
+            cli_model="anthropic:claude-haiku-4-5",
+            approval_controller=ApprovalController(mode="approve_all"),
+        )
     )
 
     # Verify it completed

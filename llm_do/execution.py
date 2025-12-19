@@ -1,11 +1,10 @@
 """Agent execution strategies for llm-do workers.
 
-This module provides the default agent runners (sync and async)
-and helper functions for preparing agent execution contexts.
+This module provides the default async agent runner and helper functions
+for preparing agent execution contexts.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from time import perf_counter
@@ -267,7 +266,6 @@ async def default_agent_runner_async(
     """Async version of the default agent runner.
 
     This is the core async implementation that directly awaits agent.run().
-    The sync version wraps this with asyncio.run().
 
     Args:
         definition: Worker definition with instructions and configuration
@@ -305,36 +303,3 @@ async def default_agent_runner_async(
     messages = run_result.all_messages() if hasattr(run_result, 'all_messages') else []
 
     return (run_result.output, messages)
-
-
-def default_agent_runner(
-    definition: WorkerDefinition,
-    user_input: Any,
-    context: WorkerContext,
-    output_model: Optional[Type[BaseModel]],
-    *,
-    register_tools_fn: Optional[Callable[[Agent, WorkerContext], None]] = None,
-) -> tuple[Any, List[Any]]:
-    """Synchronous wrapper around the async agent runner.
-
-    This provides backward compatibility for synchronous code that calls
-    run_worker(). It simply wraps the async implementation with asyncio.run().
-
-    Args:
-        definition: Worker definition with instructions and configuration
-        user_input: Input data for the worker
-        context: Worker execution context with tools and dependencies
-        output_model: Optional Pydantic model for structured output
-        register_tools_fn: Optional function to register additional tools
-
-    Returns:
-        Tuple of (output, messages) where messages is the list of all messages
-        exchanged with the LLM during execution.
-    """
-    # Simply wrap the async version with asyncio.run()
-    return asyncio.run(
-        default_agent_runner_async(
-            definition, user_input, context, output_model,
-            register_tools_fn=register_tools_fn
-        )
-    )

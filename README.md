@@ -139,6 +139,8 @@ See [`examples/`](examples/) for working code:
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference
 - **[`docs/worker_delegation.md`](docs/worker_delegation.md)** — Worker-to-worker calls
 - **[`docs/architecture.md`](docs/architecture.md)** — Internal design
+- **[`docs/notes/`](docs/notes/)** — Working design notes and explorations
+- **[`docs/notes/archive/`](docs/notes/archive/)** — Historical notes; kept as-is (do not edit)
 
 ## Status
 

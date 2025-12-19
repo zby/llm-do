@@ -18,9 +18,9 @@ from .base import (
     WorkerRegistry,
     WorkerRunResult,
     WorkerSpec,
-    call_worker,
+    call_worker_async,
     create_worker,
-    run_worker,
+    run_worker_async,
 )
 from .model_compat import (
     InvalidCompatibleModelsError,
@@ -45,9 +45,9 @@ __all__ = [
     "WorkerRegistry",
     "WorkerRunResult",
     "WorkerSpec",
-    "call_worker",
+    "call_worker_async",
     "create_worker",
-    "run_worker",
+    "run_worker_async",
     "__version__",
 ]
 

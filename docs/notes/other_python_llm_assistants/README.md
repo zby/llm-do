@@ -175,6 +175,6 @@ Mix of both:
 - **TunaCode**: Global `SessionState` singleton
 - **Mistral Vibe**: Single `Agent` class with `run()` method, tools have no context injection
 
-**llm-do's `WorkerContext` pattern is unique** - workers can call other workers via `ctx.run_worker()`. This is our differentiator.
+**llm-do's `WorkerContext` pattern is unique** - workers can call other workers via `ctx.call_worker()`. This is our differentiator.
 
 **Implication:** Borrow their TUI patterns, not their agent/tool architectures.

@@ -6,8 +6,8 @@ This guide documents the testing strategies and patterns used in llm-do. The cod
 
 | Pattern | Use Case | Example |
 |---------|----------|---------|
-| **TestModel** | Test worker definitions, tools, schemas | `run_worker(cli_model=test_model, ...)` |
-| **Custom agent_runner** | Test orchestration logic | `run_worker(agent_runner=custom_runner, ...)` |
+| **TestModel** | Test worker definitions, tools, schemas | `run_worker_async(cli_model=test_model, ...)` |
+| **Custom agent_runner** | Test orchestration logic | `run_worker_async(agent_runner=custom_runner, ...)` |
 | **Real model (integration)** | Verify critical end-to-end flows | Keep minimal |
 
 ### Example Integration Tests
@@ -59,12 +59,12 @@ model = TestModel(seed=42)
 ```python
 def test_worker_executes_with_tools(test_model):
     """Test that worker loads and tools are available."""
-    result = run_worker(
+    result = asyncio.run(run_worker_async(
         registry=my_registry,
         worker="my_worker",
         input_data="process this",
         cli_model=test_model,  # Uses TestModel from conftest.py fixture
-    )
+    ))
     # Verifies:
     # - Worker definition loaded
     # - Tools registered correctly
@@ -79,7 +79,7 @@ The `test_model` fixture is available in all tests via `tests/conftest.py`:
 ```python
 def test_something(test_model):
     # test_model is a TestModel(seed=42)
-    result = run_worker(cli_model=test_model, ...)
+    result = asyncio.run(run_worker_async(cli_model=test_model, ...))
 ```
 
 ## Using Custom agent_runner
@@ -95,7 +95,7 @@ Use custom `agent_runner` when you need to test **orchestration logic** without 
 
 ### How It Works
 
-The `agent_runner` parameter in `run_worker()` allows you to replace the entire agent execution with a custom function that returns predetermined outputs.
+The `agent_runner` parameter in `run_worker_async()` allows you to replace the entire agent execution with a custom function that returns predetermined outputs.
 
 ### Example
 
@@ -111,11 +111,11 @@ def test_model_inheritance():
         used_model = context.effective_model
         return ({"status": "ok"}, [])  # (output, messages)
 
-    result = run_worker(
+    result = asyncio.run(run_worker_async(
         worker="my_worker",  # worker.model = "model-a"
         cli_model="model-b",  # CLI override
         agent_runner=custom_runner,
-    )
+    ))
 
     assert used_model == "model-b"  # CLI took precedence
 ```
@@ -246,18 +246,18 @@ def test_prompt_file_jinja2(tmp_path):
 From `test_pydanticai_base.py`:
 
 ```python
-def test_run_worker_applies_model_inheritance():
+def test_run_worker_async_applies_model_inheritance():
     """Test that CLI model overrides worker model."""
 
     def custom_runner(definition, user_input, context, output_model):
         # Return the effective model so we can verify it
         return (context.effective_model, [])
 
-    result = run_worker(
+    result = asyncio.run(run_worker_async(
         worker="my_worker",      # has model="worker-model"
         cli_model="cli-model",   # CLI override
         agent_runner=custom_runner,
-    )
+    ))
 
     assert result.output == "cli-model"  # CLI took precedence
 ```
@@ -275,11 +275,11 @@ def test_strict_mode_rejects():
         return ("should not reach here", [])
 
     with pytest.raises(PermissionError, match="Strict mode"):
-        run_worker(
+        asyncio.run(run_worker_async(
             worker="writer",
             agent_runner=runner,
             approval_controller=ApprovalController(mode="strict"),  # Rejects all
-        )
+        ))
 ```
 
 ## Best Practices
@@ -297,14 +297,14 @@ def test_strict_mode_rejects():
 ```python
 # BAD: Slow, costs money, non-deterministic
 def test_worker():
-    result = run_worker(cli_model="openai:gpt-4", ...)
+    result = asyncio.run(run_worker_async(cli_model="openai:gpt-4", ...))
 ```
 
 ✅ **Use TestModel or custom runner**
 ```python
 # GOOD: Fast, free, deterministic
 def test_worker(test_model):
-    result = run_worker(cli_model=test_model, ...)
+    result = asyncio.run(run_worker_async(cli_model=test_model, ...))
 ```
 
 ❌ **Don't create premature abstractions**
@@ -322,7 +322,7 @@ def make_simple_runner(output):
 def test_something():
     def runner(definition, user_input, context, output_model):
         return ({"status": "ok"}, [])
-    result = run_worker(agent_runner=runner, ...)
+    result = asyncio.run(run_worker_async(agent_runner=runner, ...))
 ```
 
 ## Further Reading

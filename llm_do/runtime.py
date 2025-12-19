@@ -1,7 +1,7 @@
 """Runtime orchestration for llm-do workers.
 
 This module provides the core async runtime implementation:
-- Agent execution (sync and async)
+- Agent execution (async)
 - Worker delegation and creation
 - Tool registration and execution
 - Approval and permission enforcement
@@ -17,12 +17,11 @@ from typing import Any, Callable, List, Optional, Sequence, Type
 
 from pydantic import BaseModel
 
-from .execution import default_agent_runner_async, default_agent_runner
+from .execution import default_agent_runner_async
 from .model_compat import select_model, NoModelError
 from pydantic_ai_blocking_approval import ApprovalController
 from .attachments import AttachmentInput, AttachmentPayload
 from .types import (
-    AgentRunner,
     MessageCallback,
     WorkerContext,
     WorkerCreationDefaults,
@@ -54,7 +53,6 @@ def _prepare_worker_context(
     *,
     registry: Any,
     worker: str,
-    input_data: Any,
     attachments: Optional[Sequence[AttachmentInput]],
     cli_model: Optional[str],
     creation_defaults: Optional[WorkerCreationDefaults],
@@ -63,10 +61,10 @@ def _prepare_worker_context(
     depth: int = 0,
     cost_tracker: Optional[Any] = None,
 ) -> _WorkerExecutionPrep:
-    """Prepare worker context and dependencies (shared by sync and async).
+    """Prepare worker context and dependencies (shared by async entrypoints).
 
-    This extracts all the common setup logic that's identical between
-    run_worker and run_worker_async, reducing ~110 lines of duplication.
+    This extracts all the common setup logic used by async entrypoints,
+    reducing duplication between call sites.
     """
     definition = registry.load_definition(worker)
     custom_tools_path = registry.find_custom_tools(worker)
@@ -159,45 +157,6 @@ def _handle_result(
 # ---------------------------------------------------------------------------
 # Worker delegation
 # ---------------------------------------------------------------------------
-def call_worker(
-    registry: Any,  # WorkerRegistry - avoid circular import
-    worker: str,
-    input_data: Any,
-    *,
-    caller_context: WorkerContext,
-    attachments: Optional[Sequence[AttachmentInput]] = None,
-    agent_runner: Optional[AgentRunner] = None,
-) -> WorkerRunResult:
-    """Delegate to another worker (sync version).
-
-    The delegated worker resolves its own model via the standard precedence:
-    cli_model > worker.model > LLM_DO_MODEL env var.
-
-    Raises:
-        RecursionError: If max worker depth would be exceeded.
-    """
-
-    # Check depth limit before executing nested worker
-    if caller_context.depth >= MAX_WORKER_DEPTH:
-        raise RecursionError(
-            f"Maximum worker nesting depth ({MAX_WORKER_DEPTH}) exceeded. "
-            f"Current depth: {caller_context.depth}, attempting to call: {worker}"
-        )
-
-    return run_worker(
-        registry=registry,
-        worker=worker,
-        input_data=input_data,
-        attachments=attachments,
-        creation_defaults=caller_context.creation_defaults,
-        agent_runner=agent_runner,
-        message_callback=caller_context.message_callback,
-        approval_controller=caller_context.approval_controller,
-        depth=caller_context.depth + 1,
-        cost_tracker=caller_context.cost_tracker,
-    )
-
-
 async def call_worker_async(
     registry: Any,  # WorkerRegistry - avoid circular import
     worker: str,
@@ -344,7 +303,6 @@ async def run_worker_async(
     prep = _prepare_worker_context(
         registry=registry,
         worker=worker,
-        input_data=input_data,
         attachments=attachments,
         cli_model=cli_model,
         creation_defaults=creation_defaults,
@@ -369,74 +327,3 @@ async def run_worker_async(
 
     return _handle_result(result, prep.output_model)
 
-
-def run_worker(
-    *,
-    registry: Any,  # WorkerRegistry - avoid circular import
-    worker: str,
-    input_data: Any,
-    attachments: Optional[Sequence[AttachmentInput]] = None,
-    cli_model: Optional[str] = None,
-    creation_defaults: Optional[WorkerCreationDefaults] = None,
-    agent_runner: Optional[AgentRunner] = None,
-    approval_controller: Optional[ApprovalController] = None,
-    message_callback: Optional[MessageCallback] = None,
-    depth: int = 0,
-    cost_tracker: Optional[Any] = None,
-) -> WorkerRunResult:
-    """Execute a worker by name.
-
-    This is the primary entry point for running workers. It handles:
-    1. Loading the worker definition.
-    2. Setting up the runtime environment (tools, approvals).
-    3. Creating the execution context.
-    4. Delegating the actual agent loop to the provided ``agent_runner``.
-
-    Model resolution order (highest to lowest priority):
-    1. cli_model (--model flag)
-    2. worker.model (from worker definition)
-    3. LLM_DO_MODEL environment variable
-
-    Args:
-        registry: Source for worker definitions.
-        worker: Name of the worker to run.
-        input_data: Input payload for the worker.
-        attachments: Optional files to expose to the worker.
-        cli_model: Model from --model CLI flag (highest priority override).
-        creation_defaults: Defaults for any new workers created during this run.
-        agent_runner: Strategy for executing the agent (defaults to PydanticAI).
-        approval_controller: Controller for tool approval (defaults to approve-all mode).
-        message_callback: Callback for streaming events and progress updates.
-        depth: Current nesting depth for nested worker calls (0 = top-level).
-        cost_tracker: Optional cost tracking across nested calls (future enhancement).
-
-    Returns:
-        WorkerRunResult containing the final output and message history.
-    """
-    if approval_controller is None:
-        approval_controller = ApprovalController(mode="approve_all")
-
-    prep = _prepare_worker_context(
-        registry=registry,
-        worker=worker,
-        input_data=input_data,
-        attachments=attachments,
-        cli_model=cli_model,
-        creation_defaults=creation_defaults,
-        approval_controller=approval_controller,
-        message_callback=message_callback,
-        depth=depth,
-        cost_tracker=cost_tracker,
-    )
-
-    # Real agent integration would expose toolsets to the model here. The base
-    # implementation simply forwards to the agent runner with the constructed
-    # context. Delegator/creator are accessed via prep.context.
-    if agent_runner is None:
-        result = default_agent_runner(
-            prep.definition, input_data, prep.context, prep.output_model
-        )
-    else:
-        result = agent_runner(prep.definition, input_data, prep.context, prep.output_model)
-
-    return _handle_result(result, prep.output_model)

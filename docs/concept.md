@@ -185,6 +185,26 @@ When rigid code needs more flexibility, replace deterministic logic with worker 
 - The worker handles ambiguous formats with LLM reasoning
 - Deterministic validation still runs on the parsed output
 
+### The Hybrid Pattern
+
+Hardening often produces **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to smaller, focused workers:
+
+```python
+async def evaluate_document(ctx: RunContext[ToolContext], path: str) -> dict:
+    # Deterministic: load and validate
+    content = load_file(path)
+    if not validate_format(content):
+        raise ValueError("Invalid format")
+
+    # Neural: delegate ambiguous analysis to focused worker
+    analysis = await ctx.deps.call_worker("content_analyzer", content)
+
+    # Deterministic: compute final score
+    return {"score": compute_score(analysis), "analysis": analysis}
+```
+
+This is the middle ground on the spectrum—tested Python for the predictable parts, LLM reasoning only where needed.
+
 ### The Refactoring Spectrum
 
 ```

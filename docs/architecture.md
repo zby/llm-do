@@ -352,7 +352,9 @@ async def my_tool(ctx: RunContext[WorkerContext], path: str):
     ...
 ```
 
-Tools that need nested worker calls depend on `ToolContext`:
+### ToolContext: Tools Calling Workers
+
+Tools that need nested worker calls depend on `ToolContext`. This enables **dual recursion**—tools can invoke workers, which invoke tools, which invoke workers, etc.
 
 ```python
 from llm_do.types import ToolContext
@@ -361,6 +363,31 @@ from llm_do.types import ToolContext
 async def orchestrate(ctx: RunContext[ToolContext], task: str) -> str:
     return await ctx.deps.call_worker("reviewer", task)
 ```
+
+**Why tools call workers:**
+
+Both refactoring directions use this pattern:
+
+- **Hardening**: Extract deterministic logic to a Python tool that delegates fuzzy parts to a smaller, focused worker. The tool handles validation, caching, or computation; the worker handles ambiguity.
+
+- **Softening**: Replace rigid code with a worker call when edge cases multiply. The tool becomes a thin wrapper around LLM reasoning.
+
+```
+Hybrid Tool Pattern (common after hardening):
+
+┌─────────────────────────────────┐
+│  Python Tool                    │
+│  ┌───────────────────────────┐  │
+│  │ 1. Validate input         │  │
+│  │ 2. Check cache            │  │
+│  │ 3. call_worker("parser")  │──┼──► Small focused worker
+│  │ 4. Validate output        │  │
+│  │ 5. Return result          │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+```
+
+See [`concept.md`](concept.md#worker-tool-unification) for the conceptual model.
 
 ### Toolset Pattern
 
@@ -411,7 +438,7 @@ CLI / run_worker_async()
          │
          ▼
 ┌─────────────────┐
-│ WorkerContext   │ ← Build execution context
+│ WorkerContext   │ ← Build execution context (depth=0)
 └────────┬────────┘
          │
          ▼
@@ -435,6 +462,40 @@ CLI / run_worker_async()
 │ WorkerRunResult │ ← Return output + messages
 └─────────────────┘
 ```
+
+### Nested Execution (Dual Recursion)
+
+When a tool calls `ctx.deps.call_worker()` or the LLM uses a `_worker_*` tool:
+
+```
+Worker A (depth=0)
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ LLM reasons, calls tool                 │
+└────────┬────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│ Tool executes                           │
+│   - deterministic logic                 │
+│   - ctx.deps.call_worker("B", input)  ──┼──┐
+└─────────────────────────────────────────┘  │
+                                             │
+         ┌───────────────────────────────────┘
+         ▼
+    Worker B (depth=1)
+        │
+        ▼
+    ┌─────────────────────────────────────┐
+    │ LLM reasons, calls tools            │
+    └────────┬────────────────────────────┘
+             │
+             ▼
+        ... (up to MAX_WORKER_DEPTH=5)
+```
+
+Context flows down: cost tracking, approval controller, and depth are shared across the entire call tree.
 
 ---
 

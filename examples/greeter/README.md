@@ -1,6 +1,6 @@
 # Greeter Example
 
-A minimal conversational worker demonstrating basic `llm-do` usage. No tools, no sandbox—just a friendly chat agent.
+A minimal conversational worker demonstrating basic `llm-do` usage. No tools, no file access—just a friendly chat agent.
 
 ## Setup
 
@@ -47,11 +47,11 @@ instructions: |
 
 **Key points:**
 - No `model` specified → must use `--model` flag
-- No sandbox → no file access
+- No filesystem toolset → no file access
 - No approval rules → safe for all operations (no tools available)
 - Inline instructions → no separate prompt file needed
 
 ## Next Steps
 
 - See `examples/pitchdeck_eval/` for a multi-worker example with file access and delegation
-- Try creating your own worker with a sandbox and tools
+- Try creating your own worker with file access and tools

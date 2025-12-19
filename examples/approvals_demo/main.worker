@@ -1,11 +1,11 @@
 ---
-description: Save a timestamped note to a sandboxed log file (overwrites file).
+description: Save a timestamped note to a log file (overwrites file).
 name: main
 toolsets:
   filesystem: {}
 ---
 
-You maintain a running log of notes in the `notes` sandbox.
+You maintain a running log of notes in the `notes` directory.
 
 Steps:
 1. Treat the entire user input as the note text. When `input_data` is a

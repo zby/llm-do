@@ -52,7 +52,7 @@ worker delegations.
 
 **What happens:**
 
-1. Orchestrator lists `*.pdf` files in the `input` sandbox
+1. Orchestrator lists `*.pdf` files in the `input` directory
 2. For each PDF:
    - Orchestrator generates a slug from the filename
    - Calls `_agent_pitch_evaluator(input="Evaluate this pitch deck.", attachments=["input/deck.pdf"])`
@@ -84,7 +84,7 @@ Open `evaluations/` afterwards to inspect the generated reports.
 ## Anatomy of the workers
 
 **`pitch_orchestrator`** demonstrates:
-- Multiple sandbox paths (`input` read-only, `evaluations` writable)
+- Multiple directories (`input` for input, `evaluations` for output)
 - `_agent_pitch_evaluator` with **attachments** parameter (passes PDF files)
 - `write_file` for saving reports
 - Delegation config exposes only the `pitch_evaluator` tool
@@ -92,7 +92,7 @@ Open `evaluations/` afterwards to inspect the generated reports.
 
 **`pitch_evaluator`** demonstrates:
 - **Attachment policy** (accepts 1 PDF, max 10MB)
-- **No sandbox** (receives data via attachments, not file system)
+- **No filesystem access** (receives data via attachments, not file system)
 - Jinja2 template with `{{ file('PROCEDURE.md') }}` to load rubric
 - **Markdown output** (not JSON - simpler, more readable)
 - Native PDF reading via LLM vision capabilities

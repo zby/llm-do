@@ -368,7 +368,7 @@ Error: Worker 'helper' is not exported by library 'utils'
 1. **Tool aggregation**: Should library tools be aggregated or should only the first match win?
    - Current thinking: Aggregate (all library tools available), name conflicts use priority
 
-2. **Config inheritance**: Should libraries be able to specify default model/sandbox?
+2. **Config inheritance**: Should libraries be able to specify default model?
    - Current thinking: No, keep libraries simple (just workers/tools/templates)
 
 3. **Private dependencies**: Can a library have dependencies that aren't exposed to users?

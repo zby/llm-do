@@ -8,7 +8,7 @@ Package prompts with configuration to create executables.
 
 **Composability.** Workers call other workers like functions. Build complex workflows from simple, focused pieces.
 
-**Guardrails by construction.** Sandboxes limit file access, attachment policies cap resources, tool approvals gate dangerous operations. Guards against LLM mistakes, enforced in code rather than prompt instructions.
+**Guardrails by construction.** Attachment policies cap resources, tool approvals gate dangerous operations. Guards against LLM mistakes, enforced in code rather than prompt instructions. Run in a container for isolation.
 
 **Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code.
 
@@ -112,7 +112,6 @@ Functions become LLM-callable tools. Reference them in your worker's toolsets co
 
 ## Key Features
 
-- **Sandboxed file access** — Workers only access declared directories with permission controls
 - **Worker delegation** — Workers call other workers via `_agent_*` tools, with allowlists
 - **Custom tools** — Python functions in `tools.py` become LLM-callable tools
 - **Jinja2 templating** — Compose prompts from reusable templates
@@ -129,7 +128,7 @@ See [`examples/`](examples/) for working code:
 | [`greeter/`](examples/greeter/) | Minimal project structure |
 | [`pitchdeck_eval/`](examples/pitchdeck_eval/) | Multi-worker orchestration, PDF attachments |
 | [`calculator/`](examples/calculator/) | Custom Python tools |
-| [`approvals_demo/`](examples/approvals_demo/) | Write approval for sandbox files |
+| [`approvals_demo/`](examples/approvals_demo/) | Write approval for file operations |
 | [`code_analyzer/`](examples/code_analyzer/) | Shell commands with approval rules |
 | [`web_searcher/`](examples/web_searcher/) | Server-side tools (web search) |
 
@@ -146,9 +145,9 @@ See [`examples/`](examples/) for working code:
 
 **Experimental** — Built on [PydanticAI](https://ai.pydantic.dev/). APIs may change.
 
-**Working:** Worker resolution, worker delegation, sandboxes, approvals, custom tools, templates.
+**Working:** Worker resolution, worker delegation, approvals, custom tools, templates.
 
-**Caveats:** Sandboxes and approvals reduce risk but aren't guarantees. Prompt injection can trick LLMs into misusing granted tools. Treat these as mitigations, not proof of security.
+**Caveats:** Approvals reduce risk but aren't guarantees. Prompt injection can trick LLMs into misusing granted tools. Treat these as mitigations, not proof of security. Run in a container for real isolation.
 
 ## Contributing
 

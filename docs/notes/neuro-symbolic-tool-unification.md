@@ -249,7 +249,6 @@ This is the "neural → symbolic" compilation path. The system learns which part
 - `DelegationToolset` as separate concept
 - `worker_call` as special tool
 - Worker vs Tool distinction
-- `SandboxConfig` (container handles isolation)
 
 ### Unified
 - Tools and workers share same interface
@@ -275,14 +274,8 @@ This is the "neural → symbolic" compilation path. The system learns which part
 - Remove separate worker loading path
 - `llm_agent()` implementation uses existing agent loop
 
-### Phase 3: Remove Sandbox Layer
-- Remove `SandboxConfig` from types
-- Simplify filesystem toolset (no path validation)
-- Document container-based isolation
-
-### Phase 4: Simplify Workshop
-- Workshop becomes directory of tool definitions
-- Remove workshop-level sandbox config
+### Phase 3: Simplify Project Structure
+- Project becomes directory of tool definitions
 - Convention over configuration
 
 ## Open Questions

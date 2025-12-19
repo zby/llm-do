@@ -18,9 +18,6 @@
 
 - [ ] **Per-worker tool interface**: Expose allowed workers as first-class tools (auto-generate tool from worker description)
   - See [workers-as-tools.md](docs/notes/workers-as-tools.md) for design discussion
-- [ ] **Dynamic sandbox expansion**: Runtime approval to expand sandbox boundaries
-  - See [dynamic-sandbox-expansion.md](docs/notes/dynamic-sandbox-expansion.md) for design
-- [ ] Support absolute sandbox paths
 - [ ] Template variables in paths (`{CWD}`, `{REGISTRY_ROOT}`)
 
 ## Toolset Architecture
@@ -37,9 +34,8 @@
 
 ## Security
 
-- [x] ~~**OS-level sandbox**~~: Decided against built-in OS sandbox - recommend Docker for isolation
-  - See [dynamic-sandbox-expansion.md](docs/notes/dynamic-sandbox-expansion.md) for rationale
-- [ ] **Path security audit**: Review relative paths, symlinks, `..` handling in sandbox/shell
+- [x] ~~**OS-level sandbox**~~: Decided against built-in sandboxing - recommend Docker for isolation
+- [ ] **Path security audit**: Review relative paths, symlinks, `..` handling in shell commands
 
 ## Docs
 

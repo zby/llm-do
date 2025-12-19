@@ -13,7 +13,7 @@ This guide documents the testing strategies and patterns used in llm-do. The cod
 ### Example Integration Tests
 
 `tests/test_examples.py` exercises the example projects end-to-end (copying
-directories, writing sandbox files, etc.). They now run as part of the normal
+directories, writing files, etc.). They now run as part of the normal
 suite, so expect a bit more filesystem churn.
 
 To focus on these tests only, use the marker:
@@ -89,7 +89,7 @@ def test_something(test_model):
 Use custom `agent_runner` when you need to test **orchestration logic** without agent execution:
 - Model inheritance (`cli_model` overrides `worker.model`)
 - Approval flow behavior
-- Context assembly (attachments, sandboxes)
+- Context assembly (attachments, tools)
 - Delegation allowlists
 - Error handling
 
@@ -133,7 +133,7 @@ def agent_runner(
     Args:
         definition: Worker definition with instructions and config
         user_input: Input data passed to the worker
-        context: WorkerContext with sandboxes, tools, etc.
+        context: WorkerContext with tools, etc.
         output_model: Optional Pydantic model for structured output
 
     Returns:
@@ -164,7 +164,7 @@ Don't create premature abstractions. The runner is simple enough to inline.
 
 ✅ Testing model inheritance logic
 ✅ Testing approval callback behavior
-✅ Testing context assembly (attachments, sandboxes)
+✅ Testing context assembly (attachments, tools)
 ✅ Testing delegation and allowlists
 ✅ You need precise control over the output
 

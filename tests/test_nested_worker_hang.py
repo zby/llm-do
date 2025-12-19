@@ -24,7 +24,7 @@ def whiteboard_registry(tmp_path, monkeypatch):
     dest = tmp_path / "whiteboard_planner"
     shutil.copytree(source, dest)
 
-    # Change CWD to example directory so relative sandbox paths resolve correctly
+    # Change CWD to example directory so relative paths resolve correctly
     monkeypatch.chdir(dest)
     return WorkerRegistry(dest)
 
@@ -110,7 +110,7 @@ This project aims to create an automated system for converting whiteboard photos
                 "attachments": ["input/white_board_plan.png"]
             }
         },
-        # After getting the plan, write it to the plans sandbox
+        # After getting the plan, write it to the plans directory
         {
             "name": "write_file",
             "args": {
@@ -197,7 +197,7 @@ A simple test project.
 - None identified
 """
 
-    # TestModel defaults to tool calling, which fails because this worker has no sandboxes.
+    # TestModel defaults to tool calling, which fails because this worker has no file tools.
     # Disable tool usage and return a deterministic plan so we can verify the output.
     planner_model = TestModel(call_tools=[], custom_output_text=plan_text)
 

@@ -32,7 +32,7 @@ We borrow their **UI patterns**, not their agent architecture.
 - Worker composition (`worker_call`, `worker_create`)
 - `pydantic-ai-blocking-approval` integration
 - Config-driven toolset loading
-- Per-worker sandbox/approval isolation
+- Per-worker approval isolation
 
 ## Tasks
 
@@ -75,7 +75,7 @@ Upgrade input handling:
 ### Phase 6: Worker-Specific UI
 llm-do specific features (not in Vibe):
 - [ ] Worker delegation visualization (show worker call stack)
-- [ ] Sandbox path indicators
+- [ ] File path indicators
 - [ ] Per-worker approval state display
 - [ ] Worker output schema hints
 

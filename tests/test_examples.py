@@ -6,14 +6,13 @@ This ensures the examples stay working as the codebase evolves.
 
 ## Testing Philosophy: CWD Matters
 
-Workers with sandboxes that use relative paths (like `./notes` or `./input`)
-depend on CWD for correct path resolution, because the Sandbox resolves
-relative paths from CWD (not from the registry root).
+Workers using relative paths (like `./notes` or `./input`) depend on CWD
+for correct path resolution.
 
 To match real-world usage:
 1. Copy example to tmp_path (for test isolation)
 2. Change CWD to the example directory (via monkeypatch.chdir)
-3. Now relative sandbox paths resolve correctly
+3. Now relative paths resolve correctly
 
 This mimics how users actually run the examples:
     cd examples/approvals_demo
@@ -69,7 +68,7 @@ def greeter_registry(tmp_path):
 def approvals_demo_registry(tmp_path, monkeypatch):
     """Registry for the approvals demo example."""
     example_path = _copy_example_directory("approvals_demo", tmp_path)
-    # Change CWD to example directory so relative sandbox paths resolve correctly
+    # Change CWD to example directory so relative paths resolve correctly
     monkeypatch.chdir(example_path)
     return WorkerRegistry(example_path)
 
@@ -78,7 +77,7 @@ def approvals_demo_registry(tmp_path, monkeypatch):
 def pitchdeck_eval_registry(tmp_path, monkeypatch):
     """Registry for the pitchdeck_eval example."""
     example_path = _copy_example_directory("pitchdeck_eval", tmp_path)
-    # Change CWD to example directory so relative sandbox paths resolve correctly
+    # Change CWD to example directory so relative paths resolve correctly
     monkeypatch.chdir(example_path)
     return WorkerRegistry(example_path)
 
@@ -127,16 +126,16 @@ def test_greeter_with_different_inputs(greeter_registry):
 
 
 def test_save_note_example(approvals_demo_registry, tool_calling_model_cls):
-    """Test the save_note example - sandbox write with approval.
+    """Test the save_note example - file write with approval.
 
     This tests that:
-    - Worker loads with sandbox configuration
+    - Worker loads with filesystem toolset configuration
     - Tool is actually called to write the file
     - Approval system works with approve_all
-    - File is written to the sandboxed directory
+    - File is written to the correct directory
 
     Note: The fixture changes CWD to the example directory, so relative
-    sandbox paths (like ./notes) resolve correctly.
+    paths (like ./notes) resolve correctly.
     """
     from pathlib import Path
 
@@ -323,13 +322,13 @@ def test_pitch_orchestrator_example(pitchdeck_eval_registry):
     """Test the pitch_orchestrator example - multi-worker delegation.
 
     This tests that:
-    - Worker loads with sandbox configuration
+    - Worker loads with filesystem toolset configuration
     - Worker loads with delegation tool configuration
-    - Worker can execute with sandboxes configured
+    - Worker can execute with toolsets configured
     - Delegation setup is correct (doesn't test actual delegation with TestModel)
 
     Note: The fixture changes CWD to the example directory, so relative
-    sandbox paths (like ./input and ./evaluations) resolve correctly.
+    paths (like ./input and ./evaluations) resolve correctly.
     """
     from pathlib import Path
 
@@ -343,7 +342,7 @@ def test_pitch_orchestrator_example(pitchdeck_eval_registry):
     input_dir = Path("input")
     eval_dir = Path("evaluations")
 
-    # The sandbox directories should already exist (copied from example)
+    # The directories should already exist (copied from example)
     # but create them if needed
     input_dir.mkdir(exist_ok=True)
     eval_dir.mkdir(exist_ok=True)

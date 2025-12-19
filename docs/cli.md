@@ -100,17 +100,11 @@ Override worker configuration fields at runtime without editing YAML files. Supp
 # Override model
 llm-do greeter "hello" --set model=openai:gpt-4o
 
-# Override nested sandbox configuration
-llm-do worker "task" --set sandbox.network_enabled=false
-
 # Override multiple fields
 llm-do worker "task" \
   --set model=anthropic:claude-haiku-4-5 \
   --set attachment_policy.max_attachments=5 \
   --set locked=true
-
-# Override sandbox paths for different environments
-llm-do save_note "note text" --set sandbox.paths.notes.root=/tmp/notes
 ```
 
 **Type inference:**
@@ -121,8 +115,7 @@ llm-do save_note "note text" --set sandbox.paths.notes.root=/tmp/notes
 
 **Dot notation:**
 - Simple: `model=gpt-4`
-- Nested: `sandbox.network_enabled=false`
-- Deep: `attachment_policy.max_total_bytes=1000000`
+- Nested: `attachment_policy.max_total_bytes=1000000`
 
 See [Configuration Overrides](#configuration-overrides) below for examples.
 
@@ -202,20 +195,11 @@ llm-do worker "task" \
   --set attachment_policy.max_total_bytes=1000000
 ```
 
-**Development environments:**
-```bash
-# Change sandbox paths for local testing
-llm-do save_note "text" \
-  --set sandbox.paths.notes.root=/tmp/test-notes \
-  --set sandbox.paths.notes.mode=rw
-```
-
 **CI/CD parameterization:**
 ```bash
 # Inject environment-specific settings
 llm-do processor "data" \
-  --set model=$CI_MODEL \
-  --set sandbox.paths.work.root=$WORKSPACE_DIR
+  --set model=$CI_MODEL
 ```
 
 ### Common Override Fields
@@ -229,9 +213,6 @@ llm-do processor "data" \
 | `toolsets.delegation.NAME` | `--set toolsets.delegation.summarizer={}` | Expose worker tool |
 | `attachment_policy.max_attachments` | `--set attachment_policy.max_attachments=10` | Adjust limits |
 | `attachment_policy.max_total_bytes` | `--set attachment_policy.max_total_bytes=5000000` | Adjust size limits |
-| `sandbox.network_enabled` | `--set sandbox.network_enabled=false` | Disable network (future) |
-| `sandbox.paths.NAME.root` | `--set sandbox.paths.work.root=/tmp` | Change directories |
-| `sandbox.paths.NAME.mode` | `--set sandbox.paths.work.mode=ro` | Make read-only |
 | `server_side_tools` | `--set server_side_tools='[{"tool_type":"web_search"}]'` | Enable provider tools (PydanticAI `builtin_tools`) |
 
 ### Validation
@@ -359,5 +340,5 @@ llm-do orchestrator "task" \
 ## Related Documentation
 
 - [Worker Delegation](worker_delegation.md) — Worker-to-worker calls
-- [Architecture](architecture.md) — Sandbox, runtime, and approval system
+- [Architecture](architecture.md) — Runtime and approval system
 - [UI Architecture](ui.md) — Display backends and event rendering

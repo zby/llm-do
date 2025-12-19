@@ -1,15 +1,14 @@
-# Approval demo: append notes with sandbox writes
+# Approval demo: append notes with write approval
 
 This example exists to exercise the interactive approval flow. The worker writes
-user-provided notes to a log file in a sandbox, and the `sandbox.write` tool is
-configured to require approval each time.
+user-provided notes to a log file, and writes are configured to require approval.
 
 ## Files
 
 - `workers/save_note.worker` – worker definition that treats the entire user
   input as the note text and overwrites `notes/activity.log` (append support
   coming later).
-- `notes/` – sandbox directory where the log is stored. It starts empty.
+- `notes/` – directory where the log is stored. It starts empty.
 
 ## Run it
 

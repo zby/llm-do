@@ -259,7 +259,7 @@ def test_bootstrapper_creates_worker(bootstrapper_registry):
 
 
 def test_bootstrapper_writes_output(bootstrapper_registry):
-    """Test that bootstrapper can write to output sandbox."""
+    """Test that bootstrapper can write to output directory."""
     test_content = "# Test Output\n\nThis is a test."
 
     model = SequentialToolCallingModel(

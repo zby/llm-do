@@ -65,7 +65,7 @@ packages/cli/src/tools/git/
 
 ### Tools Provided
 1. `git_status` - Show staged commits and unstaged files
-2. `git_stage` - Stage sandbox files for commit (needs approval)
+2. `git_stage` - Stage files for commit (needs approval)
 3. `git_diff` - Show unified diffs
 4. `git_push` - Push staged commit (manual-only, LLM cannot invoke)
 5. `git_discard` - Discard a staged commit
@@ -76,7 +76,7 @@ packages/cli/src/tools/git/
 
 ### Key Design: Staged Commits Model
 ```
-Sandbox Files → git_stage (approval) → Staged Commit → git_push (manual) → Git Repo
+Working Files → git_stage (approval) → Staged Commit → git_push (manual) → Git Repo
 ```
 
 This provides strong guardrails:
@@ -140,7 +140,7 @@ toolsets:
 ### Option 2: Staged Commits (Medium complexity)
 
 Port golem-forge's staged commit model:
-- Track file modifications in sandbox
+- Track file modifications in working directory
 - Stage changes before committing
 - Require explicit approval for push
 

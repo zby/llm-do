@@ -22,7 +22,7 @@ def whiteboard_registry(tmp_path, monkeypatch):
     dest = tmp_path / "whiteboard_planner"
     shutil.copytree(source, dest)
     
-    # Change CWD to example directory so relative sandbox paths resolve correctly
+    # Change CWD to example directory so relative paths resolve correctly
     monkeypatch.chdir(dest)
     return WorkerRegistry(dest)
 

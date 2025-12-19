@@ -96,7 +96,7 @@ my-project/
 
 **Important:** The bootstrapper can only access `./input` and `./output` relative to where you run it. It cannot read arbitrary files from the current directory.
 
-> **Future:** CLI config overrides (`--set sandboxes.input.path=./docs`) are planned but not yet implemented. See TODO.md.
+> **Note:** The bootstrapper uses configured file paths. See TODO.md for planned CLI override features.
 
 ## Configuration
 

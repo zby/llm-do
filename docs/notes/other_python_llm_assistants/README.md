@@ -132,39 +132,31 @@ Each project excels in different areas. Here's what to borrow from each:
 ### Phase 1: Quick Wins (1-2 days)
 From both projects - easy, high-value:
 
-```
-□ Token/cost tracking (TunaCode pattern)
-□ Opacity-based CSS (Mistral Vibe pattern)
-□ Output truncation head+tail (TunaCode pattern)
-□ Environment hardening (Mistral Vibe pattern)
-□ Blinking indicators (Mistral Vibe pattern)
-```
+- Token/cost tracking (TunaCode pattern)
+- Opacity-based CSS (Mistral Vibe pattern)
+- Output truncation head+tail (TunaCode pattern)
+- Environment hardening (Mistral Vibe pattern)
+- Blinking indicators (Mistral Vibe pattern)
 
 ### Phase 2: TUI Improvements (3-5 days)
 Primarily from Mistral Vibe:
 
-```
-□ Streaming markdown widget
-□ Modal approval UI
-□ Generator-based events
-□ Approval theme: warning not error
-```
+- Streaming markdown widget
+- Modal approval UI
+- Generator-based events
+- Approval theme: warning not error
 
 ### Phase 3: UX Features (1 week)
 Mix of both:
 
-```
-□ Slash commands framework (TunaCode)
-□ Session persistence (TunaCode)
-□ Middleware pipeline (Mistral Vibe)
-□ Dangerous command detection (Mistral Vibe)
-```
+- Slash commands framework (TunaCode)
+- Session persistence (TunaCode)
+- Middleware pipeline (Mistral Vibe)
+- Dangerous command detection (Mistral Vibe)
 
 ### Phase 4: Future (when needed)
-```
-□ MCP server support (Mistral Vibe reference)
-□ Research/read-only mode (TunaCode reference)
-```
+- MCP server support (Mistral Vibe reference)
+- Research/read-only mode (TunaCode reference)
 
 ---
 
@@ -178,3 +170,6 @@ Mix of both:
 **llm-do's `WorkerContext` pattern is unique** - workers can call other workers via `ctx.call_worker()`. This is our differentiator.
 
 **Implication:** Borrow their TUI patterns, not their agent/tool architectures.
+
+## Open Questions
+- Which other Python assistants should we survey next?

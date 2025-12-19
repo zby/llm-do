@@ -159,6 +159,11 @@ Aider-style integration:
 3. **Consider GitPython** for Python implementation (Aider's choice)
 4. **Approval gates** essential for write operations (add, commit, push)
 
+## Open Questions
+- Should llm-do adopt staged commits now or start with a minimal git toolset?
+- Do we prefer GitPython or invoking the git CLI for early iterations?
+- How should approvals and manual-only operations map to git push and pull?
+
 ## References
 
 - Aider git docs: https://aider.chat/docs/git.html

@@ -205,3 +205,7 @@ Since Vibe supports MCP servers, we could potentially expose llm-do workers as a
 - Repository: https://github.com/mistralai/mistral-vibe
 - ACP: https://agentclientprotocol.org/ (if exists)
 - MCP: Model Context Protocol (Anthropic standard)
+
+## Open Questions
+- Which TUI patterns are lowest effort to port into llm-do?
+- Is MCP support worth prototyping or should we focus on local tool UX first?

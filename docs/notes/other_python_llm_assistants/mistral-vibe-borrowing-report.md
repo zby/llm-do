@@ -689,3 +689,7 @@ class MiddlewareAction(StrEnum):
 | Tool architecture | No recursive workers |
 | Agent class | Single-level only |
 | MCP integration | Different approach |
+
+## Open Questions
+- Which two or three TUI improvements should be prioritized first for llm-do?
+- Do we want to prototype the modal approval flow before streaming markdown?

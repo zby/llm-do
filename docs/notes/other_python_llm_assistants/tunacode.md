@@ -199,3 +199,7 @@ See `tunacode-integration.md` for full implementation plan.
 
 - Repository: https://github.com/alchemiststudiosDOTai/tunacode
 - Website: https://tunacode.xyz
+
+## Open Questions
+- How stable is TunaCode's tool registration API for external integrations?
+- Is prompt_toolkit required if llm-do only wants to borrow TUI patterns?

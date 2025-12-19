@@ -103,18 +103,9 @@ GlobalWorkerContext.init(
 tools_list.append(Tool(call_llm_do_worker))
 ```
 
-## Tasks
+## Tracking
 
-### From llm-do side
-- [ ] Create `llm_do.integrations` module with `GlobalWorkerContext`
-- [ ] Support external approval callback injection
-- [ ] Optional: streaming callback for progress updates
-
-### From TunaCode side
-- [ ] Optional dependency on llm-do
-- [ ] Call `GlobalWorkerContext.init()` at startup
-- [ ] Register `call_llm_do_worker` tool
-- [ ] Bridge approval requests to TunaCode UI
+Work tracking lives in `docs/tasks/backlog/tunacode-integration.md`.
 
 ## Usage Example
 
@@ -129,3 +120,7 @@ TunaCode: I'll delegate this to the security_analyzer worker.
 ```
 
 The worker runs with its own sandbox constraints, can delegate to sub-workers, and approval requests flow through TunaCode's UI.
+
+## Open Questions
+- Is TunaCode's tool registration API stable enough for an external integration?
+- Do we need streaming progress callbacks or is final output enough?

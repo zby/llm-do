@@ -274,3 +274,7 @@ golem-forge's system is more mature and easier to extend. The key improvements f
 3. **UI metadata** (label, category) for manual tool presentation
 
 The execution mode approach via a toolset method is the chosen path forward - it aligns with the "one tool interface, mode as metadata" principle while staying self-contained within llm-do.
+
+## Open Questions
+- Do we want to prioritize self-registering toolsets over other tooling work?
+- Should execution mode metadata be part of the toolset interface or external config only?

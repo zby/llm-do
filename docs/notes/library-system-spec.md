@@ -340,26 +340,13 @@ Error: Worker 'helper' is not exported by library 'utils'
 
 ## 8. Implementation Plan
 
-### Phase 1: Core Types
-- [ ] Add `LibraryConfig` model to `types.py`
-- [ ] Create `library.py` module with resolution functions
-- [ ] Add library-related exceptions
+Work tracking lives in `docs/tasks/backlog/library-system.md`.
 
-### Phase 2: Registry Integration
-- [ ] Update `WorkerRegistry` to resolve `lib:` references
-- [ ] Add library templates to template search path
-- [ ] Add library tools to tool discovery
-
-### Phase 3: CLI Commands
-- [ ] Implement `llm-do lib install`
-- [ ] Implement `llm-do lib list`
-- [ ] Implement `llm-do lib info`
-- [ ] Implement `llm-do lib remove`
-
-### Phase 4: Testing & Polish
-- [ ] Add comprehensive tests
-- [ ] Create example library
-- [ ] Update documentation
+### Phases (high level)
+1. Core types (LibraryConfig model, resolution helpers, exceptions)
+2. Registry integration (lib: resolution, templates, tools)
+3. CLI commands (install, list, info, remove)
+4. Testing and polish (tests, example library, docs)
 
 ---
 

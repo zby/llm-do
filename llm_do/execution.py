@@ -57,6 +57,21 @@ def model_supports_streaming(model: ModelLike) -> bool:
     return model_stream is not base_stream
 
 
+def _json_default(obj: Any) -> Any:
+    """Fallback serializer for json.dumps to handle common non-serializable types."""
+    # Pydantic models
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    # Path-like objects
+    if hasattr(obj, "__fspath__"):
+        return str(obj)
+    # datetime, date, time
+    if hasattr(obj, "isoformat"):
+        return obj.isoformat()
+    # Fall back to string representation
+    return str(obj)
+
+
 def format_user_prompt(user_input: Any) -> str:
     """Serialize user input into a prompt string for the agent.
 
@@ -68,7 +83,7 @@ def format_user_prompt(user_input: Any) -> str:
     """
     if isinstance(user_input, str):
         return user_input
-    return json.dumps(user_input, indent=2, sort_keys=True)
+    return json.dumps(user_input, indent=2, sort_keys=True, default=_json_default)
 
 
 # Registry of server-side tool factories
@@ -171,9 +186,12 @@ def prepare_agent_execution(
             "user_input": prompt_text,
             "attachments": attachment_labels,
         }
-        context.message_callback(
-            [{"worker": definition.name, "initial_request": preview}]
-        )
+        try:
+            context.message_callback(
+                [{"worker": definition.name, "initial_request": preview}]
+            )
+        except Exception as e:
+            logger.exception("Error in initial_request callback: %s", e)
 
         def _emit_model_status(state: str, *, duration: Optional[float] = None) -> None:
             if not context.message_callback:
@@ -186,9 +204,12 @@ def prepare_agent_execution(
                 status["model"] = model_label
             if duration is not None:
                 status["duration_sec"] = duration
-            context.message_callback(
-                [{"worker": definition.name, "status": status}]
-            )
+            try:
+                context.message_callback(
+                    [{"worker": definition.name, "status": status}]
+                )
+            except Exception as e:
+                logger.exception("Error in status callback: %s", e)
 
         if model_supports_streaming(context.effective_model):
             # Note: The stream handler must be thread-safe since it will be called
@@ -290,16 +311,33 @@ async def default_agent_runner_async(
         register_tools_fn(agent, context)
 
     # Run the agent asynchronously
-    run_result = await agent.run(
-        exec_ctx.prompt,
-        deps=context,
-        event_stream_handler=exec_ctx.event_handler,
-    )
-
-    if exec_ctx.emit_status is not None and exec_ctx.started_at is not None:
-        exec_ctx.emit_status("end", duration=round(perf_counter() - exec_ctx.started_at, 2))
+    try:
+        run_result = await agent.run(
+            exec_ctx.prompt,
+            deps=context,
+            event_stream_handler=exec_ctx.event_handler,
+        )
+    except Exception:
+        # Emit error status before re-raising
+        if exec_ctx.emit_status is not None and exec_ctx.started_at is not None:
+            exec_ctx.emit_status(
+                "error", duration=round(perf_counter() - exec_ctx.started_at, 2)
+            )
+        raise
+    else:
+        if exec_ctx.emit_status is not None and exec_ctx.started_at is not None:
+            exec_ctx.emit_status(
+                "end", duration=round(perf_counter() - exec_ctx.started_at, 2)
+            )
 
     # Extract all messages from the result
-    messages = run_result.all_messages() if hasattr(run_result, 'all_messages') else []
+    # Handle both method and property forms for compatibility
+    all_messages_attr = getattr(run_result, "all_messages", None)
+    if callable(all_messages_attr):
+        messages = all_messages_attr()
+    elif all_messages_attr is not None:
+        messages = all_messages_attr
+    else:
+        messages = []
 
     return (run_result.output, messages)

@@ -32,6 +32,12 @@ logger = logging.getLogger(__name__)
 
 # Reserved tool names that cannot be used as worker names
 _RESERVED_TOOLS = {"worker_call", "worker_create"}
+_SHELL_TOOLSET_KEYS = {"shell", "llm_do.shell.toolset.ShellToolset"}
+_FILESYSTEM_TOOLSET_KEYS = {"filesystem", "llm_do.filesystem_toolset.FileSystemToolset"}
+_CUSTOM_TOOLSET_KEYS = {"custom", "llm_do.custom_toolset.CustomToolset"}
+_FILESYSTEM_TOOL_NAMES = {"read_file", "write_file", "list_files"}
+_SHELL_TOOL_NAMES = {"shell"}
+_CUSTOM_TOOLSET_APPROVAL_KEY = "_approval_config"
 
 
 class DelegationToolset(AbstractToolset[WorkerContext]):
@@ -70,14 +76,6 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             config = {}
         if not isinstance(config, dict):
             raise ValueError("Delegation toolset config must be a dict")
-
-        # Validate no name collisions with reserved tools
-        for name in config.keys():
-            if name in _RESERVED_TOOLS:
-                continue  # Reserved tools are allowed in config
-            # This check is for future-proofing if we add more reserved names
-            # Currently worker names can't collide since reserved names are explicit
-
         self._config = config
         self._id = id
         self._max_retries = max_retries
@@ -95,6 +93,58 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
     def _get_configured_workers(self) -> List[str]:
         """Get list of worker names configured as tools."""
         return [name for name in self._config.keys() if name not in _RESERVED_TOOLS]
+
+    def _get_toolset_config(
+        self,
+        toolsets: dict[str, Any],
+        keys: set[str],
+    ) -> Optional[Any]:
+        """Return the toolset config for a known alias/class path if present."""
+        for key in keys:
+            if key in toolsets:
+                return toolsets[key]
+        return None
+
+    def _collect_reserved_tool_names(self, worker_ctx: WorkerContext) -> set[str]:
+        """Collect tool names that would collide with worker tools."""
+        reserved = set(_RESERVED_TOOLS)
+        toolsets = worker_ctx.worker.toolsets or {}
+
+        if any(key in toolsets for key in _SHELL_TOOLSET_KEYS):
+            reserved.update(_SHELL_TOOL_NAMES)
+
+        if any(key in toolsets for key in _FILESYSTEM_TOOLSET_KEYS):
+            reserved.update(_FILESYSTEM_TOOL_NAMES)
+
+        custom_config = self._get_toolset_config(toolsets, _CUSTOM_TOOLSET_KEYS)
+        if isinstance(custom_config, dict):
+            reserved.update(
+                name for name in custom_config.keys() if name != _CUSTOM_TOOLSET_APPROVAL_KEY
+            )
+
+        return reserved
+
+    def _validate_worker_tool_names(self, worker_ctx: WorkerContext) -> None:
+        """Fail fast on worker tool name collisions or reserved names."""
+        reserved = self._collect_reserved_tool_names(worker_ctx)
+        worker_names = self._get_configured_workers()
+        collisions = sorted(set(worker_names) & reserved)
+        if collisions:
+            names = ", ".join(collisions)
+            raise ValueError(
+                "Worker names conflict with other tool names: "
+                f"{names}. Rename the worker(s) or disable the conflicting toolset(s)."
+            )
+
+        registry = getattr(worker_ctx, "registry", None)
+        if registry is None:
+            return
+        for reserved_name in _RESERVED_TOOLS:
+            if reserved_name in self._config and registry.worker_exists(reserved_name):
+                raise ValueError(
+                    f"Worker name '{reserved_name}' is reserved for delegation tools. "
+                    "Rename the worker to expose it as a tool."
+                )
 
     def _is_configured_worker(self, worker_name: str) -> bool:
         """Return True if the worker is configured and enabled."""
@@ -270,6 +320,8 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         """
         tools: dict[str, ToolsetTool] = {}
         worker_ctx: WorkerContext = ctx.deps
+
+        self._validate_worker_tool_names(worker_ctx)
 
         worker_names = self._get_configured_workers()
 

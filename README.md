@@ -20,7 +20,7 @@ Workers are focused prompt units that compose like functions:
 |-------------|--------|
 | Project directory | Registry root |
 | Function | `.worker` file |
-| Function call | `_worker_*` delegation tool |
+| Function call | Worker tool (same name as worker) |
 | Arguments | Input payload |
 | Return value | Structured output |
 
@@ -102,7 +102,7 @@ llm-do init my-project
 
 ## Workers
 
-Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via `_worker_*` tools—like function calls.
+Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via worker tools (same name as worker)—like function calls.
 
 Workers are exposed as tools. Tools that need orchestration can depend on
 `ToolContext` (`RunContext[ToolContext]`) and call `ctx.deps.call_worker(...)`.
@@ -121,7 +121,7 @@ Functions become LLM-callable tools. Reference them in your worker's toolsets co
 
 ## Key Features
 
-- **Worker delegation** — Workers call other workers via `_worker_*` tools, with allowlists
+- **Worker delegation** — Workers call other workers via worker tools (same name as worker), with allowlists
 - **Workers as tools** — Tools can call workers via `ToolContext`; nested calls are capped (default depth 5)
 - **Custom tools** — Python functions in `tools.py` become LLM-callable tools
 - **Jinja2 templating** — Compose prompts from reusable templates

@@ -246,6 +246,40 @@ def test_worker_call_blocks_non_generated_worker(tmp_path):
         asyncio.run(toolset.call_tool("worker_call", {"worker": "unknown"}, mock_ctx, None))
 
 
+def test_delegation_toolset_blocks_tool_name_collision(tmp_path):
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={"delegation": {"read_file": {}}, "filesystem": {}},
+    )
+    registry.save_definition(parent)
+    registry.save_definition(WorkerDefinition(name="read_file", instructions=""))
+    context = _parent_context(registry, parent)
+
+    toolset, mock_ctx = _create_toolset_and_context(context)
+
+    with pytest.raises(ValueError, match="conflict with other tool names"):
+        asyncio.run(toolset.get_tools(mock_ctx))
+
+
+def test_delegation_toolset_blocks_reserved_worker_name(tmp_path):
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={"delegation": {"worker_call": {}}},
+    )
+    registry.save_definition(parent)
+    registry.save_definition(WorkerDefinition(name="worker_call", instructions=""))
+    context = _parent_context(registry, parent)
+
+    toolset, mock_ctx = _create_toolset_and_context(context)
+
+    with pytest.raises(ValueError, match="reserved for delegation tools"):
+        asyncio.run(toolset.get_tools(mock_ctx))
+
+
 
 
 

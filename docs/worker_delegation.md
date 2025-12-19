@@ -20,6 +20,10 @@ provides input data and attachments, and receives structured or freeform results
 The callee's instructions, model, and tools are defined in its worker definition;
 the caller only passes arguments.
 
+Worker tool names share a global tool namespace. Avoid naming workers `worker_call` or
+`worker_create`, and avoid collisions with other tool names such as `shell`, `read_file`,
+`write_file`, or `list_files`.
+
 ## API Signatures
 
 ### LLM-Facing Tools

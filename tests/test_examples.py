@@ -82,135 +82,52 @@ def pitchdeck_eval_registry(tmp_path, monkeypatch):
     return WorkerRegistry(example_path)
 
 
-def test_greeter_example(greeter_registry):
-    """Test the greeter example - simple conversational worker.
-
-    This tests that:
-    - Worker definition loads correctly
-    - Worker can respond to user input
-    - No tools are required (pure conversational)
-    """
-    # Use TestModel with no tool calling (greeter doesn't use tools)
-    model = TestModel(call_tools=[], custom_output_text="Hello! Here's a joke for you...")
+@pytest.mark.parametrize("input_data", [
+    "Tell me a joke",
+    "Hello there!",
+    {"message": "structured input"},
+])
+def test_greeter_example(greeter_registry, input_data):
+    """Test the greeter example handles various input types."""
+    model = TestModel(call_tools=[], custom_output_text="Response text")
 
     result = _run_worker(
         registry=greeter_registry,
         worker="greeter",
-        input_data="Tell me a joke",
+        input_data=input_data,
         cli_model=model,
     )
 
-    # TestModel should execute successfully
     assert result is not None
     assert result.output is not None
 
 
-def test_greeter_with_different_inputs(greeter_registry):
-    """Test greeter handles various input types."""
-    model = TestModel(call_tools=[], custom_output_text="Response text")
+@pytest.mark.parametrize("input_data", [
+    {"note": "Test note from integration test"},
+    "Plain string note",
+])
+def test_save_note_example(approvals_demo_registry, tool_calling_model_cls, input_data):
+    """Test save_note with dict and string inputs."""
+    log_file = Path("notes/activity.log")
 
-    inputs = [
-        "Hello there!",
-        "What's the weather like?",
-        {"message": "structured input"},
-    ]
-
-    for input_data in inputs:
-        result = _run_worker(
-            registry=greeter_registry,
-            worker="greeter",
-            input_data=input_data,
-            cli_model=model,
-        )
-        assert result is not None
-
-
-def test_save_note_example(approvals_demo_registry, tool_calling_model_cls):
-    """Test the save_note example - file write with approval.
-
-    This tests that:
-    - Worker loads with filesystem toolset configuration
-    - Tool is actually called to write the file
-    - Approval system works with approve_all
-    - File is written to the correct directory
-
-    Note: The fixture changes CWD to the example directory, so relative
-    paths (like ./notes) resolve correctly.
-    """
-    from pathlib import Path
-
-    # Since CWD is the example directory, ./notes resolves correctly
-    notes_dir = Path("notes")
-    log_file = notes_dir / "activity.log"
-
-    # Clean up any existing activity.log from the copied example
     if log_file.exists():
         log_file.unlink()
 
-    # Mock model that actually calls write_file
-    note_content = "2025-11-22 14:30 • Test note from integration test"
+    note_content = "2025-11-22 14:30 • Test note"
     model = tool_calling_model_cls([
-        {
-            "name": "write_file",
-            "args": {
-                "path": "notes/activity.log",
-                "content": note_content,
-            },
-        }
+        {"name": "write_file", "args": {"path": "notes/activity.log", "content": note_content}},
     ])
 
     result = _run_worker(
         registry=approvals_demo_registry,
         worker="save_note",
-        input_data={"note": "Test note from integration test"},
-        cli_model=model,
-        approval_controller=ApprovalController(mode="approve_all"),
-    )
-
-    # Verify the worker executed successfully
-    assert result is not None
-    assert result.output == "Task completed"
-
-    # Verify the file was actually written
-    assert log_file.exists(), "activity.log should be created"
-    assert log_file.read_text() == note_content
-
-
-def test_save_note_with_string_input(approvals_demo_registry, tool_calling_model_cls):
-    """Test save_note with plain string input."""
-    from pathlib import Path
-
-    # Since CWD is the example directory, ./notes resolves correctly
-    notes_dir = Path("notes")
-    log_file = notes_dir / "activity.log"
-
-    # Clean up any existing activity.log from the copied example
-    if log_file.exists():
-        log_file.unlink()
-
-    note_content = "2025-11-22 15:00 • Plain string note"
-    model = tool_calling_model_cls([
-        {
-            "name": "write_file",
-            "args": {
-                "path": "notes/activity.log",
-                "content": note_content,
-            },
-        }
-    ])
-
-    result = _run_worker(
-        registry=approvals_demo_registry,
-        worker="save_note",
-        input_data="Plain string note",
+        input_data=input_data,
         cli_model=model,
         approval_controller=ApprovalController(mode="approve_all"),
     )
 
     assert result is not None
     assert result.output == "Task completed"
-
-    # Verify the file was written
     assert log_file.exists()
     assert log_file.read_text() == note_content
 

@@ -59,7 +59,7 @@ python_functions = ["test_*"]
 addopts = [
     "-v",
     "--strict-markers",
-    "--ignore=tests/test_integration_live.py",
+    "--ignore=tests/live/",
     "--ignore=examples/",
     "-m not custom_deps",
 ]

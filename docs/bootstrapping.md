@@ -40,24 +40,27 @@ llm-do worker_bootstrapper --model anthropic:claude-sonnet-4 \
 │  1. List files in input/                                 │
 │  2. Decide what worker is needed                         │
 │  3. worker_create("pdf_analyzer", instructions=...)      │
-│  4. _agent_pdf_analyzer(input=..., attachments=[...])    │
+│  4. worker_call(worker="pdf_analyzer", input_data=...,    │
+│                 attachments=[...])                       │
 │  5. write_file("output/result.md", ...)                  │
 └─────────────────────────────────────────────────────────┘
          │                    │
          ▼                    ▼
 ┌─────────────────┐   ┌─────────────────┐
-│ generated/      │   │ output/         │
-│  pdf_analyzer/  │   │  result.md      │
-│   worker.worker │   │                 │
-│                 │   │                 │
+│ /tmp/llm-do/    │   │ output/         │
+│  generated/     │   │  result.md      │
+│   pdf_analyzer/ │   │                 │
+│    worker.worker│   │                 │
 └─────────────────┘   └─────────────────┘
 ```
 
-Created workers are saved to the `generated/` directory and can be reused directly:
+Created workers are saved to `/tmp/llm-do/generated/` by default and registered
+for the current session. Copy them into your project to reuse later:
 
 ```bash
 # Reuse the created worker
-llm-do pdf_analyzer --attach input/new_file.pdf
+cp -r /tmp/llm-do/generated/pdf_analyzer ./pdf_analyzer
+llm-do pdf_analyzer --attachments input/new_file.pdf
 ```
 
 ## Example Session
@@ -81,7 +84,7 @@ $ llm-do worker_bootstrapper --model anthropic:claude-haiku-4-5 \
 
 ## Directory Structure
 
-The bootstrapper expects **exactly this layout** (paths are hardcoded):
+The bootstrapper expects this layout **by convention**:
 
 ```
 my-project/
@@ -89,14 +92,23 @@ my-project/
 │   ├── doc1.pdf
 │   └── doc2.md
 ├── output/          # Read-write: results written here
-└── generated/       # Auto-created workers saved here
-    └── my_analyzer/
-        └── worker.worker
+└── ...
 ```
 
-**Important:** The bootstrapper can only access `./input` and `./output` relative to where you run it. It cannot read arbitrary files from the current directory.
+Generated workers are written to `/tmp/llm-do/generated/` by default:
 
-> **Note:** The bootstrapper uses configured file paths. See TODO.md for planned CLI override features.
+```
+/tmp/llm-do/generated/
+└── my_analyzer/
+    └── worker.worker
+```
+
+**Important:** The bootstrapper operates on normal filesystem paths relative to
+the current working directory. There is no path sandboxing; use a container
+boundary for isolation.
+
+> **Note:** The bootstrapper relies on conventions (`input/`, `output/`) rather
+> than enforced paths.
 
 ## Configuration
 
@@ -104,10 +116,10 @@ The bootstrapper has these built-in permissions:
 
 | Capability | Setting |
 |------------|---------|
-| Read input files | ✅ Auto-approved |
-| Write output files | ⚠️ Requires approval |
+| Read files | ✅ Auto-approved by default |
+| Write files | ⚠️ Requires approval |
 | Create workers | ⚠️ Requires approval |
-| Call any worker | ✅ Auto-approved |
+| Call workers | ⚠️ Requires approval |
 
 ## Supported File Types
 

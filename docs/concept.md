@@ -110,6 +110,7 @@ Workers delegate to other workers via `_worker_*` tools (e.g., `_worker_analyzer
 - Delegation config maps worker names to tools in `toolsets.delegation`
 - Attachments are validated against the callee's `attachment_policy`
 - Model resolution is per-worker (CLI model > worker model > env var); no implicit inheritance
+- Nested calls are capped (default depth 5)
 - Tool access NOT inherited—each worker declares its own
 - Results can be structured (validated JSON) or freeform text
 

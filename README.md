@@ -104,6 +104,10 @@ llm-do init my-project
 
 Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via `_worker_*` tools—like function calls.
 
+Workers are exposed as tools. Tools that need orchestration can depend on
+`ToolContext` (`RunContext[ToolContext]`) and call `ctx.deps.call_worker(...)`.
+Nested worker calls are capped at `MAX_WORKER_DEPTH` (default 5).
+
 Add custom tools by creating `tools.py` in your project root:
 
 ```python
@@ -118,6 +122,7 @@ Functions become LLM-callable tools. Reference them in your worker's toolsets co
 ## Key Features
 
 - **Worker delegation** — Workers call other workers via `_worker_*` tools, with allowlists
+- **Workers as tools** — Tools can call workers via `ToolContext`; nested calls are capped (default depth 5)
 - **Custom tools** — Python functions in `tools.py` become LLM-callable tools
 - **Jinja2 templating** — Compose prompts from reusable templates
 - **Tool approvals** — Gate dangerous operations for human review

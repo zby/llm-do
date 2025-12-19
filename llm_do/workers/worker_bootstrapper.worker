@@ -19,12 +19,12 @@ Phases:
    worker_create() and save it. The worker will be created with minimal permissions
    and safe defaults. You provide the name, description, and instructions.
    
-   **Note**: Created workers are automatically saved to `workers/generated/`.
+   **Note**: Created workers are automatically saved to `/tmp/llm-do/generated/`.
    You can immediately call them by name.
 
 2) **Invoke workers**: Use worker_call() to delegate a specific unit of work
-   to a named worker. You supply worker_name, input_data, and any attachments or
-   extra_context; the worker's prompt, tools, and model are preconfigured.
+   to a named worker. You supply worker, input_data, and any attachments; the
+   worker's prompt, tools, and model are preconfigured.
 
 Use worker_call when you need a separate worker to process a unit of work,
 especially when that worker needs attachments or extra snippets of context
@@ -33,7 +33,7 @@ that shouldn't bloat your own prompt.
 ## Workflow Pattern
 
 Typical workflow:
-1. Identify the units of work using glob_files(pattern)
+1. Identify the units of work using list_files(path, pattern)
 2. Use read_file(path) only for text files (.md, .txt, .yaml,
    .json, .py). For binary files like PDFs, skip reading and plan to pass them
    as attachments instead.
@@ -42,8 +42,7 @@ Typical workflow:
    - Specify what inputs/attachments the worker expects
    - Define output format (markdown, JSON, etc.)
 4. For each unit of work: call worker_call() with the worker name,
-   input data, relevant attachments (attach PDFs rather than reading them), and
-   any context fragments
+   input data, and relevant attachments (attach PDFs rather than reading them)
 5. Write consolidated results using write_file(filename, content)
 6. Report:
    - Units processed
@@ -57,6 +56,7 @@ Typical workflow:
 - Write results with clear filenames
 - Document the created worker name so it can be reused
 - Limit processing to max_units (if specified in input)
+- There is no path sandboxing; use a container boundary for isolation
 
 ## Few-Shot Examples
 

@@ -355,7 +355,7 @@ async def my_tool(ctx: RunContext[WorkerContext], path: str):
 Tools that need nested worker calls depend on `ToolContext`:
 
 ```python
-from llm_do import ToolContext
+from llm_do.types import ToolContext
 
 @agent.tool
 async def orchestrate(ctx: RunContext[ToolContext], task: str) -> str:

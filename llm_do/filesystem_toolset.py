@@ -36,13 +36,11 @@ class FileSystemToolset(AbstractToolset[Any]):
     """Simple file I/O toolset for PydanticAI agents.
 
     Provides read_file, write_file, and glob_files tools.
+    Works with normal filesystem paths (relative to CWD or absolute).
     No sandbox validation - security is provided by Docker container.
 
     Example:
-        # Create toolset with base path
-        toolset = FileSystemToolset(base_path=Path.cwd())
-
-        # Use with PydanticAI agent
+        toolset = FileSystemToolset(config={})
         agent = Agent(..., toolsets=[toolset])
     """
 
@@ -56,14 +54,12 @@ class FileSystemToolset(AbstractToolset[Any]):
 
         Args:
             config: Configuration dict. Supports:
-                - base_path: Base path for file operations (default: cwd)
                 - read_approval: Whether reads require approval (default: False)
                 - write_approval: Whether writes require approval (default: True)
             id: Optional toolset ID for durable execution
             max_retries: Maximum number of retries for tool calls (default: 1)
         """
         self._config = config
-        self._base_path = Path(config.get("base_path", ".")).resolve()
         self._read_approval = config.get("read_approval", False)
         self._write_approval = config.get("write_approval", True)
         self._toolset_id = id
@@ -80,7 +76,7 @@ class FileSystemToolset(AbstractToolset[Any]):
         return self._config
 
     def _resolve_path(self, path: str) -> Path:
-        """Resolve a path relative to base_path.
+        """Resolve a path (relative to CWD or absolute).
 
         Args:
             path: Path string (can be relative or absolute)
@@ -88,10 +84,7 @@ class FileSystemToolset(AbstractToolset[Any]):
         Returns:
             Resolved absolute Path
         """
-        p = Path(path).expanduser()
-        if p.is_absolute():
-            return p.resolve()
-        return (self._base_path / p).resolve()
+        return Path(path).expanduser().resolve()
 
     def needs_approval(
         self, name: str, tool_args: dict[str, Any], ctx: Any
@@ -116,7 +109,7 @@ class FileSystemToolset(AbstractToolset[Any]):
                 return ApprovalResult.needs_approval()
             return ApprovalResult.pre_approved()
 
-        elif name == "glob_files":
+        elif name == "list_files":
             return ApprovalResult.pre_approved()
 
         # Unknown tool - require approval
@@ -145,9 +138,10 @@ class FileSystemToolset(AbstractToolset[Any]):
         elif name == "read_file":
             return f"Read from {path}"
 
-        elif name == "glob_files":
+        elif name == "list_files":
+            search_path = tool_args.get("path", ".")
             pattern = tool_args.get("pattern", "**/*")
-            return f"List files matching {pattern}"
+            return f"List files matching {pattern} in {search_path}"
 
         return f"{name}({path})"
 
@@ -215,20 +209,22 @@ class FileSystemToolset(AbstractToolset[Any]):
 
         return f"Written {len(content)} characters to {path}"
 
-    def glob_files(self, pattern: str = "**/*") -> list[str]:
-        """List files matching pattern.
+    def list_files(self, path: str = ".", pattern: str = "**/*") -> list[str]:
+        """List files matching pattern in a directory.
 
         Args:
-            pattern: Glob pattern to match
+            path: Directory to search in (default: current directory)
+            pattern: Glob pattern to match (default: all files)
 
         Returns:
-            List of matching file paths (relative to base_path)
+            List of matching file paths (relative to search path)
         """
+        base = self._resolve_path(path)
         results = []
-        for match in self._base_path.glob(pattern):
+        for match in base.glob(pattern):
             if match.is_file():
                 try:
-                    rel = match.relative_to(self._base_path)
+                    rel = match.relative_to(base)
                     results.append(str(rel))
                 except ValueError:
                     results.append(str(match))
@@ -275,13 +271,18 @@ class FileSystemToolset(AbstractToolset[Any]):
             "required": ["path", "content"],
         }
 
-        glob_files_schema = {
+        list_files_schema = {
             "type": "object",
             "properties": {
+                "path": {
+                    "type": "string",
+                    "default": ".",
+                    "description": "Directory to search in (default: current directory)",
+                },
                 "pattern": {
                     "type": "string",
                     "default": "**/*",
-                    "description": "Glob pattern to match (default: '**/*')",
+                    "description": "Glob pattern to match (default: all files)",
                 },
             },
         }
@@ -313,12 +314,12 @@ class FileSystemToolset(AbstractToolset[Any]):
             args_validator=TypeAdapter(dict[str, Any]).validator,
         )
 
-        tools["glob_files"] = ToolsetTool(
+        tools["list_files"] = ToolsetTool(
             toolset=self,
             tool_def=ToolDefinition(
-                name="glob_files",
-                description="List files matching a glob pattern.",
-                parameters_json_schema=glob_files_schema,
+                name="list_files",
+                description="List files in a directory matching a glob pattern.",
+                parameters_json_schema=list_files_schema,
             ),
             max_retries=self._max_retries,
             args_validator=TypeAdapter(dict[str, Any]).validator,
@@ -345,9 +346,10 @@ class FileSystemToolset(AbstractToolset[Any]):
             content = tool_args["content"]
             return self.write_file(path, content)
 
-        elif name == "glob_files":
+        elif name == "list_files":
+            path = tool_args.get("path", ".")
             pattern = tool_args.get("pattern", "**/*")
-            return self.glob_files(pattern)
+            return self.list_files(path, pattern)
 
         else:
             raise ValueError(f"Unknown tool: {name}")

@@ -1,87 +1,26 @@
 # Worker Delegation: Technical Reference
 
-This document covers the technical implementation of worker-to-worker delegation in `llm-do`.
+Technical details for worker-to-worker delegation. For concepts, see [`concept.md`](concept.md). For architecture, see [`architecture.md`](architecture.md).
 
-For design philosophy and motivation, see [`concept.md`](concept.md). For architecture details, see [`architecture.md`](architecture.md). For examples, see [`../examples/pitchdeck_eval/`](../examples/pitchdeck_eval/).
+---
 
-## Programmer vs LLM Perspective
+## Tool Signatures
 
-**Programmers** work with `WorkerDefinition` YAML files and the Python runtime. Their mental model is "workers are executable units that can safely call other workers" with:
-- Delegation tool config to control which worker tools are exposed
-- Attachment validation (count, size, suffix) enforced before execution
-- Filesystem toolset for file I/O (no path sandboxing; use a container boundary)
-- Structured outputs via `output_schema_ref`
-- Model resolution per worker (CLI model > worker model > env var)
-- Tool approval system for gated operations
+### Worker Tools (LLM-facing)
 
-**LLMs** see worker tools (one per configured worker, named same as the worker), plus `worker_create`
-and optional `worker_call` (for session-generated workers only). The model chooses which worker tool to call,
-provides input data and attachments, and receives structured or freeform results.
-The callee's instructions, model, and tools are defined in its worker definition;
-the caller only passes arguments.
-
-Worker tool names share a global tool namespace. Avoid naming workers `worker_call` or
-`worker_create`, and avoid collisions with other tool names such as `shell`, `read_file`,
-`write_file`, or `list_files`.
-
-## API Signatures
-
-### LLM-Facing Tools
+Each delegated worker appears as a tool with the same name:
 
 ```python
-# Conceptual view of the tool the LLM sees
 def evaluator(
     input: str,
     attachments: list[str] | None = None,
 ) -> str:
-    """
-    Call the evaluator worker to delegate a subtask.
-
-    The worker will process the input with its own instructions and tools.
-    Results may be structured JSON or freeform text depending on the worker's
-    output_schema_ref configuration.
-    """
+    """Call the evaluator worker to delegate a subtask."""
 ```
 
-`attachments` is only included when the callee's `attachment_policy.max_attachments > 0`.
+`attachments` parameter is only included when callee's `attachment_policy.max_attachments > 0`.
 
-```python
-@agent.tool
-def worker_create(
-    name: str,
-    instructions: str,
-    description: str,
-    output_schema_ref: str | None = None,
-    model: str | None = None,
-) -> dict:
-    """
-    Create a new worker definition with specialized instructions.
-
-    The worker will be saved to the registry with safe defaults (minimal
-    toolsets and attachment policy). Subject to user approval.
-    """
-```
-
-### Programmer-Facing API
-
-```python
-import asyncio
-
-from llm_do import call_worker_async, WorkerContext
-
-# call_worker_async requires a caller_context (from parent worker)
-result = asyncio.run(call_worker_async(
-    registry=worker_registry,
-    worker="evaluator",
-    input_data={"rubric": "Evaluate this pitch deck thoroughly"},
-    caller_context=parent_context,  # Required: WorkerContext from calling worker
-    attachments=["input/deck.pdf"],
-))
-```
-
-### ToolContext for Nested Calls
-
-Tools can call workers directly via `ToolContext`. This enables hybrid tools—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers. See [`concept.md`](concept.md#the-hybrid-pattern) for the pattern and use cases.
+### ToolContext (Python tools calling workers)
 
 ```python
 from pydantic_ai import RunContext
@@ -92,142 +31,69 @@ async def orchestrate(ctx: RunContext[ToolContext], task: str) -> str:
     return await ctx.deps.call_worker("evaluator", task)
 ```
 
-## Worker Definition Structure
-
-```yaml
-# orchestrator.worker (at project root)
-name: orchestrator
-description: Orchestrates multi-step pitch deck evaluation
-model: anthropic:claude-sonnet-4
-
-toolsets:
-  filesystem:
-    read_approval: false
-    write_approval: true
-  delegation:
-    evaluator: {}       # Exposes evaluator tool (same name as worker)
-    worker_create: {}   # Exposes worker_create tool
 ---
 
-You coordinate pitch deck evaluations. First list PDFs in input/,
-then process each one using the evaluator worker via the evaluator tool.
-Write results to evaluations/.
+## Configuration
+
+### Delegation Toolset
+
+```yaml
+toolsets:
+  delegation:
+    evaluator: {}       # Exposes evaluator tool
+    summarizer: {}      # Exposes summarizer tool
+    worker_create: {}   # Exposes worker_create tool (experimental)
 ```
 
-Note: the evaluator worker should declare its own `attachment_policy` (for
-example, allow `.pdf`) to accept attachments.
+Worker tool names share a global namespace. Avoid naming workers `worker_call`, `worker_create`, `shell`, `read_file`, `write_file`, or `list_files`.
+
+---
 
 ## Attachment Resolution
 
-When a worker passes `attachments` to a delegation tool (worker tool), each entry
-is a file path (relative to CWD or absolute).
+When passing `attachments` to a worker tool:
 
-The delegation toolset:
-1. Expands and resolves each path
-2. Ensures the path exists and is a file
-3. Forwards `AttachmentPayload` objects to the callee
+1. Each entry is a file path (relative to CWD or absolute)
+2. Delegation toolset expands and resolves each path
+3. Validates path exists and is a file
+4. Forwards `AttachmentPayload` objects to callee
+5. Runtime validates against callee's `attachment_policy` (max count, total bytes, allowed/denied suffixes)
 
-The runtime then validates attachments against the callee's `attachment_policy`
-(max count, total bytes, allowed/denied suffixes). There is no path sandboxing.
+**Note**: `read_file` is for UTF-8 text only. Use attachments for binary files (PDFs, images, spreadsheets).
 
-**Important**: `read_file` is for UTF-8 text only. Use attachments for binary
-files (PDFs, images, spreadsheets).
+---
 
 ## Model Selection
 
-Worker delegation resolves the model using this chain:
+Model resolution chain (first match wins):
 
 1. CLI `--model` flag (top-level run only)
-2. The callee's `model` field in its worker definition
+2. Callee's `model` field in worker definition
 3. `LLM_DO_MODEL` environment variable
 4. Error if none specified
 
-Nested worker calls do not inherit the caller's model; set `model` per worker
-or rely on `LLM_DO_MODEL`.
+Nested calls do **not** inherit caller's model. Set `model` per worker or use `LLM_DO_MODEL`.
+
+---
 
 ## Nesting Limits
 
-Nested worker calls are capped at `MAX_WORKER_DEPTH` (default 5). Each nested
-call increments `WorkerContext.depth`; exceeding the limit raises `RecursionError`.
+Nested calls capped at `MAX_WORKER_DEPTH` (default 5). Each call increments `WorkerContext.depth`; exceeding limit raises `RecursionError`.
 
-## Tool Approval System
+---
 
-Tool approval is configured per toolset (filesystem, shell, delegation, custom):
+## Approval Rules
 
-```yaml
-toolsets:
-  filesystem:
-    read_approval: true
-    write_approval: true
-  delegation:
-    evaluator: {}
-    worker_create: {}
-```
-
-Worker delegation (worker tools/`worker_call`) and creation (`worker_create`) always go through the approval controller. The controller's mode determines behavior:
-
-- **`approve_all`**: Auto-approve all requests (testing, non-interactive)
-- **`interactive`**: Prompt user for approval
-- **`strict`**: Reject all approval-required operations (production, CI)
-
-When approval is required, the user sees:
-- Which tool is being invoked
-- The full arguments
-- Context about why
-
-They can then approve, reject, or modify before execution. Session approvals remember approvals for identical calls during the same run.
-
-### Approval Rules Reference
-
-| Rule | Controls | Payload shown to user |
-|------|----------|----------------------|
-| `read_file` | Reading files via filesystem toolset | `{path}` |
-| `write_file` | Writing files via filesystem toolset | `{path}` |
+| Tool | Controls | Payload shown |
+|------|----------|---------------|
 | Worker tools | Delegating to configured workers | `{input, attachments}` |
-| `worker_call` | Delegating to session-generated workers | `{worker, attachments}` |
 | `worker_create` | Creating new worker definitions | `{name, instructions, ...}` |
+| `read_file` | Reading files | `{path}` |
+| `write_file` | Writing files | `{path}` |
 
-## Autonomous Worker Creation
+Approval controller modes:
+- **`interactive`**: Prompt user for approval
+- **`approve_all`**: Auto-approve (testing)
+- **`strict`**: Reject all (CI/production)
 
-The created worker inherits `WorkerCreationDefaults` from the runtime:
-- Default model (if configured)
-- Default toolsets (if any)
-- Default attachment policy
-- Always starts with `locked: false`
-
-Workflow:
-1. Orchestrator identifies need for specialized subtask
-2. Calls `worker_create(...)` with appropriate instructions
-3. User reviews proposed definition (sees full YAML)
-4. User can approve, edit, or reject
-5. If approved, worker is immediately available for use
-
-## Implementation Architecture
-
-Worker delegation is implemented in `llm_do/runtime.py` with tool support in
-`llm_do/delegation_toolset.py`. Key components:
-
-**WorkerRegistry**: Manages loading/saving worker definitions from filesystem
-
-**DelegationToolset**: Exposes worker tools (named same as worker) and resolves attachment paths
-
-**AttachmentPolicy**: Enforces count/size/suffix limits for inbound attachments
-
-**ApprovalController**: Manages tool approval rules and user callbacks
-
-**call_worker_async()** orchestrates the full delegation lifecycle:
-1. Load callee definition from registry
-2. Check max worker depth (recursion protection)
-3. Validate attachments against the callee's `attachment_policy`
-4. Resolve model (CLI > worker > env)
-5. Create WorkerContext with approval controller and attachments
-6. Build PydanticAI agent with tools
-7. Execute and return WorkerRunResult
-
-**create_worker()** handles autonomous worker creation:
-1. Takes minimal WorkerSpec (name, instructions, description, schema, model)
-2. Applies WorkerCreationDefaults to expand to full WorkerDefinition
-3. Saves to registry (respects locked flag)
-4. Subject to approval via `worker_create`
-
-From the LLM's point of view, all of this is exposed as worker tools (one per configured worker, named same as the worker) and `worker_create`. The model only decides which worker to invoke, what input to send, which files to attach, and (for creation) what instructions the new worker should have.
+Session approvals remember identical calls during same run.

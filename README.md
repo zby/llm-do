@@ -10,7 +10,7 @@ Skills with their own runtime. Like [Claude Code skills](https://docs.anthropic.
 
 **Guardrails by construction.** Attachment policies cap resources, tool approvals gate dangerous operations. Guards enforced in code, not prompt instructions. Run in a container for isolation.
 
-**Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code.
+**Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code. Or go the other direction—soften rigid code into prompts when edge cases multiply. Mix freely: Python calls workers, workers call Python tools, up to 5 levels deep.
 
 ## The Model
 
@@ -18,7 +18,6 @@ Workers are focused prompt units that compose like functions:
 
 | Programming | llm-do |
 |-------------|--------|
-| Project directory | Registry root |
 | Function | `.worker` file |
 | Function call | Worker tool (same name as worker) |
 | Arguments | Input payload |
@@ -68,9 +67,6 @@ my-project/
 ├── orchestrator.worker
 ├── analyzer.worker
 ├── tools.py              # Shared Python tools
-├── specialist/           # Directory-form worker
-│   ├── worker.worker
-│   └── tools.py          # Worker-specific tools
 ├── templates/            # Shared Jinja templates
 ├── input/
 └── output/

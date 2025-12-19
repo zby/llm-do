@@ -104,7 +104,7 @@ Provide JSON file with default settings for worker creation (for workers that cr
 llm-do orchestrator --creation-defaults defaults.json
 ```
 
-**`--set KEY=VALUE`** *(New in Phase 1)*
+**`--set KEY=VALUE`**
 Override worker configuration fields at runtime without editing YAML files. Supports dot notation for nested fields and automatic type inference:
 
 ```bash
@@ -298,12 +298,10 @@ Create a new project with `llm-do init`:
 llm-do init my-project
 ```
 
-Creates:
-```
-my-project/
-├── orchestrator.worker
-├── input/
-└── output/
+Creates a `main.worker` file with basic front matter. Options:
+```bash
+llm-do init my-project --model anthropic:claude-haiku-4-5
+llm-do init my-project --name "My Assistant"
 ```
 
 ## Exit Codes

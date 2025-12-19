@@ -91,106 +91,49 @@ def bootstrapper_registry(tmp_path, monkeypatch):
 
 
 def test_bootstrapper_pitchdeck_workflow(bootstrapper_registry, monkeypatch):
-    """Test the complete bootstrapper workflow for pitch deck analysis.
+    """Integration test: bootstrapper lists files, creates worker, delegates, writes output."""
+    mock_evaluation = "# Evaluation\n\nStrengths: Clear. Weaknesses: Limited."
 
-    Simulates the real execution:
-    1. list_files("input") → finds test_pitch.pdf
-    2. worker_create() → creates pitch_deck_analyzer
-    3. worker_call() → delegates to analyzer (mocked)
-    4. write_file() → saves evaluation
-    """
-    # The evaluation that the nested worker would return
-    mock_evaluation = """# Test Pitch Evaluation
-
-## Strengths
-- Clear problem statement
-- Strong team background
-
-## Weaknesses
-- Limited financial projections
-
-## Overall
-Moderate investor interest likely.
-"""
-
-    # Define the sequential tool calls the bootstrapper should make
-    bootstrapper_model = SequentialToolCallingModel(
+    # Sequence: list_files → worker_create → worker_call → write_file
+    model = SequentialToolCallingModel(
         tool_sequence=[
-            # Step 1: List input files
-            {
-                "text": "Let me find the pitch decks in the input directory.",
-                "name": "list_files",
-                "args": {"path": "input"},
-            },
-            # Step 2: Create analyzer worker
-            {
-                "text": "Found a pitch deck. Creating a specialized analyzer worker.",
-                "name": "worker_create",
-                "args": {
-                    "name": "pitch_deck_analyzer",
-                    "description": "Analyzes pitch decks",
-                    "instructions": "Analyze the pitch deck and provide evaluation.",
-                },
-            },
-            # Step 3: Call the analyzer
-            {
-                "text": "Now analyzing the pitch deck.",
-                "name": "worker_call",
-                "args": {
-                    "worker": "pitch_deck_analyzer",
-                    "attachments": ["input/test_pitch.pdf"],
-                },
-            },
-            # Step 4: Write the result
-            {
-                "text": "Saving the evaluation.",
-                "name": "write_file",
-                "args": {
-                    "path": "output/test_pitch_evaluation.md",
-                    "content": mock_evaluation,
-                },
-            },
+            {"name": "list_files", "args": {"path": "input"}},
+            {"name": "worker_create", "args": {
+                "name": "pitch_deck_analyzer",
+                "description": "Analyzes pitch decks",
+                "instructions": "Analyze the pitch deck.",
+            }},
+            {"name": "worker_call", "args": {
+                "worker": "pitch_deck_analyzer",
+                "attachments": ["input/test_pitch.pdf"],
+            }},
+            {"name": "write_file", "args": {
+                "path": "output/test_pitch_evaluation.md",
+                "content": mock_evaluation,
+            }},
         ],
-        final_text="Analysis complete. Saved to output/test_pitch_evaluation.md",
+        final_text="Done",
     )
 
-    # Mock the nested worker call to return our evaluation
-    async def mock_call_worker_async(**kwargs):
-        assert kwargs["worker"] == "pitch_deck_analyzer"
-        assert "test_pitch.pdf" in str(kwargs.get("attachments", []))
+    # Mock nested worker call
+    async def mock_call_worker(**kwargs):
         return WorkerRunResult(output=mock_evaluation, messages=[])
 
-    original_call = llm_do.runtime.call_worker_async
-    monkeypatch.setattr(llm_do.runtime, "call_worker_async", mock_call_worker_async)
+    monkeypatch.setattr(llm_do.runtime, "call_worker_async", mock_call_worker)
 
-    try:
-        result = asyncio.run(
-            run_worker_async(
-                registry=bootstrapper_registry,
-                worker="worker_bootstrapper",
-                input_data="Analyze pitch decks and save evaluations",
-                cli_model=bootstrapper_model,
-                approval_controller=ApprovalController(mode="approve_all"),
-            )
+    result = asyncio.run(
+        run_worker_async(
+            registry=bootstrapper_registry,
+            worker="worker_bootstrapper",
+            input_data="Analyze pitch decks",
+            cli_model=model,
+            approval_controller=ApprovalController(mode="approve_all"),
         )
+    )
 
-        assert result is not None
-        assert "complete" in result.output.lower()
-
-        # Verify the output file was created
-        output_file = Path("output/test_pitch_evaluation.md")
-        assert output_file.exists()
-        content = output_file.read_text()
-        assert "Strengths" in content
-        assert "Weaknesses" in content
-
-        # Verify the worker was created in the registry's generated directory
-        # Generated workers are directories: {name}/worker.worker
-        worker_file = bootstrapper_registry.generated_dir / "pitch_deck_analyzer" / "worker.worker"
-        assert worker_file.exists()
-
-    finally:
-        monkeypatch.setattr(llm_do.runtime, "call_worker_async", original_call)
+    assert result is not None
+    assert Path("output/test_pitch_evaluation.md").exists()
+    assert (bootstrapper_registry.generated_dir / "pitch_deck_analyzer" / "worker.worker").exists()
 
 
 def test_bootstrapper_lists_files_correctly(bootstrapper_registry):

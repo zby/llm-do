@@ -1,14 +1,14 @@
 # llm-do
 
-Package prompts with configuration to create executables.
+Skills with their own runtime. Like [Claude Code skills](https://docs.anthropic.com/en/docs/claude-code/skills), but each worker runs as a separate agent that can delegate to other workers.
 
 ## Why llm-do?
 
+**Delegation.** Workers call other workers like function calls. A summarizer delegates to an analyzer; an orchestrator coordinates specialists. Each runs with its own tools and model.
+
 **Tight context.** Each worker does one thing well. No bloated multi-purpose prompts that try to handle everything.
 
-**Composability.** Workers call other workers like functions. Build complex workflows from simple, focused pieces.
-
-**Guardrails by construction.** Attachment policies cap resources, tool approvals gate dangerous operations. Guards against LLM mistakes, enforced in code rather than prompt instructions. Run in a container for isolation.
+**Guardrails by construction.** Attachment policies cap resources, tool approvals gate dangerous operations. Guards enforced in code, not prompt instructions. Run in a container for isolation.
 
 **Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code.
 
@@ -102,11 +102,7 @@ llm-do init my-project
 
 ## Workers
 
-Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via worker tools (same name as worker)—like function calls.
-
-Workers are exposed as tools. Tools that need orchestration can depend on
-`ToolContext` (`RunContext[ToolContext]`) and call `ctx.deps.call_worker(...)`.
-Nested worker calls are capped at `MAX_WORKER_DEPTH` (default 5).
+Workers are `.worker` files: YAML front matter (config) + body (instructions). Each worker is exposed as a tool that other workers can call—like function calls.
 
 Add custom tools by creating `tools.py` in your project root:
 
@@ -121,12 +117,12 @@ Functions become LLM-callable tools. Reference them in your worker's toolsets co
 
 ## Key Features
 
-- **Worker delegation** — Workers call other workers via worker tools (same name as worker), with allowlists
-- **Workers as tools** — Tools can call workers via `ToolContext`; nested calls are capped (default depth 5)
+- **Worker delegation** — Workers exposed as tools; LLM decides when to call them. Nested calls capped at depth 5
+- **Per-worker runtime** — Each worker has its own model, toolset, and attachment policy
 - **Custom tools** — Python functions in `tools.py` become LLM-callable tools
-- **Jinja2 templating** — Compose prompts from reusable templates
-- **Tool approvals** — Gate dangerous operations for human review
+- **Tool approvals** — Gate dangerous operations (shell, file writes) for human review
 - **Attachment policies** — Control file inputs (size, count, types)
+- **Jinja2 templating** — Compose prompts from reusable templates
 - **Server-side tools** — Provider-executed capabilities (web search, code execution)
 
 ## Examples

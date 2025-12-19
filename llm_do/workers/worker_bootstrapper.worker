@@ -4,8 +4,8 @@ description: Turn free-form tasks into concrete multi-step workflows by designin
 name: worker_bootstrapper
 toolsets:
   delegation:
-    allow_workers:
-    - '*'
+    worker_call: {}
+    worker_create: {}
   filesystem: {}
 ---
 

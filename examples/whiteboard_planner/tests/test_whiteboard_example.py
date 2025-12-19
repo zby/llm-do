@@ -38,9 +38,10 @@ def test_whiteboard_orchestrator_loading(whiteboard_registry):
     """Test that whiteboard_orchestrator loads correctly."""
     definition = whiteboard_registry.load_definition("whiteboard_orchestrator")
     assert definition.name == "whiteboard_orchestrator"
-    assert "input" in definition.sandboxes
-    assert "plans" in definition.sandboxes
-    assert "whiteboard_planner" in definition.allow_workers
+    assert definition.toolsets is not None
+    assert "delegation" in definition.toolsets
+    assert "filesystem" in definition.toolsets
+    assert "whiteboard_planner" in definition.toolsets["delegation"]
 
 
 def test_whiteboard_orchestrator_execution(whiteboard_registry, tmp_path):
@@ -63,10 +64,9 @@ def test_whiteboard_orchestrator_execution(whiteboard_registry, tmp_path):
             "args": {"path": "input", "pattern": "*.jpg"}
         },
         {
-            "name": "worker_call",
+            "name": "_agent_whiteboard_planner",
             "args": {
-                "worker": "whiteboard_planner",
-                "input_data": {"original_filename": "test_board.jpg"},
+                "input": '{"original_filename": "test_board.jpg"}',
                 "attachments": ["input/test_board.jpg"]
             }
         },

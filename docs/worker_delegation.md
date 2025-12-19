@@ -7,14 +7,14 @@ For design philosophy and motivation, see [`concept.md`](concept.md). For archit
 ## Programmer vs LLM Perspective
 
 **Programmers** work with `WorkerDefinition` YAML files and the Python runtime. Their mental model is "workers are executable units that can safely call other workers" with:
-- Worker allowlists to restrict which workers can be called
+- Delegation tool config to control which worker tools are exposed
 - Attachment validation (count, size, suffix) enforced before execution
 - Sandboxed file access for security
 - Structured outputs via `output_schema_ref`
 - Model inheritance chain: worker definition → caller → CLI
 - Tool approval system for gated operations
 
-**LLMs** see tools like `worker_call` and `worker_create` that mean "delegate to another worker" and "create a new specialized worker." The model chooses which worker to call, provides input data and attachments, and receives structured or freeform results. The callee's instructions, model, and tools are defined in its worker definition; the caller only passes arguments.
+**LLMs** see tools like `_agent_*` (one per configured worker) plus optional `worker_call` and `worker_create` if enabled. The model chooses which worker tool to call, provides input data and attachments, and receives structured or freeform results. The callee's instructions, model, and tools are defined in its worker definition; the caller only passes arguments.
 
 ## API Signatures
 
@@ -23,18 +23,28 @@ For design philosophy and motivation, see [`concept.md`](concept.md). For archit
 ```python
 # Conceptual view of the tool the LLM sees
 @agent.tool
-def worker_call(
-    worker_name: str,
-    input_data: dict | str,
+def _agent_evaluator(
+    input: str,
     attachments: list[str] | None = None,
-) -> WorkerRunResult:
+) -> str:
     """
-    Call another registered worker to delegate a subtask.
+    Call the evaluator worker to delegate a subtask.
 
     The worker will process the input with its own instructions and tools.
     Results may be structured JSON or freeform text depending on the worker's
     output_schema_ref configuration.
     """
+```
+
+```python
+# Optional tool (when configured)
+@agent.tool
+def worker_call(
+    worker: str,
+    input_data: dict | str,
+    attachments: list[str] | None = None,
+) -> WorkerRunResult:
+    """Call a worker by name when dynamic routing is needed."""
 ```
 
 ```python
@@ -96,8 +106,8 @@ sandbox:
 toolsets:
   filesystem: {}
   delegation:
-    allow_workers:
-      - evaluator  # Only allow calling the evaluator worker
+    evaluator: {}  # Expose _agent_evaluator tool
+    worker_call: {}  # Optional: allow dynamic routing by name
 ---
 
 You coordinate pitch deck evaluations. First list PDFs in the input sandbox,
@@ -107,7 +117,7 @@ Write results to the output sandbox.
 
 ## Attachment Resolution
 
-When a worker passes `attachments` to `worker_call`, each entry must reference one of the caller's sandboxes (e.g., `attachments=["input/deck.pdf"]`).
+When a worker passes `attachments` to a delegation tool (`_agent_*` or `worker_call`), each entry must reference one of the caller's sandboxes (e.g., `attachments=["input/deck.pdf"]`).
 
 The runtime:
 1. Resolves the path inside that sandbox
@@ -174,7 +184,7 @@ sandbox:
       write_approval: true  # Writes require user approval
 ```
 
-Worker delegation (`worker.call`) and creation (`worker.create`) always go through the approval controller. The controller's mode determines behavior:
+Worker delegation (`_agent_*`/`worker_call`) and creation (`worker_create`) always go through the approval controller. The controller's mode determines behavior:
 
 - **`approve_all`**: Auto-approve all requests (testing, non-interactive)
 - **`interactive`**: Prompt user for approval
@@ -193,10 +203,10 @@ They can then approve, reject, or modify before execution. Session approvals rem
 |------|----------|----------------------|
 | `sandbox.read` | Sharing files as attachments to `worker_call` | `{path, bytes, target_worker}` |
 | `sandbox.write` | Writing files via `write_file` | `{path}` |
-| `worker.call` | Delegating to another worker | `{worker, attachments}` |
-| `worker.create` | Creating new worker definitions | `{name, instructions, ...}` |
+| `_agent_*` / `worker_call` | Delegating to another worker | `{worker, attachments}` |
+| `worker_create` | Creating new worker definitions | `{name, instructions, ...}` |
 
-**Note**: `sandbox.read` approval is separate from `worker.call` approval. You can pre-approve worker calls but still require approval for each attachment being shared.
+**Note**: `sandbox.read` approval is separate from delegation approval. You can pre-approve worker calls but still require approval for each attachment being shared.
 
 ## Autonomous Worker Creation
 
@@ -238,6 +248,6 @@ Worker delegation is implemented in `llm_do/runtime.py`. Key components:
 1. Takes minimal WorkerSpec (name, instructions, description, schema, model)
 2. Applies WorkerCreationDefaults to expand to full WorkerDefinition
 3. Saves to registry (respects locked flag)
-4. Subject to approval via "worker.create" tool rule
+4. Subject to approval via `worker_create`
 
 From the LLM's point of view, all of this is exposed as `worker_call` and `worker_create` tools. The model only decides which worker to invoke, what input to send, which files to attach, and (for creation) what instructions the new worker should have.

@@ -10,7 +10,6 @@ import pytest
 from llm_do import (
     AttachmentPolicy,
     ApprovalController,
-    ApprovalDecision,
     WorkerCreationDefaults,
     WorkerDefinition,
     WorkerRegistry,
@@ -21,7 +20,6 @@ from llm_do import (
     create_worker,
 )
 from llm_do.agent_toolset import AgentToolset
-from pydantic_ai_blocking_approval import ApprovalRequest
 
 
 def _registry(tmp_path):
@@ -58,24 +56,10 @@ def _parent_context(registry, worker, defaults=None, approval_callback=None):
     )
 
 
-def _parent_with_attachment_policy(
-    tmp_path,
-    *,
-    attachment_policy: AttachmentPolicy | None = None,
-):
-    parent = WorkerDefinition(
-        name="parent",
-        instructions="",
-        toolsets={"delegation": {"allow_workers": ["child"]}},
-        attachment_policy=attachment_policy or AttachmentPolicy(),
-    )
-    return parent
-
-
 def _create_toolset_and_context(context: WorkerContext):
     """Create an AgentToolset and mock RunContext for testing."""
     toolsets = context.worker.toolsets or {}
-    delegation_config = toolsets.get("delegation", {"allow_workers": []})
+    delegation_config = toolsets.get("delegation", {})
     toolset = AgentToolset(config=delegation_config)
 
     # Create mock RunContext with deps=context
@@ -104,6 +88,8 @@ def _delegate_sync(
     if input_data is not None:
         # Convert input_data to string for the new API
         tool_args["input"] = str(input_data) if not isinstance(input_data, str) else input_data
+    if attachments:
+        tool_args["attachments"] = attachments
 
     return asyncio.run(toolset.call_tool(tool_name, tool_args, mock_ctx, None))
 
@@ -135,7 +121,7 @@ def _create_worker_via_toolset(
 
 def test_call_worker_forwards_attachments(tmp_path):
     registry = _registry(tmp_path)
-    parent = WorkerDefinition(name="parent", instructions="", toolsets={"delegation": {"allow_workers": ["child"]}})
+    parent = WorkerDefinition(name="parent", instructions="")
     child = WorkerDefinition(
         name="child",
         instructions="",
@@ -168,7 +154,7 @@ def test_call_worker_forwards_attachments(tmp_path):
 
 def test_call_worker_rejects_disallowed_attachments(tmp_path):
     registry = _registry(tmp_path)
-    parent = WorkerDefinition(name="parent", instructions="", toolsets={"delegation": {"allow_workers": ["child"]}})
+    parent = WorkerDefinition(name="parent", instructions="")
     child = WorkerDefinition(
         name="child",
         instructions="",
@@ -191,32 +177,16 @@ def test_call_worker_rejects_disallowed_attachments(tmp_path):
         )
 
 
-def test_create_worker_defaults_allow_delegation(tmp_path):
+def test_create_worker_defaults_include_toolset_config(tmp_path):
     registry = _registry(tmp_path)
     defaults = WorkerCreationDefaults(
         default_model="defaults-model",
-        default_toolsets={"delegation": {"allow_workers": ["child"]}},
+        default_toolsets={"delegation": {"child": {}}},
     )
 
     spec = WorkerSpec(name="parent", instructions="delegate")
     parent = create_worker(registry, spec, defaults=defaults)
-    child = WorkerDefinition(name="child", instructions="")
-    registry.save_definition(child)
-
-    def runner(defn, _input, ctx, _schema):
-        return {"worker": defn.name}
-
-    context = _parent_context(registry, parent, defaults=defaults)
-    result = call_worker(
-        registry=registry,
-        worker="child",
-        input_data={"task": "demo"},
-        caller_context=context,
-        agent_runner=runner,
-    )
-
-    # Verify delegation succeeded
-    assert result.output["worker"] == "child"
+    assert parent.toolsets["delegation"]["child"] == {}
 
 def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
     """Worker delegation goes through AgentToolset which checks approval via ApprovalToolset.
@@ -227,7 +197,7 @@ def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
     parent = WorkerDefinition(
         name="parent",
         instructions="",
-        toolsets={"delegation": {"allow_workers": ["child"]}},
+        toolsets={"delegation": {"child": {}}},
     )
     registry.save_definition(parent)
     context = _parent_context(registry, parent)
@@ -265,7 +235,7 @@ def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
 
 def test_worker_create_tool_persists_definition(tmp_path):
     registry = _registry(tmp_path)
-    parent = WorkerDefinition(name="parent", instructions="")
+    parent = WorkerDefinition(name="parent", instructions="", toolsets={"delegation": {"worker_create": {}}})
     registry.save_definition(parent)
     context = _parent_context(registry, parent)
 
@@ -290,6 +260,7 @@ def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
     parent = WorkerDefinition(
         name="parent",
         instructions="",
+        toolsets={"delegation": {"worker_create": {}}},
     )
     registry.save_definition(parent)
     context = _parent_context(registry, parent)
@@ -317,7 +288,5 @@ def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
     assert result["name"] == "child"
     assert result["instructions"] == "demo"
     assert invoked
-
-
 
 

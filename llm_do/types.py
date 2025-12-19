@@ -57,12 +57,12 @@ class ShellToolsetConfig(BaseModel):
 
 
 class DelegationToolsetConfig(BaseModel):
-    """Configuration for the delegation toolset."""
+    """Configuration for the delegation toolset.
 
-    allow_workers: List[str] = Field(
-        default_factory=list,
-        description="List of workers that can be delegated to. Use ['*'] for all."
-    )
+    Keys are tool names to expose (worker names, worker_call, worker_create).
+    Values are tool-specific config (currently unused).
+    """
+    model_config = ConfigDict(extra="allow")
 
 
 # ToolsetsConfig removed - replaced by Dict[str, Any] with class paths as keys.
@@ -123,14 +123,14 @@ class WorkerDefinition(BaseModel):
     output_schema_ref: Optional[str] = None
 
     # Toolsets configuration (class paths -> config dicts)
-    # Example: {"shell": {"rules": [...]}, "delegation": {"allow_workers": ["*"]}}
+    # Example: {"shell": {"rules": [...]}, "delegation": {"summarizer": {}, "worker_call": {}}}
     # Supports aliases (shell, delegation, filesystem) or full class paths
     toolsets: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Toolsets to load. Keys are class paths or aliases, values are config dicts."
     )
 
-    # Attachment policy (applies to worker_call delegation)
+    # Attachment policy (applies to inbound attachments)
     attachment_policy: AttachmentPolicy = Field(default_factory=AttachmentPolicy)
 
     # Server-side tools (executed by LLM provider, not local toolsets)

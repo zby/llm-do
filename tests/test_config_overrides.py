@@ -45,8 +45,8 @@ class TestParseSetOverride:
         assert isinstance(value, float)
 
     def test_parse_json_list(self):
-        key, value = parse_set_override('allow_workers=["a", "b", "c"]')
-        assert key == "allow_workers"
+        key, value = parse_set_override('tags=["a", "b", "c"]')
+        assert key == "tags"
         assert value == ["a", "b", "c"]
 
     def test_parse_json_dict(self):
@@ -168,17 +168,17 @@ class TestApplyCliOverrides:
                 set_overrides=["attachment_policy.max_attachments=not-a-number"]
             )
 
-    def test_override_list_field(self):
+    def test_override_toolset_field(self):
         defn = WorkerDefinition(
             name="test",
             instructions="test",
-            toolsets={"delegation": {"allow_workers": []}},
+            toolsets={"delegation": {}},
         )
         result = apply_cli_overrides(
             defn,
-            set_overrides=['toolsets.delegation.allow_workers=["worker1", "worker2"]']
+            set_overrides=['toolsets.delegation.summarizer={}']
         )
-        assert result.toolsets["delegation"]["allow_workers"] == ["worker1", "worker2"]
+        assert result.toolsets["delegation"]["summarizer"] == {}
 
     def test_override_boolean_field(self):
         defn = WorkerDefinition(name="test", instructions="test", locked=False)

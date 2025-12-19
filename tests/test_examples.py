@@ -319,7 +319,7 @@ def test_pitch_orchestrator_example(pitchdeck_eval_registry):
 
     This tests that:
     - Worker loads with sandbox configuration
-    - Worker loads with allow_workers delegation list
+    - Worker loads with delegation tool configuration
     - Worker can execute with sandboxes configured
     - Delegation setup is correct (doesn't test actual delegation with TestModel)
 
@@ -368,8 +368,8 @@ def test_pitch_orchestrator_toolsets_configured(pitchdeck_eval_registry):
     assert "delegation" in definition.toolsets
     assert "filesystem" in definition.toolsets
 
-    # Verify delegation allows workers
-    assert definition.toolsets["delegation"].get("allow_workers") is not None
+    # Verify delegation exposes the expected worker tool
+    assert "pitch_evaluator" in definition.toolsets["delegation"]
 
 def test_all_example_workers_load_successfully():
     """Test that all example worker definitions can be loaded.
@@ -403,7 +403,7 @@ def test_all_example_workers_load_successfully():
     assert orchestrator_def.name == "pitch_orchestrator"
     assert orchestrator_def.toolsets is not None
     assert "delegation" in orchestrator_def.toolsets
-    assert orchestrator_def.toolsets["delegation"].get("allow_workers") is not None
+    assert "pitch_evaluator" in orchestrator_def.toolsets["delegation"]
 
     # Whiteboard planner (in examples/whiteboard_planner/workers/whiteboard_planner.worker)
     whiteboard_registry = WorkerRegistry(examples_dir / "whiteboard_planner")
@@ -416,7 +416,7 @@ def test_all_example_workers_load_successfully():
     assert wb_orchestrator_def.name == "whiteboard_orchestrator"
     assert wb_orchestrator_def.toolsets is not None
     assert "delegation" in wb_orchestrator_def.toolsets
-    assert wb_orchestrator_def.toolsets["delegation"].get("allow_workers") is not None
+    assert "whiteboard_planner" in wb_orchestrator_def.toolsets["delegation"]
 
     # Calculator (in examples/calculator/workers/calculator/worker.worker)
     calculator_registry = WorkerRegistry(examples_dir / "calculator")

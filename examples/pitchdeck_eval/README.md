@@ -55,7 +55,7 @@ worker delegations.
 1. Orchestrator lists `*.pdf` files in the `input` sandbox
 2. For each PDF:
    - Orchestrator generates a slug from the filename
-   - Calls `worker_call(worker="pitch_evaluator", input_data={"deck_name": "..."}, attachments=["input/deck.pdf"])`
+   - Calls `_agent_pitch_evaluator(input="Evaluate this pitch deck.", attachments=["input/deck.pdf"])`
    - Evaluator receives PDF as attachment and reads it natively (vision capabilities)
    - Evaluator returns a complete markdown report
 3. Orchestrator writes each report to `evaluations/{slug}.md`
@@ -85,9 +85,9 @@ Open `evaluations/` afterwards to inspect the generated reports.
 
 **`pitch_orchestrator`** demonstrates:
 - Multiple sandbox paths (`input` read-only, `evaluations` writable)
-- `worker_call` with **attachments** parameter (passes PDF files)
+- `_agent_pitch_evaluator` with **attachments** parameter (passes PDF files)
 - `write_file` for saving reports
-- Tight `allow_workers` list (only `pitch_evaluator` allowed)
+- Delegation config exposes only the `pitch_evaluator` tool
 - File slug generation for consistent naming
 
 **`pitch_evaluator`** demonstrates:

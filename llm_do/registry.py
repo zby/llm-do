@@ -338,7 +338,6 @@ class WorkerRegistry:
         """List all available worker names.
 
         Scans project workers, built-ins, and generated workers from this session.
-        Used by AgentToolset when allow_workers=['*'].
 
         Returns:
             List of worker names (without path or .worker suffix)

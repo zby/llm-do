@@ -39,7 +39,7 @@ def test_nested_worker_with_attachments_hang_reproduction(whiteboard_registry):
 
     The hang occurs because:
     - The orchestrator's agent.run_sync creates an event loop
-    - worker_call tool runs in an AnyIO worker thread
+    - agent tool runs in an AnyIO worker thread
     - The nested whiteboard_planner agent.run_sync tries to create another event loop
     - Event loop conflict/deadlock occurs
     """
@@ -124,7 +124,7 @@ This project aims to create an automated system for converting whiteboard photos
     from llm_do import WorkerRunResult
 
     async def mock_call_worker_async(**kwargs):
-        # Verify the worker_call was made with correct parameters
+        # Verify the agent tool call was made with correct parameters
         assert kwargs["worker"] == "whiteboard_planner"
         # New format: input is a JSON string
         assert "white_board_plan.png" in kwargs["input_data"]

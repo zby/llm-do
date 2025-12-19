@@ -161,19 +161,6 @@ def _handle_result(
 # ---------------------------------------------------------------------------
 # Worker delegation
 # ---------------------------------------------------------------------------
-
-
-def _check_delegation_allowed(caller_context: WorkerContext, worker: str) -> None:
-    """Check if delegation to a worker is allowed (shared by sync and async)."""
-    toolsets = caller_context.worker.toolsets or {}
-    delegation_config = toolsets.get("delegation", {})
-    allowed = delegation_config.get("allow_workers", [])
-    if allowed:
-        allowed_set = set(allowed)
-        if "*" not in allowed_set and worker not in allowed_set:
-            raise PermissionError(f"Delegation to '{worker}' is not allowed")
-
-
 def call_worker(
     registry: Any,  # WorkerRegistry - avoid circular import
     worker: str,
@@ -189,10 +176,8 @@ def call_worker(
     cli_model > worker.model > workshop_model > LLM_DO_MODEL env var.
 
     Raises:
-        PermissionError: If delegation to this worker is not allowed.
         RecursionError: If max worker depth would be exceeded.
     """
-    _check_delegation_allowed(caller_context, worker)
 
     # Check depth limit before executing nested worker
     if caller_context.depth >= MAX_WORKER_DEPTH:
@@ -252,10 +237,8 @@ async def call_worker_async(
         WorkerRunResult from the delegated worker.
 
     Raises:
-        PermissionError: If delegation to this worker is not allowed.
         RecursionError: If max worker depth would be exceeded.
     """
-    _check_delegation_allowed(caller_context, worker)
 
     # Check depth limit before executing nested worker
     if caller_context.depth >= MAX_WORKER_DEPTH:

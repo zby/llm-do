@@ -4,8 +4,7 @@ model: null
 name: whiteboard_orchestrator
 toolsets:
   delegation:
-    allow_workers:
-    - whiteboard_planner
+    whiteboard_planner: {}
   filesystem: {}
 ---
 
@@ -26,18 +25,17 @@ You have access to exactly two sandboxes:
 - `write_file(path, content)`: Write a text file.
   Path format: "sandbox_name/relative/path"
   - Use: `write_file("plans/filename.md", content)`
-- `worker_call(worker, input_data, attachments)`: Delegate work to another worker.
-  - Use: `worker_call("whiteboard_planner", {"original_filename": "image.png"}, ["input/image.png"])`
+- `_agent_whiteboard_planner(input, attachments)`: Delegate work to the planner.
+  - Use: `_agent_whiteboard_planner('{"original_filename": "image.png"}', ["input/image.png"])`
 
 ## Procedure
 1. **List Images**: Use `list_files("input")` to find `.jpg`, `.jpeg`, and `.png` files.
 2. **Process Each Image**:
    - For each image found (e.g., `white_board_plan.png`):
      - Determine a "slug" for the filename (e.g., `white_board_plan`).
-     - Call the `whiteboard_planner` worker:
-       - `worker`: "whiteboard_planner"
-       - `attachments`: ["input/white_board_plan.png"]
-       - `input_data`: {"original_filename": "white_board_plan.png"}
+    - Call the `whiteboard_planner` worker:
+      - `attachments`: ["input/white_board_plan.png"]
+      - `input`: '{"original_filename": "white_board_plan.png"}'
 3. **Save the Plan**:
    - Take the markdown output from the planner.
    - Write it to the plans sandbox: `write_file("plans/{slug}.md", markdown_content)`

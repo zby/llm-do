@@ -23,7 +23,7 @@ Workshop was solving several problems awkwardly:
 The `toolsets:` configuration stays exactly as-is. It provides:
 - Grouped tools with shared configuration (shell rules, filesystem paths, etc.)
 - Clean alias system (`shell`, `filesystem`, `delegation`, `custom`)
-- Expressive configuration (approval rules, allow_workers lists)
+- Expressive configuration (approval rules, delegation tool maps)
 - Integration with the approval system
 
 ```yaml
@@ -36,7 +36,8 @@ toolsets:
     default:
       approval_required: true
   delegation:
-    allow_workers: ["helper", "summarizer"]
+    helper: {}
+    summarizer: {}
   custom:
     calculate_factorial: {}
 ```

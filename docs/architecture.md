@@ -23,7 +23,7 @@ llm_do/
 ├── ui/                  # Display and UI components
 │   ├── __init__.py      # Package exports
 │   └── display.py       # Display backend abstractions
-├── delegation_toolset.py # Worker delegation toolset
+├── agent_toolset.py      # Worker delegation toolset
 ├── custom_toolset.py    # Custom Python tools toolset
 ├── cli.py               # Sync CLI (init, programmatic use)
 └── cli_async.py         # Async CLI entry point (default)
@@ -78,7 +78,7 @@ result = await call_worker_async(
 ```
 
 **Enforces:**
-- `allow_workers` allowlist from caller's definition
+- Delegation tool exposure from the caller's toolset config
 - `compatible_models` validation (caller's model must match target worker's patterns)
 - Attachment approval via sandbox with full metadata
 - Attachment policy limits (max count, total size, allowed suffixes)
@@ -253,7 +253,8 @@ toolsets:
       - pattern: "git *"
         approval_required: false
   delegation:              # Worker delegation
-    allow_workers: [helper]
+    helper: {}
+    worker_call: {}
   custom:                  # Custom Python tools from tools.py
     my_tool: {}
 
@@ -268,7 +269,7 @@ toolsets:
 |-------|-----------|----------|
 | `filesystem` | `pydantic_ai_filesystem_sandbox.FileSystemToolset` | sandbox |
 | `shell` | `llm_do.shell.toolset.ShellToolset` | - |
-| `delegation` | `llm_do.delegation_toolset.DelegationToolset` | - |
+| `delegation` | `llm_do.agent_toolset.AgentToolset` | - |
 | `custom` | `llm_do.custom_toolset.CustomToolset` | tools.py |
 
 ### Toolset Loading
@@ -514,7 +515,7 @@ CLI / run_worker()
 | `execution.py` | ~280 | Agent execution, ApprovalToolset wrapping |
 | `model_compat.py` | ~180 | Model compatibility validation |
 | `shell/` | ~350 | Shell toolset package (whitelist-based approval) |
-| `delegation_toolset.py` | ~150 | Worker delegation toolset |
+| `agent_toolset.py` | ~400 | Worker delegation toolset |
 | `custom_toolset.py` | ~150 | Custom Python tools toolset |
 | `worker_sandbox.py` | ~250 | Sandbox extension, attachment validation |
 | `protocols.py` | ~100 | Interface definitions for DI |

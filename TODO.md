@@ -4,7 +4,7 @@
 
 - [x] `--set KEY=VALUE` for runtime config overrides
 - [ ] `--override JSON` for bulk overrides
-- [ ] List operators (`+=`, `-=`) for allow_workers, custom_tools
+- [ ] List operators (`+=`, `-=`) for delegation tool lists, custom_tools
 - [ ] Override profiles (`--profile production`)
 - [ ] Environment variable expansion in `--set`
 

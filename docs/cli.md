@@ -127,7 +127,7 @@ llm-do save_note "note text" --set sandbox.paths.notes.root=/tmp/notes
 ```
 
 **Type inference:**
-- JSON: `--set allow_workers='["worker1", "worker2"]'`
+- JSON: `--set attachment_policy.allowed_suffixes='[".md", ".txt"]'`
 - Booleans: `true`, `false`, `yes`, `no`, `on`, `off` (case-insensitive)
 - Numbers: `42`, `3.14`
 - Strings: anything else
@@ -239,7 +239,7 @@ llm-do processor "data" \
 | `compatible_models` | `--set compatible_models='["anthropic:*"]'` | Restrict allowed models |
 | `description` | `--set description="Updated desc"` | Document runtime purpose |
 | `locked` | `--set locked=true` | Prevent worker creation |
-| `allow_workers` | `--set allow_workers='["child"]'` | Control delegation |
+| `toolsets.delegation.NAME` | `--set toolsets.delegation.summarizer={}` | Expose worker tool |
 | `attachment_policy.max_attachments` | `--set attachment_policy.max_attachments=10` | Adjust limits |
 | `attachment_policy.max_total_bytes` | `--set attachment_policy.max_total_bytes=5000000` | Adjust size limits |
 | `sandbox.network_enabled` | `--set sandbox.network_enabled=false` | Disable network (future) |

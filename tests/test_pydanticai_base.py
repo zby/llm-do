@@ -261,11 +261,10 @@ def test_generated_worker_resolves_prompts_from_own_directory(tmp_path, resolver
     assert definition.instructions == "Worker-specific prompt"
 
 
-def test_call_worker_respects_allowlist(registry):
+def test_call_worker_does_not_require_delegation_toolset(registry):
     parent_def = WorkerDefinition(
         name="parent",
         instructions="",
-        toolsets={"delegation": {"allow_workers": ["child"]}},
     )
     # Child has its own model - no inheritance from parent
     child_def = WorkerDefinition(name="child", instructions="", model="child:model")
@@ -299,46 +298,10 @@ def test_call_worker_respects_allowlist(registry):
     assert result.output["model"] == "child:model"
 
 
-def test_call_worker_supports_wildcard_allowlist(registry):
-    parent_def = WorkerDefinition(
-        name="parent",
-        instructions="",
-        toolsets={"delegation": {"allow_workers": ["*"]}},
-    )
-    child_def = WorkerDefinition(name="child", instructions="")
-    registry.save_definition(parent_def)
-    registry.save_definition(child_def)
-
-    def simple_runner(defn, input_data, ctx, output_model):
-        return {"worker": defn.name, "input": input_data}
-
-    controller = ApprovalController(mode="approve_all")
-    parent_context = WorkerContext(
-        # Core
-        worker=parent_def,
-        effective_model="cli",
-        approval_controller=controller,
-        # Delegation
-        registry=registry,
-        creation_defaults=WorkerCreationDefaults(),
-    )
-
-    result = call_worker(
-        registry=registry,
-        worker="child",
-        input_data={"note": "ok"},
-        caller_context=parent_context,
-        agent_runner=simple_runner,
-    )
-
-    assert result.output["worker"] == "child"
-
-
 def test_call_worker_propagates_message_callback(registry):
     parent_def = WorkerDefinition(
         name="parent",
         instructions="",
-        toolsets={"delegation": {"allow_workers": ["child"]}},
     )
     child_def = WorkerDefinition(name="child", instructions="")
     registry.save_definition(parent_def)
@@ -379,13 +342,15 @@ def test_call_worker_propagates_message_callback(registry):
 
 
 def test_default_agent_runner_uses_pydantic_ai(registry):
+    child_def = WorkerDefinition(name="child", instructions="")
+    registry.save_definition(child_def)
     definition = WorkerDefinition(
         name="pydantic-worker",
         instructions="Summarize input",
         toolsets={
             "filesystem": {},
             "shell": {"default": {"allowed": True, "approval_required": True}},
-            "delegation": {"allow_workers": ["*"]},
+            "delegation": {"child": {}, "worker_create": {}},
         },
     )
     registry.save_definition(definition)
@@ -404,7 +369,7 @@ def test_default_agent_runner_uses_pydantic_ai(registry):
     # Verify our toolsets were loaded (don't test exact tool names from dependencies)
     tool_names = set(model.tool_names)
     assert "shell" in tool_names, "shell toolset should be loaded"
-    # AgentToolset generates _agent_{worker} tools for each allowed worker
+    # AgentToolset generates _agent_{worker} tools for each configured worker
     agent_tools = [t for t in tool_names if t.startswith("_agent_")]
     assert len(agent_tools) > 0, "agent toolset should generate agent tools"
     assert "worker_create" in tool_names, "agent toolset should include worker_create"

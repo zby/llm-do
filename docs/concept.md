@@ -4,14 +4,9 @@
 
 **Workers are functions.**
 
-LLM workflows compose focused workers. Each worker does one thing well with tight context—no bloated multi-purpose prompts.
+A worker is a prompt + configuration + tools, packaged as an executable unit. Workers call other workers and Python tools interchangeably—LLM reasoning and deterministic code interleave freely.
 
-| Programming | llm-do |
-|-------------|--------|
-| Function | `.worker` file |
-| Function call | Worker tool |
-
-A **worker** is a prompt + configuration + tools, packaged as an executable unit. Workers call other workers and Python tools interchangeably—LLM reasoning and deterministic code interleave freely.
+**No workflow DSL.** Unlike frameworks that require special languages for defining agent workflows (DAGs, state machines, YAML orchestration), llm-do uses plain Python. Need a fixed sequence? Write a Python script that calls workers. Need dynamic routing? Let the LLM decide which worker to call. The same function-call semantics work for both—no new abstractions to learn.
 
 ## Neuro-Symbolic Computing
 

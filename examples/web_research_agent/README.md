@@ -8,13 +8,13 @@ This example turns the architecture in `web_research_agent_architecture.md` into
 
 ## Prerequisites
 - Install the repo: `pip install -e .`
-- Set a model (inherits from CLI): `export MODEL=anthropic:claude-3-5-sonnet-20241022` (PowerShell: `$env:MODEL=...`) or `openai:gpt-4o`
+- Set a model: `export LLM_DO_MODEL=anthropic:claude-haiku-4-5` (PowerShell: `$env:LLM_DO_MODEL=...`) or `openai:gpt-4o-mini`
 - **Required**: `export SERPAPI_API_KEY=your_key` (PowerShell: `$env:SERPAPI_API_KEY=...`). Get a free API key at https://serpapi.com/
 
 ## Run
 ```bash
 cd examples/web_research_agent
-llm-do web_research_orchestrator "AI deployment in hospitals" --model $MODEL --approve-all
+llm-do web_research_orchestrator "AI deployment in hospitals" --approve-all
 ```
 
 Outputs are written to `reports/{topic-slug}.md` and `reports/{topic-slug}.json`.

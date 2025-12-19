@@ -11,7 +11,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 export OPENAI_API_KEY="sk-..."
 
 # Set a default model
-export MODEL=anthropic:claude-3-5-haiku-20241022  # or openai:gpt-4o-mini
+export LLM_DO_MODEL=anthropic:claude-haiku-4-5  # or openai:gpt-4o-mini
 ```
 
 ## Usage
@@ -20,10 +20,10 @@ export MODEL=anthropic:claude-3-5-haiku-20241022  # or openai:gpt-4o-mini
 cd examples/greeter
 
 # Run main.worker (default)
-llm-do "Tell me a joke" --model $MODEL
+llm-do "Tell me a joke"
 
 # Or run a specific worker
-llm-do --worker greeter "Tell me a joke" --model $MODEL
+llm-do --worker greeter "Tell me a joke"
 ```
 
 The CLI automatically:
@@ -50,7 +50,7 @@ instructions: |
 ```
 
 **Key points:**
-- No `model` specified → must use `--model` flag
+- No `model` specified → uses `LLM_DO_MODEL` env var or `--model` flag
 - No filesystem toolset → no file access
 - No approval rules → safe for all operations (no tools available)
 - Inline instructions → no separate prompt file needed

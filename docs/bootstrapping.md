@@ -163,4 +163,4 @@ All without asking. **Review `generated/` afterward to see what emerged.**
 
 ## Future Work
 
-See `TODO.md` in the project root for planned enhancements including automatic iterative refinement.
+Planned: iterative refinement (create worker → run → evaluate → refine).

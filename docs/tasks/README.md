@@ -8,15 +8,46 @@ Operational documents for tracking work in progress.
 2. **Scoping** - Break work into chunks that fit in context window
 3. **Dependencies** - Track what must be done first
 
+## Directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `active/` | Work in progress or planned next |
+| `backlog/` | Ideas worth tracking, not yet planned |
+| `completed/` | Finished work (can be purged periodically) |
+
 ## Usage
 
+- **New idea**: Create in `backlog/` with lightweight template
+- **Planning work**: Move from `backlog/` to `active/`, flesh out full template
 - **Starting work**: Create task in `active/`
 - **Resuming work**: Read task, continue from current state
 - **Finishing work**: Move to `completed/` or delete
 
 Completed tasks can be purged periodically - permanent decisions belong in AGENTS.md, code comments, or other documentation.
 
-## Task Template
+## Backlog Template
+
+```markdown
+# Feature Name
+
+## Idea
+What this would do.
+
+## Why
+Why it might be valuable.
+
+## Rough Scope
+High-level bullets of what's involved.
+
+## Why Not Now
+What's blocking or why it's not a priority.
+
+## Trigger to Activate
+What would make this worth doing.
+```
+
+## Active Task Template
 
 ```markdown
 # Task Name

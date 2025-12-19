@@ -130,7 +130,33 @@ The `worker_create` tool, subject to approval:
 - Created workers start with minimal toolsets and attachment policy (principle of least privilege)
 - Saved definition is immediately executable and refinable
 
-## Progressive Hardening
+## Worker-Tool Unification
+
+**Workers and tools are the same abstraction.** A worker is a tool whose implementation is an LLM agent loop. This unification enables seamless interleaving of neural (LLM) and symbolic (deterministic code) components.
+
+**Two integration points:**
+- **Workers as tools**: Each delegated worker appears as a `_worker_*` tool that the LLM can call like any other tool
+- **Tools calling workers**: Python tools can invoke workers via `ToolContext.call_worker()` for nested LLM reasoning
+
+This creates **dual recursion**:
+```
+LLM ──calls──▶ Tool ──calls──▶ LLM ──calls──▶ Tool ...
+     reason         execute         reason
+     decide         compute         decide
+```
+
+| Component | Strengths |
+|-----------|-----------|
+| Neural (LLM) | Flexible reasoning, handles ambiguity, contextual |
+| Symbolic (Tool) | Deterministic, precise, cheap, auditable |
+
+The unified interface means refactoring between neural and symbolic is just changing which component handles a task—no architectural changes required.
+
+## Progressive Hardening (and Softening)
+
+The worker-tool unification enables **bidirectional refactoring**:
+
+### Hardening: Neural → Symbolic
 
 Workers start flexible, then harden as patterns stabilize:
 
@@ -140,12 +166,40 @@ Workers start flexible, then harden as patterns stabilize:
 4. **Locking** — Pin orchestrators to vetted workers via allowlists
 5. **Migration** — Extract deterministic operations to tested Python
 
-**Example**:
+**Example** (hardening):
 - **Day 1**: Orchestrator creates `evaluator`, user approves
 - **Week 1**: Test runs reveal drift, refine prompt
 - **Week 2**: Add structured output schema
 - **Week 3**: Extract scoring logic to Python toolbox with tests
 - **Week 4**: Worker calls `compute_score()`, math is now deterministic
+
+### Softening: Symbolic → Neural
+
+When rigid code needs more flexibility, replace deterministic logic with worker calls:
+
+**Example** (softening):
+- A Python tool parses config files with regex
+- Edge cases multiply, regex becomes unmaintainable
+- Replace parsing with `ctx.deps.call_worker("config_parser", raw_text)`
+- The worker handles ambiguous formats with LLM reasoning
+- Deterministic validation still runs on the parsed output
+
+### The Refactoring Spectrum
+
+```
+Pure Python ◄─────────────────────────► Pure Worker
+(all symbolic)                          (all neural)
+
+  compute_hash ── smart_refactor ── code_reviewer
+       │               │                   │
+       │         hybrid: mostly            │
+       │         deterministic,       full LLM
+       │         calls LLM when stuck      │
+       │                                   │
+   no LLM ◄───────────────────────────► only LLM
+```
+
+Any component can slide along this spectrum as requirements evolve. The unified interface makes this refactoring straightforward.
 
 ## Design Principles
 
@@ -159,7 +213,7 @@ Workers start flexible, then harden as patterns stabilize:
 
 5. **Recursive composability** — Workers calling workers should feel like function calls
 
-6. **Progressive hardening** — Start with prompts for flexibility, extract deterministic logic to Python as patterns stabilize
+6. **Bidirectional refactoring** — Harden workers to Python as patterns stabilize; soften rigid code to worker calls when flexibility is needed
 
 ## Architecture Overview
 

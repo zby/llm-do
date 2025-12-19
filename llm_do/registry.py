@@ -17,7 +17,13 @@ GENERATED_DIR = Path("/tmp/llm-do/generated")
 
 import frontmatter
 import yaml
-from jinja2 import Environment, FileSystemLoader, ChoiceLoader, TemplateNotFound, UndefinedError
+from jinja2 import (
+    Environment,
+    FileSystemLoader,
+    ChoiceLoader,
+    StrictUndefined,
+    TemplateError,
+)
 from pydantic import BaseModel, ValidationError
 
 from .types import OutputSchemaResolver, WorkerDefinition
@@ -55,13 +61,16 @@ def _build_template_loader(template_roots: list[Path]) -> ChoiceLoader:
 def _render_jinja_template(template_str: str, template_roots: list[Path]) -> str:
     """Render a Jinja2 template with multiple search paths.
 
-    Provides a `file(path)` function that loads files relative to the first template root.
-    Also supports standard {% include %} directive with multiple search paths.
+    Provides a `file(path)` function that loads files from template roots.
+    Also supports standard {% include %} directive with the same search paths.
 
-    Template search order:
+    Template search order (applies to both file() and include):
     1. Worker directory (for directory-form workers)
     2. Program templates/ directory
     3. Built-in templates
+
+    Uses StrictUndefined so missing template variables raise errors immediately
+    instead of silently rendering as empty strings.
 
     Args:
         template_str: Jinja2 template string
@@ -73,21 +82,28 @@ def _render_jinja_template(template_str: str, template_roots: list[Path]) -> str
     Raises:
         FileNotFoundError: If a referenced file doesn't exist
         PermissionError: If a file path escapes allowed directories
-        jinja2.TemplateError: If template syntax is invalid
+        ValueError: Wraps Jinja2 TemplateError (syntax errors, undefined vars, etc.)
     """
     loader = _build_template_loader(template_roots)
+
+    # Build the full search path including built-ins (for file() function)
+    builtin_templates = Path(__file__).parent / "templates"
+    all_roots = list(template_roots)
+    if builtin_templates.exists():
+        all_roots.append(builtin_templates)
 
     env = Environment(
         loader=loader,
         autoescape=False,  # Don't escape - we want raw text
         keep_trailing_newline=True,
+        undefined=StrictUndefined,  # Fail fast on missing variables
     )
 
-    # Add custom file() function that searches all template roots
+    # Add custom file() function that searches all template roots including built-ins
     def load_file(path_str: str) -> str:
-        """Load a file relative to template roots."""
+        """Load a file from template roots (including built-ins)."""
         # Try each root in order
-        for root in template_roots:
+        for root in all_roots:
             file_path = (root / path_str).resolve()
 
             # Security: ensure resolved path doesn't escape this root
@@ -108,7 +124,7 @@ def _render_jinja_template(template_str: str, template_roots: list[Path]) -> str
     try:
         template = env.from_string(template_str)
         return template.render()
-    except (TemplateNotFound, UndefinedError) as exc:
+    except TemplateError as exc:
         raise ValueError(f"Template error: {exc}") from exc
 
 
@@ -143,7 +159,6 @@ class WorkerRegistry:
         """Get candidate paths to search for a worker.
 
         Handles multiple name formats:
-        - Absolute/relative file paths (with .worker suffix)
         - Library references: "lib:worker" (Phase 3)
         - Explicit relative paths: "./path/to/worker"
         - Plain worker names: searched at registry root
@@ -163,6 +178,7 @@ class WorkerRegistry:
         Raises:
             ValueError: If name uses unsupported syntax (e.g., "../")
         """
+        # Names are expected to come from trusted config; guardrails here avoid accidental escapes.
         # Library references (lib:worker) not yet supported
         # Skip Windows drive letters like "C:\" and absolute paths
         if ":" in name and not name.startswith("/") and not (len(name) > 1 and name[1] == ":"):
@@ -184,11 +200,6 @@ class WorkerRegistry:
                 "Parent directory references ('..') are not allowed in worker names. "
                 "Use library references (lib:worker) for cross-project dependencies."
             )
-
-        # Handle file paths with suffix
-        base = Path(name)
-        if base.suffix:
-            return [base if base.is_absolute() else (self.root / base)]
 
         # Plain worker name - search at registry root
         candidates = [
@@ -362,10 +373,11 @@ class WorkerRegistry:
         """Load a worker definition by name.
 
         Searches in order:
-        1. {root}/{name}.worker (simple form at root)
-        2. {root}/{name}/worker.worker (directory form at root)
-        3. /tmp/llm-do/generated/{name}/worker.worker (only if generated in this session)
-        4. Built-in workers (llm_do/workers/{name}.worker or llm_do/workers/{name}/worker.worker)
+        1. Direct file path (if name points to an existing file)
+        2. {root}/{name}.worker (simple form at root)
+        3. {root}/{name}/worker.worker (directory form at root)
+        4. /tmp/llm-do/generated/{name}/worker.worker (only if generated in this session)
+        5. Built-in workers (llm_do/workers/{name}.worker or llm_do/workers/{name}/worker.worker)
 
         Note: Generated workers from /tmp are only found if they were created
         in this session via register_generated(). This prevents leakage from
@@ -385,19 +397,35 @@ class WorkerRegistry:
         if name in self._definitions_cache:
             return self._definitions_cache[name]
 
+        if name.startswith("../"):
+            raise ValueError(
+                "Parent directory references ('..') are not allowed in worker names. "
+                "Use library references (lib:worker) for cross-project dependencies."
+            )
+
+        def load_from_path(path: Path) -> WorkerDefinition:
+            data = self._load_raw(path)
+            try:
+                definition = WorkerDefinition.model_validate(data)
+            except ValidationError as exc:
+                raise ValueError(f"Invalid worker definition at {path}: {exc}") from exc
+            return definition
+
+        # Allow direct file paths when they exist (absolute or relative).
+        direct = Path(name).expanduser()
+        candidates = [direct]
+        if not direct.is_absolute():
+            candidates.append(self.root / direct)
+        for candidate in candidates:
+            if candidate.is_file():
+                return load_from_path(candidate)
+
         path = self._definition_path(name)
         if not path.exists():
             # _definition_path returns the first candidate if none exist,
             # but we want to be sure we checked all of them in the error message
             raise FileNotFoundError(f"Worker definition not found: {name}")
-        data = self._load_raw(path)
-
-        try:
-            definition = WorkerDefinition.model_validate(data)
-        except ValidationError as exc:
-            raise ValueError(f"Invalid worker definition at {path}: {exc}") from exc
-
-        return definition
+        return load_from_path(path)
 
     def save_definition(
         self,

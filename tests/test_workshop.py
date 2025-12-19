@@ -158,3 +158,16 @@ class TestTemplateSearchPaths:
 
         assert "# Worker Header" in definition.instructions
         assert "Main content" in definition.instructions
+
+    def test_undefined_template_variable_raises_error(self, tmp_path):
+        """Test that undefined template variables raise ValueError."""
+        (tmp_path / "bad_template.worker").write_text(
+            "---\nname: bad_template\n---\nHello {{ undefined_var }}!"
+        )
+
+        registry = WorkerRegistry(tmp_path)
+        with pytest.raises(ValueError) as exc_info:
+            registry.load_definition("bad_template")
+
+        assert "Template error" in str(exc_info.value)
+        assert "undefined_var" in str(exc_info.value)

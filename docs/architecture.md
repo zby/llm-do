@@ -23,7 +23,10 @@ llm_do/
 │   └── types.py         # Shell-specific types
 ├── ui/                  # Display and UI components
 │   ├── __init__.py      # Package exports
-│   └── display.py       # Display backend abstractions
+│   ├── display.py       # Display backend abstractions
+│   ├── app.py           # Textual TUI application (LlmDoApp, TextualDisplayBackend)
+│   └── widgets/         # TUI message widgets
+│       └── messages.py  # AssistantMessage, ToolCallMessage, etc.
 ├── cli_async.py         # Async CLI entry point (default)
 └── base.py              # Public API exports
 ```

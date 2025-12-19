@@ -53,7 +53,7 @@ my-project/
 Run workers from the project directory:
 ```bash
 cd my-project
-llm-do orchestrator "Process the input files"
+llm-do --worker orchestrator "Process the input files"
 ```
 
 ### Lifecycle

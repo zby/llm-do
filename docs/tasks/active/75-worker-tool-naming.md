@@ -81,13 +81,19 @@ Both ultimately use `_invoke_worker()` internally, but the LLM sees different to
 - [ ] Block `worker_call` for configured workers (must use direct tool)
 - [ ] Keep `worker_create` handling as-is
 
-### 3. Add name collision validation (`delegation_toolset.py`)
+### 3. Extract `_invoke_worker()` helper (`delegation_toolset.py`)
+- [ ] Create `_invoke_worker(worker_name, input, attachments)` internal method
+- [ ] Move worker execution logic from individual tool handlers into this helper
+- [ ] Both configured worker tools and `worker_call` use this helper
+- [ ] Keep worker loading/registry logic in the helper
+
+### 4. Add name collision validation (`delegation_toolset.py`)
 - [ ] Define reserved tool names: `worker_call`, `worker_create`
 - [ ] Validate at toolset init that no worker name collides with reserved names
-- [ ] Raise clear error if collision detected
+- [ ] Raise `ValueError` on collision (fail fast at startup)
 - [ ] Add tests for collision detection
 
-### 4. Update all affected files
+### 5. Update all affected files
 Files referencing `_worker_` prefix:
 - [ ] `llm_do/delegation_toolset.py` - main changes
 - [ ] `llm_do/base.py`
@@ -98,7 +104,7 @@ Files referencing `_worker_` prefix:
 - [ ] `llm_do/__init__.py`
 - [ ] `llm_do/ui/app.py`
 
-### 5. Update tests
+### 6. Update tests
 - [ ] `tests/test_worker_delegation.py`
 - [ ] `tests/test_integration_live.py`
 - [ ] `tests/test_nested_worker_hang.py`
@@ -114,24 +120,25 @@ Files referencing `_worker_` prefix:
 - [ ] Add tests for `worker_call` blocking configured workers
 - [ ] Add tests for name collision validation
 
-### 6. Update documentation
+### 7. Update documentation
 - [ ] Update docs referencing `_worker_` prefix (exclude archived docs)
 
 ## Name Collision Rules
 
-Workers share namespace with other tools. Concrete validation:
+Name collisions are **errors** - fail fast at startup, not runtime surprises.
 
-1. **Reserved names** (always blocked): `worker_call`, `worker_create`
-2. **Validation timing**: At DelegationToolset initialization
-3. **Error behavior**: Raise `ValueError` with clear message
-4. **Built-in tool collisions**: If a worker name matches a built-in tool from another toolset (e.g., `shell`, `read_file`), the worker tool shadows it within that agent. This is the user's responsibility to avoid via naming conventions.
+1. **Reserved names**: `worker_call`, `worker_create` - collision raises `ValueError` at init
+2. **Validation timing**: At `DelegationToolset.__init__()` before any tools are registered
+3. **Error format**: `ValueError: Worker name '{name}' conflicts with reserved tool '{name}'`
+4. **Built-in tool collisions**: If a worker name matches a built-in tool from another toolset (e.g., `shell`, `read_file`), the worker tool shadows it within that agent. This is the user's responsibility to avoid via naming conventions - no automatic validation across toolsets.
 
 ## Acceptance Criteria
 
 - [ ] Worker tools named same as worker (no prefix)
+- [ ] `_invoke_worker()` helper extracts common worker execution logic
 - [ ] `worker_call` pre-approves session-generated workers
-- [ ] `worker_call` blocks configured workers (must use direct tool)
-- [ ] Name collision validation for reserved names
+- [ ] `worker_call` blocks non-session-generated workers
+- [ ] Name collisions with reserved names raise `ValueError` at init
 - [ ] All tests pass
 - [ ] No `_worker_` prefix in source code or non-archived docs
 

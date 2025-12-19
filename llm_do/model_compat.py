@@ -13,8 +13,7 @@ Pattern syntax for compatible_models:
 Model resolution precedence (highest to lowest):
 1. CLI --model flag (explicit override)
 2. Worker's own model (worker definition)
-3. Workshop config model (workshop.yaml)
-4. LLM_DO_MODEL environment variable
+3. LLM_DO_MODEL environment variable
 """
 from __future__ import annotations
 
@@ -164,7 +163,6 @@ def select_model(
     *,
     worker_model: Optional[str],
     cli_model: Optional[str] = None,
-    workshop_model: Optional[str] = None,
     compatible_models: Optional[List[str]],
     worker_name: str = "worker",
 ) -> str:
@@ -173,15 +171,13 @@ def select_model(
     Resolution order (highest to lowest priority):
     1. CLI --model flag - explicit user override
     2. Worker's own model - worker definition
-    3. Workshop config model - workshop-wide default
-    4. LLM_DO_MODEL env var - user's global default
+    3. LLM_DO_MODEL env var - user's global default
 
     The selected model is validated against compatible_models.
 
     Args:
         worker_model: Model from worker definition
         cli_model: Model from --model CLI flag
-        workshop_model: Model from workshop.yaml config
         compatible_models: Worker's compatibility patterns
         worker_name: Name of the worker (for error messages)
 
@@ -200,11 +196,7 @@ def select_model(
     if worker_model is not None:
         return _validate_and_return(worker_model, compatible_models, worker_name)
 
-    # 3. Workshop config model - workshop-wide default
-    if workshop_model is not None:
-        return _validate_and_return(workshop_model, compatible_models, worker_name)
-
-    # 4. Environment variable - user's global default
+    # 3. Environment variable - user's global default
     env_model = get_env_model()
     if env_model is not None:
         return _validate_and_return(env_model, compatible_models, worker_name)
@@ -212,5 +204,5 @@ def select_model(
     # No model available
     raise NoModelError(
         f"No model configured for worker '{worker_name}'. "
-        f"Set worker.model, workshop.yaml model, --model flag, or {LLM_DO_MODEL_ENV} env var."
+        f"Set worker.model, --model flag, or {LLM_DO_MODEL_ENV} env var."
     )

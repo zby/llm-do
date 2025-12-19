@@ -30,7 +30,6 @@ from .types import (
     MessageCallback,
     ModelLike,
     OutputSchemaResolver,
-    WorkshopConfig,
     ServerSideToolConfig,
     ShellDefault,
     ShellResult,
@@ -42,12 +41,8 @@ from .types import (
     WorkerSpec,
 )
 
-# Re-export workshop module
-from .workshop import (
-    InvalidWorkshopError,
-    WorkshopContext,
-    resolve_workshop,
-)
+# Re-export worker resolution
+from .workshop import resolve_worker
 
 # Re-export approval types from standalone package
 from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision
@@ -92,12 +87,9 @@ __all__: Iterable[str] = [
     "call_worker_async",
     "create_worker",
     "WorkerContext",
-    # Workshop types (worker-function architecture)
+    # Worker resolution
     "InvocationMode",
-    "InvalidWorkshopError",
-    "WorkshopConfig",
-    "WorkshopContext",
-    "resolve_workshop",
+    "resolve_worker",
     # Shell tool
     "ShellBlockedError",
     "ShellDefault",

@@ -197,10 +197,8 @@ def test_registry_prefers_project_workers_over_generated(tmp_path, resolver):
     )
     registry.register_generated("foo")
 
-    # Create project worker (higher priority)
-    project_dir = root / "workers"
-    project_dir.mkdir(exist_ok=True)
-    (project_dir / "foo.worker").write_text(
+    # Create project worker at root (higher priority)
+    (root / "foo.worker").write_text(
         "---\nname: foo\n---\nproject",
         encoding="utf-8",
     )
@@ -430,21 +428,19 @@ def test_run_worker_without_model_errors(registry):
 # ---------------------------------------------------------------------------
 
 
-def test_workers_subdirectory_discovery(tmp_path):
-    """Test that workers can be discovered from workers/ subdirectory by name."""
+def test_workers_at_root_discovery(tmp_path):
+    """Test that workers can be discovered from registry root by name."""
     project_root = _project_root(tmp_path)
     registry = WorkerRegistry(project_root)
 
-    # Create worker in workers/ subdirectory
-    workers_dir = project_root / "workers"
-    workers_dir.mkdir()
-    worker_file = workers_dir / "my_worker.worker"
+    # Create worker at registry root
+    worker_file = project_root / "my_worker.worker"
     worker_def = WorkerDefinition(name="my_worker", instructions="Do the task")
 
-    # Save directly to the workers/ subdirectory
+    # Save directly to the root
     registry.save_definition(worker_def, path=worker_file)
 
-    # Load by name only - should discover from workers/ subdirectory
+    # Load by name only - should discover from root
     loaded = registry.load_definition("my_worker")
     assert loaded.name == "my_worker"
     assert loaded.instructions == "Do the task"

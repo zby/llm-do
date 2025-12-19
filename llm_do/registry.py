@@ -20,7 +20,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, ChoiceLoader, TemplateNotFound, UndefinedError
 from pydantic import BaseModel, ValidationError
 
-from .types import OutputSchemaResolver, WorkshopConfig, WorkerDefinition
+from .types import OutputSchemaResolver, WorkerDefinition
 
 
 def _default_resolver(definition: WorkerDefinition) -> Optional[Type[BaseModel]]:
@@ -126,7 +126,6 @@ class WorkerRegistry:
         *,
         output_schema_resolver: OutputSchemaResolver = _default_resolver,
         generated_dir: Optional[Path] = None,
-        workshop_config: Optional[WorkshopConfig] = None,
     ):
         self.root = Path(root).expanduser().resolve()
         self.output_schema_resolver = output_schema_resolver
@@ -136,8 +135,6 @@ class WorkerRegistry:
         self.generated_dir = Path(generated_dir) if generated_dir else GENERATED_DIR
         # Track workers generated in this session - only these are searchable
         self._generated_workers: Set[str] = set()
-        # Workshop configuration for inheritance
-        self.workshop_config = workshop_config
         # Cache for loaded definitions (used by CLI for override injection)
         self._definitions_cache: Dict[str, WorkerDefinition] = {}
 
@@ -148,8 +145,14 @@ class WorkerRegistry:
         Handles multiple name formats:
         - Absolute/relative file paths (with .worker suffix)
         - Library references: "lib:worker" (Phase 3)
-        - Explicit relative paths: "./workers/helper"
-        - Plain worker names: searched in standard locations
+        - Explicit relative paths: "./path/to/worker"
+        - Plain worker names: searched at registry root
+
+        Search order for plain names:
+        1. Simple form at root: {root}/{name}.worker
+        2. Directory form at root: {root}/{name}/worker.worker
+        3. Generated workers (this session only)
+        4. Built-in workers
 
         Args:
             name: Worker name, path, or reference
@@ -165,7 +168,7 @@ class WorkerRegistry:
         if ":" in name and not name.startswith("/") and not (len(name) > 1 and name[1] == ":"):
             raise ValueError(f"Library references ('{name}') not yet supported.")
 
-        # Handle explicit relative paths: "./workers/helper"
+        # Handle explicit relative paths: "./path/to/worker"
         if name.startswith("./"):
             rel_path = name[2:]  # Remove "./"
             # Try as worker name in the path
@@ -187,20 +190,13 @@ class WorkerRegistry:
         if base.suffix:
             return [base if base.is_absolute() else (self.root / base)]
 
-        # Plain worker name - search in standard locations
-        candidates = []
-
-        # Special case: "main" worker can be at project root
-        if name == "main":
-            candidates.append(self.root / "main.worker")
-
-        # Standard locations in workers/
-        candidates.extend([
-            # Simple form: workers/name.worker
-            self.root / "workers" / f"{name}.worker",
-            # Directory form: workers/name/worker.worker
-            self.root / "workers" / name / "worker.worker",
-        ])
+        # Plain worker name - search at registry root
+        candidates = [
+            # Simple form: {root}/{name}.worker
+            self.root / f"{name}.worker",
+            # Directory form: {root}/{name}/worker.worker
+            self.root / name / "worker.worker",
+        ]
 
         # Only include generated path if this worker was generated in this session
         # Generated workers are always directories: {generated_dir}/{name}/worker.worker
@@ -226,8 +222,8 @@ class WorkerRegistry:
         """Build list of template search paths for a worker.
 
         Search order:
-        1. Worker directory (for directory-form workers)
-        2. Workshop templates/ directory (if workshop_config is set)
+        1. Worker directory templates/ subdirectory (if exists)
+        2. Worker directory itself (for local includes)
         3. Built-in templates (added by _render_jinja_template)
 
         Args:
@@ -238,17 +234,11 @@ class WorkerRegistry:
         """
         roots = []
 
-        # 1. Worker's own directory (for directory-form workers with local templates)
+        # Worker's own directory (for directory-form workers with local templates)
         worker_dir = worker_path.parent
         if (worker_dir / "templates").exists():
             roots.append(worker_dir / "templates")
         roots.append(worker_dir)  # Also allow includes relative to worker
-
-        # 2. Workshop templates directory
-        if self.workshop_config is not None:
-            workshop_templates = self.root / "templates"
-            if workshop_templates.exists():
-                roots.append(workshop_templates)
 
         return roots
 
@@ -284,8 +274,8 @@ class WorkerRegistry:
         """Find custom tools module for a worker.
 
         Search order:
-        1. Worker directory: workers/name/tools.py (for directory-form workers)
-        2. Workshop root: tools.py (when workshop_config is set)
+        1. Worker directory: {root}/{name}/tools.py (for directory-form workers)
+        2. Registry root: {root}/tools.py (for simple-form workers)
 
         Args:
             name: Worker name
@@ -303,11 +293,10 @@ class WorkerRegistry:
             if tools_path.exists():
                 return tools_path
 
-        # 2. Check workshop root (when in workshop mode)
-        if self.workshop_config is not None:
-            workshop_tools = self.root / "tools.py"
-            if workshop_tools.exists():
-                return workshop_tools
+        # 2. Check registry root (for simple-form workers)
+        root_tools = self.root / "tools.py"
+        if root_tools.exists():
+            return root_tools
 
         return None
 
@@ -337,26 +326,20 @@ class WorkerRegistry:
     def list_workers(self) -> list[str]:
         """List all available worker names.
 
-        Scans project workers, built-ins, and generated workers from this session.
+        Scans registry root, built-ins, and generated workers from this session.
 
         Returns:
             List of worker names (without path or .worker suffix)
         """
         workers: set[str] = set()
 
-        # Scan project workers/ directory
-        workers_dir = self.root / "workers"
-        if workers_dir.exists():
-            # Simple form: workers/name.worker
-            for path in workers_dir.glob("*.worker"):
-                workers.add(path.stem)
-            # Directory form: workers/name/worker.worker
-            for path in workers_dir.glob("*/worker.worker"):
-                workers.add(path.parent.name)
-
-        # Check for main.worker at project root
-        if (self.root / "main.worker").exists():
-            workers.add("main")
+        # Scan registry root for workers
+        # Simple form: {root}/{name}.worker
+        for path in self.root.glob("*.worker"):
+            workers.add(path.stem)
+        # Directory form: {root}/{name}/worker.worker
+        for path in self.root.glob("*/worker.worker"):
+            workers.add(path.parent.name)
 
         # Include generated workers from this session
         workers.update(self._generated_workers)
@@ -371,61 +354,18 @@ class WorkerRegistry:
 
         return sorted(workers)
 
-    def _apply_workshop_config(self, definition: WorkerDefinition) -> WorkerDefinition:
-        """Apply workshop configuration inheritance to a worker definition.
-
-        Merge rules (per spec):
-        - Scalar values: worker overrides workshop
-        - toolsets: deep merge (worker toolsets add to workshop toolsets)
-        - Lists: worker replaces workshop (no merge)
-
-        Args:
-            definition: Worker definition to enhance
-
-        Returns:
-            WorkerDefinition with workshop defaults applied
-        """
-        if self.workshop_config is None:
-            return definition
-
-        # Start with worker's values
-        updates = {}
-
-        # Model: worker overrides workshop
-        if definition.model is None and self.workshop_config.model is not None:
-            updates["model"] = self.workshop_config.model
-
-        # Toolsets: deep merge (workshop provides base, worker adds/overrides)
-        if self.workshop_config.toolsets:
-            merged_toolsets = dict(self.workshop_config.toolsets)
-            if definition.toolsets:
-                merged_toolsets.update(definition.toolsets)
-            updates["toolsets"] = merged_toolsets
-        elif definition.toolsets is None:
-            # Worker has no toolsets and neither does workshop - keep as None
-            pass
-
-        if not updates:
-            return definition
-
-        # Create new definition with merged values
-        return definition.model_copy(update=updates)
-
     def load_definition(self, name: str) -> WorkerDefinition:
         """Load a worker definition by name.
 
         Searches in order:
-        1. {root}/workers/{name}.worker
-        2. {root}/workers/{name}/worker.worker (directory form)
-        3. /tmp/llm-do/generated/{name}.worker (only if generated in this session)
+        1. {root}/{name}.worker (simple form at root)
+        2. {root}/{name}/worker.worker (directory form at root)
+        3. /tmp/llm-do/generated/{name}/worker.worker (only if generated in this session)
         4. Built-in workers (llm_do/workers/{name}.worker or llm_do/workers/{name}/worker.worker)
 
         Note: Generated workers from /tmp are only found if they were created
         in this session via register_generated(). This prevents leakage from
         old sessions.
-
-        If a workshop_config is set, workshop-level defaults are merged into
-        the worker definition (worker values take precedence).
 
         Args:
             name: Worker name to load
@@ -453,8 +393,7 @@ class WorkerRegistry:
         except ValidationError as exc:
             raise ValueError(f"Invalid worker definition at {path}: {exc}") from exc
 
-        # Apply workshop configuration inheritance
-        return self._apply_workshop_config(definition)
+        return definition
 
     def save_definition(
         self,

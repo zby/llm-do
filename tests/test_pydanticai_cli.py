@@ -283,51 +283,44 @@ def test_cli_requires_tty_for_interactive_mode(tmp_path, monkeypatch, capsys):
     assert "interactive approvals require a TTY" in captured.err
 
 
-def test_cli_init_creates_workshop(tmp_path):
-    """Test that 'llm-do init' creates a workshop structure."""
-    from llm_do.cli import init_workshop
+def test_cli_init_creates_project(tmp_path):
+    """Test that 'llm-do init' creates a project structure."""
+    from llm_do.cli import init_project
 
-    workshop_dir = tmp_path / "my-workshop"
+    project_dir = tmp_path / "my-project"
 
-    result = init_workshop([str(workshop_dir), "--name", "My Workshop", "--model", "anthropic:claude-haiku-4-5"])
+    result = init_project([str(project_dir), "--name", "my-project", "--model", "anthropic:claude-haiku-4-5"])
 
     assert result == 0
-    assert workshop_dir.exists()
-    assert (workshop_dir / "main.worker").exists()
-    assert (workshop_dir / "workshop.yaml").exists()
+    assert project_dir.exists()
+    assert (project_dir / "my-project.worker").exists()
 
-    # Check main.worker content
-    main_content = (workshop_dir / "main.worker").read_text()
-    assert "name: main" in main_content
-    assert "My Workshop" in main_content
-
-    # Check workshop.yaml content
-    workshop_content = (workshop_dir / "workshop.yaml").read_text()
-    assert "name: My Workshop" in workshop_content
-    assert "model: anthropic:claude-haiku-4-5" in workshop_content
+    # Check worker content
+    worker_content = (project_dir / "my-project.worker").read_text()
+    assert "name: my-project" in worker_content
+    assert "model: anthropic:claude-haiku-4-5" in worker_content
 
 
 def test_cli_init_fails_if_exists(tmp_path):
-    """Test that 'llm-do init' fails if workshop already exists."""
-    from llm_do.cli import init_workshop
+    """Test that 'llm-do init' fails if worker already exists."""
+    from llm_do.cli import init_project
 
-    # Create existing main.worker
-    (tmp_path / "main.worker").write_text("existing")
+    # Get expected worker name (directory name)
+    worker_name = tmp_path.name
+    (tmp_path / f"{worker_name}.worker").write_text("existing")
 
-    result = init_workshop([str(tmp_path)])
+    result = init_project([str(tmp_path)])
 
     assert result == 1
 
 
 def test_cli_init_minimal(tmp_path):
     """Test that 'llm-do init' works with minimal args."""
-    from llm_do.cli import init_workshop
+    from llm_do.cli import init_project
 
-    workshop_dir = tmp_path / "simple"
+    project_dir = tmp_path / "simple"
 
-    result = init_workshop([str(workshop_dir)])
+    result = init_project([str(project_dir)])
 
     assert result == 0
-    assert (workshop_dir / "main.worker").exists()
-    # No workshop.yaml without --name or --model
-    assert not (workshop_dir / "workshop.yaml").exists()
+    assert (project_dir / "simple.worker").exists()

@@ -186,52 +186,15 @@ class WorkerCreationDefaults(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Workshop configuration
+# Worker resolution
 # ---------------------------------------------------------------------------
 
 
 class InvocationMode(Enum):
     """How the CLI argument should be interpreted."""
 
-    WORKSHOP = "workshop"  # Directory with main.worker
-    SINGLE_FILE = "single_file"  # Direct .worker file
-    SEARCH_PATH = "search_path"  # Worker name, search LLM_DO_PATH
-
-
-class WorkshopConfig(BaseModel):
-    """Workshop-level configuration from workshop.yaml.
-
-    Workshops provide a boundary for worker resolution, shared configuration,
-    and library dependencies. This model represents the workshop manifest.
-    """
-
-    # Metadata
-    name: Optional[str] = Field(
-        default=None,
-        description="Workshop identifier (used when published as library)"
-    )
-    version: Optional[str] = Field(
-        default=None,
-        description="Semantic version"
-    )
-    description: Optional[str] = Field(
-        default=None,
-        description="Human-readable description"
-    )
-
-    # Default model for all workers (overridable per-worker)
-    model: Optional[str] = Field(
-        default=None,
-        description="Default model for all workers in this workshop"
-    )
-
-    # Default toolsets for all workers (merged with worker-specific)
-    toolsets: Optional[Dict[str, Any]] = Field(
-        default=None,
-        description="Default toolsets configuration for all workers"
-    )
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    SINGLE_FILE = "single_file"  # Direct .worker file path
+    SEARCH_PATH = "search_path"  # Worker name, search registry root
 
 
 class WorkerRunResult(BaseModel):

@@ -45,7 +45,7 @@ toolsets:
 ### Direct Worker Invocation
 
 ```bash
-# By name (searches workers/ directory)
+# By name (searches registry root)
 llm-do code_reviewer "Review this PR"
 
 # By explicit path
@@ -62,7 +62,7 @@ llm-do ./my-workshop/
 Now you always specify the worker explicitly:
 ```bash
 # NEW - explicit worker
-llm-do ./my-workshop/workers/orchestrator
+llm-do ./my-workshop/orchestrator.worker
 ```
 
 ### Directory Structure
@@ -101,7 +101,7 @@ Workers live at the project root (no `workers/` subdirectory). This ensures `too
 - Remove `workshop_config` parameter from constructor
 - Remove `_apply_workshop_config()` method
 - Remove workshop-level template search (keep worker-local templates)
-- Remove workshop-level `tools.py` fallback for simple workers
+- Keep registry-root `tools.py` fallback for simple workers (remove workshop dependency)
 - Update `_get_search_paths()`: remove `workers/` subdirectory, search root directly
 - Update `find_custom_tools()`: search for `tools.py` at registry root for simple-form workers
 - Update `list_workers()`: scan root instead of `workers/` subdirectory
@@ -118,7 +118,7 @@ Workers live at the project root (no `workers/` subdirectory). This ensures `too
 After removing workshop, resolution becomes:
 
 1. **Explicit path**: `./path/to/worker.worker` or `./path/to/worker/`
-2. **Name search**: Look in `workers/` directory of registry root
+2. **Name search**: Look in registry root
 
 ```python
 def resolve_worker(arg: str, registry_root: Path) -> Path:
@@ -129,45 +129,64 @@ def resolve_worker(arg: str, registry_root: Path) -> Path:
     if arg.startswith('./') or arg.startswith('/') or path.suffix == '.worker':
         return resolve_explicit_path(path, registry_root)
 
-    # Name search in workers/ directory
-    return search_workers_dir(arg, registry_root)
+    # Name search in registry root
+    return search_registry_root(arg, registry_root)
 ```
+
+## Status: ✅ COMPLETED
+
+All phases completed on 2025-12-19.
 
 ## Tasks
 
-### Phase 1: Remove workshop from CLI
+### Phase 1: Remove workshop from CLI ✅
 
-- [ ] Simplify `resolve_workshop()` to just path/name resolution
-- [ ] Remove `InvocationMode.WORKSHOP` handling
-- [ ] Remove `--entry` CLI flag
-- [ ] Update CLI to not pass `workshop_config` to registry
+- [x] Simplify `resolve_workshop()` to just path/name resolution → renamed to `resolve_worker()`
+- [x] Remove `InvocationMode.WORKSHOP` handling
+- [x] Remove `--entry` CLI flag
+- [x] Update CLI to not pass `workshop_config` to registry
+- [x] Rename `init_workshop()` to `init_project()`
 
-### Phase 2: Remove workshop from registry
+### Phase 2: Remove workshop from registry ✅
 
-- [ ] Remove `workshop_config` parameter from `WorkerRegistry.__init__()`
-- [ ] Remove `_apply_workshop_config()` method
-- [ ] Remove workshop template directory from `_get_template_roots()`
-- [ ] Remove workshop-level `tools.py` fallback from `find_custom_tools()`
+- [x] Remove `workshop_config` parameter from `WorkerRegistry.__init__()`
+- [x] Remove `_apply_workshop_config()` method
+- [x] Remove workshop template directory from `_get_template_roots()`
+- [x] Keep registry-root `tools.py` fallback in `find_custom_tools()` (remove workshop dependency)
+- [x] Update `_get_search_paths()` to search root directly instead of `workers/` subdirectory
+- [x] Update `list_workers()` to scan root instead of `workers/` subdirectory
 
-### Phase 3: Remove workshop types and module
+### Phase 3: Remove workshop types and module ✅
 
-- [ ] Remove `WorkshopContext` from `types.py`
-- [ ] Remove `WorkshopConfig` from `types.py`
-- [ ] Remove `InvocationMode.WORKSHOP` from enum
-- [ ] Delete `llm_do/workshop.py`
-- [ ] Update imports in `llm_do/base.py`
+- [x] Remove `WorkshopContext` from `types.py`
+- [x] Remove `WorkshopConfig` from `types.py`
+- [x] Remove `InvocationMode.WORKSHOP` from enum
+- [x] Rewrote `llm_do/workshop.py` as simple worker resolution (kept file for resolve_worker function)
+- [x] Update imports in `llm_do/base.py`
+- [x] Remove `workshop_model` parameter from `select_model()`, `run_worker()`, `run_worker_async()`, etc.
 
-### Phase 4: Update tests
+### Phase 4: Update tests ✅
 
-- [ ] Remove/update `test_workshop.py` tests
-- [ ] Update any integration tests using workshop mode
-- [ ] Ensure worker resolution tests still pass
+- [x] Rewrote `test_workshop.py` tests for new worker resolution
+- [x] Updated `test_model_compat.py` to remove `workshop_model` references
+- [x] Updated `test_pydanticai_cli.py` to use `init_project()`
+- [x] Updated `test_cli_async.py` for new init_project
+- [x] Updated `test_custom_tools.py` to create workers at root
+- [x] Updated `test_pydanticai_base.py` for root-level workers
+- [x] All 224 tests pass
 
-### Phase 5: Cleanup
+### Phase 5: Cleanup ✅
 
-- [ ] Remove `main.worker` special handling in search paths
-- [ ] Update documentation
-- [ ] Update examples (remove any `workshop.yaml` files, rename `main.worker` to meaningful names)
+- [x] Remove `main.worker` special handling in search paths
+- [x] Restructured all examples to have workers at root (no `workers/` subdirectory):
+  - calculator
+  - greeter
+  - approvals_demo
+  - pitchdeck_eval
+  - whiteboard_planner
+  - web_searcher
+  - code_analyzer
+  - web_research_agent
 
 ## Registry Root Determination
 
@@ -194,7 +213,7 @@ Workers that delegate to other workers should be run from the project root (or w
 Existing workshops become regular directories:
 - `main.worker` → delete (redundant with the actual orchestrator in `workers/`)
 - `workshop.yaml` → delete (settings move to per-worker config)
-- Workers keep their `toolsets:` configuration unchanged
+- Workers keep their `toolsets:` configuration unchanged (delegation config is now a tool map)
 - Update any scripts/docs that called the directory
 
 ```bash
@@ -261,8 +280,8 @@ The `workers/` subdirectory search is removed.
 ## Test Strategy
 
 - Test explicit path resolution (`./path/to/worker.worker`)
-- Test name resolution (`worker_name` → `workers/worker_name.worker`)
-- Test directory-form workers (`workers/name/worker.worker`)
+- Test name resolution (`worker_name` → `{root}/worker_name.worker`)
+- Test directory-form workers (`{root}/name/worker.worker`)
 - Test that `toolsets:` configuration still works unchanged
 - Test custom tools discovery (worker-local `tools.py`)
 - Test error cases (worker not found, invalid path)

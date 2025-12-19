@@ -22,7 +22,7 @@ from .base import (
     run_worker_async,
 )
 from .config_overrides import apply_cli_overrides
-from .workshop import InvalidWorkshopError, resolve_workshop
+from .workshop import resolve_worker
 from .types import InvocationMode
 from .ui.display import (
     CLIEvent,
@@ -71,11 +71,11 @@ def _load_creation_defaults(value: Optional[str]) -> WorkerCreationDefaults:
 def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a PydanticAI worker",
-        epilog="Use 'llm-do init' to create a new workshop.",
+        epilog="Use 'llm-do init' to create a new project.",
     )
     parser.add_argument(
         "worker",
-        help="Worker name, .worker file, or workshop directory",
+        help="Worker name or path to .worker file",
     )
     parser.add_argument(
         "message",
@@ -99,7 +99,7 @@ def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         "--model",
         dest="cli_model",
         default=None,
-        help="Fallback model if worker/project does not specify one",
+        help="Fallback model if worker does not specify one",
     )
     parser.add_argument(
         "--creation-defaults",
@@ -143,12 +143,6 @@ def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         dest="config_overrides",
         metavar="KEY=VALUE",
         help="Override fields on the worker definition",
-    )
-    parser.add_argument(
-        "--entry",
-        dest="entry_worker",
-        default=None,
-        help="Override workshop entry worker",
     )
     parser.add_argument(
         "--debug",
@@ -218,27 +212,16 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
         try:
-            mode, workshop_context, worker_name = resolve_workshop(
-                args.worker,
-                entry_override=args.entry_worker,
-            )
+            mode, worker_name = resolve_worker(args.worker)
 
-            if mode == InvocationMode.WORKSHOP:
-                registry_root = workshop_context.workshop_root
-                workshop_config = workshop_context.config
-            elif mode == InvocationMode.SINGLE_FILE:
-                worker_path = Path(args.worker)
+            if mode == InvocationMode.SINGLE_FILE:
+                worker_path = Path(worker_name)
                 registry_root = worker_path.parent
                 worker_name = worker_path.stem
-                workshop_config = None
             else:
                 registry_root = args.registry or Path.cwd()
-                workshop_config = None
 
-            if args.registry is not None:
-                registry_root = args.registry
-
-            registry = WorkerRegistry(registry_root, workshop_config=workshop_config)
+            registry = WorkerRegistry(registry_root)
             definition = registry.load_definition(worker_name)
 
             if args.config_overrides:
@@ -285,7 +268,6 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                 input_data=input_data,
                 attachments=args.attachments,
                 cli_model=args.cli_model,
-                workshop_model=workshop_config.model if workshop_config else None,
                 creation_defaults=creation_defaults,
                 approval_controller=approval_controller,
                 message_callback=message_callback,
@@ -333,27 +315,16 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        mode, workshop_context, worker_name = resolve_workshop(
-            args.worker,
-            entry_override=args.entry_worker,
-        )
+        mode, worker_name = resolve_worker(args.worker)
 
-        if mode == InvocationMode.WORKSHOP:
-            registry_root = workshop_context.workshop_root
-            workshop_config = workshop_context.config
-        elif mode == InvocationMode.SINGLE_FILE:
-            worker_path = Path(args.worker)
+        if mode == InvocationMode.SINGLE_FILE:
+            worker_path = Path(worker_name)
             registry_root = worker_path.parent
             worker_name = worker_path.stem
-            workshop_config = None
         else:
             registry_root = args.registry or Path.cwd()
-            workshop_config = None
 
-        if args.registry is not None:
-            registry_root = args.registry
-
-        registry = WorkerRegistry(registry_root, workshop_config=workshop_config)
+        registry = WorkerRegistry(registry_root)
         definition = registry.load_definition(worker_name)
 
         if args.config_overrides:
@@ -391,7 +362,6 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
                 input_data=input_data,
                 attachments=args.attachments,
                 cli_model=args.cli_model,
-                workshop_model=workshop_config.model if workshop_config else None,
                 creation_defaults=creation_defaults,
                 approval_controller=approval_controller,
                 message_callback=message_callback,
@@ -408,11 +378,6 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
 
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
-        if args.debug:
-            raise
-        return 1
-    except InvalidWorkshopError as e:
-        print(f"Workshop error: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1
@@ -454,27 +419,16 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        mode, workshop_context, worker_name = resolve_workshop(
-            args.worker,
-            entry_override=args.entry_worker,
-        )
+        mode, worker_name = resolve_worker(args.worker)
 
-        if mode == InvocationMode.WORKSHOP:
-            registry_root = workshop_context.workshop_root
-            workshop_config = workshop_context.config
-        elif mode == InvocationMode.SINGLE_FILE:
-            worker_path = Path(args.worker)
+        if mode == InvocationMode.SINGLE_FILE:
+            worker_path = Path(worker_name)
             registry_root = worker_path.parent
             worker_name = worker_path.stem
-            workshop_config = None
         else:
             registry_root = args.registry or Path.cwd()
-            workshop_config = None
 
-        if args.registry is not None:
-            registry_root = args.registry
-
-        registry = WorkerRegistry(registry_root, workshop_config=workshop_config)
+        registry = WorkerRegistry(registry_root)
         definition = registry.load_definition(worker_name)
 
         if args.config_overrides:
@@ -506,7 +460,6 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
             input_data=input_data,
             attachments=args.attachments,
             cli_model=args.cli_model,
-            workshop_model=workshop_config.model if workshop_config else None,
             creation_defaults=creation_defaults,
             approval_controller=approval_controller,
             message_callback=None,
@@ -521,11 +474,6 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
 
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
-        if args.debug:
-            raise
-        return 1
-    except InvalidWorkshopError as e:
-        print(f"Workshop error: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1
@@ -601,8 +549,8 @@ def main() -> int:
     # Handle 'init' subcommand by delegating to sync CLI
     argv = sys.argv[1:]
     if argv and argv[0] == "init":
-        from .cli import init_workshop
-        return init_workshop(argv[1:])
+        from .cli import init_project
+        return init_project(argv[1:])
 
     return asyncio.run(run_async_cli(argv))
 

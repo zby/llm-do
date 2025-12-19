@@ -32,14 +32,15 @@ def test_custom_tools_discovery(calculator_registry):
 
 
 def test_custom_tools_not_found_for_simple_workers(calculator_registry, tmp_path):
-    """Test that custom tools are not found for simple .worker workers."""
-    # Create a simple worker (not directory-based)
-    workers_dir = calculator_registry.root / "workers"
-    workers_dir.mkdir(exist_ok=True)
-    simple_worker = workers_dir / "simple.worker"
+    """Test that custom tools are not found for simple .worker workers without root tools.py."""
+    # Create a simple worker (not directory-based) in a fresh registry without root tools.py
+    fresh_root = tmp_path / "fresh"
+    fresh_root.mkdir()
+    simple_worker = fresh_root / "simple.worker"
     simple_worker.write_text("---\nname: simple\n---\ntest")
 
-    custom_tools = calculator_registry.find_custom_tools("simple")
+    fresh_registry = WorkerRegistry(fresh_root)
+    custom_tools = fresh_registry.find_custom_tools("simple")
     assert custom_tools is None
 
 
@@ -99,8 +100,8 @@ def test_multiple_custom_tools_registered(calculator_registry):
 
 def test_custom_tools_module_error_handling(calculator_registry, tmp_path):
     """Test graceful handling of invalid tools.py."""
-    # Create a worker with invalid tools.py
-    bad_worker_dir = calculator_registry.root / "workers" / "bad_tools"
+    # Create a worker with invalid tools.py (at registry root)
+    bad_worker_dir = calculator_registry.root / "bad_tools"
     bad_worker_dir.mkdir(parents=True)
 
     worker_file = bad_worker_dir / "worker.worker"
@@ -151,8 +152,8 @@ def test_private_functions_not_registered(calculator_registry, tmp_path):
 
 def test_custom_tools_require_allowlist(calculator_registry, tmp_path):
     """Test that custom tools must be explicitly listed in custom_tools to be registered."""
-    # Create a worker with tools.py but no custom_tools
-    test_worker_dir = calculator_registry.root / "workers" / "test_no_allowlist"
+    # Create a worker with tools.py but no custom_tools (at registry root)
+    test_worker_dir = calculator_registry.root / "test_no_allowlist"
     test_worker_dir.mkdir(parents=True)
 
     worker_file = test_worker_dir / "worker.worker"
@@ -195,8 +196,8 @@ def test_custom_tools_approval_via_decorator(calculator_registry):
     In the new architecture, approval is determined by the @requires_approval
     decorator on the function, not by tool_rules config.
     """
-    # Create a worker with custom_tools and tools that use @requires_approval
-    test_worker_dir = calculator_registry.root / "workers" / "test_approval_decorator"
+    # Create a worker with custom_tools and tools that use @requires_approval (at registry root)
+    test_worker_dir = calculator_registry.root / "test_approval_decorator"
     test_worker_dir.mkdir(parents=True)
 
     worker_file = test_worker_dir / "worker.worker"

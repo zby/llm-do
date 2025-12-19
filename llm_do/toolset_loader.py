@@ -80,7 +80,6 @@ def _import_class(class_path: str) -> type:
 def create_toolset(
     class_path: str,
     config: Dict[str, Any],
-    context: "WorkerContext",
     approval_callback: Callable,
     memory: ApprovalMemory,
 ) -> AbstractToolset:
@@ -91,7 +90,6 @@ def create_toolset(
     Args:
         class_path: Fully qualified class path or alias
         config: Toolset configuration dict
-        context: Worker execution context with runtime deps
         approval_callback: Callback for approval requests
         memory: Approval memory for tracking decisions
 
@@ -153,7 +151,6 @@ def build_toolsets(
         toolset = create_toolset(
             class_path=class_path,
             config=toolset_config,
-            context=context,
             approval_callback=context.approval_controller.approval_callback,
             memory=context.approval_controller.memory,
         )

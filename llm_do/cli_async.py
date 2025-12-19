@@ -97,7 +97,7 @@ def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         "--model",
         dest="cli_model",
         default=None,
-        help="Fallback model if worker does not specify one",
+        help="Model override (highest priority, overrides worker/project defaults)",
     )
     parser.add_argument(
         "--creation-defaults",
@@ -262,7 +262,11 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
         return 1
 
     if args.json:
-        print("Cannot use --tui with --json", file=sys.stderr)
+        print("Cannot use TUI mode with --json", file=sys.stderr)
+        return 1
+
+    if args.approve_all and args.strict:
+        print("Cannot use --approve-all and --strict together", file=sys.stderr)
         return 1
 
     # Set up queues for app communication
@@ -314,7 +318,7 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                 )
 
             message_callback = (
-                _queue_message_callback_direct(event_queue)
+                _queue_message_callback(event_queue)
                 if backend.wants_runtime_events
                 else None
             )
@@ -347,14 +351,6 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     # Run with mouse disabled to allow terminal text selection
     await app.run_async(mouse=False)
     return 0
-
-
-def _queue_message_callback_direct(queue: asyncio.Queue[Any]) -> Callable[[list[Any]], None]:
-    """Create a message callback that puts CLIEvents directly on the queue."""
-    def _callback(events: list[Any]) -> None:
-        for event in events:
-            queue.put_nowait(CLIEvent(kind="runtime_event", payload=event))
-    return _callback
 
 
 async def _run_json_mode(args: argparse.Namespace) -> int:

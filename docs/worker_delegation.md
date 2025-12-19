@@ -14,7 +14,7 @@ For design philosophy and motivation, see [`concept.md`](concept.md). For archit
 - Model inheritance chain: worker definition → caller → CLI
 - Tool approval system for gated operations
 
-**LLMs** see tools like `_agent_*` (one per configured worker) plus optional `worker_call` and `worker_create` if enabled. The model chooses which worker tool to call, provides input data and attachments, and receives structured or freeform results. The callee's instructions, model, and tools are defined in its worker definition; the caller only passes arguments.
+**LLMs** see `_agent_*` tools (one per configured worker), plus `worker_create` if enabled. The model chooses which worker tool to call, provides input data and attachments, and receives structured or freeform results. The callee's instructions, model, and tools are defined in its worker definition; the caller only passes arguments.
 
 ## API Signatures
 
@@ -34,17 +34,6 @@ def _agent_evaluator(
     Results may be structured JSON or freeform text depending on the worker's
     output_schema_ref configuration.
     """
-```
-
-```python
-# Optional tool (when configured)
-@agent.tool
-def worker_call(
-    worker: str,
-    input_data: dict | str,
-    attachments: list[str] | None = None,
-) -> WorkerRunResult:
-    """Call a worker by name when dynamic routing is needed."""
 ```
 
 ```python
@@ -83,10 +72,10 @@ result = call_worker(
 ## Worker Definition Structure
 
 ```yaml
-# workers/orchestrator.worker
+# orchestrator.worker (at project root)
 name: orchestrator
 description: Orchestrates multi-step pitch deck evaluation
-model: claude-sonnet-4
+model: anthropic:claude-sonnet-4
 
 # Sandbox at top level
 sandbox:
@@ -106,18 +95,18 @@ sandbox:
 toolsets:
   filesystem: {}
   delegation:
-    evaluator: {}  # Expose _agent_evaluator tool
-    worker_call: {}  # Optional: allow dynamic routing by name
+    evaluator: {}       # Exposes _agent_evaluator tool
+    worker_create: {}   # Exposes worker_create tool
 ---
 
 You coordinate pitch deck evaluations. First list PDFs in the input sandbox,
-then process each one using the locked evaluator worker.
+then process each one using the evaluator worker via _agent_evaluator.
 Write results to the output sandbox.
 ```
 
 ## Attachment Resolution
 
-When a worker passes `attachments` to a delegation tool (`_agent_*` or `worker_call`), each entry must reference one of the caller's sandboxes (e.g., `attachments=["input/deck.pdf"]`).
+When a worker passes `attachments` to a delegation tool (`_agent_*`), each entry must reference one of the caller's sandboxes (e.g., `attachments=["input/deck.pdf"]`).
 
 The runtime:
 1. Resolves the path inside that sandbox
@@ -201,12 +190,12 @@ They can then approve, reject, or modify before execution. Session approvals rem
 
 | Rule | Controls | Payload shown to user |
 |------|----------|----------------------|
-| `sandbox.read` | Sharing files as attachments to `worker_call` | `{path, bytes, target_worker}` |
+| `sandbox.read` | Sharing files as attachments to `_agent_*` | `{path, bytes, target_worker}` |
 | `sandbox.write` | Writing files via `write_file` | `{path}` |
-| `_agent_*` / `worker_call` | Delegating to another worker | `{worker, attachments}` |
+| `_agent_*` | Delegating to another worker | `{worker, attachments}` |
 | `worker_create` | Creating new worker definitions | `{name, instructions, ...}` |
 
-**Note**: `sandbox.read` approval is separate from delegation approval. You can pre-approve worker calls but still require approval for each attachment being shared.
+**Note**: `sandbox.read` approval is separate from delegation approval. You can pre-approve delegation calls but still require approval for each attachment being shared.
 
 ## Autonomous Worker Creation
 
@@ -250,4 +239,4 @@ Worker delegation is implemented in `llm_do/runtime.py`. Key components:
 3. Saves to registry (respects locked flag)
 4. Subject to approval via `worker_create`
 
-From the LLM's point of view, all of this is exposed as `worker_call` and `worker_create` tools. The model only decides which worker to invoke, what input to send, which files to attach, and (for creation) what instructions the new worker should have.
+From the LLM's point of view, all of this is exposed as `_agent_*` tools (one per configured worker) and `worker_create`. The model only decides which worker to invoke, what input to send, which files to attach, and (for creation) what instructions the new worker should have.

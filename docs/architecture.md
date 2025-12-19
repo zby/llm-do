@@ -9,7 +9,7 @@ llm_do/
 ├── runtime.py           # Worker execution and delegation
 ├── execution.py         # Agent execution strategies
 ├── model_compat.py      # Model compatibility validation
-├── workshop.py          # Workshop detection and configuration
+├── workshop.py          # Worker resolution (path/name → invocation mode)
 ├── toolset_loader.py    # Dynamic toolset loading factory
 ├── types.py             # Type definitions and data models
 ├── protocols.py         # Protocol definitions (FileSandbox)
@@ -23,7 +23,7 @@ llm_do/
 ├── ui/                  # Display and UI components
 │   ├── __init__.py      # Package exports
 │   └── display.py       # Display backend abstractions
-├── agent_toolset.py      # Worker delegation toolset
+├── agent_toolset.py     # Worker delegation toolset (_agent_* tools)
 ├── custom_toolset.py    # Custom Python tools toolset
 ├── cli.py               # Sync CLI (init, programmatic use)
 └── cli_async.py         # Async CLI entry point (default)
@@ -99,7 +99,7 @@ spec = WorkerSpec(
 definition = create_worker(registry=registry, spec=spec, defaults=defaults)
 ```
 
-Workers are saved to `workers/generated/{name}/worker.worker`.
+Workers are saved to the generated directory (e.g., `generated/{name}/worker.worker`).
 
 ### WorkerContext
 
@@ -252,9 +252,9 @@ toolsets:
     rules:
       - pattern: "git *"
         approval_required: false
-  delegation:              # Worker delegation
-    helper: {}
-    worker_call: {}
+  delegation:              # Worker delegation (tool map: worker → tool name)
+    helper: {}             # Creates _agent_helper tool
+    worker_create: {}      # Creates worker_create tool
   custom:                  # Custom Python tools from tools.py
     my_tool: {}
 
@@ -407,7 +407,7 @@ toolsets:
 | `write_file` / `edit_file` | `PathConfig.write_approval: true` |
 | `read_file` (for attachments) | `PathConfig.read_approval: true` |
 | `shell` | `toolsets.shell.rules` match or `toolsets.shell.default.approval_required` |
-| `worker_call` | Always (controller mode determines behavior) |
+| `_agent_*` (delegation) | Always (controller mode determines behavior) |
 | `worker_create` | Always (controller mode determines behavior) |
 | Custom tools | Always (secure by default) |
 

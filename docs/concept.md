@@ -2,39 +2,17 @@
 
 ## Core Idea
 
-**Workshops are workshops. Workers are functions.**
+**Workers are functions.**
 
-Just like workshops compose focused functions, LLM workflows compose focused workers. Each worker does one thing well with tight context—no bloated multi-purpose prompts.
+LLM workflows compose focused workers. Each worker does one thing well with tight context—no bloated multi-purpose prompts.
 
 | Programming | llm-do |
 |-------------|--------|
-| Workshop | Workshop directory |
-| `main()` | `main.worker` |
+| Project directory | Registry root |
 | Function | `.worker` file |
-| Function call | `worker_call` tool |
+| Function call | `_agent_*` tool |
 
-A **workshop** is a directory with a `main.worker` entry point. A **worker** is a prompt template + configuration + tools, packaged as an executable unit that the LLM interprets.
-
-## What Is a Workshop?
-
-A **workshop** is a directory that packages workers together:
-
-```
-my-workshop/
-├── main.worker           # Entry point (required)
-├── workshop.yaml         # Shared config (optional)
-├── tools.py              # Workshop-wide Python tools (optional)
-├── templates/            # Shared Jinja templates (optional)
-├── workers/              # Helper workers (optional)
-│   ├── analyzer.worker
-│   └── formatter/
-│       ├── worker.worker
-│       └── tools.py      # Worker-specific tools
-├── input/                # Input sandbox (convention)
-└── output/               # Output sandbox (convention)
-```
-
-**Configuration inheritance**: `workshop.yaml` provides defaults (model, sandbox, toolsets) inherited by all workers. Workers can override.
+A **worker** is a prompt template + configuration + tools, packaged as an executable unit that the LLM interprets.
 
 ## What Is a Worker?
 
@@ -54,6 +32,29 @@ Workers live as `.worker` files (YAML front matter + instructions) and can be:
 | **Directory** | `name/worker.worker` | Full power - custom Python tools (`tools.py`), Jinja templates. |
 
 Single-file workers are intentionally limited to enable **truly portable LLM executables** - copy one `.worker` file and it works anywhere. For custom tools or worker-specific templates, use the directory model.
+
+## Project Structure
+
+Workers live at the project root:
+
+```
+my-project/
+├── orchestrator.worker       # Entry point
+├── analyzer.worker           # Helper worker
+├── formatter/                # Directory-form worker
+│   ├── worker.worker
+│   └── tools.py              # Worker-specific tools
+├── tools.py                  # Shared Python tools (optional)
+├── templates/                # Shared Jinja templates (optional)
+├── input/                    # Input sandbox (convention)
+└── output/                   # Output sandbox (convention)
+```
+
+Run workers from the project directory:
+```bash
+cd my-project
+llm-do orchestrator "Process the input files"
+```
 
 ### Lifecycle
 
@@ -81,7 +82,7 @@ Single-file workers are intentionally limited to enable **truly portable LLM exe
 
 **The solution**: Workers with isolated contexts, connected through three mechanisms:
 
-1. **Worker delegation** (`worker_call`) — Decompose workflows into focused sub-calls. Each worker handles one unit of work with its own instructions, model, and tools. No bloated catch-all prompts.
+1. **Worker delegation** (`_agent_*` tools) — Decompose workflows into focused sub-calls. Each worker handles one unit of work with its own instructions, model, and tools. No bloated catch-all prompts.
 
 2. **Autonomous worker creation** (`worker_create`) — Workers propose specialized sub-workers when needed. This is same-language metaprogramming: the LLM that executes workers also writes them. Created definitions are saved to disk for review.
 
@@ -105,8 +106,8 @@ Workers read/write files through explicitly configured sandboxes. Security by co
 - Suffix filters control which file types can be read/written
 
 ### 2. Worker-to-Worker Delegation
-The `worker_call` tool with enforcement layers:
-- Allowlists restrict which workers can be called
+Workers delegate to other workers via `_agent_*` tools (e.g., `_agent_analyzer`, `_agent_formatter`):
+- Delegation configuration maps worker names to their tool names
 - Attachment validation (count, size, extensions) happens before execution
 - Model inheritance: worker definition → caller's model → CLI model → error
 - Tool access NOT inherited—each worker declares its own
@@ -145,19 +146,17 @@ Workers start flexible, then harden as patterns stabilize:
 
 ## Design Principles
 
-1. **Workshops as workshops** — A workshop directory is the executable unit, `main.worker` is the entry point
+1. **Workers as functions** — Focused, composable units that do one thing well
 
-2. **Workers as functions** — Focused, composable units that do one thing well
+2. **Workers as artifacts** — Saved to disk, version controlled, auditable, refinable by programmers
 
-3. **Workers as artifacts** — Saved to disk, version controlled, auditable, refinable by programmers
+3. **Guardrails by construction** — Sandboxes, attachment validation, approval enforcement happen in code, guarding against LLM mistakes (not security against attackers)
 
-4. **Guardrails by construction** — Sandboxes, attachment validation, approval enforcement happen in code, guarding against LLM mistakes (not security against attackers)
+4. **Explicit configuration** — Tool access and worker allowlists declared in definitions, not inherited
 
-5. **Explicit configuration** — Tool access and worker allowlists declared in definitions, not inherited
+5. **Recursive composability** — Workers calling workers should feel like function calls
 
-6. **Recursive composability** — Workers calling workers should feel like function calls
-
-7. **Progressive hardening** — Start with prompts for flexibility, extract deterministic logic to Python as patterns stabilize
+6. **Progressive hardening** — Start with prompts for flexibility, extract deterministic logic to Python as patterns stabilize
 
 ## Architecture Overview
 
@@ -166,7 +165,7 @@ Built on [PydanticAI](https://ai.pydantic.dev/) for agent runtime and structured
 **Core modules**:
 - `runtime.py` — Worker orchestration, delegation, creation lifecycle
 - `protocols.py` — Interface definitions for dependency injection
-- `tools.py` — Tool registration (sandboxes, worker_call, worker_create, custom tools)
+- `toolset_loader.py` — Tool registration (sandboxes, delegation, custom tools)
 - `execution.py` — Agent runners and execution context
 - `types.py` — Type definitions and data models
 - `registry.py` — Worker definition loading and persistence

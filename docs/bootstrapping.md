@@ -40,20 +40,20 @@ llm-do worker_bootstrapper --model anthropic:claude-sonnet-4 \
 │  1. List files in input/                                 │
 │  2. Decide what worker is needed                         │
 │  3. worker_create("pdf_analyzer", instructions=...)      │
-│  4. worker_call("pdf_analyzer", attachments=[...])       │
+│  4. _agent_pdf_analyzer(input=..., attachments=[...])    │
 │  5. write_file("output/result.md", ...)                  │
 └─────────────────────────────────────────────────────────┘
          │                    │
          ▼                    ▼
 ┌─────────────────┐   ┌─────────────────┐
-│ workers/        │   │ output/         │
-│  generated/     │   │  result.md      │
-│   pdf_analyzer  │   │                 │
-│    .worker        │   │                 │
+│ generated/      │   │ output/         │
+│  pdf_analyzer/  │   │  result.md      │
+│   worker.worker │   │                 │
+│                 │   │                 │
 └─────────────────┘   └─────────────────┘
 ```
 
-Created workers are saved to `workers/generated/` and can be reused directly:
+Created workers are saved to the `generated/` directory and can be reused directly:
 
 ```bash
 # Reuse the created worker
@@ -89,9 +89,9 @@ my-project/
 │   ├── doc1.pdf
 │   └── doc2.md
 ├── output/          # Read-write: results written here
-└── workers/
-    └── generated/   # Auto-created workers saved here
-        └── my_analyzer.worker
+└── generated/       # Auto-created workers saved here
+    └── my_analyzer/
+        └── worker.worker
 ```
 
 **Important:** The bootstrapper can only access `./input` and `./output` relative to where you run it. It cannot read arbitrary files from the current directory.
@@ -140,13 +140,13 @@ No prompts. No confirmations. The LLM:
 - Calls them
 - Writes output files
 
-All without asking. **Review `workers/generated/` afterward to see what emerged.**
+All without asking. **Review `generated/` afterward to see what emerged.**
 
 ## Best Practices
 
 1. **Be specific** about the task and expected output format
 2. **Use attachments** for PDFs and images rather than trying to read them as text
-3. **Check generated workers** in `workers/generated/` and refine them manually if needed
+3. **Check generated workers** in `generated/` and refine them manually if needed
 4. **Reuse workers** directly once created instead of re-bootstrapping
 
 ## Future Work

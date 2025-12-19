@@ -14,14 +14,13 @@ Package prompts with configuration to create executables.
 
 ## The Model
 
-A **workshop** is a directory with a `main.worker` entry point. Workers are focused prompt units that compose like functions:
+Workers are focused prompt units that compose like functions:
 
 | Programming | llm-do |
 |-------------|--------|
-| Workshop | Workshop directory |
-| `main()` | `main.worker` |
+| Project directory | Registry root |
 | Function | `.worker` file |
-| Function call | `worker_call` tool |
+| Function call | `_agent_*` tool |
 | Arguments | Input payload |
 | Return value | Structured output |
 
@@ -34,44 +33,42 @@ pip install -e .
 # Set your API key
 export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 
-# Run a workshop
-llm-do ./examples/greeter "Tell me a joke" --model anthropic:claude-haiku-4-5
+# Run a worker
+cd examples/greeter
+llm-do greeter "Tell me a joke" --model anthropic:claude-haiku-4-5
 ```
 
-That's it. The CLI finds `main.worker` in the workshop directory and runs it.
+That's it. The CLI finds `greeter.worker` in the current directory and runs it.
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
 
-## Workshop Structure
+## Project Structure
 
-Workshops grow organically from simple to complex:
+Projects grow organically from simple to complex:
 
-**Minimal** — just an entry point:
+**Minimal** — just a worker:
 ```
-my-workshop/
-└── main.worker
+my-project/
+└── orchestrator.worker
 ```
 
-**With helpers** — main delegates to focused workers:
+**With helpers** — orchestrator delegates to focused workers:
 ```
-my-workshop/
-├── main.worker           # Orchestrator
-├── workshop.yaml         # Shared config (model, sandbox)
-└── workers/
-    ├── analyzer.worker   # Focused worker
-    └── formatter.worker  # Another focused worker
+my-project/
+├── orchestrator.worker   # Entry point
+├── analyzer.worker       # Focused worker
+└── formatter.worker      # Another focused worker
 ```
 
 **With hardened operations** — extract reliable logic to Python:
 ```
-my-workshop/
-├── main.worker
-├── workshop.yaml
-├── tools.py              # Deterministic operations as functions
-├── workers/
-│   └── specialist/
-│       ├── worker.worker
-│       └── tools.py      # Worker-specific tools
+my-project/
+├── orchestrator.worker
+├── analyzer.worker
+├── tools.py              # Shared Python tools
+├── specialist/           # Directory-form worker
+│   ├── worker.worker
+│   └── tools.py          # Worker-specific tools
 ├── templates/            # Shared Jinja templates
 ├── input/
 └── output/
@@ -79,32 +76,30 @@ my-workshop/
 
 This progression reflects **progressive hardening**: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability.
 
-## Running Workshops
+## Running Workers
 
 ```bash
-# Run workshop (finds main.worker)
-llm-do ./my-workshop "input message" --model anthropic:claude-haiku-4-5
+# Run worker by name (from project directory)
+cd my-project
+llm-do orchestrator "input message" --model anthropic:claude-haiku-4-5
 
-# Run with different entry point
-llm-do ./my-workshop --entry analyzer "input" --model anthropic:claude-haiku-4-5
+# Run worker file by explicit path
+llm-do ./path/to/worker.worker "input" --model anthropic:claude-haiku-4-5
 
-# Run single worker file directly
-llm-do ./standalone.worker "input" --model anthropic:claude-haiku-4-5
-
-# Override other config at runtime
-llm-do ./my-workshop "input" --model anthropic:claude-sonnet-4 --set locked=true
+# Override config at runtime
+llm-do orchestrator "input" --model anthropic:claude-sonnet-4 --set locked=true
 ```
 
-Create a new workshop:
+Create a new project:
 ```bash
-llm-do init my-workshop
+llm-do init my-project
 ```
 
 ## Workers
 
-Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via the `worker_call` tool—like function calls.
+Workers are `.worker` files: YAML front matter (config) + body (instructions). They call other workers via `_agent_*` tools—like function calls.
 
-Add custom tools by creating `tools.py` in your workshop root:
+Add custom tools by creating `tools.py` in your project root:
 
 ```python
 # tools.py
@@ -118,13 +113,12 @@ Functions become LLM-callable tools. Reference them in your worker's toolsets co
 ## Key Features
 
 - **Sandboxed file access** — Workers only access declared directories with permission controls
-- **Worker delegation** — Workers call other workers, with allowlists
+- **Worker delegation** — Workers call other workers via `_agent_*` tools, with allowlists
 - **Custom tools** — Python functions in `tools.py` become LLM-callable tools
 - **Jinja2 templating** — Compose prompts from reusable templates
 - **Tool approvals** — Gate dangerous operations for human review
 - **Attachment policies** — Control file inputs (size, count, types)
 - **Server-side tools** — Provider-executed capabilities (web search, code execution)
-- **Config inheritance** — `workshop.yaml` provides defaults, workers override
 
 ## Examples
 
@@ -132,7 +126,7 @@ See [`examples/`](examples/) for working code:
 
 | Example | Demonstrates |
 |---------|--------------|
-| [`greeter/`](examples/greeter/) | Minimal workshop structure |
+| [`greeter/`](examples/greeter/) | Minimal project structure |
 | [`pitchdeck_eval/`](examples/pitchdeck_eval/) | Multi-worker orchestration, PDF attachments |
 | [`calculator/`](examples/calculator/) | Custom Python tools |
 | [`approvals_demo/`](examples/approvals_demo/) | Write approval for sandbox files |
@@ -150,10 +144,10 @@ See [`examples/`](examples/) for working code:
 
 **Experimental** — Built on [PydanticAI](https://ai.pydantic.dev/). APIs may change.
 
-**Working:** Workshop detection, worker delegation, sandboxes, approvals, custom tools, templates.
+**Working:** Worker resolution, worker delegation, sandboxes, approvals, custom tools, templates.
 
 **Caveats:** Sandboxes and approvals reduce risk but aren't guarantees. Prompt injection can trick LLMs into misusing granted tools. Treat these as mitigations, not proof of security.
 
 ## Contributing
 
-PRs welcome! Run `.venv/bin/pytest` before committing. See [`AGENTS.md`](AGENTS.md).
+PRs welcome! Run `uv run pytest` before committing. See [`AGENTS.md`](AGENTS.md).

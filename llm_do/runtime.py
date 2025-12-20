@@ -225,11 +225,19 @@ def create_worker(
     *,
     defaults: WorkerCreationDefaults,
     force: bool = False,
+    output_dir: Optional[Path] = None,
 ) -> WorkerDefinition:
     """Create and persist a new worker definition.
 
-    Generated workers are saved to /tmp/llm-do/generated/ and registered
-    with the registry so they can be found in this session.
+    Generated workers are saved to the specified output_dir (or registry.generated_dir
+    if not specified) and registered with the registry so they can be found in this session.
+
+    Args:
+        registry: WorkerRegistry instance
+        spec: Worker specification with name, instructions, etc.
+        defaults: Default values for worker creation
+        force: If True, overwrite existing workers
+        output_dir: Directory to save the worker to (default: registry.generated_dir)
 
     Raises:
         FileExistsError: If a worker with this name already exists anywhere
@@ -243,8 +251,11 @@ def create_worker(
 
     definition = defaults.expand_spec(spec)
 
-    # Generated workers are directories: {generated_dir}/{name}/worker.worker
-    worker_dir = registry.generated_dir / spec.name
+    # Use provided output_dir or fall back to registry's generated_dir
+    target_dir = Path(output_dir) if output_dir else registry.generated_dir
+
+    # Generated workers are directories: {target_dir}/{name}/worker.worker
+    worker_dir = target_dir / spec.name
     path = worker_dir / "worker.worker"
 
     registry.save_definition(definition, force=force, path=path)

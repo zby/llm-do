@@ -381,3 +381,40 @@ def test_worker_create_tool_respects_approval(monkeypatch, tmp_path):
     assert result["name"] == "child"
     assert result["instructions"] == "demo"
     assert invoked
+
+
+def test_worker_create_uses_output_dir_from_config(tmp_path):
+    """worker_create saves to output_dir when configured."""
+    registry = _registry(tmp_path)
+
+    # Configure worker_create with a custom output_dir
+    custom_output_dir = tmp_path / "custom_workers"
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={
+            "delegation": {
+                "worker_create": {
+                    "output_dir": str(custom_output_dir),
+                }
+            }
+        },
+    )
+    registry.save_definition(parent)
+    context = _parent_context(registry, parent)
+
+    _create_worker_via_toolset(
+        context,
+        name="custom_child",
+        instructions="custom worker",
+        description="test output_dir",
+    )
+
+    # Verify worker was saved to the custom output_dir
+    expected_path = custom_output_dir / "custom_child" / "worker.worker"
+    assert expected_path.exists(), f"Expected worker at {expected_path}"
+
+    # Verify content
+    content = expected_path.read_text()
+    assert "custom_child" in content
+    assert "custom worker" in content

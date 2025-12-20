@@ -38,6 +38,8 @@ _CUSTOM_TOOLSET_KEYS = {"custom", "llm_do.custom_toolset.CustomToolset"}
 _FILESYSTEM_TOOL_NAMES = {"read_file", "write_file", "list_files"}
 _SHELL_TOOL_NAMES = {"shell"}
 _CUSTOM_TOOLSET_APPROVAL_KEY = "_approval_config"
+# Server-side tools executed by LLM providers (tool_type values from ServerSideToolConfig)
+_SERVER_SIDE_TOOL_NAMES = {"web_search", "web_fetch", "code_execution", "image_generation"}
 
 
 class DelegationToolset(AbstractToolset[WorkerContext]):
@@ -122,6 +124,12 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
                 name for name in custom_config.keys() if name != _CUSTOM_TOOLSET_APPROVAL_KEY
             )
 
+        # Check server-side tools (provider-executed tools like web_search)
+        server_side_tools = worker_ctx.worker.server_side_tools or []
+        for tool_config in server_side_tools:
+            if tool_config.tool_type in _SERVER_SIDE_TOOL_NAMES:
+                reserved.add(tool_config.tool_type)
+
         return reserved
 
     def _validate_worker_tool_names(self, worker_ctx: WorkerContext) -> None:
@@ -174,6 +182,22 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
         if isinstance(value, bool):
             return value
         return True
+
+    def _get_tool_config(self, name: str, key: str, default: Any = None) -> Any:
+        """Get a config value for a tool.
+
+        Args:
+            name: Tool name (e.g., "worker_create")
+            key: Config key to retrieve (e.g., "output_dir")
+            default: Default value if not found
+
+        Returns:
+            The config value or default
+        """
+        value = self._config.get(name)
+        if isinstance(value, dict):
+            return value.get(key, default)
+        return default
 
     def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> ApprovalResult:
         """Determine if tool needs approval.
@@ -524,11 +548,14 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
                 model=tool_args.get("model"),
                 output_schema_ref=tool_args.get("output_schema_ref"),
             )
+            # Get output_dir from worker_create config (e.g., output_dir: ./workers/generated)
+            output_dir = self._get_tool_config("worker_create", "output_dir")
             created = create_worker(
                 registry=worker_ctx.registry,
                 spec=spec,
                 defaults=worker_ctx.creation_defaults,
                 force=tool_args.get("force", False),
+                output_dir=output_dir,
             )
             return created.model_dump(mode="json")
 

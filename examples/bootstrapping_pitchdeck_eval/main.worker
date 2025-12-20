@@ -1,11 +1,12 @@
 ---
 description: Turn free-form tasks into concrete multi-step workflows by designing workers and invoking them
-name: worker_bootstrapper
-model: anthropic:claude-sonnet-4
+name: main
+model: anthropic:claude-3-5-haiku-20241022
 toolsets:
   delegation:
     worker_call: {}
-    worker_create: {}
+    worker_create:
+      output_dir: ./workers/generated
   filesystem: {}
 ---
 
@@ -34,8 +35,7 @@ will be created with minimal permissions and safe defaults. You provide:
 - `description`: Brief one-line summary
 - `model`: Optional model override (default: anthropic:claude-haiku-4-5)
 
-**Note**: Created workers are saved to `/tmp/llm-do/generated/` by default.
-Configure `worker_create.output_dir` in the toolsets to save to a different location.
+**Note**: Created workers are saved to `./workers/generated/`.
 You can immediately call them by name with `worker_call()`.
 
 ### 2. Invoke Workers
@@ -69,65 +69,3 @@ Typical workflow:
 - Use attachments for file-based inputs (PDFs, images, etc.)
 - Write results with clear, descriptive filenames
 - Document the created worker name so it can be reused in future runs
-- There is no path sandboxing; use a container boundary for isolation
-
-## Few-Shot Examples
-
-### Example 1: Document Summarizer
-**Task**: "Summarize all markdown files in the docs folder"
-
-```
-# 1. Create the worker
-worker_create(
-  name="markdown_summarizer",
-  description="Summarizes markdown documents into 3-sentence overviews",
-  instructions="You are a summarization specialist. Read the attached markdown file and provide a concise 3-sentence summary capturing the key points.",
-  model="anthropic:claude-haiku-4-5"
-)
-
-# 2. Find files
-files = list_files("docs", "*.md")
-
-# 3. Process each file
-for file in files:
-  content = read_file(f"docs/{file}")
-  summary = worker_call("markdown_summarizer", input_data=content)
-  write_file(f"summaries/{file}", summary)
-```
-
-### Example 2: Pitch Deck Analyzer
-**Task**: "Evaluate all pitch decks in the input folder"
-
-```
-# 1. Create the worker
-worker_create(
-  name="pitch_evaluator",
-  description="Evaluates pitch decks for investor readiness",
-  instructions="Analyze the attached pitch deck PDF. Evaluate: value proposition clarity, market opportunity, business model, team credentials, and financial projections. Provide a structured assessment with strengths, weaknesses, and recommendations."
-)
-
-# 2. Find PDFs (binary files - don't read them!)
-files = list_files("input", "*.pdf")
-
-# 3. Process each - pass as attachment, not read
-for file in files:
-  evaluation = worker_call(
-    "pitch_evaluator",
-    input_data="Evaluate this pitch deck",
-    attachments=[f"input/{file}"]
-  )
-  slug = file.replace(".pdf", "").replace(" ", "_").lower()
-  write_file(f"evaluations/{slug}.md", evaluation)
-```
-
-### Example 3: Security Code Review
-**Task**: "Review Python files for security vulnerabilities"
-
-```
-worker_create(
-  name="security_reviewer",
-  description="Identifies security vulnerabilities in Python code",
-  instructions="Analyze the provided Python code for security vulnerabilities including: SQL injection, XSS, command injection, path traversal, insecure deserialization, and hardcoded secrets. Report findings as a bulleted list with severity and remediation advice.",
-  model="anthropic:claude-sonnet-4"
-)
-```

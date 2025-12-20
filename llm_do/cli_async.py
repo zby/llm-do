@@ -271,14 +271,10 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     import io
     from .ui.app import LlmDoApp
 
-    # Validate TUI requirements - if no TTY, fall back to headless mode
+    # Validate TUI requirements - if no TTY on stdout, fall back to headless mode
     if not sys.stdout.isatty():
-        if args.approve_all or args.strict:
-            # Has approval flags, can use headless mode
-            return await _run_headless_mode(args)
-        else:
-            print("TUI mode requires a TTY; use --headless with --approve-all or --strict", file=sys.stderr)
-            return 1
+        # Fall back to headless mode (Rich output to stderr, result to stdout)
+        return await _run_headless_mode(args)
 
     if args.json:
         print("Cannot use TUI mode with --json", file=sys.stderr)
@@ -538,7 +534,35 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         # Set up approval controller
         if args.approve_all:
             approval_controller = ApprovalController(mode="approve_all")
+        elif args.strict:
+            approval_controller = ApprovalController(mode="strict")
+        elif sys.stdin.isatty():
+            # Interactive approval via stdin when user is present
+            async def stdin_approval_callback(request: ApprovalRequest) -> ApprovalDecision:
+                print(f"\n[Approval Required] {request.tool_name}", file=sys.stderr)
+                if request.description:
+                    print(f"  {request.description}", file=sys.stderr)
+                if request.tool_args:
+                    args_str = json.dumps(request.tool_args, indent=2, default=str)
+                    if len(args_str) > 300:
+                        args_str = args_str[:300] + "..."
+                    print(f"  Args: {args_str}", file=sys.stderr)
+                print("  [a]pprove / [s]ession / [d]eny: ", end="", file=sys.stderr, flush=True)
+
+                response = input().strip().lower()
+                if response in ("a", "approve", "y", "yes", ""):
+                    return ApprovalDecision(approved=True)
+                elif response in ("s", "session"):
+                    return ApprovalDecision(approved=True, remember="session")
+                else:
+                    return ApprovalDecision(approved=False, note="Rejected by user")
+
+            approval_controller = ApprovalController(
+                mode="interactive",
+                approval_callback=stdin_approval_callback,
+            )
         else:
+            # No TTY on stdin, strict mode
             approval_controller = ApprovalController(mode="strict")
 
         # Choose backend: Rich by default, plain text if --no-rich or --headless
@@ -632,15 +656,15 @@ async def run_async_cli(argv: Optional[list[str]] = None) -> int:
     if not is_headless:
         return await _run_tui_mode(args)
 
-    # Headless mode requires approval flags
-    if not args.approve_all and not args.strict:
+    # Headless mode requires approval flags if stdin is not interactive
+    if not args.approve_all and not args.strict and not sys.stdin.isatty():
         print(
             "Headless mode requires --approve-all or --strict for approval handling",
             file=sys.stderr,
         )
         return 1
 
-    # Headless mode - minimal output
+    # Headless mode
     return await _run_headless_mode(args)
 
 

@@ -12,13 +12,6 @@ toolsets:
 You orchestrate pitch-deck evaluations. Use the tools provided to process
 all pitch decks and save evaluation reports.
 
-Available tools:
-- `list_pitchdecks(path)` returns a list of pitch decks with pre-computed slugs
-  and output paths. Each item has: file, slug, output_path.
-- `pitch_evaluator(input, attachments)` delegates work to the evaluator.
-  The `attachments` parameter takes a list of file paths to send to the worker.
-- `write_file(path, content)` writes text to a file.
-
 Follow this process:
 1. Call `list_pitchdecks()` to get all pitch decks with their metadata.
 2. For each item returned:

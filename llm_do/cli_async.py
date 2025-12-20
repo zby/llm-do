@@ -271,10 +271,14 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     import io
     from .ui.app import LlmDoApp
 
-    # Validate TUI requirements
+    # Validate TUI requirements - if no TTY, fall back to headless mode
     if not sys.stdout.isatty():
-        print("TUI mode requires a TTY; use --json or default Rich mode", file=sys.stderr)
-        return 1
+        if args.approve_all or args.strict:
+            # Has approval flags, can use headless mode
+            return await _run_headless_mode(args)
+        else:
+            print("TUI mode requires a TTY; use --headless with --approve-all or --strict", file=sys.stderr)
+            return 1
 
     if args.json:
         print("Cannot use TUI mode with --json", file=sys.stderr)
@@ -294,6 +298,9 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     # Create a buffer to capture Rich-formatted output for display after TUI exits
     output_buffer = io.StringIO()
     rich_backend = RichDisplayBackend(output_buffer, force_terminal=True, verbosity=args.verbose)
+
+    # Container to capture result from background worker
+    worker_result: list[Any] = []
 
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
@@ -357,6 +364,9 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                 message_callback=message_callback,
             )
 
+            # Capture result for stdout output
+            worker_result.append(result)
+
             # Signal completion
             event_queue.put_nowait(None)
             return 0
@@ -374,10 +384,18 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     # Run with mouse disabled to allow terminal text selection
     await app.run_async(mouse=False)
 
-    # Print captured output after TUI exits so it's visible in terminal history
+    # Print captured output to stderr (session log)
     captured_output = output_buffer.getvalue()
     if captured_output:
-        print(captured_output)
+        print(captured_output, file=sys.stderr)
+
+    # Print final result to stdout
+    if worker_result:
+        result = worker_result[0]
+        if isinstance(result.output, str):
+            print(result.output)
+        else:
+            print(json.dumps(result.output, indent=2))
 
     return 0
 
@@ -517,7 +535,7 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
 
         creation_defaults = _load_creation_defaults(args.creation_defaults_path)
 
-        # Set up approval controller (no interactive mode in headless)
+        # Set up approval controller
         if args.approve_all:
             approval_controller = ApprovalController(mode="approve_all")
         else:
@@ -548,10 +566,7 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
             await queue.put(None)
             await renderer
 
-        # Print final output
-        print("\n" + "=" * 60)
-        print("FINAL RESULT:")
-        print("=" * 60)
+        # Print final result to stdout (display output already went to stderr)
         if isinstance(result.output, str):
             print(result.output)
         else:
@@ -594,11 +609,6 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         return 1
 
 
-def _is_interactive() -> bool:
-    """Check if we're running in an interactive terminal."""
-    return sys.stdin.isatty() and sys.stdout.isatty()
-
-
 async def run_async_cli(argv: Optional[list[str]] = None) -> int:
     args = parse_args(argv)
 
@@ -611,8 +621,8 @@ async def run_async_cli(argv: Optional[list[str]] = None) -> int:
         # JSON mode implicitly disables Rich (machine-readable output)
         args.no_rich = True
 
-    # Determine if we're in headless mode (explicit or auto-detected)
-    is_headless = args.headless or not _is_interactive()
+    # Determine if we're in headless mode (explicit flag only)
+    is_headless = args.headless
 
     # JSON mode
     if args.json:

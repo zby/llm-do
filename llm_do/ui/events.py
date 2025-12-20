@@ -78,22 +78,40 @@ class InitialRequestEvent(UIEvent):
     attachments: list[str] = field(default_factory=list)
 
     MAX_INPUT_DISPLAY: ClassVar[int] = 200
+    MAX_INSTRUCTIONS_DISPLAY: ClassVar[int] = 400
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
         from rich.text import Text
 
         parts = [Text(f"[{self.worker}] ", style="bold cyan") + Text("Starting...")]
+        if self.instructions:
+            display_instructions = self._truncate(
+                self.instructions, self.MAX_INSTRUCTIONS_DISPLAY
+            )
+            parts.append(Text("  Instructions: ", style="dim") + Text(display_instructions))
         if self.user_input:
             display_input = self._truncate(self.user_input, self.MAX_INPUT_DISPLAY)
             parts.append(Text("  Prompt: ", style="dim") + Text(display_input))
+        if self.attachments:
+            parts.append(
+                Text("  Attachments: ", style="dim")
+                + Text(", ".join(self.attachments))
+            )
         return Group(*parts)
 
     def render_text(self, verbosity: int = 0) -> str:
         lines = [f"[{self.worker}] Starting..."]
+        if self.instructions:
+            display_instructions = self._truncate(
+                self.instructions, self.MAX_INSTRUCTIONS_DISPLAY
+            )
+            lines.append(f"  Instructions: {display_instructions}")
         if self.user_input:
             display_input = self._truncate(self.user_input, self.MAX_INPUT_DISPLAY)
             lines.append(f"  Prompt: {display_input}")
+        if self.attachments:
+            lines.append(f"  Attachments: {', '.join(self.attachments)}")
         return "\n".join(lines)
 
     def render_json(self) -> dict[str, Any]:

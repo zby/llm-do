@@ -28,16 +28,12 @@ Each component plays to its strengths:
 The question isn't "LLM or code?" but "how much of each, and where?"
 
 ```
-Pure Python ◄─────────────────────────► Pure Worker
-(all symbolic)                          (all neural)
-
-  compute_hash ── smart_refactor ── code_reviewer
-       │               │                   │
-       │         hybrid: mostly            │
-       │         deterministic,       full LLM
-       │         calls LLM when stuck      │
-       │                                   │
-   no LLM ◄───────────────────────────► only LLM
+Pure Python ◄───────────────────────────────────────────► Pure Worker
+(all symbolic)                                            (all neural)
+      │                        │                               │
+ compute_hash           smart_refactor                  code_reviewer
+                    (deterministic flow,
+                     calls LLM when stuck)
 ```
 
 Any component can slide along this spectrum as requirements evolve.
@@ -72,6 +68,22 @@ When rigid code needs flexibility, replace deterministic logic with worker calls
 
 ### The Hybrid Pattern
 
+In practice, **LLM calling tools is the dominant pattern**—it's what most people see when they use agentic systems. An LLM reasons about a task, decides which tool to invoke, and interprets the results.
+
+But look closer: even this "LLM-driven" pattern is wrapped in deterministic code. The library handles the agent loop, validates tool calls, enforces schemas, manages retries. The LLM operates within a scaffold:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Deterministic wrapper (library/framework)          │
+│  ┌───────────────────────────────────────────────┐  │
+│  │  LLM reasoning                                │  │
+│  │  ┌─────────────────────────────────────────┐  │  │
+│  │  │  Tool calls (deterministic execution)  │  │  │
+│  │  └─────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
+
 Refactoring often produces **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
 
 ```python
@@ -88,7 +100,7 @@ async def evaluate_document(ctx: RunContext[ToolContext], path: str) -> dict:
     return {"score": compute_score(analysis), "analysis": analysis}
 ```
 
-Tested Python for the predictable parts, LLM reasoning only where needed.
+The pattern inverts the typical view: rather than "LLM with tools," think "deterministic pipeline that uses LLM where judgment is needed."
 
 ## Design Principles
 

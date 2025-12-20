@@ -1,5 +1,4 @@
 """Tests for model compatibility checking."""
-import os
 import pytest
 
 from llm_do.model_compat import (
@@ -120,7 +119,8 @@ class TestSelectModel:
         )
         assert model == "anthropic:claude-haiku-4-5"
 
-    def test_no_model_raises(self):
+    def test_no_model_raises(self, monkeypatch):
+        monkeypatch.delenv(LLM_DO_MODEL_ENV, raising=False)
         with pytest.raises(NoModelError, match="No model configured"):
             select_model(
                 worker_model=None,

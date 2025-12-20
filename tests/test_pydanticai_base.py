@@ -19,6 +19,7 @@ from llm_do import (
     create_worker,
     run_worker_async,
 )
+from llm_do.model_compat import LLM_DO_MODEL_ENV
 from pydantic_ai_blocking_approval import ApprovalRequest
 
 
@@ -437,7 +438,8 @@ def test_default_runner_emits_request_preview(tmp_path, registry):
     assert preview["attachments"] == [str(attachment)]
 
 
-def test_run_worker_without_model_errors(registry):
+def test_run_worker_without_model_errors(registry, monkeypatch):
+    monkeypatch.delenv(LLM_DO_MODEL_ENV, raising=False)
     definition = WorkerDefinition(name="no-model", instructions="")
     registry.save_definition(definition)
 

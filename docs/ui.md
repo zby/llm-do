@@ -4,16 +4,16 @@ The `llm_do/ui/` module provides display abstractions for the async CLI, separat
 
 ## Display Backends
 
-The CLI uses a `DisplayBackend` abstraction to render events. This allows swapping between Rich (interactive terminal) and JSON (automation/scripting) output without changing the event flow.
+The CLI uses a `DisplayBackend` abstraction to render events. This allows swapping between Textual TUI (interactive terminal) and JSON (automation/scripting) output without changing the event flow.
 
 ```
-┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
-│  Worker Events  │────▶│  Event Queue │────▶│  DisplayBackend │
-└─────────────────┘     └──────────────┘     └─────────────────┘
-                                                      │
-                                             ┌────────┴────────┐
-                                             ▼                 ▼
-                                    RichDisplayBackend  JsonDisplayBackend
+┌─────────────────┐     ┌──────────────┐     ┌─────────────────────┐
+│  Worker Events  │────▶│  Event Queue │────▶│    DisplayBackend   │
+└─────────────────┘     └──────────────┘     └─────────────────────┘
+                                                        │
+                                               ┌────────┴────────┐
+                                               ▼                 ▼
+                                    TextualDisplayBackend  JsonDisplayBackend
 ```
 
 ### CLIEvent
@@ -23,12 +23,13 @@ All events flowing through the display system are wrapped in `CLIEvent`:
 ```python
 @dataclass
 class CLIEvent:
-    kind: Literal["runtime_event", "deferred_tool"]
+    kind: Literal["runtime_event", "deferred_tool", "approval_request"]
     payload: Any
 ```
 
 - **runtime_event**: Standard pydantic-ai message events (text, tool calls, tool results)
-- **deferred_tool**: Future support for deferred/async tool execution status
+- **deferred_tool**: Deferred/async tool execution status updates
+- **approval_request**: Tool approval requests (TUI-only, see note below)
 
 ### DisplayBackend (ABC)
 
@@ -50,13 +51,18 @@ class DisplayBackend(ABC):
     def display_deferred_tool(self, payload: Mapping[str, Any]) -> None: ...
 ```
 
-### RichDisplayBackend
+**Note on approval_request**: The `approval_request` event kind is handled directly by the
+Textual TUI (`LlmDoApp`) and bypasses the `DisplayBackend` abstraction. Non-interactive
+backends (JSON, headless) require `--approve-all` or `--strict` flags, so they never
+receive approval requests.
 
-Interactive terminal output using Rich panels and formatted text:
+### TextualDisplayBackend
 
-- Renders model responses, tool calls, and tool results as styled panels
-- Reuses `_build_streaming_callback` from the sync CLI for consistent formatting
-- Supports deferred tool status display (yellow panels)
+Forwards events to the Textual TUI application via an async queue:
+
+- Wraps events as `CLIEvent` and enqueues for `LlmDoApp` consumption
+- The TUI handles rendering, streaming text, and interactive approvals
+- Approval requests flow through a separate queue for response handling
 
 ### JsonDisplayBackend
 

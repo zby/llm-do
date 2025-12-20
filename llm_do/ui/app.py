@@ -210,10 +210,6 @@ class LlmDoApp(App[None]):
                 elif part_type == "ToolCallPart":
                     tool_name = getattr(payload.part, "tool_name", "tool")
                     messages.add_tool_call(tool_name, payload.part)
-        elif event_type == "ToolReturnEvent":
-            # Tool completed
-            tool_name = getattr(payload, "tool_name", "tool")
-            messages.add_tool_result(tool_name, payload)
         elif event_type == "FinalResultEvent":
             messages.add_status("Response complete")
         elif event_type == "str":
@@ -303,24 +299,11 @@ class LlmDoApp(App[None]):
         # Add approval message to the display
         messages.add_approval_request(request)
 
-        # Update footer to show approval bindings
-        self._update_approval_bindings(show=True)
-
-    def _update_approval_bindings(self, show: bool) -> None:
-        """Show or hide approval-related key bindings."""
-        # Update bindings visibility
-        for binding in self.BINDINGS:
-            if binding.key in ("a", "s", "d", "q"):
-                # Bindings are immutable, so we toggle via CSS or other means
-                pass
-        self.refresh_bindings()
-
     def action_approve(self) -> None:
         """Handle 'a' key - approve once."""
         if self._pending_approval and self._approval_response_queue:
             self._approval_response_queue.put_nowait(ApprovalDecision(approved=True))
             self._pending_approval = None
-            self._update_approval_bindings(show=False)
 
     def action_approve_session(self) -> None:
         """Handle 's' key - approve for session."""
@@ -329,7 +312,6 @@ class LlmDoApp(App[None]):
                 ApprovalDecision(approved=True, remember="session")
             )
             self._pending_approval = None
-            self._update_approval_bindings(show=False)
 
     def action_deny(self) -> None:
         """Handle 'd' key - deny."""
@@ -338,7 +320,6 @@ class LlmDoApp(App[None]):
                 ApprovalDecision(approved=False, note="Rejected via TUI")
             )
             self._pending_approval = None
-            self._update_approval_bindings(show=False)
 
     def signal_done(self) -> None:
         """Signal that the worker is done."""

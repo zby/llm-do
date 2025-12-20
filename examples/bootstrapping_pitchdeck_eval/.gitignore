@@ -1,0 +1,5 @@
+# Generated workers (created at runtime)
+workers/generated/
+
+# Output files
+output/

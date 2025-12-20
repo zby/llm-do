@@ -4,7 +4,8 @@ name: main
 model: anthropic:claude-3-5-haiku-20241022
 toolsets:
   delegation:
-    worker_call: {}
+    worker_call:
+      workers_dir: ./workers/generated
     worker_create:
       output_dir: ./workers/generated
   filesystem: {}

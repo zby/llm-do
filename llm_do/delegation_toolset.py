@@ -564,14 +564,26 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             if not self._tool_enabled("worker_call"):
                 raise PermissionError("worker_call tool is not configured")
             worker_name = tool_args["worker"]
-            if not self._is_generated_worker(worker_ctx, worker_name):
-                raise PermissionError(
-                    f"worker_call only supports session-generated workers. "
-                    f"Worker '{worker_name}' is not available."
-                )
+
+            # Check for workers_dir config - if set, construct path to worker
+            workers_dir = self._get_tool_config("worker_call", "workers_dir")
+            if workers_dir:
+                # Use explicit path: {workers_dir}/{name}/worker.worker
+                from pathlib import Path
+                worker_path = str(Path(workers_dir) / worker_name / "worker.worker")
+                worker_ref = worker_path
+            else:
+                # Default behavior: check if it's a session-generated worker
+                if not self._is_generated_worker(worker_ctx, worker_name):
+                    raise PermissionError(
+                        f"worker_call only supports session-generated workers. "
+                        f"Worker '{worker_name}' is not available."
+                    )
+                worker_ref = worker_name
+
             input_data = tool_args.get("input_data")
             attachments = tool_args.get("attachments")
-            return await self._invoke_worker(worker_ctx, worker_name, input_data, attachments)
+            return await self._invoke_worker(worker_ctx, worker_ref, input_data, attachments)
 
         elif self._is_configured_worker(name):
             # Configured worker tool - name is the worker name directly

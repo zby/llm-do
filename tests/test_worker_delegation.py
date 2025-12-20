@@ -421,6 +421,59 @@ def test_worker_create_uses_output_dir_from_config(tmp_path):
     assert "custom worker" in content
 
 
+def test_worker_call_uses_workers_dir_from_config(tmp_path, monkeypatch):
+    """worker_call looks in workers_dir when configured."""
+    registry = _registry(tmp_path)
+
+    # Create a worker in a custom directory
+    custom_workers_dir = tmp_path / "custom_workers"
+    worker_dir = custom_workers_dir / "my_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "worker.worker").write_text(
+        "---\nname: my_worker\n---\nTest worker",
+        encoding="utf-8",
+    )
+
+    # Configure worker_call with workers_dir
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={
+            "delegation": {
+                "worker_call": {
+                    "workers_dir": str(custom_workers_dir),
+                }
+            }
+        },
+    )
+    registry.save_definition(parent)
+    context = _parent_context(registry, parent)
+
+    # Mock call_worker_async to capture what worker path is passed
+    captured_worker = None
+
+    async def mock_call_worker(**kwargs):
+        nonlocal captured_worker
+        captured_worker = kwargs.get("worker")
+        return WorkerRunResult(output="test output", messages=[])
+
+    monkeypatch.setattr("llm_do.runtime.call_worker_async", mock_call_worker)
+
+    toolset, mock_ctx = _create_toolset_and_context(context)
+
+    # Call worker_call with a worker name
+    asyncio.run(toolset.call_tool(
+        "worker_call",
+        {"worker": "my_worker"},
+        mock_ctx,
+        None,
+    ))
+
+    # Verify the full path was passed
+    expected_path = str(custom_workers_dir / "my_worker" / "worker.worker")
+    assert captured_worker == expected_path
+
+
 def test_delegation_toolset_blocks_server_side_tool_collision(tmp_path):
     """Worker names cannot collide with server-side tool names (web_search, etc.)."""
     registry = _registry(tmp_path)

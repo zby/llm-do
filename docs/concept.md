@@ -118,6 +118,10 @@ The pattern inverts the typical view: rather than "LLM with tools," think "deter
 
 5. **Recursive composability** — Workers calling workers feels like function calls, up to 5 levels deep
 
+## Related Research
+
+**[Adaptation of Agentic AI](https://arxiv.org/abs/2512.16301)** presents a taxonomy for adaptation in agentic systems that validates llm-do's bidirectional refactoring approach and suggests data-driven extensions—failure logging, offline analysis, and confidence signaling. See [detailed analysis](notes/adaptation-agentic-ai-analysis.md) for proposed features.
+
 ---
 
 See [`architecture.md`](architecture.md) for implementation details: worker definitions, toolsets, approvals, and the runtime API.

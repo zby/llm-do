@@ -14,8 +14,6 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 ---
 
 ## Development
-
-- Run `uv run pytest` before committing (tests use dummy models, no live API calls)
 - For executing python scripts use `.venv/bin/python` - the global environment does not have all dependencies
 - Test worker features by creating example projects in `examples/` and running with `llm-do`
 - Do not preserve backwards compatibility; with no external consumers, always prioritize cleaner design over keeping old behavior alive
@@ -35,6 +33,7 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 ## Git Discipline
 
+- **Run tests before every commit**: `uv run pytest` — all tests must pass before committing. Tests use dummy models, no API calls needed.
 - **Never** `git add -A` — review `git status` and stage specific files
 - Check `git diff` before committing
 

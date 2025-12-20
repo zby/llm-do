@@ -48,15 +48,15 @@ llm-do worker "hello" --json --approve-all | jq '.output'
 ```
 
 **`--headless`**
-Force non-interactive mode regardless of TTY detection (requires `--approve-all` or `--strict`):
+Force non-interactive mode regardless of TTY detection. If stdin is a TTY and no approval flags are provided, the CLI prompts for approvals. If stdin is not a TTY, you must use `--approve-all` or `--strict`:
 ```bash
 llm-do worker "task" --headless --approve-all
 ```
 
-**`--rich`**
-Use Rich formatting (colors, styles) in headless mode. Useful when piping to terminals that support ANSI codes or capturing colored logs:
+**`--no-rich`**
+Disable Rich formatting (plain text, no ANSI colors). Applies to headless output and the post-TUI log buffer:
 ```bash
-llm-do worker "task" --headless --rich --approve-all
+llm-do worker "task" --no-rich
 ```
 
 ### Worker Configuration
@@ -172,14 +172,13 @@ The CLI supports multiple output modes for different use cases:
 |------|------|--------------|----------|
 | TUI (default) | — | TTY required | Interactive terminal sessions |
 | JSON | `--json` | `--approve-all` or `--strict` | Scripting and automation |
-| Headless | `--headless` | `--approve-all` or `--strict` | CI/CD, pipes, containers (plain text) |
-| Headless Rich | `--headless --rich` | `--approve-all` or `--strict` | Colored output in pipes/logs |
+| Headless | `--headless` | Stdin TTY or approval flags | CI/CD, pipes, containers (plain text) |
 
 **Auto-detection:** Without explicit flags, the CLI detects whether it's running in a TTY:
 - **TTY present:** Textual TUI with interactive approval prompts. After TUI exits, colorful output is printed to terminal history.
-- **No TTY:** Fails unless `--approve-all`, `--strict`, or `--json` is specified
+- **No TTY:** Falls back to headless rendering (Rich by default, plain with `--no-rich`). If stdin is not a TTY and no approval flags are set, headless mode enforces strict behavior.
 
-The `--json` and `--headless` flags are mutually exclusive. The `--json` and `--rich` flags are also mutually exclusive.
+The `--json` and `--headless` flags are mutually exclusive. `--json` also implies `--no-rich`.
 
 ### Debugging
 

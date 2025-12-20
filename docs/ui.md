@@ -1,132 +1,88 @@
 # UI Architecture
 
-The `llm_do/ui/` module provides display abstractions for the async CLI, separating rendering logic from the core worker execution.
+The `llm_do/ui/` module provides the UI event pipeline for the async CLI. It separates
+worker execution from rendering and keeps output consistent across Textual, Rich,
+headless text, and JSON modes.
 
-## Display Backends
-
-The CLI uses a `DisplayBackend` abstraction to render events. This allows swapping between Textual TUI (interactive terminal) and JSON (automation/scripting) output without changing the event flow.
+## Core Pipeline
 
 ```
-┌─────────────────┐     ┌──────────────┐     ┌─────────────────────┐
-│  Worker Events  │────▶│  Event Queue │────▶│    DisplayBackend   │
-└─────────────────┘     └──────────────┘     └─────────────────────┘
-                                                        │
-                                    ┌───────────────────┼───────────────────┐
-                                    ▼                   ▼                   ▼
-                         TextualDisplayBackend  RichDisplayBackend  JsonDisplayBackend
-                                                        │
-                                                        ▼
-                                              HeadlessDisplayBackend
-                                               (plain text variant)
+Worker Events
+  |
+  v
+parse_event()  -> UIEvent
+  |
+  v
+Event Queue
+  |
+  v
+DisplayBackend
+  |-- TextualDisplayBackend (event.create_widget)
+  |-- RichDisplayBackend (event.render_rich)
+  |-- JsonDisplayBackend (event.render_json)
+  `-- HeadlessDisplayBackend (event.render_text)
 ```
 
-### CLIEvent
+### UIEvent
 
-All events flowing through the display system are wrapped in `CLIEvent`:
+`UIEvent` is the typed base class for all UI events. Each event renders itself into:
+- Rich output (`render_rich`)
+- Plain text (`render_text`, ASCII-only for system strings)
+- JSON (`render_json`)
+- Textual widget (`create_widget`)
 
-```python
-@dataclass
-class CLIEvent:
-    kind: Literal["runtime_event", "deferred_tool", "approval_request"]
-    payload: Any
-```
+### Event Parsing
 
-- **runtime_event**: Standard pydantic-ai message events (text, tool calls, tool results)
-- **deferred_tool**: Deferred/async tool execution status updates
-- **approval_request**: Tool approval requests (TUI-only, see note below)
+Raw callback payloads are converted into typed events in one place:
+- `llm_do/ui/parser.py` -> `parse_event(payload)`
+- Approval requests use `parse_approval_request(request)` to emit an `ApprovalRequestEvent`
 
-### DisplayBackend (ABC)
+### DisplayBackend
 
-Base class for all display backends:
+Display backends are thin wrappers that call the appropriate `UIEvent` render method.
+They optionally implement `start()`/`stop()` for setup and teardown.
 
-```python
-class DisplayBackend(ABC):
-    wants_runtime_events: bool = True  # Set False to skip event streaming
+### Textual TUI
 
-    async def start(self) -> None: ...   # Called before event loop
-    async def stop(self) -> None: ...    # Called after event loop
+`TextualDisplayBackend` forwards events to the Textual app via an async queue.
+`LlmDoApp` is a thin consumer that only manages approval state and final output,
+while `MessageContainer` handles streaming and widget mounting.
 
-    def handle_event(self, event: CLIEvent) -> None: ...  # Route to handlers
-
-    @abstractmethod
-    def display_runtime_event(self, payload: Any) -> None: ...
-
-    @abstractmethod
-    def display_deferred_tool(self, payload: Mapping[str, Any]) -> None: ...
-```
-
-**Note on approval_request**: The `approval_request` event kind is handled directly by the
-Textual TUI (`LlmDoApp`) and bypasses the `DisplayBackend` abstraction. Non-interactive
-backends (JSON, headless) require `--approve-all` or `--strict` flags, so they never
-receive approval requests.
-
-### TextualDisplayBackend
-
-Forwards events to the Textual TUI application via an async queue:
-
-- Wraps events as `CLIEvent` and enqueues for `LlmDoApp` consumption
-- The TUI handles rendering, streaming text, and interactive approvals
-- Approval requests flow through a separate queue for response handling
-
-### JsonDisplayBackend
-
-Machine-readable JSONL output for automation:
-
-- Writes newline-delimited JSON records to stderr
-- Each record includes `kind` and `payload` fields
-- Handles Pydantic models via `model_dump()`
-
-### RichDisplayBackend
-
-Colorful formatted output using Rich:
-
-- Uses Rich Console for styled, colorful terminal output
-- Supports `force_terminal=True` to write ANSI codes even to non-TTY streams (e.g., StringIO buffers)
-- Color scheme: cyan for worker names, yellow for tool calls, blue for tool results, green for responses
-- Used by TUI mode to capture output for display after TUI exits (terminal history)
-- Used by headless mode with `--rich` flag for colored non-interactive output
-
-### HeadlessDisplayBackend
-
-Plain text output for headless/non-interactive scenarios:
-
-- Writes plain text to stderr (no ANSI codes)
-- Default backend for `--headless` mode (without `--rich`)
-- Safe for piping to files or non-terminal consumers
+Approval requests are displayed in the TUI and resolved via an approval queue.
+Non-interactive modes use `--approve-all` or `--strict` (or stdin prompts in headless
+mode when available).
 
 ## Event Flow
-
-The async CLI sets up a render loop that consumes events from a queue:
 
 ```python
 async def _render_loop(queue: asyncio.Queue, backend: DisplayBackend) -> None:
     await backend.start()
     try:
         while True:
-            payload = await queue.get()
-            if payload is None:  # Sentinel to stop
+            event = await queue.get()
+            if event is None:
                 break
-            if isinstance(payload, CLIEvent):
-                backend.handle_event(payload)
+            backend.display(event)
             queue.task_done()
     finally:
         await backend.stop()
 ```
 
-The worker's `message_callback` enqueues events directly (no thread-safety wrapper needed since everything runs in the same event loop).
+The worker's `message_callback` parses raw events and enqueues typed `UIEvent` objects.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `llm_do/ui/__init__.py` | Public exports |
-| `llm_do/ui/display.py` | DisplayBackend abstraction and implementations |
+| `llm_do/ui/events.py` | Typed UIEvent hierarchy |
+| `llm_do/ui/parser.py` | Raw event parsing into UIEvent |
+| `llm_do/ui/display.py` | DisplayBackend implementations |
 | `llm_do/ui/app.py` | Textual TUI application (`LlmDoApp`) |
-| `llm_do/ui/widgets/messages.py` | Message display widgets for TUI |
+| `llm_do/ui/widgets/messages.py` | Message widgets and MessageContainer |
 
 ## Textual TUI
 
-The default interactive mode uses Textual for a rich terminal UI:
+The default interactive mode uses Textual:
 
 ```
 llm-do myworker "task"
@@ -135,18 +91,12 @@ llm-do myworker "task"
 ### Architecture
 
 ```
-┌─────────────────┐     ┌──────────────┐     ┌─────────────────────┐
-│  Worker Events  │────▶│  Event Queue │────▶│ TextualDisplayBackend│
-└─────────────────┘     └──────────────┘     └─────────────────────┘
-                                                       │
-                                                       ▼
-                                               ┌─────────────┐
-                                               │  LlmDoApp   │
-                                               └─────────────┘
-                                                       │
-                                      ┌────────────────┼────────────────┐
-                                      ▼                ▼                ▼
-                               AssistantMessage  ToolCallMessage  ApprovalMessage
+Worker Events -> parse_event -> UIEvent queue -> TextualDisplayBackend -> LlmDoApp
+                                                             |
+                                                             v
+                                                    MessageContainer
+                                                        | | |
+                                             Assistant  ToolCall  Approval
 ```
 
 ### Widgets
@@ -160,23 +110,24 @@ llm-do myworker "task"
 
 ### Output Modes
 
-| Flag | Backend | Interactivity | Use Case |
-|------|---------|---------------|----------|
-| (default) | TextualDisplayBackend + RichDisplayBackend | Yes (requires TTY) | Interactive terminal |
-| `--json` | JsonDisplayBackend | No | Automation/scripting |
-| `--headless` | HeadlessDisplayBackend | No | CI/CD, pipes (plain text) |
-| `--headless --rich` | RichDisplayBackend | No | Colored output in pipes/logs |
+| Mode | Flag | Backend | Interactivity | Notes |
+|------|------|---------|---------------|-------|
+| TUI (default) | — | TextualDisplayBackend + log buffer | Yes | Requires stdout TTY |
+| JSON | `--json` | JsonDisplayBackend | No | Requires `--approve-all` or `--strict` |
+| Headless (explicit) | `--headless` | HeadlessDisplayBackend | No | Prompts on stdin if TTY, otherwise requires approval flags |
 
-**TUI Terminal History:** When using the default TUI mode, events are captured to a RichDisplayBackend buffer. After the TUI exits, this buffer is printed to the terminal, preserving a colorful record of the session in terminal scrollback history.
+**TUI Terminal History:** In TUI mode, events are captured to a Rich or plain-text
+buffer (controlled by `--no-rich`) and printed after the TUI exits.
 
 ### TTY Detection
 
-The CLI auto-detects whether it's running in an interactive terminal:
-- **TTY present**: Rich output with interactive approval prompts
-- **No TTY**: Requires `--approve-all` or `--strict` for approval handling
+- **TTY present:** Textual TUI with interactive approvals.
+- **No TTY:** Falls back to headless rendering. Rich output is used by default; use
+  `--no-rich` for plain text. If stdin is not a TTY and no approval flags are set,
+  headless mode defaults to strict behavior.
 
 ## Future Work
 
-- **Streaming text**: Progressive text rendering during model output
+- **Streaming markdown**: Progressive markdown rendering in `AssistantMessage`
 - **Deferred tools**: Real-time status updates for long-running tool execution
 - **Multi-turn input**: Enable text input widget for conversation continuation

@@ -5,11 +5,21 @@ Notes on other Python-based LLM CLI tools we can learn from.
 ## Purpose
 
 We analyze these tools to:
-1. **Borrow GUI patterns** - Our TUI is basic, theirs are mature
+1. **Borrow UI patterns** - Fit improvements into our DisplayBackend + UIEvent pipeline
 2. **Understand architectures** - How do others structure async TUIs?
 3. **Find integration points** - Can we embed llm-do workers into their UIs?
 
 LLM access patterns are **least important** - we're committed to pydantic-ai.
+
+## llm-do UI Architecture (Snapshot)
+
+- Worker events are parsed once in `llm_do/ui/parser.py` into `UIEvent` objects.
+- `DisplayBackend` renders events to Textual (`TextualDisplayBackend` -> `LlmDoApp`),
+  Rich, JSON, or headless text.
+- The Textual TUI is intentionally thin: `LlmDoApp` consumes events and
+  `MessageContainer` mounts message widgets.
+- Approval requests are handled in the Textual app via an approval queue; non-interactive
+  backends require `--approve-all` or `--strict`.
 
 ## Note Structure
 
@@ -37,6 +47,9 @@ Each tool should have notes covering:
 - Input handling (multiline? slash commands?)
 - Approval/confirmation UI patterns
 
+When calling out patterns, map them to where they would live in llm-do:
+`UIEvent` renderers, `MessageContainer` widgets, or `LlmDoApp` app-level UX.
+
 ### Borrowable Patterns
 For each feature worth borrowing:
 - What it does
@@ -63,11 +76,11 @@ For each feature worth borrowing:
 
 ## Priority for Borrowing
 
-1. **TUI structure** - handlers/renderers/widgets split (Mistral Vibe)
-2. **Textual CSS patterns** - Styling reference (both)
-3. **Token tracking** - Cost display (TunaCode)
-4. **Slash commands** - Command parsing (TunaCode)
-5. **Approval UI** - Tool confirmation patterns (both)
+1. **Message widgets + streaming** - Fits `MessageContainer`/`AssistantMessage` (Mistral Vibe)
+2. **Approval UI** - Fits `ApprovalRequestEvent` + `LlmDoApp` (both)
+3. **Textual CSS patterns** - Fits `llm_do/ui/app.py` + widget CSS (both)
+4. **Token tracking** - Fits `StatusEvent`/`CompletionEvent` renderers (TunaCode)
+5. **Slash commands** - Requires enabling input in `LlmDoApp` (TunaCode)
 
 ## Comparison
 
@@ -77,6 +90,7 @@ For each feature worth borrowing:
 | **LLM** | pydantic-ai (multi) | mistralai (Mistral only) | pydantic-ai |
 | **Protocols** | None | ACP + MCP | Custom |
 | **State** | Singleton | Single Agent | Context passing |
+| **UI architecture** | Textual + prompt_toolkit input | Textual app + handlers/renderers | DisplayBackend + UIEvent + Textual |
 | **Stars** | ~100 | ~2100 | - |
 | **Recursive workers** | No | No | Yes |
 
@@ -94,7 +108,7 @@ Each project excels in different areas. Here's what to borrow from each:
 | **Modal approval UI** | Clean bottom-panel swap with async Future blocking | Medium |
 | **Blinking indicators** | `●/○` toggle with green/red completion states | Easy |
 | **Opacity-based CSS** | `$warning 15%` looks better than `$warning-darken-3` | Easy |
-| **Generator events** | `async for event in agent.act()` - cleaner than callbacks | Medium |
+| **Generator events** | `async for event in agent.act()` - cleaner than callbacks, needs adapter into `parse_event` | Medium |
 | **Middleware pipeline** | Turn limits, cost limits, auto-compact - composable guards | Medium |
 
 ### From TunaCode (Practical Features)
@@ -132,27 +146,27 @@ Each project excels in different areas. Here's what to borrow from each:
 ### Phase 1: Quick Wins (1-2 days)
 From both projects - easy, high-value:
 
-- Token/cost tracking (TunaCode pattern)
-- Opacity-based CSS (Mistral Vibe pattern)
-- Output truncation head+tail (TunaCode pattern)
-- Environment hardening (Mistral Vibe pattern)
-- Blinking indicators (Mistral Vibe pattern)
+- Token/cost tracking (TunaCode pattern) via `StatusEvent`/`CompletionEvent`
+- Opacity-based CSS (Mistral Vibe pattern) in `llm_do/ui/app.py`
+- Output truncation head+tail (TunaCode pattern) in `ToolResultMessage`
+- Environment hardening (Mistral Vibe pattern) in shell toolset
+- Blinking indicators (Mistral Vibe pattern) in tool call/result widgets
 
 ### Phase 2: TUI Improvements (3-5 days)
 Primarily from Mistral Vibe:
 
-- Streaming markdown widget
-- Modal approval UI
-- Generator-based events
+- Streaming markdown widget in `AssistantMessage`
+- Modal approval UI in `LlmDoApp`
+- Tool-specific renderers via `UIEvent.create_widget`
 - Approval theme: warning not error
 
 ### Phase 3: UX Features (1 week)
 Mix of both:
 
-- Slash commands framework (TunaCode)
-- Session persistence (TunaCode)
-- Middleware pipeline (Mistral Vibe)
-- Dangerous command detection (Mistral Vibe)
+- Slash commands framework (TunaCode) once input is enabled
+- Session persistence (TunaCode) for multi-run state
+- Middleware pipeline (Mistral Vibe) in agent runner layer
+- Dangerous command detection (Mistral Vibe) in shell toolset
 
 ### Phase 4: Future (when needed)
 - MCP server support (Mistral Vibe reference)

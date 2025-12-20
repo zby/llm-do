@@ -105,28 +105,28 @@ The TUI is well-structured with clear separation:
 ### 1. TUI Component Structure
 **Effort:** Reference | **Value:** High
 
-Their `handlers/`, `renderers/`, `widgets/` split is clean. We could adopt this:
+Their `handlers/`, `renderers/`, `widgets/` split is clean, but llm-do already
+centralizes event discrimination in `llm_do/ui/parser.py` and uses `UIEvent`
+renderers plus `MessageContainer`. Borrow patterns by adding per-tool renderers
+that plug into `UIEvent.create_widget` or `MessageContainer` rather than moving
+event parsing into the app.
 
 ```
 llm_do/ui/
-├── app.py
-├── app.tcss
-├── handlers/
-│   ├── streaming.py
-│   ├── approval.py
-│   └── tool_result.py
-├── renderers/
-│   ├── markdown.py
-│   └── json.py
+├── app.py                # LlmDoApp (thin Textual shell)
+├── display.py            # DisplayBackend implementations
+├── events.py             # UIEvent renderers
+├── parser.py             # Single event discrimination point
 └── widgets/
-    ├── message_log.py
-    └── input_area.py
+    └── messages.py       # MessageContainer + message widgets
 ```
 
 ### 2. Approval System
 **Effort:** ~1 day | **Value:** High
 
 They have "tool execution approval system" - worth studying how they present this in the TUI.
+In llm-do, approval requests arrive as `ApprovalRequestEvent` and are handled by
+`LlmDoApp` via an approval queue, so modal UI work should live in `llm_do/ui/app.py`.
 
 ### 3. MCP Integration
 **Effort:** Medium | **Value:** Future-proofing
@@ -137,6 +137,7 @@ MCP (Model Context Protocol) is an emerging standard. Their integration could be
 **Effort:** Reference | **Value:** Medium
 
 Their `app.tcss` (9.7 KB) likely has good patterns for styling Textual apps.
+Apply to `llm_do/ui/app.py` CSS and widget `DEFAULT_CSS` blocks.
 
 ### 5. Middleware Pattern
 **Effort:** ~1 day | **Value:** Medium
@@ -166,9 +167,9 @@ Since Vibe supports MCP servers, we could potentially expose llm-do workers as a
 
 | Component | Feasibility | Notes |
 |-----------|-------------|-------|
-| TUI structure | High | Study their handlers/renderers/widgets split |
+| Message widgets | High | Map to `MessageContainer` + `UIEvent.create_widget` |
 | Textual CSS | Easy | Reference their `app.tcss` |
-| Approval UI | Medium | Study their tool approval patterns |
+| Approval UI | Medium | Implement in `LlmDoApp` with approval queue |
 | MCP support | Future | Add MCP server capability to llm-do |
 | Config system | Low priority | We have workshop.yaml |
 
@@ -182,6 +183,7 @@ Since Vibe supports MCP servers, we could potentially expose llm-do workers as a
 | **Sandboxing** | Pattern-based tool disable | Per-worker sandboxes |
 | **Protocols** | ACP + MCP | Custom |
 | **Configuration** | TOML + ~/.vibe/ | YAML workshop/worker files |
+| **UI architecture** | Textual app + handlers/renderers | DisplayBackend + UIEvent + Textual |
 
 ## Why This Project Matters
 

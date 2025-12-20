@@ -40,32 +40,14 @@ The core design principle is that **each `UIEvent` subclass is responsible for k
 - **Type safety** - Typed events instead of `Any` payloads
 - **Testable** - Each event's rendering can be unit tested independently
 
-### Refactoring from Current Implementation
+### Current Implementation Notes
 
-This spec describes a **simplified design** that replaces the current implementation's complexity:
+The codebase already follows this design:
 
-| Current (Remove) | Refactored (Use) |
-|------------------|------------------|
-| `CLIEvent` wrapper with `.kind` string | Typed `UIEvent` subclasses |
-| `if event.kind == "runtime_event":` | `isinstance(event, TextResponseEvent)` |
-| `hasattr(event, "payload")` checks | Direct attribute access (type-safe) |
-| `_handle_runtime_event()` | `event.create_widget()` |
-| `_handle_dict_event()` | `parse_event()` in parser module |
-| `_handle_deferred_tool()` | `DeferredToolEvent.create_widget()` |
-| Multiple handler methods in LlmDoApp | Single `_handle_event_state()` for state only |
-
-**What gets deleted from `app.py`:**
-- `_handle_runtime_event()` method
-- `_handle_dict_event()` method
-- `_handle_deferred_tool()` method
-- All `if event.kind == "..."` branching
-- All `hasattr()` checks for payload inspection
-
-**What moves to `parser.py`:**
-- All pydantic-ai type inspection (`isinstance(event, PartEndEvent)`, etc.)
-- Conversion from raw callback dicts to typed `UIEvent` instances
-
-**Result:** The TUI app becomes a thin consumer that just mounts widgets and manages approval state. All event discrimination happens once, in the parser.
+- Raw callback payloads are parsed in `llm_do/ui/parser.py` into `UIEvent` instances.
+- Rendering is centralized in `UIEvent.render_*` and `UIEvent.create_widget`.
+- `LlmDoApp` only manages approval state and final-result capture.
+- `MessageContainer` handles streaming and widget mounting.
 
 ## Architecture
 
@@ -80,10 +62,10 @@ Event Queue
   |
   v
 DisplayBackend
-  |-- TextualBackend (event.create_widget)
-  |-- RichBackend (event.render_rich)
-  |-- JsonBackend (event.render_json)
-  `-- HeadlessBackend (event.render_text)
+  |-- TextualDisplayBackend (event.create_widget)
+  |-- RichDisplayBackend (event.render_rich)
+  |-- JsonDisplayBackend (event.render_json)
+  `-- HeadlessDisplayBackend (event.render_text)
 ```
 
 ## Event Type Hierarchy
@@ -1595,69 +1577,70 @@ from llm_do.base import ApprovalDecision
 |------|--------|
 | (default) | TUI mode, captures to Rich buffer, prints on exit |
 | `--headless` | Plain text output to stderr |
-| `--rich` | Rich formatted output (with `--headless` or auto-detected non-TTY) |
+| `--no-rich` | Disable Rich formatting (plain text, no colors) |
 | `--json` | JSONL output to stderr, JSON result to stdout |
 | `--approve-all` | Auto-approve all tools (required for non-interactive) |
 | `--strict` | Reject all non-pre-approved tools (required for non-interactive) |
 
-## Migration Checklist
+## Implementation Status
 
-Use this checklist when implementing or refactoring to this specification:
+This spec is implemented in the current codebase. The checklist below is a
+status snapshot; remaining items are mostly tests.
 
 ### Phase 1: Core Event System
-- [ ] Create `llm_do/ui/events.py` with:
-  - [ ] `UIEvent` base class with abstract render methods
-  - [ ] `InitialRequestEvent`
-  - [ ] `StatusEvent`
-  - [ ] `TextResponseEvent`
-  - [ ] `ToolCallEvent`
-  - [ ] `ToolResultEvent`
-  - [ ] `DeferredToolEvent`
-  - [ ] `CompletionEvent`
-  - [ ] `ErrorEvent`
-  - [ ] `ApprovalRequestEvent`
+- [x] Create `llm_do/ui/events.py` with:
+  - [x] `UIEvent` base class with abstract render methods
+  - [x] `InitialRequestEvent`
+  - [x] `StatusEvent`
+  - [x] `TextResponseEvent`
+  - [x] `ToolCallEvent`
+  - [x] `ToolResultEvent`
+  - [x] `DeferredToolEvent`
+  - [x] `CompletionEvent`
+  - [x] `ErrorEvent`
+  - [x] `ApprovalRequestEvent`
 
 ### Phase 2: Parser
-- [ ] Create `llm_do/ui/parser.py` with:
-  - [ ] `_extract_delta_content()` helper
-  - [ ] `parse_event()` function
+- [x] Create `llm_do/ui/parser.py` with:
+  - [x] `_extract_delta_content()` helper
+  - [x] `parse_event()` function
   - [ ] Unit tests for each event type conversion
 
 ### Phase 3: Display Backends
-- [ ] Create/update `llm_do/ui/display.py` with:
-  - [ ] `DisplayBackend` abstract base class
-  - [ ] `RichDisplayBackend`
-  - [ ] `HeadlessDisplayBackend`
-  - [ ] `JsonDisplayBackend`
-  - [ ] `TextualDisplayBackend`
+- [x] Create/update `llm_do/ui/display.py` with:
+  - [x] `DisplayBackend` abstract base class
+  - [x] `RichDisplayBackend`
+  - [x] `HeadlessDisplayBackend`
+  - [x] `JsonDisplayBackend`
+  - [x] `TextualDisplayBackend`
 
 ### Phase 4: Widgets
-- [ ] Create/update `llm_do/ui/widgets/messages.py` with:
-  - [ ] `BaseMessage`
-  - [ ] `AssistantMessage` (with `append_text()`)
-  - [ ] `ToolCallMessage`
-  - [ ] `ToolResultMessage`
-  - [ ] `StatusMessage`
-  - [ ] `ErrorMessage`
-  - [ ] `ApprovalMessage`
-  - [ ] `MessageContainer`
+- [x] Create/update `llm_do/ui/widgets/messages.py` with:
+  - [x] `BaseMessage`
+  - [x] `AssistantMessage` (with `append_text()`)
+  - [x] `ToolCallMessage`
+  - [x] `ToolResultMessage`
+  - [x] `StatusMessage`
+  - [x] `ErrorMessage`
+  - [x] `ApprovalMessage`
+  - [x] `MessageContainer`
 
 ### Phase 5: TUI Application
-- [ ] Update `llm_do/ui/app.py`:
-  - [ ] Remove `_handle_runtime_event()` method
-  - [ ] Remove `_handle_dict_event()` method
-  - [ ] Remove `_handle_deferred_tool()` method
-  - [ ] Remove all `if event.kind == "..."` branching
-  - [ ] Remove all `hasattr()` checks for payload inspection
-  - [ ] Implement typed `_consume_events()` loop
-  - [ ] Add `_handle_event_state()` for special state management
-  - [ ] Add error handling around `event.create_widget()`
+- [x] Update `llm_do/ui/app.py`:
+  - [x] Remove `_handle_runtime_event()` method
+  - [x] Remove `_handle_dict_event()` method
+  - [x] Remove `_handle_deferred_tool()` method
+  - [x] Remove all `if event.kind == "..."` branching
+  - [x] Remove all `hasattr()` checks for payload inspection
+  - [x] Implement typed `_consume_events()` loop
+  - [x] Add `_handle_event_state()` for special state management
+  - [x] Add error handling around `event.create_widget()`
 
 ### Phase 6: CLI Integration
-- [ ] Update CLI to use `parse_event()` in message callbacks
-- [ ] Verify TUI mode captures to buffers correctly
-- [ ] Verify headless/rich modes write to stderr
-- [ ] Verify final result goes to stdout
+- [x] Update CLI to use `parse_event()` in message callbacks
+- [x] Verify TUI mode captures to buffers correctly
+- [x] Verify headless/rich modes write to stderr
+- [x] Verify final result goes to stdout
 
 ### Phase 7: Testing
 - [ ] Unit tests for each event's `render_rich()` method

@@ -25,45 +25,73 @@ TunaCode (UI layer)
 
 ## Implementation
 
-### Context Access
+### Registry + Approval Controller
 
-Both projects use pydantic-ai. llm-do uses `RunContext[WorkerContext]` for dependency injection; TunaCode uses `RunContext[None]` with a global `StateManager` singleton.
+Both projects use pydantic-ai. For integration, prefer `run_worker_async` with a
+shared `WorkerRegistry` and `ApprovalController`. llm-do already exposes
+`run_worker_async` and `WorkerRegistry` at the package level.
 
-llm-do exposes a global singleton for external integrations:
+If you want live UI updates in TunaCode, reuse llm-do's event parsing layer:
+`message_callback` -> `parse_event` -> `UIEvent`, then render into TunaCode's UI.
 
 ```python
-# llm_do/integrations/global_context.py
-from llm_do import WorkerContext, WorkerRegistry, ApprovalController
+# tunacode/integrations/llm_do_bridge.py (concept)
+from pathlib import Path
+from typing import Awaitable, Callable
 
-class GlobalWorkerContext:
-    """Global singleton for llm-do context in external integrations."""
-    _instance: WorkerContext | None = None
+from llm_do import WorkerRegistry, run_worker_async
+from llm_do.ui.events import UIEvent
+from llm_do.ui.parser import parse_event
+from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision, ApprovalRequest
 
-    @classmethod
-    def init(cls, registry_path: Path, approval_callback=None) -> None:
-        cls._instance = WorkerContext(
-            worker=None,  # Set per-call
-            effective_model=None,  # Use worker's configured model
-            approval_controller=ApprovalController(
-                mode="interactive" if approval_callback else "approve_all",
-                approval_callback=approval_callback,
-            ),
-            registry=WorkerRegistry(registry_path),
+_bridge: "LlmDoBridge | None" = None
+
+class LlmDoBridge:
+    def __init__(
+        self,
+        registry_path: Path,
+        approval_callback: Callable[[ApprovalRequest], Awaitable[ApprovalDecision]] | None = None,
+        on_event: Callable[[UIEvent], None] | None = None,
+    ) -> None:
+        self.registry = WorkerRegistry(registry_path)
+        self.approval_controller = ApprovalController(
+            mode="interactive" if approval_callback else "approve_all",
+            approval_callback=approval_callback,
         )
+        self.on_event = on_event  # Optional hook for streaming UI updates
 
-    @classmethod
-    def get(cls) -> WorkerContext:
-        if cls._instance is None:
-            raise RuntimeError("Call GlobalWorkerContext.init() first")
-        return cls._instance
+    def _message_callback(self, raw_events: list[object]) -> None:
+        if not self.on_event:
+            return
+        for raw_event in raw_events:
+            ui_event = parse_event(raw_event)
+            self.on_event(ui_event)
+
+    async def run(self, worker_name: str, task: str) -> str:
+        result = await run_worker_async(
+            registry=self.registry,
+            worker=worker_name,
+            input_data=task,
+            approval_controller=self.approval_controller,
+            message_callback=self._message_callback if self.on_event else None,
+        )
+        return str(result.output)
+
+def init_bridge(*args, **kwargs) -> None:
+    global _bridge
+    _bridge = LlmDoBridge(*args, **kwargs)
+
+def get_bridge() -> "LlmDoBridge":
+    if _bridge is None:
+        raise RuntimeError("Call init_bridge() first")
+    return _bridge
 ```
 
 ### TunaCode Tool
 
 ```python
 # tunacode/tools/llm_do_worker.py
-from llm_do.integrations import GlobalWorkerContext
-from llm_do import call_worker_async
+from tunacode.integrations.llm_do_bridge import get_bridge
 from pydantic_ai.tools import RunContext
 
 async def call_llm_do_worker(
@@ -78,28 +106,21 @@ async def call_llm_do_worker(
     - Call other workers
     - Use custom toolsets
     """
-    worker_ctx = GlobalWorkerContext.get()
-    result = await call_worker_async(
-        registry=worker_ctx.registry,
-        worker=worker_name,
-        input_data=task,
-        approval_controller=worker_ctx.approval_controller,
-    )
-    return str(result.output)
+    bridge = get_bridge()
+    return await bridge.run(worker_name, task)
 ```
 
 ### TunaCode Startup
 
 ```python
-from llm_do.integrations import GlobalWorkerContext
-
-# Initialize with project root and optional approval bridge
-GlobalWorkerContext.init(
+# Initialize once per session (store in a module-level singleton or app state)
+init_bridge(
     registry_path=Path("."),
     approval_callback=tunacode_approval_handler,  # Bridge to TunaCode UI
+    on_event=tunacode_render_event,               # Optional streaming display
 )
 
-# Register the tool with the agent
+# Register the tool with the agent (bridge in closure or global)
 tools_list.append(Tool(call_llm_do_worker))
 ```
 

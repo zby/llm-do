@@ -4,10 +4,10 @@
 - [x] none
 
 ## Goal
-Reimplement the UI system according to `docs/notes/ui-specification.md` so that events know how to render themselves, parsing is centralized, and the TUI app becomes a thin consumer.
+Reimplement the UI system according to `docs/notes/archive/ui-specification.md` so that events know how to render themselves, parsing is centralized, and the TUI app becomes a thin consumer.
 
 ## Reference
-See `docs/notes/ui-specification.md` for full specification including:
+See `docs/notes/archive/ui-specification.md` for full specification including:
 - Event type hierarchy and render methods
 - Parser implementation
 - Display backend interfaces
@@ -93,6 +93,8 @@ Implementation complete. All core functionality implemented:
 - Updated tests in `tests/test_display_backends.py` with new test cases
 
 All 238 tests pass.
+
+Spec archived to `docs/notes/archive/ui-specification.md` now that implementation is complete.
 
 ## Notes
 - This supersedes `ui-event-cleanup.md` which covers a subset of this work

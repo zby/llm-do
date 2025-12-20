@@ -27,16 +27,15 @@ This task establishes the Textual foundation. Specific UI patterns (borrowed fro
 Create `llm_do/ui/app.py`:
 - [x] `LlmDoApp(App)` - Main Textual application class
 - [x] Basic screen layout: scrollable content area + input area
-- [x] Wire to async CLI as alternative to Rich output
-- [x] `--tui` flag to opt into Textual mode (Rich remains default initially)
+- [x] Wire to async CLI as default interactive output
 
 ### Phase 2b: Headless/Non-TTY Support
 Ensure the CLI works in non-interactive environments (CI/CD, cron, pipes, containers):
 - [x] Auto-detect when stdin/stdout is not a TTY (`sys.stdout.isatty()`)
-- [x] Fall back to Rich output with `force_terminal=False` when no TTY
+- [x] Fall back to headless output when no TTY
 - [x] Add `--headless` flag to force non-interactive mode regardless of TTY detection
-- [x] Ensure approval flow fails gracefully in headless mode (require `--approve-all` or `--strict`)
-- [x] Document behavior matrix: `--tui` vs `--headless` vs `--json` vs auto-detect (in Design Decisions)
+- [x] Ensure approval flow behaves in headless mode (stdin prompts when TTY, otherwise `--approve-all` or `--strict`)
+- [x] Document behavior matrix: `--headless` vs `--json` vs auto-detect (in Design Decisions)
 
 ### Phase 3: Message Display
 Create `llm_do/ui/widgets/messages.py`:
@@ -70,10 +69,8 @@ Event handling integrated directly in `llm_do/ui/app.py`:
 **Complete.** TUI is now the default interactive mode:
 - `llm_do/ui/app.py` - Main Textual app with event consumption
 - `llm_do/ui/widgets/messages.py` - Message display widgets
-- `llm_do/ui/display.py` - TextualDisplayBackend (default), JsonDisplayBackend
+- `llm_do/ui/display.py` - Textual, Rich, Headless, and JSON display backends
 - `llm_do/cli_async.py` - TUI default, `--headless` and `--json` for non-interactive modes
-- RichDisplayBackend removed (Rich still used internally by Textual for formatting)
-- 18 tests passing in `tests/test_cli_async.py`, 263 total tests passing
 
 **Remaining work (optional/future):**
 - Phase 5 input handling (Enter to submit, command history) - for multi-turn conversations
@@ -82,20 +79,22 @@ Event handling integrated directly in `llm_do/ui/app.py`:
 ## Design Decisions
 
 ### TUI is the default
-The Textual TUI is now the default interactive mode. RichDisplayBackend was removed in favor of the more capable TUI.
+The Textual TUI is the default interactive mode when stdout is a TTY.
 
 ### DisplayBackend abstraction
 The TUI integrates with the existing `DisplayBackend` abstraction:
 ```
 DisplayBackend (ABC)
 ├── TextualDisplayBackend ← default (interactive)
+├── RichDisplayBackend    ← buffered log output / headless rich
+├── HeadlessDisplayBackend← plain text output
 └── JsonDisplayBackend    ← for --json mode
 ```
 
 ### Output mode hierarchy
 1. `--json` → JsonDisplayBackend, no interactivity
-2. `--headless` → plain text output, no interactivity
-3. Auto-detect: TTY present → TextualDisplayBackend (default), no TTY → error (must use --json or --headless with approval flags)
+2. `--headless` → headless output, no interactivity (prompts on stdin if TTY)
+3. Auto-detect: TTY present → TextualDisplayBackend (default), no TTY → headless output
 
 ## Notes
 - Keep it simple - this is foundation work

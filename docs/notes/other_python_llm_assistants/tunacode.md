@@ -110,7 +110,8 @@ class SessionState:
         self.completion_tokens += usage.completion_tokens
 ```
 
-**For llm-do:** Add to `WorkerRunResult`. pydantic-ai already provides usage info.
+**For llm-do:** Add to `WorkerRunResult` and surface via `StatusEvent`/`CompletionEvent`
+renderers for Rich/headless output.
 
 ### 2. Dangerous Command Patterns
 **Effort:** ~30 min | **Value:** Security improvement
@@ -136,12 +137,14 @@ if len(output) > MAX_COMMAND_OUTPUT:
     output = f"{head}\n... truncated ...\n{tail}"
 ```
 
-**For llm-do:** Improve shell output truncation.
+**For llm-do:** Improve shell output truncation and keep UI parity by updating
+`ToolResultMessage` and `ToolResultEvent.render_*`.
 
 ### 4. Slash Commands Framework
 **Effort:** ~1 day | **Value:** Medium
 
-Registry pattern is clean. Would require making our TUI conversational.
+Registry pattern is clean. Would require enabling input in `LlmDoApp` (currently
+disabled) and wiring commands to trigger new worker runs.
 
 ### 5. Session Persistence
 **Effort:** ~1 day | **Value:** Medium
@@ -156,7 +159,8 @@ def save_session(self) -> None:
     path.write_text(json.dumps(data))
 ```
 
-**For llm-do:** Would enable resuming interrupted workers.
+**For llm-do:** Would enable resuming interrupted workers; could serialize
+`WorkerRunResult` plus UIEvent logs for playback.
 
 ## Integration Options
 
@@ -167,7 +171,12 @@ def save_session(self) -> None:
 ```python
 async def call_llm_do_worker(worker_name: str, task: str) -> str:
     """Delegate to an llm-do worker with sandboxed execution."""
-    result = await call_worker_async(registry, worker_name, task)
+    result = await run_worker_async(
+        registry=registry,
+        worker=worker_name,
+        input_data=task,
+        approval_controller=approval_controller,
+    )
     return str(result.output)
 ```
 
@@ -181,7 +190,7 @@ See `tunacode-integration.md` for full implementation plan.
 |-----------|-------------|-------|
 | Token tracking | Easy | Just add fields to WorkerRunResult |
 | Bash security patterns | Easy | Add to ShellToolset |
-| Slash commands | Medium | Need conversational TUI first |
+| Slash commands | Medium | Enable input in `LlmDoApp`, then map to worker runs |
 | Theme system | Low priority | Nice-to-have |
 | Authorization system | Skip | Our approval system is simpler and sufficient |
 
@@ -194,6 +203,7 @@ See `tunacode-integration.md` for full implementation plan.
 | **Workers** | Single agent | Multi-worker delegation |
 | **Sandboxing** | None | Per-worker sandboxes |
 | **Configuration** | JSON config file | YAML worker definitions |
+| **UI architecture** | Textual + prompt_toolkit input | DisplayBackend + UIEvent + Textual |
 
 ## References
 
@@ -203,3 +213,4 @@ See `tunacode-integration.md` for full implementation plan.
 ## Open Questions
 - How stable is TunaCode's tool registration API for external integrations?
 - Is prompt_toolkit required if llm-do only wants to borrow TUI patterns?
+- If we add input, should it live in `LlmDoApp` or stay outside the DisplayBackend?

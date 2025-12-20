@@ -26,6 +26,13 @@ Mistral-vibe has a mature, well-architected TUI built on Textual. Key findings:
 
 ---
 
+## llm-do UI Architecture Context
+
+- Raw worker events are parsed once in `llm_do/ui/parser.py` into `UIEvent`.
+- `UIEvent` handles rendering for Rich, headless text, JSON, and Textual widgets.
+- Textual TUI uses `LlmDoApp` + `MessageContainer` to mount message widgets.
+- Approvals are surfaced as `ApprovalRequestEvent` and resolved via an approval queue.
+
 ## Phase 1 Analysis Results
 
 ### 1. TUI App Structure
@@ -290,22 +297,22 @@ def _set_tool_permission_always(self, tool_name: str, save_permanently: bool):
 
 ### Critical (Must Have)
 
-- [ ] **Streaming markdown widget** - Use `MarkdownStream` for real-time LLM responses
-- [ ] **Modal approval UI** - Replace bottom panel during approval, use asyncio.Future to block
-- [ ] **Tool-specific renderers** - Registry pattern for approval/result display
+- [ ] **Streaming markdown widget** - Use `MarkdownStream` inside `AssistantMessage`/`MessageContainer`
+- [ ] **Modal approval UI** - Implement in `LlmDoApp` with the existing approval queue
+- [ ] **Tool-specific renderers** - Registry called from `UIEvent.create_widget` or `ToolResultMessage`
 
 ### High Priority
 
-- [ ] **Session-level approval** - "Always allow this tool" option
-- [ ] **Blinking tool indicators** - Visual feedback during execution (●/○ → green/red)
-- [ ] **Collapsible results** - Start collapsed, ctrl+o to expand
+- [ ] **Session-level approval** - "Always allow this tool" option in `ApprovalController`
+- [ ] **Blinking tool indicators** - Visual feedback in tool widgets
+- [ ] **Collapsible results** - Toggle in `ToolResultMessage` (with a keybinding in `LlmDoApp`)
 
 ### Medium Priority
 
-- [ ] **Smart auto-scroll** - Only scroll if user was at bottom
-- [ ] **Loading animation** - Braille spinner with gradient colors
-- [ ] **Enhanced input** - Prefix-based history, multiline with shift+enter
-- [ ] **Color-coded approval options** - Green for yes, red for no
+- [ ] **Smart auto-scroll** - Only scroll if user was at bottom (`MessageContainer`)
+- [ ] **Loading animation** - Braille spinner widget for status events
+- [ ] **Enhanced input** - Enable `LlmDoApp` input and add history/multiline
+- [ ] **Color-coded approval options** - Update `ApprovalMessage`/CSS themes
 
 ### Nice to Have
 
@@ -648,11 +655,11 @@ class MiddlewareAction(StrEnum):
 
 #### Event Handling Recommendations for llm-do
 
-1. **Generator-based events** - More natural than callbacks
-2. **Strongly-typed event hierarchy** - Pydantic models
-3. **Pattern matching dispatch** - Clean `match/case` handling
+1. **Single parse point** - Keep event discrimination in `llm_do/ui/parser.py`
+2. **Typed event hierarchy** - Extend `UIEvent` for new UI features
+3. **Pattern matching dispatch** - Already in `parse_event` and `MessageContainer.handle_event`
 4. **Paired events** - ToolCallEvent → ToolResultEvent for progress tracking
-5. **Middleware pipeline** - Composable conversation guards
+5. **Middleware pipeline** - Keep in agent runner layer, not in the UI
 
 ---
 
@@ -678,9 +685,9 @@ class MiddlewareAction(StrEnum):
 
 | Pattern | Source | Benefit |
 |---------|--------|---------|
-| Generator events | `agent.py` | Cleaner event flow |
+| UIEvent adapters | `agent.py` | Feed generator events into `UIEvent` pipeline |
 | Middleware pipeline | `middleware.py` | Composable guards |
-| Pattern matching | `event_handler.py` | Clean dispatch |
+| Tool renderer registry | `renderers/tool_renderers.py` | Per-tool widgets via `UIEvent.create_widget` |
 
 ### Not Applicable
 

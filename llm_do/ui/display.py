@@ -166,8 +166,8 @@ class HeadlessDisplayBackend(DisplayBackend):
                     args_str = args_str[:200] + "..."
                 self._write(f"  Args: {args_str}")
         elif isinstance(event, FunctionToolResultEvent):
-            tool_name = getattr(event, "tool_name", "tool")
             result = event.result
+            tool_name = getattr(result, "tool_name", "tool")
             self._write(f"\n[{worker}] Tool result: {tool_name}")
             # Show truncated result
             result_str = str(result.content) if hasattr(result, "content") else str(result)

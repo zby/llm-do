@@ -6,13 +6,12 @@
 
 A worker is a prompt + configuration + tools, packaged as an executable unit. Workers call other workers and Python tools interchangeably—LLM reasoning and deterministic code interleave freely.
 
-**No workflow DSL.** Unlike frameworks that require special languages for defining agent workflows (DAGs, state machines, YAML orchestration), llm-do uses plain Python. Need a fixed sequence? Write a Python script that calls workers. Need dynamic routing? Let the LLM decide which worker to call. The same function-call semantics work for both—no new abstractions to learn.
+## Unified Function Space
 
-## Neuro-Symbolic Computing
+Workers and tools are the same abstraction. Both are functions that can call each other in any combination—just like in a regular program. Whether a function is implemented as an LLM agent loop or Python code is an implementation detail; the calling convention is identical.
 
-**Workers and tools are the same abstraction.** Both are functions that can call each other in any combination—just like in a regular program. Whether a function is implemented as an LLM agent loop or Python code is an implementation detail; the calling convention is identical.
+This is neuro-symbolic computing in practice:
 
-**Dual recursion**:
 ```
 LLM ──calls──▶ Tool ──calls──▶ LLM ──calls──▶ Tool ...
      reason         execute         reason
@@ -28,9 +27,30 @@ Each component plays to its strengths:
 
 The question isn't "LLM or code?" but "how much of each, and where?"
 
-## Progressive Hardening (and Softening)
+```
+Pure Python ◄─────────────────────────► Pure Worker
+(all symbolic)                          (all neural)
 
-The unified interface enables **bidirectional refactoring**:
+  compute_hash ── smart_refactor ── code_reviewer
+       │               │                   │
+       │         hybrid: mostly            │
+       │         deterministic,       full LLM
+       │         calls LLM when stuck      │
+       │                                   │
+   no LLM ◄───────────────────────────► only LLM
+```
+
+Any component can slide along this spectrum as requirements evolve.
+
+## No Workflow DSL
+
+Unlike frameworks that require special languages for defining agent workflows (DAGs, state machines, YAML orchestration), llm-do uses plain Python.
+
+Need a fixed sequence? Write a Python script that calls workers. Need dynamic routing? Let the LLM decide which worker to call. The same function-call semantics work for both—no new abstractions to learn.
+
+## Bidirectional Refactoring
+
+The unified interface enables refactoring in both directions:
 
 ### Hardening: Neural → Symbolic
 
@@ -52,7 +72,7 @@ When rigid code needs flexibility, replace deterministic logic with worker calls
 
 ### The Hybrid Pattern
 
-Hardening often produces **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
+Refactoring often produces **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
 
 ```python
 async def evaluate_document(ctx: RunContext[ToolContext], path: str) -> dict:
@@ -69,23 +89,6 @@ async def evaluate_document(ctx: RunContext[ToolContext], path: str) -> dict:
 ```
 
 Tested Python for the predictable parts, LLM reasoning only where needed.
-
-## The Refactoring Spectrum
-
-```
-Pure Python ◄─────────────────────────► Pure Worker
-(all symbolic)                          (all neural)
-
-  compute_hash ── smart_refactor ── code_reviewer
-       │               │                   │
-       │         hybrid: mostly            │
-       │         deterministic,       full LLM
-       │         calls LLM when stuck      │
-       │                                   │
-   no LLM ◄───────────────────────────► only LLM
-```
-
-Any component can slide along this spectrum as requirements evolve.
 
 ## Design Principles
 

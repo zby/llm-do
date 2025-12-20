@@ -6,6 +6,8 @@ Skills with their own runtime. Like [Claude Code skills](https://docs.anthropic.
 
 **Delegation.** Workers call other workers like function calls. A summarizer delegates to an analyzer; an orchestrator coordinates specialists. Each runs with its own tools and model.
 
+**Unified function space.** Workers and Python tools are the same abstraction—they call each other freely. LLM reasoning and deterministic code interleave; which is which becomes an implementation detail.
+
 **Tight context.** Each worker does one thing well. No bloated multi-purpose prompts that try to handle everything.
 
 **Guardrails by construction.** Attachment policies cap resources, tool approvals gate dangerous operations. Guards enforced in code, not prompt instructions.
@@ -40,6 +42,15 @@ Workers are `.worker` files: YAML front matter (config) + body (instructions). T
 | Return value | Structured output |
 
 Each worker is exposed as a tool that other workers can call. Nested calls are capped at depth 5.
+
+Workers and Python tools form a unified function space—LLM reasoning and deterministic code call each other freely:
+
+```
+Worker ──calls──▶ Tool ──calls──▶ Worker ──calls──▶ Tool ...
+        reason          execute          reason
+```
+
+This dual recursion lets each component play to its strengths: LLMs handle ambiguity and context; Python handles precision and speed. See [`docs/concept.md`](docs/concept.md) for the full design philosophy.
 
 **Why "workers" not "agents"?** llm-do is built on [PydanticAI](https://ai.pydantic.dev/), which uses "agent" for its LLM orchestration primitive. We use "worker" to distinguish our composable, constrained prompt units from the underlying PydanticAI agents that execute them. A worker *defines* what to do; the PydanticAI agent *executes* it.
 

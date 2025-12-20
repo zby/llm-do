@@ -4,7 +4,6 @@ This example demonstrates how to create workers with **custom tools** in llm-do.
 
 ## What This Shows
 
-- **Directory-based worker structure**: Workers can be organized in directories
 - **Custom tools**: Python functions in `tools.py` are automatically registered
 - **Tool approval rules**: Custom tools follow the same approval flow as built-in tools
 
@@ -12,11 +11,9 @@ This example demonstrates how to create workers with **custom tools** in llm-do.
 
 ```
 calculator/
-├── workers/
-│   └── calculator/
-│       ├── worker.worker    # Worker configuration
-│       └── tools.py       # Custom calculation tools
-└── scratch/               # Working directory for the worker
+├── main.worker    # Worker configuration
+├── tools.py       # Custom calculation tools
+└── scratch/       # Working directory
 ```
 
 ## Custom Tools
@@ -31,22 +28,21 @@ These tools are automatically discovered and registered when the worker loads.
 
 ## Usage
 
+From the `examples/calculator` directory:
+
 ```bash
 # Run with approve-all mode (non-interactive)
-llm-do calculator "What is the 20th Fibonacci number?" --approve-all
-
-# Run with explicit model
-llm-do calculator "Calculate 12 factorial" --model anthropic:claude-haiku-4-5 --approve-all
+llm-do "What is the 20th Fibonacci number?" --model anthropic:claude-haiku-4-5 --approve-all
 
 # Complex query using multiple tools
-llm-do calculator "Find the prime factors of 1001 and calculate factorial of 7" --approve-all
+llm-do "Find the prime factors of 1001 and calculate factorial of 7" --model anthropic:claude-haiku-4-5 --approve-all
 ```
 
 ## How Custom Tools Work
 
-1. **Discovery**: llm-do looks for `workers/calculator/tools.py` alongside `worker.worker`
+1. **Discovery**: llm-do looks for `tools.py` alongside `.worker` files
 2. **Registration**: All public functions (not starting with `_`) are registered as [PydanticAI tools](https://ai.pydantic.dev/api/tools/)
-3. **Approval**: Tool rules in `worker.worker` control whether approval is required
+3. **Approval**: Tool rules in `main.worker` control whether approval is required
 4. **Documentation**: Function docstrings become tool descriptions for the LLM
 
 ## Key Features
@@ -62,7 +58,7 @@ You can test the custom tools are loaded correctly:
 
 ```bash
 # This should work and show tool usage
-llm-do calculator "What is fibonacci(15)?" --approve-all
+llm-do "What is fibonacci(15)?" --model anthropic:claude-haiku-4-5 --approve-all
 ```
 
 The worker will use the custom `calculate_fibonacci` tool to answer the question.

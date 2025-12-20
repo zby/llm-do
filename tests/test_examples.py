@@ -236,7 +236,7 @@ def test_pitch_evaluator_attachment_count_limit(pitchdeck_eval_registry, tmp_pat
 
 
 def test_pitch_orchestrator_example(pitchdeck_eval_registry):
-    """Test the pitch_orchestrator example - multi-worker delegation.
+    """Test the main orchestrator example - multi-worker delegation.
 
     This tests that:
     - Worker loads with filesystem toolset configuration
@@ -270,7 +270,7 @@ def test_pitch_orchestrator_example(pitchdeck_eval_registry):
 
     result = _run_worker(
         registry=pitchdeck_eval_registry,
-        worker="pitch_orchestrator",
+        worker="main",
         input_data="Evaluate all pitch decks",
         cli_model=model,
         approval_controller=ApprovalController(mode="approve_all"),
@@ -281,8 +281,8 @@ def test_pitch_orchestrator_example(pitchdeck_eval_registry):
 
 
 def test_pitch_orchestrator_toolsets_configured(pitchdeck_eval_registry):
-    """Test that pitch_orchestrator has correct toolsets configuration."""
-    definition = pitchdeck_eval_registry.load_definition("pitch_orchestrator")
+    """Test that main worker has correct toolsets configuration."""
+    definition = pitchdeck_eval_registry.load_definition("main")
 
     # Verify toolsets are configured
     assert definition.toolsets is not None
@@ -319,9 +319,9 @@ def test_all_example_workers_load_successfully():
     assert evaluator_def.name == "pitch_evaluator"
     assert evaluator_def.attachment_policy is not None
 
-    # Pitch orchestrator (in examples/pitchdeck_eval/workers/pitch_orchestrator.worker)
-    orchestrator_def = pitch_registry.load_definition("pitch_orchestrator")
-    assert orchestrator_def.name == "pitch_orchestrator"
+    # Main orchestrator (in examples/pitchdeck_eval/main.worker)
+    orchestrator_def = pitch_registry.load_definition("main")
+    assert orchestrator_def.name == "main"
     assert orchestrator_def.toolsets is not None
     assert "delegation" in orchestrator_def.toolsets
     assert "pitch_evaluator" in orchestrator_def.toolsets["delegation"]

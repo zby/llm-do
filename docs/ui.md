@@ -11,9 +11,13 @@ The CLI uses a `DisplayBackend` abstraction to render events. This allows swappi
 │  Worker Events  │────▶│  Event Queue │────▶│    DisplayBackend   │
 └─────────────────┘     └──────────────┘     └─────────────────────┘
                                                         │
-                                               ┌────────┴────────┐
-                                               ▼                 ▼
-                                    TextualDisplayBackend  JsonDisplayBackend
+                                    ┌───────────────────┼───────────────────┐
+                                    ▼                   ▼                   ▼
+                         TextualDisplayBackend  RichDisplayBackend  JsonDisplayBackend
+                                                        │
+                                                        ▼
+                                              HeadlessDisplayBackend
+                                               (plain text variant)
 ```
 
 ### CLIEvent
@@ -71,6 +75,24 @@ Machine-readable JSONL output for automation:
 - Writes newline-delimited JSON records to stderr
 - Each record includes `kind` and `payload` fields
 - Handles Pydantic models via `model_dump()`
+
+### RichDisplayBackend
+
+Colorful formatted output using Rich:
+
+- Uses Rich Console for styled, colorful terminal output
+- Supports `force_terminal=True` to write ANSI codes even to non-TTY streams (e.g., StringIO buffers)
+- Color scheme: cyan for worker names, yellow for tool calls, blue for tool results, green for responses
+- Used by TUI mode to capture output for display after TUI exits (terminal history)
+- Used by headless mode with `--rich` flag for colored non-interactive output
+
+### HeadlessDisplayBackend
+
+Plain text output for headless/non-interactive scenarios:
+
+- Writes plain text to stderr (no ANSI codes)
+- Default backend for `--headless` mode (without `--rich`)
+- Safe for piping to files or non-terminal consumers
 
 ## Event Flow
 
@@ -140,9 +162,12 @@ llm-do myworker "task"
 
 | Flag | Backend | Interactivity | Use Case |
 |------|---------|---------------|----------|
-| (default) | TextualDisplayBackend | Yes (requires TTY) | Interactive terminal |
+| (default) | TextualDisplayBackend + RichDisplayBackend | Yes (requires TTY) | Interactive terminal |
 | `--json` | JsonDisplayBackend | No | Automation/scripting |
-| `--headless` | (plain text) | No | CI/CD, pipes |
+| `--headless` | HeadlessDisplayBackend | No | CI/CD, pipes (plain text) |
+| `--headless --rich` | RichDisplayBackend | No | Colored output in pipes/logs |
+
+**TUI Terminal History:** When using the default TUI mode, events are captured to a RichDisplayBackend buffer. After the TUI exits, this buffer is printed to the terminal, preserving a colorful record of the session in terminal scrollback history.
 
 ### TTY Detection
 

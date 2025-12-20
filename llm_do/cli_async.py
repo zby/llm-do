@@ -26,6 +26,7 @@ from .ui.display import (
     DisplayBackend,
     HeadlessDisplayBackend,
     JsonDisplayBackend,
+    RichDisplayBackend,
     TextualDisplayBackend,
 )
 
@@ -134,7 +135,13 @@ def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         "--headless",
         action="store_true",
         default=False,
-        help="Force non-interactive mode (plain text output)",
+        help="Non-interactive mode with plain text output (no TUI, no colors)",
+    )
+    parser.add_argument(
+        "--no-rich",
+        action="store_true",
+        default=False,
+        help="Disable Rich formatting (plain text, no colors)",
     )
     parser.add_argument(
         "--set",
@@ -255,6 +262,7 @@ async def _render_loop(
 
 async def _run_tui_mode(args: argparse.Namespace) -> int:
     """Run the CLI in Textual TUI mode."""
+    import io
     from .ui.app import LlmDoApp
 
     # Validate TUI requirements
@@ -276,6 +284,10 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
 
     # Create backend that forwards to app
     backend = TextualDisplayBackend(event_queue)
+
+    # Create a buffer to capture Rich-formatted output for display after TUI exits
+    output_buffer = io.StringIO()
+    rich_backend = RichDisplayBackend(output_buffer, force_terminal=True)
 
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
@@ -318,11 +330,15 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                     approval_callback=tui_approval_callback,
                 )
 
-            message_callback = (
-                _queue_message_callback(event_queue)
-                if backend.wants_runtime_events
-                else None
-            )
+            # Create a callback that forwards to both TUI and Rich buffer
+            def combined_message_callback(events: list[Any]) -> None:
+                for event in events:
+                    # Forward to TUI
+                    event_queue.put_nowait(CLIEvent(kind="runtime_event", payload=event))
+                    # Also capture in Rich buffer for terminal output after TUI exits
+                    rich_backend.display_runtime_event(event)
+
+            message_callback = combined_message_callback if backend.wants_runtime_events else None
 
             result = await run_worker_async(
                 registry=registry,
@@ -352,12 +368,13 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     # Run with mouse disabled to allow terminal text selection
     await app.run_async(mouse=False)
 
-    # Print final result after TUI exits so it's visible in terminal
-    if app.final_result is not None:
-        from rich.console import Console
-        from rich.panel import Panel
-        console = Console()
-        console.print(Panel(app.final_result, title="Response", border_style="green"))
+    # Print captured output after TUI exits so it's visible in terminal history
+    captured_output = output_buffer.getvalue()
+    if captured_output:
+        print("\n--- Session Log ---")
+        print(captured_output)
+    else:
+        print("\n--- No captured output ---")
 
     return 0
 
@@ -503,8 +520,12 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         else:
             approval_controller = ApprovalController(mode="strict")
 
-        # Headless backend writes events to stderr as plain text
-        backend = HeadlessDisplayBackend()
+        # Choose backend: Rich by default, plain text if --no-rich or --headless
+        use_plain = args.no_rich or args.headless
+        if use_plain:
+            backend: DisplayBackend = HeadlessDisplayBackend()
+        else:
+            backend = RichDisplayBackend(force_terminal=True)
         queue: asyncio.Queue[Any] = asyncio.Queue()
         renderer = asyncio.create_task(_render_loop(queue, backend))
         message_callback = _queue_message_callback(queue) if backend.wants_runtime_events else None
@@ -582,6 +603,10 @@ async def run_async_cli(argv: Optional[list[str]] = None) -> int:
     if args.json and args.headless:
         print("Cannot combine --json and --headless", file=sys.stderr)
         return 1
+
+    if args.json and not args.no_rich:
+        # JSON mode implicitly disables Rich (machine-readable output)
+        args.no_rich = True
 
     # Determine if we're in headless mode (explicit or auto-detected)
     is_headless = args.headless or not _is_interactive()

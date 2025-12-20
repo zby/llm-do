@@ -53,6 +53,12 @@ Force non-interactive mode regardless of TTY detection (requires `--approve-all`
 llm-do worker "task" --headless --approve-all
 ```
 
+**`--rich`**
+Use Rich formatting (colors, styles) in headless mode. Useful when piping to terminals that support ANSI codes or capturing colored logs:
+```bash
+llm-do worker "task" --headless --rich --approve-all
+```
+
 ### Worker Configuration
 
 **`--model MODEL`**
@@ -166,13 +172,14 @@ The CLI supports multiple output modes for different use cases:
 |------|------|--------------|----------|
 | TUI (default) | — | TTY required | Interactive terminal sessions |
 | JSON | `--json` | `--approve-all` or `--strict` | Scripting and automation |
-| Headless | `--headless` | `--approve-all` or `--strict` | CI/CD, pipes, containers |
+| Headless | `--headless` | `--approve-all` or `--strict` | CI/CD, pipes, containers (plain text) |
+| Headless Rich | `--headless --rich` | `--approve-all` or `--strict` | Colored output in pipes/logs |
 
 **Auto-detection:** Without explicit flags, the CLI detects whether it's running in a TTY:
-- **TTY present:** Textual TUI with interactive approval prompts
+- **TTY present:** Textual TUI with interactive approval prompts. After TUI exits, colorful output is printed to terminal history.
 - **No TTY:** Fails unless `--approve-all`, `--strict`, or `--json` is specified
 
-The `--json` and `--headless` flags are mutually exclusive.
+The `--json` and `--headless` flags are mutually exclusive. The `--json` and `--rich` flags are also mutually exclusive.
 
 ### Debugging
 

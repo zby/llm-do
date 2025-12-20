@@ -149,6 +149,8 @@ See [`examples/`](examples/) for working code:
 
 **Working:** Worker resolution, worker delegation, approvals, custom tools, templates.
 
+**TUI:** The interactive terminal UI (Textual-based) is experimental. Use `--headless` for non-interactive mode.
+
 **Caveats:** Approvals reduce risk but aren't guarantees. Prompt injection can trick LLMs into misusing granted tools. Treat these as mitigations, not proof of security. Run in a container for real isolation.
 
 ## Contributing

@@ -350,6 +350,14 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
 
     # Run with mouse disabled to allow terminal text selection
     await app.run_async(mouse=False)
+
+    # Print final result after TUI exits so it's visible in terminal
+    if app.final_result is not None:
+        from rich.console import Console
+        from rich.panel import Panel
+        console = Console()
+        console.print(Panel(app.final_result, title="Response", border_style="green"))
+
     return 0
 
 

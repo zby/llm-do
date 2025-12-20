@@ -165,10 +165,10 @@ class ApprovalMessage(BaseMessage):
             lines.append("")
 
         lines.extend([
-            "[green][a][/green] Approve once",
-            "[green][s][/green] Approve for session",
-            "[red][d][/red] Deny",
-            "[red][q][/red] Quit",
+            "[green][[a]][/green] Approve once",
+            "[green][[s]][/green] Approve for session",
+            "[red][[d]][/red] Deny",
+            "[red][[q]][/red] Quit",
         ])
 
         return "\n".join(lines)

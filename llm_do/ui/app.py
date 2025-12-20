@@ -108,14 +108,18 @@ class LlmDoApp(App[None]):
         event_queue: asyncio.Queue[Any],
         approval_response_queue: asyncio.Queue[ApprovalDecision] | None = None,
         worker_coro: Any | None = None,
+        auto_quit: bool = True,
     ):
         super().__init__()
         self._event_queue = event_queue
         self._approval_response_queue = approval_response_queue
         self._worker_coro = worker_coro
+        self._auto_quit = auto_quit
         self._pending_approval: ApprovalRequest | None = None
         self._worker_task: asyncio.Task[Any] | None = None
         self._done = False
+        self._messages: list[str] = []
+        self.final_result: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -155,8 +159,13 @@ class LlmDoApp(App[None]):
             if event is None:
                 # Sentinel - worker done
                 self._done = True
-                messages.add_status("Press 'q' to exit")
-                # Don't auto-exit - let user see the results
+                # Capture final result for display after exit
+                if self._messages:
+                    self.final_result = "\n".join(self._messages)
+                if self._auto_quit:
+                    self.exit()
+                else:
+                    messages.add_status("Press 'q' to exit")
                 break
 
             # Handle CLIEvent
@@ -183,13 +192,21 @@ class LlmDoApp(App[None]):
         if event_type == "PartDeltaEvent":
             # Streaming text delta
             if hasattr(payload, "delta") and hasattr(payload.delta, "content_delta"):
-                messages.append_to_assistant(payload.delta.content_delta)
+                content = payload.delta.content_delta
+                messages.append_to_assistant(content)
+                # Capture for final output
+                if self._messages:
+                    self._messages[-1] += content
+                else:
+                    self._messages.append(content)
         elif event_type == "PartStartEvent":
             # New part starting
             if hasattr(payload, "part"):
                 part_type = type(payload.part).__name__
                 if part_type == "TextPart":
                     messages.start_assistant_message()
+                    # Start new message capture
+                    self._messages.append("")
                 elif part_type == "ToolCallPart":
                     tool_name = getattr(payload.part, "tool_name", "tool")
                     messages.add_tool_call(tool_name, payload.part)
@@ -256,6 +273,8 @@ class LlmDoApp(App[None]):
                 if messages._current_assistant is None:
                     messages.start_assistant_message()
                 messages.append_to_assistant(part.content)
+                # Capture for final output
+                self._messages.append(part.content)
         elif isinstance(event, FunctionToolCallEvent):
             # Tool call
             tool_name = getattr(event.part, "tool_name", "tool")

@@ -339,10 +339,10 @@ def test_all_example_workers_load_successfully():
     assert "delegation" in wb_orchestrator_def.toolsets
     assert "whiteboard_planner" in wb_orchestrator_def.toolsets["delegation"]
 
-    # Calculator (in examples/calculator/workers/calculator/worker.worker)
+    # Calculator (in examples/calculator/main.worker)
     calculator_registry = WorkerRegistry(examples_dir / "calculator")
-    calculator_def = calculator_registry.load_definition("calculator")
-    assert calculator_def.name == "calculator"
+    calculator_def = calculator_registry.load_definition("main")
+    assert calculator_def.name == "main"
 
     # Code analyzer (in examples/code_analyzer/workers/code_analyzer/worker.worker)
     code_analyzer_registry = WorkerRegistry(examples_dir / "code_analyzer")

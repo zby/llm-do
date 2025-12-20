@@ -1,8 +1,8 @@
 """Tests for custom tools loading and registration."""
 
 import asyncio
-import shutil
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic_ai.models.test import TestModel
@@ -12,56 +12,121 @@ from llm_do import (
     WorkerRegistry,
     run_worker_async,
 )
+from llm_do.custom_toolset import CustomToolset
+
+
+# Sample tools.py content for testing
+SAMPLE_TOOLS_PY = '''
+"""Custom calculation tools for testing."""
+
+
+def calculate_fibonacci(n: int) -> int:
+    """Calculate the nth Fibonacci number."""
+    if n < 0:
+        raise ValueError("n must be non-negative")
+    if n <= 1:
+        return n
+    a, b = 0, 1
+    for _ in range(2, n + 1):
+        a, b = b, a + b
+    return b
+
+
+def calculate_factorial(n: int) -> int:
+    """Calculate the factorial of n (n!)."""
+    if n < 0:
+        raise ValueError("n must be non-negative")
+    if n <= 1:
+        return 1
+    result = 1
+    for i in range(2, n + 1):
+        result *= i
+    return result
+
+
+def calculate_prime_factors(n: int) -> list[int]:
+    """Find all prime factors of a number."""
+    if n <= 1:
+        raise ValueError("n must be greater than 1")
+    factors = []
+    d = 2
+    while d * d <= n:
+        while n % d == 0:
+            factors.append(d)
+            n //= d
+        d += 1
+    if n > 1:
+        factors.append(n)
+    return factors
+
+
+def _private_helper(x: int) -> int:
+    """Private helper function - should not be registered as a tool."""
+    return x * 2
+'''
+
+SAMPLE_WORKER = '''---
+name: calculator
+description: Mathematical calculator with custom computation tools
+toolsets:
+  custom:
+    calculate_factorial: {}
+    calculate_fibonacci: {}
+    calculate_prime_factors: {}
+---
+
+You are a mathematical calculator assistant with access to custom tools.
+When the user asks for calculations, use the appropriate tool.
+'''
 
 
 @pytest.fixture
-def calculator_registry(tmp_path):
-    """Registry for calculator example with custom tools."""
-    source = Path(__file__).parent.parent / "examples" / "calculator"
-    dest = tmp_path / "calculator"
-    shutil.copytree(source, dest)
-    return WorkerRegistry(dest)
+def custom_tools_registry(tmp_path):
+    """Registry with a worker that has custom tools."""
+    # Create main.worker
+    main_worker = tmp_path / "main.worker"
+    main_worker.write_text(SAMPLE_WORKER)
+
+    # Create tools.py
+    tools_py = tmp_path / "tools.py"
+    tools_py.write_text(SAMPLE_TOOLS_PY)
+
+    return WorkerRegistry(tmp_path)
 
 
-def test_custom_tools_discovery(calculator_registry):
-    """Test that custom tools are discovered for directory-based workers."""
-    # Calculator has custom tools
-    custom_tools_path = calculator_registry.find_custom_tools("calculator")
+def test_custom_tools_discovery(custom_tools_registry):
+    """Test that custom tools are discovered for workers with tools.py."""
+    custom_tools_path = custom_tools_registry.find_custom_tools("main")
     assert custom_tools_path is not None
     assert custom_tools_path.exists()
     assert custom_tools_path.name == "tools.py"
 
 
-def test_custom_tools_not_found_for_simple_workers(calculator_registry, tmp_path):
-    """Test that custom tools are not found for simple .worker workers without root tools.py."""
-    # Create a simple worker (not directory-based) in a fresh registry without root tools.py
-    fresh_root = tmp_path / "fresh"
-    fresh_root.mkdir()
-    simple_worker = fresh_root / "simple.worker"
+def test_custom_tools_not_found_for_simple_workers(tmp_path):
+    """Test that custom tools are not found for workers without tools.py."""
+    # Create a simple worker without tools.py
+    simple_worker = tmp_path / "simple.worker"
     simple_worker.write_text("---\nname: simple\n---\ntest")
 
-    fresh_registry = WorkerRegistry(fresh_root)
-    custom_tools = fresh_registry.find_custom_tools("simple")
+    registry = WorkerRegistry(tmp_path)
+    custom_tools = registry.find_custom_tools("simple")
     assert custom_tools is None
 
 
-def test_custom_tools_loaded_and_callable(calculator_registry):
+def test_custom_tools_loaded_and_callable(custom_tools_registry):
     """Test that custom tools are loaded and can be called."""
-    # Only call the calculator tool to avoid random worker_call invocations
     model = TestModel(call_tools=["calculate_fibonacci"])
 
-    # Run calculator worker with TestModel to exercise the tool path without API keys
     result = asyncio.run(
         run_worker_async(
-            registry=calculator_registry,
-            worker="calculator",
+            registry=custom_tools_registry,
+            worker="main",
             input_data="What is the 10th Fibonacci number?",
             cli_model=model,
             approval_controller=ApprovalController(mode="approve_all"),
         )
     )
 
-    # Check that the worker ran successfully
     assert result is not None
     assert hasattr(result, "output")
 
@@ -74,22 +139,20 @@ def test_custom_tools_loaded_and_callable(calculator_registry):
     assert len(tool_calls) > 0, "Custom tool calculate_fibonacci should have been called"
 
 
-def test_custom_tools_allowlist(calculator_registry):
+def test_custom_tools_allowlist(custom_tools_registry):
     """Test that custom tools are listed in custom_tools allowlist."""
-    definition = calculator_registry.load_definition("calculator")
+    definition = custom_tools_registry.load_definition("main")
 
-    # Verify custom_tools allowlist is configured
     custom_tools = (definition.toolsets or {}).get("custom", {})
     assert "calculate_fibonacci" in custom_tools
     assert "calculate_factorial" in custom_tools
     assert "calculate_prime_factors" in custom_tools
 
 
-def test_multiple_custom_tools_registered(calculator_registry):
+def test_multiple_custom_tools_registered(custom_tools_registry):
     """Test that all custom tools from tools.py are registered."""
-    definition = calculator_registry.load_definition("calculator")
+    definition = custom_tools_registry.load_definition("main")
 
-    # Calculator should have 3 custom tools
     custom_tool_names = [
         "calculate_fibonacci",
         "calculate_factorial",
@@ -101,10 +164,10 @@ def test_multiple_custom_tools_registered(calculator_registry):
         assert tool_name in custom_tools, f"Tool {tool_name} should be in custom_tools"
 
 
-def test_custom_tools_module_error_handling(calculator_registry, tmp_path):
+def test_custom_tools_module_error_handling(tmp_path):
     """Test graceful handling of invalid tools.py."""
-    # Create a worker with invalid tools.py (at registry root)
-    bad_worker_dir = calculator_registry.root / "bad_tools"
+    # Create a worker directory with invalid tools.py
+    bad_worker_dir = tmp_path / "bad_tools"
     bad_worker_dir.mkdir(parents=True)
 
     worker_file = bad_worker_dir / "worker.worker"
@@ -120,12 +183,14 @@ def test_custom_tools_module_error_handling(calculator_registry, tmp_path):
     tools_py = bad_worker_dir / "tools.py"
     tools_py.write_text("def broken_function(\n  # Missing closing paren")
 
+    registry = WorkerRegistry(tmp_path)
+
     # Loading definition should work (error handling happens during tool loading)
-    definition = calculator_registry.load_definition("bad_tools")
+    definition = registry.load_definition("bad_tools")
     assert definition.name == "bad_tools"
 
     # Custom tools should be detected
-    custom_tools = calculator_registry.find_custom_tools("bad_tools")
+    custom_tools = registry.find_custom_tools("bad_tools")
     assert custom_tools is not None
 
     # Verify the tools file exists but is invalid
@@ -134,29 +199,25 @@ def test_custom_tools_module_error_handling(calculator_registry, tmp_path):
         content = f.read()
         assert "def broken_function(" in content
 
-    # The actual error handling happens in _load_custom_tools during agent creation
-    # We've verified the infrastructure can detect the tools file, even if it's invalid
 
-
-def test_private_functions_not_registered(calculator_registry, tmp_path):
+def test_private_functions_not_registered(custom_tools_registry):
     """Test that functions starting with _ are not registered as tools.
 
-    In the new architecture, only functions listed in custom_tools are registered.
-    Private functions (_validate_input) are not listed, so they won't be registered.
+    Only functions listed in custom_tools are registered.
+    Private functions (_private_helper) are not listed, so they won't be registered.
     """
-    definition = calculator_registry.load_definition("calculator")
+    definition = custom_tools_registry.load_definition("main")
 
-    # Verify _validate_input is NOT in custom_tools
     custom_tools = (definition.toolsets or {}).get("custom", {})
-    assert "_validate_input" not in custom_tools
+    assert "_private_helper" not in custom_tools
     assert "__init__" not in custom_tools
     assert "__name__" not in custom_tools
 
 
-def test_custom_tools_require_allowlist(calculator_registry, tmp_path):
+def test_custom_tools_require_allowlist(tmp_path):
     """Test that custom tools must be explicitly listed in custom_tools to be registered."""
-    # Create a worker with tools.py but no custom_tools (at registry root)
-    test_worker_dir = calculator_registry.root / "test_no_allowlist"
+    # Create a worker with tools.py but no custom_tools in config
+    test_worker_dir = tmp_path / "test_no_allowlist"
     test_worker_dir.mkdir(parents=True)
 
     worker_file = test_worker_dir / "worker.worker"
@@ -176,31 +237,24 @@ def test_custom_tools_require_allowlist(calculator_registry, tmp_path):
         "    return f'Would execute: {command}'\n"
     )
 
+    registry = WorkerRegistry(tmp_path)
+
     # Load the worker - should succeed
-    definition = calculator_registry.load_definition("test_no_allowlist")
+    definition = registry.load_definition("test_no_allowlist")
     assert definition.name == "test_no_allowlist"
 
     # Verify custom tools path is found
-    custom_tools = calculator_registry.find_custom_tools("test_no_allowlist")
+    custom_tools = registry.find_custom_tools("test_no_allowlist")
     assert custom_tools is not None
 
-    # Verify custom_tools is empty
+    # Verify custom_tools is empty (not configured in worker)
     custom_tools = (definition.toolsets or {}).get("custom", {})
     assert len(custom_tools) == 0
 
-    # The security guarantee is in load_custom_tools:
-    # It only registers tools that are in custom_tools list
-    # Since there are no custom_tools, no custom tools will be registered
 
-
-def test_custom_tools_approval_via_decorator(calculator_registry):
-    """Test that custom tools can require approval via @requires_approval decorator.
-
-    In the new architecture, approval is determined by the @requires_approval
-    decorator on the function, not by tool_rules config.
-    """
-    # Create a worker with custom_tools and tools that use @requires_approval (at registry root)
-    test_worker_dir = calculator_registry.root / "test_approval_decorator"
+def test_custom_tools_approval_via_decorator(tmp_path):
+    """Test that custom tools can require approval via @requires_approval decorator."""
+    test_worker_dir = tmp_path / "test_approval_decorator"
     test_worker_dir.mkdir(parents=True)
 
     worker_file = test_worker_dir / "worker.worker"
@@ -225,31 +279,23 @@ def test_custom_tools_approval_via_decorator(calculator_registry):
         "    return n * 2\n"
     )
 
-    # Load the worker
-    definition = calculator_registry.load_definition("test_approval_decorator")
+    registry = WorkerRegistry(tmp_path)
+    definition = registry.load_definition("test_approval_decorator")
 
     # Verify the tool is in the allowlist
     custom_tools = (definition.toolsets or {}).get("custom", {})
     assert "calculate_with_approval" in custom_tools
 
-    # The security guarantee is enforced in load_custom_tools:
-    # When a function has check_approval (from @requires_approval), the wrapper
-    # calls it before executing the function
 
-
-def test_custom_tools_rejects_non_whitelisted_tool(calculator_registry):
+def test_custom_tools_rejects_non_whitelisted_tool(tmp_path):
     """Test that calling a non-whitelisted tool raises ValueError.
 
     This simulates an LLM hallucinating a tool that exists in tools.py
     but is not in the whitelist config.
     """
-    import asyncio
-    from unittest.mock import MagicMock
-    from llm_do.custom_toolset import CustomToolset
-
     # Create a worker with tools.py containing multiple functions
     # but only whitelist one of them
-    test_worker_dir = calculator_registry.root / "workers" / "test_whitelist"
+    test_worker_dir = tmp_path / "workers" / "test_whitelist"
     test_worker_dir.mkdir(parents=True)
 
     tools_py = test_worker_dir / "tools.py"

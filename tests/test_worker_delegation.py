@@ -10,6 +10,7 @@ import pytest
 from llm_do import (
     AttachmentPolicy,
     ApprovalController,
+    ServerSideToolConfig,
     WorkerCreationDefaults,
     WorkerDefinition,
     WorkerRegistry,
@@ -418,3 +419,103 @@ def test_worker_create_uses_output_dir_from_config(tmp_path):
     content = expected_path.read_text()
     assert "custom_child" in content
     assert "custom worker" in content
+
+
+def test_delegation_toolset_blocks_server_side_tool_collision(tmp_path):
+    """Worker names cannot collide with server-side tool names (web_search, etc.)."""
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={"delegation": {"web_search": {}}},
+        server_side_tools=[ServerSideToolConfig(tool_type="web_search")],
+    )
+    registry.save_definition(parent)
+    # Create a worker named web_search (collision)
+    registry.save_definition(WorkerDefinition(name="web_search", instructions=""))
+    context = _parent_context(registry, parent)
+
+    toolset, mock_ctx = _create_toolset_and_context(context)
+
+    with pytest.raises(ValueError, match="conflict with other tool names"):
+        asyncio.run(toolset.get_tools(mock_ctx))
+
+
+def test_delegation_toolset_allows_worker_when_no_server_side_collision(tmp_path):
+    """Worker name web_search is allowed if server_side_tools doesn't include it."""
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={"delegation": {"web_search": {}}},
+        # No server_side_tools configured
+    )
+    registry.save_definition(parent)
+    registry.save_definition(WorkerDefinition(name="web_search", instructions=""))
+    context = _parent_context(registry, parent)
+
+    toolset, mock_ctx = _create_toolset_and_context(context)
+
+    # Should not raise - no collision since server_side_tools is empty
+    tools = asyncio.run(toolset.get_tools(mock_ctx))
+    assert "web_search" in tools
+
+
+def test_worker_context_creation_defaults_never_none():
+    """WorkerContext.creation_defaults should never be None."""
+    from llm_do import WorkerDefinition, WorkerContext, ApprovalController
+
+    # Without explicit creation_defaults
+    worker = WorkerDefinition(name="test", instructions="test")
+    controller = ApprovalController(mode="approve_all")
+
+    ctx = WorkerContext(
+        worker=worker,
+        effective_model=None,
+        approval_controller=controller,
+    )
+    assert ctx.creation_defaults is not None
+    assert isinstance(ctx.creation_defaults, WorkerCreationDefaults)
+
+
+def test_worker_context_creation_defaults_explicit_none_becomes_default():
+    """Even if creation_defaults is explicitly set to None, __post_init__ fixes it."""
+    from llm_do import WorkerDefinition, WorkerContext, ApprovalController
+
+    worker = WorkerDefinition(name="test", instructions="test")
+    controller = ApprovalController(mode="approve_all")
+
+    # Explicitly pass None (unusual but should be handled)
+    ctx = WorkerContext(
+        worker=worker,
+        effective_model=None,
+        approval_controller=controller,
+        creation_defaults=None,
+    )
+    assert ctx.creation_defaults is not None
+    assert isinstance(ctx.creation_defaults, WorkerCreationDefaults)
+
+
+def test_worker_create_without_explicit_defaults(tmp_path):
+    """worker_create should work even without explicit creation_defaults."""
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={"delegation": {"worker_create": {}}}
+    )
+    registry.save_definition(parent)
+
+    # Create context without explicit defaults (uses default_factory)
+    context = _parent_context(registry, parent, defaults=None)
+
+    # Should not raise - creation_defaults is defaulted
+    payload = _create_worker_via_toolset(
+        context,
+        name="new_worker",
+        instructions="test instructions",
+    )
+
+    assert payload["name"] == "new_worker"
+    created = registry.load_definition("new_worker")
+    assert created.instructions == "test instructions"

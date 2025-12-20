@@ -1,5 +1,7 @@
 # llm-do: Concept and Design
 
+> The way to build useful non-deterministic systems more complex than chat is making them deterministic at key spots.
+
 ## Core Idea
 
 **Workers are functions.**

@@ -4,6 +4,8 @@ Skills with their own runtime. Like [Claude Code skills](https://docs.anthropic.
 
 ## Why llm-do?
 
+> The way to build useful non-deterministic systems more complex than chat is making them deterministic at key spots.
+
 **Delegation.** Workers call other workers like function calls. A summarizer delegates to an analyzer; an orchestrator coordinates specialists. Each runs with its own tools and model.
 
 **Unified function space.** Workers and Python tools are the same abstraction—they call each other freely. LLM reasoning and deterministic code interleave; which is which becomes an implementation detail.

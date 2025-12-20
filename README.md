@@ -8,22 +8,9 @@ Skills with their own runtime. Like [Claude Code skills](https://docs.anthropic.
 
 **Tight context.** Each worker does one thing well. No bloated multi-purpose prompts that try to handle everything.
 
-**Guardrails by construction.** Attachment policies cap resources, tool approvals gate dangerous operations. Guards enforced in code, not prompt instructions. Run in a container for isolation.
+**Guardrails by construction.** Attachment policies cap resources, tool approvals gate dangerous operations. Guards enforced in code, not prompt instructions.
 
-**Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code. Or go the other direction—soften rigid code into prompts when edge cases multiply. Mix freely: Python calls workers, workers call Python tools, up to 5 levels deep.
-
-## The Model
-
-Workers are focused prompt units that compose like functions:
-
-| Programming | llm-do |
-|-------------|--------|
-| Function | `.worker` file |
-| Function call | Worker tool (same name as worker) |
-| Arguments | Input payload |
-| Return value | Structured output |
-
-**Why "workers" not "agents"?** llm-do is built on [PydanticAI](https://ai.pydantic.dev/), which uses "agent" for its LLM orchestration primitive. We use "worker" to distinguish our composable, constrained prompt units from the underlying PydanticAI agents that execute them. A worker *defines* what to do; the PydanticAI agent *executes* it.
+**Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code. Or go the other direction—soften rigid code into prompts when edge cases multiply.
 
 ## Quick Start
 
@@ -39,9 +26,22 @@ cd examples/greeter
 llm-do "Tell me a joke" --model anthropic:claude-haiku-4-5
 ```
 
-That's it. The CLI runs `main.worker` in the current directory. Use `--worker` to run a specific worker.
+The CLI runs `main.worker` in the current directory. Use `--worker` to run a specific worker. See [`examples/`](examples/) for more.
 
-Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
+## Core Concepts
+
+Workers are `.worker` files: YAML front matter (config) + body (instructions). They compose like functions:
+
+| Programming | llm-do |
+|-------------|--------|
+| Function | `.worker` file |
+| Function call | Worker tool (same name as worker) |
+| Arguments | Input payload |
+| Return value | Structured output |
+
+Each worker is exposed as a tool that other workers can call. Nested calls are capped at depth 5.
+
+**Why "workers" not "agents"?** llm-do is built on [PydanticAI](https://ai.pydantic.dev/), which uses "agent" for its LLM orchestration primitive. We use "worker" to distinguish our composable, constrained prompt units from the underlying PydanticAI agents that execute them. A worker *defines* what to do; the PydanticAI agent *executes* it.
 
 ## Project Structure
 
@@ -72,9 +72,26 @@ my-project/
 └── output/
 ```
 
-This progression reflects **progressive hardening**: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability.
+This progression reflects progressive hardening: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability.
 
-## Running Workers
+## Custom Tools
+
+Add custom tools by creating `tools.py` in your project root:
+
+```python
+# tools.py
+def sanitize_filename(name: str) -> str:
+    """Remove special characters from filename."""
+    return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
+```
+
+Functions become LLM-callable tools. Reference them in your worker's toolsets config.
+
+You can also use:
+- **Jinja2 templates** — Compose prompts from reusable templates in `templates/`
+- **Server-side tools** — Provider-executed capabilities like web search and code execution
+
+## CLI Reference
 
 ```bash
 # Run main.worker in current directory
@@ -89,41 +106,16 @@ llm-do --dir /path/to/project "input" --model anthropic:claude-haiku-4-5
 
 # Override config at runtime
 llm-do "input" --model anthropic:claude-sonnet-4 --set locked=true
-```
 
-Create a new project:
-```bash
+# Create a new project
 llm-do init my-project
 ```
 
-## Workers
+Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
 
-Workers are `.worker` files: YAML front matter (config) + body (instructions). Each worker is exposed as a tool that other workers can call—like function calls.
-
-Add custom tools by creating `tools.py` in your project root:
-
-```python
-# tools.py
-def sanitize_filename(name: str) -> str:
-    """Remove special characters from filename."""
-    return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
-```
-
-Functions become LLM-callable tools. Reference them in your worker's toolsets config.
-
-## Key Features
-
-- **Worker delegation** — Workers exposed as tools; LLM decides when to call them. Nested calls capped at depth 5
-- **Per-worker runtime** — Each worker has its own model, toolset, and attachment policy
-- **Custom tools** — Python functions in `tools.py` become LLM-callable tools
-- **Tool approvals** — Gate dangerous operations (shell, file writes) for human review
-- **Attachment policies** — Control file inputs (size, count, types)
-- **Jinja2 templating** — Compose prompts from reusable templates
-- **Server-side tools** — Provider-executed capabilities (web search, code execution)
+See [`docs/cli.md`](docs/cli.md) for full reference.
 
 ## Examples
-
-See [`examples/`](examples/) for working code:
 
 | Example | Demonstrates |
 |---------|--------------|
@@ -141,7 +133,6 @@ See [`examples/`](examples/) for working code:
 - **[`docs/worker_delegation.md`](docs/worker_delegation.md)** — Worker-to-worker calls
 - **[`docs/architecture.md`](docs/architecture.md)** — Internal design
 - **[`docs/notes/`](docs/notes/)** — Working design notes and explorations
-- **[`docs/notes/archive/`](docs/notes/archive/)** — Historical notes; kept as-is (do not edit)
 
 ## Status
 
@@ -151,7 +142,11 @@ See [`examples/`](examples/) for working code:
 
 **TUI:** The interactive terminal UI (Textual-based) is experimental. Use `--headless` for non-interactive mode.
 
-**Caveats:** Approvals reduce risk but aren't guarantees. Prompt injection can trick LLMs into misusing granted tools. Treat these as mitigations, not proof of security. Run in a container for real isolation.
+## Security
+
+Tool approvals reduce risk but aren't guarantees. Prompt injection can trick LLMs into misusing granted tools. Treat approvals as one layer of defense.
+
+For real isolation, run llm-do in a container or VM.
 
 ## Contributing
 

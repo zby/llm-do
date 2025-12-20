@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from textual.app import ComposeResult
 from textual.containers import ScrollableContainer
 from textual.widgets import Static
 
 from pydantic_ai_blocking_approval import ApprovalRequest
+
+if TYPE_CHECKING:
+    from llm_do.ui.events import UIEvent
 
 
 class BaseMessage(Static):
@@ -42,6 +44,11 @@ class AssistantMessage(BaseMessage):
         self._content += text
         self.update(self._content)
 
+    def set_text(self, text: str) -> None:
+        """Set the full text content of this message."""
+        self._content = text
+        self.update(self._content)
+
 
 class ToolCallMessage(BaseMessage):
     """Widget for displaying tool calls."""
@@ -65,7 +72,12 @@ class ToolCallMessage(BaseMessage):
         """Format tool call for display."""
         lines = [f"[bold yellow]Tool: {self._tool_name}[/bold yellow]"]
 
-        if hasattr(self._tool_call, "args"):
+        # Handle both dict args and objects with .args attribute
+        if isinstance(self._tool_call, dict):
+            args = self._tool_call
+            args_str = json.dumps(args, indent=2)
+            lines.append(f"Args: {args_str}")
+        elif hasattr(self._tool_call, "args"):
             args = self._tool_call.args
             if isinstance(args, dict):
                 args_str = json.dumps(args, indent=2)
@@ -84,20 +96,37 @@ class ToolResultMessage(BaseMessage):
         background: $success-darken-3;
         border: solid $success;
     }
+    ToolResultMessage.error {
+        background: $error-darken-3;
+        border: solid $error;
+    }
     """
 
-    def __init__(self, tool_name: str, result: Any, **kwargs: Any) -> None:
+    def __init__(self, tool_name: str, result: Any, is_error: bool = False, **kwargs: Any) -> None:
         self._tool_name = tool_name
         self._result = result
+        self._is_error = is_error
 
         content = self._format_result()
         super().__init__(content, **kwargs)
+        if is_error:
+            self.add_class("error")
 
     def _format_result(self) -> str:
         """Format tool result for display."""
-        lines = [f"[bold green]Result: {self._tool_name}[/bold green]"]
+        if self._is_error:
+            label = f"[bold red]Error: {self._tool_name}[/bold red]"
+        else:
+            label = f"[bold green]Result: {self._tool_name}[/bold green]"
+        lines = [label]
 
-        if hasattr(self._result, "content"):
+        # Handle both string results and objects with .content attribute
+        if isinstance(self._result, str):
+            content = self._result
+            if len(content) > 500:
+                content = content[:500] + "..."
+            lines.append(content)
+        elif hasattr(self._result, "content"):
             content = self._result.content
             if isinstance(content, str):
                 # Truncate long results
@@ -122,6 +151,27 @@ class StatusMessage(BaseMessage):
         border: none;
     }
     """
+
+
+class ErrorMessage(BaseMessage):
+    """Widget for displaying errors."""
+
+    DEFAULT_CSS = """
+    ErrorMessage {
+        background: $error-darken-3;
+        border: solid $error;
+    }
+    """
+
+    def __init__(self, message: str, error_type: str = "error", **kwargs: Any) -> None:
+        self._message = message
+        self._error_type = error_type
+        content = self._format_error()
+        super().__init__(content, **kwargs)
+
+    def _format_error(self) -> str:
+        """Format error for display."""
+        return f"[bold red]ERROR {self._error_type}:[/bold red] {self._message}"
 
 
 class ApprovalMessage(BaseMessage):
@@ -164,18 +214,23 @@ class ApprovalMessage(BaseMessage):
             lines.append(f"Arguments:\n{args_str}")
             lines.append("")
 
-        lines.extend([
-            "[green][[a]][/green] Approve once",
-            "[green][[s]][/green] Approve for session",
-            "[red][[d]][/red] Deny",
-            "[red][[q]][/red] Quit",
-        ])
+        lines.extend(
+            [
+                "[green][[a]][/green] Approve once",
+                "[green][[s]][/green] Approve for session",
+                "[red][[d]][/red] Deny",
+                "[red][[q]][/red] Quit",
+            ]
+        )
 
         return "\n".join(lines)
 
 
 class MessageContainer(ScrollableContainer):
-    """Scrollable container for all messages."""
+    """Scrollable container for all messages.
+
+    Handles streaming text responses and routing events to widgets.
+    """
 
     DEFAULT_CSS = """
     MessageContainer {
@@ -202,6 +257,14 @@ class MessageContainer(ScrollableContainer):
         self._current_assistant.append_text(text)
         self.scroll_end(animate=False)
 
+    def finalize_assistant(self, content: str) -> AssistantMessage:
+        """Finalize the assistant message with the full content."""
+        if self._current_assistant is None:
+            self._current_assistant = self.start_assistant_message()
+        self._current_assistant.set_text(content)
+        self.scroll_end(animate=False)
+        return self._current_assistant
+
     def add_tool_call(self, tool_name: str, tool_call: Any) -> ToolCallMessage:
         """Add a tool call message."""
         self._current_assistant = None  # End any streaming
@@ -212,6 +275,7 @@ class MessageContainer(ScrollableContainer):
 
     def add_tool_result(self, tool_name: str, result: Any) -> ToolResultMessage:
         """Add a tool result message."""
+        self._current_assistant = None  # End any streaming
         msg = ToolResultMessage(tool_name, result)
         self.mount(msg)
         self.scroll_end(animate=False)
@@ -224,6 +288,14 @@ class MessageContainer(ScrollableContainer):
         self.scroll_end(animate=False)
         return msg
 
+    def add_error(self, message: str, error_type: str = "error") -> ErrorMessage:
+        """Add an error message."""
+        self._current_assistant = None  # End any streaming
+        msg = ErrorMessage(message, error_type)
+        self.mount(msg)
+        self.scroll_end(animate=False)
+        return msg
+
     def add_approval_request(self, request: ApprovalRequest) -> ApprovalMessage:
         """Add an approval request message."""
         self._current_assistant = None
@@ -231,3 +303,38 @@ class MessageContainer(ScrollableContainer):
         self.mount(msg)
         self.scroll_end(animate=False)
         return msg
+
+    def handle_event(self, event: "UIEvent") -> None:
+        """Route events to the right widget/streaming handler.
+
+        This method handles the TextResponseEvent streaming specially,
+        and delegates other events to create_widget().
+        """
+        from llm_do.ui.events import (
+            ApprovalRequestEvent,
+            ErrorEvent,
+            TextResponseEvent,
+            ToolCallEvent,
+            ToolResultEvent,
+        )
+
+        # Handle TextResponseEvent specially for streaming
+        if isinstance(event, TextResponseEvent):
+            if event.is_delta:
+                self.append_to_assistant(event.content)
+            elif event.is_complete:
+                self.finalize_assistant(event.content)
+            else:
+                # Start of streaming (is_complete=False, is_delta=False)
+                self.start_assistant_message()
+            return
+
+        # Interrupt streaming for tool/approval/error events
+        if isinstance(event, (ToolCallEvent, ToolResultEvent, ApprovalRequestEvent, ErrorEvent)):
+            self._current_assistant = None
+
+        # Delegate to event's create_widget()
+        widget = event.create_widget()
+        if widget is not None:
+            self.mount(widget)
+            self.scroll_end(animate=False)

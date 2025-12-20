@@ -4,78 +4,70 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from llm_do.ui.display import HeadlessDisplayBackend, JsonDisplayBackend, CLIEvent
+from llm_do.ui.display import HeadlessDisplayBackend, JsonDisplayBackend
+from llm_do.ui.events import (
+    InitialRequestEvent,
+    StatusEvent,
+    TextResponseEvent,
+    ToolCallEvent,
+    ToolResultEvent,
+    DeferredToolEvent,
+    CompletionEvent,
+    ErrorEvent,
+)
+from llm_do.ui.parser import parse_event
 
 
 class TestHeadlessDisplayBackend:
     """Tests for HeadlessDisplayBackend."""
 
-    def test_writes_to_stream(self):
-        """Backend writes to provided stream."""
+    def test_writes_event_to_stream(self):
+        """Backend writes events to provided stream."""
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
-        backend._write("test message")
-        assert "test message\n" in stream.getvalue()
-
-    def test_handles_string_payload(self):
-        """Backend handles string payloads (errors, status)."""
-        stream = io.StringIO()
-        backend = HeadlessDisplayBackend(stream=stream)
-        backend.display_runtime_event("Error occurred")
-        assert "Error occurred" in stream.getvalue()
+        event = StatusEvent(worker="test", phase="test", state="running")
+        backend.display(event)
+        assert "[test] test running" in stream.getvalue()
 
     def test_handles_initial_request_event(self):
         """Backend shows 'Starting...' for initial_request events."""
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
-        backend.display_runtime_event({
-            "worker": "test_worker",
-            "initial_request": {"input": "hello"},
-        })
+        event = InitialRequestEvent(
+            worker="test_worker",
+            user_input="hello",
+        )
+        backend.display(event)
         assert "[test_worker] Starting..." in stream.getvalue()
 
-    def test_handles_status_dict_event(self):
-        """Backend formats status dict events with phase/state/model."""
+    def test_handles_status_event(self):
+        """Backend formats status events with phase/state/model."""
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
-        backend.display_runtime_event({
-            "worker": "analyzer",
-            "status": {
-                "phase": "processing",
-                "state": "running",
-                "model": "claude-haiku",
-            },
-        })
+        event = StatusEvent(
+            worker="analyzer",
+            phase="processing",
+            state="running",
+            model="claude-haiku",
+        )
+        backend.display(event)
         output = stream.getvalue()
         assert "[analyzer]" in output
         assert "processing" in output
         assert "running" in output
         assert "claude-haiku" in output
 
-    def test_handles_status_string_event(self):
-        """Backend handles simple string status."""
-        stream = io.StringIO()
-        backend = HeadlessDisplayBackend(stream=stream)
-        backend.display_runtime_event({
-            "worker": "main",
-            "status": "Waiting for approval",
-        })
-        assert "[main] Waiting for approval" in stream.getvalue()
-
-    def test_handles_text_part_event(self):
+    def test_handles_text_response_event(self):
         """Backend shows model response text."""
-        from pydantic_ai.messages import PartEndEvent, TextPart
-
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
 
-        text_part = TextPart(content="Hello, this is the response.")
-        event = PartEndEvent(index=0, part=text_part)
-
-        backend.display_runtime_event({
-            "worker": "assistant",
-            "event": event,
-        })
+        event = TextResponseEvent(
+            worker="assistant",
+            content="Hello, this is the response.",
+            is_complete=True,
+        )
+        backend.display(event)
 
         output = stream.getvalue()
         assert "[assistant] Response:" in output
@@ -83,22 +75,16 @@ class TestHeadlessDisplayBackend:
 
     def test_handles_tool_call_event(self):
         """Backend shows tool calls with name and args."""
-        from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
-
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
 
-        tool_part = ToolCallPart(
+        event = ToolCallEvent(
+            worker="main",
             tool_name="read_file",
             args={"path": "/tmp/test.txt"},
             tool_call_id="call_123",
         )
-        event = FunctionToolCallEvent(part=tool_part)
-
-        backend.display_runtime_event({
-            "worker": "main",
-            "event": event,
-        })
+        backend.display(event)
 
         output = stream.getvalue()
         assert "[main] Tool call: read_file" in output
@@ -107,22 +93,16 @@ class TestHeadlessDisplayBackend:
 
     def test_handles_tool_result_event(self):
         """Backend shows tool results."""
-        from pydantic_ai.messages import FunctionToolResultEvent, ToolReturnPart
-
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
 
-        result_part = ToolReturnPart(
+        event = ToolResultEvent(
+            worker="main",
             tool_name="read_file",
             content="File contents here",
             tool_call_id="call_123",
         )
-        event = FunctionToolResultEvent(result=result_part)
-
-        backend.display_runtime_event({
-            "worker": "main",
-            "event": event,
-        })
+        backend.display(event)
 
         output = stream.getvalue()
         assert "[main] Tool result: read_file" in output
@@ -130,23 +110,18 @@ class TestHeadlessDisplayBackend:
 
     def test_truncates_long_tool_args(self):
         """Backend truncates very long tool arguments."""
-        from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
-
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
 
         long_content = "x" * 300
-        tool_part = ToolCallPart(
+        event = ToolCallEvent(
+            worker="main",
             tool_name="write_file",
             args={"content": long_content},
+            args_json=str({"content": long_content}),
             tool_call_id="call_123",
         )
-        event = FunctionToolCallEvent(part=tool_part)
-
-        backend.display_runtime_event({
-            "worker": "main",
-            "event": event,
-        })
+        backend.display(event)
 
         output = stream.getvalue()
         assert "..." in output
@@ -155,63 +130,54 @@ class TestHeadlessDisplayBackend:
 
     def test_truncates_long_tool_results(self):
         """Backend truncates very long tool results."""
-        from pydantic_ai.messages import FunctionToolResultEvent, ToolReturnPart
-
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
 
         long_content = "line\n" * 100  # 100 lines
-        result_part = ToolReturnPart(
+        event = ToolResultEvent(
+            worker="main",
             tool_name="read_file",
             content=long_content,
             tool_call_id="call_123",
         )
-        event = FunctionToolResultEvent(result=result_part)
-
-        backend.display_runtime_event({
-            "worker": "main",
-            "event": event,
-        })
+        backend.display(event)
 
         output = stream.getvalue()
         # Should have truncation indicator
         assert "more lines" in output
 
-    def test_handles_deferred_tool(self):
+    def test_handles_deferred_tool_event(self):
         """Backend shows deferred tool status."""
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
-        backend.display_deferred_tool({
-            "tool_name": "slow_operation",
-            "status": "pending",
-        })
+        event = DeferredToolEvent(
+            worker="main",
+            tool_name="slow_operation",
+            status="pending",
+        )
+        backend.display(event)
         assert "Deferred tool 'slow_operation': pending" in stream.getvalue()
 
-    def test_ignores_none_event(self):
-        """Backend handles None event payload gracefully."""
+    def test_handles_empty_status_event(self):
+        """Backend handles empty status event gracefully."""
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
-        backend.display_runtime_event({
-            "worker": "main",
-            "event": None,
-        })
-        # Should not crash, output should be minimal
+        event = StatusEvent(worker="main", phase="", state="")
+        backend.display(event)
+        # Should not crash, output should be minimal (None returned from render)
         assert stream.getvalue() == ""
 
     def test_multiline_response(self):
         """Backend properly indents multiline responses."""
-        from pydantic_ai.messages import PartEndEvent, TextPart
-
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
 
-        text_part = TextPart(content="Line 1\nLine 2\nLine 3")
-        event = PartEndEvent(index=0, part=text_part)
-
-        backend.display_runtime_event({
-            "worker": "main",
-            "event": event,
-        })
+        event = TextResponseEvent(
+            worker="main",
+            content="Line 1\nLine 2\nLine 3",
+            is_complete=True,
+        )
+        backend.display(event)
 
         output = stream.getvalue()
         assert "  Line 1" in output
@@ -228,12 +194,33 @@ class TestJsonDisplayBackend:
 
         stream = io.StringIO()
         backend = JsonDisplayBackend(stream=stream)
-        backend.display_runtime_event({"test": "value"})
+        event = StatusEvent(worker="test", phase="running", state="active")
+        backend.display(event)
 
         output = stream.getvalue().strip()
         record = json.loads(output)
-        assert record["kind"] == "runtime_event"
-        assert record["payload"]["test"] == "value"
+        assert record["type"] == "status"
+        assert record["worker"] == "test"
+        assert record["phase"] == "running"
+
+    def test_writes_tool_call_as_jsonl(self):
+        """Backend writes tool call events as JSONL."""
+        import json
+
+        stream = io.StringIO()
+        backend = JsonDisplayBackend(stream=stream)
+        event = ToolCallEvent(
+            worker="main",
+            tool_name="test_tool",
+            args={"key": "value"},
+        )
+        backend.display(event)
+
+        output = stream.getvalue().strip()
+        record = json.loads(output)
+        assert record["type"] == "tool_call"
+        assert record["tool_name"] == "test_tool"
+        assert record["args"]["key"] == "value"
 
     def test_writes_deferred_tool_as_jsonl(self):
         """Backend writes deferred tool events as JSONL."""
@@ -241,43 +228,124 @@ class TestJsonDisplayBackend:
 
         stream = io.StringIO()
         backend = JsonDisplayBackend(stream=stream)
-        backend.display_deferred_tool({"tool_name": "test", "status": "done"})
+        event = DeferredToolEvent(
+            worker="main",
+            tool_name="test",
+            status="done",
+        )
+        backend.display(event)
 
         output = stream.getvalue().strip()
         record = json.loads(output)
-        assert record["kind"] == "deferred_tool"
-        assert record["payload"]["tool_name"] == "test"
-
-    def test_handles_pydantic_models(self):
-        """Backend serializes pydantic models via model_dump."""
-        import json
-        from pydantic import BaseModel
-
-        class TestModel(BaseModel):
-            name: str
-            value: int
-
-        stream = io.StringIO()
-        backend = JsonDisplayBackend(stream=stream)
-        backend.display_runtime_event(TestModel(name="test", value=42))
-
-        output = stream.getvalue().strip()
-        record = json.loads(output)
-        assert record["payload"]["name"] == "test"
-        assert record["payload"]["value"] == 42
+        assert record["type"] == "deferred_tool"
+        assert record["tool_name"] == "test"
+        assert record["status"] == "done"
 
 
-class TestCLIEvent:
-    """Tests for CLIEvent dataclass."""
+class TestParseEvent:
+    """Tests for the parse_event function."""
 
-    def test_cli_event_creation(self):
-        """CLIEvent can be created with kind and payload."""
-        event = CLIEvent(kind="runtime_event", payload={"test": True})
-        assert event.kind == "runtime_event"
-        assert event.payload == {"test": True}
+    def test_parse_initial_request(self):
+        """Parser converts initial_request payload to InitialRequestEvent."""
+        payload = {
+            "worker": "test",
+            "initial_request": {
+                "instructions": "Do something",
+                "user_input": "Hello",
+                "attachments": [],
+            },
+        }
+        event = parse_event(payload)
+        assert isinstance(event, InitialRequestEvent)
+        assert event.worker == "test"
+        assert event.instructions == "Do something"
+        assert event.user_input == "Hello"
 
-    def test_cli_event_kinds(self):
-        """CLIEvent supports all documented kinds."""
-        for kind in ["runtime_event", "deferred_tool", "approval_request"]:
-            event = CLIEvent(kind=kind, payload={})
-            assert event.kind == kind
+    def test_parse_status_dict(self):
+        """Parser converts status dict to StatusEvent."""
+        payload = {
+            "worker": "main",
+            "status": {
+                "phase": "processing",
+                "state": "running",
+                "model": "claude",
+            },
+        }
+        event = parse_event(payload)
+        assert isinstance(event, StatusEvent)
+        assert event.phase == "processing"
+        assert event.state == "running"
+        assert event.model == "claude"
+
+    def test_parse_status_string(self):
+        """Parser converts status string to StatusEvent."""
+        payload = {
+            "worker": "main",
+            "status": "Waiting",
+        }
+        event = parse_event(payload)
+        assert isinstance(event, StatusEvent)
+        assert event.phase == "Waiting"
+
+    def test_parse_text_part_event(self):
+        """Parser converts PartEndEvent with TextPart to TextResponseEvent."""
+        from pydantic_ai.messages import PartEndEvent, TextPart
+
+        text_part = TextPart(content="Hello response")
+        raw_event = PartEndEvent(index=0, part=text_part)
+
+        payload = {
+            "worker": "assistant",
+            "event": raw_event,
+        }
+        event = parse_event(payload)
+        assert isinstance(event, TextResponseEvent)
+        assert event.content == "Hello response"
+        assert event.is_complete is True
+
+    def test_parse_tool_call_event(self):
+        """Parser converts FunctionToolCallEvent to ToolCallEvent."""
+        from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
+
+        tool_part = ToolCallPart(
+            tool_name="read_file",
+            args={"path": "/tmp/test"},
+            tool_call_id="call_123",
+        )
+        raw_event = FunctionToolCallEvent(part=tool_part)
+
+        payload = {
+            "worker": "main",
+            "event": raw_event,
+        }
+        event = parse_event(payload)
+        assert isinstance(event, ToolCallEvent)
+        assert event.tool_name == "read_file"
+        assert event.args == {"path": "/tmp/test"}
+
+    def test_parse_tool_result_event(self):
+        """Parser converts FunctionToolResultEvent to ToolResultEvent."""
+        from pydantic_ai.messages import FunctionToolResultEvent, ToolReturnPart
+
+        result_part = ToolReturnPart(
+            tool_name="read_file",
+            content="File contents",
+            tool_call_id="call_123",
+        )
+        raw_event = FunctionToolResultEvent(result=result_part)
+
+        payload = {
+            "worker": "main",
+            "event": raw_event,
+        }
+        event = parse_event(payload)
+        assert isinstance(event, ToolResultEvent)
+        assert event.tool_name == "read_file"
+        assert event.content == "File contents"
+
+    def test_parse_unknown_payload(self):
+        """Parser returns StatusEvent for unknown payloads."""
+        payload = {"worker": "main"}
+        event = parse_event(payload)
+        assert isinstance(event, StatusEvent)
+        assert event.worker == "main"

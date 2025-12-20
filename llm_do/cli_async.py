@@ -22,13 +22,14 @@ from .base import (
 )
 from .config_overrides import apply_cli_overrides
 from .ui.display import (
-    CLIEvent,
     DisplayBackend,
     HeadlessDisplayBackend,
     JsonDisplayBackend,
     RichDisplayBackend,
     TextualDisplayBackend,
 )
+from .ui.events import ApprovalRequestEvent, TextResponseEvent, UIEvent
+from .ui.parser import parse_approval_request, parse_event
 
 
 # ---------------------------------------------------------------------------
@@ -235,32 +236,33 @@ Respond to the user's request.
 # ---------------------------------------------------------------------------
 
 
-def _queue_message_callback(queue: "asyncio.Queue[Any]") -> Callable[[list[Any]], None]:
-    """Create a message callback that enqueues events directly.
+def _queue_message_callback(queue: asyncio.Queue[UIEvent | None]) -> Callable[[list[Any]], None]:
+    """Create a message callback that parses raw events and enqueues typed UIEvents.
 
-    Since the worker now runs in the same event loop, we can put items
-    directly on the queue without threadsafe wrappers.
+    Parsing happens in the callback so the queue always contains typed events.
     """
     def _callback(events: list[Any]) -> None:
-        for event in events:
-            queue.put_nowait(CLIEvent(kind="runtime_event", payload=event))
+        for raw_event in events:
+            ui_event = parse_event(raw_event)
+            queue.put_nowait(ui_event)
 
     return _callback
 
 
 async def _render_loop(
-    queue: "asyncio.Queue[Any]",
+    queue: asyncio.Queue[UIEvent | None],
     backend: DisplayBackend,
 ) -> None:
+    """Consume typed events from queue and render via backend."""
     await backend.start()
     try:
         while True:
-            payload = await queue.get()
-            if payload is None:
+            event = await queue.get()
+            if event is None:
+                queue.task_done()
                 break
 
-            if isinstance(payload, CLIEvent):
-                backend.handle_event(payload)
+            backend.display(event)
             queue.task_done()
     finally:
         await backend.stop()
@@ -284,19 +286,24 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
         print("Cannot use --approve-all and --strict together", file=sys.stderr)
         return 1
 
-    # Set up queues for app communication
-    event_queue: asyncio.Queue[Any] = asyncio.Queue()
+    # Set up queues for app communication (typed events!)
+    event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
 
-    # Create backend that forwards to app
+    # Create backend that forwards typed events to app
     backend = TextualDisplayBackend(event_queue)
 
-    # Create a buffer to capture Rich-formatted output for display after TUI exits
+    # Create a buffer to capture output for display after TUI exits
+    # Respect --no-rich flag for post-TUI logging
     output_buffer = io.StringIO()
-    rich_backend = RichDisplayBackend(output_buffer, force_terminal=True, verbosity=args.verbose)
+    if args.no_rich:
+        log_backend: DisplayBackend = HeadlessDisplayBackend(output_buffer, verbosity=args.verbose)
+    else:
+        log_backend = RichDisplayBackend(output_buffer, force_terminal=True, verbosity=args.verbose)
 
-    # Container to capture result from background worker
+    # Container to capture result and exit code from background worker
     worker_result: list[Any] = []
+    worker_exit_code: list[int] = [0]  # Use list to allow modification in nested function
 
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
@@ -331,7 +338,9 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
             else:
                 # TUI approval callback
                 async def tui_approval_callback(request: ApprovalRequest) -> ApprovalDecision:
-                    event_queue.put_nowait(CLIEvent(kind="approval_request", payload=request))
+                    # Parse the approval request into a typed event and send to TUI
+                    approval_event = parse_approval_request(request)
+                    event_queue.put_nowait(approval_event)
                     return await approval_queue.get()
 
                 approval_controller = ApprovalController(
@@ -339,15 +348,14 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                     approval_callback=tui_approval_callback,
                 )
 
-            # Create a callback that forwards to both TUI and Rich buffer
-            def combined_message_callback(events: list[Any]) -> None:
-                for event in events:
-                    # Forward to TUI
-                    event_queue.put_nowait(CLIEvent(kind="runtime_event", payload=event))
-                    # Also capture in Rich buffer for terminal output after TUI exits
-                    rich_backend.display_runtime_event(event)
-
-            message_callback = combined_message_callback if backend.wants_runtime_events else None
+            # Create a callback that parses and forwards to both TUI and log buffer
+            def combined_message_callback(raw_events: list[Any]) -> None:
+                for raw_event in raw_events:
+                    ui_event = parse_event(raw_event)
+                    # Forward typed event to TUI
+                    backend.display(ui_event)
+                    # Also render to log buffer for terminal output after TUI exits
+                    log_backend.display(ui_event)
 
             result = await run_worker_async(
                 registry=registry,
@@ -357,7 +365,7 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                 cli_model=args.cli_model,
                 creation_defaults=creation_defaults,
                 approval_controller=approval_controller,
-                message_callback=message_callback,
+                message_callback=combined_message_callback,
             )
 
             # Capture result for stdout output
@@ -368,8 +376,17 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
             return 0
 
         except Exception as e:
-            event_queue.put_nowait(CLIEvent(kind="runtime_event", payload=f"Error: {e}"))
+            from .ui.events import ErrorEvent
+            error_event = ErrorEvent(
+                worker="worker",
+                message=str(e),
+                error_type=type(e).__name__,
+            )
+            event_queue.put_nowait(error_event)
+            # Also log to buffer for post-TUI display
+            log_backend.display(error_event)
             event_queue.put_nowait(None)
+            worker_exit_code[0] = 1
             if args.debug:
                 raise
             return 1
@@ -393,7 +410,7 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
         else:
             print(json.dumps(result.output, indent=2))
 
-    return 0
+    return worker_exit_code[0]
 
 
 async def _run_json_mode(args: argparse.Namespace) -> int:
@@ -441,9 +458,9 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
 
         # JSON backend writes events to stderr
         backend = JsonDisplayBackend()
-        queue: asyncio.Queue[Any] = asyncio.Queue()
+        queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
         renderer = asyncio.create_task(_render_loop(queue, backend))
-        message_callback = _queue_message_callback(queue) if backend.wants_runtime_events else None
+        message_callback = _queue_message_callback(queue)
 
         try:
             result = await run_worker_async(
@@ -571,9 +588,9 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
             backend: DisplayBackend = HeadlessDisplayBackend(verbosity=args.verbose)
         else:
             backend = RichDisplayBackend(force_terminal=True, verbosity=args.verbose)
-        queue: asyncio.Queue[Any] = asyncio.Queue()
+        queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
         renderer = asyncio.create_task(_render_loop(queue, backend))
-        message_callback = _queue_message_callback(queue) if backend.wants_runtime_events else None
+        message_callback = _queue_message_callback(queue)
 
         try:
             result = await run_worker_async(

@@ -19,7 +19,7 @@ def test_calculator_fibonacci(calculator_registry, default_model, approve_all_co
     result = asyncio.run(
         run_worker_async(
             registry=calculator_registry,
-            worker="calculator",
+            worker="main",
             input_data="What is the 10th Fibonacci number?",
             cli_model=default_model,
             approval_controller=approve_all_controller,
@@ -38,7 +38,7 @@ def test_calculator_factorial(calculator_registry, default_model, approve_all_co
     result = asyncio.run(
         run_worker_async(
             registry=calculator_registry,
-            worker="calculator",
+            worker="main",
             input_data="What is 7 factorial?",
             cli_model=default_model,
             approval_controller=approve_all_controller,
@@ -57,7 +57,7 @@ def test_calculator_prime_factors(calculator_registry, default_model, approve_al
     result = asyncio.run(
         run_worker_async(
             registry=calculator_registry,
-            worker="calculator",
+            worker="main",
             input_data="What are the prime factors of 84?",
             cli_model=default_model,
             approval_controller=approve_all_controller,
@@ -79,7 +79,7 @@ def test_calculator_multiple_operations(calculator_registry, default_model, appr
     result = asyncio.run(
         run_worker_async(
             registry=calculator_registry,
-            worker="calculator",
+            worker="main",
             input_data="Calculate the 8th Fibonacci number and 5 factorial",
             cli_model=default_model,
             approval_controller=approve_all_controller,

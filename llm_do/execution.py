@@ -83,6 +83,9 @@ def format_user_prompt(user_input: Any) -> str:
     """
     if isinstance(user_input, str):
         return user_input
+    # Empty dict means no user input - use a default prompt
+    if user_input == {}:
+        return "Execute your task."
     return json.dumps(user_input, indent=2, sort_keys=True, default=_json_default)
 
 

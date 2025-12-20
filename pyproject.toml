@@ -29,6 +29,7 @@ dependencies = [
     "textual>=1.0.0",
     "pytest>=9.0.1",
     "python-frontmatter>=1.0.0",
+    "python-slugify>=8.0",
 ]
 
 [project.scripts]

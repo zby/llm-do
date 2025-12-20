@@ -7,14 +7,15 @@ This module provides CustomToolset which:
 """
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import inspect
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Callable, List, Optional, get_type_hints
+from typing import Any, Callable, Optional, get_type_hints
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, create_model
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
 
@@ -23,73 +24,53 @@ from .types import WorkerContext
 logger = logging.getLogger(__name__)
 
 
-def _python_type_to_json_schema(python_type: Any) -> dict[str, Any]:
-    """Convert a Python type annotation to JSON schema."""
-    if python_type is None or python_type is type(None):
-        return {"type": "null"}
-    elif python_type is str:
-        return {"type": "string"}
-    elif python_type is int:
-        return {"type": "integer"}
-    elif python_type is float:
-        return {"type": "number"}
-    elif python_type is bool:
-        return {"type": "boolean"}
-    elif hasattr(python_type, "__origin__"):
-        # Handle generic types like List[str], Optional[int], etc.
-        origin = python_type.__origin__
-        if origin is list:
-            args = getattr(python_type, "__args__", (Any,))
-            return {
-                "type": "array",
-                "items": _python_type_to_json_schema(args[0]) if args else {},
-            }
-        elif origin is dict:
-            return {"type": "object"}
-        # Optional[X] is Union[X, None]
-        elif hasattr(origin, "__mro__") and type(None) in getattr(python_type, "__args__", ()):
-            args = [a for a in python_type.__args__ if a is not type(None)]
-            if len(args) == 1:
-                return _python_type_to_json_schema(args[0])
-    # Default fallback
-    return {}
-
-
 def _build_schema_from_function(func: Callable) -> dict[str, Any]:
-    """Build JSON schema from a function's signature."""
+    """Build JSON schema from a function's signature using Pydantic.
+
+    Uses Pydantic's create_model to dynamically create a model from the
+    function signature, then generates the JSON schema. This properly handles:
+    - Optional types (Union[X, None])
+    - Union types (anyOf)
+    - List, Dict, and other generic types
+    - Default values
+    """
     sig = inspect.signature(func)
     try:
         hints = get_type_hints(func)
     except Exception:
         hints = {}
 
-    properties = {}
-    required = []
+    # Build field definitions for create_model
+    # Format: {name: (type, default) or (type, FieldInfo)}
+    field_definitions: dict[str, Any] = {}
 
     for name, param in sig.parameters.items():
-        prop = {}
+        # Get type annotation (default to Any if not specified)
+        annotation = hints.get(name, Any)
 
-        # Get type from hints
-        if name in hints:
-            prop = _python_type_to_json_schema(hints[name])
-
-        # Get description from docstring if available
-        # (Simple extraction - could be enhanced with docstring parsing)
-
-        properties[name] = prop if prop else {}
-
-        # Required if no default
+        # Get default value
         if param.default is inspect.Parameter.empty:
-            required.append(name)
+            # Required field - use ... (Ellipsis) as marker
+            field_definitions[name] = (annotation, ...)
+        else:
+            # Optional field with default
+            field_definitions[name] = (annotation, param.default)
 
-    schema = {
-        "type": "object",
-        "properties": properties,
-    }
-    if required:
-        schema["required"] = required
+    # Create a dynamic Pydantic model
+    try:
+        DynamicModel = create_model(f"{func.__name__}_params", **field_definitions)
+        schema = DynamicModel.model_json_schema()
 
-    return schema
+        # Clean up schema - remove $defs if present (inline definitions)
+        # and remove title since we don't need it
+        schema.pop("$defs", None)
+        schema.pop("title", None)
+
+        return schema
+    except Exception as e:
+        logger.warning(f"Failed to generate Pydantic schema for {func.__name__}: {e}")
+        # Fallback to basic schema
+        return {"type": "object", "properties": {}}
 
 
 class CustomToolset(AbstractToolset[WorkerContext]):
@@ -146,9 +127,10 @@ class CustomToolset(AbstractToolset[WorkerContext]):
             return
 
         # Load the module from the file path
-        spec = importlib.util.spec_from_file_location(
-            f"{worker_name}_tools", tools_path
-        )
+        # Use path hash to avoid collisions when workers have the same name
+        path_hash = hashlib.md5(str(tools_path.resolve()).encode()).hexdigest()[:8]
+        module_name = f"{worker_name}_tools_{path_hash}"
+        spec = importlib.util.spec_from_file_location(module_name, tools_path)
         if spec is None or spec.loader is None:
             logger.warning(f"Could not load custom tools from {tools_path}")
             return

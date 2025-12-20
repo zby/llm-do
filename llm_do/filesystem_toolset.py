@@ -150,7 +150,11 @@ class FileSystemToolset(AbstractToolset[Any]):
     def read_file(
         self, path: str, max_chars: int = DEFAULT_MAX_READ_CHARS, offset: int = 0
     ) -> ReadResult:
-        """Read text file.
+        """Read text file efficiently with seeking support.
+
+        For large files, avoids loading the entire file into memory by:
+        - Using file seeking when offset is specified
+        - Reading only the required bytes (with buffer for UTF-8)
 
         Args:
             path: Path to file
@@ -172,17 +176,64 @@ class FileSystemToolset(AbstractToolset[Any]):
         if not resolved.is_file():
             raise IsADirectoryError(f"Not a file: {path}")
 
-        text = resolved.read_text(encoding="utf-8")
-        total_chars = len(text)
+        file_size = resolved.stat().st_size
 
-        # Apply offset
-        if offset > 0:
-            text = text[offset:]
+        # For small files (< 1MB), just read the whole thing
+        # This is simpler and handles edge cases better
+        if file_size < 1024 * 1024:
+            text = resolved.read_text(encoding="utf-8")
+            total_chars = len(text)
 
-        # Apply max_chars limit
-        truncated = len(text) > max_chars
-        if truncated:
-            text = text[:max_chars]
+            if offset > 0:
+                text = text[offset:]
+
+            truncated = len(text) > max_chars
+            if truncated:
+                text = text[:max_chars]
+
+            return ReadResult(
+                content=text,
+                truncated=truncated,
+                total_chars=total_chars,
+                offset=offset,
+                chars_read=len(text),
+            )
+
+        # For larger files, use streaming approach
+        with open(resolved, "r", encoding="utf-8") as f:
+            # Skip offset characters if needed
+            if offset > 0:
+                # Read and discard offset characters
+                skipped = 0
+                while skipped < offset:
+                    chunk = f.read(min(8192, offset - skipped))
+                    if not chunk:
+                        # Reached EOF before offset
+                        return ReadResult(
+                            content="",
+                            truncated=False,
+                            total_chars=skipped,
+                            offset=offset,
+                            chars_read=0,
+                        )
+                    skipped += len(chunk)
+
+            # Read the content we need (plus one extra to check truncation)
+            text = f.read(max_chars + 1)
+            truncated = len(text) > max_chars
+            if truncated:
+                text = text[:max_chars]
+
+            # Estimate total chars by reading rest of file in chunks
+            # (needed for total_chars metadata)
+            remaining = 0
+            while True:
+                chunk = f.read(65536)
+                if not chunk:
+                    break
+                remaining += len(chunk)
+
+            total_chars = offset + len(text) + remaining + (1 if truncated else 0)
 
         return ReadResult(
             content=text,

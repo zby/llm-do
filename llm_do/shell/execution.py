@@ -132,12 +132,12 @@ def execute_shell(
         ShellResult with stdout, stderr, exit_code, and truncated flag
 
     Raises:
-        ShellBlockedError: If command contains blocked metacharacters
+        ShellBlockedError: If command cannot be parsed
         ShellError: If command execution fails
-    """
-    # Check for blocked metacharacters
-    check_metacharacters(command)
 
+    Note:
+        Metacharacter blocking is handled by the approval layer (ShellToolset.needs_approval).
+    """
     # Parse command
     args = parse_command(command)
     if not args:

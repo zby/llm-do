@@ -25,6 +25,7 @@ from pydantic_ai_blocking_approval import ApprovalResult
 
 from .execution import (
     ShellBlockedError,
+    check_metacharacters,
     execute_shell,
     match_shell_rules,
     parse_command,
@@ -92,11 +93,16 @@ class ShellToolset(AbstractToolset[Any]):
 
         command = tool_args.get("command", "")
 
+        # Check for blocked metacharacters first (consistent UX via approval layer)
+        try:
+            check_metacharacters(command)
+        except ShellBlockedError as e:
+            return ApprovalResult.blocked(str(e))
+
         # Parse command for rule matching
         try:
             args = parse_command(command)
         except ShellBlockedError as e:
-            # Block commands that fail parsing (e.g., shell metacharacters)
             return ApprovalResult.blocked(str(e))
 
         # Match against shell rules from config (no sandbox path validation)

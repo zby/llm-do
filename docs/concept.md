@@ -86,6 +86,8 @@ But look closer: even this "LLM-driven" pattern is wrapped in deterministic code
 └─────────────────────────────────────────────────────┘
 ```
 
+Part of that scaffold is **human oversight**. The ideal would be fully autonomous execution—let the agent run to completion without interruption. But experience shows this is premature: LLMs make mistakes, misinterpret intent, and occasionally attempt dangerous operations. In llm-do, every tool call from an LLM is intercepted for potential human approval—at any nesting depth. Pattern-based rules can auto-approve safe operations (read-only queries, known-safe commands), while risky actions require explicit consent. The goal is progressive trust: start with tight approval requirements, loosen them as confidence grows.
+
 A common need is **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
 
 ```python

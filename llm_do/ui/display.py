@@ -71,6 +71,119 @@ class JsonDisplayBackend(DisplayBackend):
         self._write_record({"kind": "deferred_tool", "payload": payload})
 
 
+class HeadlessDisplayBackend(DisplayBackend):
+    """Plain text renderer for headless/non-interactive scenarios.
+
+    Renders events as human-readable text to stderr, showing the same
+    information as the TUI mode.
+    """
+
+    def __init__(self, stream: TextIO | None = None):
+        self.stream = stream or sys.stderr
+        self._current_worker: str = ""
+
+    def _write(self, text: str) -> None:
+        self.stream.write(text)
+        self.stream.write("\n")
+        self.stream.flush()
+
+    def display_runtime_event(self, payload: Any) -> None:
+        # Handle dict payloads (serialized events from message callback)
+        if isinstance(payload, dict):
+            self._handle_dict_event(payload)
+            return
+
+        # Handle string payloads (errors, status)
+        if isinstance(payload, str):
+            self._write(f"  {payload}")
+            return
+
+        # Handle pydantic-ai event types directly
+        event_type = type(payload).__name__
+        if event_type == "PartDeltaEvent":
+            # Streaming text - skip for now (we show complete parts)
+            pass
+        elif event_type == "PartStartEvent":
+            pass
+        elif event_type == "FinalResultEvent":
+            self._write("  ✓ Response complete")
+
+    def _handle_dict_event(self, payload: dict) -> None:
+        """Handle dict-based event payloads from message callback."""
+        from pydantic_ai.messages import (
+            PartEndEvent,
+            TextPart,
+            FunctionToolCallEvent,
+            FunctionToolResultEvent,
+        )
+
+        worker = payload.get("worker", "worker")
+
+        # Handle initial_request preview
+        if "initial_request" in payload:
+            self._write(f"[{worker}] Starting...")
+            return
+
+        # Handle status updates
+        if "status" in payload:
+            status = payload.get("status")
+            if isinstance(status, dict):
+                phase = status.get("phase", "")
+                state = status.get("state", "")
+                model = status.get("model", "")
+                if phase and state:
+                    if model:
+                        self._write(f"[{worker}] {phase} {state} ({model})")
+                    else:
+                        self._write(f"[{worker}] {phase} {state}")
+                else:
+                    self._write(f"[{worker}] {status}")
+            else:
+                self._write(f"[{worker}] {status}")
+            return
+
+        # Get the actual event object
+        event = payload.get("event")
+        if event is None:
+            return
+
+        # Handle pydantic-ai event types
+        if isinstance(event, PartEndEvent):
+            part = event.part
+            if isinstance(part, TextPart):
+                # Display model response text
+                self._write(f"\n[{worker}] Response:")
+                for line in part.content.split("\n"):
+                    self._write(f"  {line}")
+        elif isinstance(event, FunctionToolCallEvent):
+            tool_name = getattr(event.part, "tool_name", "tool")
+            args = getattr(event.part, "args", {})
+            self._write(f"\n[{worker}] Tool call: {tool_name}")
+            if args:
+                # Show truncated args
+                args_str = str(args)
+                if len(args_str) > 200:
+                    args_str = args_str[:200] + "..."
+                self._write(f"  Args: {args_str}")
+        elif isinstance(event, FunctionToolResultEvent):
+            tool_name = getattr(event, "tool_name", "tool")
+            result = event.result
+            self._write(f"\n[{worker}] Tool result: {tool_name}")
+            # Show truncated result
+            result_str = str(result.content) if hasattr(result, "content") else str(result)
+            if len(result_str) > 500:
+                result_str = result_str[:500] + "..."
+            for line in result_str.split("\n")[:10]:  # Limit lines
+                self._write(f"  {line}")
+            if result_str.count("\n") > 10:
+                self._write(f"  ... ({result_str.count(chr(10)) - 10} more lines)")
+
+    def display_deferred_tool(self, payload: Mapping[str, Any]) -> None:
+        tool_name = payload.get("tool_name", "tool")
+        status = payload.get("status", "pending")
+        self._write(f"  Deferred tool '{tool_name}': {status}")
+
+
 class TextualDisplayBackend(DisplayBackend):
     """Textual TUI backend that forwards events to a Textual app.
 

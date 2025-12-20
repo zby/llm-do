@@ -24,6 +24,7 @@ from .config_overrides import apply_cli_overrides
 from .ui.display import (
     CLIEvent,
     DisplayBackend,
+    HeadlessDisplayBackend,
     JsonDisplayBackend,
     TextualDisplayBackend,
 )
@@ -502,19 +503,31 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         else:
             approval_controller = ApprovalController(mode="strict")
 
-        # No message callback in headless mode - just run silently
-        result = await run_worker_async(
-            registry=registry,
-            worker=worker_name,
-            input_data=input_data,
-            attachments=args.attachments,
-            cli_model=args.cli_model,
-            creation_defaults=creation_defaults,
-            approval_controller=approval_controller,
-            message_callback=None,
-        )
+        # Headless backend writes events to stderr as plain text
+        backend = HeadlessDisplayBackend()
+        queue: asyncio.Queue[Any] = asyncio.Queue()
+        renderer = asyncio.create_task(_render_loop(queue, backend))
+        message_callback = _queue_message_callback(queue) if backend.wants_runtime_events else None
+
+        try:
+            result = await run_worker_async(
+                registry=registry,
+                worker=worker_name,
+                input_data=input_data,
+                attachments=args.attachments,
+                cli_model=args.cli_model,
+                creation_defaults=creation_defaults,
+                approval_controller=approval_controller,
+                message_callback=message_callback,
+            )
+        finally:
+            await queue.put(None)
+            await renderer
 
         # Print final output
+        print("\n" + "=" * 60)
+        print("FINAL RESULT:")
+        print("=" * 60)
         if isinstance(result.output, str):
             print(result.output)
         else:

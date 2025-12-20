@@ -241,22 +241,48 @@ def create_worker(
 
     Raises:
         FileExistsError: If a worker with this name already exists anywhere
-            (project, built-in, or generated dir) and force=False.
+            (project, built-in, or target output_dir) and force=False.
     """
-    # Check for conflicts - never overwrite without force
-    if not force and registry.worker_exists(spec.name):
-        raise FileExistsError(
-            f"Worker '{spec.name}' already exists. Use a different name or remove the existing worker."
-        )
-
-    definition = defaults.expand_spec(spec)
-
     # Use provided output_dir or fall back to registry's generated_dir
     target_dir = Path(output_dir) if output_dir else registry.generated_dir
 
     # Generated workers are directories: {target_dir}/{name}/worker.worker
     worker_dir = target_dir / spec.name
     path = worker_dir / "worker.worker"
+
+    # Check for conflicts - never overwrite without force
+    if not force:
+        # Check if worker exists in the target location
+        if path.exists():
+            raise FileExistsError(
+                f"Worker '{spec.name}' already exists at {path}. "
+                "Use a different name or remove the existing worker."
+            )
+        # Also check project workers and built-ins (but not default generated_dir
+        # when using custom output_dir)
+        if output_dir:
+            # Custom output_dir: only check project and built-in workers
+            # (skip registry.worker_exists which checks default generated_dir)
+            from .registry import WorkerRegistry
+            builtin_simple = Path(__file__).parent / "workers" / f"{spec.name}.worker"
+            builtin_dir = Path(__file__).parent / "workers" / spec.name / "worker.worker"
+            project_simple = registry.root / f"{spec.name}.worker"
+            project_dir = registry.root / spec.name / "worker.worker"
+            for check_path in [builtin_simple, builtin_dir, project_simple, project_dir]:
+                if check_path.exists():
+                    raise FileExistsError(
+                        f"Worker '{spec.name}' already exists at {check_path}. "
+                        "Use a different name."
+                    )
+        else:
+            # Default behavior: use registry.worker_exists
+            if registry.worker_exists(spec.name):
+                raise FileExistsError(
+                    f"Worker '{spec.name}' already exists. "
+                    "Use a different name or remove the existing worker."
+                )
+
+    definition = defaults.expand_spec(spec)
 
     registry.save_definition(definition, force=force, path=path)
     registry.register_generated(spec.name)

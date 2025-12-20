@@ -421,6 +421,48 @@ def test_worker_create_uses_output_dir_from_config(tmp_path):
     assert "custom worker" in content
 
 
+def test_worker_create_with_output_dir_ignores_default_generated_dir(tmp_path):
+    """worker_create with output_dir doesn't conflict with workers in default generated_dir."""
+    registry = _registry(tmp_path)
+
+    # Create a worker with same name in the default generated_dir
+    default_worker_dir = registry.generated_dir / "same_name"
+    default_worker_dir.mkdir(parents=True)
+    (default_worker_dir / "worker.worker").write_text(
+        "---\nname: same_name\n---\nOld worker in default location",
+        encoding="utf-8",
+    )
+
+    # Configure worker_create with a custom output_dir
+    custom_output_dir = tmp_path / "custom_workers"
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={
+            "delegation": {
+                "worker_create": {
+                    "output_dir": str(custom_output_dir),
+                }
+            }
+        },
+    )
+    registry.save_definition(parent)
+    context = _parent_context(registry, parent)
+
+    # Should NOT raise - custom output_dir is different from default generated_dir
+    _create_worker_via_toolset(
+        context,
+        name="same_name",  # Same name as worker in default location
+        instructions="new worker in custom location",
+    )
+
+    # Verify worker was saved to the custom output_dir
+    expected_path = custom_output_dir / "same_name" / "worker.worker"
+    assert expected_path.exists()
+    content = expected_path.read_text()
+    assert "new worker in custom location" in content
+
+
 def test_worker_call_uses_workers_dir_from_config(tmp_path, monkeypatch):
     """worker_call looks in workers_dir when configured."""
     registry = _registry(tmp_path)

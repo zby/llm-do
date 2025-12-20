@@ -138,7 +138,8 @@ Thumbs.db
 /tmp/
 
 
-examples/bootstrapping_pitchdeck_eval/workers/generated/
+# Example outputs and generated workers
+**/workers/generated/
 examples/bootstrapping_pitchdeck_eval/output/
 examples/approvals_demo/notes/
 examples/pitchdeck_eval/evaluations/

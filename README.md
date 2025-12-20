@@ -10,7 +10,7 @@ Skills with their own runtime. Like [Claude Code skills](https://docs.anthropic.
 
 **Unified function space.** Workers and Python tools are the same abstraction—they call each other freely. LLM reasoning and deterministic code interleave; which is which becomes an implementation detail.
 
-**Tight context.** Each worker does one thing well. No bloated multi-purpose prompts that try to handle everything.
+**Tight context.** Each worker does one thing well. No bloated multi-purpose prompts that try to handle everything. Task executors receive only relevant history—no conversation baggage from parent agents.
 
 **Guardrails by construction.** Attachment policies cap resources, tool approvals gate dangerous operations. Guards enforced in code, not prompt instructions.
 
@@ -34,18 +34,7 @@ The CLI runs `main.worker` in the current directory. Use `--worker` to run a spe
 
 ## Core Concepts
 
-Workers are `.worker` files: YAML front matter (config) + body (instructions). They compose like functions:
-
-| Programming | llm-do |
-|-------------|--------|
-| Function | `.worker` file |
-| Function call | Worker tool (same name as worker) |
-| Arguments | Input payload |
-| Return value | Structured output |
-
-Each worker is exposed as a tool that other workers can call. Nested calls are capped at depth 5.
-
-Workers and Python tools form a unified function space—LLM reasoning and deterministic code call each other freely:
+Workers are `.worker` files: YAML front matter (config) + body (instructions). Workers and Python tools form a unified function space—each is exposed as a callable tool, taking input and returning results. LLM reasoning and deterministic code call each other freely (nested calls capped at depth 5):
 
 ```
 Worker ──calls──▶ Tool ──calls──▶ Worker ──calls──▶ Tool ...

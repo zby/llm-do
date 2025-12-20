@@ -20,7 +20,7 @@ def test_greeter_responds_to_message(greeter_registry, default_model, approve_al
     result = asyncio.run(
         run_worker_async(
             registry=greeter_registry,
-            worker="greeter",
+            worker="main",
             input_data="Hello, how are you?",
             cli_model=default_model,
             approval_controller=approve_all_controller,
@@ -40,7 +40,7 @@ def test_greeter_tells_joke(greeter_registry, default_model, approve_all_control
     result = asyncio.run(
         run_worker_async(
             registry=greeter_registry,
-            worker="greeter",
+            worker="main",
             input_data="Tell me a joke",
             cli_model=default_model,
             approval_controller=approve_all_controller,

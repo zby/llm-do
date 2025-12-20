@@ -47,7 +47,7 @@ def test_whiteboard_orchestrator_processes_images(
     result = asyncio.run(
         run_worker_async(
             registry=whiteboard_planner_registry,
-            worker="whiteboard_orchestrator",
+            worker="main",
             input_data={},
             cli_model="anthropic:claude-haiku-4-5",
             approval_controller=approve_all_controller,

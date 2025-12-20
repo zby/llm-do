@@ -28,7 +28,7 @@ def test_web_searcher_current_events(web_searcher_registry, approve_all_controll
     result = asyncio.run(
         run_worker_async(
             registry=web_searcher_registry,
-            worker="web_searcher",
+            worker="main",
             input_data="What is the current weather in New York City?",
             cli_model="anthropic:claude-haiku-4-5",
             approval_controller=approve_all_controller,
@@ -47,7 +47,7 @@ def test_web_searcher_tech_news(web_searcher_registry, approve_all_controller):
     result = asyncio.run(
         run_worker_async(
             registry=web_searcher_registry,
-            worker="web_searcher",
+            worker="main",
             input_data="What are the latest developments in AI?",
             cli_model="anthropic:claude-haiku-4-5",
             approval_controller=approve_all_controller,

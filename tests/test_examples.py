@@ -93,7 +93,7 @@ def test_greeter_example(greeter_registry, input_data):
 
     result = _run_worker(
         registry=greeter_registry,
-        worker="greeter",
+        worker="main",
         input_data=input_data,
         cli_model=model,
     )
@@ -300,10 +300,10 @@ def test_all_example_workers_load_successfully():
     """
     examples_dir = Path(__file__).parent.parent / "examples"
 
-    # Greeter (in examples/greeter/workers/greeter.worker)
+    # Greeter (in examples/greeter/main.worker)
     greeter_registry = WorkerRegistry(examples_dir / "greeter")
-    greeter_def = greeter_registry.load_definition("greeter")
-    assert greeter_def.name == "greeter"
+    greeter_def = greeter_registry.load_definition("main")
+    assert greeter_def.name == "main"
     assert greeter_def.description is not None
 
     # Save note (in examples/approvals_demo/workers/save_note.worker)
@@ -332,9 +332,9 @@ def test_all_example_workers_load_successfully():
     assert planner_def.name == "whiteboard_planner"
     assert planner_def.attachment_policy is not None
 
-    # Whiteboard orchestrator (in examples/whiteboard_planner/workers/whiteboard_orchestrator.worker)
-    wb_orchestrator_def = whiteboard_registry.load_definition("whiteboard_orchestrator")
-    assert wb_orchestrator_def.name == "whiteboard_orchestrator"
+    # Whiteboard orchestrator (in examples/whiteboard_planner/main.worker)
+    wb_orchestrator_def = whiteboard_registry.load_definition("main")
+    assert wb_orchestrator_def.name == "main"
     assert wb_orchestrator_def.toolsets is not None
     assert "delegation" in wb_orchestrator_def.toolsets
     assert "whiteboard_planner" in wb_orchestrator_def.toolsets["delegation"]

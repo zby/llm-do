@@ -35,12 +35,10 @@ From the example directory:
 
 ```bash
 cd examples/pitchdeck_eval
-llm-do pitch_orchestrator \
-  --model anthropic:claude-haiku-4-5\
-  --approve-all
+llm-do --model anthropic:claude-haiku-4-5 --approve-all
 ```
 
-The worker is discovered from `workers/pitch_orchestrator.worker` by convention.
+The CLI runs `main.worker` by default, which orchestrates the evaluation workflow.
 
 Output will show rich formatted message traces including tool calls, file reads, and
 worker delegations.

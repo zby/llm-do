@@ -14,8 +14,8 @@ user-provided notes to a log file, and writes are configured to require approval
 
 ```bash
 cd examples/approvals_demo
-llm-do save_note --model anthropic:claude-haiku-4-5 \
-  "Interactive approvals are working"
+llm-do "Interactive approvals are working" \
+  --model anthropic:claude-haiku-4-5
 ```
 
 When the worker attempts to call `write_file("notes/...")`, the CLI

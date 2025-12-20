@@ -12,11 +12,11 @@ This worker uses the LLM provider's built-in web search capability to answer que
 cd examples/web_searcher
 
 # Using Anthropic Haiku (recommended for cost)
-llm-do web_searcher "What are the latest developments in AI?" \
+llm-do "What are the latest developments in AI?" \
   --model anthropic:claude-haiku-4-5
 
 # Using OpenAI (alternative)
-llm-do web_searcher "What are the latest developments in AI?" \
+llm-do "What are the latest developments in AI?" \
   --model openai:gpt-4o-mini
 ```
 

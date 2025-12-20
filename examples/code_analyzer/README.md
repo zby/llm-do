@@ -4,38 +4,43 @@ Analyze any codebase using safe shell commands. This example demonstrates **shel
 
 ## Usage
 
-Run from the directory you want to analyze:
+Use absolute paths in your query to analyze any directory:
 
 ```bash
-# Analyze any project - just cd into it first
-cd /path/to/your/project
-llm-do /path/to/llm-do/examples/code_analyzer/workers/code_analyzer/worker.worker \
-  "How many Python files are there?" \
+# From the llm-do repo root
+llm-do --dir examples/code_analyzer \
+  "How many Python files are there in /home/user/my-project?" \
   --model anthropic:claude-haiku-4-5
 
 # Or with OpenAI
-llm-do /path/to/llm-do/examples/code_analyzer/workers/code_analyzer/worker.worker \
-  "Find all TODO comments" \
+llm-do --dir examples/code_analyzer \
+  "Find all TODO comments in /home/user/my-project" \
   --model openai:gpt-4o-mini
 ```
 
-Shell commands run from your **current directory**, so the worker analyzes whatever codebase you're in.
+Alternatively, cd into the target directory and use relative paths:
+
+```bash
+cd /path/to/your/project
+llm-do --dir /path/to/llm-do/examples/code_analyzer \
+  "How many Python files are there?" \
+  --model anthropic:claude-haiku-4-5
+```
 
 ## Example Session
 
 ```bash
-$ cd ~/my-project
-$ llm-do ~/llm-do/examples/code_analyzer/workers/code_analyzer/worker.worker \
-    "How many Python files and total lines of code?" \
+$ llm-do --dir examples/code_analyzer \
+    "How many Python files and total lines of code in ~/my-project?" \
     --model anthropic:claude-haiku-4-5
 
 > Using tool: shell
-  Command: find . -name "*.py" -type f
+  Command: find ~/my-project -name "*.py" -type f
 
 [Lists Python files]
 
 > Using tool: shell
-  Command: wc -l ./src/main.py ./src/utils.py ...
+  Command: wc -l ~/my-project/src/main.py ~/my-project/src/utils.py ...
 
 There are 12 Python files with 1,847 total lines of code.
 ```
@@ -45,7 +50,7 @@ There are 12 Python files with 1,847 total lines of code.
 - **Shell tool integration**: Execute shell commands from within workers
 - **Pattern-based approval**: `shell_rules` allow specific commands without prompts
 - **Security defaults**: Block all commands by default, allow only safe ones
-- **Portable execution**: Analyze any directory by running from there
+- **Portable execution**: Analyze any directory using absolute paths in queries
 
 ## Shell Rules Configuration
 
@@ -110,7 +115,7 @@ toolsets:
 
 ## Notes
 
-- Commands run from your current working directory
+- Use absolute paths in your queries to analyze any directory
 - Output is truncated at 50KB to prevent token overflow
 - Commands timeout after 30 seconds by default
 - No pipes means the LLM counts/processes results itself

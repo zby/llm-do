@@ -14,7 +14,7 @@ This example turns the architecture in `web_research_agent_architecture.md` into
 ## Run
 ```bash
 cd examples/web_research_agent
-llm-do web_research_orchestrator "AI deployment in hospitals" --approve-all
+llm-do "AI deployment in hospitals" --approve-all
 ```
 
 Outputs are written to `reports/{topic-slug}.md` and `reports/{topic-slug}.json`.

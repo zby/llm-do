@@ -24,9 +24,7 @@ It uses two workers:
 Run the orchestrator. You must use a model that supports vision (like Claude 3.5 Sonnet, GPT-4o, or Gemini 1.5 Pro).
 
 ```bash
-llm-do whiteboard_orchestrator \
-  --model anthropic:claude-3-5-sonnet-latest \
-  --approve-all
+llm-do --model anthropic:claude-3-5-sonnet-latest --approve-all
 ```
 
 ## Output

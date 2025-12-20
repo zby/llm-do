@@ -144,6 +144,12 @@ def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         help="Disable Rich formatting (plain text, no colors)",
     )
     parser.add_argument(
+        "-v", "--verbose",
+        action="count",
+        default=0,
+        help="Increase output verbosity (use -v for progress, -vv for streaming)",
+    )
+    parser.add_argument(
         "--set",
         action="append",
         dest="config_overrides",
@@ -287,7 +293,7 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
 
     # Create a buffer to capture Rich-formatted output for display after TUI exits
     output_buffer = io.StringIO()
-    rich_backend = RichDisplayBackend(output_buffer, force_terminal=True)
+    rich_backend = RichDisplayBackend(output_buffer, force_terminal=True, verbosity=args.verbose)
 
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
@@ -371,10 +377,7 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     # Print captured output after TUI exits so it's visible in terminal history
     captured_output = output_buffer.getvalue()
     if captured_output:
-        print("\n--- Session Log ---")
         print(captured_output)
-    else:
-        print("\n--- No captured output ---")
 
     return 0
 
@@ -523,9 +526,9 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         # Choose backend: Rich by default, plain text if --no-rich or --headless
         use_plain = args.no_rich or args.headless
         if use_plain:
-            backend: DisplayBackend = HeadlessDisplayBackend()
+            backend: DisplayBackend = HeadlessDisplayBackend(verbosity=args.verbose)
         else:
-            backend = RichDisplayBackend(force_terminal=True)
+            backend = RichDisplayBackend(force_terminal=True, verbosity=args.verbose)
         queue: asyncio.Queue[Any] = asyncio.Queue()
         renderer = asyncio.create_task(_render_loop(queue, backend))
         message_callback = _queue_message_callback(queue) if backend.wants_runtime_events else None

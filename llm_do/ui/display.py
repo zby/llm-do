@@ -76,10 +76,16 @@ class HeadlessDisplayBackend(DisplayBackend):
 
     Renders events as human-readable text to stderr, showing the same
     information as the TUI mode.
+
+    Verbosity levels:
+        0 - Minimal: Only show prompts, responses, tool calls/results, status
+        1 - Normal: Add progress indicators (Generating..., Complete)
+        2 - Verbose: Add streaming deltas (partial responses as they arrive)
     """
 
-    def __init__(self, stream: TextIO | None = None):
+    def __init__(self, stream: TextIO | None = None, verbosity: int = 0):
         self.stream = stream or sys.stderr
+        self.verbosity = verbosity
         self._current_worker: str = ""
 
     def _write(self, text: str) -> None:
@@ -111,17 +117,28 @@ class HeadlessDisplayBackend(DisplayBackend):
     def _handle_dict_event(self, payload: dict) -> None:
         """Handle dict-based event payloads from message callback."""
         from pydantic_ai.messages import (
-            PartEndEvent,
-            TextPart,
+            FinalResultEvent,
             FunctionToolCallEvent,
             FunctionToolResultEvent,
+            PartDeltaEvent,
+            PartEndEvent,
+            PartStartEvent,
+            TextPart,
+            ToolCallPart,
         )
 
         worker = payload.get("worker", "worker")
 
         # Handle initial_request preview
         if "initial_request" in payload:
+            preview = payload.get("initial_request", {})
+            user_input = preview.get("user_input", "")
             self._write(f"[{worker}] Starting...")
+            if user_input:
+                # Truncate long inputs
+                if len(user_input) > 200:
+                    user_input = user_input[:200] + "..."
+                self._write(f"  Prompt: {user_input}")
             return
 
         # Handle status updates
@@ -148,7 +165,23 @@ class HeadlessDisplayBackend(DisplayBackend):
             return
 
         # Handle pydantic-ai event types
-        if isinstance(event, PartEndEvent):
+        if isinstance(event, PartStartEvent):
+            if self.verbosity >= 1:
+                part = event.part
+                if isinstance(part, TextPart):
+                    self._write(f"[{worker}] Generating response...")
+                elif isinstance(part, ToolCallPart):
+                    tool_name = getattr(part, "tool_name", "tool")
+                    self._write(f"[{worker}] Calling {tool_name}...")
+        elif isinstance(event, PartDeltaEvent):
+            if self.verbosity >= 2:
+                # Show streaming deltas
+                if hasattr(event, "delta") and hasattr(event.delta, "content_delta"):
+                    delta = event.delta.content_delta
+                    if delta:
+                        self.stream.write(delta)
+                        self.stream.flush()
+        elif isinstance(event, PartEndEvent):
             part = event.part
             if isinstance(part, TextPart):
                 # Display model response text
@@ -177,6 +210,9 @@ class HeadlessDisplayBackend(DisplayBackend):
                 self._write(f"  {line}")
             if result_str.count("\n") > 10:
                 self._write(f"  ... ({result_str.count(chr(10)) - 10} more lines)")
+        elif isinstance(event, FinalResultEvent):
+            if self.verbosity >= 1:
+                self._write(f"[{worker}] ✓ Complete")
 
     def display_deferred_tool(self, payload: Mapping[str, Any]) -> None:
         tool_name = payload.get("tool_name", "tool")
@@ -190,12 +226,23 @@ class RichDisplayBackend(DisplayBackend):
     Uses Rich Console for colorful, formatted output. When writing to a
     StringIO buffer, use force_terminal=True to ensure ANSI codes are
     included for later display in a terminal.
+
+    Verbosity levels:
+        0 - Minimal: Only show prompts, responses, tool calls/results, status
+        1 - Normal: Add progress indicators (Generating..., Complete)
+        2 - Verbose: Add streaming deltas (partial responses as they arrive)
     """
 
-    def __init__(self, stream: TextIO | None = None, force_terminal: bool = False):
+    def __init__(
+        self,
+        stream: TextIO | None = None,
+        force_terminal: bool = False,
+        verbosity: int = 0,
+    ):
         from rich.console import Console
 
         self.stream = stream or sys.stderr
+        self.verbosity = verbosity
         self.console = Console(
             file=self.stream,
             force_terminal=force_terminal,
@@ -203,9 +250,6 @@ class RichDisplayBackend(DisplayBackend):
         )
 
     def display_runtime_event(self, payload: Any) -> None:
-        # Debug: show payload type
-        self.console.print(f"[dim]DEBUG: payload type={type(payload).__name__}[/dim]")
-
         # Handle dict payloads (serialized events from message callback)
         if isinstance(payload, dict):
             self._handle_dict_event(payload)
@@ -229,17 +273,28 @@ class RichDisplayBackend(DisplayBackend):
     def _handle_dict_event(self, payload: dict) -> None:
         """Handle dict-based event payloads from message callback."""
         from pydantic_ai.messages import (
-            PartEndEvent,
-            TextPart,
+            FinalResultEvent,
             FunctionToolCallEvent,
             FunctionToolResultEvent,
+            PartDeltaEvent,
+            PartEndEvent,
+            PartStartEvent,
+            TextPart,
+            ToolCallPart,
         )
 
         worker = payload.get("worker", "worker")
 
         # Handle initial_request preview
         if "initial_request" in payload:
-            self.console.print(f"[bold cyan][{worker}][/bold cyan] Starting...")
+            preview = payload.get("initial_request", {})
+            user_input = preview.get("user_input", "")
+            self.console.print(f"[bold cyan]\\[{worker}][/bold cyan] Starting...")
+            if user_input:
+                # Truncate long inputs
+                if len(user_input) > 200:
+                    user_input = user_input[:200] + "..."
+                self.console.print(f"  [dim]Prompt:[/dim] {user_input}")
             return
 
         # Handle status updates
@@ -252,14 +307,14 @@ class RichDisplayBackend(DisplayBackend):
                 if phase and state:
                     if model:
                         self.console.print(
-                            f"[dim][{worker}][/dim] {phase} {state} [dim]({model})[/dim]"
+                            f"[dim]\\[{worker}][/dim] {phase} {state} [dim]({model})[/dim]"
                         )
                     else:
-                        self.console.print(f"[dim][{worker}][/dim] {phase} {state}")
+                        self.console.print(f"[dim]\\[{worker}][/dim] {phase} {state}")
                 else:
-                    self.console.print(f"[dim][{worker}][/dim] {status}")
+                    self.console.print(f"[dim]\\[{worker}][/dim] {status}")
             else:
-                self.console.print(f"[dim][{worker}][/dim] {status}")
+                self.console.print(f"[dim]\\[{worker}][/dim] {status}")
             return
 
         # Get the actual event object
@@ -268,18 +323,33 @@ class RichDisplayBackend(DisplayBackend):
             return
 
         # Handle pydantic-ai event types
-        if isinstance(event, PartEndEvent):
+        if isinstance(event, PartStartEvent):
+            if self.verbosity >= 1:
+                part = event.part
+                if isinstance(part, TextPart):
+                    self.console.print(f"[dim]\\[{worker}][/dim] [dim]Generating response...[/dim]")
+                elif isinstance(part, ToolCallPart):
+                    tool_name = getattr(part, "tool_name", "tool")
+                    self.console.print(f"[dim]\\[{worker}][/dim] [dim]Calling {tool_name}...[/dim]")
+        elif isinstance(event, PartDeltaEvent):
+            if self.verbosity >= 2:
+                # Show streaming deltas
+                if hasattr(event, "delta") and hasattr(event.delta, "content_delta"):
+                    delta = event.delta.content_delta
+                    if delta:
+                        self.console.print(delta, end="")
+        elif isinstance(event, PartEndEvent):
             part = event.part
             if isinstance(part, TextPart):
                 # Display model response text
-                self.console.print(f"\n[bold green][{worker}][/bold green] Response:")
+                self.console.print(f"\n[bold green]\\[{worker}][/bold green] Response:")
                 for line in part.content.split("\n"):
                     self.console.print(f"  {line}")
         elif isinstance(event, FunctionToolCallEvent):
             tool_name = getattr(event.part, "tool_name", "tool")
             args = getattr(event.part, "args", {})
             self.console.print(
-                f"\n[bold yellow][{worker}][/bold yellow] Tool call: [yellow]{tool_name}[/yellow]"
+                f"\n[bold yellow]\\[{worker}][/bold yellow] Tool call: [yellow]{tool_name}[/yellow]"
             )
             if args:
                 # Show truncated args
@@ -291,7 +361,7 @@ class RichDisplayBackend(DisplayBackend):
             result = event.result
             tool_name = getattr(result, "tool_name", "tool")
             self.console.print(
-                f"\n[bold blue][{worker}][/bold blue] Tool result: [blue]{tool_name}[/blue]"
+                f"\n[bold blue]\\[{worker}][/bold blue] Tool result: [blue]{tool_name}[/blue]"
             )
             # Show truncated result
             result_str = str(result.content) if hasattr(result, "content") else str(result)
@@ -301,6 +371,9 @@ class RichDisplayBackend(DisplayBackend):
                 self.console.print(f"  {line}")
             if result_str.count("\n") > 10:
                 self.console.print(f"  [dim]... ({result_str.count(chr(10)) - 10} more lines)[/dim]")
+        elif isinstance(event, FinalResultEvent):
+            if self.verbosity >= 1:
+                self.console.print(f"[dim]\\[{worker}][/dim] [green]✓[/green] Complete")
 
     def display_deferred_tool(self, payload: Mapping[str, Any]) -> None:
         tool_name = payload.get("tool_name", "tool")

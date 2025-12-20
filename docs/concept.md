@@ -84,7 +84,7 @@ But look closer: even this "LLM-driven" pattern is wrapped in deterministic code
 └─────────────────────────────────────────────────────┘
 ```
 
-Refactoring often produces **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
+A common need is **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
 
 ```python
 async def evaluate_document(ctx: RunContext[ToolContext], path: str) -> dict:

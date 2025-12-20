@@ -62,6 +62,8 @@ Workers start flexible, then harden as patterns stabilize:
 
 **Example**: An orchestrator creates an `evaluator` worker. Over weeks, you refine its prompt, add a structured output schema, then extract the scoring math to a Python function. The worker now calls `compute_score()`—the math is deterministic and tested.
 
+**Concrete example**: Compare [`examples/pitchdeck_eval`](../examples/pitchdeck_eval/) with [`examples/pitchdeck_eval_hardened`](../examples/pitchdeck_eval_hardened/). The original has the LLM generate file slugs; the hardened version extracts this to a `list_pitchdecks()` Python tool using the `python-slugify` library—deterministic, tested, no LLM variability.
+
 ### Softening: Symbolic → Neural
 
 When rigid code needs flexibility, replace deterministic logic with worker calls:

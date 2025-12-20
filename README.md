@@ -74,7 +74,7 @@ my-project/
 └── output/
 ```
 
-This progression reflects progressive hardening: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability.
+This progression reflects progressive hardening: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability. See [`examples/pitchdeck_eval_hardened`](examples/pitchdeck_eval_hardened/) for a concrete before/after comparison.
 
 ## Custom Tools
 

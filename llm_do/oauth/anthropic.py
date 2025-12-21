@@ -67,7 +67,7 @@ async def login_anthropic(
         raise RuntimeError(f"Token exchange failed: {response.text}")
 
     data = response.json()
-    expires_at = int(time.time() * 1000) + data["expires_in"] * 1000 - 5 * 60 * 1000
+    expires_at = int(time.time() * 1000) + data["expires_in"] * 1000
 
     credentials = OAuthCredentials(
         type="oauth",
@@ -97,7 +97,7 @@ async def refresh_anthropic_token(refresh_token: str) -> OAuthCredentials:
         raise RuntimeError(f"Anthropic token refresh failed: {response.text}")
 
     data = response.json()
-    expires_at = int(time.time() * 1000) + data["expires_in"] * 1000 - 5 * 60 * 1000
+    expires_at = int(time.time() * 1000) + data["expires_in"] * 1000
 
     return OAuthCredentials(
         type="oauth",

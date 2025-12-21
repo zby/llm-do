@@ -4,6 +4,7 @@ These tests focus on CLI interface behavior, not full worker execution.
 """
 import asyncio
 import json
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -468,7 +469,11 @@ def test_oauth_status_shows_login(capsys):
     try:
         save_oauth_credentials(
             "anthropic",
-            OAuthCredentials(refresh="refresh", access="access", expires=0),
+            OAuthCredentials(
+                refresh="refresh",
+                access="access",
+                expires=time.time_ns() // 1_000_000 + 10 * 60_000,
+            ),
         )
 
         async def run_test():

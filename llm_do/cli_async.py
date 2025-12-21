@@ -278,7 +278,7 @@ async def run_oauth_cli(argv: list[str]) -> int:
     import sys
     import webbrowser
 
-    from .oauth import get_oauth_path, has_oauth_credentials, login_anthropic, remove_oauth_credentials
+    from .oauth import get_oauth_path, has_oauth_credentials, login_anthropic, load_oauth_credentials, remove_oauth_credentials
 
     args = _parse_oauth_args(argv)
 
@@ -320,7 +320,13 @@ async def run_oauth_cli(argv: list[str]) -> int:
         if args.provider != "anthropic":
             print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
             return 2
-        status = "logged in" if has_oauth_credentials(args.provider) else "not logged in"
+        credentials = load_oauth_credentials(args.provider)
+        if not credentials:
+            status = "not logged in"
+        elif credentials.is_expired():
+            status = "expired"
+        else:
+            status = "logged in"
         print(f"{args.provider}: {status}")
         return 0
 

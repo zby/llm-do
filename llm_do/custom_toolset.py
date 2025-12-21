@@ -32,6 +32,11 @@ def tool_context(func: Optional[Callable] = None, *, param: str = "ctx") -> Call
 
     The context is injected under the parameter name given by ``param`` and is
     excluded from the JSON schema exposed to the LLM.
+
+    Warning:
+        The injected parameter is hidden from the schema and overwritten at
+        runtime with a WorkerContext. Do not point ``param`` at a real tool
+        input or the LLM will be unable to supply it.
     """
 
     def _decorate(target: Callable) -> Callable:

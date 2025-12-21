@@ -40,9 +40,9 @@ Pure Python ◄─────────────────────�
 
 Any component can slide along this spectrum as requirements evolve.
 
-## No Workflow DSL
+## Harness, Not Graph
 
-Unlike frameworks that require special languages for defining agent workflows (DAGs, state machines, YAML orchestration), llm-do uses plain Python.
+Most agent frameworks are **graph DSLs**—you define nodes and edges (DAGs, state machines, YAML orchestration), and an engine runs the graph. llm-do is an **imperative harness**: your code owns control flow, llm-do intercepts at the tool layer.
 
 Need a fixed sequence? Write a Python script that calls workers. Need dynamic routing? Let the LLM decide which worker to call. The same function-call semantics work for both—no new abstractions to learn.
 
@@ -62,7 +62,10 @@ Workers start flexible, then harden as patterns stabilize:
 
 **Example**: An orchestrator creates an `evaluator` worker. Over weeks, you refine its prompt, add a structured output schema, then extract the scoring math to a Python function. The worker now calls `compute_score()`—the math is deterministic and tested.
 
-**Concrete example**: Compare [`examples/pitchdeck_eval`](../examples/pitchdeck_eval/) with [`examples/pitchdeck_eval_hardened`](../examples/pitchdeck_eval_hardened/). The original has the LLM generate file slugs; the hardened version extracts this to a `list_pitchdecks()` Python tool using the `python-slugify` library—deterministic, tested, no LLM variability.
+**Concrete example**: The pitchdeck examples show a full hardening progression:
+- [`pitchdeck_eval`](../examples/pitchdeck_eval/) — All LLM: orchestrator decides file handling and delegates to evaluator
+- [`pitchdeck_eval_hardened`](../examples/pitchdeck_eval_hardened/) — Extracted tools: `list_pitchdecks()` replaces LLM slug generation with deterministic Python
+- [`pitchdeck_eval_code_entry`](../examples/pitchdeck_eval_code_entry/) — Python orchestration: main loop in code, LLM only called for actual analysis
 
 ### Softening: Symbolic → Neural
 
@@ -88,7 +91,7 @@ But look closer: even this "LLM-driven" pattern is wrapped in deterministic code
 └─────────────────────────────────────────────────────┘
 ```
 
-Part of that scaffold is **human oversight**. The ideal would be fully autonomous execution—let the agent run to completion without interruption. But experience shows this is premature: LLMs make mistakes, misinterpret intent, and occasionally attempt dangerous operations. In llm-do, every tool call from an LLM is intercepted for potential human approval—at any nesting depth. Pattern-based rules can auto-approve safe operations (read-only queries, known-safe commands), while risky actions require explicit consent. The goal is progressive trust: start with tight approval requirements, loosen them as confidence grows.
+Part of that scaffold is **human oversight**. The ideal would be fully autonomous execution—let the agent run to completion without interruption. But experience shows this is premature: LLMs make mistakes, misinterpret intent, and occasionally attempt dangerous operations. In llm-do, every tool call from an LLM is intercepted for potential human approval—at any nesting depth. Think of approvals as **syscalls**: when a worker needs to do something dangerous, execution blocks until the harness grants permission. Pattern-based rules can auto-approve safe operations (read-only queries, known-safe commands), while risky actions require explicit consent. The goal is progressive trust: start with tight approval requirements, loosen them as confidence grows.
 
 A common need is **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
 

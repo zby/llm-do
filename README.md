@@ -1,10 +1,18 @@
 # llm-do
 
-Skills with their own runtime. Like [Claude Code skills](https://docs.anthropic.com/en/docs/claude-code/skills), but each worker runs as a separate agent that can delegate to other workers.
+An imperative orchestration harness for LLM agents. Workers delegate to workers; your code owns control flow.
 
 ## Why llm-do?
 
-> The way to build useful non-deterministic systems more complex than chat is making them deterministic at key spots.
+Most agent frameworks are **graph DSLs**—you define nodes and edges, an engine runs the graph. llm-do is an **imperative orchestration harness**: your code owns control flow, llm-do intercepts at the tool layer. Think syscalls, not state machines.
+
+| Aspect | Graph DSLs | llm-do Harness |
+|--------|------------|----------------|
+| **Orchestration** | Declarative: define Node A → Node B | Imperative: Worker A calls Worker B as a function |
+| **State** | Global context passed through graph | Local scope—each worker receives only its arguments |
+| **Approvals** | Checkpoints: serialize graph state, resume after input | Interception: blocking "syscall" at the tool level |
+
+This is the **Unix philosophy for agents**: workers are files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
 
 **Delegation.** Workers call other workers like function calls. A summarizer delegates to an analyzer; an orchestrator coordinates specialists. Each runs with its own tools and model.
 
@@ -74,7 +82,7 @@ my-project/
 └── output/
 ```
 
-This progression reflects progressive hardening: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability. See [`examples/pitchdeck_eval_hardened`](examples/pitchdeck_eval_hardened/) for a concrete before/after comparison.
+This progression reflects progressive hardening: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability. See the pitchdeck examples for a concrete progression: [`pitchdeck_eval`](examples/pitchdeck_eval/) (all LLM) → [`pitchdeck_eval_hardened`](examples/pitchdeck_eval_hardened/) (extracted tools) → [`pitchdeck_eval_code_entry`](examples/pitchdeck_eval_code_entry/) (Python orchestration).
 
 ## Custom Tools
 
@@ -135,6 +143,8 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 |---------|--------------|
 | [`greeter/`](examples/greeter/) | Minimal project structure |
 | [`pitchdeck_eval/`](examples/pitchdeck_eval/) | Multi-worker orchestration, PDF attachments |
+| [`pitchdeck_eval_hardened/`](examples/pitchdeck_eval_hardened/) | Progressive hardening: extracted Python tools |
+| [`pitchdeck_eval_code_entry/`](examples/pitchdeck_eval_code_entry/) | Full hardening: Python orchestration, tool entry point |
 | [`calculator/`](examples/calculator/) | Custom Python tools |
 | [`approvals_demo/`](examples/approvals_demo/) | Write approval for file operations |
 | [`code_analyzer/`](examples/code_analyzer/) | Shell commands with approval rules |

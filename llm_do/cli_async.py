@@ -1,4 +1,4 @@
-"""Async CLI entry point for llm-do workers.
+"""Async CLI entry point for llm-do tools.
 
 This module provides the main async CLI implementation with native async
 approval callbacks and event-driven display rendering.
@@ -226,7 +226,7 @@ Respond to the user's request.
     main_worker.write_text(sample_worker_content)
     print(f"Created: {main_worker}")
     print("\nProject initialized!")
-    print("\nRun your worker with:")
+    print("\nRun your tool with:")
     print(f"  cd {project_path} && llm-do \"your message\"")
 
     return 0
@@ -497,6 +497,11 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
         if args.debug:
             raise
         return 1
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
     except json.JSONDecodeError as e:
         print(f"Invalid JSON: {e}", file=sys.stderr)
         if args.debug:
@@ -628,6 +633,11 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         return 0
 
     except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
+    except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         if args.debug:
             raise

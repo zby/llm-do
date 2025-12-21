@@ -49,10 +49,10 @@ pitch_evaluator.worker (unchanged - LLM analysis)
 - [ ] Copy `PROCEDURE.md` (unchanged)
 - [ ] Create `tools.py` with:
   - [ ] `list_pitchdecks()` (copy from hardened)
-  - [ ] `main(ctx, input: str)` with `@with_context` decorator
+  - [ ] `main(ctx, input: str)` with `@tool_context` decorator
 - [ ] Implement `main()` function:
   ```python
-  @with_context
+  @tool_context
   async def main(ctx: ToolContext, input: str) -> str:
       """Evaluate all pitch decks in input directory."""
       decks = list_pitchdecks()

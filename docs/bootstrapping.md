@@ -27,7 +27,7 @@ mkdir input output
 cp ~/documents/*.pdf input/
 
 # Run the bootstrapper
-llm-do worker_bootstrapper --model anthropic:claude-sonnet-4 \
+llm-do --tool worker_bootstrapper --model anthropic:claude-sonnet-4 \
   "Analyze the PDFs and write summaries to output/"
 ```
 
@@ -60,13 +60,13 @@ for the current session. Copy them into your project to reuse later:
 ```bash
 # Reuse the created worker
 cp -r /tmp/llm-do/generated/pdf_analyzer ./pdf_analyzer
-llm-do pdf_analyzer --attachments input/new_file.pdf
+llm-do --tool pdf_analyzer --attachments input/new_file.pdf
 ```
 
 ## Example Session
 
 ```bash
-$ llm-do worker_bootstrapper --model anthropic:claude-haiku-4-5 \
+$ llm-do --tool worker_bootstrapper --model anthropic:claude-haiku-4-5 \
   "Analyze the pitch decks and write evaluations"
 
 # Bootstrapper:
@@ -142,7 +142,7 @@ The bootstrapper is already YOLO (LLM creates workers). Add `--approve-all` for 
 
 ```bash
 # Double YOLO: fully autonomous worker creation and execution
-llm-do worker_bootstrapper --model anthropic:claude-sonnet-4 --approve-all \
+llm-do --tool worker_bootstrapper --model anthropic:claude-sonnet-4 --approve-all \
   "Process all documents in input/ and generate reports"
 ```
 

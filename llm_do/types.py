@@ -270,7 +270,7 @@ class ToolContext(Protocol):
 
         Args:
             name: Name of the tool to call.
-            input_data: Input payload for the worker.
+            input_data: Input payload for the tool.
 
         Returns:
             The tool's output.

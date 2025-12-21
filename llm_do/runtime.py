@@ -201,12 +201,20 @@ async def _invoke_code_tool(
                 "but input_data was provided."
             )
     elif len(params) == 1:
-        args.append(input_data)
+        if context_param:
+            kwargs[params[0].name] = input_data
+        else:
+            args.append(input_data)
     else:
         if not isinstance(input_data, dict):
             raise ValueError(
                 f"Tool '{func.__name__}' expects multiple inputs; "
                 "pass a dict for input_data."
+            )
+        if context_param and context_param in input_data:
+            raise ValueError(
+                f"Tool '{func.__name__}' received input for injected "
+                f"context parameter '{context_param}'."
             )
         kwargs.update(input_data)
 

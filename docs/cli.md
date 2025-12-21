@@ -23,6 +23,11 @@ llm-do --dir /path/to/project --tool analyzer "input message"
 - `--dir` — Registry root directory (defaults to current working directory)
 - `--tool` — Tool name to run (defaults to `main`)
 
+**Entry point resolution:**
+- `tools.py::main` → code tool entry point
+- `main.worker` → worker entry point
+- Both present → error (no ambiguity)
+
 ## Core Options
 
 ### Input and Output
@@ -92,7 +97,7 @@ llm-do pdf_analyzer --model anthropic:claude-sonnet-4  # OK
 See [Model Compatibility](#model-compatibility) below for pattern syntax.
 
 **`--dir PATH`**
-Specify worker registry root (defaults to current working directory):
+Specify tool registry root (defaults to current working directory):
 ```bash
 llm-do --dir /path/to/workers "hello"
 ```
@@ -118,7 +123,7 @@ Override worker configuration fields at runtime without editing YAML files. Supp
 llm-do greeter "hello" --set model=openai:gpt-4o
 
 # Override multiple fields
-llm-do worker "task" \
+llm-do --tool greeter "task" \
   --set model=anthropic:claude-haiku-4-5 \
   --set attachment_policy.max_attachments=5 \
   --set locked=true
@@ -143,13 +148,13 @@ Control which tools require human review:
 **`--approve-all`**
 Auto-approve all tool calls without prompting (use with caution):
 ```bash
-llm-do worker "task" --approve-all
+llm-do --tool greeter "task" --approve-all
 ```
 
 **`--strict`**
 Reject all non-pre-approved tools (deny-by-default security mode):
 ```bash
-llm-do worker "task" --strict
+llm-do --tool greeter "task" --strict
 ```
 
 **Default (interactive mode)**
@@ -185,7 +190,7 @@ The `--json` and `--headless` flags are mutually exclusive. `--json` also implie
 **`--debug`**
 Show full stack traces on errors:
 ```bash
-llm-do worker "task" --debug
+llm-do --tool greeter "task" --debug
 ```
 
 Without `--debug`, errors are displayed concisely.
@@ -206,7 +211,7 @@ llm-do greeter "hello" --set model=anthropic:claude-sonnet-4
 **Production hardening:**
 ```bash
 # Lock worker and limit attachments
-llm-do worker "task" \
+llm-do --tool greeter "task" \
   --set locked=true \
   --set attachment_policy.max_attachments=1 \
   --set attachment_policy.max_total_bytes=1000000
@@ -237,7 +242,7 @@ llm-do processor "data" \
 Overrides are validated against the worker schema. Invalid overrides produce clear error messages:
 
 ```bash
-$ llm-do worker --set attachment_policy.max_attachments=not-a-number
+$ llm-do --tool greeter --set attachment_policy.max_attachments=not-a-number
 Configuration override error: Overrides resulted in invalid worker configuration: ...
   Field 'attachment_policy.max_attachments' expects int, got str
 ```
@@ -246,7 +251,7 @@ Configuration override error: Overrides resulted in invalid worker configuration
 
 When multiple `--set` flags target the same field, **last wins**:
 ```bash
-llm-do worker --set model=gpt-4 --set model=claude-sonnet
+llm-do --tool greeter --set model=gpt-4 --set model=claude-sonnet
 # Uses: claude-sonnet
 ```
 

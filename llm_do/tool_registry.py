@@ -121,3 +121,7 @@ class ToolRegistry:
             )
 
         raise FileNotFoundError(f"Tool not found: {name}")
+
+    def find_tool(self, name: str) -> Tool:
+        """Alias for resolve()."""
+        return self.resolve(name)

@@ -12,9 +12,9 @@ Entry point is a tool, not a worker. The `main` tool can be either deterministic
 ## Background
 
 **Current state:**
-- Entry point is always a worker (LLM agent)
-- CLI loads `main.worker` and runs PydanticAI agent
-- Deterministic code can only be called *by* workers, not *as* entry points
+- Entry point resolves to a tool (code or worker)
+- CLI runs the `main` tool (either `tools.py::main` or `main.worker`)
+- Deterministic code can be an entry point with the same `ToolContext`
 
 **Target state:**
 - Entry point is the `main` tool
@@ -69,7 +69,7 @@ The caller doesn't know or care if the target is code or LLM.
 ### Custom Tools Context Opt-in
 
 Custom tools in `tools.py` can optionally receive context via an opt-in decorator.
-Simple tools stay unchanged; context-aware tools can call `ctx.call_worker(...)`
+Simple tools stay unchanged; context-aware tools can call `ctx.call_tool(...)`
 and later `ctx.call_tool(...)` once unified.
 
 Context parameters are injected at runtime and excluded from the JSON schema so the
@@ -92,6 +92,9 @@ def resolve_entry_tool(name: str = "main") -> Tool:
 
 ```python
 # tools.py
+from llm_do import tool_context
+
+@tool_context
 async def main(ctx: ToolContext, input: str) -> str:
     """Entry point - orchestrates other tools."""
     analysis = await ctx.call_tool("analyzer", input)
@@ -105,50 +108,50 @@ async def main(ctx: ToolContext, input: str) -> str:
 
 Create a registry that knows about both code tools and workers:
 
-- [ ] Create `ToolRegistry` class (or extend existing registry)
-- [ ] `find_tool(name)` returns a `Tool` (code or worker)
-- [ ] `Tool` abstraction with `kind: Literal["code", "worker"]`
-- [ ] Detect and error on name collisions at discovery time
-- [ ] Handle search paths: project `tools.py`, `.worker` files, builtins
+- [x] Create `ToolRegistry` class (or extend existing registry)
+- [x] `find_tool(name)` returns a `Tool` (code or worker)
+- [x] `Tool` abstraction with `kind: Literal["code", "worker"]`
+- [x] Detect and error on name collisions at discovery time
+- [x] Handle search paths: project `tools.py`, `.worker` files, builtins
 
 ### Phase 2: call_tool Unification
 
 Replace `call_worker` with unified `call_tool`:
 
-- [ ] Add `call_tool(name, input)` method to `ToolContext` Protocol
-- [ ] Implementation dispatches based on tool kind:
+- [x] Add `call_tool(name, input)` method to `ToolContext` Protocol
+- [x] Implementation dispatches based on tool kind:
   - Code tool → call function directly
   - Worker → delegate to existing `call_worker_async`
-- [ ] Deprecate or alias `call_worker` → `call_tool`
-- [ ] Update existing tools that use `call_worker`
+- [x] Deprecate or alias `call_worker` → `call_tool`
+- [x] Update existing tools that use `call_worker`
 
 ### Phase 3: Entry Point Execution
 
 Change CLI to run tools instead of workers:
 
-- [ ] `run_tool_async(name, input, ...)` as new entry point
-- [ ] For code tools: instantiate context, call function
-- [ ] For workers: delegate to existing `run_worker_async`
-- [ ] CLI `--worker` flag → `--tool` (or keep for compat, map internally)
-- [ ] Default entry point remains `main`
+- [x] `run_tool_async(name, input, ...)` as new entry point
+- [x] For code tools: instantiate context, call function
+- [x] For workers: delegate to existing `run_worker_async`
+- [x] CLI `--worker` flag → `--tool` (or keep for compat, map internally)
+- [x] Default entry point remains `main`
 
 ### Phase 4: Context for Code Entry Tools
 
 Ensure code tools get full context when run as entry point:
 
-- [ ] Create `ToolContext` instance with:
+- [x] Create `ToolContext` instance with:
   - `call_tool` method
   - `registry` access
   - `approval_controller`
   - `depth` tracking
   - `message_callback` for streaming events
-- [ ] Same context structure whether tool is entry point or called nested
+- [x] Same context structure whether tool is entry point or called nested
 
 ### Phase 5: Cleanup
 
-- [ ] Update documentation to reflect tool-first model
+- [x] Update documentation to reflect tool-first model
 - [ ] Update examples to show code entry points
-- [ ] Ensure error messages are clear ("both tools.py::main and main.worker exist")
+- [x] Ensure error messages are clear ("both tools.py::main and main.worker exist")
 
 ## Architecture
 
@@ -204,7 +207,7 @@ resolve_entry_tool("main")
 
 - `call_tool_async(name, input, ctx)` dispatches by tool kind:
   - Code tool: call sync or await async; pass `ctx` only if the tool is marked with the opt-in decorator from `105-custom-tool-context.md`.
-  - Worker tool: delegate to `call_worker_async` (or `run_worker_async`) and pass through `approval_controller`, `message_callback`, `creation_defaults`, `cli_model`, `attachments`, and `depth`.
+  - Worker tool: delegate to `call_worker_async` (or `run_worker_async`) and pass through `approval_controller`, `message_callback`, `creation_defaults`, `cli_model`, and `depth`.
 - Keep `call_worker` as a thin wrapper or alias to `call_tool` but prefer `call_tool` everywhere.
 
 ### Entry Tool Execution + CLI
@@ -228,10 +231,10 @@ resolve_entry_tool("main")
 
 ## Current State
 
-Design agreed. Implementation not started. Open questions resolved (toolsets, approvals, attachments).
-
-Context injection for custom tools is complete (opt-in decorator, schema omission,
-runtime injection).
+Tool registry, unified call path, and tool entrypoint runtime/CLI are implemented.
+Docs updated to reflect tool-first entry points and `--tool` flag.
+Example updates to showcase code entry points are still pending (see
+`docs/tasks/active/106-pitchdeck-code-entrypoint-example.md`).
 
 ## References
 

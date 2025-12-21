@@ -30,7 +30,7 @@ cd examples/greeter
 llm-do "Tell me a joke" --model anthropic:claude-haiku-4-5
 ```
 
-The CLI runs the `main` tool (`tools.py::main` or `main.worker`) in the current directory. Use `--tool` to run a specific tool. See [`examples/`](examples/) for more.
+The CLI runs the `main` tool (`tools.py::main` or `main.worker`) in the current directory. If both exist, llm-do errors to avoid ambiguity. Use `--tool` to run a specific tool. See [`examples/`](examples/) for more.
 
 ## Core Concepts
 

@@ -23,6 +23,7 @@ from pydantic_ai.models import Model as PydanticAIModel
 from pydantic_ai.tools import RunContext
 
 from .toolset_loader import build_toolsets
+from .oauth import resolve_oauth_overrides
 from .types import (
     AgentExecutionContext,
     ModelLike,
@@ -305,6 +306,25 @@ async def default_agent_runner_async(
     exec_ctx = prepare_agent_execution(
         definition, user_input, context, output_model
     )
+
+    oauth_overrides = await resolve_oauth_overrides(context.effective_model)
+    if oauth_overrides is not None:
+        exec_ctx.agent_kwargs["model"] = oauth_overrides.model
+        if oauth_overrides.model_settings:
+            existing_settings = exec_ctx.agent_kwargs.get("model_settings")
+            if isinstance(existing_settings, dict):
+                merged = dict(existing_settings)
+                extra_headers = dict(merged.get("extra_headers", {}))
+                extra_headers.update(oauth_overrides.model_settings.get("extra_headers", {}))
+                merged["extra_headers"] = extra_headers
+                for key, value in oauth_overrides.model_settings.items():
+                    if key != "extra_headers":
+                        merged[key] = value
+                exec_ctx.agent_kwargs["model_settings"] = merged
+            else:
+                exec_ctx.agent_kwargs["model_settings"] = oauth_overrides.model_settings
+        if oauth_overrides.system_prompt:
+            exec_ctx.agent_kwargs["system_prompt"] = oauth_overrides.system_prompt
 
     # Create Agent
     agent = Agent(**exec_ctx.agent_kwargs)

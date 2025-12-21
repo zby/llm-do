@@ -371,6 +371,5 @@ llm-do --dir ~/code-analyzer "analyze the code"
 
 ## Related Documentation
 
-- [Worker Delegation](worker_delegation.md) — Worker-to-worker calls
-- [Architecture](architecture.md) — Runtime and approval system
+- [Architecture](architecture.md) — Runtime, worker delegation, and approval system
 - [UI Architecture](ui.md) — Display backends and event rendering

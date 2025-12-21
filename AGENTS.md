@@ -7,7 +7,7 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 ## Key References
 
 - `README.md` — setup, CLI usage, examples
-- `docs/worker_delegation.md` — reference for worker hierarchies or delegation
+- `docs/architecture.md` — internal design, worker delegation, approval system
 - `docs/notes/` — working design documents and explorations (see Notes section)
 - `examples/pitchdeck_eval/` — reference implementation for multi-worker patterns
 

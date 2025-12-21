@@ -154,8 +154,7 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 
 - **[`docs/concept.md`](docs/concept.md)** — Design philosophy
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference
-- **[`docs/worker_delegation.md`](docs/worker_delegation.md)** — Worker-to-worker calls
-- **[`docs/architecture.md`](docs/architecture.md)** — Internal design
+- **[`docs/architecture.md`](docs/architecture.md)** — Internal design and worker delegation
 - **[`docs/notes/`](docs/notes/)** — Working design notes and explorations
 
 ## Status

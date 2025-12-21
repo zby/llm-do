@@ -69,7 +69,7 @@ The caller doesn't know or care if the target is code or LLM.
 ### Custom Tools Context Opt-in
 
 Custom tools in `tools.py` can optionally receive context via an opt-in decorator.
-Simple tools stay unchanged; context-aware tools can call `ctx.deps.call_worker(...)`
+Simple tools stay unchanged; context-aware tools can call `ctx.call_worker(...)`
 and later `ctx.call_tool(...)` once unified.
 
 Context parameters are injected at runtime and excluded from the JSON schema so the

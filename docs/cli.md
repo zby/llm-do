@@ -44,6 +44,12 @@ To clear credentials:
 llm-do oauth logout --provider anthropic
 ```
 
+Check login status:
+
+```bash
+llm-do oauth status --provider anthropic
+```
+
 Optional: `--open-browser` tries to open the authorization URL automatically.
 
 ## Core Options

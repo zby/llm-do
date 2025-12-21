@@ -222,6 +222,14 @@ def _parse_oauth_args(argv: list[str]) -> argparse.Namespace:
         help="OAuth provider to clear (default: anthropic)",
     )
 
+    status_parser = subparsers.add_parser("status", help="Show OAuth login status")
+    status_parser.add_argument(
+        "--provider",
+        default="anthropic",
+        choices=["anthropic"],
+        help="OAuth provider to check (default: anthropic)",
+    )
+
     return parser.parse_args(argv)
 
 
@@ -306,6 +314,14 @@ async def run_oauth_cli(argv: list[str]) -> int:
             return 0
         remove_oauth_credentials(args.provider)
         print(f"Cleared OAuth credentials for {args.provider}")
+        return 0
+
+    if args.command == "status":
+        if args.provider != "anthropic":
+            print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
+            return 2
+        status = "logged in" if has_oauth_credentials(args.provider) else "not logged in"
+        print(f"{args.provider}: {status}")
         return 0
 
     print(f"Unknown OAuth command: {args.command}", file=sys.stderr)

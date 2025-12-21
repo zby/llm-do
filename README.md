@@ -56,6 +56,12 @@ Credentials are stored at `~/.llm-do/oauth.json`. Clear them with:
 llm-do oauth logout --provider anthropic
 ```
 
+Check login status:
+
+```bash
+llm-do oauth status --provider anthropic
+```
+
 ## Core Concepts
 
 Workers are `.worker` files: YAML front matter (config) + body (instructions). Workers and Python tools form a unified function space—each is exposed as a callable tool, taking input and returning results. LLM reasoning and deterministic code call each other freely (nested calls capped at depth 5):

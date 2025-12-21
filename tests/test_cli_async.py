@@ -434,3 +434,34 @@ def test_oauth_logout_clears_credentials(capsys):
     assert result == 0
     captured = capsys.readouterr()
     assert "Cleared OAuth credentials" in captured.out
+
+
+def test_oauth_status_shows_login(capsys):
+    class InMemoryStorage:
+        def __init__(self) -> None:
+            self._storage = {}
+
+        def load(self):
+            return dict(self._storage)
+
+        def save(self, storage):
+            self._storage = dict(storage)
+
+    storage = InMemoryStorage()
+    set_oauth_storage(storage)
+    try:
+        save_oauth_credentials(
+            "anthropic",
+            OAuthCredentials(refresh="refresh", access="access", expires=0),
+        )
+
+        async def run_test():
+            return await run_oauth_cli(["status", "--provider", "anthropic"])
+
+        result = asyncio.run(run_test())
+    finally:
+        reset_oauth_storage()
+
+    assert result == 0
+    captured = capsys.readouterr()
+    assert "anthropic: logged in" in captured.out

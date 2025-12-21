@@ -26,9 +26,9 @@ mkdir input output
 # Add files to process
 cp ~/documents/*.pdf input/
 
-# Run the bootstrapper
-llm-do --tool worker_bootstrapper --model anthropic:claude-sonnet-4 \
-  "Analyze the PDFs and write summaries to output/"
+# Run the bootstrapper (looks for files in input/, writes to output/)
+llm-do --tool worker_bootstrapper --model anthropic:claude-haiku-4-5 \
+  "Analyze the PDFs in input/ and write 100-word summaries to output/"
 ```
 
 ## How It Works
@@ -67,7 +67,7 @@ llm-do --tool pdf_analyzer --attachments input/new_file.pdf
 
 ```bash
 $ llm-do --tool worker_bootstrapper --model anthropic:claude-haiku-4-5 \
-  "Analyze the pitch decks and write evaluations"
+  "Analyze the pitch decks in input/ and write 100-word evaluations to output/"
 
 # Bootstrapper:
 # 1. Lists input/ → finds acma_pitchdeck.pdf
@@ -121,6 +121,15 @@ The bootstrapper has these built-in permissions:
 | Create workers | ⚠️ Requires approval |
 | Call workers | ⚠️ Requires approval |
 
+**Project-local workers:** To save generated workers in your project instead of `/tmp`:
+
+```bash
+llm-do --tool worker_bootstrapper --model anthropic:claude-haiku-4-5 \
+  --set toolsets.delegation.worker_create.output_dir=./workers \
+  --set toolsets.delegation.worker_call.workers_dir=./workers \
+  "Analyze the PDFs in input/ and write 100-word summaries to output/"
+```
+
 ## Supported File Types
 
 **Text files** (can be read directly):
@@ -142,8 +151,8 @@ The bootstrapper is already YOLO (LLM creates workers). Add `--approve-all` for 
 
 ```bash
 # Double YOLO: fully autonomous worker creation and execution
-llm-do --tool worker_bootstrapper --model anthropic:claude-sonnet-4 --approve-all \
-  "Process all documents in input/ and generate reports"
+llm-do --tool worker_bootstrapper --model anthropic:claude-haiku-4-5 --approve-all \
+  "Process all documents in input/ and generate 100-word reports to output/"
 ```
 
 No prompts. No confirmations. The LLM:
@@ -157,9 +166,11 @@ All without asking. **Review `generated/` afterward to see what emerged.**
 ## Best Practices
 
 1. **Be specific** about the task and expected output format
-2. **Use attachments** for PDFs and images rather than trying to read them as text
-3. **Check generated workers** in `generated/` and refine them manually if needed
-4. **Reuse workers** directly once created instead of re-bootstrapping
+2. **Specify input/output paths** explicitly in your task description (e.g., "analyze files in input/ and write to output/")
+3. **Limit output length** — request concise results (e.g., "100 words max") to keep outputs focused
+4. **Use attachments** for PDFs and images rather than trying to read them as text
+5. **Check generated workers** in `generated/` and refine them manually if needed
+6. **Reuse workers** directly once created instead of re-bootstrapping
 
 ## Future Work
 

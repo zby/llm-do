@@ -89,6 +89,18 @@ def sanitize_filename(name: str) -> str:
 
 Functions become LLM-callable tools. Reference them in your worker's toolsets config.
 
+To opt into tool context (for calling workers), use `@tool_context` and add a `ctx` param:
+
+```python
+# tools.py
+from llm_do import tool_context
+
+@tool_context
+async def analyze_config(raw: str, ctx) -> str:
+    """Delegate parsing to a worker."""
+    return await ctx.call_worker("config_parser", raw)
+```
+
 You can also use:
 - **Jinja2 templates** — Compose prompts from reusable templates in `templates/`
 - **Server-side tools** — Provider-executed capabilities like web search and code execution

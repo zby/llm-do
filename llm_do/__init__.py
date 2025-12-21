@@ -21,6 +21,7 @@ from .base import (
     call_worker_async,
     create_worker,
     run_worker_async,
+    tool_context,
 )
 from .model_compat import (
     InvalidCompatibleModelsError,
@@ -48,6 +49,7 @@ __all__ = [
     "call_worker_async",
     "create_worker",
     "run_worker_async",
+    "tool_context",
     "__version__",
 ]
 

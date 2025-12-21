@@ -63,6 +63,7 @@ from .runtime import (
     create_worker,
     run_worker_async,
 )
+from .custom_toolset import tool_context
 
 __all__: Iterable[str] = [
     "AgentRunner",
@@ -79,6 +80,7 @@ __all__: Iterable[str] = [
     "call_worker_async",
     "create_worker",
     "WorkerContext",
+    "tool_context",
     # Shell tool
     "ShellBlockedError",
     "ShellDefault",

@@ -23,8 +23,39 @@ from .types import WorkerContext
 
 logger = logging.getLogger(__name__)
 
+_CONTEXT_ATTR = "_llm_do_context"
+_CONTEXT_PARAM_ATTR = "_llm_do_context_param"
 
-def _build_schema_from_function(func: Callable) -> dict[str, Any]:
+
+def tool_context(func: Optional[Callable] = None, *, param: str = "ctx") -> Callable:
+    """Mark a custom tool as context-aware.
+
+    The context is injected under the parameter name given by ``param`` and is
+    excluded from the JSON schema exposed to the LLM.
+    """
+
+    def _decorate(target: Callable) -> Callable:
+        setattr(target, _CONTEXT_ATTR, True)
+        setattr(target, _CONTEXT_PARAM_ATTR, param)
+        return target
+
+    if func is None:
+        return _decorate
+    return _decorate(func)
+
+
+def _get_context_param(func: Callable) -> Optional[str]:
+    """Return the injected context parameter name if configured."""
+    if getattr(func, _CONTEXT_ATTR, False):
+        return getattr(func, _CONTEXT_PARAM_ATTR, "ctx")
+    return None
+
+
+def _build_schema_from_function(
+    func: Callable,
+    *,
+    skip_params: Optional[set[str]] = None,
+) -> dict[str, Any]:
     """Build JSON schema from a function's signature using Pydantic.
 
     Uses Pydantic's create_model to dynamically create a model from the
@@ -35,6 +66,7 @@ def _build_schema_from_function(func: Callable) -> dict[str, Any]:
     - Default values
     """
     sig = inspect.signature(func)
+    skip_params = skip_params or set()
     try:
         hints = get_type_hints(func)
     except Exception:
@@ -45,6 +77,8 @@ def _build_schema_from_function(func: Callable) -> dict[str, Any]:
     field_definitions: dict[str, Any] = {}
 
     for name, param in sig.parameters.items():
+        if name in skip_params:
+            continue
         # Get type annotation (default to Any if not specified)
         annotation = hints.get(name, Any)
 
@@ -101,6 +135,7 @@ class CustomToolset(AbstractToolset[WorkerContext]):
         self._max_retries = max_retries
         self._module = None
         self._functions: dict[str, Callable] = {}
+        self._context_params: dict[str, str] = {}
 
     @property
     def id(self) -> str | None:
@@ -161,6 +196,16 @@ class CustomToolset(AbstractToolset[WorkerContext]):
                 logger.warning(f"Custom tool '{tool_name}' is not a function in {tools_path}")
                 continue
 
+            context_param = _get_context_param(obj)
+            if context_param:
+                sig = inspect.signature(obj)
+                if context_param not in sig.parameters:
+                    raise ValueError(
+                        f"Custom tool '{tool_name}' is marked with @tool_context "
+                        f"but does not accept parameter '{context_param}'."
+                    )
+                self._context_params[tool_name] = context_param
+
             self._functions[tool_name] = obj
             logger.debug(f"Discovered custom tool: {tool_name}")
 
@@ -182,7 +227,11 @@ class CustomToolset(AbstractToolset[WorkerContext]):
 
         tools = {}
         for name, func in self._functions.items():
-            schema = _build_schema_from_function(func)
+            skip_params = set()
+            context_param = self._context_params.get(name)
+            if context_param:
+                skip_params.add(context_param)
+            schema = _build_schema_from_function(func, skip_params=skip_params)
 
             tools[name] = ToolsetTool(
                 toolset=self,
@@ -219,6 +268,10 @@ class CustomToolset(AbstractToolset[WorkerContext]):
             raise ValueError(f"Unknown custom tool: {name}")
 
         func = self._functions[name]
+        context_param = self._context_params.get(name)
+        if context_param:
+            tool_args = dict(tool_args)
+            tool_args[context_param] = ctx.deps
 
         # Handle both sync and async functions
         if inspect.iscoroutinefunction(func):

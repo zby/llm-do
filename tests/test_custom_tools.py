@@ -9,6 +9,8 @@ from pydantic_ai.models.test import TestModel
 
 from llm_do import (
     ApprovalController,
+    WorkerContext,
+    WorkerDefinition,
     WorkerRegistry,
     run_worker_async,
 )
@@ -332,3 +334,75 @@ def test_custom_tools_rejects_non_whitelisted_tool(tmp_path):
     # This should raise ValueError
     with pytest.raises(ValueError, match="Unknown custom tool: secret_tool"):
         asyncio.run(toolset.call_tool("secret_tool", {"x": 5}, mock_ctx, None))
+
+
+def _build_custom_tool_ctx(tools_py: Path, *, depth: int = 0) -> MagicMock:
+    worker = WorkerDefinition(name="custom_tools_ctx")
+    deps = WorkerContext(
+        worker=worker,
+        effective_model=None,
+        approval_controller=ApprovalController(mode="approve_all"),
+        depth=depth,
+        custom_tools_path=tools_py,
+    )
+    mock_ctx = MagicMock()
+    mock_ctx.deps = deps
+    return mock_ctx
+
+
+def test_custom_tools_context_injection(tmp_path):
+    """Test that @tool_context injects WorkerContext into custom tools."""
+    tools_py = tmp_path / "tools.py"
+    tools_py.write_text(
+        "from llm_do import tool_context\n\n"
+        "@tool_context\n"
+        "def add_depth(value: int, ctx) -> int:\n"
+        "    return value + ctx.depth\n"
+    )
+
+    toolset = CustomToolset(config={"add_depth": {}})
+    mock_ctx = _build_custom_tool_ctx(tools_py, depth=3)
+
+    tools = asyncio.run(toolset.get_tools(mock_ctx))
+    result = asyncio.run(
+        toolset.call_tool("add_depth", {"value": 4}, mock_ctx, tools["add_depth"])
+    )
+
+    assert result == 7
+
+
+def test_custom_tools_context_schema_omits_ctx(tmp_path):
+    """Test that injected context params are excluded from tool schemas."""
+    tools_py = tmp_path / "tools.py"
+    tools_py.write_text(
+        "from llm_do import tool_context\n\n"
+        "@tool_context\n"
+        "def add_depth(value: int, ctx) -> int:\n"
+        "    return value + ctx.depth\n"
+    )
+
+    toolset = CustomToolset(config={"add_depth": {}})
+    mock_ctx = _build_custom_tool_ctx(tools_py)
+    tools = asyncio.run(toolset.get_tools(mock_ctx))
+    schema = tools["add_depth"].tool_def.parameters_json_schema
+
+    assert "ctx" not in schema.get("properties", {})
+    assert "ctx" not in schema.get("required", [])
+    assert "value" in schema.get("properties", {})
+
+
+def test_custom_tools_context_requires_param(tmp_path):
+    """Test that @tool_context requires the declared parameter to exist."""
+    tools_py = tmp_path / "tools.py"
+    tools_py.write_text(
+        "from llm_do import tool_context\n\n"
+        "@tool_context\n"
+        "def bad_tool(value: int) -> int:\n"
+        "    return value\n"
+    )
+
+    toolset = CustomToolset(config={"bad_tool": {}})
+    mock_ctx = _build_custom_tool_ctx(tools_py)
+
+    with pytest.raises(ValueError, match="marked with @tool_context"):
+        asyncio.run(toolset.get_tools(mock_ctx))

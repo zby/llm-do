@@ -306,6 +306,20 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     worker_result: list[Any] = []
     worker_exit_code: list[int] = [0]  # Use list to allow modification in nested function
 
+    def _emit_error_event(message: str, *, error_type: str) -> None:
+        from .ui.events import ErrorEvent
+
+        error_event = ErrorEvent(
+            worker="worker",
+            message=message,
+            error_type=error_type,
+        )
+        event_queue.put_nowait(error_event)
+        # Also log to buffer for post-TUI display
+        log_backend.display(error_event)
+        event_queue.put_nowait(None)
+        worker_exit_code[0] = 1
+
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
         try:
@@ -380,18 +394,43 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
             event_queue.put_nowait(None)
             return 0
 
+        except FileNotFoundError as e:
+            _emit_error_event(f"Error: {e}", error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return 1
+        except json.JSONDecodeError as e:
+            _emit_error_event(f"Invalid JSON: {e}", error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return 1
+        except ValueError as e:
+            _emit_error_event(f"Error: {e}", error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return 1
+        except ModelHTTPError as e:
+            message = f"Model API error (status {e.status_code}): {e.model_name}"
+            if e.body and isinstance(e.body, dict):
+                error_info = e.body.get("error", {})
+                if isinstance(error_info, dict):
+                    msg = error_info.get("message", "")
+                    if msg:
+                        message = f"{message}\n  {msg}"
+            _emit_error_event(message, error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return 1
+        except (UnexpectedModelBehavior, UserError) as e:
+            _emit_error_event(f"Error: {e}", error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return 1
+        except KeyboardInterrupt:
+            _emit_error_event("Aborted by user", error_type="KeyboardInterrupt")
+            return 1
         except Exception as e:
-            from .ui.events import ErrorEvent
-            error_event = ErrorEvent(
-                worker="worker",
-                message=str(e),
-                error_type=type(e).__name__,
-            )
-            event_queue.put_nowait(error_event)
-            # Also log to buffer for post-TUI display
-            log_backend.display(error_event)
-            event_queue.put_nowait(None)
-            worker_exit_code[0] = 1
+            _emit_error_event(f"Unexpected error: {e}", error_type=type(e).__name__)
             if args.debug:
                 raise
             return 1

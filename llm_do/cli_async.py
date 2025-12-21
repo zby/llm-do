@@ -192,6 +192,39 @@ def _parse_init_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _parse_oauth_args(argv: list[str]) -> argparse.Namespace:
+    """Parse arguments for 'llm-do oauth' command."""
+    parser = argparse.ArgumentParser(
+        prog="llm-do oauth",
+        description="Manage OAuth credentials",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    login_parser = subparsers.add_parser("login", help="Login with OAuth provider")
+    login_parser.add_argument(
+        "--provider",
+        default="anthropic",
+        choices=["anthropic"],
+        help="OAuth provider to use (default: anthropic)",
+    )
+    login_parser.add_argument(
+        "--open-browser",
+        action="store_true",
+        default=False,
+        help="Attempt to open the authorization URL in a browser",
+    )
+
+    logout_parser = subparsers.add_parser("logout", help="Logout and clear OAuth credentials")
+    logout_parser.add_argument(
+        "--provider",
+        default="anthropic",
+        choices=["anthropic"],
+        help="OAuth provider to clear (default: anthropic)",
+    )
+
+    return parser.parse_args(argv)
+
+
 def init_project(argv: list[str]) -> int:
     """Initialize a new llm-do project with a sample worker."""
     args = _parse_init_args(argv)
@@ -230,6 +263,53 @@ Respond to the user's request.
     print(f"  cd {project_path} && llm-do \"your message\"")
 
     return 0
+
+
+async def run_oauth_cli(argv: list[str]) -> int:
+    """Handle the oauth subcommand."""
+    import sys
+    import webbrowser
+
+    from .oauth import get_oauth_path, has_oauth_credentials, login_anthropic, remove_oauth_credentials
+
+    args = _parse_oauth_args(argv)
+
+    if args.command == "login":
+        if args.provider != "anthropic":
+            print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
+            return 2
+
+        def on_auth_url(url: str) -> None:
+            print("Open this URL in your browser to authorize:")
+            print(url)
+            if args.open_browser:
+                webbrowser.open(url)
+
+        async def on_prompt_code() -> str:
+            return input("Paste the authorization code (format: code#state): ").strip()
+
+        try:
+            await login_anthropic(on_auth_url, on_prompt_code)
+        except Exception as exc:
+            print(f"OAuth login failed: {exc}", file=sys.stderr)
+            return 1
+
+        print(f"Saved OAuth credentials to {get_oauth_path()}")
+        return 0
+
+    if args.command == "logout":
+        if args.provider != "anthropic":
+            print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
+            return 2
+        if not has_oauth_credentials(args.provider):
+            print(f"No OAuth credentials found for {args.provider}")
+            return 0
+        remove_oauth_credentials(args.provider)
+        print(f"Cleared OAuth credentials for {args.provider}")
+        return 0
+
+    print(f"Unknown OAuth command: {args.command}", file=sys.stderr)
+    return 2
 
 
 # ---------------------------------------------------------------------------
@@ -753,6 +833,8 @@ def main() -> int:
     argv = sys.argv[1:]
     if argv and argv[0] == "init":
         return init_project(argv[1:])
+    if argv and argv[0] == "oauth":
+        return asyncio.run(run_oauth_cli(argv[1:]))
 
     return asyncio.run(run_async_cli(argv))
 

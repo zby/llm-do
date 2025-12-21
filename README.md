@@ -42,6 +42,20 @@ llm-do "Tell me a joke" --model anthropic:claude-haiku-4-5
 
 The CLI runs the `main` tool (`tools.py::main` or `main.worker`) in the current directory. If both exist, llm-do errors to avoid ambiguity. See [`examples/`](examples/) for more.
 
+### OAuth Login (Anthropic Pro/Max)
+
+Use the OAuth helper to authenticate with Anthropic subscriptions:
+
+```bash
+llm-do oauth login --provider anthropic
+```
+
+Credentials are stored at `~/.llm-do/oauth.json`. Clear them with:
+
+```bash
+llm-do oauth logout --provider anthropic
+```
+
 ## Core Concepts
 
 Workers are `.worker` files: YAML front matter (config) + body (instructions). Workers and Python tools form a unified function space—each is exposed as a callable tool, taking input and returning results. LLM reasoning and deterministic code call each other freely (nested calls capped at depth 5):

@@ -10,7 +10,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from llm_do import WorkerDefinition, WorkerRegistry, WorkerRunResult
-from llm_do.cli_async import init_project, main, parse_args, run_async_cli
+from llm_do.cli_async import init_project, main, parse_args, run_async_cli, run_oauth_cli
+from llm_do.oauth.storage import (
+    OAuthCredentials,
+    reset_oauth_storage,
+    save_oauth_credentials,
+    set_oauth_storage,
+)
 
 
 def test_parse_args_message_only():
@@ -387,3 +393,44 @@ def test_async_cli_headless_with_approve_all(tmp_path, monkeypatch):
 
     result = asyncio.run(run_test())
     assert result == 0
+
+
+def test_oauth_logout_no_credentials(capsys):
+    async def run_test():
+        return await run_oauth_cli(["logout", "--provider", "anthropic"])
+
+    result = asyncio.run(run_test())
+    assert result == 0
+    captured = capsys.readouterr()
+    assert "No OAuth credentials found" in captured.out
+
+
+def test_oauth_logout_clears_credentials(capsys):
+    class InMemoryStorage:
+        def __init__(self) -> None:
+            self._storage = {}
+
+        def load(self):
+            return dict(self._storage)
+
+        def save(self, storage):
+            self._storage = dict(storage)
+
+    storage = InMemoryStorage()
+    set_oauth_storage(storage)
+    try:
+        save_oauth_credentials(
+            "anthropic",
+            OAuthCredentials(refresh="refresh", access="access", expires=0),
+        )
+
+        async def run_test():
+            return await run_oauth_cli(["logout", "--provider", "anthropic"])
+
+        result = asyncio.run(run_test())
+    finally:
+        reset_oauth_storage()
+
+    assert result == 0
+    captured = capsys.readouterr()
+    assert "Cleared OAuth credentials" in captured.out

@@ -314,7 +314,7 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
 
             registry = WorkerRegistry(registry_root)
             tool_registry = ToolRegistry(registry)
-            resolved = tool_registry.resolve(tool_name)
+            resolved = tool_registry.find_tool(tool_name)
 
             if args.config_overrides:
                 if resolved.kind != "worker":
@@ -438,7 +438,7 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
 
         registry = WorkerRegistry(registry_root)
         tool_registry = ToolRegistry(registry)
-        resolved = tool_registry.resolve(tool_name)
+        resolved = tool_registry.find_tool(tool_name)
 
         if args.config_overrides:
             if resolved.kind != "worker":
@@ -545,7 +545,7 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
 
         registry = WorkerRegistry(registry_root)
         tool_registry = ToolRegistry(registry)
-        resolved = tool_registry.resolve(tool_name)
+        resolved = tool_registry.find_tool(tool_name)
 
         if args.config_overrides:
             if resolved.kind != "worker":

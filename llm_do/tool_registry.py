@@ -94,7 +94,7 @@ class ToolRegistry:
                 + " both exist. Rename the tool(s) or worker(s) to remove ambiguity."
             )
 
-    def resolve(self, name: str) -> Tool:
+    def find_tool(self, name: str) -> Tool:
         """Resolve a tool name to a code tool or worker."""
         self._check_collisions()
 
@@ -121,7 +121,3 @@ class ToolRegistry:
             )
 
         raise FileNotFoundError(f"Tool not found: {name}")
-
-    def find_tool(self, name: str) -> Tool:
-        """Alias for resolve()."""
-        return self.resolve(name)

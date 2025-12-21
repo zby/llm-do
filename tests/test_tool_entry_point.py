@@ -20,7 +20,7 @@ def test_tool_registry_resolves_code_tool_without_worker(tmp_path: Path) -> None
     registry = WorkerRegistry(tmp_path)
     tool_registry = ToolRegistry(registry)
 
-    tool = tool_registry.resolve("main")
+    tool = tool_registry.find_tool("main")
 
     assert tool.kind == "code"
     assert tool.source_path == tools_py
@@ -39,7 +39,7 @@ def test_tool_registry_detects_name_collision(tmp_path: Path) -> None:
     tool_registry = ToolRegistry(registry)
 
     with pytest.raises(ValueError, match="tools\\.py::main and main\\.worker"):
-        tool_registry.resolve("main")
+        tool_registry.find_tool("main")
 
 
 def test_run_tool_async_code_entry_calls_worker(tmp_path: Path) -> None:

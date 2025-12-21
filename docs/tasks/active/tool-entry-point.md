@@ -200,7 +200,7 @@ resolve_entry_tool("main")
 - Use `WorkerRegistry.list_workers()` for all worker names (includes built-ins + generated).
 - Add a helper to locate project `tools.py` even if `main.worker` does not exist; do not reuse `find_custom_tools("main")` because it short-circuits when the worker is missing.
 - Tools discovery should only include functions defined in the module (`func.__module__ == module.__name__`) and skip private names starting with `_`.
-- Suggested API: `ToolRegistry.resolve(name)` -> `Tool(kind="code"|"worker", handler=callable|worker_name, source_path=Path)`.
+- Suggested API: `ToolRegistry.find_tool(name)` -> `Tool(kind="code"|"worker", handler=callable|worker_name, source_path=Path)`.
 - Collision checks: code tool name vs worker name -> error at discovery time (before execution).
 
 ### Tool Invocation

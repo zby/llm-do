@@ -232,7 +232,7 @@ async def call_tool_async(
 ) -> Any:
     """Call a tool by name (code or worker)."""
     tool_registry = ToolRegistry(registry)
-    resolved = tool_registry.resolve(tool)
+    resolved = tool_registry.find_tool(tool)
 
     if resolved.kind == "worker":
         result = await call_worker_async(
@@ -412,7 +412,7 @@ async def run_tool_async(
         approval_controller = ApprovalController(mode="approve_all")
 
     tool_registry = ToolRegistry(registry)
-    resolved = tool_registry.resolve(tool)
+    resolved = tool_registry.find_tool(tool)
 
     if resolved.kind == "worker":
         return await run_worker_async(

@@ -224,6 +224,24 @@ def test_worker_call_tool_respects_approval(monkeypatch, tmp_path):
     assert invoked
 
 
+def test_worker_call_requires_approval_for_generated_worker(tmp_path):
+    registry = _registry(tmp_path)
+    parent = WorkerDefinition(
+        name="parent",
+        instructions="",
+        toolsets={"delegation": {"worker_call": {}}},
+    )
+    registry.save_definition(parent)
+    context = _parent_context(registry, parent)
+    registry.register_generated("child")
+
+    toolset, mock_ctx = _create_toolset_and_context(context)
+
+    result = toolset.needs_approval("worker_call", {"worker": "child"}, mock_ctx)
+
+    assert result.is_needs_approval
+
+
 def test_worker_call_blocks_non_generated_worker(tmp_path):
     """worker_call only works for session-generated workers, not configured ones."""
     registry = _registry(tmp_path)

@@ -52,7 +52,7 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
     Approval logic:
     - Worker tools (worker names): Always require approval
     - worker_create: Requires approval when enabled (creates new workers)
-    - worker_call: Pre-approved for session-generated workers only, blocked otherwise
+    - worker_call: Requires approval for session-generated workers only, blocked otherwise
     """
 
     def __init__(
@@ -225,7 +225,7 @@ class DelegationToolset(AbstractToolset[WorkerContext]):
             # worker_call is restricted to session-generated workers only
             if worker_name and worker_ctx:
                 if self._is_generated_worker(worker_ctx, worker_name):
-                    return ApprovalResult.pre_approved()
+                    return ApprovalResult.needs_approval()
 
             # Block if not a session-generated worker
             return ApprovalResult.blocked(

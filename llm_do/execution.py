@@ -73,6 +73,46 @@ def _json_default(obj: Any) -> Any:
     return str(obj)
 
 
+def _merge_anthropic_beta_header(existing: Any, override: Any) -> Optional[str]:
+    tokens: list[str] = []
+
+    def _add_tokens(value: Any) -> None:
+        if not value:
+            return
+        if isinstance(value, str):
+            parts = value.split(",")
+        elif isinstance(value, (list, tuple, set)):
+            parts = list(value)
+        else:
+            parts = [str(value)]
+        for part in parts:
+            token = part.strip() if isinstance(part, str) else str(part).strip()
+            if token and token not in tokens:
+                tokens.append(token)
+
+    _add_tokens(override)
+    _add_tokens(existing)
+    return ",".join(tokens) if tokens else None
+
+
+def _merge_extra_headers(existing: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
+    merged = dict(existing)
+    for key, value in overrides.items():
+        if key == "anthropic-beta":
+            merged[key] = _merge_anthropic_beta_header(merged.get(key), value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _prepend_instructions(identity: str, instructions: Any) -> Any:
+    if not instructions:
+        return identity
+    if isinstance(instructions, (list, tuple)):
+        return [identity, *instructions]
+    return [identity, instructions]
+
+
 def format_user_prompt(user_input: Any) -> str:
     """Serialize user input into a prompt string for the agent.
 
@@ -314,8 +354,10 @@ async def default_agent_runner_async(
             existing_settings = exec_ctx.agent_kwargs.get("model_settings")
             if isinstance(existing_settings, dict):
                 merged = dict(existing_settings)
-                extra_headers = dict(merged.get("extra_headers", {}))
-                extra_headers.update(oauth_overrides.model_settings.get("extra_headers", {}))
+                extra_headers = _merge_extra_headers(
+                    dict(merged.get("extra_headers", {})),
+                    dict(oauth_overrides.model_settings.get("extra_headers", {})),
+                )
                 merged["extra_headers"] = extra_headers
                 for key, value in oauth_overrides.model_settings.items():
                     if key != "extra_headers":
@@ -324,7 +366,10 @@ async def default_agent_runner_async(
             else:
                 exec_ctx.agent_kwargs["model_settings"] = oauth_overrides.model_settings
         if oauth_overrides.system_prompt:
-            exec_ctx.agent_kwargs["system_prompt"] = oauth_overrides.system_prompt
+            exec_ctx.agent_kwargs["instructions"] = _prepend_instructions(
+                oauth_overrides.system_prompt,
+                exec_ctx.agent_kwargs.get("instructions"),
+            )
 
     # Create Agent
     agent = Agent(**exec_ctx.agent_kwargs)

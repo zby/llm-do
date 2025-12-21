@@ -47,19 +47,19 @@ The CLI runs the `main` tool (`tools.py::main` or `main.worker`) in the current 
 Use the OAuth helper to authenticate with Anthropic subscriptions:
 
 ```bash
-llm-do oauth login --provider anthropic
+llm-do-oauth login --provider anthropic
 ```
 
 Credentials are stored at `~/.llm-do/oauth.json`. Clear them with:
 
 ```bash
-llm-do oauth logout --provider anthropic
+llm-do-oauth logout --provider anthropic
 ```
 
 Check login status:
 
 ```bash
-llm-do oauth status --provider anthropic
+llm-do-oauth status --provider anthropic
 ```
 
 ## Core Concepts

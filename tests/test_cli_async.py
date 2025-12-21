@@ -396,13 +396,29 @@ def test_async_cli_headless_with_approve_all(tmp_path, monkeypatch):
 
 
 def test_oauth_logout_no_credentials(capsys):
+    class InMemoryStorage:
+        def __init__(self) -> None:
+            self._storage = {}
+
+        def load(self):
+            return dict(self._storage)
+
+        def save(self, storage):
+            self._storage = dict(storage)
+
+    storage = InMemoryStorage()
+    set_oauth_storage(storage)
+
     async def run_test():
         return await run_oauth_cli(["logout", "--provider", "anthropic"])
 
-    result = asyncio.run(run_test())
-    assert result == 0
-    captured = capsys.readouterr()
-    assert "No OAuth credentials found" in captured.out
+    try:
+        result = asyncio.run(run_test())
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "No OAuth credentials found" in captured.out
+    finally:
+        reset_oauth_storage()
 
 
 def test_oauth_logout_clears_credentials(capsys):

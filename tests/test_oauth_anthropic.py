@@ -4,7 +4,9 @@ import time
 import pytest
 
 from llm_do.oauth import (
+    ANTHROPIC_OAUTH_ACCEPT,
     ANTHROPIC_OAUTH_BETA,
+    ANTHROPIC_OAUTH_BETA_FEATURES,
     ANTHROPIC_OAUTH_DANGEROUS_HEADER,
     ANTHROPIC_OAUTH_SYSTEM_PROMPT,
     resolve_oauth_overrides,
@@ -145,6 +147,11 @@ def test_resolve_oauth_overrides(memory_storage):
     assert overrides is not None
     assert overrides.system_prompt == ANTHROPIC_OAUTH_SYSTEM_PROMPT
     assert overrides.model_settings is not None
-    assert overrides.model_settings["extra_headers"]["anthropic-beta"] == ANTHROPIC_OAUTH_BETA
+    assert overrides.model_settings["extra_headers"]["accept"] == ANTHROPIC_OAUTH_ACCEPT
+    beta_header = overrides.model_settings["extra_headers"]["anthropic-beta"]
+    beta_flags = {item.strip() for item in beta_header.split(",") if item.strip()}
+    assert ANTHROPIC_OAUTH_BETA in beta_flags
+    for feature in ANTHROPIC_OAUTH_BETA_FEATURES:
+        assert feature in beta_flags
     assert overrides.model_settings["extra_headers"][ANTHROPIC_OAUTH_DANGEROUS_HEADER] == "true"
     assert hasattr(overrides.model, "model_name")

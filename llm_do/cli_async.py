@@ -193,9 +193,9 @@ def _parse_init_args(argv: list[str]) -> argparse.Namespace:
 
 
 def _parse_oauth_args(argv: list[str]) -> argparse.Namespace:
-    """Parse arguments for 'llm-do oauth' command."""
+    """Parse arguments for 'llm-do-oauth' command."""
     parser = argparse.ArgumentParser(
-        prog="llm-do oauth",
+        prog="llm-do-oauth",
         description="Manage OAuth credentials",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -274,7 +274,7 @@ Respond to the user's request.
 
 
 async def run_oauth_cli(argv: list[str]) -> int:
-    """Handle the oauth subcommand."""
+    """Handle the OAuth CLI entrypoint."""
     import sys
     import webbrowser
 
@@ -843,14 +843,17 @@ async def run_async_cli(argv: Optional[list[str]] = None) -> int:
     return await _run_headless_mode(args)
 
 
+def oauth_main() -> int:
+    """Entry point for the llm-do-oauth command."""
+    return asyncio.run(run_oauth_cli(sys.argv[1:]))
+
+
 def main() -> int:
     """Entry point for the llm-do command."""
     # Handle 'init' subcommand
     argv = sys.argv[1:]
     if argv and argv[0] == "init":
         return init_project(argv[1:])
-    if argv and argv[0] == "oauth":
-        return asyncio.run(run_oauth_cli(argv[1:]))
 
     return asyncio.run(run_async_cli(argv))
 

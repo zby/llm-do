@@ -35,6 +35,7 @@ dependencies = [
 
 [project.scripts]
 llm-do = "llm_do.cli_async:main"
+llm-do-oauth = "llm_do.cli_async:oauth_main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/llm-do"

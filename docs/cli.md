@@ -33,7 +33,7 @@ llm-do --dir /path/to/project --tool analyzer "input message"
 Use the OAuth helper to log in with Anthropic subscriptions (Claude Pro/Max):
 
 ```bash
-llm-do oauth login --provider anthropic
+llm-do-oauth login --provider anthropic
 ```
 
 Paste the authorization code in the `code#state` format when prompted. Credentials are stored at `~/.llm-do/oauth.json`.
@@ -41,13 +41,13 @@ Paste the authorization code in the `code#state` format when prompted. Credentia
 To clear credentials:
 
 ```bash
-llm-do oauth logout --provider anthropic
+llm-do-oauth logout --provider anthropic
 ```
 
 Check login status:
 
 ```bash
-llm-do oauth status --provider anthropic
+llm-do-oauth status --provider anthropic
 ```
 
 Optional: `--open-browser` tries to open the authorization URL automatically.

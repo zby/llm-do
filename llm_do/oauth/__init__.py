@@ -24,6 +24,8 @@ from .storage import (
 logger = logging.getLogger(__name__)
 
 ANTHROPIC_OAUTH_BETA = "oauth-2025-04-20"
+ANTHROPIC_OAUTH_BETA_FEATURES = ("fine-grained-tool-streaming-2025-05-14",)
+ANTHROPIC_OAUTH_ACCEPT = "application/json"
 ANTHROPIC_OAUTH_DANGEROUS_HEADER = "anthropic-dangerous-direct-browser-access"
 ANTHROPIC_OAUTH_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude."
 
@@ -108,9 +110,11 @@ async def resolve_oauth_overrides(model: Any) -> Optional[OAuthModelOverrides]:
         return None
 
     oauth_model = _build_anthropic_oauth_model(model_name, token)
+    beta_flags = ",".join((ANTHROPIC_OAUTH_BETA, *ANTHROPIC_OAUTH_BETA_FEATURES))
     model_settings = {
         "extra_headers": {
-            "anthropic-beta": ANTHROPIC_OAUTH_BETA,
+            "accept": ANTHROPIC_OAUTH_ACCEPT,
+            "anthropic-beta": beta_flags,
             ANTHROPIC_OAUTH_DANGEROUS_HEADER: "true",
         }
     }
@@ -122,7 +126,9 @@ async def resolve_oauth_overrides(model: Any) -> Optional[OAuthModelOverrides]:
 
 
 __all__ = [
+    "ANTHROPIC_OAUTH_ACCEPT",
     "ANTHROPIC_OAUTH_BETA",
+    "ANTHROPIC_OAUTH_BETA_FEATURES",
     "ANTHROPIC_OAUTH_DANGEROUS_HEADER",
     "ANTHROPIC_OAUTH_SYSTEM_PROMPT",
     "OAuthCredentials",

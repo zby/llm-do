@@ -294,16 +294,32 @@ async def call_tool_async(
     input_data: Any,
     caller_context: ToolContext,
 ) -> Any:
-    """Call a tool by name (code or worker)."""
+    """Call a tool by name (code or worker).
+
+    For worker tools, input_data can be:
+    - A string: passed directly as input
+    - A dict with "input" and optional "attachments" keys:
+      {"input": "...", "attachments": ["path1.pdf", "path2.pdf"]}
+    """
     tool_registry = ToolRegistry(registry)
     resolved = tool_registry.find_tool(tool)
 
     if resolved.kind == "worker":
+        # Extract attachments from dict input if present
+        attachments = None
+        worker_input = input_data
+        if isinstance(input_data, dict):
+            attachments = input_data.get("attachments")
+            # If dict has "input" key, use that as the worker input
+            if "input" in input_data:
+                worker_input = input_data["input"]
+
         result = await call_worker_async(
             registry=registry,
             worker=tool,
-            input_data=input_data,
+            input_data=worker_input,
             caller_context=caller_context,
+            attachments=attachments,
         )
         return result.output
 

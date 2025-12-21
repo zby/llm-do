@@ -84,3 +84,49 @@ def test_run_tool_async_worker_entrypoint(tmp_path: Path) -> None:
     )
 
     assert result.output == "tool output"
+
+
+def test_call_tool_extracts_attachments_from_dict_input(tmp_path: Path) -> None:
+    """Test that call_tool extracts attachments from dict input when calling workers."""
+    # Create a test PDF file
+    test_file = tmp_path / "test.pdf"
+    test_file.write_bytes(b"%PDF-1.4 test content")
+
+    # Code entry point that calls a worker with dict input containing attachments
+    tools_py = tmp_path / "tools.py"
+    tools_py.write_text(
+        "from llm_do import tool_context\n\n"
+        "@tool_context\n"
+        "async def main(ctx, input: str) -> str:\n"
+        "    return await ctx.call_tool(\n"
+        "        'analyzer',\n"
+        "        {'input': 'analyze', 'attachments': [input]}\n"
+        "    )\n"
+    )
+
+    from llm_do import AttachmentPolicy
+
+    registry = WorkerRegistry(tmp_path)
+    registry.save_definition(
+        WorkerDefinition(
+            name="analyzer",
+            instructions="Analyze.",
+            attachment_policy=AttachmentPolicy(
+                max_attachments=1,
+                allowed_suffixes=[".pdf"],
+            ),
+        )
+    )
+
+    model = TestModel(call_tools=[], custom_output_text="analysis complete")
+
+    result = asyncio.run(
+        run_tool_async(
+            registry=registry,
+            tool="main",
+            input_data=str(test_file),
+            cli_model=model,
+        )
+    )
+
+    assert result.output == "analysis complete"

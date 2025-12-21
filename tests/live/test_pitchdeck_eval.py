@@ -20,7 +20,7 @@ from .conftest import skip_no_anthropic
 
 @skip_no_anthropic
 def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_registry, approve_all_controller):
-    """Test that the orchestrator can process PDF pitch decks.
+    """Test that the main orchestrator can process PDF pitch decks.
 
     This is the main integration test for the pitchdeck_eval example.
     It tests:
@@ -43,7 +43,7 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_registry, approve_
     result = asyncio.run(
         run_worker_async(
             registry=pitchdeck_eval_registry,
-            worker="pitch_orchestrator",
+            worker="main",
             input_data={},
             cli_model="anthropic:claude-haiku-4-5",
             approval_controller=approve_all_controller,

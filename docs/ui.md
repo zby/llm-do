@@ -85,7 +85,7 @@ The worker's `message_callback` parses raw events and enqueues typed `UIEvent` o
 The default interactive mode uses Textual:
 
 ```
-llm-do myworker "task"
+llm-do "task"
 ```
 
 ### Architecture

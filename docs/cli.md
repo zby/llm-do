@@ -75,8 +75,8 @@ Override the model for this run. If omitted, `llm-do` resolves an effective mode
 
 If none of these are set, the run errors with "No model configured".
 ```bash
-llm-do greeter "hello" --model anthropic:claude-sonnet-4-20250514
-llm-do greeter "hello" --model openai:gpt-4o
+llm-do --tool greeter "hello" --model anthropic:claude-sonnet-4-20250514
+llm-do --tool greeter "hello" --model openai:gpt-4o
 ```
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/).
@@ -90,8 +90,8 @@ export LLM_DO_MODEL=anthropic:claude-haiku-4-5
 **Model Compatibility:** Workers can declare `compatible_models` patterns to restrict which models can be used. If specified, the `--model` value is validated against these patterns:
 ```bash
 # Worker declares: compatible_models: ["anthropic:*"]
-llm-do pdf_analyzer --model openai:gpt-4o  # Error: incompatible model
-llm-do pdf_analyzer --model anthropic:claude-sonnet-4  # OK
+llm-do --tool pdf_analyzer --model openai:gpt-4o  # Error: incompatible model
+llm-do --tool pdf_analyzer --model anthropic:claude-sonnet-4  # OK
 ```
 
 See [Model Compatibility](#model-compatibility) below for pattern syntax.
@@ -112,7 +112,7 @@ The worker loads from `--dir` but filesystem tools operate on the current workin
 **`--creation-defaults FILE`**
 Provide JSON file with default settings for worker creation (for workers that create other workers):
 ```bash
-llm-do orchestrator --creation-defaults defaults.json
+llm-do --tool orchestrator --creation-defaults defaults.json
 ```
 
 **`--set KEY=VALUE`**
@@ -120,7 +120,7 @@ Override worker configuration fields at runtime without editing YAML files. Supp
 
 ```bash
 # Override model
-llm-do greeter "hello" --set model=openai:gpt-4o
+llm-do --tool greeter "hello" --set model=openai:gpt-4o
 
 # Override multiple fields
 llm-do --tool greeter "task" \
@@ -204,8 +204,8 @@ The `--set` flag enables runtime configuration overrides without modifying YAML 
 **Quick experimentation:**
 ```bash
 # Try different models
-llm-do greeter "hello" --set model=openai:gpt-4o
-llm-do greeter "hello" --set model=anthropic:claude-sonnet-4
+llm-do --tool greeter "hello" --set model=openai:gpt-4o
+llm-do --tool greeter "hello" --set model=anthropic:claude-sonnet-4
 ```
 
 **Production hardening:**
@@ -220,7 +220,7 @@ llm-do --tool greeter "task" \
 **CI/CD parameterization:**
 ```bash
 # Inject environment-specific settings
-llm-do processor "data" \
+llm-do --tool processor "data" \
   --set model=$CI_MODEL
 ```
 
@@ -296,7 +296,7 @@ When a worker delegates to another worker, the callee resolves (and validates) i
 
 ```bash
 # Worker has compatible_models: ["anthropic:*"]
-$ llm-do pdf_analyzer --model openai:gpt-4o
+$ llm-do --tool pdf_analyzer --model openai:gpt-4o
 Error: Model 'openai:gpt-4o' is not compatible with worker 'pdf_analyzer'.
 Compatible patterns: 'anthropic:*'
 ```

@@ -26,9 +26,11 @@ This is the **Unix philosophy for agents**: workers are files, dangerous operati
 
 ## Quick Start
 
+We use [uv](https://docs.astral.sh/uv/) for development. Install it via `curl -LsSf https://astral.sh/uv/install.sh | sh` or see the [installation docs](https://docs.astral.sh/uv/getting-started/installation/).
+
 ```bash
 # Install
-pip install -e .
+uv pip install -e .  # or: pip install -e .
 
 # Set your API key
 export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
@@ -38,7 +40,7 @@ cd examples/greeter
 llm-do "Tell me a joke" --model anthropic:claude-haiku-4-5
 ```
 
-The CLI runs the `main` tool (`tools.py::main` or `main.worker`) in the current directory. If both exist, llm-do errors to avoid ambiguity. Use `--tool` to run a specific tool. See [`examples/`](examples/) for more.
+The CLI runs the `main` tool (`tools.py::main` or `main.worker`) in the current directory. If both exist, llm-do errors to avoid ambiguity. See [`examples/`](examples/) for more.
 
 ## Core Concepts
 

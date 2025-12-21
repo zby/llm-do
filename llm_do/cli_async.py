@@ -497,13 +497,13 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
         if args.debug:
             raise
         return 1
-    except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1
-    except json.JSONDecodeError as e:
-        print(f"Invalid JSON: {e}", file=sys.stderr)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1
@@ -637,13 +637,13 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         if args.debug:
             raise
         return 1
-    except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1
-    except json.JSONDecodeError as e:
-        print(f"Invalid JSON: {e}", file=sys.stderr)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
         if args.debug:
             raise
         return 1

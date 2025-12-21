@@ -186,6 +186,18 @@ async def _invoke_code_tool(
             f"Tool '{func.__name__}' is marked with @tool_context "
             f"but does not accept parameter '{context_param}'."
         )
+    if context_param:
+        ctx_param = sig.parameters[context_param]
+        if ctx_param.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
+            raise ValueError(
+                f"Tool '{func.__name__}' uses an unsupported context parameter "
+                f"kind ({ctx_param.kind}). Use a keyword-capable parameter for "
+                f"'{context_param}'."
+            )
 
     params = [param for name, param in sig.parameters.items() if name != context_param]
     args: list[Any] = []
@@ -201,11 +213,63 @@ async def _invoke_code_tool(
                 "but input_data was provided."
             )
     elif len(params) == 1:
-        if context_param:
-            kwargs[params[0].name] = input_data
+        param = params[0]
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            if not isinstance(input_data, dict):
+                raise ValueError(
+                    f"Tool '{func.__name__}' expects keyword arguments; "
+                    "pass a dict for input_data."
+                )
+            if context_param and context_param in input_data:
+                raise ValueError(
+                    f"Tool '{func.__name__}' received input for injected "
+                    f"context parameter '{context_param}'."
+                )
+            kwargs.update(input_data)
+        elif param.kind == inspect.Parameter.KEYWORD_ONLY:
+            kwargs[param.name] = input_data
         else:
-            args.append(input_data)
+            if context_param:
+                ctx_param = sig.parameters[context_param]
+                order = list(sig.parameters.keys())
+                ctx_precedes = (
+                    ctx_param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+                    and order.index(context_param) < order.index(param.name)
+                )
+                if ctx_precedes:
+                    if param.kind == inspect.Parameter.POSITIONAL_ONLY:
+                        raise ValueError(
+                            f"Tool '{func.__name__}' has a positional-only "
+                            f"parameter ('{param.name}') before the injected "
+                            f"context '{context_param}'. Use keyword-capable "
+                            "parameters or move the context parameter after "
+                            "the input."
+                        )
+                    if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                        raise ValueError(
+                            f"Tool '{func.__name__}' cannot accept *args when "
+                            f"context '{context_param}' precedes it. Use a "
+                            "keyword-only context parameter or move context "
+                            "after the input."
+                        )
+                    kwargs[param.name] = input_data
+                else:
+                    args.append(input_data)
+            else:
+                args.append(input_data)
     else:
+        positional_only = [
+            param.name
+            for param in params
+            if param.kind == inspect.Parameter.POSITIONAL_ONLY
+        ]
+        if positional_only:
+            names = ", ".join(positional_only)
+            raise ValueError(
+                f"Tool '{func.__name__}' has positional-only parameters "
+                f"({names}). Use a single input parameter or refactor to "
+                "keyword-capable parameters."
+            )
         if not isinstance(input_data, dict):
             raise ValueError(
                 f"Tool '{func.__name__}' expects multiple inputs; "

@@ -229,6 +229,13 @@ class WorkerRegistry:
                 return path
         return paths[0]  # Default to workers/{name}.worker
 
+    def resolve_worker_path(self, name: str) -> Path:
+        """Return the resolved path for an existing worker definition."""
+        path = self._definition_path(name)
+        if not path.exists():
+            raise FileNotFoundError(f"Worker definition not found: {name}")
+        return path
+
     def _get_template_roots(self, worker_path: Path) -> list[Path]:
         """Build list of template search paths for a worker.
 

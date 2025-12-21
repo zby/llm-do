@@ -61,9 +61,10 @@ from .registry import WorkerRegistry
 from .runtime import (
     call_worker_async,
     create_worker,
+    run_tool_async,
     run_worker_async,
 )
-from .custom_toolset import tool_context
+from .tool_context import tool_context
 
 __all__: Iterable[str] = [
     "AgentRunner",
@@ -76,6 +77,7 @@ __all__: Iterable[str] = [
     "WorkerCreationDefaults",
     "WorkerRegistry",
     "WorkerRunResult",
+    "run_tool_async",
     "run_worker_async",
     "call_worker_async",
     "create_worker",

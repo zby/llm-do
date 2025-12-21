@@ -19,15 +19,15 @@ export LLM_DO_MODEL=anthropic:claude-haiku-4-5  # or openai:gpt-4o-mini
 ```bash
 cd examples/greeter
 
-# Run main.worker (default)
+# Run main tool (default)
 llm-do "Tell me a joke"
 
-# Or run a specific worker
-llm-do --worker greeter "Tell me a joke"
+# Or run a specific tool
+llm-do --tool greeter "Tell me a joke"
 ```
 
 The CLI automatically:
-- Runs `main.worker` by default (or use `--worker` for others)
+- Runs the `main` tool by default (or use `--tool` for others)
 - Accepts plain text messages
 - Returns the worker's response
 

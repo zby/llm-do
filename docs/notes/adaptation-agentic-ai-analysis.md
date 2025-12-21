@@ -115,7 +115,7 @@ toolsets:
 
 ```bash
 # Analyze past runs
-llm-do analyze --worker orchestrator --since "7 days"
+llm-do analyze --tool orchestrator --since "7 days"
 
 # Output:
 # - 23 runs, 18 successful

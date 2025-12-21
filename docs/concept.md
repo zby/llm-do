@@ -68,7 +68,7 @@ Workers start flexible, then harden as patterns stabilize:
 
 When rigid code needs flexibility, replace deterministic logic with worker calls:
 
-**Example**: A Python tool parses config files with regex. Edge cases multiply, regex becomes unmaintainable. Replace parsing with `ctx.deps.call_worker("config_parser", raw_text)`. The worker handles ambiguous formats; deterministic validation still runs on the output.
+**Example**: A Python tool parses config files with regex. Edge cases multiply, regex becomes unmaintainable. Replace parsing with `ctx.call_tool("config_parser", raw_text)`. The worker handles ambiguous formats; deterministic validation still runs on the output.
 
 ### The Hybrid Pattern
 
@@ -93,14 +93,18 @@ Part of that scaffold is **human oversight**. The ideal would be fully autonomou
 A common need is **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
 
 ```python
-async def evaluate_document(ctx: RunContext[ToolContext], path: str) -> dict:
+from llm_do import tool_context
+from llm_do.types import ToolContext
+
+@tool_context
+async def evaluate_document(path: str, ctx: ToolContext) -> dict:
     # Deterministic: load and validate
     content = load_file(path)
     if not validate_format(content):
         raise ValueError("Invalid format")
 
     # Neural: delegate ambiguous analysis
-    analysis = await ctx.deps.call_worker("content_analyzer", content)
+    analysis = await ctx.call_tool("content_analyzer", content)
 
     # Deterministic: compute final score
     return {"score": compute_score(analysis), "analysis": analysis}

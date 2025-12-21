@@ -1,27 +1,27 @@
 # CLI Reference
 
-The `llm-do` command-line interface runs workers with runtime configuration, approval modes, and output formatting.
+The `llm-do` command-line interface runs tools (workers or code) with runtime configuration, approval modes, and output formatting.
 
 ## Basic Usage
 
 ```bash
-# Run main.worker in current directory
+# Run main tool in current directory
 llm-do "input message"
 
-# Run specific worker in current directory
-llm-do --worker greeter "input message"
+# Run specific tool in current directory
+llm-do --tool greeter "input message"
 
-# Run main.worker from a different directory
+# Run main tool from a different directory
 llm-do --dir /path/to/project "input message"
 
-# Run specific worker from a different directory
-llm-do --dir /path/to/project --worker analyzer "input message"
+# Run specific tool from a different directory
+llm-do --dir /path/to/project --tool analyzer "input message"
 ```
 
 **Arguments:**
 - `MESSAGE` — Plain text input message. Use `--input` for JSON instead.
 - `--dir` — Registry root directory (defaults to current working directory)
-- `--worker` — Worker name to run (defaults to `main`)
+- `--tool` — Tool name to run (defaults to `main`)
 
 ## Core Options
 
@@ -30,33 +30,33 @@ llm-do --dir /path/to/project --worker analyzer "input message"
 **`--input JSON`**
 Provide JSON input instead of plain text message. Accepts inline JSON or path to JSON file:
 ```bash
-llm-do worker --input '{"query": "hello", "format": "brief"}'
-llm-do worker --input input.json
+llm-do --tool greeter --input '{"query": "hello", "format": "brief"}'
+llm-do --tool greeter --input input.json
 ```
 
 **`--attachments FILE [FILE ...]`**
 Pass attachment files to the worker:
 ```bash
-llm-do pitch_evaluator --attachments deck.pdf
-llm-do processor --attachments file1.txt file2.csv
+llm-do --tool pitch_evaluator --attachments deck.pdf
+llm-do --tool processor --attachments file1.txt file2.csv
 ```
 
 **`--json`**
 Output structured JSON instead of TUI display (useful for scripting):
 ```bash
-llm-do worker "hello" --json --approve-all | jq '.output'
+llm-do --tool greeter "hello" --json --approve-all | jq '.output'
 ```
 
 **`--headless`**
 Force non-interactive mode regardless of TTY detection. If stdin is a TTY and no approval flags are provided, the CLI prompts for approvals. If stdin is not a TTY, you must use `--approve-all` or `--strict`:
 ```bash
-llm-do worker "task" --headless --approve-all
+llm-do --tool greeter "task" --headless --approve-all
 ```
 
 **`--no-rich`**
 Disable Rich formatting (plain text, no ANSI colors). Applies to headless output and the post-TUI log buffer:
 ```bash
-llm-do worker "task" --no-rich
+llm-do --tool greeter "task" --no-rich
 ```
 
 ### Worker Configuration
@@ -326,7 +326,7 @@ llm-do "Tell me a joke"
 **Run a specific worker:**
 ```bash
 cd examples/greeter
-llm-do --worker greeter "Tell me a joke"
+llm-do --tool greeter "Tell me a joke"
 ```
 
 **Run worker from a different directory:**
@@ -336,7 +336,7 @@ llm-do --dir ~/my-project "process this"
 
 **JSON output for scripting:**
 ```bash
-result=$(llm-do --worker greeter "query" --json --approve-all)
+result=$(llm-do --tool greeter "query" --json --approve-all)
 echo "$result" | jq '.output'
 ```
 

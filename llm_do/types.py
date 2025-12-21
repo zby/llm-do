@@ -236,23 +236,52 @@ class ToolContext(Protocol):
         ...
 
     @property
+    def registry(self) -> Any:
+        """Registry for tool/worker resolution."""
+        ...
+
+    @property
+    def creation_defaults(self) -> WorkerCreationDefaults:
+        """Defaults for worker creation."""
+        ...
+
+    @property
+    def message_callback(self) -> Optional[MessageCallback]:
+        """Callback for streaming events and progress updates."""
+        ...
+
+    @property
+    def cli_model(self) -> Optional[ModelLike]:
+        """CLI model override for nested calls."""
+        ...
+
+    @property
     def cost_tracker(self) -> Optional[Any]:
         """Cost tracking across nested calls (future enhancement)."""
         ...
 
-    async def call_worker(self, worker: str, input_data: Any) -> Any:
-        """Delegate to another worker.
+    @property
+    def attachments(self) -> List[AttachmentPayload]:
+        """Attachments provided to the current tool execution."""
+        ...
+
+    async def call_tool(self, name: str, input_data: Any) -> Any:
+        """Call a tool by name (code or worker).
 
         Args:
-            worker: Name of the worker to call.
+            name: Name of the tool to call.
             input_data: Input payload for the worker.
 
         Returns:
-            The worker's output (unwrapped from WorkerRunResult).
+            The tool's output.
 
         Raises:
             RecursionError: If max depth exceeded.
         """
+        ...
+
+    async def call_worker(self, worker: str, input_data: Any) -> Any:
+        """Delegate to another worker (compat wrapper)."""
         ...
 
 
@@ -273,7 +302,7 @@ class WorkerContext:
     worker: WorkerDefinition
     effective_model: Optional[ModelLike]
     approval_controller: ApprovalController
-    cli_model: Optional[str] = None  # Original CLI model for propagation to sub-workers
+    cli_model: Optional[ModelLike] = None  # Original CLI model for propagation to sub-workers
 
     # Nesting control (implements ToolContext protocol)
     depth: int = 0  # Current nesting depth (0 = top-level worker)
@@ -294,32 +323,51 @@ class WorkerContext:
         if self.creation_defaults is None:
             self.creation_defaults = WorkerCreationDefaults()
 
-    async def call_worker(self, worker: str, input_data: Any) -> Any:
-        """Delegate to another worker (implements ToolContext protocol).
-
-        This is the primary method for tools to make nested worker calls.
-        Depth checking and increment are handled by call_worker_async.
-
-        Args:
-            worker: Name of the worker to delegate to.
-            input_data: Input payload for the worker.
-
-        Returns:
-            The worker's output (unwrapped from WorkerRunResult).
-
-        Raises:
-            RecursionError: If max worker depth would be exceeded.
-        """
+    async def call_tool(self, name: str, input_data: Any) -> Any:
+        """Call a tool by name (code or worker)."""
         # Late import to avoid circular dependency (runtime imports types)
-        from .runtime import call_worker_async
+        from .runtime import call_tool_async
 
-        result = await call_worker_async(
+        return await call_tool_async(
             registry=self.registry,
-            worker=worker,
+            tool=name,
             input_data=input_data,
             caller_context=self,
         )
-        return result.output
+
+    async def call_worker(self, worker: str, input_data: Any) -> Any:
+        """Delegate to another worker (compat wrapper)."""
+        return await self.call_tool(worker, input_data)
+
+
+@dataclass
+class ToolExecutionContext:
+    """Runtime context for code tool execution."""
+
+    registry: Any  # Tool/Worker registry
+    approval_controller: ApprovalController
+    creation_defaults: WorkerCreationDefaults = field(default_factory=WorkerCreationDefaults)
+    message_callback: Optional[MessageCallback] = None
+    cli_model: Optional[ModelLike] = None
+    attachments: List[AttachmentPayload] = field(default_factory=list)
+    depth: int = 0
+    cost_tracker: Optional[Any] = None
+
+    async def call_tool(self, name: str, input_data: Any) -> Any:
+        """Call a tool by name (code or worker)."""
+        # Late import to avoid circular dependency (runtime imports types)
+        from .runtime import call_tool_async
+
+        return await call_tool_async(
+            registry=self.registry,
+            tool=name,
+            input_data=input_data,
+            caller_context=self,
+        )
+
+    async def call_worker(self, worker: str, input_data: Any) -> Any:
+        """Delegate to another worker (compat wrapper)."""
+        return await self.call_tool(worker, input_data)
 
 
 @dataclass

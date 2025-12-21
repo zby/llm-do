@@ -38,7 +38,7 @@ cd examples/pitchdeck_eval
 llm-do --model anthropic:claude-haiku-4-5 --approve-all
 ```
 
-The CLI runs `main.worker` by default, which orchestrates the evaluation workflow.
+The CLI runs the `main` tool by default (`main.worker` in this example), which orchestrates the evaluation workflow.
 
 Output will show rich formatted message traces including tool calls, file reads, and
 worker delegations.

@@ -25,12 +25,12 @@ pip install -e .
 # Set your API key
 export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 
-# Run a worker
+# Run the entry tool
 cd examples/greeter
 llm-do "Tell me a joke" --model anthropic:claude-haiku-4-5
 ```
 
-The CLI runs `main.worker` in the current directory. Use `--worker` to run a specific worker. See [`examples/`](examples/) for more.
+The CLI runs the `main` tool (`tools.py::main` or `main.worker`) in the current directory. Use `--tool` to run a specific tool. See [`examples/`](examples/) for more.
 
 ## Core Concepts
 
@@ -98,7 +98,7 @@ from llm_do import tool_context
 @tool_context
 async def analyze_config(raw: str, ctx) -> str:
     """Delegate parsing to a worker."""
-    return await ctx.call_worker("config_parser", raw)
+    return await ctx.call_tool("config_parser", raw)
 ```
 
 You can also use:
@@ -108,12 +108,12 @@ You can also use:
 ## CLI Reference
 
 ```bash
-# Run main.worker in current directory
+# Run the main tool in the current directory
 cd my-project
 llm-do "input message" --model anthropic:claude-haiku-4-5
 
-# Run specific worker
-llm-do --worker orchestrator "input" --model anthropic:claude-haiku-4-5
+# Run specific tool
+llm-do --tool orchestrator "input" --model anthropic:claude-haiku-4-5
 
 # Run from a different directory
 llm-do --dir /path/to/project "input" --model anthropic:claude-haiku-4-5

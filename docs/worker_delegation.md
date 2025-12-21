@@ -23,12 +23,12 @@ def evaluator(
 ### ToolContext (Python tools calling workers)
 
 ```python
-from pydantic_ai import RunContext
+from llm_do import tool_context
 from llm_do.types import ToolContext
 
-@agent.tool
-async def orchestrate(ctx: RunContext[ToolContext], task: str) -> str:
-    return await ctx.deps.call_worker("evaluator", task)
+@tool_context
+async def orchestrate(task: str, ctx: ToolContext) -> str:
+    return await ctx.call_tool("evaluator", task)
 ```
 
 ---

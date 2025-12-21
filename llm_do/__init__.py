@@ -20,6 +20,7 @@ from .base import (
     WorkerSpec,
     call_worker_async,
     create_worker,
+    run_tool_async,
     run_worker_async,
     tool_context,
 )
@@ -48,6 +49,7 @@ __all__ = [
     "WorkerSpec",
     "call_worker_async",
     "create_worker",
+    "run_tool_async",
     "run_worker_async",
     "tool_context",
     "__version__",

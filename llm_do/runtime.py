@@ -19,10 +19,15 @@ from pydantic import BaseModel
 
 from .execution import default_agent_runner_async
 from .model_compat import select_model, NoModelError
+from .tool_context import get_context_param
+from .tool_registry import ToolRegistry
 from pydantic_ai_blocking_approval import ApprovalController
 from .attachments import AttachmentInput, AttachmentPayload
 from .types import (
     MessageCallback,
+    ModelLike,
+    ToolContext,
+    ToolExecutionContext,
     WorkerContext,
     WorkerCreationDefaults,
     WorkerDefinition,
@@ -49,12 +54,34 @@ class _WorkerExecutionPrep:
     output_model: Optional[Type[BaseModel]]
 
 
+def _normalize_attachments(
+    attachments: Optional[Sequence[AttachmentInput]],
+) -> List[AttachmentPayload]:
+    """Normalize attachments to payloads (no policy validation)."""
+    attachment_payloads: List[AttachmentPayload] = []
+    if not attachments:
+        return attachment_payloads
+
+    for item in attachments:
+        if isinstance(item, AttachmentPayload):
+            attachment_payloads.append(item)
+            continue
+
+        display_name = str(item)
+        path = Path(item).expanduser().resolve()
+        attachment_payloads.append(
+            AttachmentPayload(path=path, display_name=display_name)
+        )
+
+    return attachment_payloads
+
+
 def _prepare_worker_context(
     *,
     registry: Any,
     worker: str,
     attachments: Optional[Sequence[AttachmentInput]],
-    cli_model: Optional[str],
+    cli_model: Optional[ModelLike],
     creation_defaults: Optional[WorkerCreationDefaults],
     approval_controller: ApprovalController,
     message_callback: Optional[MessageCallback],
@@ -71,18 +98,7 @@ def _prepare_worker_context(
 
     defaults = creation_defaults or WorkerCreationDefaults()
 
-    attachment_payloads: List[AttachmentPayload] = []
-    if attachments:
-        for item in attachments:
-            if isinstance(item, AttachmentPayload):
-                attachment_payloads.append(item)
-                continue
-
-            display_name = str(item)
-            path = Path(item).expanduser().resolve()
-            attachment_payloads.append(
-                AttachmentPayload(path=path, display_name=display_name)
-            )
+    attachment_payloads = _normalize_attachments(attachments)
 
     # Validate attachments against receiver's policy (type/count/size constraints)
     if attachment_payloads:
@@ -155,6 +171,77 @@ def _handle_result(
     return WorkerRunResult(output=output, messages=messages)
 
 
+async def _invoke_code_tool(
+    func: Callable[..., Any],
+    *,
+    input_data: Any,
+    ctx: ToolContext,
+) -> Any:
+    """Invoke a code tool with optional context injection."""
+    context_param = get_context_param(func)
+    sig = inspect.signature(func)
+
+    if context_param and context_param not in sig.parameters:
+        raise ValueError(
+            f"Tool '{func.__name__}' is marked with @tool_context "
+            f"but does not accept parameter '{context_param}'."
+        )
+
+    params = [param for name, param in sig.parameters.items() if name != context_param]
+    args: list[Any] = []
+    kwargs: dict[str, Any] = {}
+
+    if context_param:
+        kwargs[context_param] = ctx
+
+    if len(params) == 0:
+        if input_data not in (None, {}, ""):
+            raise ValueError(
+                f"Tool '{func.__name__}' does not accept input "
+                "but input_data was provided."
+            )
+    elif len(params) == 1:
+        args.append(input_data)
+    else:
+        if not isinstance(input_data, dict):
+            raise ValueError(
+                f"Tool '{func.__name__}' expects multiple inputs; "
+                "pass a dict for input_data."
+            )
+        kwargs.update(input_data)
+
+    if inspect.iscoroutinefunction(func):
+        return await func(*args, **kwargs)
+    return func(*args, **kwargs)
+
+
+async def call_tool_async(
+    *,
+    registry: Any,  # WorkerRegistry - avoid circular import
+    tool: str,
+    input_data: Any,
+    caller_context: ToolContext,
+) -> Any:
+    """Call a tool by name (code or worker)."""
+    tool_registry = ToolRegistry(registry)
+    resolved = tool_registry.resolve(tool)
+
+    if resolved.kind == "worker":
+        result = await call_worker_async(
+            registry=registry,
+            worker=tool,
+            input_data=input_data,
+            caller_context=caller_context,
+        )
+        return result.output
+
+    return await _invoke_code_tool(
+        resolved.handler,
+        input_data=input_data,
+        ctx=caller_context,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Worker delegation
 # ---------------------------------------------------------------------------
@@ -163,7 +250,7 @@ async def call_worker_async(
     worker: str,
     input_data: Any,
     *,
-    caller_context: WorkerContext,
+    caller_context: ToolContext,
     attachments: Optional[Sequence[AttachmentInput]] = None,
     agent_runner: Optional[Callable] = None,
 ) -> WorkerRunResult:
@@ -181,7 +268,7 @@ async def call_worker_async(
         registry: Source for worker definitions.
         worker: Name of the worker to delegate to.
         input_data: Input payload for the delegated worker.
-        caller_context: Context from the calling worker (propagates depth and approvals).
+        caller_context: Context from the calling tool/worker (propagates depth and approvals).
         attachments: Optional files to pass to the delegated worker.
         agent_runner: Optional async agent runner (defaults to async PydanticAI).
 
@@ -294,13 +381,76 @@ def create_worker(
 # ---------------------------------------------------------------------------
 
 
+async def run_tool_async(
+    *,
+    registry: Any,  # WorkerRegistry - avoid circular import
+    tool: str,
+    input_data: Any,
+    attachments: Optional[Sequence[AttachmentInput]] = None,
+    cli_model: Optional[ModelLike] = None,
+    creation_defaults: Optional[WorkerCreationDefaults] = None,
+    agent_runner: Optional[Callable] = None,
+    approval_controller: Optional[ApprovalController] = None,
+    message_callback: Optional[MessageCallback] = None,
+    depth: int = 0,
+    cost_tracker: Optional[Any] = None,
+) -> WorkerRunResult:
+    """Execute a tool by name (async version).
+
+    Code tools are invoked directly with a ToolExecutionContext.
+    Worker tools delegate to run_worker_async.
+    """
+    if approval_controller is None:
+        approval_controller = ApprovalController(mode="approve_all")
+
+    tool_registry = ToolRegistry(registry)
+    resolved = tool_registry.resolve(tool)
+
+    if resolved.kind == "worker":
+        return await run_worker_async(
+            registry=registry,
+            worker=tool,
+            input_data=input_data,
+            attachments=attachments,
+            cli_model=cli_model,
+            creation_defaults=creation_defaults,
+            agent_runner=agent_runner,
+            approval_controller=approval_controller,
+            message_callback=message_callback,
+            depth=depth,
+            cost_tracker=cost_tracker,
+        )
+
+    defaults = creation_defaults or WorkerCreationDefaults()
+    attachment_payloads = _normalize_attachments(attachments)
+
+    context = ToolExecutionContext(
+        registry=registry,
+        approval_controller=approval_controller,
+        creation_defaults=defaults,
+        message_callback=message_callback,
+        cli_model=cli_model,
+        attachments=attachment_payloads,
+        depth=depth,
+        cost_tracker=cost_tracker,
+    )
+
+    output = await _invoke_code_tool(
+        resolved.handler,
+        input_data=input_data,
+        ctx=context,
+    )
+
+    return WorkerRunResult(output=output, messages=[])
+
+
 async def run_worker_async(
     *,
     registry: Any,  # WorkerRegistry - avoid circular import
     worker: str,
     input_data: Any,
     attachments: Optional[Sequence[AttachmentInput]] = None,
-    cli_model: Optional[str] = None,
+    cli_model: Optional[ModelLike] = None,
     creation_defaults: Optional[WorkerCreationDefaults] = None,
     agent_runner: Optional[Callable] = None,
     approval_controller: Optional[ApprovalController] = None,

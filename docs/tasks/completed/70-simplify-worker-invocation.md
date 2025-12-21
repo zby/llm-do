@@ -2,7 +2,7 @@
 
 ## Goal
 
-Simplify the CLI invocation model by eliminating explicit `.worker` file paths as arguments. Use `--dir` and `--worker` flags for explicit, unambiguous invocation.
+Simplify the CLI invocation model by eliminating explicit `.worker` file paths as arguments. Use `--dir` and `--tool` flags for explicit, unambiguous invocation.
 
 Directory-form workers (storage format) remain supported — only the invocation syntax changes.
 
@@ -33,19 +33,19 @@ llm-do "message"
 llm-do --dir /some/path "message"
 
 # Run specific worker in cwd
-llm-do --worker analyzer "message"
+llm-do --tool analyzer "message"
 
 # Run specific worker in specified directory
-llm-do --dir /some/path --worker analyzer "message"
+llm-do --dir /some/path --tool analyzer "message"
 ```
 
 ### Rules
 
 1. **`--dir`** (optional): registry root (defaults to `.`)
-2. **`--worker`** (optional): worker name, not a path (defaults to `main`)
+2. **`--tool`** (optional): tool name, not a path (defaults to `main`)
 3. **Positional**: the message/input
 
-**Note:** `--worker` accepts simple names only (e.g., `analyzer`), not paths. Use `--dir` to point to a different registry.
+**Note:** `--tool` accepts simple names only (e.g., `analyzer`), not paths. Use `--dir` to point to a different registry.
 
 ### Worker Storage (unchanged)
 
@@ -90,7 +90,7 @@ The filesystem toolset's `base_path` defaults to `"."` which resolves to CWD at 
 
 - Remove `worker` positional argument
 - Add `--dir` flag (defaults to `.`)
-- Add `--worker` flag (defaults to `main`)
+- Add `--tool` flag (defaults to `main`)
 - Keep `message` as positional argument
 - Rename existing `--registry` to `--dir` (or remove if redundant)
 
@@ -118,7 +118,7 @@ The filesystem toolset's `base_path` defaults to `"."` which resolves to CWD at 
 - Remove invocation-mode tests (`TestDetectInvocationMode`, `TestResolveWorker` in `test_workshop.py`)
 - Keep directory-form storage tests (storage format is unchanged)
 - Update CLI invocation tests for new flag syntax
-- Add tests for `--dir` and `--worker` flags
+- Add tests for `--dir` and `--tool` flags
 
 ### 6. Update documentation
 
@@ -147,9 +147,9 @@ The filesystem toolset's `base_path` defaults to `"."` which resolves to CWD at 
 ## Acceptance Criteria
 
 - [x] `llm-do "message"` runs `main.worker` in cwd
-- [x] `llm-do --worker analyzer "message"` runs `analyzer.worker` in cwd
+- [x] `llm-do --tool analyzer "message"` runs `analyzer.worker` in cwd
 - [x] `llm-do --dir /path "message"` runs `main.worker` in `/path`
-- [x] `llm-do --dir /path --worker analyzer "message"` runs `analyzer.worker` in `/path`
+- [x] `llm-do --dir /path --tool analyzer "message"` runs `analyzer.worker` in `/path`
 - [x] No explicit `.worker` file paths as CLI arguments
 - [x] Directory-form storage still works (`analyzer/worker.worker` + `analyzer/tools.py`)
 - [x] All tests pass

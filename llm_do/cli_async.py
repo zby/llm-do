@@ -18,9 +18,10 @@ from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision, 
 from .base import (
     WorkerCreationDefaults,
     WorkerRegistry,
-    run_worker_async,
+    run_tool_async,
 )
 from .config_overrides import apply_cli_overrides
+from .tool_registry import ToolRegistry
 from .ui.display import (
     DisplayBackend,
     HeadlessDisplayBackend,
@@ -70,7 +71,7 @@ def _load_creation_defaults(value: Optional[str]) -> WorkerCreationDefaults:
 
 def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a PydanticAI worker",
+        description="Run an llm-do tool",
         epilog="Use 'llm-do init' to create a new project.",
     )
     parser.add_argument(
@@ -86,9 +87,9 @@ def parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
         help="Registry root directory (defaults to cwd)",
     )
     parser.add_argument(
-        "--worker",
+        "--tool",
         default="main",
-        help="Worker name to run (defaults to 'main')",
+        help="Tool name to run (defaults to 'main')",
     )
     parser.add_argument(
         "--input",
@@ -309,17 +310,21 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
         """Run the worker and send events to the app."""
         try:
             registry_root = args.dir or Path.cwd()
-            worker_name = args.worker
+            tool_name = args.tool
 
             registry = WorkerRegistry(registry_root)
-            definition = registry.load_definition(worker_name)
+            tool_registry = ToolRegistry(registry)
+            resolved = tool_registry.resolve(tool_name)
 
             if args.config_overrides:
+                if resolved.kind != "worker":
+                    raise ValueError("Config overrides require a worker tool entry point.")
+                definition = registry.load_definition(tool_name)
                 definition = apply_cli_overrides(
                     definition,
                     set_overrides=args.config_overrides,
                 )
-                registry._definitions_cache = {worker_name: definition}
+                registry._definitions_cache = {tool_name: definition}
 
             if args.input_json is not None:
                 input_data = _load_jsonish(args.input_json, allow_plain_text=True)
@@ -357,9 +362,9 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                     # Also render to log buffer for terminal output after TUI exits
                     log_backend.display(ui_event)
 
-            result = await run_worker_async(
+            result = await run_tool_async(
                 registry=registry,
-                worker=worker_name,
+                tool=tool_name,
                 input_data=input_data,
                 attachments=args.attachments,
                 cli_model=args.cli_model,
@@ -429,17 +434,21 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
 
     try:
         registry_root = args.dir or Path.cwd()
-        worker_name = args.worker
+        tool_name = args.tool
 
         registry = WorkerRegistry(registry_root)
-        definition = registry.load_definition(worker_name)
+        tool_registry = ToolRegistry(registry)
+        resolved = tool_registry.resolve(tool_name)
 
         if args.config_overrides:
+            if resolved.kind != "worker":
+                raise ValueError("Config overrides require a worker tool entry point.")
+            definition = registry.load_definition(tool_name)
             definition = apply_cli_overrides(
                 definition,
                 set_overrides=args.config_overrides,
             )
-            registry._definitions_cache = {worker_name: definition}
+            registry._definitions_cache = {tool_name: definition}
 
         if args.input_json is not None:
             input_data = _load_jsonish(args.input_json, allow_plain_text=True)
@@ -463,9 +472,9 @@ async def _run_json_mode(args: argparse.Namespace) -> int:
         message_callback = _queue_message_callback(queue)
 
         try:
-            result = await run_worker_async(
+            result = await run_tool_async(
                 registry=registry,
-                worker=worker_name,
+                tool=tool_name,
                 input_data=input_data,
                 attachments=args.attachments,
                 cli_model=args.cli_model,
@@ -527,17 +536,21 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
 
     try:
         registry_root = args.dir or Path.cwd()
-        worker_name = args.worker
+        tool_name = args.tool
 
         registry = WorkerRegistry(registry_root)
-        definition = registry.load_definition(worker_name)
+        tool_registry = ToolRegistry(registry)
+        resolved = tool_registry.resolve(tool_name)
 
         if args.config_overrides:
+            if resolved.kind != "worker":
+                raise ValueError("Config overrides require a worker tool entry point.")
+            definition = registry.load_definition(tool_name)
             definition = apply_cli_overrides(
                 definition,
                 set_overrides=args.config_overrides,
             )
-            registry._definitions_cache = {worker_name: definition}
+            registry._definitions_cache = {tool_name: definition}
 
         if args.input_json is not None:
             input_data = _load_jsonish(args.input_json, allow_plain_text=True)
@@ -593,9 +606,9 @@ async def _run_headless_mode(args: argparse.Namespace) -> int:
         message_callback = _queue_message_callback(queue)
 
         try:
-            result = await run_worker_async(
+            result = await run_tool_async(
                 registry=registry,
-                worker=worker_name,
+                tool=tool_name,
                 input_data=input_data,
                 attachments=args.attachments,
                 cli_model=args.cli_model,

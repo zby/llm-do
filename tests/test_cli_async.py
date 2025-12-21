@@ -14,16 +14,16 @@ from llm_do.cli_async import init_project, main, parse_args, run_async_cli
 
 
 def test_parse_args_message_only():
-    """Test basic argument parsing with just message (uses default worker 'main')."""
+    """Test basic argument parsing with just message (uses default tool 'main')."""
     args = parse_args(["hello world"])
-    assert args.worker == "main"
+    assert args.tool == "main"
     assert args.message == "hello world"
 
 
-def test_parse_args_with_worker_flag():
-    """Test argument parsing with explicit --worker flag."""
-    args = parse_args(["--worker", "myworker", "hello world"])
-    assert args.worker == "myworker"
+def test_parse_args_with_tool_flag():
+    """Test argument parsing with explicit --tool flag."""
+    args = parse_args(["--tool", "mytool", "hello world"])
+    assert args.tool == "mytool"
     assert args.message == "hello world"
 
 
@@ -34,11 +34,11 @@ def test_parse_args_with_dir_flag():
     assert args.message == "hello world"
 
 
-def test_parse_args_with_dir_and_worker():
-    """Test argument parsing with both --dir and --worker flags."""
-    args = parse_args(["--dir", "/some/path", "--worker", "analyzer", "hello world"])
+def test_parse_args_with_dir_and_tool():
+    """Test argument parsing with both --dir and --tool flags."""
+    args = parse_args(["--dir", "/some/path", "--tool", "analyzer", "hello world"])
     assert args.dir == Path("/some/path")
-    assert args.worker == "analyzer"
+    assert args.tool == "analyzer"
     assert args.message == "hello world"
 
 
@@ -72,15 +72,15 @@ def test_parse_args_config_overrides():
     assert args.config_overrides == ["model=test", "sandbox.enabled=true"]
 
 
-def test_async_cli_parses_worker_and_runs(tmp_path, monkeypatch):
-    """Test that async CLI parses worker and calls run_worker_async."""
+def test_async_cli_parses_tool_and_runs(tmp_path, monkeypatch):
+    """Test that async CLI parses tool and calls run_tool_async."""
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="main", instructions="demo"))
 
     monkeypatch.chdir(tmp_path)
 
     async def run_test():
-        with patch("llm_do.cli_async.run_worker_async", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli_async.run_tool_async", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = WorkerRunResult(output="test output")
 
             result = await run_async_cli(["Hello", "--approve-all"])
@@ -89,29 +89,29 @@ def test_async_cli_parses_worker_and_runs(tmp_path, monkeypatch):
             mock_run.assert_called_once()
             call_kwargs = mock_run.call_args.kwargs
             assert call_kwargs["registry"].root == tmp_path
-            assert call_kwargs["worker"] == "main"
+            assert call_kwargs["tool"] == "main"
             assert call_kwargs["input_data"] == "Hello"
 
     asyncio.run(run_test())
 
 
-def test_async_cli_with_worker_flag(tmp_path, monkeypatch):
-    """Test that async CLI parses --worker flag correctly."""
+def test_async_cli_with_tool_flag(tmp_path, monkeypatch):
+    """Test that async CLI parses --tool flag correctly."""
     registry = WorkerRegistry(tmp_path)
-    registry.save_definition(WorkerDefinition(name="test_worker", instructions="demo"))
+    registry.save_definition(WorkerDefinition(name="test_tool", instructions="demo"))
 
     monkeypatch.chdir(tmp_path)
 
     async def run_test():
-        with patch("llm_do.cli_async.run_worker_async", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli_async.run_tool_async", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = WorkerRunResult(output="test output")
 
-            result = await run_async_cli(["--worker", "test_worker", "Hello", "--approve-all"])
+            result = await run_async_cli(["--tool", "test_tool", "Hello", "--approve-all"])
 
             assert result == 0
             mock_run.assert_called_once()
             call_kwargs = mock_run.call_args.kwargs
-            assert call_kwargs["worker"] == "test_worker"
+            assert call_kwargs["tool"] == "test_tool"
             assert call_kwargs["input_data"] == "Hello"
 
     asyncio.run(run_test())
@@ -129,7 +129,7 @@ def test_async_cli_with_dir_flag(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     async def run_test():
-        with patch("llm_do.cli_async.run_worker_async", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli_async.run_tool_async", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = WorkerRunResult(output="test output")
 
             result = await run_async_cli(["--dir", str(worker_dir), "Hello", "--approve-all"])
@@ -150,7 +150,7 @@ def test_async_cli_json_output(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
 
     async def run_test():
-        with patch("llm_do.cli_async.run_worker_async", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli_async.run_tool_async", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = WorkerRunResult(
                 output={"key": "value"},
                 messages=[{"role": "user", "content": "hello"}],
@@ -168,14 +168,14 @@ def test_async_cli_json_output(tmp_path, monkeypatch, capsys):
 
 
 def test_async_cli_model_override(tmp_path, monkeypatch):
-    """Test --model is passed to run_worker_async."""
+    """Test --model is passed to run_tool_async."""
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="main", instructions="demo"))
 
     monkeypatch.chdir(tmp_path)
 
     async def run_test():
-        with patch("llm_do.cli_async.run_worker_async", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli_async.run_tool_async", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = WorkerRunResult(output="done")
 
             await run_async_cli(["hi", "--model", "openai:gpt-4o", "--approve-all"])
@@ -187,7 +187,7 @@ def test_async_cli_model_override(tmp_path, monkeypatch):
 
 
 def test_async_cli_attachments(tmp_path, monkeypatch):
-    """Test --attachments are passed to run_worker_async."""
+    """Test --attachments are passed to run_tool_async."""
     registry = WorkerRegistry(tmp_path)
     registry.save_definition(WorkerDefinition(name="main", instructions="demo"))
 
@@ -196,7 +196,7 @@ def test_async_cli_attachments(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     async def run_test():
-        with patch("llm_do.cli_async.run_worker_async", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli_async.run_tool_async", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = WorkerRunResult(output="done")
 
             await run_async_cli([
@@ -220,7 +220,7 @@ def test_async_cli_json_input(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     async def run_test():
-        with patch("llm_do.cli_async.run_worker_async", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli_async.run_tool_async", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = WorkerRunResult(output="done")
 
             await run_async_cli([
@@ -328,7 +328,7 @@ def test_main_runs_async_cli(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sys.argv", ["llm-do", "hello", "--approve-all"])
 
-    with patch("llm_do.cli_async.run_worker_async", new_callable=AsyncMock) as mock_run:
+    with patch("llm_do.cli_async.run_tool_async", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = WorkerRunResult(output="done")
         result = main()
 
@@ -381,7 +381,7 @@ def test_async_cli_headless_with_approve_all(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     async def run_test():
-        with patch("llm_do.cli_async.run_worker_async", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli_async.run_tool_async", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = WorkerRunResult(output="done")
             return await run_async_cli(["test", "--headless", "--approve-all"])
 

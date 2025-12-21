@@ -150,7 +150,7 @@ CLI / run_worker_async()
 
 ### Nested Execution
 
-When a tool calls `ctx.deps.call_worker()` or the LLM uses a worker delegation tool:
+When a tool calls `ctx.call_tool()` or the LLM uses a worker delegation tool:
 
 ```
 Worker A (depth=0)
@@ -164,7 +164,7 @@ Worker A (depth=0)
 ┌─────────────────────────────────────────┐
 │ Tool executes                           │
 │   - deterministic logic                 │
-│   - ctx.deps.call_worker("B", input)  ──┼──┐
+│   - ctx.call_tool("B", input)        ──┼──┐
 └─────────────────────────────────────────┘  │
                                              │
          ┌───────────────────────────────────┘

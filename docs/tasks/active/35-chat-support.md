@@ -64,9 +64,9 @@ class UserMessage(BaseMessage):
 ### Phase 3: Input Enablement
 Enable input widget after worker response completes.
 
-- [ ] `llm_do/ui/app.py`: Enable input widget when `_done` is True
-- [ ] `llm_do/ui/app.py`: Handle `Input.Submitted` event
-- [ ] `llm_do/ui/app.py`: Rebind 'q' to only work when not in input mode
+- [x] `llm_do/ui/app.py`: Enable input widget when `_done` is True
+- [x] `llm_do/ui/app.py`: Handle `Input.Submitted` event
+- [x] `llm_do/ui/app.py`: Rebind 'q' to only work when not in input mode
 
 ```python
 # In LlmDoApp:
@@ -180,7 +180,7 @@ Turn 2+:
    - Each turn respects same approval rules
 
 ## Current State
-Phase 1-2 complete: runtime/execution accept `message_history`, plus `UserMessageEvent`/widget wiring. Phase 5 of Task 20 laid groundwork (input widget exists but disabled). Decisions: TUI-only conversation mode, in-memory history, replace history each turn with `run_result.all_messages`, and no sub-worker history propagation for now.
+Phase 1-3 complete: runtime/execution accept `message_history`, plus user-message UI support and input enablement. Phase 5 of Task 20 laid groundwork (input widget exists but disabled). Decisions: TUI-only conversation mode, in-memory history, replace history each turn with `run_result.all_messages`, and no sub-worker history propagation for now.
 
 ## Notes
 - pydantic-ai agents support conversation history via `message_history` parameter

@@ -167,6 +167,9 @@ class LlmDoApp(App[None]):
                 if self._auto_quit:
                     self.exit()
                 else:
+                    user_input = self.query_one("#user-input", Input)
+                    user_input.disabled = False
+                    user_input.focus()
                     messages.add_status("Press 'q' to exit")
                 self._event_queue.task_done()
                 break
@@ -219,6 +222,23 @@ class LlmDoApp(App[None]):
                 ApprovalDecision(approved=False, note="Rejected via TUI")
             )
             self._pending_approval = None
+
+    def action_quit(self) -> None:
+        """Quit the app unless the input widget has focus."""
+        user_input = self.query_one("#user-input", Input)
+        if user_input.has_focus:
+            return
+        self.exit()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle Enter in the input widget."""
+        user_text = event.value.strip()
+        if not user_text:
+            return
+        event.input.clear()
+        messages = self.query_one("#messages", MessageContainer)
+        messages.add_user_message(user_text)
+        messages.add_status("Input captured. Conversation loop not enabled yet.")
 
     def signal_done(self) -> None:
         """Signal that the worker is done."""

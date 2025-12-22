@@ -50,6 +50,17 @@ class AssistantMessage(BaseMessage):
         self.update(self._content)
 
 
+class UserMessage(BaseMessage):
+    """Widget for displaying user input."""
+
+    DEFAULT_CSS = """
+    UserMessage {
+        background: $surface;
+        border: solid $secondary;
+    }
+    """
+
+
 class ToolCallMessage(BaseMessage):
     """Widget for displaying tool calls."""
 
@@ -281,6 +292,14 @@ class MessageContainer(ScrollableContainer):
         self.scroll_end(animate=False)
         return msg
 
+    def add_user_message(self, content: str) -> UserMessage:
+        """Add a user message."""
+        self._current_assistant = None
+        msg = UserMessage(content)
+        self.mount(msg)
+        self.scroll_end(animate=False)
+        return msg
+
     def add_status(self, text: str) -> StatusMessage:
         """Add a status message."""
         msg = StatusMessage(f"[dim]{text}[/dim]")
@@ -316,6 +335,7 @@ class MessageContainer(ScrollableContainer):
             TextResponseEvent,
             ToolCallEvent,
             ToolResultEvent,
+            UserMessageEvent,
         )
 
         # Handle TextResponseEvent specially for streaming
@@ -330,7 +350,10 @@ class MessageContainer(ScrollableContainer):
             return
 
         # Interrupt streaming for tool/approval/error events
-        if isinstance(event, (ToolCallEvent, ToolResultEvent, ApprovalRequestEvent, ErrorEvent)):
+        if isinstance(
+            event,
+            (ToolCallEvent, ToolResultEvent, ApprovalRequestEvent, ErrorEvent, UserMessageEvent),
+        ):
             self._current_assistant = None
 
         # Delegate to event's create_widget()

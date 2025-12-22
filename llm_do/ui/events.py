@@ -188,6 +188,33 @@ class StatusEvent(UIEvent):
 
 
 @dataclass
+class UserMessageEvent(UIEvent):
+    """Event emitted for user-submitted messages."""
+
+    content: str = ""
+
+    def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
+        from rich.text import Text
+
+        return Text(f"[{self.worker}] You: {self.content}")
+
+    def render_text(self, verbosity: int = 0) -> str | None:
+        return f"[{self.worker}] You: {self.content}"
+
+    def render_json(self) -> dict[str, Any]:
+        return {
+            "type": "user_message",
+            "worker": self.worker,
+            "content": self.content,
+        }
+
+    def create_widget(self) -> "Widget":
+        from llm_do.ui.widgets.messages import UserMessage
+
+        return UserMessage(self.content)
+
+
+@dataclass
 class TextResponseEvent(UIEvent):
     """Event emitted for model text responses."""
 

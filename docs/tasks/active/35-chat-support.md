@@ -45,9 +45,9 @@ run_result = await agent.run(
 ### Phase 2: UserMessage Widget & Event
 Add UI components for displaying user input in the conversation.
 
-- [ ] `llm_do/ui/events.py`: Add `UserMessageEvent` class
-- [ ] `llm_do/ui/widgets/messages.py`: Add `UserMessage` widget
-- [ ] `llm_do/ui/widgets/messages.py`: Add `add_user_message()` to `MessageContainer`
+- [x] `llm_do/ui/events.py`: Add `UserMessageEvent` class
+- [x] `llm_do/ui/widgets/messages.py`: Add `UserMessage` widget
+- [x] `llm_do/ui/widgets/messages.py`: Add `add_user_message()` to `MessageContainer`
 
 ```python
 # UserMessage widget (matches Vibe hierarchy)
@@ -180,7 +180,7 @@ Turn 2+:
    - Each turn respects same approval rules
 
 ## Current State
-Phase 1 complete: runtime/execution now accept `message_history`. Phase 5 of Task 20 laid groundwork (input widget exists but disabled). Decisions: TUI-only conversation mode, in-memory history, replace history each turn with `run_result.all_messages`, and no sub-worker history propagation for now.
+Phase 1-2 complete: runtime/execution accept `message_history`, plus `UserMessageEvent`/widget wiring. Phase 5 of Task 20 laid groundwork (input widget exists but disabled). Decisions: TUI-only conversation mode, in-memory history, replace history each turn with `run_result.all_messages`, and no sub-worker history propagation for now.
 
 ## Notes
 - pydantic-ai agents support conversation history via `message_history` parameter

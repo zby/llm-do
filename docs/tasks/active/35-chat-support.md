@@ -28,9 +28,9 @@ This implementation is designed to align with Task 30 (Vibe UI Patterns):
 ### Phase 1: Runtime Support for Message History
 Add `message_history` parameter to the execution stack.
 
-- [ ] `llm_do/execution.py`: Pass `message_history` to `agent.run()`
-- [ ] `llm_do/runtime.py`: Add `message_history` param to `run_worker_async`
-- [ ] `llm_do/runtime.py`: Add `message_history` param to `run_tool_async`
+- [x] `llm_do/execution.py`: Pass `message_history` to `agent.run()`
+- [x] `llm_do/runtime.py`: Add `message_history` param to `run_worker_async`
+- [x] `llm_do/runtime.py`: Add `message_history` param to `run_tool_async`
 
 ```python
 # In execution.py default_agent_runner_async():
@@ -180,10 +180,15 @@ Turn 2+:
    - Each turn respects same approval rules
 
 ## Current State
-Not started. Phase 5 of Task 20 laid groundwork (input widget exists but disabled).
+Phase 1 complete: runtime/execution now accept `message_history`. Phase 5 of Task 20 laid groundwork (input widget exists but disabled). Decisions: TUI-only conversation mode, in-memory history, replace history each turn with `run_result.all_messages`, and no sub-worker history propagation for now.
 
 ## Notes
 - pydantic-ai agents support conversation history via `message_history` parameter
+- Use PydanticAI `ModelMessagesTypeAdapter` for history serialization when persistence is needed (binary parts stored as base64).
+- For now, keep message history in-memory only; persistence can be added later.
+- Replace history each turn with `run_result.all_messages` (no delta tracking).
+- Conversation mode only in TUI for now; headless remains single-shot.
+- Sub-workers stay stateless: do not propagate conversation history to worker calls yet.
 - Keep approval flow working (approvals can happen mid-conversation)
 - Consider: should `/exit` be a slash command or just Ctrl+C? (deferred to Phase 6)
 - Phase 6 items align with Task 30 Phase 5 (Enhanced Input)

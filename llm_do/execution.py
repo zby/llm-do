@@ -326,6 +326,7 @@ async def default_agent_runner_async(
     context: WorkerContext,
     output_model: Optional[Type[BaseModel]],
     *,
+    message_history: Optional[List[Any]] = None,
     register_tools_fn: Optional[Callable[[Agent, WorkerContext], None]] = None,
 ) -> tuple[Any, List[Any]]:
     """Async version of the default agent runner.
@@ -337,6 +338,7 @@ async def default_agent_runner_async(
         user_input: Input data for the worker
         context: Worker execution context with tools and dependencies
         output_model: Optional Pydantic model for structured output
+        message_history: Optional list of prior model messages for conversation context
         register_tools_fn: Optional function to register additional tools
 
     Returns:
@@ -384,6 +386,7 @@ async def default_agent_runner_async(
             exec_ctx.prompt,
             deps=context,
             event_stream_handler=exec_ctx.event_handler,
+            message_history=message_history,
         )
     except Exception:
         # Emit error status before re-raising

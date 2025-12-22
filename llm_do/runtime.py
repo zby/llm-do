@@ -475,6 +475,7 @@ async def run_tool_async(
     tool: str,
     input_data: Any,
     attachments: Optional[Sequence[AttachmentInput]] = None,
+    message_history: Optional[List[Any]] = None,
     cli_model: Optional[ModelLike] = None,
     creation_defaults: Optional[WorkerCreationDefaults] = None,
     agent_runner: Optional[Callable] = None,
@@ -500,6 +501,7 @@ async def run_tool_async(
             worker=tool,
             input_data=input_data,
             attachments=attachments,
+            message_history=message_history,
             cli_model=cli_model,
             creation_defaults=creation_defaults,
             agent_runner=agent_runner,
@@ -538,6 +540,7 @@ async def run_worker_async(
     worker: str,
     input_data: Any,
     attachments: Optional[Sequence[AttachmentInput]] = None,
+    message_history: Optional[List[Any]] = None,
     cli_model: Optional[ModelLike] = None,
     creation_defaults: Optional[WorkerCreationDefaults] = None,
     agent_runner: Optional[Callable] = None,
@@ -564,6 +567,7 @@ async def run_worker_async(
         worker: Name of the worker to run.
         input_data: Input payload for the worker.
         attachments: Optional files to expose to the worker.
+        message_history: Optional list of prior model messages for conversation context.
         cli_model: Model from --model CLI flag (highest priority override).
         creation_defaults: Defaults for any new workers created during this run.
         agent_runner: Optional async strategy for executing the agent (defaults to async PydanticAI).
@@ -594,7 +598,11 @@ async def run_worker_async(
     # Delegator/creator are now accessed via prep.context.delegator/.creator
     if agent_runner is None:
         result = await default_agent_runner_async(
-            prep.definition, input_data, prep.context, prep.output_model
+            prep.definition,
+            input_data,
+            prep.context,
+            prep.output_model,
+            message_history=message_history,
         )
     else:
         # Support both sync and async agent runners (including wrapped coroutines)

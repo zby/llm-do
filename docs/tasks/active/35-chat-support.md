@@ -107,9 +107,9 @@ async def _submit_user_message(self, text: str) -> None:
 ### Phase 5: CLI Integration
 Refactor CLI to support conversation mode.
 
-- [ ] `llm_do/cli_async.py`: Extract worker execution into reusable function
-- [ ] `llm_do/cli_async.py`: Pass message history between turns
-- [ ] `llm_do/cli_async.py`: Capture returned messages for next turn
+- [x] `llm_do/cli_async.py`: Extract worker execution into reusable function
+- [x] `llm_do/cli_async.py`: Pass message history between turns
+- [x] `llm_do/cli_async.py`: Capture returned messages for next turn
 
 ```python
 # New pattern in cli_async.py:
@@ -180,7 +180,7 @@ Turn 2+:
    - Each turn respects same approval rules
 
 ## Current State
-Phase 1-4 complete: runtime/execution accept `message_history`, plus user-message UI support, input enablement, and conversation-loop scaffolding in the TUI. Phase 5 of Task 20 laid groundwork (input widget exists but disabled). Decisions: TUI-only conversation mode, in-memory history, replace history each turn with `run_result.all_messages`, and no sub-worker history propagation for now.
+Phase 1-5 complete: runtime/execution accept `message_history`, plus user-message UI support, input enablement, conversation-loop scaffolding, and CLI wiring for multi-turn runs. Phase 5 of Task 20 laid groundwork (input widget exists but disabled). Decisions: TUI-only conversation mode, in-memory history, replace history each turn with `run_result.all_messages`, and no sub-worker history propagation for now.
 
 ## Notes
 - pydantic-ai agents support conversation history via `message_history` parameter

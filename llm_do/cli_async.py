@@ -407,6 +407,10 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
     # Container to capture result and exit code from background worker
     worker_result: list[Any] = []
     worker_exit_code: list[int] = [0]  # Use list to allow modification in nested function
+    registry: WorkerRegistry | None = None
+    tool_name: str | None = None
+    creation_defaults: WorkerCreationDefaults | None = None
+    approval_controller: ApprovalController | None = None
 
     def _emit_error_event(message: str, *, error_type: str) -> None:
         from .ui.events import ErrorEvent
@@ -419,12 +423,102 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
         event_queue.put_nowait(error_event)
         # Also log to buffer for post-TUI display
         log_backend.display(error_event)
-        event_queue.put_nowait(None)
         worker_exit_code[0] = 1
+
+    def combined_message_callback(raw_events: list[Any]) -> None:
+        for raw_event in raw_events:
+            ui_event = parse_event(raw_event)
+            # Forward typed event to TUI
+            backend.display(ui_event)
+            # Also render to log buffer for terminal output after TUI exits
+            log_backend.display(ui_event)
+
+    async def _run_single_turn(
+        input_data: Any,
+        message_history: list[Any] | None,
+    ) -> Any:
+        if (
+            registry is None
+            or tool_name is None
+            or creation_defaults is None
+            or approval_controller is None
+        ):
+            raise RuntimeError("Conversation runner not initialized.")
+
+        result = await run_tool_async(
+            registry=registry,
+            tool=tool_name,
+            input_data=input_data,
+            attachments=args.attachments,
+            message_history=message_history,
+            cli_model=args.cli_model,
+            creation_defaults=creation_defaults,
+            approval_controller=approval_controller,
+            message_callback=combined_message_callback,
+        )
+
+        worker_result[:] = [result]
+        return result
+
+    async def _run_with_error_handling(
+        runner: Callable[[], Coroutine[Any, Any, Any]],
+    ) -> Any | None:
+        try:
+            return await runner()
+        except FileNotFoundError as e:
+            _emit_error_event(f"Error: {e}", error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return None
+        except json.JSONDecodeError as e:
+            _emit_error_event(f"Invalid JSON: {e}", error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return None
+        except ValueError as e:
+            _emit_error_event(f"Error: {e}", error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return None
+        except ModelHTTPError as e:
+            message = f"Model API error (status {e.status_code}): {e.model_name}"
+            if e.body and isinstance(e.body, dict):
+                error_info = e.body.get("error", {})
+                if isinstance(error_info, dict):
+                    msg = error_info.get("message", "")
+                    if msg:
+                        message = f"{message}\n  {msg}"
+            _emit_error_event(message, error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return None
+        except (UnexpectedModelBehavior, UserError) as e:
+            _emit_error_event(f"Error: {e}", error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return None
+        except KeyboardInterrupt:
+            _emit_error_event("Aborted by user", error_type="KeyboardInterrupt")
+            return None
+        except Exception as e:
+            _emit_error_event(f"Unexpected error: {e}", error_type=type(e).__name__)
+            if args.debug:
+                raise
+            return None
+
+    async def run_turn(prompt: str, message_history: list[Any] | None) -> Any:
+        async def _run() -> Any:
+            return await _run_single_turn(prompt, message_history)
+
+        return await _run_with_error_handling(_run)
 
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
-        try:
+        nonlocal registry
+        nonlocal tool_name
+        nonlocal creation_defaults
+        nonlocal approval_controller
+        async def _run() -> Any:
             registry_root = args.dir or Path.cwd()
             tool_name = args.tool
 
@@ -469,76 +563,19 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
                     approval_callback=tui_approval_callback,
                 )
 
-            # Create a callback that parses and forwards to both TUI and log buffer
-            def combined_message_callback(raw_events: list[Any]) -> None:
-                for raw_event in raw_events:
-                    ui_event = parse_event(raw_event)
-                    # Forward typed event to TUI
-                    backend.display(ui_event)
-                    # Also render to log buffer for terminal output after TUI exits
-                    log_backend.display(ui_event)
+            return await _run_single_turn(input_data, None)
 
-            result = await run_tool_async(
-                registry=registry,
-                tool=tool_name,
-                input_data=input_data,
-                attachments=args.attachments,
-                cli_model=args.cli_model,
-                creation_defaults=creation_defaults,
-                approval_controller=approval_controller,
-                message_callback=combined_message_callback,
-            )
-
-            # Capture result for stdout output
-            worker_result.append(result)
-
-            # Signal completion
-            event_queue.put_nowait(None)
-            return 0
-
-        except FileNotFoundError as e:
-            _emit_error_event(f"Error: {e}", error_type=type(e).__name__)
-            if args.debug:
-                raise
-            return 1
-        except json.JSONDecodeError as e:
-            _emit_error_event(f"Invalid JSON: {e}", error_type=type(e).__name__)
-            if args.debug:
-                raise
-            return 1
-        except ValueError as e:
-            _emit_error_event(f"Error: {e}", error_type=type(e).__name__)
-            if args.debug:
-                raise
-            return 1
-        except ModelHTTPError as e:
-            message = f"Model API error (status {e.status_code}): {e.model_name}"
-            if e.body and isinstance(e.body, dict):
-                error_info = e.body.get("error", {})
-                if isinstance(error_info, dict):
-                    msg = error_info.get("message", "")
-                    if msg:
-                        message = f"{message}\n  {msg}"
-            _emit_error_event(message, error_type=type(e).__name__)
-            if args.debug:
-                raise
-            return 1
-        except (UnexpectedModelBehavior, UserError) as e:
-            _emit_error_event(f"Error: {e}", error_type=type(e).__name__)
-            if args.debug:
-                raise
-            return 1
-        except KeyboardInterrupt:
-            _emit_error_event("Aborted by user", error_type="KeyboardInterrupt")
-            return 1
-        except Exception as e:
-            _emit_error_event(f"Unexpected error: {e}", error_type=type(e).__name__)
-            if args.debug:
-                raise
-            return 1
+        result = await _run_with_error_handling(_run)
+        return 0 if result is not None else 1
 
     # Create the Textual app with worker coroutine
-    app = LlmDoApp(event_queue, approval_queue, worker_coro=run_worker_in_background())
+    app = LlmDoApp(
+        event_queue,
+        approval_queue,
+        worker_coro=run_worker_in_background(),
+        run_turn=run_turn,
+        auto_quit=False,
+    )
 
     # Run with mouse disabled to allow terminal text selection
     await app.run_async(mouse=False)

@@ -15,7 +15,7 @@ from textual.widgets import Footer, Header, Input
 
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from .events import ApprovalRequestEvent, CompletionEvent, TextResponseEvent, UIEvent
+from .events import ApprovalRequestEvent, CompletionEvent, ErrorEvent, TextResponseEvent, UIEvent
 from .widgets.messages import MessageContainer
 
 
@@ -198,10 +198,19 @@ class LlmDoApp(App[None]):
                 # Capture complete response for final output
                 self._messages.append(event.content)
         elif isinstance(event, CompletionEvent):
-            if not self._auto_quit:
+            if self._auto_quit:
+                if self._messages:
+                    self.final_result = "\n".join(self._messages)
+                self._done = True
+                self.exit()
+            else:
                 user_input = self.query_one("#user-input", Input)
                 user_input.disabled = False
                 user_input.focus()
+        elif isinstance(event, ErrorEvent):
+            if self._auto_quit:
+                self._done = True
+                self.exit()
         elif isinstance(event, ApprovalRequestEvent):
             # Store pending approval for action handlers
             self._pending_approval = event.request
@@ -262,7 +271,8 @@ class LlmDoApp(App[None]):
             try:
                 history = self._message_history or None
                 result = await self._run_turn(text, history)
-                self._message_history = list(result.messages or [])
+                if result is not None:
+                    self._message_history = list(result.messages or [])
             finally:
                 user_input.disabled = False
                 user_input.focus()

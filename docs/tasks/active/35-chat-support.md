@@ -81,9 +81,9 @@ def on_input_submitted(self, event: Input.Submitted) -> None:
 ### Phase 4: Conversation Loop
 Implement the multi-turn conversation loop in the TUI.
 
-- [ ] `llm_do/ui/app.py`: Track `_message_history` (list of pydantic-ai messages)
-- [ ] `llm_do/ui/app.py`: Add `_submit_user_message()` method
-- [ ] `llm_do/ui/app.py`: Create new worker task for each turn
+- [x] `llm_do/ui/app.py`: Track `_message_history` (list of pydantic-ai messages)
+- [x] `llm_do/ui/app.py`: Add `_submit_user_message()` method
+- [x] `llm_do/ui/app.py`: Create new worker task for each turn
 - [ ] `llm_do/cli_async.py`: Refactor to support conversation mode
 
 ```python
@@ -180,7 +180,7 @@ Turn 2+:
    - Each turn respects same approval rules
 
 ## Current State
-Phase 1-3 complete: runtime/execution accept `message_history`, plus user-message UI support and input enablement. Phase 5 of Task 20 laid groundwork (input widget exists but disabled). Decisions: TUI-only conversation mode, in-memory history, replace history each turn with `run_result.all_messages`, and no sub-worker history propagation for now.
+Phase 1-4 complete: runtime/execution accept `message_history`, plus user-message UI support, input enablement, and conversation-loop scaffolding in the TUI. Phase 5 of Task 20 laid groundwork (input widget exists but disabled). Decisions: TUI-only conversation mode, in-memory history, replace history each turn with `run_result.all_messages`, and no sub-worker history propagation for now.
 
 ## Notes
 - pydantic-ai agents support conversation history via `message_history` parameter

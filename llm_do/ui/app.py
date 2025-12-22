@@ -6,7 +6,7 @@ All event discrimination happens once, in the parser.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Coroutine
+from typing import Any, Callable, Coroutine
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -15,7 +15,7 @@ from textual.widgets import Footer, Header, Input
 
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from .events import ApprovalRequestEvent, TextResponseEvent, UIEvent
+from .events import ApprovalRequestEvent, CompletionEvent, TextResponseEvent, UIEvent
 from .widgets.messages import MessageContainer
 
 
@@ -106,17 +106,20 @@ class LlmDoApp(App[None]):
         event_queue: asyncio.Queue[UIEvent | None],
         approval_response_queue: asyncio.Queue[ApprovalDecision] | None = None,
         worker_coro: Coroutine[Any, Any, Any] | None = None,
+        run_turn: Callable[[str, list[Any] | None], Coroutine[Any, Any, Any]] | None = None,
         auto_quit: bool = True,
     ):
         super().__init__()
         self._event_queue = event_queue
         self._approval_response_queue = approval_response_queue
         self._worker_coro = worker_coro
+        self._run_turn = run_turn
         self._auto_quit = auto_quit
         self._pending_approval: ApprovalRequest | None = None
         self._worker_task: asyncio.Task[Any] | None = None
         self._done = False
         self._messages: list[str] = []
+        self._message_history: list[Any] = []
         self.final_result: str | None = None
 
     def compose(self) -> ComposeResult:
@@ -167,9 +170,6 @@ class LlmDoApp(App[None]):
                 if self._auto_quit:
                     self.exit()
                 else:
-                    user_input = self.query_one("#user-input", Input)
-                    user_input.disabled = False
-                    user_input.focus()
                     messages.add_status("Press 'q' to exit")
                 self._event_queue.task_done()
                 break
@@ -197,6 +197,11 @@ class LlmDoApp(App[None]):
             if event.is_complete:
                 # Capture complete response for final output
                 self._messages.append(event.content)
+        elif isinstance(event, CompletionEvent):
+            if not self._auto_quit:
+                user_input = self.query_one("#user-input", Input)
+                user_input.disabled = False
+                user_input.focus()
         elif isinstance(event, ApprovalRequestEvent):
             # Store pending approval for action handlers
             self._pending_approval = event.request
@@ -228,6 +233,7 @@ class LlmDoApp(App[None]):
         user_input = self.query_one("#user-input", Input)
         if user_input.has_focus:
             return
+        self._done = True
         self.exit()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -236,9 +242,32 @@ class LlmDoApp(App[None]):
         if not user_text:
             return
         event.input.clear()
+        asyncio.create_task(self._submit_user_message(user_text))
+
+    async def _submit_user_message(self, text: str) -> None:
+        """Submit a new user message and run another turn."""
         messages = self.query_one("#messages", MessageContainer)
-        messages.add_user_message(user_text)
-        messages.add_status("Input captured. Conversation loop not enabled yet.")
+        messages.add_user_message(text)
+
+        user_input = self.query_one("#user-input", Input)
+        user_input.disabled = True
+
+        if self._run_turn is None:
+            messages.add_status("Conversation runner not configured.")
+            user_input.disabled = False
+            user_input.focus()
+            return
+
+        async def _run_turn_task() -> None:
+            try:
+                history = self._message_history or None
+                result = await self._run_turn(text, history)
+                self._message_history = list(result.messages or [])
+            finally:
+                user_input.disabled = False
+                user_input.focus()
+
+        self._worker_task = asyncio.create_task(_run_turn_task())
 
     def signal_done(self) -> None:
         """Signal that the worker is done."""

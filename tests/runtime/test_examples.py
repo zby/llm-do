@@ -156,13 +156,13 @@ class TestCalculatorExample:
     @pytest.mark.anyio
     async def test_calculator_worker_with_tools(self):
         """Test the full calculator worker with tool calling."""
-        from llm_do.ctx_runtime.cli import build_entry_worker
+        from llm_do.ctx_runtime.cli import build_entry
 
         worker_path = str(EXAMPLES_NEW_DIR / "calculator" / "main.worker")
         tools_path = str(EXAMPLES_NEW_DIR / "calculator" / "tools.py")
 
         # Build worker with tools
-        worker = await build_entry_worker(
+        worker, _ = await build_entry(
             [worker_path],
             [tools_path],
             model=TestModel(
@@ -194,11 +194,11 @@ class TestApprovalsDemoExample:
     @pytest.mark.anyio
     async def test_approvals_demo_builds_with_filesystem(self):
         """Test that approvals_demo worker builds with filesystem toolset."""
-        from llm_do.ctx_runtime.cli import build_entry_worker
+        from llm_do.ctx_runtime.cli import build_entry
 
         worker_path = str(EXAMPLES_NEW_DIR / "approvals_demo" / "main.worker")
 
-        worker = await build_entry_worker(
+        worker, _ = await build_entry(
             [worker_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -229,11 +229,11 @@ class TestCodeAnalyzerExample:
     @pytest.mark.anyio
     async def test_code_analyzer_builds_with_shell(self):
         """Test that code_analyzer worker builds with shell toolset."""
-        from llm_do.ctx_runtime.cli import build_entry_worker
+        from llm_do.ctx_runtime.cli import build_entry
 
         worker_path = str(EXAMPLES_NEW_DIR / "code_analyzer" / "main.worker")
 
-        worker = await build_entry_worker(
+        worker, _ = await build_entry(
             [worker_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -271,14 +271,14 @@ class TestPitchdeckEvalExample:
     @pytest.mark.anyio
     async def test_pitchdeck_builds_with_delegation(self):
         """Test that pitchdeck_eval main worker builds with workers as toolsets."""
-        from llm_do.ctx_runtime.cli import build_entry_worker
+        from llm_do.ctx_runtime.cli import build_entry
         from llm_do.ctx_runtime.entries import ToolsetToolEntry, WorkerToolset
 
         main_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval" / "main.worker")
         eval_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval" / "pitch_evaluator.worker")
 
-        # build_entry_worker handles worker resolution automatically
-        worker = await build_entry_worker(
+        # build_entry handles worker resolution automatically
+        worker, _ = await build_entry(
             [main_path, eval_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -323,14 +323,14 @@ class TestWhiteboardPlannerExample:
     @pytest.mark.anyio
     async def test_whiteboard_builds_with_delegation(self):
         """Test that whiteboard_planner main worker builds with workers as toolsets."""
-        from llm_do.ctx_runtime.cli import build_entry_worker
+        from llm_do.ctx_runtime.cli import build_entry
         from llm_do.ctx_runtime.entries import ToolsetToolEntry, WorkerToolset
 
         main_path = str(EXAMPLES_NEW_DIR / "whiteboard_planner" / "main.worker")
         planner_path = str(EXAMPLES_NEW_DIR / "whiteboard_planner" / "whiteboard_planner.worker")
 
-        # build_entry_worker handles worker resolution automatically
-        worker = await build_entry_worker(
+        # build_entry handles worker resolution automatically
+        worker, _ = await build_entry(
             [main_path, planner_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -355,11 +355,11 @@ class TestExamplesIntegration:
     @pytest.mark.anyio
     async def test_build_worker_greeter(self):
         """Test building the greeter worker via CLI helper."""
-        from llm_do.ctx_runtime.cli import build_entry_worker
+        from llm_do.ctx_runtime.cli import build_entry
 
         worker_path = str(EXAMPLES_NEW_DIR / "greeter" / "main.worker")
 
-        worker = await build_entry_worker(
+        worker, _ = await build_entry(
             [worker_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -372,12 +372,12 @@ class TestExamplesIntegration:
     @pytest.mark.anyio
     async def test_build_worker_calculator(self):
         """Test building the calculator worker via CLI helper."""
-        from llm_do.ctx_runtime.cli import build_entry_worker
+        from llm_do.ctx_runtime.cli import build_entry
 
         worker_path = str(EXAMPLES_NEW_DIR / "calculator" / "main.worker")
         tools_path = str(EXAMPLES_NEW_DIR / "calculator" / "tools.py")
 
-        worker = await build_entry_worker(
+        worker, _ = await build_entry(
             [worker_path],
             [tools_path],
             model="anthropic:claude-haiku-4-5",

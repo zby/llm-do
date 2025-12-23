@@ -44,8 +44,11 @@ The new runtime uses 3 core types:
 All tools are unified as `ToolsetToolEntry` - the separate `ToolEntry` type was removed.
 
 ### Key APIs
-- `build_entry_worker(worker_files, python_files, model, entry_name)` - builds entry worker with all toolsets resolved
+- `build_entry(worker_files, python_files, model, entry_name)` - builds entry (worker or tool) with all toolsets resolved
+  - Returns `(entry, available_tools)` tuple
+  - For tool entries, `available_tools` contains workers the tool can call
 - Workers-as-toolsets: pass multiple `.worker` files to CLI, they can reference each other by name
+- Tool entry pattern: Python function from FunctionToolset can be entry point, gets access to workers
 
 ## Notes
 - Runtime is at `llm_do/ctx_runtime/` (named to avoid conflict with existing `llm_do/runtime.py`)

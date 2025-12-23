@@ -89,25 +89,33 @@ How toolset configuration flows from worker files to toolset instances:
 
 Note: `FunctionToolset` instances are already instantiated when discovered. Config from worker file is applied via a `configure(config)` method or passed to a wrapper. For simple cases (no config), toolsets work as-is.
 
-## Core API: build_entry_worker
+## Core API: build_entry
 
-The main programmatic entry point for building workers:
+The main programmatic entry point for building entries:
 
 ```python
-async def build_entry_worker(
+async def build_entry(
     worker_files: list[str],   # List of .worker file paths
     python_files: list[str],   # List of Python file paths containing toolsets
     model: str | None = None,  # Optional model override (applied to entry only)
-    entry_name: str = "main",  # Name of the entry worker
-) -> WorkerEntry:
+    entry_name: str = "main",  # Name of the entry
+) -> tuple[ToolsetToolEntry | WorkerEntry, list[ToolsetToolEntry]]:
 ```
 
 **Behavior:**
 1. Loads all Python toolsets from `python_files`
-2. Loads all Python entries (WorkerEntry) for code entry pattern
-3. Creates `WorkerToolset` wrappers for all workers (two-pass resolution)
-4. Resolves each worker's toolsets from: Python toolsets, built-ins, or other workers
-5. Returns the entry worker (found by `entry_name`)
+2. Expands toolsets to discover tool entry points
+3. Loads all Python WorkerEntry instances
+4. Creates `WorkerToolset` wrappers for all workers (two-pass resolution)
+5. Resolves each worker's toolsets from: Python toolsets, built-ins, or other workers
+6. Returns tuple of (entry, available_tools)
+   - For worker entries: available_tools is empty (workers have their own tools)
+   - For tool entries: available_tools contains all workers and tools
+
+**Entry types supported:**
+- `.worker` files (WorkerEntry)
+- Python WorkerEntry instances
+- Python tools from FunctionToolset (ToolsetToolEntry) - for code entry pattern
 
 **Error handling:**
 - Raises `ValueError` if entry not found
@@ -115,10 +123,10 @@ async def build_entry_worker(
 - Raises `ValueError` if worker name conflicts with Python entry
 - Raises `ValueError` on unknown toolset reference
 
-**Example:**
+**Example - Worker entry:**
 ```python
 # Build pitchdeck_eval with delegation
-worker = await build_entry_worker(
+worker, _ = await build_entry(
     worker_files=[
         "examples-new/pitchdeck_eval/main.worker",
         "examples-new/pitchdeck_eval/pitch_evaluator.worker",
@@ -127,6 +135,17 @@ worker = await build_entry_worker(
     model="anthropic:claude-sonnet-4-20250514",
 )
 # main.worker can now call pitch_evaluator as a tool
+```
+
+**Example - Tool entry (code entry pattern):**
+```python
+# Tool entry gets access to workers
+tool, available = await build_entry(
+    worker_files=["pitch_evaluator.worker"],
+    python_files=["orchestrator.py"],  # contains FunctionToolset with "main" tool
+    entry_name="main",
+)
+# tool can call pitch_evaluator via ctx.call()
 ```
 
 ## Worker File Format

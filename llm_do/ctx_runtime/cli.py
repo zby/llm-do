@@ -46,28 +46,30 @@ from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
 ENV_MODEL_VAR = "LLM_DO_MODEL"
 
 
-async def build_entry_worker(
+async def build_entry(
     worker_files: list[str],
     python_files: list[str],
     model: str | None = None,
     entry_name: str = "main",
-) -> WorkerEntry:
-    """Build the entry worker with all toolsets resolved.
+) -> tuple[ToolsetToolEntry | WorkerEntry, list[ToolsetToolEntry]]:
+    """Build the entry point with all toolsets resolved.
 
     This function:
     1. Loads all Python toolsets and entries
     2. Creates WorkerToolset wrappers for all .worker files
     3. Resolves toolset references (workers can call other workers)
-    4. Returns the entry worker by name
+    4. Returns the entry (tool or worker) by name, plus available tools for tool entries
 
     Args:
         worker_files: List of .worker file paths
         python_files: List of Python file paths containing toolsets
         model: Optional model override for the entry worker
-        entry_name: Name of the entry worker (default: "main")
+        entry_name: Name of the entry (default: "main")
 
     Returns:
-        The entry WorkerEntry with tools populated
+        Tuple of (entry, available_tools) where:
+        - entry is the ToolsetToolEntry or WorkerEntry to run
+        - available_tools is the list of tools available to a tool entry (empty for workers)
 
     Raises:
         ValueError: If entry not found, name conflict, or unknown toolset
@@ -75,10 +77,17 @@ async def build_entry_worker(
     # Load Python toolsets
     python_toolsets = load_toolsets_from_files(python_files)
 
-    # Load Python entries (for code entry pattern)
-    python_entries = load_entries_from_files(python_files)
+    # Expand Python toolsets to tool entries (for tool entry pattern)
+    python_tool_entries: dict[str, ToolsetToolEntry] = {}
+    for toolset in python_toolsets.values():
+        entries = await expand_toolset_to_entries(toolset)
+        for entry in entries:
+            python_tool_entries[entry.name] = entry
 
-    if not worker_files and not python_entries:
+    # Load Python WorkerEntry instances
+    python_workers = load_entries_from_files(python_files)
+
+    if not worker_files and not python_tool_entries and not python_workers:
         raise ValueError("At least one .worker or .py file with entries required")
 
     # First pass: create stub WorkerToolsets for all workers
@@ -94,7 +103,7 @@ async def build_entry_worker(
             raise ValueError(f"Duplicate worker name: {name}")
 
         # Check for conflict with Python entries
-        if name in python_entries:
+        if name in python_workers or name in python_tool_entries:
             raise ValueError(f"Worker name '{name}' conflicts with Python entry")
 
         stub = WorkerEntry(
@@ -106,13 +115,16 @@ async def build_entry_worker(
         worker_toolsets[name] = WorkerToolset(stub)
         worker_paths[name] = worker_path
 
-    # Determine entry source
+    # Determine entry type: worker file, Python worker, or Python tool
+    entry_type: str
     if entry_name in worker_toolsets:
-        entry_is_worker = True
-    elif entry_name in python_entries:
-        entry_is_worker = False
+        entry_type = "worker_file"
+    elif entry_name in python_workers:
+        entry_type = "python_worker"
+    elif entry_name in python_tool_entries:
+        entry_type = "python_tool"
     else:
-        available = list(worker_toolsets.keys()) + list(python_entries.keys())
+        available = list(worker_toolsets.keys()) + list(python_workers.keys()) + list(python_tool_entries.keys())
         raise ValueError(f"Entry '{entry_name}' not found. Available: {available}")
 
     # Second pass: build all workers with resolved tools
@@ -156,10 +168,22 @@ async def build_entry_worker(
         # Update toolset with fully built worker
         worker_toolsets[name] = WorkerToolset(workers[name])
 
-    if entry_is_worker:
-        return workers[entry_name]
-    else:
-        return python_entries[entry_name]
+    # Build list of all available tools for tool entry points
+    # (workers as tools + Python tool entries)
+    all_available: list[ToolsetToolEntry] = []
+    for ws in worker_toolsets.values():
+        entries = await expand_toolset_to_entries(ws)
+        all_available.extend(entries)
+    all_available.extend(python_tool_entries.values())
+
+    # Return entry with available tools (only used for tool entries)
+    if entry_type == "worker_file":
+        return workers[entry_name], []
+    elif entry_type == "python_worker":
+        return python_workers[entry_name], []
+    else:  # python_tool
+        # Tool entry gets access to all workers and other tools
+        return python_tool_entries[entry_name], all_available
 
 
 async def run(
@@ -187,21 +211,21 @@ async def run(
     worker_files = [f for f in files if f.endswith(".worker")]
     python_files = [f for f in files if f.endswith(".py")]
 
-    # Build entry worker
+    # Build entry point
     resolved_entry_name = entry_name or "main"
-    entry = await build_entry_worker(worker_files, python_files, model, resolved_entry_name)
+    entry, available_tools = await build_entry(worker_files, python_files, model, resolved_entry_name)
 
-    # If --all-tools, give entry access to all discovered toolsets
+    # If --all-tools and entry is a worker, give it access to all discovered toolsets
     if all_tools and isinstance(entry, WorkerEntry):
         existing_names = {t.name for t in entry.tools}
         additional_tools = []
         discovered_toolsets = load_toolsets_from_files(python_files)
         for toolset in discovered_toolsets.values():
             tool_entries = await expand_toolset_to_entries(toolset)
-            for tool_entry in tool_entries:
-                if tool_entry.name not in existing_names:
-                    additional_tools.append(tool_entry)
-                    existing_names.add(tool_entry.name)
+            for te in tool_entries:
+                if te.name not in existing_names:
+                    additional_tools.append(te)
+                    existing_names.add(te.name)
 
         entry = WorkerEntry(
             name=entry.name,
@@ -227,8 +251,13 @@ async def run(
             return True
         approval = headless_approval
 
-    # Create context
-    ctx = Context.from_entry(entry, model=model, approval=approval)
+    # Create context - pass available_tools for tool entry points
+    ctx = Context.from_entry(
+        entry,
+        model=model,
+        available=available_tools if available_tools else None,
+        approval=approval,
+    )
 
     result = await ctx.run(entry, {"input": prompt})
 

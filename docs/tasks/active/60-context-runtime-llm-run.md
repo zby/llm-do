@@ -53,10 +53,10 @@ Ship a headless `llm-run` CLI that uses the new context-centric runtime from `ll
     }
     ```
   - Worker file references by name; runtime resolves to class and instantiates with config
-- **Workers as toolsets**: Other `.worker` files in the same directory are automatically discoverable as toolsets
+- **Workers as toolsets**: Other `.worker` files passed to CLI are automatically available as toolsets
   - No special syntax - just reference worker name in `toolsets:` section
   - Enables delegation/composition: main worker can call sub-workers as tools
-  - `discover_worker_files(directory)` scans for `.worker` files and maps name→path
+  - All worker files passed to `build_entry_worker()` are available to each other
 - **CLI entry point**: `llm-run` is a separate command for now; consolidation with `llm-do` deferred to task 70
 - **Examples**: Create `examples-new/` directory for examples validated against new runtime
 - **Tests**: Port tests incrementally with status tracking
@@ -87,6 +87,46 @@ How toolset configuration flows from worker files to toolset instances:
 ```
 
 Note: `FunctionToolset` instances are already instantiated when discovered. Config from worker file is applied via a `configure(config)` method or passed to a wrapper. For simple cases (no config), toolsets work as-is.
+
+## Core API: build_entry_worker
+
+The main programmatic entry point for building workers:
+
+```python
+async def build_entry_worker(
+    worker_files: list[str],   # List of .worker file paths
+    python_files: list[str],   # List of Python file paths containing toolsets
+    model: str | None = None,  # Optional model override (applied to entry only)
+    entry_name: str = "main",  # Name of the entry worker
+) -> WorkerEntry:
+```
+
+**Behavior:**
+1. Loads all Python toolsets from `python_files`
+2. Loads all Python entries (ToolEntry/WorkerEntry) for code entry pattern
+3. Creates `WorkerToolset` wrappers for all workers (two-pass resolution)
+4. Resolves each worker's toolsets from: Python toolsets, built-ins, or other workers
+5. Returns the entry worker (found by `entry_name`)
+
+**Error handling:**
+- Raises `ValueError` if entry not found
+- Raises `ValueError` on duplicate worker names
+- Raises `ValueError` if worker name conflicts with Python entry
+- Raises `ValueError` on unknown toolset reference
+
+**Example:**
+```python
+# Build pitchdeck_eval with delegation
+worker = await build_entry_worker(
+    worker_files=[
+        "examples-new/pitchdeck_eval/main.worker",
+        "examples-new/pitchdeck_eval/pitch_evaluator.worker",
+    ],
+    python_files=[],
+    model="anthropic:claude-sonnet-4-20250514",
+)
+# main.worker can now call pitch_evaluator as a tool
+```
 
 ## Worker File Format
 

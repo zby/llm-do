@@ -141,6 +141,5 @@ Thumbs.db
 # Example outputs
 examples/approvals_demo/notes/
 examples/pitchdeck_eval/evaluations/
-experiments/
 
 pydantic_ai_blocking_approval

@@ -1,0 +1,2 @@
+# Requirements for pitch deck evaluation code entry example
+python-slugify>=8.0

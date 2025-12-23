@@ -5,6 +5,7 @@ from llm_do.model_compat import (
     InvalidCompatibleModelsError,
     LLM_DO_MODEL_ENV,
     ModelCompatibilityError,
+    ModelConfigError,
     ModelValidationResult,
     NoModelError,
     get_env_model,
@@ -102,14 +103,14 @@ class TestValidateModelCompatibility:
 class TestSelectModel:
     """Tests for the model selection function."""
 
-    def test_cli_model_takes_precedence_over_worker(self):
-        """CLI --model overrides worker.model"""
+    def test_worker_model_takes_precedence_over_cli(self):
+        """Worker model takes precedence over CLI --model"""
         model = select_model(
             worker_model="anthropic:claude-haiku-4-5",
             cli_model="openai:gpt-4o",
             compatible_models=None,
         )
-        assert model == "openai:gpt-4o"
+        assert model == "anthropic:claude-haiku-4-5"
 
     def test_worker_model_when_no_cli_model(self):
         model = select_model(
@@ -144,21 +145,21 @@ class TestSelectModel:
                 compatible_models=["anthropic:*"],
             )
 
-    def test_worker_model_validated_against_compatible(self):
-        """Worker model is now validated too (changed from previous behavior)"""
-        model = select_model(
-            worker_model="anthropic:claude-haiku-4-5",
-            cli_model=None,
-            compatible_models=["anthropic:*"],
-        )
-        assert model == "anthropic:claude-haiku-4-5"
+    def test_both_model_and_compatible_models_raises(self):
+        """Cannot have both model and compatible_models set"""
+        with pytest.raises(ModelConfigError, match="cannot have both"):
+            select_model(
+                worker_model="anthropic:claude-haiku-4-5",
+                cli_model=None,
+                compatible_models=["anthropic:*"],
+            )
 
-    def test_worker_model_incompatible_raises(self):
-        """Worker model is now validated (changed from previous behavior)"""
-        with pytest.raises(ModelCompatibilityError, match="not compatible"):
+    def test_both_model_and_compatible_models_with_cli_raises(self):
+        """Cannot have both model and compatible_models even with CLI model"""
+        with pytest.raises(ModelConfigError, match="cannot have both"):
             select_model(
                 worker_model="openai:gpt-4o",
-                cli_model=None,
+                cli_model="anthropic:claude-haiku-4-5",
                 compatible_models=["anthropic:*"],
             )
 
@@ -242,23 +243,23 @@ class TestResolutionPrecedence:
 
     def test_precedence_table(self, monkeypatch):
         """Test the resolution precedence as documented:
-        1. CLI --model (highest)
-        2. Worker model
+        1. Worker model (highest)
+        2. CLI --model
         3. LLM_DO_MODEL env var (lowest)
         """
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "env:model")
 
-        # CLI overrides all
+        # Worker model overrides all
         assert select_model(
             worker_model="w", cli_model="c",
             compatible_models=None
-        ) == "c"
-
-        # Worker next if CLI not set
-        assert select_model(
-            worker_model="w", cli_model=None,
-            compatible_models=None
         ) == "w"
+
+        # CLI next if worker not set
+        assert select_model(
+            worker_model=None, cli_model="c",
+            compatible_models=None
+        ) == "c"
 
         # Env var last
         assert select_model(

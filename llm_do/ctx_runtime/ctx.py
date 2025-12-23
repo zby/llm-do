@@ -17,6 +17,7 @@ from pydantic_ai.usage import Usage
 from pydantic_ai.tools import RunContext
 
 from .registry import Registry
+from ..model_compat import select_model
 
 if TYPE_CHECKING:
     from .entries import CallableEntry
@@ -78,38 +79,42 @@ class Context:
     """
 
     @classmethod
-    def from_tool_entries(
+    def from_entry(
         cls,
-        entries: list["CallableEntry"],
-        model: ModelType,
-        *,
-        approval: Optional[ApprovalFn] = None,
-        max_depth: int = 5,
-    ) -> "Context":
-        """Create a Context with a flat list of tool entries."""
-        registry = Registry()
-        for entry in entries:
-            registry.register(entry)
-        return cls(registry, model=model, approval=approval, max_depth=max_depth)
-
-    @classmethod
-    def from_worker(
-        cls,
-        worker: "CallableEntry",
+        entry: "CallableEntry",
         model: ModelType | None = None,
+        available: Optional[list["CallableEntry"]] = None,
         *,
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
     ) -> "Context":
-        """Create a Context for a worker with only its declared tools in registry."""
+        """Create a Context for running an entry.
+
+        Args:
+            entry: The entry to run (WorkerEntry or ToolEntry)
+            model: Model override (uses entry.model if not provided)
+            available: Entries to put in registry (uses entry.tools if not provided)
+            approval: Approval callback for tool execution
+            max_depth: Maximum call depth
+
+        Returns:
+            Context configured for the entry
+        """
+        # Resolve model using model_compat module
+        entry_name = getattr(entry, "name", str(entry))
+        resolved_model = select_model(
+            worker_model=getattr(entry, "model", None),
+            cli_model=model,
+            compatible_models=getattr(entry, "compatible_models", None),
+            worker_name=entry_name,
+        )
+
+        # Registry: use available if provided, else entry.tools
         registry = Registry()
-        tools = getattr(worker, "tools", [])
-        for entry in tools:
-            registry.register(entry)
-        # Use worker's model if no explicit model provided
-        resolved_model = model or worker.model
-        if resolved_model is None:
-            raise ValueError("Model must be provided either to Context or Worker")
+        entries = available if available is not None else getattr(entry, "tools", []) or []
+        for e in entries:
+            registry.register(e)
+
         return cls(registry, model=resolved_model, approval=approval, max_depth=max_depth)
 
     def __init__(

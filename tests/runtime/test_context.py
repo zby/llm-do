@@ -146,13 +146,18 @@ class TestContext:
     """Tests for Context class."""
 
     @pytest.mark.anyio
-    async def test_context_from_tool_entries(self):
-        """Test creating Context from tool entries."""
+    async def test_context_from_entry(self):
+        """Test creating Context from entry with available tools."""
         @tool_entry()
         def add(a: int, b: int) -> int:
             return a + b
 
-        ctx = Context.from_tool_entries([add], model="test-model")
+        # Create a dummy entry to use from_entry
+        @tool_entry()
+        def main() -> str:
+            return "main"
+
+        ctx = Context.from_entry(main, model="test-model", available=[add])
         assert "add" in ctx.registry
         assert ctx.model == "test-model"
 
@@ -179,7 +184,9 @@ class TestContext:
         def multiply(a: int, b: int) -> int:
             return a * b
 
-        ctx = Context.from_tool_entries([multiply], model="test-model")
+        registry = Registry()
+        registry.register(multiply)
+        ctx = Context(registry, model="test-model")
         result = await ctx.call("multiply", {"a": 3, "b": 4})
         assert result == 12
 
@@ -190,7 +197,9 @@ class TestContext:
         def add(a: int, b: int) -> int:
             return a + b
 
-        ctx = Context.from_tool_entries([add], model="test-model")
+        registry = Registry()
+        registry.register(add)
+        ctx = Context(registry, model="test-model")
         await ctx.call("add", {"a": 1, "b": 2})
 
         assert len(ctx.trace) == 1
@@ -208,8 +217,10 @@ class TestContext:
             return x
 
         # Create context that denies all approvals
-        ctx = Context.from_tool_entries(
-            [dangerous],
+        registry = Registry()
+        registry.register(dangerous)
+        ctx = Context(
+            registry,
             model="test-model",
             approval=lambda entry, data: False,
         )
@@ -238,6 +249,8 @@ class TestContext:
         def greet(name: str) -> str:
             return f"Hello, {name}!"
 
-        ctx = Context.from_tool_entries([greet], model="test-model")
+        registry = Registry()
+        registry.register(greet)
+        ctx = Context(registry, model="test-model")
         result = await ctx.tools.greet(name="World")
         assert result == "Hello, World!"

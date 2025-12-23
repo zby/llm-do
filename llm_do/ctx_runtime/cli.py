@@ -122,11 +122,11 @@ async def run(
     worker_files = [f for f in files if f.endswith(".worker")]
     python_files = [f for f in files if f.endswith(".py")]
 
-    if not worker_files:
-        raise ValueError("At least one .worker file required")
-
-    # Load entries from Python files (for --all-tools)
+    # Load entries from Python files
     all_entries = load_entries_from_files(python_files)
+
+    if not worker_files and not all_entries:
+        raise ValueError("At least one .worker or .py file with entries required")
 
     # Build workers with their toolsets
     workers: dict[str, WorkerEntry] = {}
@@ -134,7 +134,7 @@ async def run(
         worker = await build_worker_with_toolsets(worker_path, python_files, model)
         workers[worker.name] = worker
 
-    # Determine entry point
+    # Determine entry point (workers take precedence, then tool entries)
     if entry_name:
         if entry_name not in workers and entry_name not in all_entries:
             available = list(workers.keys()) + list(all_entries.keys())
@@ -143,18 +143,17 @@ async def run(
     elif "main" in workers:
         entry = workers["main"]
         entry_name = "main"
+    elif "main" in all_entries:
+        # Support "main" as a tool entry point (code entry pattern)
+        entry = all_entries["main"]
+        entry_name = "main"
     elif workers:
         entry_name, entry = next(iter(workers.items()))
+    elif all_entries:
+        # Use first tool entry if no workers
+        entry_name, entry = next(iter(all_entries.items()))
     else:
-        raise ValueError("No workers found. Provide at least one .worker file.")
-
-    # Validate entry type - only workers can be entry points
-    if isinstance(entry, ToolEntry):
-        raise ValueError(
-            f"Entry '{entry_name}' is a tool, not a worker. "
-            f"Only workers can be used as entry points. "
-            f"Available workers: {list(workers.keys())}"
-        )
+        raise ValueError("No entry point found. Provide a .worker file or .py file with entries.")
 
     # If --all-tools, give entry access to all discovered toolsets
     if all_tools and isinstance(entry, WorkerEntry):
@@ -179,15 +178,6 @@ async def run(
             schema_out=entry.schema_out,
         )
 
-    # Resolve model
-    if isinstance(entry, WorkerEntry) and entry.model is None:
-        if model is None:
-            raise ValueError(
-                f"No model specified. Set {ENV_MODEL_VAR} environment variable, "
-                f"use --model flag, or define model in the worker."
-            )
-        entry.model = model
-
     # Set up approval function
     approval: ApprovalFn | None = None
     if approve_all:
@@ -203,7 +193,10 @@ async def run(
             return True
         approval = headless_approval
 
-    ctx = Context.from_worker(entry, approval=approval)
+    # Create context - for ToolEntry, provide workers as available entries
+    available = list(workers.values()) if isinstance(entry, ToolEntry) else None
+    ctx = Context.from_entry(entry, model=model, available=available, approval=approval)
+
     result = await ctx.run(entry, {"input": prompt})
 
     return result, ctx

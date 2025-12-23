@@ -9,6 +9,7 @@ from pydantic_ai.models.test import TestModel
 
 from llm_do.ctx_runtime import (
     Context,
+    Registry,
     WorkerEntry,
     load_worker_file,
     load_toolsets_from_files,
@@ -48,7 +49,7 @@ class TestGreeterExample:
             tools=[],
         )
 
-        ctx = Context.from_worker(worker)
+        ctx = Context.from_entry(worker)
         result = await ctx.run(worker, {"input": "Hello, my name is Alice"})
 
         assert result is not None
@@ -105,7 +106,10 @@ class TestCalculatorExample:
         factorial_entry = next(e for e in entries if e.name == "factorial")
 
         # Create a minimal context for tool execution
-        ctx = Context.from_tool_entries(entries, model="test-model")
+        registry = Registry()
+        for e in entries:
+            registry.register(e)
+        ctx = Context(registry, model="test-model")
 
         # Call factorial(5) = 120
         result = await ctx.call("factorial", {"n": 5})
@@ -123,7 +127,10 @@ class TestCalculatorExample:
         calc_toolset = toolsets["calc_tools"]
 
         entries = await expand_toolset_to_entries(calc_toolset)
-        ctx = Context.from_tool_entries(entries, model="test-model")
+        registry = Registry()
+        for e in entries:
+            registry.register(e)
+        ctx = Context(registry, model="test-model")
 
         # Fibonacci sequence: 0, 1, 1, 2, 3, 5, 8, 13, 21, 34
         assert await ctx.call("fibonacci", {"n": 0}) == 0
@@ -138,7 +145,10 @@ class TestCalculatorExample:
         calc_toolset = toolsets["calc_tools"]
 
         entries = await expand_toolset_to_entries(calc_toolset)
-        ctx = Context.from_tool_entries(entries, model="test-model")
+        registry = Registry()
+        for e in entries:
+            registry.register(e)
+        ctx = Context(registry, model="test-model")
 
         assert await ctx.call("add", {"a": 3, "b": 4}) == 7
         assert await ctx.call("multiply", {"a": 3, "b": 4}) == 12

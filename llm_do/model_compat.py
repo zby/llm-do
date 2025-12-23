@@ -41,6 +41,11 @@ class InvalidCompatibleModelsError(ValueError):
     pass
 
 
+class ModelConfigError(ValueError):
+    """Raised when model configuration is invalid (e.g., both model and compatible_models set)."""
+    pass
+
+
 @dataclass
 class ModelValidationResult:
     """Result of model compatibility validation."""
@@ -169,11 +174,12 @@ def select_model(
     """Select and validate the effective model for a worker.
 
     Resolution order (highest to lowest priority):
-    1. CLI --model flag - explicit user override
-    2. Worker's own model - worker definition
+    1. Worker's own model - worker definition (takes precedence)
+    2. CLI --model flag - user override
     3. LLM_DO_MODEL env var - user's global default
 
-    The selected model is validated against compatible_models.
+    The CLI/env model is validated against compatible_models.
+    Worker cannot have both model and compatible_models set.
 
     Args:
         worker_model: Model from worker definition
@@ -185,18 +191,26 @@ def select_model(
         The selected model identifier
 
     Raises:
+        ModelConfigError: If worker has both model and compatible_models set
         ModelCompatibilityError: If selected model is incompatible with worker
         NoModelError: If no model is available from any source
     """
-    # 1. CLI model - explicit user override (highest priority)
+    # Validate: can't have both model and compatible_models
+    if worker_model is not None and compatible_models is not None:
+        raise ModelConfigError(
+            f"Worker '{worker_name}' cannot have both 'model' and 'compatible_models' set. "
+            f"Use 'model' for a fixed model, or 'compatible_models' to accept external models."
+        )
+
+    # 1. Worker's own model (highest priority)
+    if worker_model is not None:
+        return worker_model  # No validation needed - it's the worker's own choice
+
+    # 2. CLI model - user override (validated against compatible_models)
     if cli_model is not None:
         return _validate_and_return(cli_model, compatible_models, worker_name)
 
-    # 2. Worker's own model
-    if worker_model is not None:
-        return _validate_and_return(worker_model, compatible_models, worker_name)
-
-    # 3. Environment variable - user's global default
+    # 3. Environment variable - user's global default (validated)
     env_model = get_env_model()
     if env_model is not None:
         return _validate_and_return(env_model, compatible_models, worker_name)

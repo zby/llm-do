@@ -514,11 +514,11 @@ async def _run_tui_mode(args: argparse.Namespace) -> int:
 
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
-        nonlocal registry
-        nonlocal tool_name
-        nonlocal creation_defaults
-        nonlocal approval_controller
         async def _run() -> Any:
+            nonlocal registry
+            nonlocal tool_name
+            nonlocal creation_defaults
+            nonlocal approval_controller
             registry_root = args.dir or Path.cwd()
             tool_name = args.tool
 

@@ -38,12 +38,13 @@ class LlmDoApp(App[None]):
 
     #input-container {
         height: auto;
+        min-height: 3;
         padding: 1;
         background: $surface;
     }
 
     #user-input {
-        dock: bottom;
+        width: 100%;
     }
 
     Footer {
@@ -95,7 +96,8 @@ class LlmDoApp(App[None]):
     """
 
     BINDINGS = [
-        Binding("q", "quit", "Quit", show=True),
+        Binding("ctrl+q", "quit", "Quit", show=True),
+        Binding("q", "quit", "Quit", show=False),
         Binding("a", "approve", "Approve", show=False),
         Binding("s", "approve_session", "Approve Session", show=False),
         Binding("d", "deny", "Deny", show=False),
@@ -136,6 +138,10 @@ class LlmDoApp(App[None]):
         self._event_task = asyncio.create_task(self._consume_events())
         if self._worker_coro is not None:
             self._worker_task = asyncio.create_task(self._worker_coro)
+        if not self._auto_quit:
+            user_input = self.query_one("#user-input", Input)
+            user_input.disabled = False
+            user_input.focus()
 
     async def on_unmount(self) -> None:
         """Clean up on unmount."""
@@ -214,12 +220,19 @@ class LlmDoApp(App[None]):
         elif isinstance(event, ApprovalRequestEvent):
             # Store pending approval for action handlers
             self._pending_approval = event.request
+            user_input = self.query_one("#user-input", Input)
+            user_input.disabled = True
+            messages = self.query_one("#messages", MessageContainer)
+            messages.focus()
 
     def action_approve(self) -> None:
         """Handle 'a' key - approve once."""
         if self._pending_approval and self._approval_response_queue:
             self._approval_response_queue.put_nowait(ApprovalDecision(approved=True))
             self._pending_approval = None
+            user_input = self.query_one("#user-input", Input)
+            user_input.disabled = False
+            user_input.focus()
 
     def action_approve_session(self) -> None:
         """Handle 's' key - approve for session."""
@@ -228,6 +241,9 @@ class LlmDoApp(App[None]):
                 ApprovalDecision(approved=True, remember="session")
             )
             self._pending_approval = None
+            user_input = self.query_one("#user-input", Input)
+            user_input.disabled = False
+            user_input.focus()
 
     def action_deny(self) -> None:
         """Handle 'd' key - deny."""
@@ -236,17 +252,21 @@ class LlmDoApp(App[None]):
                 ApprovalDecision(approved=False, note="Rejected via TUI")
             )
             self._pending_approval = None
+            user_input = self.query_one("#user-input", Input)
+            user_input.disabled = False
+            user_input.focus()
 
     def action_quit(self) -> None:
-        """Quit the app unless the input widget has focus."""
-        user_input = self.query_one("#user-input", Input)
-        if user_input.has_focus:
-            return
+        """Quit the app."""
         self._done = True
         self.exit()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle Enter in the input widget."""
+        if self._worker_task is not None and not self._worker_task.done():
+            messages = self.query_one("#messages", MessageContainer)
+            messages.add_status("Wait for the current response to finish.")
+            return
         user_text = event.value.strip()
         if not user_text:
             return
@@ -257,13 +277,10 @@ class LlmDoApp(App[None]):
         """Submit a new user message and run another turn."""
         messages = self.query_one("#messages", MessageContainer)
         messages.add_user_message(text)
-
         user_input = self.query_one("#user-input", Input)
-        user_input.disabled = True
 
         if self._run_turn is None:
             messages.add_status("Conversation runner not configured.")
-            user_input.disabled = False
             user_input.focus()
             return
 
@@ -274,7 +291,6 @@ class LlmDoApp(App[None]):
                 if result is not None:
                     self._message_history = list(result.messages or [])
             finally:
-                user_input.disabled = False
                 user_input.focus()
 
         self._worker_task = asyncio.create_task(_run_turn_task())

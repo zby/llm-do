@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .entries import ToolEntry, WorkerEntry, ToolsetToolEntry
+from .entries import ToolEntry, WorkerEntry, ToolsetToolEntry, WorkerToolset
 
 
 def load_module(path: str | Path) -> ModuleType:
@@ -135,6 +135,26 @@ async def expand_toolset_to_entries(
 
     entries: list[ToolsetToolEntry] = []
 
+    # WorkerToolset expands to a ToolsetToolEntry like any other toolset
+    if isinstance(toolset, WorkerToolset):
+        tool_def = ToolDefinition(
+            name=toolset.worker.name,
+            description=toolset.worker.instructions[:200] + "..." if len(toolset.worker.instructions) > 200 else toolset.worker.instructions,
+            parameters_json_schema={
+                "type": "object",
+                "properties": {
+                    "input": {"type": "string", "description": "Input prompt for the worker"},
+                },
+                "required": ["input"],
+            },
+        )
+        return [ToolsetToolEntry(
+            toolset=toolset,
+            tool_name=toolset.worker.name,
+            tool_def=tool_def,
+            requires_approval=toolset.worker.requires_approval,
+        )]
+
     # For FunctionToolset, we can access tools directly without get_tools()
     if isinstance(toolset, FunctionToolset):
         for tool_name, tool in toolset.tools.items():
@@ -224,23 +244,3 @@ def load_entries_from_files(files: list[str | Path]) -> dict[str, ToolEntry | Wo
     return all_entries
 
 
-def discover_worker_files(directory: str | Path) -> dict[str, Path]:
-    """Discover .worker files in a directory.
-
-    Args:
-        directory: Directory to scan for .worker files
-
-    Returns:
-        Dict mapping worker names (file stem) to file paths
-    """
-    workers: dict[str, Path] = {}
-    dir_path = Path(directory)
-
-    if not dir_path.is_dir():
-        return workers
-
-    for worker_file in dir_path.glob("*.worker"):
-        name = worker_file.stem
-        workers[name] = worker_file
-
-    return workers

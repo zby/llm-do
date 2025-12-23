@@ -24,6 +24,30 @@ if TYPE_CHECKING:
     from .ctx import CallTrace, Context
 
 
+class WorkerToolset(AbstractToolset[Any]):
+    """Wraps a WorkerEntry as an AbstractToolset for unified discovery."""
+
+    def __init__(self, worker: "WorkerEntry") -> None:
+        self._worker = worker
+
+    @property
+    def id(self) -> str | None:
+        return self._worker.name
+
+    @property
+    def worker(self) -> "WorkerEntry":
+        return self._worker
+
+    async def get_tools(self, ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
+        # Not used directly - expand_toolset_to_entries handles WorkerToolset specially
+        return {}
+
+    async def call_tool(
+        self, name: str, tool_args: dict[str, Any], ctx: RunContext[Any], tool: ToolsetTool[Any]
+    ) -> Any:
+        return await self._worker.call(tool_args, ctx.deps, ctx)
+
+
 ModelType = Model | KnownModelName
 
 
@@ -158,7 +182,7 @@ class WorkerEntry:
     name: str
     instructions: str
     model: ModelType | None = None
-    tools: list[Any] = field(default_factory=list)
+    tools: list["ToolsetToolEntry"] = field(default_factory=list)
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[BaseModel]] = None
     schema_out: Optional[Type[BaseModel]] = None
@@ -195,7 +219,8 @@ class WorkerEntry:
                     function_schema=entry.tool.function_schema,
                 ))
             elif isinstance(entry, ToolsetToolEntry):
-                # For toolset tools, create a proxy that calls through context
+                # For toolset tools (including workers via WorkerToolset),
+                # create a proxy that calls through context
                 async def _toolset_proxy(
                     run_ctx: RunContext[Any],
                     _entry_name: str = entry.name,
@@ -216,25 +241,13 @@ class WorkerEntry:
                         function_schema=entry._original_tool.function_schema,
                     ))
                 else:
-                    # Fallback for non-FunctionToolset (schema info in tool_def only)
+                    # For non-FunctionToolset (including WorkerToolset)
                     tools.append(Tool(
                         _toolset_proxy,
                         name=entry.name,
                         description=entry.tool_def.description,
                         requires_approval=entry.requires_approval,
                     ))
-            else:
-                # For nested workers, create a wrapper tool that accepts any kwargs
-                async def _worker_tool(
-                    run_ctx: RunContext[Any],
-                    _entry_name: str = entry.name,
-                    **kwargs: Any,
-                ) -> Any:
-                    return await run_ctx.deps.call(_entry_name, kwargs)
-
-                _worker_tool.__name__ = entry.name
-                _worker_tool.__doc__ = getattr(entry, "instructions", f"Call {entry.name}")
-                tools.append(Tool(_worker_tool, name=entry.name))
         return tools
 
     def _build_agent(self, resolved_model: ModelType, ctx: "Context") -> Agent["Context", Any]:

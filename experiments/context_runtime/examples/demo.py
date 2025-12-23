@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 import asyncio
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pydantic_ai.tools import RunContext, Tool
 
 from tool_calling_model import ToolCallingModel
 
-from ctx import Context
-from entries import ToolEntry, WorkerEntry, tool_entry
+from src.ctx import Context
+from src.entries import ToolEntry, WorkerEntry, tool_entry
 
 
 # Standard PydanticAI tool signature
@@ -36,7 +40,7 @@ if __name__ == "__main__":
         tools=[add_tool],
     )
     ctx = Context.from_worker(worker)
-    result = asyncio.run(ctx.call("adder", {"a": 2, "b": 3}))
+    result = asyncio.run(ctx.run(worker, {"a": 2, "b": 3}))
     print("Result:", result)
     print("Trace:")
     for t in ctx.trace:

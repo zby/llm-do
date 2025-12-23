@@ -8,11 +8,11 @@ A lightweight runtime for orchestrating LLM workers and tools with unified traci
 cd experiments/context_runtime
 uv sync
 
-# Run a simple worker
-uv run python llm_do.py greeter.worker "Hello, I'm Alice!"
+# Run a worker with tools (file_tools.py has a "main" entry)
+uv run python llm_do.py examples/file_tools.py "List all Python files here"
 
-# Run with custom tools
-uv run python llm_do.py example_tools.py "List all Python files here"
+# Run a simple worker file
+uv run python llm_do.py examples/greeter.worker --entry greeter "Hello, I'm Alice!"
 ```
 
 ## CLI: llm_do.py
@@ -20,18 +20,42 @@ uv run python llm_do.py example_tools.py "List all Python files here"
 The main entry point for running workers and tools:
 
 ```bash
-# Worker file (simple LLM with instructions)
-uv run python llm_do.py greeter.worker "Your message"
+# Python file with main entry (auto-discovered)
+uv run python llm_do.py examples/file_tools.py "List files in current directory"
 
-# Python file with tools (auto-discovered)
-uv run python llm_do.py example_tools.py "Your prompt"
+# Worker file with explicit entry
+uv run python llm_do.py examples/greeter.worker --entry greeter "Your message"
+
+# Multiple files with --all-tools (makes all entries available)
+uv run python llm_do.py examples/file_tools.py examples/example_tools.py --all-tools "What's the current dir?"
 
 # Interactive mode
-uv run python llm_do.py example_tools.py --interactive
+uv run python llm_do.py examples/file_tools.py --interactive
 
 # Different model
-uv run python llm_do.py greeter.worker -m anthropic:claude-sonnet-4 "Hello"
+uv run python llm_do.py examples/file_tools.py -m anthropic:claude-sonnet-4 "Hello"
+
+# Show execution trace
+uv run python llm_do.py examples/file_tools.py "List files" --trace
 ```
+
+**Entry point resolution:**
+1. If `--entry NAME` specified, use that entry
+2. Else if "main" entry exists, use it
+3. Else error (no entry point found)
+
+**Options:**
+- `--entry/-e NAME`: Specify entry point by name
+- `--all-tools/-a`: Make all discovered entries available as tools
+- `--model/-m MODEL`: Override model (default: `$LLM_DO_MODEL` env var)
+- `--interactive/-i`: Interactive REPL mode
+- `--trace`: Show execution trace
+
+**Model Resolution:**
+1. Worker's `model` field (if defined)
+2. `--model` CLI flag
+3. `LLM_DO_MODEL` environment variable
+4. Error if none specified
 
 ## File Formats
 
@@ -43,7 +67,7 @@ Simple LLM workers defined in YAML frontmatter + markdown:
 ---
 name: greeter
 description: A friendly assistant
-model: anthropic:claude-haiku-4-5  # optional
+model: anthropic:claude-haiku-4-5  # optional, uses $LLM_DO_MODEL if not set
 ---
 
 You are a friendly assistant. Greet the user warmly.
@@ -55,8 +79,8 @@ Define tools using standard PydanticAI signatures:
 
 ```python
 from pydantic_ai.tools import RunContext
-from ctx import Context
-from entries import tool_entry
+from src.ctx import Context
+from src.entries import tool_entry
 
 @tool_entry("list_files")
 async def list_files(ctx: RunContext[Context], path: str = ".") -> list[str]:
@@ -66,37 +90,51 @@ async def list_files(ctx: RunContext[Context], path: str = ".") -> list[str]:
 
 Tools are auto-discovered from module-level `ToolEntry` and `WorkerEntry` instances.
 
-## Architecture
+## Project Structure
 
-**Core Components:**
-- `ctx.py` (~165 lines) - Context dispatcher with tracing, depth limits, approval, usage tracking
-- `entries.py` (~165 lines) - ToolEntry and WorkerEntry wrapping PydanticAI primitives
-- `registry.py` (~23 lines) - Simple name→entry registry
+```
+context_runtime/
+├── src/                    # Core runtime
+│   ├── ctx.py              # Context dispatcher
+│   ├── entries.py          # ToolEntry, WorkerEntry
+│   ├── registry.py         # Name→entry registry
+│   └── worker_file.py      # .worker file parsing
+├── examples/               # Examples and demos
+│   ├── file_tools.py       # File tools with main entry
+│   ├── example_tools.py    # Standalone tools
+│   ├── greeter.worker      # Worker file example
+│   ├── demo.py             # Basic demo
+│   ├── greeter_demo.py     # Minimal LLM call
+│   ├── pitchdeck_demo.py   # Nested workers
+│   ├── code_entry_demo.py  # Python entry point
+│   └── worker_file_demo.py # Dynamic worker loading
+└── llm_do.py               # CLI entry point
+```
 
 **Key Features:**
 - Standard PydanticAI tool signatures: `async def tool(ctx: RunContext[Context], arg1, arg2)`
 - Unified tracing across workers and tools
 - Model resolution with per-worker override
-- Nested worker/tool calls with depth tracking
+- Per-worker registry scope (tools only see declared dependencies)
 - Usage tracking by model
 
-## Demos
+## Examples
 
 ```bash
 # Minimal LLM call
-uv run python greeter_demo.py
+uv run python examples/greeter_demo.py
 
 # Worker with tools
-uv run python demo.py
+uv run python examples/demo.py
 
 # Nested workers with tools
-uv run python pitchdeck_demo.py
+uv run python examples/pitchdeck_demo.py
 
 # Python tool calling LLM workers
-uv run python code_entry_demo.py
+uv run python examples/code_entry_demo.py
 
 # Dynamic worker file loading
-uv run python worker_file_demo.py
+uv run python examples/worker_file_demo.py
 ```
 
 ## Design

@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pydantic_ai.models.test import TestModel
 
-from ctx import Context
-from entries import WorkerEntry
+from src.ctx import Context
+from src.entries import WorkerEntry
 
 
 if __name__ == "__main__":
@@ -17,7 +21,7 @@ if __name__ == "__main__":
     )
 
     ctx = Context.from_worker(greeter)
-    result = asyncio.run(ctx.call("greeter", {"name": "Alice"}))
+    result = asyncio.run(ctx.run(greeter, {"name": "Alice"}))
 
     print("Result:", result)
     print("\nTrace:")

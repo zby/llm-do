@@ -1,70 +1,21 @@
-"""Run a worker from a .worker file definition.
+"""Demo: Dynamic worker loading at runtime.
 
-Worker file format:
----
-name: worker_name
-description: Optional description
-model: optional model override (e.g., anthropic:claude-haiku)
----
-
-Instructions/system prompt in markdown.
+Shows how a tool can load and run .worker files during execution.
 """
 from __future__ import annotations
 
 import asyncio
-import re
-from dataclasses import dataclass
+import sys
 from pathlib import Path
-from typing import Any
 
-import yaml
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext, Tool
 
-from ctx import Context, ModelType
-from entries import ToolEntry, WorkerEntry
-
-
-@dataclass
-class WorkerFile:
-    """Parsed worker file."""
-    name: str
-    description: str | None
-    instructions: str
-    model: str | None = None
-
-
-def parse_worker_file(content: str) -> WorkerFile:
-    """Parse a worker file with YAML frontmatter and markdown instructions."""
-    # Match YAML frontmatter between --- markers
-    pattern = r'^---\s*\n(.*?)\n---\s*\n(.*)$'
-    match = re.match(pattern, content, re.DOTALL)
-
-    if not match:
-        raise ValueError("Invalid worker file format: missing frontmatter")
-
-    frontmatter_str, instructions = match.groups()
-    frontmatter = yaml.safe_load(frontmatter_str)
-
-    if not isinstance(frontmatter, dict):
-        raise ValueError("Invalid frontmatter: expected YAML mapping")
-
-    name = frontmatter.get("name")
-    if not name:
-        raise ValueError("Worker file must have a 'name' field")
-
-    return WorkerFile(
-        name=name,
-        description=frontmatter.get("description"),
-        instructions=instructions.strip(),
-        model=frontmatter.get("model"),
-    )
-
-
-def load_worker_file(path: str | Path) -> WorkerFile:
-    """Load and parse a worker file from disk."""
-    content = Path(path).read_text(encoding="utf-8")
-    return parse_worker_file(content)
+from src.ctx import Context
+from src.entries import ToolEntry, WorkerEntry
+from src.worker_file import load_worker_file
 
 
 async def run_worker(
@@ -132,12 +83,12 @@ if __name__ == "__main__":
 
     # Create context with a default model
     ctx = Context.from_tool_entries(
-        [run_worker_tool],
+        [],
         model=TestModel(custom_output_text="Hello! It's great to meet you. How can I help today?"),
     )
 
     # Run the worker via the tool
-    result = asyncio.run(ctx.call("run_worker", {
+    result = asyncio.run(ctx.run(run_worker_tool, {
         "worker_path": str(worker_path),
         "input_text": "Hi, my name is Bob!",
     }))

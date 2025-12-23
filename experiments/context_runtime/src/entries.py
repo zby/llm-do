@@ -12,7 +12,7 @@ from pydantic_ai.models import Model, KnownModelName
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, Tool
 
-from ctx import CallableEntry, CallTrace, Context, ModelType
+from .ctx import CallableEntry, CallTrace, Context, ModelType
 
 
 def _format_prompt(input_data: Any) -> str:

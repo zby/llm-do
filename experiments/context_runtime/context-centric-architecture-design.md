@@ -10,11 +10,13 @@ The runtime is anchored on `Context`, which dispatches registry entries and enfo
 ### Core Components
 
 **Context** (`ctx.py`)
-- Holds registry, default model, approval function, depth tracking, trace list, and usage dict
-- `ctx.call(name, input)` dispatches to tools/workers with approval checks and tracing
+- Holds registry (per-worker scope), default model, approval function, depth tracking, trace list, and usage dict
+- `ctx.run(entry, input)` runs an entry directly (no lookup needed)
+- `ctx.call(name, input)` dispatches to tools by name (looked up in registry)
 - `ctx.tools.<name>(**kwargs)` provides attribute-style access
 - Creates `RunContext[Context]` for tool invocations
 - Model resolution: entry's model (if set) or context's default
+- Workers get a child context with registry restricted to their declared tools
 
 **ToolEntry** (`entries.py`)
 - Wraps a PydanticAI `Tool[Context]` directly
@@ -74,10 +76,10 @@ class CallableEntry(Protocol):
 
 ### Execution Flow
 
-1. Caller uses `ctx.call("analyze", input)` or `await ctx.tools.analyze(**kwargs)`
+1. Caller uses `ctx.run(entry, input)` for entry points or `ctx.call("tool_name", input)` for tools
 2. Context checks depth limit, creates trace entry, checks approval
 3. Context resolves model and creates `RunContext[Context]`
-4. Context creates child context with `depth + 1`
+4. Context creates child context with `depth + 1` and restricted registry (worker's tools only)
 5. Entry's `call()` is invoked with `(input_data, child_ctx, run_ctx)`
 
 **For ToolEntry:**
@@ -114,7 +116,7 @@ researcher = WorkerEntry(
 
 # Run
 ctx = Context.from_worker(researcher, model="anthropic:claude-sonnet")
-result = await ctx.call("researcher", {"topic": "AI safety"})
+result = await ctx.run(researcher, {"topic": "AI safety"})
 
 # Inspect
 for t in ctx.trace:
@@ -133,18 +135,36 @@ See `code_entry_demo.py` for a complete example.
 The `llm_do.py` CLI provides a simple way to run workers and tools:
 
 ```bash
-# Run a worker file
-python llm_do.py greeter.worker "Hello!"
+# Run Python file with "main" entry (auto-discovered)
+python llm_do.py file_tools.py "List files in current directory"
 
-# Run with tools from a Python file
-python llm_do.py example_tools.py "List files in current directory"
+# Run worker file with explicit entry
+python llm_do.py greeter.worker --entry greeter "Hello!"
+
+# Multiple files with --all-tools
+python llm_do.py file_tools.py example_tools.py --all-tools "What's the current dir?"
 
 # Interactive mode
-python llm_do.py example_tools.py --interactive
+python llm_do.py file_tools.py --interactive
 
 # Custom model
-python llm_do.py greeter.worker -m anthropic:claude-sonnet-4 "Hello"
+python llm_do.py file_tools.py -m anthropic:claude-sonnet-4 "Hello"
+
+# Show execution trace
+python llm_do.py file_tools.py "List files" --trace
 ```
+
+**Entry point resolution:**
+1. If `--entry NAME` specified, use that entry
+2. Else if "main" entry exists, use it
+3. Else error (no entry point found)
+
+**Options:**
+- `--entry/-e NAME`: Specify entry point by name
+- `--all-tools/-a`: Make all discovered entries available as tools (escape hatch)
+- `--model/-m MODEL`: Override model (default: anthropic:claude-haiku-4-5)
+- `--interactive/-i`: Interactive REPL mode
+- `--trace`: Show execution trace
 
 **Supported file formats:**
 
@@ -165,9 +185,16 @@ python llm_do.py greeter.worker -m anthropic:claude-sonnet-4 "Hello"
    async def list_files(ctx: RunContext[Context], path: str) -> list[str]:
        """List files in directory."""
        return [str(p) for p in Path(path).glob("*")]
+
+   # Entry workers should define their tools explicitly
+   main = WorkerEntry(
+       name="main",
+       instructions="You are a file assistant...",
+       tools=[list_files],  # explicit tool list
+   )
    ```
 
-**Discovery:** The CLI scans module globals for `ToolEntry` and `WorkerEntry` instances, builds an orchestrator worker with all discovered entries as tools, and runs it with the user's prompt.
+**Discovery:** The CLI scans module globals for `ToolEntry` and `WorkerEntry` instances. Entry workers should define their own tools explicitly; use `--all-tools` to override and make all discovered entries available.
 
 ### Resolved Questions
 

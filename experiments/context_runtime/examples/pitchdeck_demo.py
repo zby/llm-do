@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pydantic import BaseModel
 from pydantic_ai.models.test import TestModel
@@ -10,8 +13,8 @@ from pydantic_ai.tools import RunContext, Tool
 
 from tool_calling_model import ToolCallingModel
 
-from ctx import Context
-from entries import ToolEntry, WorkerEntry
+from src.ctx import Context
+from src.entries import ToolEntry, WorkerEntry
 
 
 class PitchEvalInput(BaseModel):
@@ -97,7 +100,7 @@ if __name__ == "__main__":
 
     ctx = Context.from_worker(orchestrator)
 
-    result = asyncio.run(ctx.call("pitch_orchestrator", "Evaluate pitch decks."))
+    result = asyncio.run(ctx.run(orchestrator, "Evaluate pitch decks."))
     print("Result:", result)
     print("Output dir:", output_dir)
     print("Trace:")

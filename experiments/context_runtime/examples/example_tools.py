@@ -2,12 +2,15 @@
 
 This file defines tools that will be auto-discovered and made available to the LLM.
 """
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pydantic_ai.tools import RunContext, Tool
 
-from ctx import Context
-from entries import ToolEntry, tool_entry
+from src.ctx import Context
+from src.entries import ToolEntry, tool_entry
 
 
 # Using the decorator

@@ -8,7 +8,7 @@ from pydantic_ai.models import Model, KnownModelName
 from pydantic_ai.usage import Usage
 from pydantic_ai.tools import RunContext
 
-from registry import Registry
+from .registry import Registry
 
 
 ModelType = Model | KnownModelName
@@ -74,11 +74,11 @@ class Context:
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
     ) -> "Context":
+        # Registry contains only the worker's tools, not the worker itself
         registry = Registry()
         tools = getattr(worker, "tools", [])
         for entry in tools:
             registry.register(entry)
-        registry.register(worker)
         # Use worker's model if no explicit model provided
         resolved_model = model or worker.model
         if resolved_model is None:
@@ -131,10 +131,10 @@ class Context:
             tool_name=tool_name,
         )
 
-    def _child(self) -> "Context":
-        """Create a child context with incremented depth."""
+    def _child(self, registry: Optional[Registry] = None) -> "Context":
+        """Create a child context with incremented depth and optionally restricted registry."""
         return Context(
-            self.registry,
+            registry if registry is not None else self.registry,
             model=self.model,
             approval=self.approval,
             max_depth=self.max_depth,
@@ -143,11 +143,20 @@ class Context:
             usage=self.usage,
         )
 
+    async def run(self, entry: CallableEntry, input_data: Any) -> Any:
+        """Run an entry directly (no registry lookup needed)."""
+        return await self._execute(entry, input_data)
+
     async def call(self, name: str, input_data: Any) -> Any:
+        """Call an entry by name (looked up in registry)."""
+        entry = self.registry.get(name)
+        return await self._execute(entry, input_data)
+
+    async def _execute(self, entry: CallableEntry, input_data: Any) -> Any:
+        """Execute an entry with tracing, approval, and child context creation."""
         if self.depth >= self.max_depth:
             raise RuntimeError(f"Max depth exceeded: {self.max_depth}")
 
-        entry = self.registry.get(name)
         trace = CallTrace(name=entry.name, kind=entry.kind, depth=self.depth, input_data=input_data)
         self.trace.append(trace)
 
@@ -155,9 +164,16 @@ class Context:
             trace.error = "approval denied"
             raise PermissionError(f"Approval denied for {entry.name}")
 
-        child_ctx = self._child()
+        # Workers get a child context with registry restricted to their declared tools
+        child_registry: Registry | None = None
+        if hasattr(entry, "tools") and entry.tools:
+            child_registry = Registry()
+            for tool_entry in entry.tools:
+                child_registry.register(tool_entry)
+
+        child_ctx = self._child(registry=child_registry)
         resolved_model = self._resolve_model(entry)
-        run_ctx = self._make_run_context(name, resolved_model, child_ctx)
+        run_ctx = self._make_run_context(entry.name, resolved_model, child_ctx)
 
         try:
             result = await entry.call(input_data, child_ctx, run_ctx)

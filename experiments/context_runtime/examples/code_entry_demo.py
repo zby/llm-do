@@ -13,14 +13,17 @@ Benefits:
 from __future__ import annotations
 
 import asyncio
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pydantic import BaseModel
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext, Tool
 
-from ctx import Context
-from entries import ToolEntry, WorkerEntry
+from src.ctx import Context
+from src.entries import ToolEntry, WorkerEntry
 
 
 class PitchEvalInput(BaseModel):
@@ -90,14 +93,14 @@ if __name__ == "__main__":
     # Code entry point as a tool
     main_tool = ToolEntry(tool=Tool(evaluate_pitchdecks, name="evaluate_pitchdecks"))
 
-    # Create context with both the tool and worker
+    # Create context with the evaluator worker available for the tool to call
     ctx = Context.from_tool_entries(
-        [main_tool, evaluator],
+        [evaluator],
         model=TestModel(custom_output_text="unused"),
     )
 
     # Run with code as entry point (not LLM orchestrator)
-    result = asyncio.run(ctx.call("evaluate_pitchdecks", {"input_dir": str(input_dir)}))
+    result = asyncio.run(ctx.run(main_tool, {"input_dir": str(input_dir)}))
 
     print("Result:", result)
     print("\nTrace:")

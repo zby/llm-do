@@ -222,3 +222,25 @@ def load_entries_from_files(files: list[str | Path]) -> dict[str, ToolEntry | Wo
             all_entries[entry.name] = entry
 
     return all_entries
+
+
+def discover_worker_files(directory: str | Path) -> dict[str, Path]:
+    """Discover .worker files in a directory.
+
+    Args:
+        directory: Directory to scan for .worker files
+
+    Returns:
+        Dict mapping worker names (file stem) to file paths
+    """
+    workers: dict[str, Path] = {}
+    dir_path = Path(directory)
+
+    if not dir_path.is_dir():
+        return workers
+
+    for worker_file in dir_path.glob("*.worker"):
+        name = worker_file.stem
+        workers[name] = worker_file
+
+    return workers

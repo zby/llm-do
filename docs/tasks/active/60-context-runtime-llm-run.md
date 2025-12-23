@@ -53,6 +53,10 @@ Ship a headless `llm-run` CLI that uses the new context-centric runtime from `ll
     }
     ```
   - Worker file references by name; runtime resolves to class and instantiates with config
+- **Workers as toolsets**: Other `.worker` files in the same directory are automatically discoverable as toolsets
+  - No special syntax - just reference worker name in `toolsets:` section
+  - Enables delegation/composition: main worker can call sub-workers as tools
+  - `discover_worker_files(directory)` scans for `.worker` files and maps name→path
 - **CLI entry point**: `llm-run` is a separate command for now; consolidation with `llm-do` deferred to task 70
 - **Examples**: Create `examples-new/` directory for examples validated against new runtime
 - **Tests**: Port tests incrementally with status tracking
@@ -96,6 +100,7 @@ toolsets:
   math_tools: {}          # FunctionToolset from CLI-loaded Python
   my_toolset:             # custom AbstractToolset from CLI-loaded Python
     some_option: true
+  sub_worker: {}          # another .worker file in same directory (workers as toolsets)
 ---
 Instructions for the worker...
 ```
@@ -103,6 +108,7 @@ Instructions for the worker...
 - `toolsets:` section references toolset instances by name with optional config
 - All toolset code comes from Python files passed to CLI; worker file only has names + config
 - Individual tools are defined via `FunctionToolset` (no standalone tool declarations)
+- Other `.worker` files in the same directory can be referenced by name (workers as toolsets)
 
 ## Example: FunctionToolset
 
@@ -208,7 +214,7 @@ tests/runtime/
 - [x] `llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "What is 5!"` calls factorial tool
 - [x] `--approve-all` flag auto-approves all tool calls
 - [x] `--trace` flag shows execution trace
-- [x] All tests in `tests/runtime/` pass (49 tests)
+- [x] All tests in `tests/runtime/` pass (59 tests)
 
 ## Test Porting Status
 
@@ -246,8 +252,9 @@ tests/runtime/
 ## Current State
 **IMPLEMENTED.** The context-centric runtime is complete:
 - `llm_do/ctx_runtime/` - Context, Registry, Entries, CLI (ported from experiment)
-- `examples-new/` - greeter and calculator examples
-- `tests/runtime/` - 49 tests passing (context, discovery, worker_file, examples)
+- `examples-new/` - greeter, calculator, approvals_demo, code_analyzer, pitchdeck_eval, whiteboard_planner examples
+- `tests/runtime/` - 59 tests passing (context, discovery, worker_file, examples)
+- Workers as toolsets: `.worker` files auto-discovered and usable as toolsets (no special "delegation" syntax)
 
 ## Notes
 - Runtime is at `llm_do/ctx_runtime/` (not `llm_do/runtime/`) to avoid conflict with existing `llm_do/runtime.py`

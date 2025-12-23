@@ -39,6 +39,7 @@ from .discovery import (
     load_toolsets_from_files,
     load_entries_from_files,
     expand_toolset_to_entries,
+    discover_worker_files,
 )
 from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
 
@@ -50,51 +51,96 @@ async def build_worker_with_toolsets(
     worker_path: str,
     python_files: list[str],
     model: str | None = None,
+    _loaded_workers: dict[str, WorkerEntry] | None = None,
 ) -> WorkerEntry:
     """Build a WorkerEntry with tools loaded from toolsets.
+
+    Toolsets can be:
+    - Python AbstractToolset instances from python_files
+    - Built-in toolsets (shell, filesystem)
+    - Other .worker files in the same directory (workers as toolsets)
 
     Args:
         worker_path: Path to .worker file
         python_files: List of paths to Python files containing toolsets
         model: Optional model override
+        _loaded_workers: Internal cache to prevent circular references
 
     Returns:
         WorkerEntry with tools populated from toolsets
     """
+    # Prevent circular references
+    if _loaded_workers is None:
+        _loaded_workers = {}
+
+    worker_path_resolved = str(Path(worker_path).resolve())
+    if worker_path_resolved in _loaded_workers:
+        return _loaded_workers[worker_path_resolved]
+
     # Load worker file
     worker_file = load_worker_file(worker_path)
+    worker_dir = Path(worker_path).parent
 
     # Load toolsets from Python files
     discovered_toolsets = load_toolsets_from_files(python_files)
 
+    # Discover other .worker files in the same directory (workers as toolsets)
+    discovered_workers = discover_worker_files(worker_dir)
+    # Don't include self
+    discovered_workers.pop(worker_file.name, None)
+
     # Resolve and expand toolsets into tool entries
-    tools: list[ToolsetToolEntry] = []
+    tools: list[ToolsetToolEntry | WorkerEntry] = []
 
     for toolset_name, toolset_config in worker_file.toolsets.items():
-        # Try to find the toolset
-        toolset: AbstractToolset[Any] | None = None
+        # Check if it's a worker (workers as toolsets)
+        if toolset_name in discovered_workers:
+            worker_entry = await build_worker_with_toolsets(
+                str(discovered_workers[toolset_name]),
+                python_files,
+                model=None,  # Use worker's own model
+                _loaded_workers=_loaded_workers,
+            )
+            tools.append(worker_entry)
+            continue
 
+        # Check if it's a Python toolset
         if toolset_name in discovered_toolsets:
             toolset = discovered_toolsets[toolset_name]
-        elif toolset_name in BUILTIN_TOOLSETS:
-            toolset = get_builtin_toolset(toolset_name, toolset_config)
-        else:
-            raise ValueError(
-                f"Unknown toolset '{toolset_name}'. "
-                f"Available: {list(discovered_toolsets.keys()) + list(BUILTIN_TOOLSETS.keys())}"
-            )
+            tool_entries = await expand_toolset_to_entries(toolset, toolset_config)
+            tools.extend(tool_entries)
+            continue
 
-        # Expand toolset into individual tool entries
-        tool_entries = await expand_toolset_to_entries(toolset, toolset_config)
-        tools.extend(tool_entries)
+        # Check if it's a built-in toolset
+        if toolset_name in BUILTIN_TOOLSETS:
+            toolset = get_builtin_toolset(toolset_name, toolset_config)
+            tool_entries = await expand_toolset_to_entries(toolset, toolset_config)
+            tools.extend(tool_entries)
+            continue
+
+        # Unknown toolset
+        available = (
+            list(discovered_toolsets.keys()) +
+            list(BUILTIN_TOOLSETS.keys()) +
+            list(discovered_workers.keys())
+        )
+        raise ValueError(
+            f"Unknown toolset '{toolset_name}'. "
+            f"Available: {available}"
+        )
 
     # Create WorkerEntry
-    return WorkerEntry(
+    worker = WorkerEntry(
         name=worker_file.name,
         instructions=worker_file.instructions,
         model=model or worker_file.model,
         tools=tools,
     )
+
+    # Cache to prevent circular references
+    _loaded_workers[worker_path_resolved] = worker
+
+    return worker
 
 
 async def run(

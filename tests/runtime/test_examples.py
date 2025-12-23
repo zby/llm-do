@@ -246,6 +246,104 @@ class TestCodeAnalyzerExample:
         assert "shell" in tool_names
 
 
+class TestPitchdeckEvalExample:
+    """Tests for the pitchdeck_eval example (delegation)."""
+
+    def test_pitchdeck_main_worker_loads(self):
+        """Test that the pitchdeck main worker file loads correctly."""
+        worker_path = EXAMPLES_NEW_DIR / "pitchdeck_eval" / "main.worker"
+        worker_file = load_worker_file(worker_path)
+
+        assert worker_file.name == "main"
+        assert worker_file.model == "anthropic:claude-haiku-4-5"
+        assert "pitch_evaluator" in worker_file.toolsets
+        assert "filesystem" in worker_file.toolsets
+
+    def test_pitchdeck_evaluator_worker_loads(self):
+        """Test that the pitch_evaluator worker file loads correctly."""
+        worker_path = EXAMPLES_NEW_DIR / "pitchdeck_eval" / "pitch_evaluator.worker"
+        worker_file = load_worker_file(worker_path)
+
+        assert worker_file.name == "pitch_evaluator"
+        assert worker_file.model == "anthropic:claude-haiku-4-5"
+        assert "evaluation" in worker_file.instructions.lower()
+
+    @pytest.mark.anyio
+    async def test_pitchdeck_builds_with_delegation(self):
+        """Test that pitchdeck_eval main worker builds with delegation."""
+        from llm_do.ctx_runtime.cli import build_worker_with_toolsets
+        from llm_do.ctx_runtime.entries import WorkerEntry
+
+        worker_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval" / "main.worker")
+
+        worker = await build_worker_with_toolsets(
+            worker_path,
+            [],
+            model="anthropic:claude-haiku-4-5",
+        )
+
+        assert worker.name == "main"
+        # Should have pitch_evaluator (WorkerEntry) and filesystem tools
+        assert len(worker.tools) >= 2
+
+        # Check that pitch_evaluator is a nested WorkerEntry
+        tool_names = {t.name for t in worker.tools}
+        assert "pitch_evaluator" in tool_names
+
+        # Find the pitch_evaluator and verify it's a WorkerEntry
+        pitch_evaluator = next(t for t in worker.tools if t.name == "pitch_evaluator")
+        assert isinstance(pitch_evaluator, WorkerEntry)
+        assert "evaluation" in pitch_evaluator.instructions.lower()
+
+
+class TestWhiteboardPlannerExample:
+    """Tests for the whiteboard_planner example (delegation)."""
+
+    def test_whiteboard_main_worker_loads(self):
+        """Test that the whiteboard main worker file loads correctly."""
+        worker_path = EXAMPLES_NEW_DIR / "whiteboard_planner" / "main.worker"
+        worker_file = load_worker_file(worker_path)
+
+        assert worker_file.name == "main"
+        assert worker_file.model == "anthropic:claude-haiku-4-5"
+        assert "whiteboard_planner" in worker_file.toolsets
+        assert "filesystem" in worker_file.toolsets
+
+    def test_whiteboard_planner_worker_loads(self):
+        """Test that the whiteboard_planner worker file loads correctly."""
+        worker_path = EXAMPLES_NEW_DIR / "whiteboard_planner" / "whiteboard_planner.worker"
+        worker_file = load_worker_file(worker_path)
+
+        assert worker_file.name == "whiteboard_planner"
+        assert worker_file.model == "anthropic:claude-haiku-4-5"
+        assert "project" in worker_file.instructions.lower()
+
+    @pytest.mark.anyio
+    async def test_whiteboard_builds_with_delegation(self):
+        """Test that whiteboard_planner main worker builds with delegation."""
+        from llm_do.ctx_runtime.cli import build_worker_with_toolsets
+        from llm_do.ctx_runtime.entries import WorkerEntry
+
+        worker_path = str(EXAMPLES_NEW_DIR / "whiteboard_planner" / "main.worker")
+
+        worker = await build_worker_with_toolsets(
+            worker_path,
+            [],
+            model="anthropic:claude-haiku-4-5",
+        )
+
+        assert worker.name == "main"
+        # Should have whiteboard_planner (WorkerEntry) and filesystem tools
+        assert len(worker.tools) >= 2
+
+        tool_names = {t.name for t in worker.tools}
+        assert "whiteboard_planner" in tool_names
+
+        # Verify nested worker
+        planner = next(t for t in worker.tools if t.name == "whiteboard_planner")
+        assert isinstance(planner, WorkerEntry)
+
+
 class TestExamplesIntegration:
     """Integration tests verifying the full CLI flow."""
 

@@ -38,13 +38,26 @@ class ToolEntry:
 
     async def call(self, input_data: Any, ctx: Context, run_ctx: RunContext[Context]) -> Any:
         """Call the tool with the provided input data."""
-        # Use the tool's run method with the RunContext
-        if isinstance(input_data, dict):
-            return await self.tool.run(run_ctx, input_data)
-        elif isinstance(input_data, BaseModel):
-            return await self.tool.run(run_ctx, input_data.model_dump())
-        else:
+        # Convert to dict if needed
+        if isinstance(input_data, BaseModel):
+            input_data = input_data.model_dump()
+        elif not isinstance(input_data, dict):
             raise TypeError(f"Expected dict or BaseModel, got {type(input_data)}")
+
+        # Validate input using the tool's schema
+        validated = self.tool.function_schema.validator.validate_python(input_data)
+
+        # Call the underlying function with RunContext and validated args
+        if self.tool.function_schema.takes_ctx:
+            result = self.tool.function(run_ctx, **validated)
+        else:
+            result = self.tool.function(**validated)
+
+        # Await if async
+        if hasattr(result, "__await__"):
+            result = await result
+
+        return result
 
 
 def tool_entry(

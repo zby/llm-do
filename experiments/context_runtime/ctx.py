@@ -116,15 +116,17 @@ class Context:
             self.usage[key] = Usage()
         return self.usage[key]
 
-    def _make_run_context(self, tool_name: str, resolved_model: ModelType) -> RunContext["Context"]:
+    def _make_run_context(
+        self, tool_name: str, resolved_model: ModelType, deps_ctx: "Context"
+    ) -> RunContext["Context"]:
         """Construct a RunContext for direct tool invocation."""
         return RunContext(
-            deps=self,
+            deps=deps_ctx,
             model=resolved_model,
             usage=self._get_usage(resolved_model),
             prompt="",
             messages=[],
-            run_step=self.depth,
+            run_step=deps_ctx.depth,
             retry=0,
             tool_name=tool_name,
         )
@@ -155,7 +157,7 @@ class Context:
 
         child_ctx = self._child()
         resolved_model = self._resolve_model(entry)
-        run_ctx = self._make_run_context(name, resolved_model)
+        run_ctx = self._make_run_context(name, resolved_model, child_ctx)
 
         try:
             result = await entry.call(input_data, child_ctx, run_ctx)

@@ -122,6 +122,12 @@ for t in ctx.trace:
 print(ctx.usage)
 ```
 
+### Code Entry Point Pattern (Tool Calling Worker)
+
+A powerful pattern is using a Python tool as the entry point that delegates LLM reasoning to workers. This avoids wasting tokens on trivial orchestration. The tool accesses workers via `ctx.deps.call()`.
+
+See `code_entry_demo.py` for a complete example.
+
 ### Resolved Questions
 
 - **Minimal ctx interface**: Context provides `call()`, `registry`, `model`, `trace`, `usage`, depth tracking

@@ -168,12 +168,12 @@ llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "Wh
 ### Tests
 - [x] Create `tests/runtime/` directory structure
 - [x] Port/create `test_context.py` - Context, Registry, Entries unit tests
-- [ ] Port `test_custom_tools.py` for new runtime
-- [ ] Port `test_examples.py` for `examples-new/`
-- [ ] Verify `test_shell.py` works unchanged (toolset tests)
+- [ ] Port `test_custom_tools.py` for new runtime (deferred - not blocking)
+- [x] Port `test_examples.py` for `examples-new/` (11 tests)
+- [x] Verify `test_shell.py` works unchanged (39 tests pass)
 
 ### Documentation
-- [ ] Update docs to reference `llm-run` (headless) without removing old runtime
+- [ ] Update docs to reference `llm-run` (headless) without removing old runtime (deferred to task 70)
 
 ## Directory Structure
 
@@ -200,6 +200,7 @@ tests/runtime/
   test_context.py
   test_discovery.py
   test_worker_file.py
+  test_examples.py
 ```
 
 ## Acceptance Criteria
@@ -207,7 +208,7 @@ tests/runtime/
 - [x] `llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "What is 5!"` calls factorial tool
 - [x] `--approve-all` flag auto-approves all tool calls
 - [x] `--trace` flag shows execution trace
-- [x] All tests in `tests/runtime/` pass (38 tests)
+- [x] All tests in `tests/runtime/` pass (49 tests)
 
 ## Test Porting Status
 
@@ -246,7 +247,7 @@ tests/runtime/
 **IMPLEMENTED.** The context-centric runtime is complete:
 - `llm_do/ctx_runtime/` - Context, Registry, Entries, CLI (ported from experiment)
 - `examples-new/` - greeter and calculator examples
-- `tests/runtime/` - 38 tests passing
+- `tests/runtime/` - 49 tests passing (context, discovery, worker_file, examples)
 
 ## Notes
 - Runtime is at `llm_do/ctx_runtime/` (not `llm_do/runtime/`) to avoid conflict with existing `llm_do/runtime.py`

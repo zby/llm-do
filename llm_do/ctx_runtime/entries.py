@@ -11,13 +11,18 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Optional, Type, TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart
 from pydantic_ai.models import Model, KnownModelName
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, Tool, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
+
+
+class WorkerInput(BaseModel):
+    """Input schema for workers."""
+    input: str
 
 if TYPE_CHECKING:
     from .ctx import CallTrace, Context
@@ -38,8 +43,29 @@ class WorkerToolset(AbstractToolset[Any]):
         return self._worker
 
     async def get_tools(self, ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
-        # Not used directly - expand_toolset_to_entries handles WorkerToolset specially
-        return {}
+        """Return the worker as a callable tool."""
+        # Truncate instructions for description
+        instructions = self._worker.instructions
+        description = instructions[:200] + "..." if len(instructions) > 200 else instructions
+
+        tool_def = ToolDefinition(
+            name=self._worker.name,
+            description=description,
+            parameters_json_schema={
+                "type": "object",
+                "properties": {
+                    "input": {"type": "string", "description": "Input prompt for the worker"},
+                },
+                "required": ["input"],
+            },
+        )
+
+        return {self._worker.name: ToolsetTool(
+            toolset=self,
+            tool_def=tool_def,
+            max_retries=0,
+            args_validator=TypeAdapter(WorkerInput).validator,
+        )}
 
     async def call_tool(
         self, name: str, tool_args: dict[str, Any], ctx: RunContext[Any], tool: ToolsetTool[Any]

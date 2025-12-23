@@ -386,3 +386,89 @@ class TestExamplesIntegration:
         assert worker.name == "main"
         assert len(worker.tools) == 4
         assert "calculator" in worker.instructions.lower()
+
+
+class TestPitchdeckEvalCodeEntryExample:
+    """Tests for the pitchdeck_eval_code_entry example (code entry point pattern)."""
+
+    def test_toolset_loads(self):
+        """Test that the tools.py toolset loads correctly."""
+        tools_path = EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "tools.py"
+        toolsets = load_toolsets_from_files([str(tools_path)])
+
+        assert "tools" in toolsets
+        toolset = toolsets["tools"]
+        # Should have 'main' tool
+        assert "main" in toolset.tools
+
+    @pytest.mark.anyio
+    async def test_code_entry_builds_with_worker(self):
+        """Test that code entry point builds with worker as available tool."""
+        from llm_do.ctx_runtime.cli import build_entry
+        from llm_do.ctx_runtime.entries import ToolsetToolEntry, WorkerToolset
+
+        tools_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "tools.py")
+        worker_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")
+
+        # Build with 'main' as entry (code entry point)
+        entry, available_tools = await build_entry(
+            [worker_path],
+            [tools_path],
+            model="anthropic:claude-haiku-4-5",
+            entry_name="main",
+        )
+
+        # Entry should be a ToolsetToolEntry (code entry point)
+        assert isinstance(entry, ToolsetToolEntry)
+        assert entry.name == "main"
+
+        # available_tools should include pitch_evaluator
+        tool_names = {t.name for t in available_tools}
+        assert "pitch_evaluator" in tool_names
+
+        # pitch_evaluator should be a ToolsetToolEntry wrapping WorkerToolset
+        pitch_evaluator = next(t for t in available_tools if t.name == "pitch_evaluator")
+        assert isinstance(pitch_evaluator, ToolsetToolEntry)
+        assert isinstance(pitch_evaluator.toolset, WorkerToolset)
+
+    @pytest.mark.anyio
+    async def test_code_entry_can_call_worker_via_context(self):
+        """Test that code entry can call worker through context (tests WorkerToolset.get_tools fix)."""
+        from pydantic_ai.models.test import TestModel
+        from llm_do.ctx_runtime.cli import build_entry
+        from llm_do.ctx_runtime.entries import ToolsetToolEntry, WorkerToolset
+
+        tools_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "tools.py")
+        worker_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")
+
+        entry, available_tools = await build_entry(
+            [worker_path],
+            [tools_path],
+            model="anthropic:claude-haiku-4-5",
+            entry_name="main",
+        )
+
+        # Override the worker's model with TestModel
+        pitch_evaluator = next(t for t in available_tools if t.name == "pitch_evaluator")
+        assert isinstance(pitch_evaluator.toolset, WorkerToolset)
+        pitch_evaluator.toolset.worker.model = TestModel(custom_output_text="Evaluation complete.")
+
+        # Create context with available tools
+        ctx = Context.from_entry(
+            entry,
+            model=TestModel(custom_output_text="Evaluation complete."),
+            available=available_tools,
+        )
+
+        # Verify pitch_evaluator is in registry
+        assert "pitch_evaluator" in ctx.registry
+
+        # Get the pitch_evaluator entry from registry
+        pitch_evaluator_entry = ctx.registry.get("pitch_evaluator")
+        assert isinstance(pitch_evaluator_entry, ToolsetToolEntry)
+
+        # Test that we can call the worker through context
+        # This tests the WorkerToolset.get_tools() fix - previously raised:
+        # KeyError: 'Tool pitch_evaluator not found in toolset'
+        result = await ctx.call("pitch_evaluator", {"input": "Test evaluation"})
+        assert result == "Evaluation complete."

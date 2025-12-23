@@ -167,7 +167,7 @@ class TestContext:
 
     @pytest.mark.anyio
     async def test_context_from_entry(self):
-        """Test creating Context from entry with available tools."""
+        """Test creating Context from entry with tools."""
         toolset = FunctionToolset()
 
         @toolset.tool
@@ -177,8 +177,11 @@ class TestContext:
         entries = await expand_toolset_to_entries(toolset)
         add_entry = entries[0]
 
-        # Create context with available tools
-        ctx = Context.from_entry(add_entry, model="test-model", available=[add_entry])
+        # Set tools on entry (symmetric with WorkerEntry)
+        add_entry.tools = [add_entry]
+
+        # Create context - tools populated from entry.tools
+        ctx = Context.from_entry(add_entry, model="test-model")
         assert "add" in ctx.registry
         assert ctx.model == "test-model"
 

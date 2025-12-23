@@ -102,6 +102,8 @@ class ToolsetToolEntry:
     model: ModelType | None = None
     # Original Tool object (for FunctionToolset) - preserves function_schema for LLM
     _original_tool: Tool[Any] | None = None
+    # Tools available to this entry (symmetric with WorkerEntry)
+    tools: list["ToolsetToolEntry"] = field(default_factory=list)
 
     @property
     def name(self) -> str:

@@ -162,7 +162,7 @@ class TestCalculatorExample:
         tools_path = str(EXAMPLES_NEW_DIR / "calculator" / "tools.py")
 
         # Build worker with tools
-        worker, _ = await build_entry(
+        worker = await build_entry(
             [worker_path],
             [tools_path],
             model=TestModel(
@@ -198,7 +198,7 @@ class TestApprovalsDemoExample:
 
         worker_path = str(EXAMPLES_NEW_DIR / "approvals_demo" / "main.worker")
 
-        worker, _ = await build_entry(
+        worker = await build_entry(
             [worker_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -233,7 +233,7 @@ class TestCodeAnalyzerExample:
 
         worker_path = str(EXAMPLES_NEW_DIR / "code_analyzer" / "main.worker")
 
-        worker, _ = await build_entry(
+        worker = await build_entry(
             [worker_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -278,7 +278,7 @@ class TestPitchdeckEvalExample:
         eval_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval" / "pitch_evaluator.worker")
 
         # build_entry handles worker resolution automatically
-        worker, _ = await build_entry(
+        worker = await build_entry(
             [main_path, eval_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -330,7 +330,7 @@ class TestWhiteboardPlannerExample:
         planner_path = str(EXAMPLES_NEW_DIR / "whiteboard_planner" / "whiteboard_planner.worker")
 
         # build_entry handles worker resolution automatically
-        worker, _ = await build_entry(
+        worker = await build_entry(
             [main_path, planner_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -359,7 +359,7 @@ class TestExamplesIntegration:
 
         worker_path = str(EXAMPLES_NEW_DIR / "greeter" / "main.worker")
 
-        worker, _ = await build_entry(
+        worker = await build_entry(
             [worker_path],
             [],
             model="anthropic:claude-haiku-4-5",
@@ -377,7 +377,7 @@ class TestExamplesIntegration:
         worker_path = str(EXAMPLES_NEW_DIR / "calculator" / "main.worker")
         tools_path = str(EXAMPLES_NEW_DIR / "calculator" / "tools.py")
 
-        worker, _ = await build_entry(
+        worker = await build_entry(
             [worker_path],
             [tools_path],
             model="anthropic:claude-haiku-4-5",
@@ -411,7 +411,7 @@ class TestPitchdeckEvalCodeEntryExample:
         worker_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")
 
         # Build with 'main' as entry (code entry point)
-        entry, available_tools = await build_entry(
+        entry = await build_entry(
             [worker_path],
             [tools_path],
             model="anthropic:claude-haiku-4-5",
@@ -422,12 +422,12 @@ class TestPitchdeckEvalCodeEntryExample:
         assert isinstance(entry, ToolsetToolEntry)
         assert entry.name == "main"
 
-        # available_tools should include pitch_evaluator
-        tool_names = {t.name for t in available_tools}
+        # entry.tools should include pitch_evaluator
+        tool_names = {t.name for t in entry.tools}
         assert "pitch_evaluator" in tool_names
 
         # pitch_evaluator should be a ToolsetToolEntry wrapping WorkerToolset
-        pitch_evaluator = next(t for t in available_tools if t.name == "pitch_evaluator")
+        pitch_evaluator = next(t for t in entry.tools if t.name == "pitch_evaluator")
         assert isinstance(pitch_evaluator, ToolsetToolEntry)
         assert isinstance(pitch_evaluator.toolset, WorkerToolset)
 
@@ -441,23 +441,25 @@ class TestPitchdeckEvalCodeEntryExample:
         tools_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "tools.py")
         worker_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")
 
-        entry, available_tools = await build_entry(
+        entry = await build_entry(
             [worker_path],
             [tools_path],
             model="anthropic:claude-haiku-4-5",
             entry_name="main",
         )
 
+        # entry.tools is now populated by build_entry
+        assert len(entry.tools) > 0
+
         # Override the worker's model with TestModel
-        pitch_evaluator = next(t for t in available_tools if t.name == "pitch_evaluator")
+        pitch_evaluator = next(t for t in entry.tools if t.name == "pitch_evaluator")
         assert isinstance(pitch_evaluator.toolset, WorkerToolset)
         pitch_evaluator.toolset.worker.model = TestModel(custom_output_text="Evaluation complete.")
 
-        # Create context with available tools
+        # Create context - entry.tools is already populated
         ctx = Context.from_entry(
             entry,
             model=TestModel(custom_output_text="Evaluation complete."),
-            available=available_tools,
         )
 
         # Verify pitch_evaluator is in registry

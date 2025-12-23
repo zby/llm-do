@@ -83,7 +83,6 @@ class Context:
         cls,
         entry: "CallableEntry",
         model: ModelType | None = None,
-        available: Optional[list["CallableEntry"]] = None,
         *,
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
@@ -93,7 +92,6 @@ class Context:
         Args:
             entry: The entry to run (WorkerEntry or ToolsetToolEntry)
             model: Model override (uses entry.model if not provided)
-            available: Entries to put in registry (uses entry.tools if not provided)
             approval: Approval callback for tool execution
             max_depth: Maximum call depth
 
@@ -109,10 +107,9 @@ class Context:
             worker_name=entry_name,
         )
 
-        # Registry: use available if provided, else entry.tools
+        # Registry: populate from entry.tools
         registry = Registry()
-        entries = available if available is not None else getattr(entry, "tools", []) or []
-        for e in entries:
+        for e in getattr(entry, "tools", []) or []:
             registry.register(e)
 
         return cls(registry, model=resolved_model, approval=approval, max_depth=max_depth)

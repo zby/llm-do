@@ -1,38 +1,46 @@
 """Tests for Context, Registry, and CallTrace."""
 import pytest
+from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import Context, Registry, CallTrace, ToolEntry, tool_entry
+from llm_do.ctx_runtime import Context, Registry, CallTrace, ToolsetToolEntry, expand_toolset_to_entries
 
 
 class TestRegistry:
     """Tests for the Registry class."""
 
-    def test_register_and_get(self):
+    @pytest.mark.anyio
+    async def test_register_and_get(self):
         """Test basic registration and retrieval."""
         registry = Registry()
 
-        @tool_entry()
+        toolset = FunctionToolset()
+
+        @toolset.tool
         def my_tool(x: int) -> int:
             return x * 2
 
-        registry.register(my_tool)
-        assert registry.get("my_tool") is my_tool
+        entries = await expand_toolset_to_entries(toolset)
+        entry = entries[0]
+        registry.register(entry)
+        assert registry.get("my_tool") is entry
 
-    def test_duplicate_name_raises(self):
+    @pytest.mark.anyio
+    async def test_duplicate_name_raises(self):
         """Test that duplicate names raise ValueError."""
         registry = Registry()
 
-        @tool_entry()
+        toolset = FunctionToolset()
+
+        @toolset.tool
         def my_tool(x: int) -> int:
             return x * 2
 
-        @tool_entry(name="my_tool")
-        def another_tool(x: int) -> int:
-            return x * 3
+        entries = await expand_toolset_to_entries(toolset)
+        entry = entries[0]
 
-        registry.register(my_tool)
+        registry.register(entry)
         with pytest.raises(ValueError, match="Duplicate entry name"):
-            registry.register(another_tool)
+            registry.register(entry)
 
     def test_unknown_name_raises(self):
         """Test that unknown names raise KeyError."""
@@ -40,32 +48,40 @@ class TestRegistry:
         with pytest.raises(KeyError, match="Unknown entry"):
             registry.get("nonexistent")
 
-    def test_contains(self):
+    @pytest.mark.anyio
+    async def test_contains(self):
         """Test __contains__ method."""
         registry = Registry()
 
-        @tool_entry()
+        toolset = FunctionToolset()
+
+        @toolset.tool
         def my_tool(x: int) -> int:
             return x * 2
 
-        registry.register(my_tool)
+        entries = await expand_toolset_to_entries(toolset)
+        registry.register(entries[0])
         assert "my_tool" in registry
         assert "other" not in registry
 
-    def test_list_names(self):
+    @pytest.mark.anyio
+    async def test_list_names(self):
         """Test list_names method."""
         registry = Registry()
 
-        @tool_entry()
+        toolset = FunctionToolset()
+
+        @toolset.tool
         def tool_a(x: int) -> int:
             return x
 
-        @tool_entry()
+        @toolset.tool
         def tool_b(x: int) -> int:
             return x
 
-        registry.register(tool_a)
-        registry.register(tool_b)
+        entries = await expand_toolset_to_entries(toolset)
+        for entry in entries:
+            registry.register(entry)
         names = registry.list_names()
         assert set(names) == {"tool_a", "tool_b"}
 
@@ -111,35 +127,39 @@ class TestCallTrace:
         assert trace.error == "Something went wrong"
 
 
-class TestToolEntry:
-    """Tests for ToolEntry and tool_entry decorator."""
+class TestToolsetToolEntry:
+    """Tests for ToolsetToolEntry created from FunctionToolset."""
 
-    def test_tool_entry_decorator(self):
-        """Test basic tool_entry decorator."""
-        @tool_entry()
+    @pytest.mark.anyio
+    async def test_toolset_tool_entry_from_function_toolset(self):
+        """Test creating ToolsetToolEntry from FunctionToolset."""
+        toolset = FunctionToolset()
+
+        @toolset.tool
         def double(x: int) -> int:
             """Double a number."""
             return x * 2
 
-        assert double.name == "double"
-        assert double.kind == "tool"
-        assert double.requires_approval is False
+        entries = await expand_toolset_to_entries(toolset)
+        entry = entries[0]
 
-    def test_tool_entry_with_name(self):
-        """Test tool_entry with custom name."""
-        @tool_entry(name="custom_name")
-        def my_func(x: int) -> int:
-            return x
+        assert entry.name == "double"
+        assert entry.kind == "tool"
+        assert entry.requires_approval is False
 
-        assert my_func.name == "custom_name"
+    @pytest.mark.anyio
+    async def test_toolset_tool_entry_with_approval(self):
+        """Test ToolsetToolEntry with requires_approval."""
+        toolset = FunctionToolset()
 
-    def test_tool_entry_with_approval(self):
-        """Test tool_entry with requires_approval."""
-        @tool_entry(requires_approval=True)
+        @toolset.tool(requires_approval=True)
         def sensitive_tool(x: int) -> int:
             return x
 
-        assert sensitive_tool.requires_approval is True
+        entries = await expand_toolset_to_entries(toolset)
+        entry = entries[0]
+
+        assert entry.requires_approval is True
 
 
 class TestContext:
@@ -148,16 +168,17 @@ class TestContext:
     @pytest.mark.anyio
     async def test_context_from_entry(self):
         """Test creating Context from entry with available tools."""
-        @tool_entry()
+        toolset = FunctionToolset()
+
+        @toolset.tool
         def add(a: int, b: int) -> int:
             return a + b
 
-        # Create a dummy entry to use from_entry
-        @tool_entry()
-        def main() -> str:
-            return "main"
+        entries = await expand_toolset_to_entries(toolset)
+        add_entry = entries[0]
 
-        ctx = Context.from_entry(main, model="test-model", available=[add])
+        # Create context with available tools
+        ctx = Context.from_entry(add_entry, model="test-model", available=[add_entry])
         assert "add" in ctx.registry
         assert ctx.model == "test-model"
 
@@ -180,12 +201,16 @@ class TestContext:
     @pytest.mark.anyio
     async def test_context_call_tool(self):
         """Test calling a tool through context."""
-        @tool_entry()
+        toolset = FunctionToolset()
+
+        @toolset.tool
         def multiply(a: int, b: int) -> int:
             return a * b
 
+        entries = await expand_toolset_to_entries(toolset)
         registry = Registry()
-        registry.register(multiply)
+        for entry in entries:
+            registry.register(entry)
         ctx = Context(registry, model="test-model")
         result = await ctx.call("multiply", {"a": 3, "b": 4})
         assert result == 12
@@ -193,12 +218,16 @@ class TestContext:
     @pytest.mark.anyio
     async def test_context_trace(self):
         """Test that calls are traced."""
-        @tool_entry()
+        toolset = FunctionToolset()
+
+        @toolset.tool
         def add(a: int, b: int) -> int:
             return a + b
 
+        entries = await expand_toolset_to_entries(toolset)
         registry = Registry()
-        registry.register(add)
+        for entry in entries:
+            registry.register(entry)
         ctx = Context(registry, model="test-model")
         await ctx.call("add", {"a": 1, "b": 2})
 
@@ -212,13 +241,17 @@ class TestContext:
     @pytest.mark.anyio
     async def test_context_approval_denied(self):
         """Test that approval denial raises PermissionError."""
-        @tool_entry(requires_approval=True)
+        toolset = FunctionToolset()
+
+        @toolset.tool(requires_approval=True)
         def dangerous(x: int) -> int:
             return x
 
+        entries = await expand_toolset_to_entries(toolset)
         # Create context that denies all approvals
         registry = Registry()
-        registry.register(dangerous)
+        for entry in entries:
+            registry.register(entry)
         ctx = Context(
             registry,
             model="test-model",
@@ -231,13 +264,17 @@ class TestContext:
     @pytest.mark.anyio
     async def test_context_max_depth_exceeded(self):
         """Test that exceeding max depth raises RuntimeError."""
-        ctx = Context(Registry(), model="test-model", max_depth=2, depth=2)
+        toolset = FunctionToolset()
 
-        @tool_entry()
+        @toolset.tool
         def simple(x: int) -> int:
             return x
 
-        ctx.registry.register(simple)
+        entries = await expand_toolset_to_entries(toolset)
+        registry = Registry()
+        for entry in entries:
+            registry.register(entry)
+        ctx = Context(registry, model="test-model", max_depth=2, depth=2)
 
         with pytest.raises(RuntimeError, match="Max depth exceeded"):
             await ctx.call("simple", {"x": 1})
@@ -245,12 +282,16 @@ class TestContext:
     @pytest.mark.anyio
     async def test_tools_proxy(self):
         """Test ToolsProxy attribute access."""
-        @tool_entry()
+        toolset = FunctionToolset()
+
+        @toolset.tool
         def greet(name: str) -> str:
             return f"Hello, {name}!"
 
+        entries = await expand_toolset_to_entries(toolset)
         registry = Registry()
-        registry.register(greet)
+        for entry in entries:
+            registry.register(entry)
         ctx = Context(registry, model="test-model")
         result = await ctx.tools.greet(name="World")
         assert result == "Hello, World!"

@@ -33,7 +33,7 @@ from pydantic_ai.toolsets import AbstractToolset
 
 from .ctx import Context, ApprovalFn
 from .registry import Registry
-from .entries import ToolEntry, WorkerEntry, ToolsetToolEntry, WorkerToolset
+from .entries import WorkerEntry, ToolsetToolEntry, WorkerToolset
 from .worker_file import load_worker_file
 from .discovery import (
     load_toolsets_from_files,
@@ -227,9 +227,8 @@ async def run(
             return True
         approval = headless_approval
 
-    # Create context - for ToolEntry, provide workers as available entries
-    available = list(workers.values()) if isinstance(entry, ToolEntry) else None
-    ctx = Context.from_entry(entry, model=model, available=available, approval=approval)
+    # Create context
+    ctx = Context.from_entry(entry, model=model, approval=approval)
 
     result = await ctx.run(entry, {"input": prompt})
 

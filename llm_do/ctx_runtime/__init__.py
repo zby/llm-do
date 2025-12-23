@@ -8,7 +8,7 @@ This module provides a new runtime architecture that:
 """
 from .ctx import Context, CallTrace, ToolsProxy, CallableEntry, ApprovalFn, ModelType
 from .registry import Registry
-from .entries import ToolEntry, WorkerEntry, ToolsetToolEntry, tool_entry
+from .entries import WorkerEntry, ToolsetToolEntry, WorkerToolset
 from .worker_file import WorkerFile, parse_worker_file, load_worker_file
 from .discovery import (
     load_module,
@@ -31,10 +31,9 @@ __all__ = [
     # Registry
     "Registry",
     # Entries
-    "ToolEntry",
     "WorkerEntry",
     "ToolsetToolEntry",
-    "tool_entry",
+    "WorkerToolset",
     # Worker file
     "WorkerFile",
     "parse_worker_file",

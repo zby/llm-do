@@ -3,7 +3,7 @@
 This module provides functions to:
 - Load Python modules from file paths
 - Discover AbstractToolset instances (including FunctionToolset)
-- Discover ToolEntry/WorkerEntry instances
+- Discover WorkerEntry instances
 
 Discovery uses isinstance() checks to find toolset instances
 in module attributes.
@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .entries import ToolEntry, WorkerEntry, ToolsetToolEntry, WorkerToolset
+from .entries import WorkerEntry, ToolsetToolEntry, WorkerToolset
 
 
 def load_module(path: str | Path) -> ModuleType:
@@ -68,8 +68,8 @@ def discover_toolsets_from_module(module: ModuleType) -> dict[str, AbstractTools
     return toolsets
 
 
-def discover_entries_from_module(module: ModuleType) -> list[ToolEntry | WorkerEntry]:
-    """Discover ToolEntry and WorkerEntry instances from a module.
+def discover_entries_from_module(module: ModuleType) -> list[WorkerEntry]:
+    """Discover WorkerEntry instances from a module.
 
     Args:
         module: Loaded Python module
@@ -77,12 +77,12 @@ def discover_entries_from_module(module: ModuleType) -> list[ToolEntry | WorkerE
     Returns:
         List of discovered entries
     """
-    entries: list[ToolEntry | WorkerEntry] = []
+    entries: list[WorkerEntry] = []
     for name in dir(module):
         if name.startswith("_"):
             continue
         obj = getattr(module, name)
-        if isinstance(obj, (ToolEntry, WorkerEntry)):
+        if isinstance(obj, WorkerEntry):
             entries.append(obj)
     return entries
 
@@ -219,8 +219,8 @@ def load_toolsets_from_files(files: list[str | Path]) -> dict[str, AbstractTools
     return all_toolsets
 
 
-def load_entries_from_files(files: list[str | Path]) -> dict[str, ToolEntry | WorkerEntry]:
-    """Load all ToolEntry/WorkerEntry from multiple Python files.
+def load_entries_from_files(files: list[str | Path]) -> dict[str, WorkerEntry]:
+    """Load all WorkerEntry instances from multiple Python files.
 
     Args:
         files: List of paths to Python files
@@ -228,7 +228,7 @@ def load_entries_from_files(files: list[str | Path]) -> dict[str, ToolEntry | Wo
     Returns:
         Dict mapping entry names to instances
     """
-    all_entries: dict[str, ToolEntry | WorkerEntry] = {}
+    all_entries: dict[str, WorkerEntry] = {}
 
     for file_path in files:
         path = Path(file_path)

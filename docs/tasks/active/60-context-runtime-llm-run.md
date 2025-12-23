@@ -14,7 +14,8 @@ Ship a headless `llm-run` CLI that uses the new context-centric runtime from `ll
 - **Discovery**: Scan module attributes with `isinstance(obj, AbstractToolset)`
   - Covers `FunctionToolset`, `ShellToolset`, and any custom toolsets
   - Toolsets expanded to individual `ToolsetToolEntry` instances at discovery time (see below)
-- **No custom `@tool_entry`**: Use PydanticAI's `FunctionToolset` for custom tools (standard API, no custom abstractions)
+- **No custom tool types**: Use PydanticAI's `FunctionToolset` for custom tools (standard API, no custom abstractions)
+  - Removed `ToolEntry` and `@tool_entry` decorator - all tools are `ToolsetToolEntry`
 - **Toolsets**: Single instance per toolset type, flat namespace
   - `ShellToolset` exposes `shell(command, timeout)` tool
   - Multi-instance toolsets (e.g., two browsers) deferred to future task
@@ -103,7 +104,7 @@ async def build_entry_worker(
 
 **Behavior:**
 1. Loads all Python toolsets from `python_files`
-2. Loads all Python entries (ToolEntry/WorkerEntry) for code entry pattern
+2. Loads all Python entries (WorkerEntry) for code entry pattern
 3. Creates `WorkerToolset` wrappers for all workers (two-pass resolution)
 4. Resolves each worker's toolsets from: Python toolsets, built-ins, or other workers
 5. Returns the entry worker (found by `entry_name`)
@@ -227,7 +228,7 @@ llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "Wh
 llm_do/ctx_runtime/
   __init__.py
   ctx.py              # Context, CallTrace, ToolsProxy
-  entries.py          # ToolEntry, WorkerEntry, ToolsetToolEntry
+  entries.py          # ToolsetToolEntry, WorkerEntry, WorkerToolset
   registry.py         # Entry registry
   worker_file.py      # .worker parser with toolsets section
   builtins.py         # Built-in toolset registry (BUILTIN_TOOLSETS dict)
@@ -254,7 +255,7 @@ tests/runtime/
 - [x] `llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "What is 5!"` calls factorial tool
 - [x] `--approve-all` flag auto-approves all tool calls
 - [x] `--trace` flag shows execution trace
-- [x] All tests in `tests/runtime/` pass (59 tests)
+- [x] All tests in `tests/runtime/` pass (58 tests)
 
 ## Test Porting Status
 
@@ -293,8 +294,25 @@ tests/runtime/
 **IMPLEMENTED.** The context-centric runtime is complete:
 - `llm_do/ctx_runtime/` - Context, Registry, Entries, CLI (ported from experiment)
 - `examples-new/` - greeter, calculator, approvals_demo, code_analyzer, pitchdeck_eval, whiteboard_planner examples
-- `tests/runtime/` - 59 tests passing (context, discovery, worker_file, examples)
-- Workers as toolsets: `.worker` files auto-discovered and usable as toolsets (no special "delegation" syntax)
+- `tests/runtime/` - 58 tests passing (context, discovery, worker_file, examples)
+- Workers as toolsets: `.worker` files passed to CLI are usable as toolsets (no special "delegation" syntax)
+- Unified type system: All tools are `ToolsetToolEntry` (removed `ToolEntry`)
+
+## Type System
+
+The runtime uses 3 core types:
+
+| Type | Purpose |
+|------|---------|
+| **ToolsetToolEntry** | Any tool (from FunctionToolset, ShellToolset, WorkerToolset, etc.) |
+| **WorkerEntry** | LLM-powered worker that can call tools |
+| **WorkerToolset** | Adapter wrapping WorkerEntry as AbstractToolset |
+
+All tools are unified as `ToolsetToolEntry`, whether from:
+- `FunctionToolset` (custom Python tools)
+- `ShellToolset` (shell commands)
+- `FilesystemToolset` (file operations)
+- `WorkerToolset` (worker delegation)
 
 ## Notes
 - Runtime is at `llm_do/ctx_runtime/` (not `llm_do/runtime/`) to avoid conflict with existing `llm_do/runtime.py`

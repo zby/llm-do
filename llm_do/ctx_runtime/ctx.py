@@ -91,7 +91,7 @@ class Context:
         """Create a Context for running an entry.
 
         Args:
-            entry: The entry to run (WorkerEntry or ToolEntry)
+            entry: The entry to run (WorkerEntry or ToolsetToolEntry)
             model: Model override (uses entry.model if not provided)
             available: Entries to put in registry (uses entry.tools if not provided)
             approval: Approval callback for tool execution

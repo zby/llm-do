@@ -32,7 +32,23 @@ Port the Textual CLI to the new context-centric runtime, then remove the legacy 
 ## Current State
 Ready to start. Task 60 complete - `llm_do/ctx_runtime` + `llm-run` headless CLI are implemented.
 
+### Type System (from task 60)
+The new runtime uses 3 core types:
+
+| Type | Purpose |
+|------|---------|
+| **ToolsetToolEntry** | Any tool (from FunctionToolset, ShellToolset, WorkerToolset, etc.) |
+| **WorkerEntry** | LLM-powered worker that can call tools |
+| **WorkerToolset** | Adapter wrapping WorkerEntry as AbstractToolset |
+
+All tools are unified as `ToolsetToolEntry` - the separate `ToolEntry` type was removed.
+
+### Key APIs
+- `build_entry_worker(worker_files, python_files, model, entry_name)` - builds entry worker with all toolsets resolved
+- Workers-as-toolsets: pass multiple `.worker` files to CLI, they can reference each other by name
+
 ## Notes
 - Runtime is at `llm_do/ctx_runtime/` (named to avoid conflict with existing `llm_do/runtime.py`)
 - Keep this phase focused: once Textual CLI is ported, delete old runtime code.
 - The headless `llm-run` from task 60 raises `PermissionError` for unapproved tools; this task adds interactive prompts.
+- 58 tests passing in `tests/runtime/`

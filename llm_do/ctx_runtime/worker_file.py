@@ -1,0 +1,103 @@
+"""Worker file parsing (.worker format).
+
+Worker files use YAML frontmatter followed by markdown instructions:
+
+```yaml
+---
+name: main
+model: anthropic:claude-haiku-4-5
+toolsets:
+  shell: {}
+  calc_tools: {}
+---
+Instructions for the worker...
+```
+
+The `toolsets` section maps toolset names to their configuration.
+Toolset names can reference:
+- Built-in toolsets (e.g., "shell", "filesystem")
+- Toolsets discovered from Python files passed to CLI
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+
+@dataclass
+class WorkerFile:
+    """Parsed worker file."""
+    name: str
+    description: str | None
+    instructions: str
+    model: str | None = None
+    toolsets: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+def parse_worker_file(content: str) -> WorkerFile:
+    """Parse a worker file with YAML frontmatter and markdown instructions.
+
+    Args:
+        content: Raw file content
+
+    Returns:
+        Parsed WorkerFile
+
+    Raises:
+        ValueError: If file format is invalid
+    """
+    pattern = r'^---\s*\n(.*?)\n---\s*\n(.*)$'
+    match = re.match(pattern, content, re.DOTALL)
+
+    if not match:
+        raise ValueError("Invalid worker file format: missing frontmatter")
+
+    frontmatter_str, instructions = match.groups()
+    frontmatter = yaml.safe_load(frontmatter_str)
+
+    if not isinstance(frontmatter, dict):
+        raise ValueError("Invalid frontmatter: expected YAML mapping")
+
+    name = frontmatter.get("name")
+    if not name:
+        raise ValueError("Worker file must have a 'name' field")
+
+    # Parse toolsets section
+    toolsets_raw = frontmatter.get("toolsets", {})
+    toolsets: dict[str, dict[str, Any]] = {}
+
+    if toolsets_raw:
+        if not isinstance(toolsets_raw, dict):
+            raise ValueError("Invalid toolsets: expected YAML mapping")
+
+        for toolset_name, toolset_config in toolsets_raw.items():
+            if toolset_config is None:
+                toolset_config = {}
+            if not isinstance(toolset_config, dict):
+                raise ValueError(f"Invalid config for toolset '{toolset_name}': expected YAML mapping")
+            toolsets[toolset_name] = toolset_config
+
+    return WorkerFile(
+        name=name,
+        description=frontmatter.get("description"),
+        instructions=instructions.strip(),
+        model=frontmatter.get("model"),
+        toolsets=toolsets,
+    )
+
+
+def load_worker_file(path: str | Path) -> WorkerFile:
+    """Load and parse a worker file from disk.
+
+    Args:
+        path: Path to worker file
+
+    Returns:
+        Parsed WorkerFile
+    """
+    content = Path(path).read_text(encoding="utf-8")
+    return parse_worker_file(content)

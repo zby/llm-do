@@ -4,7 +4,7 @@
 - [ ] None
 
 ## Goal
-Ship a headless `llm-run` CLI that uses the new context-centric runtime from `llm_do/runtime`, supports the experiment flags plus `--approve-all`, and loads tools declared by `.worker` files from Python code.
+Ship a headless `llm-run` CLI that uses the new context-centric runtime from `llm_do/ctx_runtime`, supports the experiment flags plus `--approve-all`, and loads tools declared by `.worker` files from Python code.
 
 ## Design Decisions
 - **Tool loading**: New mechanism - no `toolset_loader.py` porting
@@ -148,26 +148,26 @@ llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "Wh
 ## Tasks
 
 ### Runtime Core
-- [ ] Move/port `experiments/context_runtime/src` into `llm_do/runtime` (Context/Registry/Entries)
-- [ ] Add `ToolsetToolEntry` class that wraps individual tools from `AbstractToolset`
-- [ ] Extend `worker_file.py` to parse `toolsets:` section
-- [ ] Create `discovery.py` - module loading and `isinstance(obj, AbstractToolset)` scanning
-- [ ] Create `builtins.py` - `BUILTIN_TOOLSETS` dict mapping names to toolset classes
-- [ ] Wire toolset expansion: discovered toolsets → `ToolsetToolEntry` instances → registry
+- [x] Move/port `experiments/context_runtime/src` into `llm_do/ctx_runtime` (Context/Registry/Entries)
+- [x] Add `ToolsetToolEntry` class that wraps individual tools from `AbstractToolset`
+- [x] Extend `worker_file.py` to parse `toolsets:` section
+- [x] Create `discovery.py` - module loading and `isinstance(obj, AbstractToolset)` scanning
+- [x] Create `builtins.py` - `BUILTIN_TOOLSETS` dict mapping names to toolset classes
+- [x] Wire toolset expansion: discovered toolsets → `ToolsetToolEntry` instances → registry
 
 ### CLI
-- [ ] Wire `llm-run` CLI to the new runtime with flags (`--entry`, `--all-tools`, `--trace`)
-- [ ] Add `--approve-all` flag and approval plumbing
-- [ ] Add entry point to `pyproject.toml`: `llm-run = "llm_do.runtime.cli:main"`
+- [x] Wire `llm-run` CLI to the new runtime with flags (`--entry`, `--all-tools`, `--trace`)
+- [x] Add `--approve-all` flag and approval plumbing
+- [x] Add entry point to `pyproject.toml`: `llm-run = "llm_do.ctx_runtime.cli:main"`
 
 ### Examples
-- [ ] Create `examples-new/greeter/` - basic worker, no tools
-- [ ] Create `examples-new/calculator/` - custom tools using `FunctionToolset`
-- [ ] Validate examples work with `llm-run`
+- [x] Create `examples-new/greeter/` - basic worker, no tools
+- [x] Create `examples-new/calculator/` - custom tools using `FunctionToolset`
+- [x] Validate examples work with `llm-run`
 
 ### Tests
-- [ ] Create `tests/runtime/` directory structure
-- [ ] Port/create `test_context.py` - Context, Registry, Entries unit tests
+- [x] Create `tests/runtime/` directory structure
+- [x] Port/create `test_context.py` - Context, Registry, Entries unit tests
 - [ ] Port `test_custom_tools.py` for new runtime
 - [ ] Port `test_examples.py` for `examples-new/`
 - [ ] Verify `test_shell.py` works unchanged (toolset tests)
@@ -178,7 +178,7 @@ llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "Wh
 ## Directory Structure
 
 ```
-llm_do/runtime/
+llm_do/ctx_runtime/
   __init__.py
   ctx.py              # Context, CallTrace, ToolsProxy
   entries.py          # ToolEntry, WorkerEntry, ToolsetToolEntry
@@ -198,17 +198,16 @@ examples-new/
 tests/runtime/
   __init__.py
   test_context.py
-  test_entries.py
+  test_discovery.py
   test_worker_file.py
-  test_examples.py
 ```
 
 ## Acceptance Criteria
-- [ ] `llm-run examples-new/greeter/main.worker "Hello"` produces output
-- [ ] `llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "What is 5!"` calls factorial tool
-- [ ] `--approve-all` flag auto-approves all tool calls
-- [ ] `--trace` flag shows execution trace
-- [ ] All tests in `tests/runtime/` pass
+- [x] `llm-run examples-new/greeter/main.worker "Hello"` produces output
+- [x] `llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "What is 5!"` calls factorial tool
+- [x] `--approve-all` flag auto-approves all tool calls
+- [x] `--trace` flag shows execution trace
+- [x] All tests in `tests/runtime/` pass (38 tests)
 
 ## Test Porting Status
 
@@ -244,12 +243,12 @@ tests/runtime/
 - `test_server_side_tools.py` - Server-side tools (not relevant)
 
 ## Current State
-Ready for implementation. Experimental prototype exists:
-- `experiments/context_runtime/src/` - Context, Registry, Entries (port to `llm_do/runtime/`)
-- `experiments/context_runtime/llm_do.py` - CLI prototype (adapt for `llm-run`)
-- `llm_do/runtime/` does not yet exist (to be created)
+**IMPLEMENTED.** The context-centric runtime is complete:
+- `llm_do/ctx_runtime/` - Context, Registry, Entries, CLI (ported from experiment)
+- `examples-new/` - greeter and calculator examples
+- `tests/runtime/` - 38 tests passing
 
 ## Notes
-- Keep legacy runtime in place; removal is a later task (task 70).
-- Headless only for this phase (no textual UI).
-- The experimental CLI prototype is at `experiments/context_runtime/llm_do.py`.
+- Runtime is at `llm_do/ctx_runtime/` (not `llm_do/runtime/`) to avoid conflict with existing `llm_do/runtime.py`
+- Legacy runtime remains in place; removal is deferred to task 70
+- Headless only for this phase (no textual UI)

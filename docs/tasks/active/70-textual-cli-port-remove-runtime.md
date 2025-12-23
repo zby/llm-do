@@ -1,7 +1,7 @@
 # Textual CLI Port + Remove Legacy Runtime
 
 ## Prerequisites
-- [ ] 60-context-runtime-llm-run (complete)
+- [x] 60-context-runtime-llm-run (complete)
 - [ ] Decision to switch interactive UI to the new runtime
 
 ## Goal
@@ -15,7 +15,7 @@ Port the Textual CLI to the new context-centric runtime, then remove the legacy 
   - Preserve all flags from both CLIs
 
 ### Textual UI Port
-- [ ] Port Textual CLI to use `llm_do/runtime` execution flow
+- [ ] Port Textual CLI to use `llm_do/ctx_runtime` execution flow
 - [ ] Verify approvals/tool loading behave identically in the UI
 - [ ] Wire interactive approval prompts (replaces headless PermissionError)
 
@@ -30,8 +30,9 @@ Port the Textual CLI to the new context-centric runtime, then remove the legacy 
 - [ ] Run `uv run pytest` and fix any breakage
 
 ## Current State
-Not started. Waiting on `llm_do/runtime` + `llm-run` headless CLI.
+Ready to start. Task 60 complete - `llm_do/ctx_runtime` + `llm-run` headless CLI are implemented.
 
 ## Notes
+- Runtime is at `llm_do/ctx_runtime/` (named to avoid conflict with existing `llm_do/runtime.py`)
 - Keep this phase focused: once Textual CLI is ported, delete old runtime code.
 - The headless `llm-run` from task 60 raises `PermissionError` for unapproved tools; this task adds interactive prompts.

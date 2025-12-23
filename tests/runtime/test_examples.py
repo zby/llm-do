@@ -168,6 +168,74 @@ class TestCalculatorExample:
         assert tool_names == {"factorial", "fibonacci", "add", "multiply"}
 
 
+class TestApprovalsDemoExample:
+    """Tests for the approvals_demo example (filesystem toolset)."""
+
+    def test_approvals_demo_worker_loads(self):
+        """Test that the approvals_demo worker file loads correctly."""
+        worker_path = EXAMPLES_NEW_DIR / "approvals_demo" / "main.worker"
+        worker_file = load_worker_file(worker_path)
+
+        assert worker_file.name == "main"
+        assert worker_file.model == "anthropic:claude-haiku-4-5"
+        assert "filesystem" in worker_file.toolsets
+        assert "notes" in worker_file.instructions.lower()
+
+    @pytest.mark.anyio
+    async def test_approvals_demo_builds_with_filesystem(self):
+        """Test that approvals_demo worker builds with filesystem toolset."""
+        from llm_do.ctx_runtime.cli import build_worker_with_toolsets
+
+        worker_path = str(EXAMPLES_NEW_DIR / "approvals_demo" / "main.worker")
+
+        worker = await build_worker_with_toolsets(
+            worker_path,
+            [],
+            model="anthropic:claude-haiku-4-5",
+        )
+
+        assert worker.name == "main"
+        # Should have filesystem tools: read_file, write_file, list_files
+        assert len(worker.tools) >= 1
+        tool_names = {t.name for t in worker.tools}
+        assert "write_file" in tool_names or "read_file" in tool_names
+
+
+class TestCodeAnalyzerExample:
+    """Tests for the code_analyzer example (shell toolset)."""
+
+    def test_code_analyzer_worker_loads(self):
+        """Test that the code_analyzer worker file loads correctly."""
+        worker_path = EXAMPLES_NEW_DIR / "code_analyzer" / "main.worker"
+        worker_file = load_worker_file(worker_path)
+
+        assert worker_file.name == "main"
+        assert worker_file.model == "anthropic:claude-haiku-4-5"
+        assert "shell" in worker_file.toolsets
+        # Should have rules for whitelisted commands
+        assert "rules" in worker_file.toolsets["shell"]
+        assert len(worker_file.toolsets["shell"]["rules"]) > 0
+
+    @pytest.mark.anyio
+    async def test_code_analyzer_builds_with_shell(self):
+        """Test that code_analyzer worker builds with shell toolset."""
+        from llm_do.ctx_runtime.cli import build_worker_with_toolsets
+
+        worker_path = str(EXAMPLES_NEW_DIR / "code_analyzer" / "main.worker")
+
+        worker = await build_worker_with_toolsets(
+            worker_path,
+            [],
+            model="anthropic:claude-haiku-4-5",
+        )
+
+        assert worker.name == "main"
+        # Should have shell tool
+        assert len(worker.tools) >= 1
+        tool_names = {t.name for t in worker.tools}
+        assert "shell" in tool_names
+
+
 class TestExamplesIntegration:
     """Integration tests verifying the full CLI flow."""
 

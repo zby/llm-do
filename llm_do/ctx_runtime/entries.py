@@ -118,6 +118,8 @@ class ToolsetToolEntry:
     requires_approval: bool = False
     kind: str = "tool"
     model: ModelType | None = None
+    # Original Tool object (for FunctionToolset) - preserves function_schema for LLM
+    _original_tool: Tool[Any] | None = None
 
     @property
     def name(self) -> str:
@@ -203,11 +205,24 @@ class WorkerEntry:
 
                 _toolset_proxy.__name__ = entry.name
                 _toolset_proxy.__doc__ = entry.tool_def.description
-                tools.append(Tool(
-                    _toolset_proxy,
-                    name=entry.name,
-                    description=entry.tool_def.description,
-                ))
+
+                # Use original tool's schema if available (from FunctionToolset)
+                if entry._original_tool is not None:
+                    tools.append(Tool(
+                        _toolset_proxy,
+                        name=entry.name,
+                        description=entry.tool_def.description,
+                        requires_approval=entry.requires_approval,
+                        function_schema=entry._original_tool.function_schema,
+                    ))
+                else:
+                    # Fallback for non-FunctionToolset (schema info in tool_def only)
+                    tools.append(Tool(
+                        _toolset_proxy,
+                        name=entry.name,
+                        description=entry.tool_def.description,
+                        requires_approval=entry.requires_approval,
+                    ))
             else:
                 # For nested workers, create a wrapper tool that accepts any kwargs
                 async def _worker_tool(
@@ -253,13 +268,23 @@ class WorkerEntry:
                     if isinstance(part, ToolReturnPart):
                         tool_returns[part.tool_call_id] = part
 
-        # Names already traced via ctx.call() at this depth
-        already_traced = {t.name for t in existing_trace if t.depth == depth}
+        # Track (name, args_json) pairs already traced via ctx.call() at this depth
+        # This allows repeated calls with different args to be traced
+        def _trace_key(name: str, args: Any) -> tuple[str, str]:
+            args_json = json.dumps(args, sort_keys=True) if args else ""
+            return (name, args_json)
 
-        # Create traces by matching calls with returns (skip duplicates)
+        already_traced = {
+            _trace_key(t.name, t.input_data)
+            for t in existing_trace if t.depth == depth
+        }
+
+        # Create traces by matching calls with returns (skip only exact duplicates)
         for call_id, call_part in tool_calls.items():
-            if call_part.tool_name in already_traced:
+            key = _trace_key(call_part.tool_name, call_part.args)
+            if key in already_traced:
                 continue
+            already_traced.add(key)  # Prevent duplicates within this batch too
             return_part = tool_returns.get(call_id)
             traces.append(CallTrace(
                 name=call_part.tool_name,

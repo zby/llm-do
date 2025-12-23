@@ -122,6 +122,8 @@ class Context:
         depth: int = 0,
         trace: Optional[list[CallTrace]] = None,
         usage: Optional[dict[str, Usage]] = None,
+        prompt: str = "",
+        messages: Optional[list[Any]] = None,
     ) -> None:
         self.registry = registry
         self.model = model
@@ -130,6 +132,8 @@ class Context:
         self.depth = depth
         self.trace = trace if trace is not None else []
         self.usage = usage if usage is not None else {}
+        self.prompt = prompt
+        self.messages = messages if messages is not None else []
         self.tools = ToolsProxy(self)
 
     def _resolve_model(self, entry: CallableEntry) -> ModelType:
@@ -151,8 +155,8 @@ class Context:
             deps=deps_ctx,
             model=resolved_model,
             usage=self._get_usage(resolved_model),
-            prompt="",
-            messages=[],
+            prompt=self.prompt,
+            messages=list(self.messages),
             run_step=deps_ctx.depth,
             retry=0,
             tool_name=tool_name,
@@ -168,10 +172,17 @@ class Context:
             depth=self.depth + 1,
             trace=self.trace,
             usage=self.usage,
+            prompt=self.prompt,
+            messages=self.messages,
         )
 
     async def run(self, entry: CallableEntry, input_data: Any) -> Any:
         """Run an entry directly (no registry lookup needed)."""
+        # Extract prompt from input_data for RunContext
+        if isinstance(input_data, dict) and "input" in input_data:
+            self.prompt = str(input_data["input"])
+        elif isinstance(input_data, str):
+            self.prompt = input_data
         return await self._execute(entry, input_data)
 
     async def call(self, name: str, input_data: Any) -> Any:
@@ -192,10 +203,11 @@ class Context:
             raise PermissionError(f"Approval denied for {entry.name}")
 
         # Workers get a child context with registry restricted to their declared tools
+        # If entry has a tools attribute, use only those tools (empty list = no tools)
         child_registry: Registry | None = None
-        if hasattr(entry, "tools") and entry.tools:
+        if hasattr(entry, "tools"):
             child_registry = Registry()
-            for tool_entry in entry.tools:
+            for tool_entry in entry.tools or []:
                 child_registry.register(tool_entry)
 
         child_ctx = self._child(registry=child_registry)

@@ -33,7 +33,7 @@ from pydantic_ai.toolsets import AbstractToolset
 
 from .ctx import Context, ApprovalFn
 from .registry import Registry
-from .entries import WorkerEntry, ToolsetToolEntry
+from .entries import ToolEntry, WorkerEntry, ToolsetToolEntry
 from .worker_file import load_worker_file
 from .discovery import (
     load_toolsets_from_files,
@@ -97,44 +97,6 @@ async def build_worker_with_toolsets(
     )
 
 
-def build_orchestrator(entries: list[Any], model: str) -> WorkerEntry:
-    """Build an orchestrator worker that has access to all provided entries.
-
-    Args:
-        entries: List of entries to make available
-        model: Model to use for the orchestrator
-
-    Returns:
-        WorkerEntry configured as orchestrator
-    """
-    tool_descriptions = []
-    for entry in entries:
-        if hasattr(entry, "tool_def"):
-            desc = entry.tool_def.description or "No description"
-            tool_descriptions.append(f"- {entry.name}: {desc}")
-        elif hasattr(entry, "instructions"):
-            tool_descriptions.append(f"- {entry.name}: {entry.instructions[:100]}...")
-        else:
-            tool_descriptions.append(f"- {entry.name}")
-
-    tools_list = "\n".join(tool_descriptions) if tool_descriptions else "No tools available."
-
-    instructions = f"""\
-You are a helpful assistant with access to the following tools:
-
-{tools_list}
-
-Use these tools to help the user accomplish their task. Think step by step and use tools as needed.
-"""
-
-    return WorkerEntry(
-        name="orchestrator",
-        instructions=instructions,
-        model=model,
-        tools=entries,
-    )
-
-
 async def run(
     files: list[str],
     prompt: str,
@@ -186,14 +148,26 @@ async def run(
     else:
         raise ValueError("No workers found. Provide at least one .worker file.")
 
+    # Validate entry type - only workers can be entry points
+    if isinstance(entry, ToolEntry):
+        raise ValueError(
+            f"Entry '{entry_name}' is a tool, not a worker. "
+            f"Only workers can be used as entry points. "
+            f"Available workers: {list(workers.keys())}"
+        )
+
     # If --all-tools, give entry access to all discovered toolsets
     if all_tools and isinstance(entry, WorkerEntry):
-        # Collect all tools from all toolsets
+        # Collect all tools from all toolsets, deduping by name
+        existing_names = {t.name for t in entry.tools}
         additional_tools = []
         discovered_toolsets = load_toolsets_from_files(python_files)
         for toolset in discovered_toolsets.values():
             tool_entries = await expand_toolset_to_entries(toolset)
-            additional_tools.extend(tool_entries)
+            for tool_entry in tool_entries:
+                if tool_entry.name not in existing_names:
+                    additional_tools.append(tool_entry)
+                    existing_names.add(tool_entry.name)
 
         # Add to worker's tools
         entry = WorkerEntry(

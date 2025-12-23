@@ -34,7 +34,10 @@ def load_module(path: str | Path) -> ModuleType:
         ImportError: If module cannot be loaded
     """
     path = Path(path).resolve()
-    spec = importlib.util.spec_from_file_location(path.stem, path)
+    # Use full path as module name to avoid collisions between files with same stem
+    # e.g., /foo/tools.py and /bar/tools.py become unique module names
+    module_name = f"_llm_do_runtime_{path.stem}_{hash(str(path)) & 0xFFFFFFFF:08x}"
+    spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Cannot load module from {path}")
     module = importlib.util.module_from_spec(spec)
@@ -84,6 +87,31 @@ def discover_entries_from_module(module: ModuleType) -> list[ToolEntry | WorkerE
     return entries
 
 
+def _is_tool_enabled(tool_name: str, config: dict[str, Any] | None) -> bool:
+    """Check if a tool is enabled based on config filtering.
+
+    Config supports:
+        enabled: list of tool names to include (whitelist)
+        disabled: list of tool names to exclude (blacklist)
+
+    If 'enabled' is specified, only those tools are included.
+    If 'disabled' is specified, those tools are excluded.
+    If both are specified, 'enabled' takes precedence.
+    """
+    if config is None:
+        return True
+
+    enabled = config.get("enabled")
+    if enabled is not None:
+        return tool_name in enabled
+
+    disabled = config.get("disabled")
+    if disabled is not None:
+        return tool_name not in disabled
+
+    return True
+
+
 async def expand_toolset_to_entries(
     toolset: AbstractToolset[Any],
     config: dict[str, Any] | None = None,
@@ -96,7 +124,7 @@ async def expand_toolset_to_entries(
 
     Args:
         toolset: AbstractToolset instance
-        config: Optional configuration to pass to get_tools
+        config: Optional configuration with 'enabled'/'disabled' lists for filtering
         run_ctx: Optional RunContext to pass to get_tools (required for FunctionToolset)
 
     Returns:
@@ -110,6 +138,8 @@ async def expand_toolset_to_entries(
     # For FunctionToolset, we can access tools directly without get_tools()
     if isinstance(toolset, FunctionToolset):
         for tool_name, tool in toolset.tools.items():
+            if not _is_tool_enabled(tool_name, config):
+                continue
             # Create ToolDefinition from Tool's function_schema
             tool_def = ToolDefinition(
                 name=tool.name,
@@ -121,11 +151,14 @@ async def expand_toolset_to_entries(
                 tool_name=tool_name,
                 tool_def=tool_def,
                 requires_approval=tool.requires_approval,
+                _original_tool=tool,  # Preserve for schema in _collect_tools
             ))
     else:
         # For other toolsets, use get_tools() with provided context
         tools = await toolset.get_tools(run_ctx)
         for tool_name, toolset_tool in tools.items():
+            if not _is_tool_enabled(tool_name, config):
+                continue
             entries.append(ToolsetToolEntry(
                 toolset=toolset,
                 tool_name=tool_name,

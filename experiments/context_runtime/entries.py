@@ -92,12 +92,35 @@ class WorkerEntry:
     requires_approval: bool = False
     kind: str = "worker"
 
-    def _collect_tools(self) -> list[Tool[Context]]:
+    def _collect_tools(self, ctx: Context) -> list[Tool[Context]]:
         """Collect PydanticAI tools from entries."""
         tools: list[Tool[Context]] = []
         for entry in self.tools:
             if isinstance(entry, ToolEntry):
-                tools.append(entry.tool)
+                takes_ctx = entry.tool.function_schema.takes_ctx
+                if takes_ctx:
+                    async def _tool_proxy(
+                        run_ctx: RunContext[Context],
+                        _entry_name: str = entry.name,
+                        **kwargs: Any,
+                    ) -> Any:
+                        return await run_ctx.deps.call(_entry_name, kwargs)
+                else:
+                    async def _tool_proxy(
+                        _entry_name: str = entry.name,
+                        **kwargs: Any,
+                    ) -> Any:
+                        return await ctx.call(_entry_name, kwargs)
+
+                _tool_proxy.__name__ = entry.name
+                _tool_proxy.__doc__ = entry.tool.description or entry.tool.function_schema.description
+                tools.append(Tool(
+                    _tool_proxy,
+                    name=entry.name,
+                    description=entry.tool.description,
+                    requires_approval=entry.requires_approval,
+                    function_schema=entry.tool.function_schema,
+                ))
             else:
                 # For nested workers, create a wrapper tool that accepts any kwargs
                 async def _worker_tool(
@@ -119,7 +142,7 @@ class WorkerEntry:
             instructions=self.instructions,
             output_type=self.schema_out or str,
             deps_type=Context,
-            tools=self._collect_tools(),
+            tools=self._collect_tools(ctx),
         )
 
     def _extract_tool_traces(

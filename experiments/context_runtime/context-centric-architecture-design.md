@@ -128,6 +128,47 @@ A powerful pattern is using a Python tool as the entry point that delegates LLM 
 
 See `code_entry_demo.py` for a complete example.
 
+### CLI: llm_do.py
+
+The `llm_do.py` CLI provides a simple way to run workers and tools:
+
+```bash
+# Run a worker file
+python llm_do.py greeter.worker "Hello!"
+
+# Run with tools from a Python file
+python llm_do.py example_tools.py "List files in current directory"
+
+# Interactive mode
+python llm_do.py example_tools.py --interactive
+
+# Custom model
+python llm_do.py greeter.worker -m anthropic:claude-sonnet-4 "Hello"
+```
+
+**Supported file formats:**
+
+1. **Worker files (`.worker`)** - YAML frontmatter + markdown instructions:
+   ```yaml
+   ---
+   name: greeter
+   description: A friendly assistant
+   model: anthropic:claude-haiku-4-5  # optional
+   ---
+
+   You are a friendly assistant. Greet the user warmly.
+   ```
+
+2. **Python files (`.py`)** - Auto-discovers `ToolEntry` and `WorkerEntry` instances:
+   ```python
+   @tool_entry("list_files")
+   async def list_files(ctx: RunContext[Context], path: str) -> list[str]:
+       """List files in directory."""
+       return [str(p) for p in Path(path).glob("*")]
+   ```
+
+**Discovery:** The CLI scans module globals for `ToolEntry` and `WorkerEntry` instances, builds an orchestrator worker with all discovered entries as tools, and runs it with the user's prompt.
+
 ### Resolved Questions
 
 - **Minimal ctx interface**: Context provides `call()`, `registry`, `model`, `trace`, `usage`, depth tracking

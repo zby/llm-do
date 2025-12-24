@@ -196,6 +196,128 @@ class TestStreamingModels:
         assert "Hello there" in "".join(chunks)
 
     @pytest.mark.anyio
+    async def test_streaming_events_no_complete_event(self):
+        """Test that streaming deltas don't also emit a complete event.
+
+        When streaming with verbosity=2, we should see streaming deltas
+        but NOT a final "complete" TextResponseEvent (which would duplicate output).
+        """
+        from llm_do.ctx_runtime import Context, WorkerEntry
+        from llm_do.ui.events import TextResponseEvent
+
+        events = []
+
+        worker = WorkerEntry(
+            name="helper",
+            instructions="You are a helper.",
+            model=create_scenario_model(
+                scenarios=[Scenario(pattern=r".*", response="Hello world!")],
+                streaming=True,
+            ),
+            toolsets=[],
+        )
+
+        # verbosity=2 enables streaming
+        ctx = Context.from_entry(worker, on_event=events.append, verbosity=2)
+        result = await ctx.run(worker, {"input": "say hello"})
+
+        # The result should be "Hello world!"
+        assert "Hello" in result
+
+        # Analyze events
+        delta_events = [e for e in events
+                       if isinstance(e, TextResponseEvent) and e.is_delta]
+        complete_events = [e for e in events
+                          if isinstance(e, TextResponseEvent) and e.is_complete]
+
+        # We should have delta events (streaming chunks)
+        assert len(delta_events) >= 1, "Should have streaming delta events"
+
+        # KEY ASSERTION: When streaming, we should NOT also emit a "complete" event
+        # because that would cause duplicate display (streaming chunks + full response)
+        assert len(complete_events) == 0, (
+            f"Should not have complete TextResponseEvent when streaming, "
+            f"but got {len(complete_events)}: {[e.content for e in complete_events]}"
+        )
+
+    def test_cli_no_duplicate_output_when_streaming(self):
+        """Test that CLI doesn't print result twice when streaming.
+
+        When using -vv (streaming), the streamed text appears via events,
+        and print(result) should be suppressed to avoid duplication.
+        """
+        import io
+        import sys
+        from unittest.mock import patch
+
+        # Create a simple worker file
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            worker_path = os.path.join(tmpdir, "test.worker")
+            with open(worker_path, "w") as f:
+                f.write("""---
+name: main
+---
+You are a helper.
+""")
+
+            # Capture stdout and stderr
+            stdout_capture = io.StringIO()
+            stderr_capture = io.StringIO()
+
+            # Mock sys.argv to simulate CLI invocation
+            test_args = [
+                "llm-run",
+                worker_path,
+                "-vv",
+                "say hello",
+            ]
+
+            # We need to patch the model to use our test model
+            # and capture the output
+            from llm_do.ctx_runtime import cli
+
+            # Patch build_entry to return a worker with our test model
+            original_build_entry = cli.build_entry
+
+            async def patched_build_entry(*args, **kwargs):
+                from llm_do.ctx_runtime import WorkerEntry
+                return WorkerEntry(
+                    name="main",
+                    instructions="You are a helper.",
+                    model=create_scenario_model(
+                        scenarios=[Scenario(pattern=r".*", response="Hello world!")],
+                        streaming=True,
+                    ),
+                    toolsets=[],
+                )
+
+            with patch.object(cli, 'build_entry', patched_build_entry):
+                with patch.object(sys, 'argv', test_args):
+                    with patch.object(sys, 'stdout', stdout_capture):
+                        with patch.object(sys, 'stderr', stderr_capture):
+                            cli.main()
+
+            stdout_output = stdout_capture.getvalue()
+            stderr_output = stderr_capture.getvalue()
+
+            # The streaming output goes to stderr (via HeadlessDisplayBackend)
+            # The final print(result) goes to stdout
+
+            # When streaming is active, stdout should be empty
+            # (no duplicate print of the result)
+            assert stdout_output.strip() == "", (
+                f"Expected no stdout when streaming, but got: {repr(stdout_output)}"
+            )
+
+            # stderr should have the streamed content
+            assert "Hello" in stderr_output, (
+                f"Expected streaming output in stderr, but got: {repr(stderr_output)}"
+            )
+
+    @pytest.mark.anyio
     async def test_streaming_calculator_with_tool(self):
         """Test streaming calculator calls tools and streams result."""
         toolset = FunctionToolset()

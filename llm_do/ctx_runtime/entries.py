@@ -222,6 +222,7 @@ class WorkerEntry(AbstractToolset[Any]):
                         worker=self.name,
                         content=chunk,
                         is_delta=True,
+                        is_complete=False,  # Not complete - this is a streaming delta
                     ))
 
             # Get the final output

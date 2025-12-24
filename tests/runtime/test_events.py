@@ -354,6 +354,7 @@ class TestCLIEventIntegration:
                 prompt="Add 3 and 4",
                 on_event=lambda e: events.append(e),
                 verbosity=1,
+                approve_all=True,  # Auto-approve tools for testing
             )
         finally:
             cli_module.build_entry = original_build

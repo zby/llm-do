@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from pydantic_ai.toolsets import AbstractToolset
+from pydantic_ai_blocking_approval import ApprovalToolset, ApprovalMemory
 
 from .ctx import Context, ApprovalFn, EventCallback
 from .entries import WorkerEntry, ToolEntry
@@ -44,6 +45,69 @@ from ..ui.display import DisplayBackend, HeadlessDisplayBackend, JsonDisplayBack
 
 
 ENV_MODEL_VAR = "LLM_DO_MODEL"
+
+
+def _wrap_toolsets_with_approval(
+    toolsets: list[AbstractToolset[Any]],
+    approve_all: bool,
+    memory: ApprovalMemory,
+) -> list[AbstractToolset[Any]]:
+    """Wrap toolsets with ApprovalToolset for approval handling.
+
+    ApprovalToolset auto-detects if the inner toolset has needs_approval().
+    Toolsets without needs_approval() are passed through unchanged.
+
+    Args:
+        toolsets: List of toolsets to wrap
+        approve_all: If True, auto-approve all tool calls
+        memory: Shared approval memory for tracking decisions
+
+    Returns:
+        List of wrapped toolsets
+    """
+    from pydantic_ai_blocking_approval import ApprovalRequest, ApprovalDecision
+
+    def approval_callback(request: ApprovalRequest) -> ApprovalDecision:
+        """Approval callback for tool execution."""
+        if approve_all:
+            return ApprovalDecision(approved=True)
+        # In headless mode without --approve-all, deny tools that need approval
+        raise PermissionError(
+            f"Tool '{request.tool_name}' requires approval. "
+            f"Use --approve-all to auto-approve all tools in headless mode."
+        )
+
+    wrapped: list[AbstractToolset[Any]] = []
+    for toolset in toolsets:
+        # Recursively wrap toolsets inside WorkerEntry
+        if isinstance(toolset, WorkerEntry) and toolset.toolsets:
+            toolset = WorkerEntry(
+                name=toolset.name,
+                instructions=toolset.instructions,
+                model=toolset.model,
+                toolsets=_wrap_toolsets_with_approval(
+                    toolset.toolsets, approve_all, memory
+                ),
+                schema_in=toolset.schema_in,
+                schema_out=toolset.schema_out,
+                requires_approval=toolset.requires_approval,
+            )
+
+        # Get any stored approval config from the toolset
+        config = getattr(toolset, "_approval_config", None)
+
+        # Wrap all toolsets with ApprovalToolset (secure by default)
+        # - Toolsets with needs_approval() method: ApprovalToolset delegates to it
+        # - Toolsets with _approval_config: uses config for per-tool pre-approval
+        # - Other toolsets: all tools require approval unless --approve-all
+        wrapped.append(ApprovalToolset(
+            inner=toolset,
+            approval_callback=approval_callback,
+            memory=memory,
+            config=config,
+        ))
+
+    return wrapped
 
 
 async def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
@@ -157,7 +221,10 @@ async def build_entry(
             if toolset_name in all_toolsets:
                 resolved_toolsets.append(all_toolsets[toolset_name])
             elif toolset_name in BUILTIN_TOOLSETS:
-                toolset = get_builtin_toolset(toolset_name, toolset_config)
+                toolset, approval_config = get_builtin_toolset(toolset_name, toolset_config)
+                # Store approval config on the toolset for later use by ApprovalToolset
+                if approval_config:
+                    toolset._approval_config = approval_config  # type: ignore[attr-defined]
                 resolved_toolsets.append(toolset)
             else:
                 available_names = list(all_toolsets.keys()) + list(BUILTIN_TOOLSETS.keys())
@@ -246,17 +313,43 @@ async def run(
             schema_out=entry.schema_out,
         )
 
-    # Set up approval function
+    # Wrap toolsets with ApprovalToolset for tool-level approval
+    # This handles needs_approval() on toolsets like FileSystemToolset, ShellToolset
+    memory = ApprovalMemory()
+    if hasattr(entry, "toolsets") and entry.toolsets:
+        wrapped_toolsets = _wrap_toolsets_with_approval(
+            entry.toolsets, approve_all, memory
+        )
+        if isinstance(entry, WorkerEntry):
+            entry = WorkerEntry(
+                name=entry.name,
+                instructions=entry.instructions,
+                model=entry.model,
+                toolsets=wrapped_toolsets,
+                schema_in=entry.schema_in,
+                schema_out=entry.schema_out,
+                requires_approval=entry.requires_approval,
+            )
+        elif isinstance(entry, ToolEntry):
+            entry = ToolEntry(
+                toolset=entry.toolset,
+                tool_name=entry.tool_name,
+                toolsets=wrapped_toolsets,
+                model=entry.model,
+                requires_approval=entry.requires_approval,
+            )
+
+    # Set up entry-level approval function (for entry.requires_approval)
     approval: ApprovalFn | None = None
     if approve_all:
         approval = lambda entry, input_data: True
     else:
-        # In headless mode without --approve-all, deny tools that require approval
+        # In headless mode without --approve-all, deny entries that require approval
         def headless_approval(e: Any, data: Any) -> bool:
             if getattr(e, "requires_approval", False):
                 raise PermissionError(
-                    f"Tool '{e.name}' requires approval. "
-                    f"Use --approve-all to auto-approve all tools in headless mode."
+                    f"Entry '{e.name}' requires approval. "
+                    f"Use --approve-all to auto-approve in headless mode."
                 )
             return True
         approval = headless_approval
@@ -346,7 +439,10 @@ def main() -> None:
         files, prompt, args.model, args.entry, args.all_tools, args.approve_all,
         on_event, args.verbose
     ))
-    print(result)
+
+    # Don't print result when streaming (verbosity >= 2) since it was already streamed
+    if args.verbose < 2:
+        print(result)
 
 
 if __name__ == "__main__":

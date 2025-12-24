@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Optional, Type, TYPE_CHECKING
+from typing import Any, AsyncIterable, Optional, Type, TYPE_CHECKING
 
 from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
@@ -202,15 +202,50 @@ class WorkerEntry(AbstractToolset[Any]):
         agent = self._build_agent(resolved_model, child_ctx)
         prompt = _format_prompt(input_data)
 
-        # Use streaming if verbosity >= 2 and on_event callback is set
-        if child_ctx.verbosity >= 2 and child_ctx.on_event is not None:
-            output = await self._run_streaming(agent, prompt, child_ctx)
+        if child_ctx.on_event is not None:
+            if child_ctx.verbosity >= 2:
+                output = await self._run_streaming(agent, prompt, child_ctx)
+            else:
+                output = await self._run_with_event_stream(agent, prompt, child_ctx)
         else:
             result = await agent.run(prompt, deps=child_ctx, model_settings=self.model_settings)
-            self._emit_tool_events(result.new_messages(), child_ctx)
             output = result.output
 
         return output
+
+    async def _run_with_event_stream(
+        self, agent: Agent["Context", Any], prompt: str, ctx: "Context"
+    ) -> Any:
+        """Run agent with event stream handler for non-streaming UI updates."""
+        from pydantic_ai.messages import PartDeltaEvent
+
+        from ..ui.parser import parse_event
+
+        emitted_tool_events = False
+
+        async def event_stream_handler(
+            _: RunContext["Context"],
+            events: AsyncIterable[Any],
+        ) -> None:
+            nonlocal emitted_tool_events
+            async for event in events:
+                if ctx.verbosity < 2 and isinstance(event, PartDeltaEvent):
+                    continue
+                ui_event = parse_event({"worker": self.name, "event": event})
+                if isinstance(ui_event, (ToolCallEvent, ToolResultEvent)):
+                    emitted_tool_events = True
+                if ctx.on_event is not None:
+                    ctx.on_event(ui_event)
+
+        result = await agent.run(
+            prompt,
+            deps=ctx,
+            model_settings=self.model_settings,
+            event_stream_handler=event_stream_handler,
+        )
+        if ctx.on_event is not None and not emitted_tool_events:
+            self._emit_tool_events(result.new_messages(), ctx)
+        return result.output
 
     async def _run_streaming(
         self, agent: Agent["Context", Any], prompt: str, ctx: "Context"

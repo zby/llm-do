@@ -53,7 +53,7 @@ from .discovery import (
 )
 from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
 from ..config_overrides import apply_overrides
-from ..ui.events import UIEvent, ErrorEvent
+from ..ui.events import UIEvent, ErrorEvent, UserMessageEvent
 from ..ui.display import (
     DisplayBackend,
     HeadlessDisplayBackend,
@@ -437,6 +437,9 @@ async def run(
     else:
         input_data = {"input": prompt}
 
+    if on_event is not None:
+        on_event(UserMessageEvent(worker=getattr(entry, "name", "worker"), content=prompt))
+
     result = await ctx.run(entry, input_data)
 
     return result, ctx
@@ -685,13 +688,14 @@ def main() -> int:
 
     # TUI mode
     if use_tui:
+        tui_verbosity = args.verbose if args.verbose > 0 else 1
         return asyncio.run(_run_tui_mode(
             files=files,
             prompt=prompt,
             model=args.model,
             entry_name=args.entry,
             approve_all=args.approve_all,
-            verbosity=args.verbose,
+            verbosity=tui_verbosity,
             debug=args.debug,
             set_overrides=args.set_overrides or None,
         ))

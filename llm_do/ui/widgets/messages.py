@@ -254,9 +254,9 @@ class MessageContainer(ScrollableContainer):
         super().__init__(**kwargs)
         self._current_assistant: AssistantMessage | None = None
 
-    def start_assistant_message(self) -> AssistantMessage:
+    def start_assistant_message(self, content: str = "") -> AssistantMessage:
         """Start a new assistant message for streaming."""
-        self._current_assistant = AssistantMessage()
+        self._current_assistant = AssistantMessage(content)
         self.mount(self._current_assistant)
         self.scroll_end(animate=False)
         return self._current_assistant
@@ -346,7 +346,8 @@ class MessageContainer(ScrollableContainer):
                 self.finalize_assistant(event.content)
             else:
                 # Start of streaming (is_complete=False, is_delta=False)
-                self.start_assistant_message()
+                placeholder = event.content or "Generating response..."
+                self.start_assistant_message(placeholder)
             return
 
         # Interrupt streaming for tool/approval/error events

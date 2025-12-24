@@ -204,12 +204,7 @@ class LlmDoApp(App[None]):
                 # Capture complete response for final output
                 self._messages.append(event.content)
         elif isinstance(event, CompletionEvent):
-            if self._auto_quit:
-                if self._messages:
-                    self.final_result = "\n".join(self._messages)
-                self._done = True
-                self.exit()
-            else:
+            if not self._auto_quit:
                 user_input = self.query_one("#user-input", Input)
                 user_input.disabled = False
                 user_input.focus()

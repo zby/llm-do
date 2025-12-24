@@ -40,6 +40,8 @@ def parse_event(payload: dict[str, Any]) -> UIEvent:
     callback dicts are converted to our typed event hierarchy.
     """
     from pydantic_ai.messages import (
+        BuiltinToolCallEvent,
+        BuiltinToolResultEvent,
         FinalResultEvent,
         FunctionToolCallEvent,
         FunctionToolResultEvent,
@@ -135,6 +137,26 @@ def parse_event(payload: dict[str, Any]) -> UIEvent:
         )
 
     if isinstance(event, FunctionToolResultEvent):
+        result = event.result
+        return ToolResultEvent(
+            worker=worker,
+            tool_name=getattr(result, "tool_name", "tool"),
+            tool_call_id=getattr(result, "tool_call_id", ""),
+            content=result.content if hasattr(result, "content") else result,
+            is_error=getattr(result, "is_error", False),
+        )
+
+    if isinstance(event, BuiltinToolCallEvent):
+        part = event.part
+        return ToolCallEvent(
+            worker=worker,
+            tool_name=getattr(part, "tool_name", "tool"),
+            tool_call_id=getattr(part, "tool_call_id", ""),
+            args=getattr(part, "args", {}),
+            args_json=part.args_as_json_str() if hasattr(part, "args_as_json_str") else "",
+        )
+
+    if isinstance(event, BuiltinToolResultEvent):
         result = event.result
         return ToolResultEvent(
             worker=worker,

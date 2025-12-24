@@ -24,10 +24,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import io
+import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable, Coroutine, Union
 
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.builtin_tools import (
@@ -36,7 +38,12 @@ from pydantic_ai.builtin_tools import (
     WebFetchTool,
     WebSearchTool,
 )
-from pydantic_ai_blocking_approval import ApprovalToolset, ApprovalMemory
+from pydantic_ai_blocking_approval import (
+    ApprovalToolset,
+    ApprovalMemory,
+    ApprovalRequest,
+    ApprovalDecision,
+)
 
 from .ctx import Context, ApprovalFn, EventCallback
 from .entries import WorkerEntry, ToolEntry
@@ -46,8 +53,14 @@ from .discovery import (
     load_entries_from_files,
 )
 from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
-from ..ui.events import UIEvent
-from ..ui.display import DisplayBackend, HeadlessDisplayBackend, JsonDisplayBackend
+from ..ui.events import UIEvent, ErrorEvent
+from ..ui.display import (
+    DisplayBackend,
+    HeadlessDisplayBackend,
+    JsonDisplayBackend,
+    RichDisplayBackend,
+)
+from ..ui.parser import parse_approval_request
 
 
 ENV_MODEL_VAR = "LLM_DO_MODEL"
@@ -90,10 +103,18 @@ def _build_builtin_tools(configs: list[dict[str, Any]]) -> list[Any]:
     return tools
 
 
+# Type for approval callbacks (supports both sync and async)
+ApprovalCallback = Callable[
+    [ApprovalRequest],
+    Union[ApprovalDecision, Awaitable[ApprovalDecision]]
+]
+
+
 def _wrap_toolsets_with_approval(
     toolsets: list[AbstractToolset[Any]],
     approve_all: bool,
     memory: ApprovalMemory,
+    approval_callback: ApprovalCallback | None = None,
 ) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with ApprovalToolset for approval handling.
 
@@ -104,21 +125,21 @@ def _wrap_toolsets_with_approval(
         toolsets: List of toolsets to wrap
         approve_all: If True, auto-approve all tool calls
         memory: Shared approval memory for tracking decisions
+        approval_callback: Optional callback for interactive approval (TUI mode)
 
     Returns:
         List of wrapped toolsets
     """
-    from pydantic_ai_blocking_approval import ApprovalRequest, ApprovalDecision
-
-    def approval_callback(request: ApprovalRequest) -> ApprovalDecision:
-        """Approval callback for tool execution."""
-        if approve_all:
-            return ApprovalDecision(approved=True)
-        # In headless mode without --approve-all, deny tools that need approval
-        raise PermissionError(
-            f"Tool '{request.tool_name}' requires approval. "
-            f"Use --approve-all to auto-approve all tools in headless mode."
-        )
+    if approval_callback is None:
+        def approval_callback(request: ApprovalRequest) -> ApprovalDecision:
+            """Default approval callback for headless mode."""
+            if approve_all:
+                return ApprovalDecision(approved=True)
+            # In headless mode without --approve-all, deny tools that need approval
+            raise PermissionError(
+                f"Tool '{request.tool_name}' requires approval. "
+                f"Use --approve-all to auto-approve all tools in headless mode."
+            )
 
     wrapped: list[AbstractToolset[Any]] = []
     for toolset in toolsets:
@@ -129,7 +150,7 @@ def _wrap_toolsets_with_approval(
                 instructions=toolset.instructions,
                 model=toolset.model,
                 toolsets=_wrap_toolsets_with_approval(
-                    toolset.toolsets, approve_all, memory
+                    toolset.toolsets, approve_all, memory, approval_callback
                 ),
                 builtin_tools=toolset.builtin_tools,
                 schema_in=toolset.schema_in,
@@ -278,8 +299,11 @@ async def build_entry(
                 available_names = list(all_toolsets.keys()) + list(BUILTIN_TOOLSETS.keys())
                 raise ValueError(f"Unknown toolset '{toolset_name}'. Available: {available_names}")
 
-        # Apply model override only to entry worker
-        worker_model = model if name == entry_name else worker_file.model
+        # Apply model override only to entry worker (if override provided)
+        if model and name == entry_name:
+            worker_model = model
+        else:
+            worker_model = worker_file.model
 
         # Build builtin tools from server_side_tools config
         builtin_tools = _build_builtin_tools(worker_file.server_side_tools)
@@ -324,6 +348,7 @@ async def run(
     approve_all: bool = False,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
+    approval_callback: ApprovalCallback | None = None,
 ) -> tuple[str, Context]:
     """Load entries and run with the given prompt.
 
@@ -336,6 +361,7 @@ async def run(
         approve_all: If True, auto-approve all tool calls
         on_event: Optional callback for UI events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
+        approval_callback: Optional callback for interactive approval (TUI mode)
 
     Returns:
         Tuple of (result, context)
@@ -371,7 +397,7 @@ async def run(
     memory = ApprovalMemory()
     if hasattr(entry, "toolsets") and entry.toolsets:
         wrapped_toolsets = _wrap_toolsets_with_approval(
-            entry.toolsets, approve_all, memory
+            entry.toolsets, approve_all, memory, approval_callback
         )
         if isinstance(entry, WorkerEntry):
             entry = WorkerEntry(
@@ -422,6 +448,154 @@ async def run(
     return result, ctx
 
 
+async def _run_tui_mode(
+    files: list[str],
+    prompt: str,
+    model: str | None = None,
+    entry_name: str | None = None,
+    all_tools: bool = False,
+    approve_all: bool = False,
+    verbosity: int = 0,
+    debug: bool = False,
+) -> int:
+    """Run in Textual TUI mode with interactive approvals.
+
+    Returns:
+        Exit code (0 for success, 1 for error)
+    """
+    from ..ui.app import LlmDoApp
+
+    # Set up queues for app communication
+    event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
+    approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
+
+    # Create output buffer to capture events for post-TUI display
+    output_buffer = io.StringIO()
+    log_backend = RichDisplayBackend(output_buffer, force_terminal=True, verbosity=verbosity)
+
+    # Container for result and exit code
+    worker_result: list[Any] = []
+    worker_exit_code: list[int] = [0]
+
+    def emit_error_event(message: str, error_type: str) -> None:
+        """Emit error event to TUI and log backend."""
+        error_event = ErrorEvent(
+            worker="worker",
+            message=message,
+            error_type=error_type,
+        )
+        event_queue.put_nowait(error_event)
+        log_backend.display(error_event)
+        worker_exit_code[0] = 1
+
+    def on_event(event: UIEvent) -> None:
+        """Forward events to both TUI and log buffer."""
+        event_queue.put_nowait(event)
+        log_backend.display(event)
+
+    async def tui_approval_callback(request: ApprovalRequest) -> ApprovalDecision:
+        """Async approval callback that sends to TUI and waits for response.
+
+        This is called from ApprovalToolset.call_tool which is async, so we
+        can await the queue response directly.
+        """
+        if approve_all:
+            return ApprovalDecision(approved=True)
+
+        # Parse the approval request into a typed event and send to TUI
+        approval_event = parse_approval_request(request)
+        event_queue.put_nowait(approval_event)
+
+        # Await response from TUI
+        return await approval_queue.get()
+
+    async def run_worker_in_background() -> int:
+        """Run the worker and send events to the app."""
+        from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
+
+        try:
+            result, ctx = await run(
+                files=files,
+                prompt=prompt,
+                model=model,
+                entry_name=entry_name,
+                all_tools=all_tools,
+                approve_all=approve_all,
+                on_event=on_event,
+                verbosity=verbosity,
+                approval_callback=tui_approval_callback,
+            )
+            worker_result[:] = [result]
+            return 0
+
+        except FileNotFoundError as e:
+            emit_error_event(f"Error: {e}", type(e).__name__)
+            if debug:
+                raise
+            return 1
+        except ValueError as e:
+            emit_error_event(f"Error: {e}", type(e).__name__)
+            if debug:
+                raise
+            return 1
+        except PermissionError as e:
+            emit_error_event(f"Error: {e}", type(e).__name__)
+            if debug:
+                raise
+            return 1
+        except ModelHTTPError as e:
+            message = f"Model API error (status {e.status_code}): {e.model_name}"
+            if e.body and isinstance(e.body, dict):
+                error_info = e.body.get("error", {})
+                if isinstance(error_info, dict):
+                    msg = error_info.get("message", "")
+                    if msg:
+                        message = f"{message}\n  {msg}"
+            emit_error_event(message, type(e).__name__)
+            if debug:
+                raise
+            return 1
+        except (UnexpectedModelBehavior, UserError) as e:
+            emit_error_event(f"Error: {e}", type(e).__name__)
+            if debug:
+                raise
+            return 1
+        except KeyboardInterrupt:
+            emit_error_event("Aborted by user", "KeyboardInterrupt")
+            return 1
+        except Exception as e:
+            emit_error_event(f"Unexpected error: {e}", type(e).__name__)
+            if debug:
+                raise
+            return 1
+        finally:
+            # Signal TUI that worker is done
+            event_queue.put_nowait(None)
+
+    # Create the Textual app with worker coroutine
+    app = LlmDoApp(
+        event_queue,
+        approval_queue,
+        worker_coro=run_worker_in_background(),
+        auto_quit=True,
+    )
+
+    # Run with mouse disabled to allow terminal text selection
+    await app.run_async(mouse=False)
+
+    # Print captured output to stderr (session log)
+    captured_output = output_buffer.getvalue()
+    if captured_output:
+        print(captured_output, file=sys.stderr)
+
+    # Print final result to stdout
+    if worker_result and verbosity < 2:
+        result = worker_result[0]
+        print(result)
+
+    return worker_exit_code[0]
+
+
 def main() -> int:
     """Main entry point for llm-run CLI.
 
@@ -452,6 +626,16 @@ def main() -> int:
         "--json",
         action="store_true",
         help="Output events as JSON lines (for piping/automation)",
+    )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Force headless mode (no TUI, plain text output)",
+    )
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="Force TUI mode (interactive UI)",
     )
     parser.add_argument(
         "--debug",
@@ -485,7 +669,33 @@ def main() -> int:
         else:
             parser.error("Prompt required (as argument or via stdin)")
 
-    # Set up display backend based on flags
+    # Validate mutually exclusive flags
+    if args.json and args.tui:
+        print("Cannot combine --json and --tui", file=sys.stderr)
+        return 1
+    if args.headless and args.tui:
+        print("Cannot combine --headless and --tui", file=sys.stderr)
+        return 1
+
+    # Determine if we should use TUI mode:
+    # - Explicit --tui flag
+    # - Or: TTY available and not --headless and not --json
+    use_tui = args.tui or (sys.stdout.isatty() and not args.headless and not args.json)
+
+    # TUI mode
+    if use_tui:
+        return asyncio.run(_run_tui_mode(
+            files=files,
+            prompt=prompt,
+            model=args.model,
+            entry_name=args.entry,
+            all_tools=args.all_tools,
+            approve_all=args.approve_all,
+            verbosity=args.verbose,
+            debug=args.debug,
+        ))
+
+    # Headless mode: set up display backend based on flags
     backend: DisplayBackend | None = None
     on_event: EventCallback | None = None
 

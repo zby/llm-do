@@ -41,15 +41,16 @@ Ensure all use cases work with the new runtime before porting Textual.
 Once `llm-run` is validated, port the interactive UI.
 
 ### Textual UI Port
-- [ ] Port Textual CLI to use `llm_do/ctx_runtime` execution flow
-- [ ] Connect `on_event` callback to Textual UI for real-time updates
-- [ ] Wire interactive approval prompts (replaces headless PermissionError)
-- [ ] Verify approvals/tool loading behave identically in the UI
+- [x] Port Textual CLI to use `llm_do/ctx_runtime` execution flow
+- [x] Connect `on_event` callback to Textual UI for real-time updates
+- [x] Wire interactive approval prompts (async callback via queue)
+- [x] Verify approvals/tool loading behave identically in the UI (tested with approvals_demo)
 
 ### CLI Structure Decision
-- [ ] Decide: merge into `llm-do` or keep `llm-run` separate?
-  - Option A: `llm-do` auto-detects TTY (interactive vs headless)
-  - Option B: `llm-do` for interactive, `llm-run` for headless (current)
+- [x] Decide: merge into `llm-do` or keep `llm-run` separate?
+  - **Chosen**: `llm-run` auto-detects TTY (TUI mode by default when TTY available)
+  - `--headless` flag to force headless mode
+  - `--tui` flag to force TUI mode
 
 ---
 
@@ -122,3 +123,28 @@ All toolsets are wrapped with `ApprovalToolset`:
 - Runtime is at `llm_do/ctx_runtime/`
 - 73 tests passing in `tests/runtime/`
 - Keep old `llm-do` working during Phase A (deprecated but functional)
+
+## Implementation Notes (Phase B)
+
+### TUI Mode Integration
+Added TUI mode to `llm_do/ctx_runtime/cli.py`:
+- `_run_tui_mode()` - async function that sets up Textual app
+- Auto-detects TTY and defaults to TUI mode when available
+- Uses `--headless` to force headless mode, `--tui` to force TUI mode
+
+### Event Flow
+1. `on_event` callback forwards `UIEvent` to `event_queue`
+2. `LlmDoApp` consumes events and updates UI via `MessageContainer`
+3. Events also logged to `RichDisplayBackend` for post-TUI display
+
+### Approval Flow (TUI Mode)
+1. `ApprovalToolset` calls async `tui_approval_callback`
+2. Callback sends `ApprovalRequestEvent` to `event_queue`
+3. TUI displays approval prompt with key bindings (a/s/d)
+4. User decision sent to `approval_queue`
+5. Callback awaits and returns `ApprovalDecision`
+
+### Key Files Modified
+- `llm_do/ctx_runtime/cli.py` - added TUI mode, async approval callback
+- Reuses existing `llm_do/ui/app.py` (LlmDoApp)
+- Reuses existing `llm_do/ui/parser.py` (parse_approval_request)

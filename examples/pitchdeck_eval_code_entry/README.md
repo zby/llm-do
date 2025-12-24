@@ -13,7 +13,7 @@ tools.py::main() (deterministic code)
 pitch_evaluator.worker (LLM analysis)
 ```
 
-Compare to the LLM-orchestrated version (`examples-new/pitchdeck_eval/`):
+Compare to the LLM-orchestrated version (`examples/pitchdeck_eval/`):
 
 ```
 main.worker (LLM orchestrator)
@@ -87,7 +87,7 @@ export ANTHROPIC_API_KEY=...
 ## Run
 
 ```bash
-cd examples-new/pitchdeck_eval_code_entry
+cd examples/pitchdeck_eval_code_entry
 llm-run tools.py pitch_evaluator.worker --entry main --approve-all "Go"
 ```
 

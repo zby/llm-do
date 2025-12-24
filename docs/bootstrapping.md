@@ -1,6 +1,6 @@
 # Worker Bootstrapping (Experimental)
 
-> **Status**: Experimental. The API and behavior may change.
+> **Status**: Experimental and not yet ported to ctx_runtime. The worker depends on a delegation toolset (`worker_create`/`worker_call`) that is not currently shipped. The rest of this document describes intended behavior once it is available.
 
 The `worker_bootstrapper` is a built-in meta-worker that creates other workers on-the-fly based on natural language task descriptions.
 
@@ -27,9 +27,11 @@ mkdir input output
 cp ~/documents/*.pdf input/
 
 # Run the bootstrapper (looks for files in input/, writes to output/)
-llm-do --tool worker_bootstrapper --model anthropic:claude-haiku-4-5 \
+llm-run llm_do/workers/worker_bootstrapper.worker --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 \
   "Analyze the PDFs in input/ and write 100-word summaries to output/"
 ```
+
+The bootstrapper worker file lives at `llm_do/workers/worker_bootstrapper.worker` in the repo. Copy it into your project or reference it directly as shown above.
 
 ## How It Works
 
@@ -60,13 +62,13 @@ for the current session. Copy them into your project to reuse later:
 ```bash
 # Reuse the created worker
 cp -r /tmp/llm-do/generated/pdf_analyzer ./pdf_analyzer
-llm-do --tool pdf_analyzer --attachments input/new_file.pdf
+llm-run ./pdf_analyzer/worker.worker --entry pdf_analyzer "Analyze input/new_file.pdf"
 ```
 
 ## Example Session
 
 ```bash
-$ llm-do --tool worker_bootstrapper --model anthropic:claude-haiku-4-5 \
+$ llm-run llm_do/workers/worker_bootstrapper.worker --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 \
   "Analyze the pitch decks in input/ and write 100-word evaluations to output/"
 
 # Bootstrapper:
@@ -124,7 +126,7 @@ The bootstrapper has these built-in permissions:
 **Project-local workers:** To save generated workers in your project instead of `/tmp`:
 
 ```bash
-llm-do --tool worker_bootstrapper --model anthropic:claude-haiku-4-5 \
+llm-run llm_do/workers/worker_bootstrapper.worker --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 \
   --set toolsets.delegation.worker_create.output_dir=./workers \
   --set toolsets.delegation.worker_call.workers_dir=./workers \
   "Analyze the PDFs in input/ and write 100-word summaries to output/"
@@ -151,7 +153,7 @@ The bootstrapper is already YOLO (LLM creates workers). Add `--approve-all` for 
 
 ```bash
 # Double YOLO: fully autonomous worker creation and execution
-llm-do --tool worker_bootstrapper --model anthropic:claude-haiku-4-5 --approve-all \
+llm-run llm_do/workers/worker_bootstrapper.worker --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 --approve-all \
   "Process all documents in input/ and generate 100-word reports to output/"
 ```
 

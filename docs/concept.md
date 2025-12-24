@@ -93,21 +93,24 @@ But look closer: even this "LLM-driven" pattern is wrapped in deterministic code
 
 Part of that scaffold is **human oversight**. The ideal would be fully autonomous execution—let the agent run to completion without interruption. But experience shows this is premature: LLMs make mistakes, misinterpret intent, and occasionally attempt dangerous operations. In llm-do, every tool call from an LLM is intercepted for potential human approval—at any nesting depth. Think of approvals as **syscalls**: when a worker needs to do something dangerous, execution blocks until the harness grants permission. Pattern-based rules can auto-approve safe operations (read-only queries, known-safe commands), while risky actions require explicit consent. The goal is progressive trust: start with tight approval requirements, loosen them as confidence grows.
 
-A common need is **hybrid tools**—Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
+A common need is **hybrid tools**: Python functions that handle deterministic logic but delegate fuzzy parts to focused workers:
 
 ```python
-from llm_do import tool_context
-from llm_do.types import ToolContext
+from pydantic_ai.tools import RunContext
+from pydantic_ai.toolsets import FunctionToolset
+from llm_do.ctx_runtime import Context
 
-@tool_context
-async def evaluate_document(path: str, ctx: ToolContext) -> dict:
+tools = FunctionToolset()
+
+@tools.tool
+async def evaluate_document(ctx: RunContext[Context], path: str) -> dict:
     # Deterministic: load and validate
     content = load_file(path)
     if not validate_format(content):
         raise ValueError("Invalid format")
 
     # Neural: delegate ambiguous analysis
-    analysis = await ctx.call_tool("content_analyzer", content)
+    analysis = await ctx.deps.call("content_analyzer", {"input": content})
 
     # Deterministic: compute final score
     return {"score": compute_score(analysis), "analysis": analysis}
@@ -123,7 +126,7 @@ The pattern inverts the typical view: rather than "LLM with tools," think "deter
 
 3. **Bidirectional refactoring** — Harden prompts to code as patterns stabilize; soften rigid code to prompts when flexibility is needed
 
-4. **Guardrails by construction** — Attachment validation and approval enforcement in code, guarding against LLM mistakes
+4. **Guardrails by construction** — Tool schema validation and approval enforcement in code, guarding against LLM mistakes
 
 5. **Recursive composability** — Workers calling workers feels like function calls, up to 5 levels deep
 

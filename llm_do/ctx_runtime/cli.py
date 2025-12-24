@@ -12,8 +12,7 @@ Supported file types:
 
 Entry point resolution:
     1. If --entry NAME specified, use that entry
-    2. Else if "main" entry exists, use it
-    3. Else use the first worker loaded
+    2. Else use "main" (must exist)
 
 Toolsets:
     - Worker files reference toolsets by name in the toolsets: section
@@ -313,16 +312,13 @@ async def build_entry(
         # Build builtin tools from server_side_tools config
         builtin_tools = _build_builtin_tools(worker_file.server_side_tools)
 
-        workers[name] = WorkerEntry(
-            name=name,
-            instructions=worker_file.instructions,
-            model=worker_model,
-            toolsets=resolved_toolsets,
-            builtin_tools=builtin_tools,
-        )
+        stub = worker_entries[name]
+        stub.instructions = worker_file.instructions
+        stub.model = worker_model
+        stub.toolsets = resolved_toolsets
+        stub.builtin_tools = builtin_tools
 
-        # Update worker_entries with fully built worker
-        worker_entries[name] = workers[name]
+        workers[name] = stub
 
     # Return entry
     if entry_type == "worker_file":

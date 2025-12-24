@@ -1,8 +1,6 @@
 # UI Architecture
 
-The `llm_do/ui/` module provides the UI event pipeline for the async CLI. It separates
-worker execution from rendering and keeps output consistent across Textual, Rich,
-headless text, and JSON modes.
+The `llm_do/ui/` module provides the UI event pipeline for the ctx_runtime CLI. It separates worker execution from rendering and keeps output consistent across Textual, headless text, and JSON modes.
 
 ## Core Pipeline
 
@@ -18,18 +16,18 @@ Event Queue
   v
 DisplayBackend
   |-- TextualDisplayBackend (event.create_widget)
-  |-- RichDisplayBackend (event.render_rich)
   |-- JsonDisplayBackend (event.render_json)
-  `-- HeadlessDisplayBackend (event.render_text)
+  |-- HeadlessDisplayBackend (event.render_text)
+  `-- RichDisplayBackend (event.render_rich, log buffer)
 ```
 
 ### UIEvent
 
 `UIEvent` is the typed base class for all UI events. Each event renders itself into:
-- Rich output (`render_rich`)
 - Plain text (`render_text`, ASCII-only for system strings)
 - JSON (`render_json`)
 - Textual widget (`create_widget`)
+- Rich output (`render_rich`)
 
 ### Event Parsing
 
@@ -49,8 +47,7 @@ They optionally implement `start()`/`stop()` for setup and teardown.
 while `MessageContainer` handles streaming and widget mounting.
 
 Approval requests are displayed in the TUI and resolved via an approval queue.
-Non-interactive modes use `--approve-all` or `--strict` (or stdin prompts in headless
-mode when available).
+Non-interactive modes should use `--approve-all` when approvals are required.
 
 ## Event Flow
 
@@ -82,10 +79,10 @@ The worker's `message_callback` parses raw events and enqueues typed `UIEvent` o
 
 ## Textual TUI
 
-The default interactive mode uses Textual:
+The default interactive mode uses Textual when stdout is a TTY:
 
 ```
-llm-do "task"
+llm-run main.worker "task"
 ```
 
 ### Architecture
@@ -113,18 +110,16 @@ Worker Events -> parse_event -> UIEvent queue -> TextualDisplayBackend -> LlmDoA
 | Mode | Flag | Backend | Interactivity | Notes |
 |------|------|---------|---------------|-------|
 | TUI (default) | — | TextualDisplayBackend + log buffer | Yes | Requires stdout TTY |
-| JSON | `--json` | JsonDisplayBackend | No | Requires `--approve-all` or `--strict` |
-| Headless (explicit) | `--headless` | HeadlessDisplayBackend | No | Prompts on stdin if TTY, otherwise requires approval flags |
+| Headless | `--headless` | HeadlessDisplayBackend | No | Events to stderr with `-v`/`-vv`, final output to stdout |
+| JSON | `--json` | JsonDisplayBackend | No | JSONL event stream to stderr; cannot combine with `--tui` |
 
-**TUI Terminal History:** In TUI mode, events are captured to a Rich or plain-text
-buffer (controlled by `--no-rich`) and printed after the TUI exits.
+**TUI Terminal History:** In TUI mode, events are captured to a Rich log buffer and printed to stderr after the TUI exits.
 
 ### TTY Detection
 
 - **TTY present:** Textual TUI with interactive approvals.
-- **No TTY:** Falls back to headless rendering. Rich output is used by default; use
-  `--no-rich` for plain text. If stdin is not a TTY and no approval flags are set,
-  headless mode defaults to strict behavior.
+- **No TTY:** Falls back to headless rendering. Use `-v` or `-vv` for event output.
+- **Force modes:** `--tui` forces interactive UI; `--headless` disables it.
 
 ## Future Work
 

@@ -20,7 +20,7 @@ This is the **Unix philosophy for agents**: workers are files, dangerous operati
 
 **Tight context.** Each worker does one thing well. No bloated multi-purpose prompts that try to handle everything. Task executors receive only relevant history—no conversation baggage from parent agents.
 
-**Guardrails by construction.** Attachment policies cap resources, tool approvals gate dangerous operations. Guards enforced in code, not prompt instructions.
+**Guardrails by construction.** Tool approvals gate dangerous operations; tool schemas and toolset policies enforce constraints in code, not prompt instructions.
 
 **Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code. Or go the other direction—soften rigid code into prompts when edge cases multiply.
 
@@ -35,12 +35,15 @@ uv pip install -e .  # or: pip install -e .
 # Set your API key
 export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 
-# Run the entry tool
+# Optional default model (or use --model per run)
+export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
+
+# Run a worker
 cd examples/greeter
-llm-do "Tell me a joke" --model anthropic:claude-haiku-4-5
+llm-run main.worker "Tell me a joke"
 ```
 
-The CLI runs the `main` tool (`tools.py::main` or `main.worker`) in the current directory. If both exist, llm-do errors to avoid ambiguity. See [`examples/`](examples/) for more.
+`llm-run` executes the entry point named by `--entry` from the files you pass. If omitted, the entry defaults to `main`, so name your entry worker `main` or pass `--entry` explicitly. See [`examples/`](examples/) for more.
 
 ### OAuth Login (Anthropic Pro/Max)
 
@@ -112,23 +115,32 @@ Add custom tools by creating `tools.py` in your project root:
 
 ```python
 # tools.py
+from pydantic_ai.toolsets import FunctionToolset
+
+tools = FunctionToolset()
+
+@tools.tool
 def sanitize_filename(name: str) -> str:
     """Remove special characters from filename."""
     return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
 ```
 
-Functions become LLM-callable tools. Reference them in your worker's toolsets config.
+Functions become LLM-callable tools. Reference the toolset name in your worker's `toolsets` config and pass `tools.py` to `llm-run`.
 
-To opt into tool context (for calling workers), use `@tool_context` and add a `ctx` param:
+To access runtime context (for calling other tools/workers), accept a `RunContext` and use `ctx.deps`:
 
 ```python
 # tools.py
-from llm_do import tool_context
+from pydantic_ai.tools import RunContext
+from pydantic_ai.toolsets import FunctionToolset
+from llm_do.ctx_runtime import Context
 
-@tool_context
-async def analyze_config(raw: str, ctx) -> str:
+tools = FunctionToolset()
+
+@tools.tool
+async def analyze_config(ctx: RunContext[Context], raw: str) -> str:
     """Delegate parsing to a worker."""
-    return await ctx.call_tool("config_parser", raw)
+    return await ctx.deps.call("config_parser", {"input": raw})
 ```
 
 You can also use:
@@ -138,22 +150,20 @@ You can also use:
 ## CLI Reference
 
 ```bash
-# Run the main tool in the current directory
-cd my-project
-llm-do "input message" --model anthropic:claude-haiku-4-5
+# Run a worker
+llm-run main.worker "input message"
 
-# Run specific tool
-llm-do --tool orchestrator "input" --model anthropic:claude-haiku-4-5
+# Run a worker with Python toolsets
+llm-run main.worker tools.py "input message"
 
-# Run from a different directory
-llm-do --dir /path/to/project "input" --model anthropic:claude-haiku-4-5
+# Choose a non-default entry
+llm-run orchestrator.worker tools.py --entry orchestrator "input"
 
 # Override config at runtime
-llm-do "input" --model anthropic:claude-sonnet-4 --set locked=true
-
-# Create a new project
-llm-do init my-project
+llm-run main.worker --set model=anthropic:claude-sonnet-4 "input"
 ```
+
+Common flags: `--headless`, `--tui`, `--json`, `-v/-vv`, `--set`, `--approve-all`, `--model`. See [`docs/cli.md`](docs/cli.md) for details.
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
 
@@ -164,7 +174,7 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 | Example | Demonstrates |
 |---------|--------------|
 | [`greeter/`](examples/greeter/) | Minimal project structure |
-| [`pitchdeck_eval/`](examples/pitchdeck_eval/) | Multi-worker orchestration, PDF attachments |
+| [`pitchdeck_eval/`](examples/pitchdeck_eval/) | Multi-worker orchestration for pitch decks |
 | [`pitchdeck_eval_hardened/`](examples/pitchdeck_eval_hardened/) | Progressive hardening: extracted Python tools |
 | [`pitchdeck_eval_code_entry/`](examples/pitchdeck_eval_code_entry/) | Full hardening: Python orchestration, tool entry point |
 | [`calculator/`](examples/calculator/) | Custom Python tools |

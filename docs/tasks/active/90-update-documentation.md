@@ -18,10 +18,11 @@ Update all user-facing documentation to reference the `llm-run` CLI and `llm_do/
 - [x] Remove deprecated flags/commands (`--dir`, `--tool`, `--input`, `--attachments`, `--no-rich`, `--strict`, `init`)
 - [x] Document current flags (`--headless`, `--tui`, `--json`, `-v/-vv`, `--set`, `--approve-all`)
 - [x] Keep "llm-do" as project name but call out `llm-run` as the CLI + retain `llm-do-oauth`
+- [x] Remove Jinja2 templating mention (not supported in current runtime)
 
 ### docs/cli.md
 - [x] Rewrite Basic Usage for `llm-run <worker.worker> [tools.py...] "prompt"` and `--entry`
-- [x] Document flags: `--all-tools`, `--model` (LLM_DO_MODEL), `--set`, `--approve-all`,
+- [x] Document flags: `--model` (LLM_DO_MODEL), `--set`, `--approve-all`,
   `--verbose`, `--json`, `--headless`, `--tui`, `--debug`
 - [x] Update approval behavior for headless/TUI (no `--strict` / `--no-rich`)
 - [x] Document stdin prompt behavior + mutually exclusive flags (`--json` vs `--tui`)
@@ -60,7 +61,8 @@ Document the two available CLI tools wherever CLI usage is introduced:
 ## Current State
 Updated README, `docs/cli.md`, `docs/architecture.md`, `docs/ui.md`,
 `docs/bootstrapping.md`, `docs/concept.md`, and example README(s) to `llm-run`
-and `ctx_runtime`. Added a bootstrapper status note and aligned CLI help text.
+and `ctx_runtime`. Removed the lingering Jinja2 mention and aligned CLI help text
+to the current flags.
 
 ## Notes
 - Old `llm-do` CLI has been removed

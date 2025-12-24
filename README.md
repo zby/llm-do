@@ -102,7 +102,6 @@ my-project/
 ├── orchestrator.worker
 ├── analyzer.worker
 ├── tools.py              # Shared Python tools
-├── templates/            # Shared Jinja templates
 ├── input/
 └── output/
 ```
@@ -144,7 +143,6 @@ async def analyze_config(ctx: RunContext[Context], raw: str) -> str:
 ```
 
 You can also use:
-- **Jinja2 templates** — Compose prompts from reusable templates in `templates/`
 - **Server-side tools** — Provider-executed capabilities like web search and code execution
 
 ## CLI Reference
@@ -193,7 +191,7 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 
 **Experimental** — Built on [PydanticAI](https://ai.pydantic.dev/). APIs may change.
 
-**Working:** Worker resolution, worker delegation, approvals, custom tools, templates.
+**Working:** Worker resolution, worker delegation, approvals, custom tools.
 
 **TUI:** The interactive terminal UI (Textual-based) is experimental. Use `--headless` for non-interactive mode.
 

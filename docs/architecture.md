@@ -44,7 +44,6 @@ my-project/
 ├── main.worker            # Entry worker
 ├── analyzer.worker        # Helper worker
 ├── tools.py               # Python toolsets (optional)
-├── templates/             # Shared Jinja templates (optional)
 ├── input/                 # Input directory (convention)
 └── output/                # Output directory (convention)
 ```

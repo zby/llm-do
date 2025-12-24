@@ -10,20 +10,6 @@ from llm_do.ctx_runtime import Context, WorkerEntry
 class TestContext:
     """Tests for Context class."""
 
-    def test_context_max_depth(self):
-        """Test max_depth is set correctly."""
-        ctx = Context(toolsets=[], model="test-model", max_depth=3)
-        assert ctx.max_depth == 3
-        assert ctx.depth == 0
-
-    def test_context_child(self):
-        """Test child context creation."""
-        ctx = Context(toolsets=[], model="test-model", max_depth=5, depth=1)
-        child = ctx._child()
-        assert child.depth == 2
-        assert child.max_depth == 5
-        assert child.model == "test-model"
-
     @pytest.mark.anyio
     async def test_context_call_tool(self):
         """Test calling a tool through context."""

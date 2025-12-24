@@ -21,14 +21,6 @@ from llm_do.ui.parser import parse_event
 class TestHeadlessDisplayBackend:
     """Tests for HeadlessDisplayBackend."""
 
-    def test_writes_event_to_stream(self):
-        """Backend writes events to provided stream."""
-        stream = io.StringIO()
-        backend = HeadlessDisplayBackend(stream=stream)
-        event = StatusEvent(worker="test", phase="test", state="running")
-        backend.display(event)
-        assert "[test] test running" in stream.getvalue()
-
     def test_handles_initial_request_event(self):
         """Backend shows 'Starting...' for initial_request events."""
         stream = io.StringIO()

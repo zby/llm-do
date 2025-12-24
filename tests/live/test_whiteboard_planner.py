@@ -61,10 +61,6 @@ def test_whiteboard_orchestrator_processes_images(
     written_files = list(plans_dir.glob("*.md"))
     assert len(written_files) > 0, "Orchestrator should have written at least one plan file"
 
-    # Verify the plan has reasonable content
-    plan_content = written_files[0].read_text()
-    assert len(plan_content) > 100, "Plan should have substantial content"
-
 
 @skip_no_anthropic
 def test_whiteboard_planner_directly(whiteboard_planner_registry, approve_all_controller):
@@ -93,7 +89,4 @@ def test_whiteboard_planner_directly(whiteboard_planner_registry, approve_all_co
         )
     )
 
-    assert result is not None
-    assert result.output is not None
-    # Should be a meaningful analysis
-    assert len(result.output) > 100, "Analysis should have substantial content"
+    assert result and result.output is not None

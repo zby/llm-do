@@ -140,6 +140,27 @@ Test worker
 
         assert exit_code == 0
 
+    def test_streaming_suppresses_stdout(self, tmp_path, capsys):
+        """Test that streaming mode does not print the final result."""
+        worker = tmp_path / "test.worker"
+        worker.write_text("""---
+name: main
+---
+Test worker
+""")
+
+        mock_ctx = AsyncMock()
+        with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = ("Success!", mock_ctx)
+
+            with patch("sys.argv", ["llm-run", str(worker), "-vv", "hello"]):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                    exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert captured.out.strip() == ""
+
 
 class TestCLIDebugFlag:
     """Tests for --debug flag behavior."""

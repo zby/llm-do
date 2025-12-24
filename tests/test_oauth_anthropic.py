@@ -1,5 +1,6 @@
 import asyncio
 import time
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -87,8 +88,6 @@ def test_login_anthropic_stores_credentials(monkeypatch, memory_storage):
         return FakeAsyncClient(response, capture)
 
     monkeypatch.setattr(oauth_anthropic.httpx, "AsyncClient", client_factory)
-    monkeypatch.setattr(oauth_anthropic, "generate_pkce", lambda: ("verifier", "challenge"))
-
     auth_urls = []
 
     def on_auth_url(url: str) -> None:
@@ -106,9 +105,20 @@ def test_login_anthropic_stores_credentials(monkeypatch, memory_storage):
     assert creds.access == "access123"
     assert capture["json"]["code"] == "authcode"
     assert capture["json"]["state"] == "authstate"
-    assert capture["json"]["code_verifier"] == "verifier"
-    assert auth_urls and "code_challenge=challenge" in auth_urls[0]
-    assert "state=verifier" in auth_urls[0]
+    assert auth_urls
+
+    auth_url = auth_urls[0]
+    params = parse_qs(urlparse(auth_url).query)
+    verifier = capture["json"]["code_verifier"]
+    challenge = params["code_challenge"][0]
+    state = params["state"][0]
+
+    assert state == verifier
+    for value in (verifier, challenge):
+        assert len(value) >= 43
+        assert "+" not in value
+        assert "/" not in value
+        assert "=" not in value
 
 
 def test_refresh_anthropic_token(monkeypatch):

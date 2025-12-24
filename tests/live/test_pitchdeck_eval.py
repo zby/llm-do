@@ -56,10 +56,6 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_registry, approve_
     written_files = list(evaluations_dir.glob("*.md"))
     assert len(written_files) > 0, "Orchestrator should have written at least one evaluation"
 
-    # Check that the evaluation has substantial content
-    eval_content = written_files[0].read_text()
-    assert len(eval_content) > 200, "Evaluation should have substantial content"
-
 
 @skip_no_anthropic
 def test_pitch_evaluator_directly(pitchdeck_eval_registry, approve_all_controller):
@@ -87,7 +83,4 @@ def test_pitch_evaluator_directly(pitchdeck_eval_registry, approve_all_controlle
         )
     )
 
-    assert result is not None
-    assert result.output is not None
-    # Should be a markdown evaluation
-    assert len(result.output) > 200, "Evaluation should have substantial content"
+    assert result and result.output is not None

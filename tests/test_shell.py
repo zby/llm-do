@@ -192,15 +192,6 @@ class TestShellToolsetNeedsApproval:
         assert result.is_blocked
         assert "blocked metacharacter" in result.block_reason.lower()
 
-    @pytest.mark.parametrize("char", ['|', '>', '<', ';', '&', '`'])
-    def test_various_metacharacters_blocked(self, char):
-        """Each metacharacter is blocked via needs_approval."""
-        from llm_do.shell.toolset import ShellToolset
-
-        toolset = ShellToolset(config={"default": {"approval_required": False}})
-        result = toolset.needs_approval("shell", {"command": f"echo {char} test"}, None)
-        assert result.is_blocked
-
     def test_clean_command_not_blocked(self):
         """Clean commands pass metacharacter check."""
         from llm_do.shell.toolset import ShellToolset

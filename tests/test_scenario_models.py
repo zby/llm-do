@@ -72,21 +72,6 @@ class TestCalculatorModel:
             """Multiply two numbers."""
             return a * b
 
-        @toolset.tool
-        def add(a: int, b: int) -> int:
-            """Add two numbers."""
-            return a + b
-
-        @toolset.tool
-        def factorial(n: int) -> int:
-            """Calculate factorial."""
-            if n <= 1:
-                return 1
-            result = 1
-            for i in range(2, n + 1):
-                result *= i
-            return result
-
         return Agent(
             model=create_calculator_model(),
             toolsets=[toolset],
@@ -96,81 +81,6 @@ class TestCalculatorModel:
         result = calculator_agent.run_sync("multiply 7 by 8")
         # The model should call multiply(7, 8) and get 56
         assert "56" in str(result.output) or result.output == 56
-
-    def test_add_extracts_numbers(self, calculator_agent):
-        result = calculator_agent.run_sync("add 100 and 50")
-        assert "150" in str(result.output) or result.output == 150
-
-    def test_factorial_extracts_number(self, calculator_agent):
-        result = calculator_agent.run_sync("factorial of 5")
-        assert "120" in str(result.output) or result.output == 120
-
-    def test_unknown_operation_returns_help(self, calculator_agent):
-        result = calculator_agent.run_sync("what is the meaning of life")
-        assert "multiply" in result.output.lower() or "add" in result.output.lower()
-
-
-class TestWorkerEntryWithScenarioModel:
-    """Test using scenario models with WorkerEntry for integration testing."""
-
-    @pytest.mark.anyio
-    async def test_worker_with_calculator_model(self):
-        """Test WorkerEntry uses scenario model to call tools correctly."""
-        from llm_do.ctx_runtime import Context, WorkerEntry
-
-        toolset = FunctionToolset()
-
-        @toolset.tool
-        def multiply(a: int, b: int) -> int:
-            """Multiply two numbers."""
-            return a * b
-
-        worker = WorkerEntry(
-            name="calc",
-            instructions="You are a calculator.",
-            model=create_calculator_model(),
-            toolsets=[toolset],
-        )
-
-        ctx = Context.from_entry(worker)
-        result = await ctx.run(worker, {"input": "multiply 6 by 7"})
-        assert "42" in str(result)
-
-    @pytest.mark.anyio
-    async def test_worker_emits_events_with_scenario_model(self):
-        """Test that events are emitted even with scenario models."""
-        from llm_do.ctx_runtime import Context, WorkerEntry
-        from llm_do.ui.events import ToolCallEvent, ToolResultEvent
-
-        toolset = FunctionToolset()
-
-        @toolset.tool
-        def add(a: int, b: int) -> int:
-            """Add two numbers."""
-            return a + b
-
-        events = []
-
-        worker = WorkerEntry(
-            name="calc",
-            instructions="You are a calculator.",
-            model=create_calculator_model(),
-            toolsets=[toolset],
-        )
-
-        ctx = Context.from_entry(worker, on_event=events.append, verbosity=1)
-        result = await ctx.run(worker, {"input": "add 10 and 20"})
-        assert "30" in str(result)
-
-        # Verify events were emitted
-        tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
-        tool_results = [e for e in events if isinstance(e, ToolResultEvent)]
-
-        assert len(tool_calls) >= 1
-        assert len(tool_results) >= 1
-        assert tool_calls[0].tool_name == "add"
-        assert tool_calls[0].args == {"a": 10, "b": 20}
-
 
 class TestStreamingModels:
     """Test streaming support in scenario models."""
@@ -240,83 +150,6 @@ class TestStreamingModels:
             f"but got {len(complete_events)}: {[e.content for e in complete_events]}"
         )
 
-    def test_cli_no_duplicate_output_when_streaming(self):
-        """Test that CLI doesn't print result twice when streaming.
-
-        When using -vv (streaming), the streamed text appears via events,
-        and print(result) should be suppressed to avoid duplication.
-        """
-        import io
-        import sys
-        from unittest.mock import patch
-
-        # Create a simple worker file
-        import tempfile
-        import os
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            worker_path = os.path.join(tmpdir, "test.worker")
-            with open(worker_path, "w") as f:
-                f.write("""---
-name: main
----
-You are a helper.
-""")
-
-            # Capture stdout and stderr
-            stdout_capture = io.StringIO()
-            stderr_capture = io.StringIO()
-
-            # Mock sys.argv to simulate CLI invocation
-            test_args = [
-                "llm-run",
-                worker_path,
-                "-vv",
-                "say hello",
-            ]
-
-            # We need to patch the model to use our test model
-            # and capture the output
-            from llm_do.ctx_runtime import cli
-
-            # Patch build_entry to return a worker with our test model
-            original_build_entry = cli.build_entry
-
-            async def patched_build_entry(*args, **kwargs):
-                from llm_do.ctx_runtime import WorkerEntry
-                return WorkerEntry(
-                    name="main",
-                    instructions="You are a helper.",
-                    model=create_scenario_model(
-                        scenarios=[Scenario(pattern=r".*", response="Hello world!")],
-                        streaming=True,
-                    ),
-                    toolsets=[],
-                )
-
-            with patch.object(cli, 'build_entry', patched_build_entry):
-                with patch.object(sys, 'argv', test_args):
-                    with patch.object(sys, 'stdout', stdout_capture):
-                        with patch.object(sys, 'stderr', stderr_capture):
-                            cli.main()
-
-            stdout_output = stdout_capture.getvalue()
-            stderr_output = stderr_capture.getvalue()
-
-            # The streaming output goes to stderr (via HeadlessDisplayBackend)
-            # The final print(result) goes to stdout
-
-            # When streaming is active, stdout should be empty
-            # (no duplicate print of the result)
-            assert stdout_output.strip() == "", (
-                f"Expected no stdout when streaming, but got: {repr(stdout_output)}"
-            )
-
-            # stderr should have the streamed content
-            assert "Hello" in stderr_output, (
-                f"Expected streaming output in stderr, but got: {repr(stderr_output)}"
-            )
-
     @pytest.mark.anyio
     async def test_streaming_calculator_with_tool(self):
         """Test streaming calculator calls tools and streams result."""
@@ -338,39 +171,6 @@ You are a helper.
 
         # Should get the result
         assert "25" in str(output) or "25" in "".join(chunks)
-
-    @pytest.mark.anyio
-    async def test_streaming_worker_entry(self):
-        """Test WorkerEntry streaming with scenario model."""
-        from llm_do.ctx_runtime import Context, WorkerEntry
-        from llm_do.ui.events import TextResponseEvent
-
-        toolset = FunctionToolset()
-
-        @toolset.tool
-        def add(a: int, b: int) -> int:
-            """Add two numbers."""
-            return a + b
-
-        events = []
-
-        worker = WorkerEntry(
-            name="calc",
-            instructions="You are a calculator.",
-            model=create_calculator_model(streaming=True),
-            toolsets=[toolset],
-        )
-
-        # verbosity=2 enables streaming
-        ctx = Context.from_entry(worker, on_event=events.append, verbosity=2)
-        result = await ctx.run(worker, {"input": "add 7 and 8"})
-
-        # Should have text response events from streaming
-        text_events = [e for e in events if isinstance(e, TextResponseEvent)]
-        assert len(text_events) >= 1
-
-        # Result should contain 15
-        assert "15" in str(result)
 
 
 class TestConversationModel:

@@ -10,9 +10,8 @@ tools and workers through:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Optional, Protocol, TYPE_CHECKING
+from typing import Any, Awaitable, Callable, Generic, Iterator, Optional, Protocol, TYPE_CHECKING, TypeVar
 
-from pydantic_ai.models import Model, KnownModelName
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import Usage
 from pydantic_ai.tools import RunContext
@@ -23,8 +22,43 @@ if TYPE_CHECKING:
     from .entries import CallableEntry
 
 
-ModelType = Model | KnownModelName
+ModelType = str
 ApprovalFn = Callable[["CallableEntry", Any], bool]
+
+T = TypeVar("T")
+
+
+class ObservableList(Generic[T]):
+    """A list wrapper that notifies a callback when items are added."""
+
+    def __init__(
+        self,
+        initial: list[T] | None = None,
+        on_append: Callable[[T], None] | None = None,
+    ) -> None:
+        self._items: list[T] = initial if initial is not None else []
+        self._on_append = on_append
+
+    def append(self, item: T) -> None:
+        self._items.append(item)
+        if self._on_append:
+            self._on_append(item)
+
+    def extend(self, items: list[T]) -> None:
+        for item in items:
+            self.append(item)
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self._items)
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def __getitem__(self, index: int) -> T:
+        return self._items[index]
+
+
+TraceCallback = Callable[["CallTrace"], None]
 
 
 @dataclass
@@ -85,6 +119,7 @@ class Context:
         *,
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
+        on_trace: Optional[TraceCallback] = None,
     ) -> "Context":
         """Create a Context for running an entry.
 
@@ -93,6 +128,7 @@ class Context:
             model: Model override (uses entry.model if not provided)
             approval: Approval callback for tool execution
             max_depth: Maximum call depth
+            on_trace: Optional callback invoked when trace entries are added
 
         Returns:
             Context configured for the entry
@@ -114,6 +150,7 @@ class Context:
             model=resolved_model,
             approval=approval,
             max_depth=max_depth,
+            on_trace=on_trace,
         )
 
     def __init__(
@@ -124,17 +161,18 @@ class Context:
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
         depth: int = 0,
-        trace: Optional[list[CallTrace]] = None,
+        trace: Optional[ObservableList[CallTrace]] = None,
         usage: Optional[dict[str, Usage]] = None,
         prompt: str = "",
         messages: Optional[list[Any]] = None,
+        on_trace: Optional[TraceCallback] = None,
     ) -> None:
         self.toolsets = toolsets
         self.model = model
         self.approval = approval or (lambda entry, input_data: True)
         self.max_depth = max_depth
         self.depth = depth
-        self.trace = trace if trace is not None else []
+        self.trace = trace if trace is not None else ObservableList(on_append=on_trace)
         self.usage = usage if usage is not None else {}
         self.prompt = prompt
         self.messages = messages if messages is not None else []

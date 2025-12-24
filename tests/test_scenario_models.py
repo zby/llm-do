@@ -172,6 +172,85 @@ class TestWorkerEntryWithScenarioModel:
         assert tool_calls[0].args == {"a": 10, "b": 20}
 
 
+class TestStreamingModels:
+    """Test streaming support in scenario models."""
+
+    @pytest.mark.anyio
+    async def test_streaming_text_response(self):
+        """Test that streaming model yields text chunks."""
+        model = create_scenario_model(
+            scenarios=[Scenario(pattern=r"hello", response="Hello there, friend!")],
+            streaming=True,
+        )
+
+        agent = Agent(model=model)
+
+        chunks = []
+        async with agent.run_stream("hello world") as stream:
+            async for chunk in stream.stream_text(delta=True):
+                chunks.append(chunk)
+
+        # Should have received multiple chunks
+        assert len(chunks) >= 1
+        # Combined should be the full response
+        assert "Hello there" in "".join(chunks)
+
+    @pytest.mark.anyio
+    async def test_streaming_calculator_with_tool(self):
+        """Test streaming calculator calls tools and streams result."""
+        toolset = FunctionToolset()
+
+        @toolset.tool
+        def multiply(a: int, b: int) -> int:
+            """Multiply two numbers."""
+            return a * b
+
+        model = create_calculator_model(streaming=True)
+        agent = Agent(model=model, toolsets=[toolset])
+
+        chunks = []
+        async with agent.run_stream("multiply 5 by 5") as stream:
+            async for chunk in stream.stream_text(delta=True):
+                chunks.append(chunk)
+            output = await stream.get_output()
+
+        # Should get the result
+        assert "25" in str(output) or "25" in "".join(chunks)
+
+    @pytest.mark.anyio
+    async def test_streaming_worker_entry(self):
+        """Test WorkerEntry streaming with scenario model."""
+        from llm_do.ctx_runtime import Context, WorkerEntry
+        from llm_do.ui.events import TextResponseEvent
+
+        toolset = FunctionToolset()
+
+        @toolset.tool
+        def add(a: int, b: int) -> int:
+            """Add two numbers."""
+            return a + b
+
+        events = []
+
+        worker = WorkerEntry(
+            name="calc",
+            instructions="You are a calculator.",
+            model=create_calculator_model(streaming=True),
+            toolsets=[toolset],
+        )
+
+        # verbosity=2 enables streaming
+        ctx = Context.from_entry(worker, on_event=events.append, verbosity=2)
+        result = await ctx.run(worker, {"input": "add 7 and 8"})
+
+        # Should have text response events from streaming
+        text_events = [e for e in events if isinstance(e, TextResponseEvent)]
+        assert len(text_events) >= 1
+
+        # Result should contain 15
+        assert "15" in str(result)
+
+
 class TestConversationModel:
     """Test multi-turn conversation model."""
 

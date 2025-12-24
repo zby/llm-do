@@ -219,7 +219,11 @@ async def build_entry(
 
         for toolset_name, toolset_config in worker_file.toolsets.items():
             if toolset_name in all_toolsets:
-                resolved_toolsets.append(all_toolsets[toolset_name])
+                toolset = all_toolsets[toolset_name]
+                # Extract approval config for non-builtin toolsets (workers, Python toolsets)
+                if isinstance(toolset_config, dict) and "_approval_config" in toolset_config:
+                    toolset._approval_config = toolset_config["_approval_config"]  # type: ignore[attr-defined]
+                resolved_toolsets.append(toolset)
             elif toolset_name in BUILTIN_TOOLSETS:
                 toolset, approval_config = get_builtin_toolset(toolset_name, toolset_config)
                 # Store approval config on the toolset for later use by ApprovalToolset

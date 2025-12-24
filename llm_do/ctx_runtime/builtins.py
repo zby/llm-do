@@ -23,7 +23,9 @@ BUILTIN_TOOLSETS: dict[str, Type[AbstractToolset[Any]]] = {
 }
 
 
-def get_builtin_toolset(name: str, config: dict[str, Any]) -> AbstractToolset[Any]:
+def get_builtin_toolset(
+    name: str, config: dict[str, Any]
+) -> tuple[AbstractToolset[Any], dict[str, dict[str, Any]]]:
     """Get a built-in toolset instance by name.
 
     Args:
@@ -31,7 +33,8 @@ def get_builtin_toolset(name: str, config: dict[str, Any]) -> AbstractToolset[An
         config: Configuration dict for the toolset
 
     Returns:
-        Instantiated toolset
+        Tuple of (toolset, approval_config) where approval_config is
+        a dict mapping tool names to their approval settings
 
     Raises:
         KeyError: If name is not a known built-in
@@ -39,5 +42,11 @@ def get_builtin_toolset(name: str, config: dict[str, Any]) -> AbstractToolset[An
     if name not in BUILTIN_TOOLSETS:
         raise KeyError(f"Unknown built-in toolset: {name}. Available: {list(BUILTIN_TOOLSETS.keys())}")
 
+    # Copy config to avoid mutation
+    config = dict(config) if config else {}
+
+    # Extract approval config (for toolsets without needs_approval or for overrides)
+    approval_config = config.pop("_approval_config", {})
+
     toolset_class = BUILTIN_TOOLSETS[name]
-    return toolset_class(config=config)
+    return toolset_class(config=config), approval_config

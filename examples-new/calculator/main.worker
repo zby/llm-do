@@ -2,7 +2,17 @@
 name: main
 model: anthropic:claude-haiku-4-5
 toolsets:
-  calc_tools: {}
+  calc_tools:
+    # Pre-approve all calculator tools (safe, read-only operations)
+    _approval_config:
+      add:
+        pre_approved: true
+      multiply:
+        pre_approved: true
+      factorial:
+        pre_approved: true
+      fibonacci:
+        pre_approved: true
 ---
 You are a calculator assistant. Use your tools to help with calculations.
 Available operations:

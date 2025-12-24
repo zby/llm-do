@@ -66,7 +66,8 @@ class TestCalculatorExample:
         assert worker_file.name == "main"
         assert worker_file.model == "anthropic:claude-haiku-4-5"
         assert "calc_tools" in worker_file.toolsets
-        assert worker_file.toolsets["calc_tools"] == {}
+        # Calculator tools are pre-approved for convenience
+        assert "_approval_config" in worker_file.toolsets["calc_tools"]
 
     def test_calculator_tools_load(self):
         """Test that the calculator tools can be discovered."""

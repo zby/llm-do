@@ -3,8 +3,19 @@ name: main
 description: Orchestrate whiteboard -> project plan generation for all images in input/
 model: anthropic:claude-haiku-4-5
 toolsets:
-  whiteboard_planner: {}
-  filesystem: {}
+  whiteboard_planner:
+    # Pre-approve delegation to whiteboard_planner worker
+    _approval_config:
+      whiteboard_planner:
+        pre_approved: true
+  filesystem:
+    # Pre-approve read operations, write requires approval
+    _approval_config:
+      read_file:
+        pre_approved: true
+      list_files:
+        pre_approved: true
+      # write_file intentionally requires approval
 ---
 
 You are an orchestrator that converts whiteboard photos into project plans.

@@ -13,38 +13,15 @@ Ship a headless `llm-run` CLI that uses the new context-centric runtime from `ll
   - Matching by name; conflicts → error
 - **Discovery**: Scan module attributes with `isinstance(obj, AbstractToolset)`
   - Covers `FunctionToolset`, `ShellToolset`, and any custom toolsets
-  - Toolsets expanded to individual `ToolsetToolEntry` instances at discovery time (see below)
+  - Toolsets passed directly to PydanticAI Agent (no intermediate wrapper)
 - **No custom tool types**: Use PydanticAI's `FunctionToolset` for custom tools (standard API, no custom abstractions)
-  - Removed `ToolEntry` and `@tool_entry` decorator - all tools are `ToolsetToolEntry`
 - **Toolsets**: Single instance per toolset type, flat namespace
   - `ShellToolset` exposes `shell(command, timeout)` tool
   - Multi-instance toolsets (e.g., two browsers) deferred to future task
-- **ToolsetToolEntry**: Toolsets are expanded into per-tool entries at load time
-  - Each tool from `toolset.get_tools()` becomes a `ToolsetToolEntry`
-  - Conforms to `CallableEntry` protocol, registered by tool name (e.g., `"shell"`)
-  - Delegates `call()` to `toolset.call_tool(tool_name, args, ...)`
-  - Enables simple registry lookup: `registry.get("shell")` works naturally
-  - Implementation sketch:
-    ```python
-    @dataclass
-    class ToolsetToolEntry:
-        toolset: AbstractToolset
-        tool_name: str
-        tool_def: ToolDefinition
-        requires_approval: bool = False
-        kind: str = "tool"
-        model: ModelType | None = None
-
-        @property
-        def name(self) -> str:
-            return self.tool_name
-
-        async def call(self, input_data: Any, ctx: Context, run_ctx: RunContext) -> Any:
-            # Get the ToolsetTool wrapper for validation
-            tools = await self.toolset.get_tools(run_ctx)
-            tool = tools[self.tool_name]
-            return await self.toolset.call_tool(self.tool_name, input_data, run_ctx, tool)
-    ```
+- **Direct toolset dispatch**: Toolsets are passed directly to PydanticAI Agent
+  - `WorkerEntry.toolsets: list[AbstractToolset]` - passed to `Agent(toolsets=[...])`
+  - `Context.call(name, args)` searches across toolsets via `toolset.call_tool()`
+  - No Registry or ToolsetToolEntry wrapper needed
 - **Built-in toolsets**: `shell`, `filesystem` etc. available without loading Python files
   - Registry in `builtins.py`:
     ```python
@@ -80,11 +57,11 @@ How toolset configuration flows from worker files to toolset instances:
 
 3. At load time, runtime:
    a. Looks up toolset by name (built-ins or discovered)
-   b. Instantiates with config: toolset_class(config=worker_config)
-   c. Calls toolset.get_tools() to expand into ToolsetToolEntry instances
-   d. Registers each tool entry by its tool name
+   b. Instantiates built-ins with config: toolset_class(config=worker_config)
+   c. Adds toolset to WorkerEntry.toolsets list
+   d. Passes toolsets directly to PydanticAI Agent
 
-4. Worker runs with registry containing individual tool entries
+4. Worker runs with toolsets passed to Agent(toolsets=[...])
 ```
 
 Note: `FunctionToolset` instances are already instantiated when discovered. Config from worker file is applied via a `configure(config)` method or passed to a wrapper. For simple cases (no config), toolsets work as-is.
@@ -99,23 +76,20 @@ async def build_entry(
     python_files: list[str],   # List of Python file paths containing toolsets
     model: str | None = None,  # Optional model override (applied to entry only)
     entry_name: str = "main",  # Name of the entry
-) -> tuple[ToolsetToolEntry | WorkerEntry, list[ToolsetToolEntry]]:
+) -> ToolEntry | WorkerEntry:
 ```
 
 **Behavior:**
 1. Loads all Python toolsets from `python_files`
-2. Expands toolsets to discover tool entry points
-3. Loads all Python WorkerEntry instances
-4. Creates `WorkerToolset` wrappers for all workers (two-pass resolution)
-5. Resolves each worker's toolsets from: Python toolsets, built-ins, or other workers
-6. Returns tuple of (entry, available_tools)
-   - For worker entries: available_tools is empty (workers have their own tools)
-   - For tool entries: available_tools contains all workers and tools
+2. Loads all Python WorkerEntry instances
+3. Creates WorkerEntry stubs for all `.worker` files (WorkerEntry IS an AbstractToolset)
+4. Resolves each worker's toolsets from: Python toolsets, built-ins, or other workers
+5. Returns the entry with `toolsets` attribute populated
 
 **Entry types supported:**
 - `.worker` files (WorkerEntry)
 - Python WorkerEntry instances
-- Python tools from FunctionToolset (ToolsetToolEntry) - for code entry pattern
+- Python tools from FunctionToolset (ToolEntry) - for code entry pattern
 
 **Error handling:**
 - Raises `ValueError` if entry not found
@@ -214,12 +188,12 @@ llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "Wh
 ## Tasks
 
 ### Runtime Core
-- [x] Move/port `experiments/context_runtime/src` into `llm_do/ctx_runtime` (Context/Registry/Entries)
-- [x] Add `ToolsetToolEntry` class that wraps individual tools from `AbstractToolset`
+- [x] Move/port `experiments/context_runtime/src` into `llm_do/ctx_runtime` (Context/Entries)
 - [x] Extend `worker_file.py` to parse `toolsets:` section
 - [x] Create `discovery.py` - module loading and `isinstance(obj, AbstractToolset)` scanning
 - [x] Create `builtins.py` - `BUILTIN_TOOLSETS` dict mapping names to toolset classes
-- [x] Wire toolset expansion: discovered toolsets → `ToolsetToolEntry` instances → registry
+- [x] Wire toolset resolution: discovered toolsets → WorkerEntry.toolsets → Agent
+- [x] Remove Registry and ToolsetToolEntry - pass toolsets directly to PydanticAI Agent
 
 ### CLI
 - [x] Wire `llm-run` CLI to the new runtime with flags (`--entry`, `--all-tools`, `--trace`)
@@ -233,9 +207,9 @@ llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "Wh
 
 ### Tests
 - [x] Create `tests/runtime/` directory structure
-- [x] Port/create `test_context.py` - Context, Registry, Entries unit tests
+- [x] Port/create `test_context.py` - Context and CallTrace unit tests
 - [ ] Port `test_custom_tools.py` for new runtime (deferred - not blocking)
-- [x] Port `test_examples.py` for `examples-new/` (11 tests)
+- [x] Port `test_examples.py` for `examples-new/` (30 tests)
 - [x] Verify `test_shell.py` works unchanged (39 tests pass)
 
 ### Documentation
@@ -247,8 +221,7 @@ llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "Wh
 llm_do/ctx_runtime/
   __init__.py
   ctx.py              # Context, CallTrace, ToolsProxy
-  entries.py          # ToolsetToolEntry, WorkerEntry, WorkerToolset
-  registry.py         # Entry registry
+  entries.py          # ToolEntry, WorkerEntry
   worker_file.py      # .worker parser with toolsets section
   builtins.py         # Built-in toolset registry (BUILTIN_TOOLSETS dict)
   discovery.py        # Module loading and AbstractToolset discovery
@@ -289,8 +262,8 @@ tests/runtime/
 ### Tier 2: Toolset Tests (~230 lines) - Adapt for New Runtime
 | Test File | Lines | Status | Notes |
 |-----------|-------|--------|-------|
-| `test_shell.py` | 211 | [ ] | Adapt to new ToolsetToolEntry wrapper |
-| `test_filesystem_toolset.py` | 15 | [ ] | Adapt to new ToolsetToolEntry wrapper |
+| `test_shell.py` | 211 | [x] | Works with direct toolset dispatch |
+| `test_filesystem_toolset.py` | 15 | [ ] | Adapt for new runtime |
 
 ### Tier 3: CLI/UI Tests (~840 lines) - Defer to Task 70
 | Test File | Lines | Status | Notes |
@@ -311,27 +284,26 @@ tests/runtime/
 
 ## Current State
 **IMPLEMENTED.** The context-centric runtime is complete:
-- `llm_do/ctx_runtime/` - Context, Registry, Entries, CLI (ported from experiment)
-- `examples-new/` - greeter, calculator, approvals_demo, code_analyzer, pitchdeck_eval, whiteboard_planner examples
-- `tests/runtime/` - 58 tests passing (context, discovery, worker_file, examples)
+- `llm_do/ctx_runtime/` - Context, Entries, CLI
+- `examples-new/` - greeter, calculator, approvals_demo, code_analyzer, pitchdeck_eval, whiteboard_planner, pitchdeck_eval_code_entry examples
+- `tests/runtime/` - 50 tests passing (context, discovery, worker_file, examples)
 - Workers as toolsets: `.worker` files passed to CLI are usable as toolsets (no special "delegation" syntax)
-- Unified type system: All tools are `ToolsetToolEntry` (removed `ToolEntry`)
+- Direct toolset dispatch: Toolsets passed directly to PydanticAI Agent (no Registry or ToolsetToolEntry wrapper)
 
 ## Type System
 
-The runtime uses 3 core types:
+The runtime uses 2 core types:
 
 | Type | Purpose |
 |------|---------|
-| **ToolsetToolEntry** | Any tool (from FunctionToolset, ShellToolset, WorkerToolset, etc.) |
-| **WorkerEntry** | LLM-powered worker that can call tools |
-| **WorkerToolset** | Adapter wrapping WorkerEntry as AbstractToolset |
+| **ToolEntry** | Wrapper for code entry pattern (Python tool as entry point) |
+| **WorkerEntry** | LLM-powered worker that IS an AbstractToolset |
 
-All tools are unified as `ToolsetToolEntry`, whether from:
+Toolsets are passed directly to PydanticAI Agent without intermediate wrappers:
 - `FunctionToolset` (custom Python tools)
 - `ShellToolset` (shell commands)
 - `FilesystemToolset` (file operations)
-- `WorkerToolset` (worker delegation)
+- `WorkerEntry` (worker delegation - WorkerEntry implements AbstractToolset)
 
 ## Notes
 - Runtime is at `llm_do/ctx_runtime/` (not `llm_do/runtime/`) to avoid conflict with existing `llm_do/runtime.py`

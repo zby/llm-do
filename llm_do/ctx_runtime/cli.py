@@ -45,6 +45,7 @@ from pydantic_ai_blocking_approval import (
 )
 
 from .ctx import Context, ApprovalFn, EventCallback
+from .input_utils import coerce_worker_input
 from .entries import WorkerEntry, ToolEntry
 from .worker_file import load_worker_file
 from .discovery import (
@@ -446,7 +447,12 @@ async def run(
         verbosity=verbosity,
     )
 
-    result = await ctx.run(entry, {"input": prompt})
+    if isinstance(entry, WorkerEntry):
+        input_data = coerce_worker_input(entry.schema_in, prompt)
+    else:
+        input_data = {"input": prompt}
+
+    result = await ctx.run(entry, input_data)
 
     return result, ctx
 

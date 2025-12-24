@@ -104,24 +104,19 @@ class WorkerEntry(AbstractToolset[Any]):
     async def get_tools(self, ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
         """Return this worker as a callable tool."""
         description = self.instructions[:200] + "..." if len(self.instructions) > 200 else self.instructions
+        input_schema = self.schema_in or WorkerInput
 
         tool_def = ToolDefinition(
             name=self.name,
             description=description,
-            parameters_json_schema={
-                "type": "object",
-                "properties": {
-                    "input": {"type": "string", "description": "Input prompt for the worker"},
-                },
-                "required": ["input"],
-            },
+            parameters_json_schema=input_schema.model_json_schema(),
         )
 
         return {self.name: ToolsetTool(
             toolset=self,
             tool_def=tool_def,
             max_retries=0,
-            args_validator=TypeAdapter(WorkerInput).validator,
+            args_validator=TypeAdapter(input_schema).validator,
         )}
 
     async def call_tool(

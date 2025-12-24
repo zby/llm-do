@@ -15,6 +15,7 @@ from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 from pydantic_ai.tools import RunContext
 
+from .input_utils import coerce_worker_input
 from ..model_compat import select_model
 from ..ui.events import UIEvent
 
@@ -212,7 +213,11 @@ class Context:
                 tool = tools[name]
                 # Convert input_data to dict if needed
                 if not isinstance(input_data, dict):
-                    input_data = {"input": input_data}
+                    if getattr(toolset, "kind", None) == "worker":
+                        schema_in = getattr(toolset, "schema_in", None)
+                        input_data = coerce_worker_input(schema_in, input_data)
+                    else:
+                        input_data = {"input": input_data}
 
                 # Generate a unique call ID for event correlation
                 call_id = str(uuid.uuid4())[:8]

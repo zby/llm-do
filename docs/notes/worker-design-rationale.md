@@ -36,9 +36,10 @@ toolsets:
 - **From Sub-Agents**: Isolated agent context, own conversation window
 - **Workers Add**: Opt-in tools, typed I/O (result_type), explicit delegation
 
-## Future Direction: Container Isolation
+## Security Model: Container Boundary
 
-Currently not implemented, but a potential security enhancement.
+Current model assumes llm-do runs inside a container. There is no per-worker
+path sandbox in code; the container is the security boundary.
 
 ### Concept
 
@@ -79,9 +80,9 @@ Instead of per-worker sandbox declarations, use Docker containers as the securit
 
 ### Hybrid Approach
 
-Not everything needs containers:
-- **In container**: Shell commands, code execution, file writes
-- **On host**: Read-only file access, web fetches, LLM calls
+Not everything needs isolation:
+- **In container**: Shell commands, code execution, file reads/writes
+- **On host**: LLM API calls, approval UI, orchestration
 
 This gives security where it matters without overhead for everything.
 

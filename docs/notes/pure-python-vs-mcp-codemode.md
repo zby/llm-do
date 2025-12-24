@@ -11,7 +11,7 @@ Both paradigms use **composite tools** - a single tool that orchestrates multipl
 | Composite author | LLM at runtime | Human developer |
 | Exposed as | Generic "execute_code" tool | Named domain tool |
 | Language | Any (Cloudflare uses TypeScript/V8) | Python |
-| Can call back to LLM mid-execution? | No - sandbox completes, then returns | Yes - `ctx.call_tool("worker")` |
+| Can call back to LLM mid-execution? | No - sandbox completes, then returns | Yes - `ctx.deps.call("worker", {"input": ...})` |
 
 ## How They Work
 
@@ -27,11 +27,17 @@ const files = await mcp.github.listFiles(repo);
 for (const f of files) { ... }
 
 # llm-do - Human writes this, exposed as tool:
-@tool_context
-async def process_repo(ctx, repo: str):
+from pydantic_ai.tools import RunContext
+from pydantic_ai.toolsets import FunctionToolset
+from llm_do.ctx_runtime import Context
+
+tools = FunctionToolset()
+
+@tools.tool
+async def process_repo(ctx: RunContext[Context], repo: str):
     files = list_files(repo)           # deterministic
     for f in files:
-        analysis = await ctx.call_tool("analyzer", f)  # LLM callback
+        analysis = await ctx.deps.call("analyzer", {"input": f})  # LLM callback
 ```
 
 ## Key Difference

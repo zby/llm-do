@@ -12,70 +12,69 @@ TunaCode is a **rich interactive shell**. llm-do is a **worker execution engine*
 ```
 TunaCode (UI layer)
     └── call_llm_do_worker tool
-            └── llm-do workers (sandboxed, delegatable)
+            └── llm-do workers (delegatable)
 ```
 
 ## What llm-do Adds to TunaCode
 
 1. **Declarative task definitions** (`.worker` YAML files)
-2. **Sandboxed file operations** (per-worker path constraints)
+2. **Toolset policies + approvals** (filesystem/shell approval gates)
 3. **Worker delegation** (workers can call other workers)
-4. **Pluggable toolsets** (filesystem, shell, delegation, custom)
-5. **Program structure** (multi-worker projects with `program.yaml`)
+4. **Pluggable toolsets** (filesystem, shell, custom)
+5. **Context runtime** (nested calls, depth tracking, usage accounting)
 
 ## Implementation
 
-### Registry + Approval Controller
+### Context Runtime + Event Parsing
 
-Both projects use pydantic-ai. For integration, prefer `run_worker_async` with a
-shared `WorkerRegistry` and `ApprovalController`. llm-do already exposes
-`run_worker_async` and `WorkerRegistry` at the package level.
+Both projects use pydantic-ai. For integration, reuse the ctx_runtime helper used
+by the CLI. It loads worker/tool files, wraps approvals, and runs the entry in a
+`Context`.
 
-If you want live UI updates in TunaCode, reuse llm-do's event parsing layer:
-`message_callback` -> `parse_event` -> `UIEvent`, then render into TunaCode's UI.
+For live UI updates in TunaCode, reuse llm-do's event parsing layer:
+`on_event` -> `parse_event` -> `UIEvent`, then render into TunaCode's UI.
 
 ```python
 # tunacode/integrations/llm_do_bridge.py (concept)
-from pathlib import Path
 from typing import Awaitable, Callable
 
-from llm_do import WorkerRegistry, run_worker_async
+from llm_do.ctx_runtime.cli import run as run_ctx_runtime
 from llm_do.ui.events import UIEvent
 from llm_do.ui.parser import parse_event
-from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision, ApprovalRequest
+from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 _bridge: "LlmDoBridge | None" = None
 
 class LlmDoBridge:
-    def __init__(
+    def __init(
         self,
-        registry_path: Path,
+        files: list[str],
+        entry: str | None = None,
+        model: str | None = None,
         approval_callback: Callable[[ApprovalRequest], Awaitable[ApprovalDecision]] | None = None,
         on_event: Callable[[UIEvent], None] | None = None,
     ) -> None:
-        self.registry = WorkerRegistry(registry_path)
-        self.approval_controller = ApprovalController(
-            mode="interactive" if approval_callback else "approve_all",
-            approval_callback=approval_callback,
-        )
-        self.on_event = on_event  # Optional hook for streaming UI updates
+        self.files = files
+        self.entry = entry
+        self.model = model
+        self.on_event = on_event
+        self.approval_callback = approval_callback
 
-    def _message_callback(self, raw_events: list[object]) -> None:
-        if not self.on_event:
-            return
-        for raw_event in raw_events:
-            ui_event = parse_event(raw_event)
+    def _on_event(self, ui_event: UIEvent) -> None:
+        if self.on_event:
             self.on_event(ui_event)
 
     async def run(self, worker_name: str, task: str) -> str:
-        result = await run_worker_async(
-            registry=self.registry,
-            worker=worker_name,
-            input_data=task,
-            approval_controller=self.approval_controller,
-            message_callback=self._message_callback if self.on_event else None,
+        result, _ctx = await run_ctx_runtime(
+            files=self.files,
+            prompt=task,
+            model=self.model,
+            entry_name=worker_name,
+            approve_all=self.approval_callback is None,
+            on_event=self._on_event if self.on_event else None,
+            approval_callback=self.approval_callback,
         )
-        return str(result.output)
+        return str(result)
 
 def init_bridge(*args, **kwargs) -> None:
     global _bridge
@@ -99,13 +98,7 @@ async def call_llm_do_worker(
     worker_name: str,
     task: str,
 ) -> str:
-    """Delegate a task to an llm-do worker.
-
-    Workers are defined in .worker YAML files and can:
-    - Have sandboxed file access
-    - Call other workers
-    - Use custom toolsets
-    """
+    """Delegate a task to an llm-do worker."""
     bridge = get_bridge()
     return await bridge.run(worker_name, task)
 ```
@@ -115,7 +108,8 @@ async def call_llm_do_worker(
 ```python
 # Initialize once per session (store in a module-level singleton or app state)
 init_bridge(
-    registry_path=Path("."),
+    files=["main.worker", "tools.py"],
+    entry="main",
     approval_callback=tunacode_approval_handler,  # Bridge to TunaCode UI
     on_event=tunacode_render_event,               # Optional streaming display
 )
@@ -140,7 +134,7 @@ TunaCode: I'll delegate this to the security_analyzer worker.
 ...
 ```
 
-The worker runs with its own sandbox constraints, can delegate to sub-workers, and approval requests flow through TunaCode's UI.
+The worker can delegate to sub-workers, and approval requests flow through TunaCode's UI.
 
 ## Open Questions
 - Is TunaCode's tool registration API stable enough for an external integration?

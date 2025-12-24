@@ -370,14 +370,17 @@ async def run(self, args: ReadFileArgs) -> ReadFileResult:
 
 ### Why Recursive Workers Don't Work
 
-In llm-do, workers receive `WorkerContext` via dependency injection:
+In llm-do, tools receive `RunContext[Context]` via dependency injection:
 
 ```python
 # llm-do pattern
-async def create_file(ctx: WorkerContext, file_path: str, content: str):
+from pydantic_ai.tools import RunContext
+from llm_do.ctx_runtime import Context
+
+async def create_file(ctx: RunContext[Context], file_path: str, content: str):
     # Can call other workers through context
-    result = await ctx.call_worker("validate_syntax", content=content)
-    # Can access registry, approval controller, etc.
+    result = await ctx.deps.call("validate_syntax", {"input": content})
+    # Can access approvals, depth, usage via ctx.deps
 ```
 
 In mistral-vibe, there's no equivalent:
@@ -404,12 +407,12 @@ Agent._conversation_loop()
 
 **llm-do (recursive):**
 ```
-Workshop.run_task()
-  └─► Worker executes
-      └─► ctx.call_worker("sub_worker")  ← recursive call
-          └─► Workshop resolves worker
+Context.run(entry)
+  └─► WorkerEntry executes
+      └─► ctx.deps.call("sub_worker", {"input": ...})  ← recursive call
+          └─► Context resolves worker tool
               └─► Sub-worker executes
-                  └─► ctx.call_worker(...)  ← deeper nesting possible
+                  └─► ctx.deps.call(...)  ← deeper nesting possible
 ```
 
 ### What Would Be Needed

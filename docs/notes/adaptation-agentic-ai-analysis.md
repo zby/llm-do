@@ -33,7 +33,7 @@ The runtime could:
 
 **Implementation sketch**:
 ```python
-# In runtime.py, wrap tool execution
+# In ctx_runtime/ctx.py, wrap tool execution
 async def execute_tool_with_logging(tool, args, context):
     try:
         result = await tool(**args)
@@ -115,7 +115,7 @@ toolsets:
 
 ```bash
 # Analyze past runs
-llm-do analyze --tool orchestrator --since "7 days"
+llm-run analyze --entry orchestrator --since "7 days"
 
 # Output:
 # - 23 runs, 18 successful
@@ -173,7 +173,7 @@ The paper's framework maps to llm-do's neural/symbolic spectrum:
 | Paper Concept | llm-do Equivalent |
 |---------------|-------------------|
 | Agent-agnostic tools | Pure Python tools (no worker calls) |
-| Agent-supervised tools | Hybrid tools with `call_worker()` |
+| Agent-supervised tools | Hybrid tools with `ctx.deps.call(...)` |
 | Tool-execution-signaled | Error propagation to LLM (existing) |
 | Agent-output-signaled | Confidence signals (potential extension) |
 | Offline adaptation | Failure analysis → prompt refinement |
@@ -186,7 +186,7 @@ The paper's framework maps to llm-do's neural/symbolic spectrum:
 Minimal invasive change. Log tool failures with context to enable later analysis.
 
 ```python
-# runtime.py addition
+# ctx_runtime addition
 class FailureLog:
     def log(self, worker: str, tool: str, args: dict, error: str, recovery: str):
         # Append to JSONL file
@@ -199,7 +199,7 @@ After worker completion, optionally record outcome. Enables offline analysis.
 
 ```python
 # CLI addition
-llm-do run worker.worker --track-outcome
+llm-run worker.worker --track-outcome
 # After completion: "Rate outcome: [s]uccess / [p]artial / [f]ailed / [enter] skip"
 ```
 
@@ -208,7 +208,7 @@ llm-do run worker.worker --track-outcome
 Consume logs to surface patterns.
 
 ```bash
-llm-do analyze orchestrator --since 7d
+llm-run analyze orchestrator --since 7d
 # Outputs failure patterns, success rates, suggestions
 ```
 

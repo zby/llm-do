@@ -19,7 +19,7 @@ LLM access patterns are **least important** - we're committed to pydantic-ai.
 - The Textual TUI is intentionally thin: `LlmDoApp` consumes events and
   `MessageContainer` mounts message widgets.
 - Approval requests are handled in the Textual app via an approval queue; non-interactive
-  backends require `--approve-all` or `--strict`.
+  runs should use `--approve-all` when approvals are required.
 
 ## Note Structure
 
@@ -181,7 +181,7 @@ Mix of both:
 - **TunaCode**: Global `SessionState` singleton
 - **Mistral Vibe**: Single `Agent` class with `run()` method, tools have no context injection
 
-**llm-do's `WorkerContext` pattern is unique** - workers can call other workers via `ctx.call_worker()`. This is our differentiator.
+**llm-do's `Context` pattern is unique** - workers can call other workers via `ctx.deps.call(...)`. This is our differentiator.
 
 **Implication:** Borrow their TUI patterns, not their agent/tool architectures.
 

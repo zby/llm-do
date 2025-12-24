@@ -170,17 +170,17 @@ def save_session(self) -> None:
 
 ```python
 async def call_llm_do_worker(worker_name: str, task: str) -> str:
-    """Delegate to an llm-do worker with sandboxed execution."""
-    result = await run_worker_async(
-        registry=registry,
-        worker=worker_name,
-        input_data=task,
-        approval_controller=approval_controller,
+    """Delegate to an llm-do worker via ctx_runtime."""
+    result, _ctx = await run_ctx_runtime(
+        files=["main.worker", "tools.py"],
+        prompt=task,
+        entry_name=worker_name,
+        approve_all=True,
     )
-    return str(result.output)
+    return str(result)
 ```
 
-**Value:** TunaCode users get llm-do's sandboxing, delegation, and worker definitions.
+**Value:** TunaCode users get llm-do's approvals, delegation, and worker definitions.
 
 See `tunacode-integration.md` for full implementation plan.
 
@@ -201,7 +201,7 @@ See `tunacode-integration.md` for full implementation plan.
 | **Focus** | Interactive chat | Task execution |
 | **State** | Global singleton | Context passing |
 | **Workers** | Single agent | Multi-worker delegation |
-| **Sandboxing** | None | Per-worker sandboxes |
+| **Sandboxing** | None | Container boundary + tool approvals |
 | **Configuration** | JSON config file | YAML worker definitions |
 | **UI architecture** | Textual + prompt_toolkit input | DisplayBackend + UIEvent + Textual |
 

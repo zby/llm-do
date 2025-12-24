@@ -17,7 +17,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
-from ..ui.events import TextResponseEvent
+from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
 
 
 class WorkerInput(BaseModel):
@@ -192,6 +192,43 @@ class WorkerEntry(AbstractToolset[Any]):
 
         return traces
 
+    def _emit_tool_events(self, messages: list[Any], ctx: "Context") -> None:
+        """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
+        if ctx.on_event is None:
+            return
+
+        # Collect tool calls and their returns
+        tool_calls: dict[str, ToolCallPart] = {}
+        tool_returns: dict[str, ToolReturnPart] = {}
+
+        for msg in messages:
+            if isinstance(msg, ModelResponse):
+                for part in msg.parts:
+                    if isinstance(part, ToolCallPart):
+                        tool_calls[part.tool_call_id] = part
+            elif isinstance(msg, ModelRequest):
+                for part in msg.parts:
+                    if isinstance(part, ToolReturnPart):
+                        tool_returns[part.tool_call_id] = part
+
+        # Emit events for each tool call/result pair
+        for call_id, call_part in tool_calls.items():
+            ctx.on_event(ToolCallEvent(
+                worker=self.name,
+                tool_name=call_part.tool_name,
+                tool_call_id=call_id,
+                args=call_part.args if isinstance(call_part.args, dict) else {},
+            ))
+
+            return_part = tool_returns.get(call_id)
+            if return_part:
+                ctx.on_event(ToolResultEvent(
+                    worker=self.name,
+                    tool_name=call_part.tool_name,
+                    tool_call_id=call_id,
+                    content=return_part.content,
+                ))
+
     async def call(self, input_data: Any, ctx: "Context", run_ctx: RunContext["Context"]) -> Any:
         """Execute the worker with the given input."""
         if self.schema_in is not None:
@@ -208,8 +245,11 @@ class WorkerEntry(AbstractToolset[Any]):
             output = await self._run_streaming(agent, prompt, ctx)
         else:
             result = await agent.run(prompt, deps=ctx, model_settings=self.model_settings)
+            messages = result.new_messages()
+            # Emit tool events
+            self._emit_tool_events(messages, ctx)
             # Extract and append tool traces from PydanticAI messages (skip duplicates)
-            tool_traces = self._extract_tool_traces(result.new_messages(), ctx.depth, ctx.trace)
+            tool_traces = self._extract_tool_traces(messages, ctx.depth, ctx.trace)
             ctx.trace.extend(tool_traces)
             output = result.output
 
@@ -232,8 +272,11 @@ class WorkerEntry(AbstractToolset[Any]):
             # Get the final result
             result = await stream.get_result()
 
+        messages = result.new_messages()
+        # Emit tool events
+        self._emit_tool_events(messages, ctx)
         # Extract and append tool traces from PydanticAI messages (skip duplicates)
-        tool_traces = self._extract_tool_traces(result.new_messages(), ctx.depth, ctx.trace)
+        tool_traces = self._extract_tool_traces(messages, ctx.depth, ctx.trace)
         ctx.trace.extend(tool_traces)
 
         return result.output

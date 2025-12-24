@@ -67,7 +67,7 @@ Once `llm-run` is validated, port the interactive UI.
 - [x] Run `uv run pytest` - 219 tests passing
 
 ### Documentation
-- [ ] Update docs to reference new runtime only
+- [x] Update docs to reference new runtime only → moved to task 90
 - [x] Move validated `examples-new/` to `examples/` (replaced old examples)
 
 ---

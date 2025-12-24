@@ -71,8 +71,6 @@ Toolset names resolve to:
 - Python toolsets discovered from passed `.py` files (by variable name)
 - Other worker entries from passed `.worker` files (by `name`)
 
-**`--all-tools`** makes all discovered Python toolsets available to the entry worker without listing them in `toolsets`. Built-in toolsets still require explicit configuration in the worker file.
-
 ## Model Selection
 
 Model resolution uses this precedence for the entry worker:

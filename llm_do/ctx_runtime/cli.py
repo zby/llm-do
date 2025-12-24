@@ -4,7 +4,6 @@
 Usage:
     llm-run <worker.worker> [tools.py...] "Your prompt here"
     llm-run <worker.worker> [tools.py...] --entry NAME "Your prompt"
-    llm-run <worker.worker> [tools.py...] --all-tools "Your prompt"
 
 Supported file types:
     .py     - Python file with toolsets (auto-discovered via isinstance)
@@ -352,7 +351,6 @@ async def run(
     prompt: str,
     model: str | None = None,
     entry_name: str | None = None,
-    all_tools: bool = False,
     approve_all: bool = False,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
@@ -366,7 +364,6 @@ async def run(
         prompt: User prompt
         model: Optional model override
         entry_name: Optional entry point name (default: "main")
-        all_tools: If True, make all entries available to the entry worker
         approve_all: If True, auto-approve all tool calls
         on_event: Optional callback for UI events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
@@ -383,24 +380,6 @@ async def run(
     # Build entry point
     resolved_entry_name = entry_name or "main"
     entry = await build_entry(worker_files, python_files, model, resolved_entry_name, set_overrides)
-
-    # If --all-tools and entry is a worker, give it access to all discovered toolsets
-    if all_tools and isinstance(entry, WorkerEntry):
-        discovered_toolsets = load_toolsets_from_files(python_files)
-        # Add any toolsets not already in the entry's toolsets
-        existing_ids = {getattr(ts, 'id', None) or id(ts) for ts in entry.toolsets}
-        additional = [ts for ts in discovered_toolsets.values()
-                      if (getattr(ts, 'id', None) or id(ts)) not in existing_ids]
-
-        entry = WorkerEntry(
-            name=entry.name,
-            instructions=entry.instructions,
-            model=entry.model or model,
-            toolsets=list(entry.toolsets) + additional,
-            builtin_tools=entry.builtin_tools,
-            schema_in=entry.schema_in,
-            schema_out=entry.schema_out,
-        )
 
     # Wrap toolsets with ApprovalToolset for tool-level approval
     # This handles needs_approval() on toolsets like FileSystemToolset, ShellToolset
@@ -468,7 +447,6 @@ async def _run_tui_mode(
     prompt: str,
     model: str | None = None,
     entry_name: str | None = None,
-    all_tools: bool = False,
     approve_all: bool = False,
     verbosity: int = 0,
     debug: bool = False,
@@ -535,7 +513,6 @@ async def _run_tui_mode(
                 prompt=prompt,
                 model=model,
                 entry_name=entry_name,
-                all_tools=all_tools,
                 approve_all=approve_all,
                 on_event=on_event,
                 verbosity=verbosity,
@@ -626,7 +603,6 @@ def main() -> int:
     parser.add_argument("files", nargs="+", help="Worker (.worker) and Python (.py) files")
     parser.add_argument("prompt", nargs="?", help="Prompt for the LLM")
     parser.add_argument("--entry", "-e", help="Entry point name (default: 'main' or first worker)")
-    parser.add_argument("--all-tools", "-a", action="store_true", help="Make all discovered toolsets available")
     parser.add_argument(
         "--model", "-m",
         default=os.environ.get(ENV_MODEL_VAR),
@@ -714,7 +690,6 @@ def main() -> int:
             prompt=prompt,
             model=args.model,
             entry_name=args.entry,
-            all_tools=args.all_tools,
             approve_all=args.approve_all,
             verbosity=args.verbose,
             debug=args.debug,
@@ -740,7 +715,7 @@ def main() -> int:
 
     try:
         result, ctx = asyncio.run(run(
-            files, prompt, args.model, args.entry, args.all_tools, args.approve_all,
+            files, prompt, args.model, args.entry, args.approve_all,
             on_event, args.verbose, set_overrides=args.set_overrides or None
         ))
 

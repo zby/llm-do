@@ -1,10 +1,21 @@
 ---
-description: Coordinate evaluations for every deck stored in the input directory.
 name: main
+description: Coordinate evaluations for every deck stored in the input directory.
+model: anthropic:claude-haiku-4-5
 toolsets:
-  delegation:
-    pitch_evaluator: {}
-  filesystem: {}
+  pitch_evaluator:
+    # Pre-approve delegation to pitch_evaluator worker
+    _approval_config:
+      pitch_evaluator:
+        pre_approved: true
+  filesystem:
+    # Pre-approve read operations, write requires approval
+    _approval_config:
+      read_file:
+        pre_approved: true
+      list_files:
+        pre_approved: true
+      # write_file intentionally requires approval
 ---
 
 You orchestrate pitch-deck evaluations. Pitch decks are stored as PDF files in
@@ -24,4 +35,4 @@ Follow this process:
 Important:
 - Pass PDFs as attachments (list of paths), not via read_file
 - The evaluator outputs markdown directly, no JSON conversion needed
-- File slugs should be derived from filenames (e.g., "Aurora Solar.pdf" → "aurora-solar")
+- File slugs should be derived from filenames (e.g., "Aurora Solar.pdf" -> "aurora-solar")

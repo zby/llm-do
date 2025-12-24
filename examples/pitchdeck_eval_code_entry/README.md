@@ -1,24 +1,23 @@
 # Pitch Deck Evaluation (Code Entry Point)
 
-This example demonstrates the **tool-entry-point** pattern where Python code
-serves as the entry point instead of an LLM orchestrator.
+This example demonstrates the **code entry point** pattern using `ctx_runtime` where Python code serves as the entry point instead of an LLM orchestrator.
 
 ## The Pattern
 
 ```
 tools.py::main() (deterministic code)
     ├── calls list_pitchdecks() directly
-    ├── for each deck: ctx.call_tool("pitch_evaluator", ...)
+    ├── for each deck: ctx.deps.call("pitch_evaluator", ...)
     └── writes results directly (Path.write_text)
 
-pitch_evaluator.worker (LLM analysis - unchanged)
+pitch_evaluator.worker (LLM analysis)
 ```
 
-Compare to the LLM-orchestrated version (`pitchdeck_eval_hardened`):
+Compare to the LLM-orchestrated version (`examples-new/pitchdeck_eval/`):
 
 ```
 main.worker (LLM orchestrator)
-    ├── calls list_pitchdecks() tool
+    ├── calls list_files() tool
     ├── for each deck: calls pitch_evaluator worker
     └── writes results via filesystem tool
 ```
@@ -42,20 +41,24 @@ The LLM is reserved for what it's good at: **evaluating pitch decks**.
 
 ## How It Works
 
-The `main()` function in `tools.py` uses the `@tool_context` decorator to
-receive a context object that enables calling other tools:
+The `main` tool in `tools.py` uses `RunContext[Context]` to receive
+a context object that enables calling other tools:
 
 ```python
-from llm_do import tool_context
+from pydantic_ai.tools import RunContext
+from pydantic_ai.toolsets import FunctionToolset
+from llm_do.ctx_runtime import Context
 
-@tool_context
-async def main(ctx, input: str) -> str:
+tools = FunctionToolset()
+
+@tools.tool
+async def main(ctx: RunContext[Context], input: str) -> str:
     """Entry point - Python orchestration."""
     decks = list_pitchdecks()
 
     for deck in decks:
-        # Call LLM worker for analysis
-        report = await ctx.call_tool(
+        # Call LLM worker for analysis via ctx.deps
+        report = await ctx.deps.call(
             "pitch_evaluator",
             {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]}
         )
@@ -66,14 +69,13 @@ async def main(ctx, input: str) -> str:
     return f"Evaluated {len(decks)} pitch deck(s)"
 ```
 
-The `ctx.call_tool()` method can invoke:
-- **Code tools**: Functions in `tools.py`
-- **Worker tools**: `.worker` files (LLM agents)
+Key difference from the old `llm-do` runtime:
+- Old: `@tool_context` decorator injects `ctx`
+- New: Tool receives `RunContext[Context]` where `ctx.deps` is the Context
 
-When calling a worker with attachments, pass a dict with `input` and `attachments`:
-```python
-await ctx.call_tool("worker_name", {"input": "...", "attachments": ["path.pdf"]})
-```
+The `ctx.deps.call()` method can invoke:
+- **Code tools**: Other functions in `FunctionToolset`
+- **Worker tools**: `.worker` files (LLM agents)
 
 ## Prerequisites
 
@@ -85,25 +87,23 @@ export ANTHROPIC_API_KEY=...
 ## Run
 
 ```bash
-cd examples/pitchdeck_eval_code_entry
-llm-do --model anthropic:claude-haiku-4-5 --approve-all
+cd examples-new/pitchdeck_eval_code_entry
+llm-run tools.py pitch_evaluator.worker --entry main --approve-all "Go"
 ```
 
 Or with a different model:
 ```bash
-llm-do --model openai:gpt-4o-mini --approve-all
+llm-run tools.py pitch_evaluator.worker --entry main -m openai:gpt-4o-mini --approve-all "Go"
 ```
 
 ## Files
 
 ```
 pitchdeck_eval_code_entry/
-├── tools.py              # Code entry point: main() + list_pitchdecks()
-├── pitch_evaluator.worker # LLM evaluator (unchanged from hardened)
-├── PROCEDURE.md          # Evaluation rubric
-├── requirements.txt      # python-slugify>=8.0
-├── input/                # Drop PDFs here
-└── evaluations/          # Reports written here
+├── tools.py               # Code entry point: main() + list_pitchdecks()
+├── pitch_evaluator.worker # LLM evaluator
+├── input/                 # Drop PDFs here
+└── evaluations/           # Reports written here
 ```
 
 ## The Hardening Spectrum
@@ -111,7 +111,7 @@ pitchdeck_eval_code_entry/
 This example represents "full hardening" - only LLM calls are for actual analysis:
 
 ```
-Original                 Hardened                 Code Entry Point
+Original                 LLM-Orchestrated         Code Entry Point
 ─────────────────────────────────────────────────────────────────────
 LLM lists files      →   Python tool          →   Python tool
 LLM generates slugs  →   Python tool          →   Python tool
@@ -120,6 +120,5 @@ LLM evaluates        →   LLM evaluates        →   LLM evaluates
 ```
 
 Choose the right level based on your needs:
-- **Original**: Maximum flexibility, highest token cost
-- **Hardened**: Mechanical tasks in Python, orchestration in LLM
+- **LLM-Orchestrated**: Mechanical tasks in Python, orchestration in LLM
 - **Code Entry Point**: Only reasoning tasks use LLM tokens

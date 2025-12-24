@@ -1,12 +1,10 @@
 ---
-description: Coordinate evaluations for every deck stored in the input directory.
 name: main
+description: Coordinate evaluations for every deck stored in the input directory.
 toolsets:
-  delegation:
-    pitch_evaluator: {}
+  pitch_evaluator: {}
   filesystem: {}
-  custom:
-    list_pitchdecks: {}
+  pitchdeck_tools: {}
 ---
 
 You orchestrate pitch-deck evaluations. Use the tools provided to process

@@ -7,6 +7,7 @@ that don't benefit from LLM reasoning.
 """
 
 from pathlib import Path
+from pydantic_ai.toolsets import FunctionToolset
 
 try:
     from slugify import slugify
@@ -15,7 +16,10 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
+pitchdeck_tools = FunctionToolset()
 
+
+@pitchdeck_tools.tool
 def list_pitchdecks(path: str = "input") -> list[dict]:
     """List pitch deck PDFs with pre-computed slugs and output paths.
 

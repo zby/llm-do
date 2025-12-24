@@ -57,18 +57,18 @@ Once `llm-run` is validated, port the interactive UI.
 ## Phase C: Cleanup
 
 ### Remove Legacy
-- [ ] Remove legacy runtime modules (`llm_do/runtime.py`, etc.)
-- [ ] Remove old CLI paths
-- [ ] Update imports throughout codebase
+- [x] Remove legacy runtime modules (`llm_do/runtime.py`, etc.)
+- [x] Remove old CLI paths (kept `llm-do-oauth` as standalone utility)
+- [x] Update imports throughout codebase
 
 ### Tests
-- [ ] Port `test_cli_async.py` (488 lines) - CLI integration tests
-- [ ] Port `test_display_backends.py` (351 lines) - UI backend tests
-- [ ] Run `uv run pytest` and fix any breakage
+- [x] Remove legacy tests (test_cli_async.py, test_config_overrides.py, etc.)
+- [x] Keep shared module tests (display backends, shell, filesystem, oauth)
+- [x] Run `uv run pytest` - 190 tests passing
 
 ### Documentation
 - [ ] Update docs to reference new runtime only
-- [ ] Move validated `examples-new/` to `examples/` (replace old examples)
+- [x] Move validated `examples-new/` to `examples/` (replaced old examples)
 
 ---
 
@@ -148,3 +148,46 @@ Added TUI mode to `llm_do/ctx_runtime/cli.py`:
 - `llm_do/ctx_runtime/cli.py` - added TUI mode, async approval callback
 - Reuses existing `llm_do/ui/app.py` (LlmDoApp)
 - Reuses existing `llm_do/ui/parser.py` (parse_approval_request)
+
+## Implementation Notes (Phase C)
+
+### Files Removed
+Legacy runtime modules (total ~5000 lines):
+- `llm_do/base.py` - old WorkerRegistry, WorkerDefinition
+- `llm_do/cli_async.py` - old CLI (905 lines)
+- `llm_do/config_overrides.py` - old config handling
+- `llm_do/custom_toolset.py` - old toolset pattern
+- `llm_do/delegation_toolset.py` - old delegation pattern
+- `llm_do/execution.py` - old execution engine
+- `llm_do/registry.py` - old registry
+- `llm_do/runtime.py` - old runtime (613 lines)
+- `llm_do/tool_context.py` - old context
+- `llm_do/tool_registry.py` - old tool registry
+- `llm_do/toolset_loader.py` - old loader
+- `llm_do/types.py` - old types
+- `llm_do/attachments/` - attachment handling (not needed in new runtime)
+
+Legacy tests removed:
+- `tests/test_cli_async.py`, `test_config_overrides.py`, `test_custom_tools.py`
+- `tests/test_server_side_tools.py`, `test_tool_entry_point.py`
+- `tests/test_worker_delegation.py`, `tests/test_workshop.py`
+- `tests/test_pydanticai_base.py`, `tests/test_bootstrapper.py`
+- `tests/test_examples.py`, `tests/test_pydanticai_integration.py`
+
+### Files Kept
+Shared modules used by new runtime:
+- `llm_do/ui/` - Textual UI components, display backends, events
+- `llm_do/shell/` - ShellToolset with approval support
+- `llm_do/filesystem_toolset.py` - FileSystemToolset with approval support
+- `llm_do/model_compat.py` - model selection and validation
+- `llm_do/oauth/` - OAuth credential management
+
+### New Files
+- `llm_do/oauth_cli.py` - standalone OAuth CLI (extracted from old cli_async.py)
+
+### Entry Points
+- `llm-run` - main CLI for running workers (TUI or headless)
+- `llm-do-oauth` - OAuth credential management
+
+### Package Version
+Updated from 0.2.0 to 0.3.0

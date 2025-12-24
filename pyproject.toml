@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-do"
-version = "0.2.0"
+version = "0.3.0"
 description = "Self-contained prompt workers for LLM orchestration, built on PydanticAI"
 readme = "README.md"
 authors = [{name = "Your Name"}]
@@ -34,9 +34,8 @@ dependencies = [
 ]
 
 [project.scripts]
-llm-do = "llm_do.cli_async:main"
-llm-do-oauth = "llm_do.cli_async:oauth_main"
 llm-run = "llm_do.ctx_runtime.cli:main"
+llm-do-oauth = "llm_do.oauth_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/llm-do"

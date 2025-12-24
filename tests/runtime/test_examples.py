@@ -1,6 +1,6 @@
-"""Integration tests for examples-new/ using the ctx_runtime.
+"""Integration tests for examples/ using the ctx_runtime.
 
-These tests verify that the example workers in examples-new/ directory
+These tests verify that the example workers in examples/ directory
 can be loaded and executed successfully using the new context-centric runtime.
 """
 import pytest
@@ -16,7 +16,7 @@ from llm_do.ctx_runtime import (
 )
 
 
-EXAMPLES_NEW_DIR = Path(__file__).parent.parent.parent / "examples-new"
+EXAMPLES_NEW_DIR = Path(__file__).parent.parent.parent / "examples"
 
 
 class TestGreeterExample:

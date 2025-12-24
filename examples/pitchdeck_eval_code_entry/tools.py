@@ -1,4 +1,4 @@
-"""Code entry point for pitch deck evaluation.
+"""Code entry point for pitch deck evaluation using ctx_runtime.
 
 This example demonstrates the tool-entry-point pattern where Python code
 is the entry point instead of an LLM orchestrator. The main() function
@@ -9,9 +9,16 @@ Benefits:
 - No token waste on trivial orchestration logic
 - Deterministic file handling and output paths
 - LLM only used for actual reasoning tasks (evaluation)
+
+Key difference from the old llm-do runtime:
+- Old: @tool_context decorator injects ctx
+- New: Tool receives RunContext[Context] where run_ctx.deps is the Context
 """
 
 from pathlib import Path
+
+from pydantic_ai.tools import RunContext
+from pydantic_ai.toolsets import FunctionToolset
 
 try:
     from slugify import slugify
@@ -20,7 +27,10 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
-from llm_do import tool_context
+# Import Context type for type hints
+from llm_do.ctx_runtime import Context
+
+tools = FunctionToolset()
 
 
 def list_pitchdecks(path: str = "input") -> list[dict]:
@@ -46,8 +56,8 @@ def list_pitchdecks(path: str = "input") -> list[dict]:
     return result
 
 
-@tool_context
-async def main(ctx, input: str) -> str:
+@tools.tool
+async def main(ctx: RunContext[Context], input: str) -> str:
     """Evaluate all pitch decks in input directory.
 
     This is a code entry point that orchestrates the evaluation workflow:
@@ -55,8 +65,12 @@ async def main(ctx, input: str) -> str:
     2. Call LLM worker for each deck (LLM reasoning)
     3. Write results to files (deterministic)
 
-    The ctx parameter is injected by the @tool_context decorator and provides
-    access to call_tool() for invoking other tools including LLM workers.
+    The ctx parameter is a RunContext where ctx.deps provides access to
+    call() for invoking other tools including LLM workers.
+
+    Args:
+        ctx: RunContext with Context as deps - provides call() method
+        input: User input (ignored - workflow is deterministic)
     """
     decks = list_pitchdecks()
 
@@ -66,8 +80,8 @@ async def main(ctx, input: str) -> str:
     results = []
 
     for deck in decks:
-        # Call LLM worker for analysis
-        report = await ctx.call_tool(
+        # Call LLM worker for analysis via ctx.deps (the Context)
+        report = await ctx.deps.call(
             "pitch_evaluator",
             {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]}
         )

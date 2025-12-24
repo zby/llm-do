@@ -1,6 +1,6 @@
-"""Project-level tools for web research agent.
+"""Custom tools for web research agent.
 
-Combines tools from all sub-workers so they can be used from main.worker.
+Provides web search and page fetching capabilities for research workflows.
 """
 from __future__ import annotations
 
@@ -15,45 +15,51 @@ from typing import Dict, List
 from urllib import parse, request
 from urllib.error import HTTPError, URLError
 
+from pydantic_ai.toolsets import FunctionToolset
+
 
 # =============================================================================
-# Web Search (from orchestrator)
+# Constants
 # =============================================================================
 
 USER_AGENT_SEARCH = "llm-do-web-research/0.1"
+USER_AGENT_FETCH = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 MAX_HTTP_BYTES = 1_000_000
+MAX_FETCH_BYTES = 1_000_000
 
 
-def search_web(query: str, num_results: int = 4) -> List[Dict[str, str | None]]:
-    """
-    Run a web search using SerpAPI.
+# =============================================================================
+# HTML Text Extraction
+# =============================================================================
 
-    Requires SERPAPI_API_KEY environment variable to be set.
-    Returns a list of {url, title, snippet} dicts with duplicates removed.
-    """
-    cleaned_query = (query or "").strip()
-    if not cleaned_query:
-        return []
+class _TextExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self._chunks: List[str] = []
+        self._skip = False
 
-    limit = max(1, min(num_results, 8))
-    api_key = os.getenv("SERPAPI_API_KEY")
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag in {"script", "style", "noscript"}:
+            self._skip = True
 
-    if not api_key:
-        raise ValueError(
-            "SERPAPI_API_KEY environment variable is required. "
-            "Get a free API key at https://serpapi.com/"
-        )
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style", "noscript"}:
+            self._skip = False
 
-    try:
-        return _search_serpapi(cleaned_query, api_key, limit)
-    except RuntimeError as exc:
-        if "HTTP 401" in str(exc) or "HTTP 403" in str(exc):
-            raise ValueError(
-                f"SERPAPI_API_KEY is invalid or expired (got {exc}). "
-                "Please check your API key at https://serpapi.com/manage-api-key"
-            ) from exc
-        raise
+    def handle_data(self, data: str) -> None:
+        if self._skip:
+            return
+        text = data.strip()
+        if text:
+            self._chunks.append(text)
 
+    def get_text(self) -> str:
+        return " ".join(self._chunks)
+
+
+# =============================================================================
+# HTTP Helpers
+# =============================================================================
 
 def _http_get_json(url: str, timeout: float = 12.0) -> dict:
     req = request.Request(url, headers={"User-Agent": USER_AGENT_SEARCH})
@@ -88,14 +94,6 @@ def _http_get_json(url: str, timeout: float = 12.0) -> dict:
         raise ValueError(f"Invalid JSON response from {url}") from exc
 
 
-def generate_slug(topic: str) -> str:
-    """Generate a file-safe slug for reports."""
-    cleaned = re.sub(r"[ _]+", "-", (topic or "").lower())
-    cleaned = re.sub(r"[^a-z0-9-]", "", cleaned)
-    slug = cleaned.strip("-")[:60].strip("-")
-    return slug or "report"
-
-
 def _search_serpapi(query: str, api_key: str, limit: int) -> List[Dict[str, str | None]]:
     url = (
         "https://serpapi.com/search.json?"
@@ -119,38 +117,52 @@ def _search_serpapi(query: str, api_key: str, limit: int) -> List[Dict[str, str 
 
 
 # =============================================================================
-# Page Fetching (from extractor)
+# Toolsets
 # =============================================================================
 
-USER_AGENT_FETCH = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-MAX_FETCH_BYTES = 1_000_000
+web_research_tools = FunctionToolset()
 
 
-class _TextExtractor(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self._chunks: List[str] = []
-        self._skip = False
+@web_research_tools.tool
+def search_web(query: str, num_results: int = 4) -> List[Dict[str, str | None]]:
+    """
+    Run a web search using SerpAPI.
 
-    def handle_starttag(self, tag: str, attrs) -> None:
-        if tag in {"script", "style", "noscript"}:
-            self._skip = True
+    Args:
+        query: Search query string.
+        num_results: Number of results to return (1-8, default 4).
 
-    def handle_endtag(self, tag: str) -> None:
-        if tag in {"script", "style", "noscript"}:
-            self._skip = False
+    Returns:
+        List of dicts with keys: url, title, snippet.
 
-    def handle_data(self, data: str) -> None:
-        if self._skip:
-            return
-        text = data.strip()
-        if text:
-            self._chunks.append(text)
+    Raises:
+        ValueError: If SERPAPI_API_KEY is not set or invalid.
+    """
+    cleaned_query = (query or "").strip()
+    if not cleaned_query:
+        return []
 
-    def get_text(self) -> str:
-        return " ".join(self._chunks)
+    limit = max(1, min(num_results, 8))
+    api_key = os.getenv("SERPAPI_API_KEY")
+
+    if not api_key:
+        raise ValueError(
+            "SERPAPI_API_KEY environment variable is required. "
+            "Get a free API key at https://serpapi.com/"
+        )
+
+    try:
+        return _search_serpapi(cleaned_query, api_key, limit)
+    except RuntimeError as exc:
+        if "HTTP 401" in str(exc) or "HTTP 403" in str(exc):
+            raise ValueError(
+                f"SERPAPI_API_KEY is invalid or expired (got {exc}). "
+                "Please check your API key at https://serpapi.com/manage-api-key"
+            ) from exc
+        raise
 
 
+@web_research_tools.tool
 def fetch_page(url: str, max_chars: int = 4000) -> str:
     """
     Fetch a URL and return cleaned text content.
@@ -159,6 +171,13 @@ def fetch_page(url: str, max_chars: int = 4000) -> str:
     whitespace. The result is truncated to keep token counts manageable.
     Common fetch failures (403/404/429/connection errors) are swallowed,
     returning an empty string so the workflow can continue with other URLs.
+
+    Args:
+        url: The URL to fetch.
+        max_chars: Maximum characters to return (default 4000).
+
+    Returns:
+        Cleaned text content from the page.
     """
     sanitized = (url or "").strip()
     if not sanitized:
@@ -209,3 +228,19 @@ def fetch_page(url: str, max_chars: int = 4000) -> str:
     if max_chars > 0:
         return cleaned[:max_chars]
     return cleaned
+
+
+@web_research_tools.tool
+def generate_slug(topic: str) -> str:
+    """Generate a file-safe slug for reports.
+
+    Args:
+        topic: The topic string to convert to a slug.
+
+    Returns:
+        A URL-safe slug (lowercase, hyphens only, max 60 chars).
+    """
+    cleaned = re.sub(r"[ _]+", "-", (topic or "").lower())
+    cleaned = re.sub(r"[^a-z0-9-]", "", cleaned)
+    slug = cleaned.strip("-")[:60].strip("-")
+    return slug or "report"

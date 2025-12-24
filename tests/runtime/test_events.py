@@ -336,7 +336,7 @@ class TestCLIEventIntegration:
         events: list[UIEvent] = []
 
         # Use the greeter example
-        examples_dir = Path(__file__).parent.parent.parent / "examples-new"
+        examples_dir = Path(__file__).parent.parent.parent / "examples"
         worker_path = str(examples_dir / "greeter" / "main.worker")
 
         # Patch the model to use TestModel
@@ -372,7 +372,7 @@ class TestCLIEventIntegration:
         events: list[UIEvent] = []
 
         # Use the calculator example
-        examples_dir = Path(__file__).parent.parent.parent / "examples-new"
+        examples_dir = Path(__file__).parent.parent.parent / "examples"
         worker_path = str(examples_dir / "calculator" / "main.worker")
         tools_path = str(examples_dir / "calculator" / "tools.py")
 

@@ -1,6 +1,8 @@
 ---
 name: main
 description: A research assistant that can search the web for current information
+model: anthropic:claude-sonnet-4-20250514
+toolsets: {}
 server_side_tools:
   - tool_type: web_search
     max_uses: 3

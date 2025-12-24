@@ -127,6 +127,7 @@ def load_entries_from_files(files: list[str | Path]) -> dict[str, WorkerEntry]:
         Dict mapping entry names to instances
     """
     all_entries: dict[str, WorkerEntry] = {}
+    entry_paths: dict[str, Path] = {}
 
     for file_path in files:
         path = Path(file_path)
@@ -137,8 +138,14 @@ def load_entries_from_files(files: list[str | Path]) -> dict[str, WorkerEntry]:
         entries = discover_entries_from_module(module)
 
         for entry in entries:
+            if entry.name in all_entries:
+                existing_path = entry_paths[entry.name]
+                raise ValueError(
+                    f"Duplicate worker name: {entry.name} "
+                    f"(from {existing_path} and {path})"
+                )
             all_entries[entry.name] = entry
+            entry_paths[entry.name] = path
 
     return all_entries
-
 

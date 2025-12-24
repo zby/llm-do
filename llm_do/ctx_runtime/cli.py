@@ -220,11 +220,17 @@ async def build_entry(
     python_toolsets = load_toolsets_from_files(python_files)
 
     # Build map of tool_name -> toolset for code entry pattern
-    python_tool_map: dict[str, tuple[AbstractToolset[Any], str]] = {}
+    python_tool_map: dict[str, tuple[AbstractToolset[Any], str, str]] = {}
     for toolset_name, toolset in python_toolsets.items():
         tool_names = await _get_tool_names(toolset)
         for tool_name in tool_names:
-            python_tool_map[tool_name] = (toolset, tool_name)
+            if tool_name in python_tool_map:
+                _, _, existing_toolset_name = python_tool_map[tool_name]
+                raise ValueError(
+                    f"Duplicate tool name: {tool_name} "
+                    f"(from toolsets '{existing_toolset_name}' and '{toolset_name}')"
+                )
+            python_tool_map[tool_name] = (toolset, tool_name, toolset_name)
 
     # Load Python WorkerEntry instances
     python_workers = load_entries_from_files(python_files)
@@ -333,7 +339,7 @@ async def build_entry(
         all_toolsets_list.extend(python_toolsets.values())
 
         # Create ToolEntry for the code entry point
-        toolset, tool_name = python_tool_map[entry_name]
+        toolset, tool_name, _toolset_name = python_tool_map[entry_name]
         return ToolEntry(
             toolset=toolset,
             tool_name=tool_name,

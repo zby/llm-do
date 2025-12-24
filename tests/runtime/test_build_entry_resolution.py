@@ -1,4 +1,6 @@
 from pathlib import Path
+import os
+import tempfile
 
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
@@ -35,3 +37,27 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
 
     tool_names = {name for toolset in function_toolsets for name in toolset.tools}
     assert "fetch_page" in tool_names
+
+
+@pytest.mark.anyio
+async def test_build_entry_duplicate_tool_name_raises() -> None:
+    files = []
+    try:
+        for label in ("one", "two"):
+            with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
+                f.write(f"""\
+from pydantic_ai.toolsets import FunctionToolset
+
+tools_{label} = FunctionToolset()
+
+@tools_{label}.tool
+def collide(value: int) -> int:
+    return value
+""")
+                files.append(f.name)
+
+        with pytest.raises(ValueError, match="Duplicate tool name"):
+            await build_entry([], files, entry_name="collide")
+    finally:
+        for fname in files:
+            os.unlink(fname)

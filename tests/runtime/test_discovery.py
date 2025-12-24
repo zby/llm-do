@@ -9,6 +9,7 @@ from llm_do.ctx_runtime import (
     discover_toolsets_from_module,
     discover_entries_from_module,
     load_toolsets_from_files,
+    load_entries_from_files,
 )
 
 
@@ -155,3 +156,43 @@ duplicate_tools = FunctionToolset()
                 assert toolsets == {}
             finally:
                 os.unlink(f.name)
+
+
+class TestLoadEntriesFromFiles:
+    """Tests for load_entries_from_files."""
+
+    def test_duplicate_worker_name_in_file_raises(self):
+        """Test duplicate WorkerEntry names in a single file."""
+        with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
+            f.write("""\
+from llm_do.ctx_runtime import WorkerEntry
+
+entry_one = WorkerEntry(name="dup", instructions="first")
+entry_two = WorkerEntry(name="dup", instructions="second")
+""")
+            f.flush()
+
+            try:
+                with pytest.raises(ValueError, match="Duplicate worker name"):
+                    load_entries_from_files([f.name])
+            finally:
+                os.unlink(f.name)
+
+    def test_duplicate_worker_name_across_files_raises(self):
+        """Test duplicate WorkerEntry names across multiple files."""
+        files = []
+        try:
+            for label in ("one", "two"):
+                with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
+                    f.write(f"""\
+from llm_do.ctx_runtime import WorkerEntry
+
+entry_{label} = WorkerEntry(name="dup", instructions="{label}")
+""")
+                    files.append(f.name)
+
+            with pytest.raises(ValueError, match="Duplicate worker name"):
+                load_entries_from_files(files)
+        finally:
+            for fname in files:
+                os.unlink(fname)

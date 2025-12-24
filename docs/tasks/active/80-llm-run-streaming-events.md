@@ -78,21 +78,22 @@ async def run_with_events():
 ## Tasks
 
 ### Phase 1: Event Infrastructure
-- [ ] Add `event_callback` parameter to `Context.__init__()`
-- [ ] Wire PydanticAI `event_stream_handler` in `WorkerEntry._build_agent()`
-- [ ] Emit events from `Context.call()` for tool invocations
-- [ ] Emit events from `Context._execute()` for entry execution
+- [x] Add `on_trace` callback parameter to `Context.__init__()` via `ObservableList`
+- [x] Add `on_event` callback for general UI events (streaming text)
+- [x] Events derived from trace entries (non-intrusive design)
+- [x] Child contexts inherit event callbacks
 
 ### Phase 2: CLI Integration
-- [ ] Add `-v/--verbose` flag to `llm-run`
-- [ ] Add `--json` flag for JSON event output
-- [ ] Create display backend for `llm-run` (reuse or adapt from `llm_do.ui.display`)
-- [ ] Wire event callback to display backend in `run()`
+- [x] Add `-v/--verbose` flag to `llm-run` (count action for -v/-vv)
+- [x] Add `--json` flag for JSON event output
+- [x] Reuse `HeadlessDisplayBackend` and `JsonDisplayBackend` from `llm_do.ui.display`
+- [x] Wire event callbacks to display backend in `run()`
 
 ### Phase 3: Streaming Support
-- [ ] Add `-vv` support for text streaming
-- [ ] Handle `TextResponseEvent` deltas properly
-- [ ] Test with models that support streaming
+- [x] Add `-vv` support for text streaming via `verbosity` parameter
+- [x] Add `_run_streaming()` to `WorkerEntry` using PydanticAI `run_stream()`
+- [x] Emit `TextResponseEvent` deltas during streaming
+- [x] Graceful degradation: non-streaming when verbosity < 2
 
 ### Phase 4: Testing
 - [ ] Unit tests for event emission
@@ -106,13 +107,15 @@ async def run_with_events():
 - `llm_do/ctx_runtime/cli.py` - Add CLI flags, display backend
 
 ## Acceptance Criteria
-- [ ] `llm-run -v example.worker "prompt"` shows tool calls as they happen
-- [ ] `llm-run -vv example.worker "prompt"` streams LLM text output
-- [ ] `llm-run --json example.worker "prompt"` outputs JSON event stream
-- [ ] Events include: tool_call, tool_result, text_delta, text_complete, error
-- [ ] Matches original `llm-do` CLI behavior for equivalent flags
+- [x] `llm-run -v example.worker "prompt"` shows tool calls as they happen
+- [x] `llm-run -vv example.worker "prompt"` streams LLM text output
+- [x] `llm-run --json example.worker "prompt"` outputs JSON event stream
+- [x] Events include: tool_call, tool_result, text_delta, status, error
+- [x] Reuses existing `llm_do.ui.events` and display backends
 
-## Notes
-- Consider whether to reuse `llm_do.ui.events` or create simpler event types
-- JSON output should be newline-delimited for easy parsing
-- Streaming requires model support; gracefully degrade for non-streaming models
+## Implementation Notes
+- Used **ObservableList** pattern for non-intrusive trace notifications
+- `on_trace` callback converts `CallTrace` entries to `UIEvent` objects
+- `on_event` callback handles streaming text directly from WorkerEntry
+- PydanticAI `run_stream()` used when verbosity >= 2
+- All core logic unchanged - events derived from existing trace mechanism

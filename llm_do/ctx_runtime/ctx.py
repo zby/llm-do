@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 ModelType = str
 ApprovalFn = Callable[["CallableEntry", Any], bool]
 EventCallback = Callable[[UIEvent], None]
+_UNSET = object()
 
 
 class ToolsProxy:
@@ -106,6 +107,7 @@ class Context:
         return cls(
             toolsets=toolsets,
             model=resolved_model,
+            cli_model=model,
             approval=approval,
             max_depth=max_depth,
             on_event=on_event,
@@ -117,6 +119,7 @@ class Context:
         toolsets: list[AbstractToolset[Any]],
         model: ModelType,
         *,
+        cli_model: ModelType | None | object = _UNSET,
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
         depth: int = 0,
@@ -126,8 +129,11 @@ class Context:
         on_event: Optional[EventCallback] = None,
         verbosity: int = 0,
     ) -> None:
+        if cli_model is _UNSET:
+            cli_model = model
         self.toolsets = toolsets
         self.model = model
+        self.cli_model = cli_model
         self.approval = approval or (lambda entry, input_data: True)
         self.max_depth = max_depth
         self.depth = depth
@@ -140,7 +146,12 @@ class Context:
 
     def _resolve_model(self, entry: CallableEntry) -> ModelType:
         """Resolve model: entry's model if specified, otherwise context's default."""
-        return entry.model if entry.model is not None else self.model
+        return select_model(
+            worker_model=getattr(entry, "model", None),
+            cli_model=self.cli_model if self.cli_model is not _UNSET else None,
+            compatible_models=getattr(entry, "compatible_models", None),
+            worker_name=getattr(entry, "name", "worker"),
+        )
 
     def _get_usage(self, model: ModelType) -> RunUsage:
         """Get or create RunUsage tracker for a model."""
@@ -167,17 +178,45 @@ class Context:
     def _child(
         self,
         toolsets: Optional[list[AbstractToolset[Any]]] = None,
+        *,
+        model: ModelType | None = None,
     ) -> "Context":
         """Create a child context with incremented depth.
 
         Note: toolsets are NOT inherited - workers must explicitly specify their tools.
         """
+        if model is None:
+            model = self.model
         return Context(
             toolsets if toolsets is not None else self.toolsets,
-            model=self.model,
+            model=model,
+            cli_model=self.cli_model,
             approval=self.approval,
             max_depth=self.max_depth,
             depth=self.depth + 1,
+            usage=self.usage,
+            prompt=self.prompt,
+            messages=self.messages,
+            on_event=self.on_event,
+            verbosity=self.verbosity,
+        )
+
+    def _clone(
+        self,
+        toolsets: Optional[list[AbstractToolset[Any]]] = None,
+        *,
+        model: ModelType | None = None,
+    ) -> "Context":
+        """Create a context copy without changing depth."""
+        if model is None:
+            model = self.model
+        return Context(
+            toolsets if toolsets is not None else self.toolsets,
+            model=model,
+            cli_model=self.cli_model,
+            approval=self.approval,
+            max_depth=self.max_depth,
+            depth=self.depth,
             usage=self.usage,
             prompt=self.prompt,
             messages=self.messages,
@@ -252,17 +291,14 @@ class Context:
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
     async def _execute(self, entry: CallableEntry, input_data: Any) -> Any:
-        """Execute an entry with approval check and child context creation."""
-        if self.depth >= self.max_depth:
-            raise RuntimeError(f"Max depth exceeded: {self.max_depth}")
-
+        """Execute an entry with approval check."""
         if entry.requires_approval and not self.approval(entry, input_data):
             raise PermissionError(f"Approval denied for {entry.name}")
 
-        # Workers get a child context with their declared toolsets
+        # Prepare a context with resolved model and toolsets at the same depth.
         child_toolsets = list(getattr(entry, "toolsets", []) or [])
-        child_ctx = self._child(toolsets=child_toolsets)
         resolved_model = self._resolve_model(entry)
+        child_ctx = self._clone(toolsets=child_toolsets, model=resolved_model)
         run_ctx = self._make_run_context(entry.name, resolved_model, child_ctx)
 
         return await entry.call(input_data, child_ctx, run_ctx)

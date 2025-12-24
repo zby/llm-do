@@ -191,18 +191,23 @@ class WorkerEntry(AbstractToolset[Any]):
         if self.schema_in is not None:
             input_data = self.schema_in.model_validate(input_data)
 
-        # Resolve model: entry's model or context's default
-        resolved_model = self.model if self.model is not None else ctx.model
+        if ctx.depth >= ctx.max_depth:
+            raise RuntimeError(f"Max depth exceeded: {ctx.max_depth}")
 
-        agent = self._build_agent(resolved_model, ctx)
+        child_ctx = ctx._child(toolsets=self.toolsets)
+
+        # Resolve model: entry's model or context's default
+        resolved_model = self.model if self.model is not None else child_ctx.model
+
+        agent = self._build_agent(resolved_model, child_ctx)
         prompt = _format_prompt(input_data)
 
         # Use streaming if verbosity >= 2 and on_event callback is set
-        if ctx.verbosity >= 2 and ctx.on_event is not None:
-            output = await self._run_streaming(agent, prompt, ctx)
+        if child_ctx.verbosity >= 2 and child_ctx.on_event is not None:
+            output = await self._run_streaming(agent, prompt, child_ctx)
         else:
-            result = await agent.run(prompt, deps=ctx, model_settings=self.model_settings)
-            self._emit_tool_events(result.new_messages(), ctx)
+            result = await agent.run(prompt, deps=child_ctx, model_settings=self.model_settings)
+            self._emit_tool_events(result.new_messages(), child_ctx)
             output = result.output
 
         return output

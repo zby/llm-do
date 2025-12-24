@@ -30,9 +30,9 @@ Reuse existing `llm_do.ui.events` where applicable:
 - `ErrorEvent` - Errors during execution
 
 ### Integration Points
-1. **PydanticAI Agent** - Use `event_stream_handler` callback
-2. **Context.call()** - Emit events for programmatic tool calls
-3. **WorkerEntry.call()** - Emit events for worker execution
+1. **PydanticAI Agent** - Use `run_stream()` for text streaming
+2. **WorkerEntry._emit_tool_events()** - Emit events after agent execution
+3. **Context.on_event** - Callback for event delivery to display backend
 
 ### CLI Flags
 ```bash
@@ -43,45 +43,13 @@ llm-run [files...] "prompt" [options]
   --quiet             Suppress all output except final result (default)
 ```
 
-### Implementation Approach
-
-#### Option A: Callback-based (like original CLI)
-Pass `message_callback` through Context to WorkerEntry:
-```python
-ctx = Context.from_entry(
-    entry,
-    model=model,
-    message_callback=lambda events: display(events),
-)
-```
-
-#### Option B: AsyncIO Queue (cleaner separation)
-Use an async queue for events:
-```python
-event_queue: asyncio.Queue[UIEvent] = asyncio.Queue()
-
-async def run_with_events():
-    ctx = Context.from_entry(entry, model=model)
-    task = asyncio.create_task(ctx.run(entry, input_data))
-
-    async for event in ctx.events():  # New async iterator
-        display(event)
-
-    return await task
-```
-
-#### Option C: Hybrid (recommended)
-- Use PydanticAI's `event_stream_handler` for agent events
-- Emit custom events for `ctx.call()` and worker delegation
-- Display backend renders events to console
-
 ## Tasks
 
 ### Phase 1: Event Infrastructure
-- [x] Add `on_trace` callback parameter to `Context.__init__()` via `ObservableList`
-- [x] Add `on_event` callback for general UI events (streaming text)
-- [x] Events derived from trace entries (non-intrusive design)
-- [x] Child contexts inherit event callbacks
+- [x] Add `on_event` callback parameter to `Context.__init__()`
+- [x] Add `verbosity` parameter to Context for streaming control
+- [x] Child contexts inherit event callbacks and verbosity
+- [x] WorkerEntry emits ToolCallEvent/ToolResultEvent via `_emit_tool_events()`
 
 ### Phase 2: CLI Integration
 - [x] Add `-v/--verbose` flag to `llm-run` (count action for -v/-vv)
@@ -96,15 +64,16 @@ async def run_with_events():
 - [x] Graceful degradation: non-streaming when verbosity < 2
 
 ### Phase 4: Testing
-- [ ] Unit tests for event emission
-- [ ] Integration tests for CLI flags
-- [ ] Test JSON output format
+- [x] Unit tests for event emission (`TestContextEventCallback`, `TestWorkerEntryToolEvents`)
+- [x] Integration tests for CLI (`TestCLIEventIntegration`)
+- [x] Streaming event tests (`TestWorkerEntryStreamingEvents`)
 
-## Files to Modify
+## Files Modified
 
-- `llm_do/ctx_runtime/ctx.py` - Add event_callback, emit events
-- `llm_do/ctx_runtime/entries.py` - Wire event_stream_handler in WorkerEntry
-- `llm_do/ctx_runtime/cli.py` - Add CLI flags, display backend
+- `llm_do/ctx_runtime/ctx.py` - Add on_event callback, verbosity
+- `llm_do/ctx_runtime/entries.py` - Add _emit_tool_events(), _run_streaming()
+- `llm_do/ctx_runtime/cli.py` - Add CLI flags, wire display backends
+- `tests/runtime/test_events.py` - Comprehensive event tests
 
 ## Acceptance Criteria
 - [x] `llm-run -v example.worker "prompt"` shows tool calls as they happen
@@ -114,8 +83,8 @@ async def run_with_events():
 - [x] Reuses existing `llm_do.ui.events` and display backends
 
 ## Implementation Notes
-- Used **ObservableList** pattern for non-intrusive trace notifications
-- `on_trace` callback converts `CallTrace` entries to `UIEvent` objects
-- `on_event` callback handles streaming text directly from WorkerEntry
-- PydanticAI `run_stream()` used when verbosity >= 2
-- All core logic unchanged - events derived from existing trace mechanism
+- `on_event: EventCallback` passed to Context and inherited by children
+- `verbosity: int` controls streaming level (0=quiet, 1=tool events, 2=streaming)
+- `WorkerEntry._emit_tool_events()` extracts events from PydanticAI messages
+- `WorkerEntry._run_streaming()` uses PydanticAI `run_stream()` for text deltas
+- Removed legacy CallTrace in favor of direct event emission

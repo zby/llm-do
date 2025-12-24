@@ -53,6 +53,7 @@ from .discovery import (
     load_entries_from_files,
 )
 from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
+from ..config_overrides import apply_overrides
 from ..ui.events import UIEvent, ErrorEvent
 from ..ui.display import (
     DisplayBackend,
@@ -192,6 +193,7 @@ async def build_entry(
     python_files: list[str],
     model: str | None = None,
     entry_name: str = "main",
+    set_overrides: list[str] | None = None,
 ) -> ToolEntry | WorkerEntry:
     """Build the entry point with all toolsets resolved.
 
@@ -206,6 +208,7 @@ async def build_entry(
         python_files: List of Python file paths containing toolsets
         model: Optional model override for the entry worker
         entry_name: Name of the entry (default: "main")
+        set_overrides: Optional list of --set KEY=VALUE overrides
 
     Returns:
         The ToolEntry or WorkerEntry to run, with toolsets attribute populated
@@ -270,7 +273,9 @@ async def build_entry(
     workers: dict[str, WorkerEntry] = {}
 
     for name, worker_path in worker_paths.items():
-        worker_file = load_worker_file(worker_path)
+        # Apply overrides only to entry worker
+        overrides = set_overrides if name == entry_name else None
+        worker_file = load_worker_file(worker_path, overrides=overrides)
 
         # Available toolsets: Python + other workers (not self)
         # WorkerEntry IS an AbstractToolset, so we can use it directly
@@ -349,6 +354,7 @@ async def run(
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     approval_callback: ApprovalCallback | None = None,
+    set_overrides: list[str] | None = None,
 ) -> tuple[str, Context]:
     """Load entries and run with the given prompt.
 
@@ -362,6 +368,7 @@ async def run(
         on_event: Optional callback for UI events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
         approval_callback: Optional callback for interactive approval (TUI mode)
+        set_overrides: Optional list of --set KEY=VALUE overrides
 
     Returns:
         Tuple of (result, context)
@@ -372,7 +379,7 @@ async def run(
 
     # Build entry point
     resolved_entry_name = entry_name or "main"
-    entry = await build_entry(worker_files, python_files, model, resolved_entry_name)
+    entry = await build_entry(worker_files, python_files, model, resolved_entry_name, set_overrides)
 
     # If --all-tools and entry is a worker, give it access to all discovered toolsets
     if all_tools and isinstance(entry, WorkerEntry):
@@ -457,6 +464,7 @@ async def _run_tui_mode(
     approve_all: bool = False,
     verbosity: int = 0,
     debug: bool = False,
+    set_overrides: list[str] | None = None,
 ) -> int:
     """Run in Textual TUI mode with interactive approvals.
 
@@ -524,6 +532,7 @@ async def _run_tui_mode(
                 on_event=on_event,
                 verbosity=verbosity,
                 approval_callback=tui_approval_callback,
+                set_overrides=set_overrides,
             )
             worker_result[:] = [result]
             return 0
@@ -642,6 +651,14 @@ def main() -> int:
         action="store_true",
         help="Show full tracebacks on error",
     )
+    parser.add_argument(
+        "--set", "-s",
+        action="append",
+        dest="set_overrides",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Override worker config (e.g., --set model=gpt-4, --set toolsets.shell.timeout=30)",
+    )
 
     args = parser.parse_args()
 
@@ -693,6 +710,7 @@ def main() -> int:
             approve_all=args.approve_all,
             verbosity=args.verbose,
             debug=args.debug,
+            set_overrides=args.set_overrides or None,
         ))
 
     # Headless mode: set up display backend based on flags
@@ -715,7 +733,7 @@ def main() -> int:
     try:
         result, ctx = asyncio.run(run(
             files, prompt, args.model, args.entry, args.all_tools, args.approve_all,
-            on_event, args.verbose
+            on_event, args.verbose, set_overrides=args.set_overrides or None
         ))
 
         # Don't print result when streaming (verbosity >= 2) since it was already streamed

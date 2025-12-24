@@ -64,7 +64,7 @@ Once `llm-run` is validated, port the interactive UI.
 ### Tests
 - [x] Remove legacy tests (test_cli_async.py, test_config_overrides.py, etc.)
 - [x] Keep shared module tests (display backends, shell, filesystem, oauth)
-- [x] Run `uv run pytest` - 190 tests passing
+- [x] Run `uv run pytest` - 219 tests passing
 
 ### Documentation
 - [ ] Update docs to reference new runtime only
@@ -83,10 +83,18 @@ Once `llm-run` is validated, port the interactive UI.
 | `EventCallback` | `Callable[[UIEvent], None]` for real-time progress updates |
 
 ### Key APIs
-- `build_entry(worker_files, python_files, model, entry_name)` → `ToolEntry | WorkerEntry`
+- `build_entry(worker_files, python_files, model, entry_name, set_overrides)` → `ToolEntry | WorkerEntry`
 - `Context.from_entry(entry, model, on_event, verbosity)` - creates execution context
 - `ctx.run(entry, input_data)` - executes the entry
 - `ctx.call(name, args)` - programmatic tool invocation
+
+### CLI Override Support
+The `--set KEY=VALUE` flag allows overriding worker config at runtime:
+- Simple values: `--set model=openai:gpt-4o`
+- Nested paths: `--set toolsets.shell.timeout=60`
+- JSON values: `--set tags='["a","b"]'`
+
+Overrides are applied to worker file frontmatter before parsing.
 
 ### Event System
 - `on_event: EventCallback` passed to Context, inherited by children
@@ -155,7 +163,6 @@ Added TUI mode to `llm_do/ctx_runtime/cli.py`:
 Legacy runtime modules (total ~5000 lines):
 - `llm_do/base.py` - old WorkerRegistry, WorkerDefinition
 - `llm_do/cli_async.py` - old CLI (905 lines)
-- `llm_do/config_overrides.py` - old config handling
 - `llm_do/custom_toolset.py` - old toolset pattern
 - `llm_do/delegation_toolset.py` - old delegation pattern
 - `llm_do/execution.py` - old execution engine
@@ -168,7 +175,7 @@ Legacy runtime modules (total ~5000 lines):
 - `llm_do/attachments/` - attachment handling (not needed in new runtime)
 
 Legacy tests removed:
-- `tests/test_cli_async.py`, `test_config_overrides.py`, `test_custom_tools.py`
+- `tests/test_cli_async.py`, `test_custom_tools.py`
 - `tests/test_server_side_tools.py`, `test_tool_entry_point.py`
 - `tests/test_worker_delegation.py`, `tests/test_workshop.py`
 - `tests/test_pydanticai_base.py`, `tests/test_bootstrapper.py`
@@ -181,6 +188,7 @@ Shared modules used by new runtime:
 - `llm_do/filesystem_toolset.py` - FileSystemToolset with approval support
 - `llm_do/model_compat.py` - model selection and validation
 - `llm_do/oauth/` - OAuth credential management
+- `llm_do/config_overrides.py` - `--set KEY=VALUE` CLI override support
 
 ### New Files
 - `llm_do/oauth_cli.py` - standalone OAuth CLI (extracted from old cli_async.py)

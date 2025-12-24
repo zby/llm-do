@@ -39,11 +39,15 @@ class WorkerFile:
     server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
 
 
-def parse_worker_file(content: str) -> WorkerFile:
+def parse_worker_file(
+    content: str,
+    overrides: list[str] | None = None,
+) -> WorkerFile:
     """Parse a worker file with YAML frontmatter and markdown instructions.
 
     Args:
         content: Raw file content
+        overrides: Optional list of --set KEY=VALUE overrides to apply
 
     Returns:
         Parsed WorkerFile
@@ -51,6 +55,8 @@ def parse_worker_file(content: str) -> WorkerFile:
     Raises:
         ValueError: If file format is invalid
     """
+    from ..config_overrides import apply_overrides
+
     pattern = r'^---\s*\n(.*?)\n---\s*\n(.*)$'
     match = re.match(pattern, content, re.DOTALL)
 
@@ -62,6 +68,10 @@ def parse_worker_file(content: str) -> WorkerFile:
 
     if not isinstance(frontmatter, dict):
         raise ValueError("Invalid frontmatter: expected YAML mapping")
+
+    # Apply CLI overrides to frontmatter
+    if overrides:
+        frontmatter = apply_overrides(frontmatter, overrides)
 
     name = frontmatter.get("name")
     if not name:
@@ -97,14 +107,18 @@ def parse_worker_file(content: str) -> WorkerFile:
     )
 
 
-def load_worker_file(path: str | Path) -> WorkerFile:
+def load_worker_file(
+    path: str | Path,
+    overrides: list[str] | None = None,
+) -> WorkerFile:
     """Load and parse a worker file from disk.
 
     Args:
         path: Path to worker file
+        overrides: Optional list of --set KEY=VALUE overrides to apply
 
     Returns:
         Parsed WorkerFile
     """
     content = Path(path).read_text(encoding="utf-8")
-    return parse_worker_file(content)
+    return parse_worker_file(content, overrides=overrides)

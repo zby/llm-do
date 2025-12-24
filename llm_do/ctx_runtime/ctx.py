@@ -4,13 +4,11 @@ This module provides the core Context class that orchestrates execution of
 tools and workers through:
 - Toolset-based dispatch (AbstractToolset)
 - Depth tracking to prevent infinite recursion
-- Execution tracing for debugging
 - Model resolution (entry-level or context-default)
 - Event emission for real-time progress updates
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Optional, Protocol, TYPE_CHECKING
 
 from pydantic_ai.toolsets import AbstractToolset
@@ -27,17 +25,6 @@ if TYPE_CHECKING:
 ModelType = str
 ApprovalFn = Callable[["CallableEntry", Any], bool]
 EventCallback = Callable[[UIEvent], None]
-
-
-@dataclass
-class CallTrace:
-    """Records a single call in the execution trace."""
-    name: str
-    kind: str
-    depth: int
-    input_data: Any
-    output_data: Any | None = None
-    error: str | None = None
 
 
 class ToolsProxy:
@@ -75,7 +62,7 @@ class Context:
     - Toolset-based dispatch via ctx.call()
     - Depth tracking to prevent infinite recursion
     - Model resolution (entry's model vs context default)
-    - Execution tracing
+    - Event emission for real-time progress
     - Usage tracking per model
     """
 
@@ -132,7 +119,6 @@ class Context:
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
         depth: int = 0,
-        trace: Optional[list[CallTrace]] = None,
         usage: Optional[dict[str, RunUsage]] = None,
         prompt: str = "",
         messages: Optional[list[Any]] = None,
@@ -144,7 +130,6 @@ class Context:
         self.approval = approval or (lambda entry, input_data: True)
         self.max_depth = max_depth
         self.depth = depth
-        self.trace: list[CallTrace] = trace if trace is not None else []
         self.usage = usage if usage is not None else {}
         self.prompt = prompt
         self.messages = messages if messages is not None else []
@@ -192,7 +177,6 @@ class Context:
             approval=self.approval,
             max_depth=self.max_depth,
             depth=self.depth + 1,
-            trace=self.trace,
             usage=self.usage,
             prompt=self.prompt,
             messages=self.messages,
@@ -226,11 +210,7 @@ class Context:
                 # Convert input_data to dict if needed
                 if not isinstance(input_data, dict):
                     input_data = {"input": input_data}
-                result = await toolset.call_tool(name, input_data, run_ctx, tool)
-                # Add trace for this call
-                trace = CallTrace(name=name, kind="tool", depth=self.depth, input_data=input_data, output_data=result)
-                self.trace.append(trace)
-                return result
+                return await toolset.call_tool(name, input_data, run_ctx, tool)
 
         available = []
         for toolset in self.toolsets:
@@ -239,15 +219,11 @@ class Context:
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
     async def _execute(self, entry: CallableEntry, input_data: Any) -> Any:
-        """Execute an entry with tracing, approval, and child context creation."""
+        """Execute an entry with approval check and child context creation."""
         if self.depth >= self.max_depth:
             raise RuntimeError(f"Max depth exceeded: {self.max_depth}")
 
-        trace = CallTrace(name=entry.name, kind=entry.kind, depth=self.depth, input_data=input_data)
-        self.trace.append(trace)
-
         if entry.requires_approval and not self.approval(entry, input_data):
-            trace.error = "approval denied"
             raise PermissionError(f"Approval denied for {entry.name}")
 
         # Workers get a child context with their declared toolsets
@@ -256,10 +232,4 @@ class Context:
         resolved_model = self._resolve_model(entry)
         run_ctx = self._make_run_context(entry.name, resolved_model, child_ctx)
 
-        try:
-            result = await entry.call(input_data, child_ctx, run_ctx)
-            trace.output_data = result
-            return result
-        except Exception as exc:
-            trace.error = str(exc)
-            raise
+        return await entry.call(input_data, child_ctx, run_ctx)

@@ -12,7 +12,6 @@ from typing import Any, Optional, Type, TYPE_CHECKING
 from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart
-from pydantic_ai.models import Model, KnownModelName
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
@@ -25,12 +24,9 @@ class WorkerInput(BaseModel):
     input: str
 
 if TYPE_CHECKING:
-    from .ctx import CallTrace, Context
+    from .ctx import Context
 
-
-
-
-ModelType = Model | KnownModelName
+from .ctx import ModelType
 
 
 def _format_prompt(input_data: Any) -> str:
@@ -143,55 +139,6 @@ class WorkerEntry(AbstractToolset[Any]):
             toolsets=self.toolsets if self.toolsets else None,
         )
 
-    def _extract_tool_traces(
-        self, messages: list[Any], depth: int, existing_trace: list["CallTrace"]
-    ) -> list["CallTrace"]:
-        """Extract tool call traces from PydanticAI messages."""
-        from .ctx import CallTrace
-        traces: list[CallTrace] = []
-
-        # Collect tool calls and their returns
-        tool_calls: dict[str, ToolCallPart] = {}
-        tool_returns: dict[str, ToolReturnPart] = {}
-
-        for msg in messages:
-            if isinstance(msg, ModelResponse):
-                for part in msg.parts:
-                    if isinstance(part, ToolCallPart):
-                        tool_calls[part.tool_call_id] = part
-            elif isinstance(msg, ModelRequest):
-                for part in msg.parts:
-                    if isinstance(part, ToolReturnPart):
-                        tool_returns[part.tool_call_id] = part
-
-        # Track (name, args_json) pairs already traced at this depth
-        # This allows repeated calls with different args to be traced
-        def _trace_key(name: str, args: Any) -> tuple[str, str]:
-            args_json = json.dumps(args, sort_keys=True) if args else ""
-            return (name, args_json)
-
-        already_traced = {
-            _trace_key(t.name, t.input_data)
-            for t in existing_trace if t.depth == depth
-        }
-
-        # Create traces by matching calls with returns (skip only exact duplicates)
-        for call_id, call_part in tool_calls.items():
-            key = _trace_key(call_part.tool_name, call_part.args)
-            if key in already_traced:
-                continue
-            already_traced.add(key)  # Prevent duplicates within this batch too
-            return_part = tool_returns.get(call_id)
-            traces.append(CallTrace(
-                name=call_part.tool_name,
-                kind="tool",
-                depth=depth,
-                input_data=call_part.args,
-                output_data=return_part.content if return_part else None,
-            ))
-
-        return traces
-
     def _emit_tool_events(self, messages: list[Any], ctx: "Context") -> None:
         """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
         if ctx.on_event is None:
@@ -245,12 +192,7 @@ class WorkerEntry(AbstractToolset[Any]):
             output = await self._run_streaming(agent, prompt, ctx)
         else:
             result = await agent.run(prompt, deps=ctx, model_settings=self.model_settings)
-            messages = result.new_messages()
-            # Emit tool events
-            self._emit_tool_events(messages, ctx)
-            # Extract and append tool traces from PydanticAI messages (skip duplicates)
-            tool_traces = self._extract_tool_traces(messages, ctx.depth, ctx.trace)
-            ctx.trace.extend(tool_traces)
+            self._emit_tool_events(result.new_messages(), ctx)
             output = result.output
 
         return output
@@ -269,14 +211,8 @@ class WorkerEntry(AbstractToolset[Any]):
                         is_delta=True,
                     ))
 
-            # Get the final result
-            result = await stream.get_result()
+            # Get the final output
+            output = await stream.get_output()
 
-        messages = result.new_messages()
-        # Emit tool events
-        self._emit_tool_events(messages, ctx)
-        # Extract and append tool traces from PydanticAI messages (skip duplicates)
-        tool_traces = self._extract_tool_traces(messages, ctx.depth, ctx.trace)
-        ctx.trace.extend(tool_traces)
-
-        return result.output
+        self._emit_tool_events(stream.new_messages(), ctx)
+        return output

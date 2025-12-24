@@ -6,7 +6,7 @@ This module provides a new runtime architecture that:
 - Loads tools from Python files and worker declarations
 - Provides the `llm-run` CLI entry point
 """
-from .ctx import Context, CallTrace, ToolsProxy, CallableEntry, ApprovalFn, ModelType
+from .ctx import Context, ToolsProxy, CallableEntry, ApprovalFn, ModelType
 from .entries import WorkerEntry, ToolEntry
 from .worker_file import WorkerFile, parse_worker_file, load_worker_file
 from .discovery import (
@@ -21,7 +21,6 @@ from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
 __all__ = [
     # Context
     "Context",
-    "CallTrace",
     "ToolsProxy",
     "CallableEntry",
     "ApprovalFn",

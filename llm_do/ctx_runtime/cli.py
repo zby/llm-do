@@ -290,7 +290,6 @@ def main() -> None:
         help=f"Model to use (default: ${ENV_MODEL_VAR} env var)",
     )
     parser.add_argument("--approve-all", action="store_true", help="Auto-approve all tool calls")
-    parser.add_argument("--trace", action="store_true", help="Show execution trace after completion")
     parser.add_argument(
         "-v", "--verbose",
         action="count",
@@ -348,11 +347,6 @@ def main() -> None:
         on_event, args.verbose
     ))
     print(result)
-
-    if args.trace:
-        print("\n--- Trace ---", file=sys.stderr)
-        for t in ctx.trace:
-            print(f"  {t.name} ({t.kind}) depth={t.depth}", file=sys.stderr)
 
 
 if __name__ == "__main__":

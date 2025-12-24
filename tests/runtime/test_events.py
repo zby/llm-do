@@ -70,6 +70,47 @@ class TestContextEventCallback:
         child = ctx._child()
         assert child.verbosity == 2
 
+    @pytest.mark.anyio
+    async def test_context_call_emits_events(self):
+        """Test that ctx.call() emits ToolCallEvent and ToolResultEvent."""
+        events: list[UIEvent] = []
+
+        # Create a toolset with a simple tool
+        toolset = FunctionToolset()
+
+        @toolset.tool
+        def greet(name: str) -> str:
+            """Greet someone."""
+            return f"Hello, {name}!"
+
+        ctx = Context(
+            toolsets=[toolset],
+            model="test-model",
+            on_event=lambda e: events.append(e),
+        )
+
+        result = await ctx.call("greet", {"name": "World"})
+        assert result == "Hello, World!"
+
+        # Should have ToolCallEvent and ToolResultEvent
+        tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
+        tool_results = [e for e in events if isinstance(e, ToolResultEvent)]
+
+        assert len(tool_calls) == 1, f"Expected 1 ToolCallEvent, got: {events}"
+        assert len(tool_results) == 1, f"Expected 1 ToolResultEvent, got: {events}"
+
+        # Verify tool call event content
+        call_event = tool_calls[0]
+        assert call_event.tool_name == "greet"
+        assert call_event.worker == "code_entry"
+        assert call_event.args == {"name": "World"}
+
+        # Verify tool result event content
+        result_event = tool_results[0]
+        assert result_event.tool_name == "greet"
+        assert result_event.tool_call_id == call_event.tool_call_id
+        assert result_event.content == "Hello, World!"
+
 
 class TestWorkerEntryToolEvents:
     """Tests for ToolCallEvent/ToolResultEvent emission from WorkerEntry."""

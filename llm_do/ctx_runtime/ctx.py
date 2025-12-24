@@ -199,6 +199,9 @@ class Context:
         This enables programmatic tool invocation from code entry points:
             result = await ctx.deps.call("pitch_evaluator", {"input": "..."})
         """
+        import uuid
+        from ..ui.events import ToolCallEvent, ToolResultEvent
+
         # Create a temporary run context for get_tools
         run_ctx = self._make_run_context(name, self.model, self)
 
@@ -210,7 +213,32 @@ class Context:
                 # Convert input_data to dict if needed
                 if not isinstance(input_data, dict):
                     input_data = {"input": input_data}
-                return await toolset.call_tool(name, input_data, run_ctx, tool)
+
+                # Generate a unique call ID for event correlation
+                call_id = str(uuid.uuid4())[:8]
+
+                # Emit ToolCallEvent before execution
+                if self.on_event is not None:
+                    self.on_event(ToolCallEvent(
+                        worker="code_entry",
+                        tool_name=name,
+                        tool_call_id=call_id,
+                        args=input_data,
+                    ))
+
+                # Execute the tool
+                result = await toolset.call_tool(name, input_data, run_ctx, tool)
+
+                # Emit ToolResultEvent after execution
+                if self.on_event is not None:
+                    self.on_event(ToolResultEvent(
+                        worker="code_entry",
+                        tool_name=name,
+                        tool_call_id=call_id,
+                        content=result,
+                    ))
+
+                return result
 
         available = []
         for toolset in self.toolsets:

@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .entries import WorkerEntry, ToolsetToolEntry, WorkerToolset
+from .entries import WorkerEntry
 
 
 def load_module(path: str | Path) -> ModuleType:
@@ -84,108 +84,6 @@ def discover_entries_from_module(module: ModuleType) -> list[WorkerEntry]:
         obj = getattr(module, name)
         if isinstance(obj, WorkerEntry):
             entries.append(obj)
-    return entries
-
-
-def _is_tool_enabled(tool_name: str, config: dict[str, Any] | None) -> bool:
-    """Check if a tool is enabled based on config filtering.
-
-    Config supports:
-        enabled: list of tool names to include (whitelist)
-        disabled: list of tool names to exclude (blacklist)
-
-    If 'enabled' is specified, only those tools are included.
-    If 'disabled' is specified, those tools are excluded.
-    If both are specified, 'enabled' takes precedence.
-    """
-    if config is None:
-        return True
-
-    enabled = config.get("enabled")
-    if enabled is not None:
-        return tool_name in enabled
-
-    disabled = config.get("disabled")
-    if disabled is not None:
-        return tool_name not in disabled
-
-    return True
-
-
-async def expand_toolset_to_entries(
-    toolset: AbstractToolset[Any],
-    config: dict[str, Any] | None = None,
-    run_ctx: Any = None,
-) -> list[ToolsetToolEntry]:
-    """Expand a toolset into individual ToolsetToolEntry instances.
-
-    Each tool in the toolset becomes a separate entry that can
-    be registered in the Context registry.
-
-    Args:
-        toolset: AbstractToolset instance
-        config: Optional configuration with 'enabled'/'disabled' lists for filtering
-        run_ctx: Optional RunContext to pass to get_tools (required for FunctionToolset)
-
-    Returns:
-        List of ToolsetToolEntry instances
-    """
-    from pydantic_ai.toolsets import FunctionToolset
-    from pydantic_ai.tools import ToolDefinition
-
-    entries: list[ToolsetToolEntry] = []
-
-    # WorkerToolset expands to a ToolsetToolEntry like any other toolset
-    if isinstance(toolset, WorkerToolset):
-        tool_def = ToolDefinition(
-            name=toolset.worker.name,
-            description=toolset.worker.instructions[:200] + "..." if len(toolset.worker.instructions) > 200 else toolset.worker.instructions,
-            parameters_json_schema={
-                "type": "object",
-                "properties": {
-                    "input": {"type": "string", "description": "Input prompt for the worker"},
-                },
-                "required": ["input"],
-            },
-        )
-        return [ToolsetToolEntry(
-            toolset=toolset,
-            tool_name=toolset.worker.name,
-            tool_def=tool_def,
-            requires_approval=toolset.worker.requires_approval,
-        )]
-
-    # For FunctionToolset, we can access tools directly without get_tools()
-    if isinstance(toolset, FunctionToolset):
-        for tool_name, tool in toolset.tools.items():
-            if not _is_tool_enabled(tool_name, config):
-                continue
-            # Create ToolDefinition from Tool's function_schema
-            tool_def = ToolDefinition(
-                name=tool.name,
-                description=tool.description or tool.function_schema.description,
-                parameters_json_schema=tool.function_schema.json_schema,
-            )
-            entries.append(ToolsetToolEntry(
-                toolset=toolset,
-                tool_name=tool_name,
-                tool_def=tool_def,
-                requires_approval=tool.requires_approval,
-                _original_tool=tool,  # Preserve for schema in _collect_tools
-            ))
-    else:
-        # For other toolsets, use get_tools() with provided context
-        tools = await toolset.get_tools(run_ctx)
-        for tool_name, toolset_tool in tools.items():
-            if not _is_tool_enabled(tool_name, config):
-                continue
-            entries.append(ToolsetToolEntry(
-                toolset=toolset,
-                tool_name=tool_name,
-                tool_def=toolset_tool.tool_def,
-                requires_approval=getattr(toolset_tool, "requires_approval", False),
-            ))
-
     return entries
 
 

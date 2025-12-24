@@ -9,11 +9,10 @@ from pydantic_ai.models.test import TestModel
 
 from llm_do.ctx_runtime import (
     Context,
-    Registry,
     WorkerEntry,
+    ToolEntry,
     load_worker_file,
     load_toolsets_from_files,
-    expand_toolset_to_entries,
 )
 
 
@@ -46,7 +45,7 @@ class TestGreeterExample:
             name=worker_file.name,
             instructions=worker_file.instructions,
             model=model,
-            tools=[],
+            toolsets=[],
         )
 
         ctx = Context.from_entry(worker)
@@ -81,35 +80,13 @@ class TestCalculatorExample:
         assert isinstance(toolsets["calc_tools"], FunctionToolset)
 
     @pytest.mark.anyio
-    async def test_calculator_tools_expand(self):
-        """Test that calculator toolset expands to individual tools."""
+    async def test_calculator_tools_via_context(self):
+        """Test calling calculator tools via context."""
         tools_path = EXAMPLES_NEW_DIR / "calculator" / "tools.py"
         toolsets = load_toolsets_from_files([tools_path])
         calc_toolset = toolsets["calc_tools"]
 
-        entries = await expand_toolset_to_entries(calc_toolset)
-
-        tool_names = {e.name for e in entries}
-        assert "factorial" in tool_names
-        assert "fibonacci" in tool_names
-        assert "add" in tool_names
-        assert "multiply" in tool_names
-
-    @pytest.mark.anyio
-    async def test_calculator_factorial_tool(self):
-        """Test that the factorial tool works correctly."""
-        tools_path = EXAMPLES_NEW_DIR / "calculator" / "tools.py"
-        toolsets = load_toolsets_from_files([tools_path])
-        calc_toolset = toolsets["calc_tools"]
-
-        entries = await expand_toolset_to_entries(calc_toolset)
-        factorial_entry = next(e for e in entries if e.name == "factorial")
-
-        # Create a minimal context for tool execution
-        registry = Registry()
-        for e in entries:
-            registry.register(e)
-        ctx = Context(registry, model="test-model")
+        ctx = Context(toolsets=[calc_toolset], model="test-model")
 
         # Call factorial(5) = 120
         result = await ctx.call("factorial", {"n": 5})
@@ -126,11 +103,7 @@ class TestCalculatorExample:
         toolsets = load_toolsets_from_files([tools_path])
         calc_toolset = toolsets["calc_tools"]
 
-        entries = await expand_toolset_to_entries(calc_toolset)
-        registry = Registry()
-        for e in entries:
-            registry.register(e)
-        ctx = Context(registry, model="test-model")
+        ctx = Context(toolsets=[calc_toolset], model="test-model")
 
         # Fibonacci sequence: 0, 1, 1, 2, 3, 5, 8, 13, 21, 34
         assert await ctx.call("fibonacci", {"n": 0}) == 0
@@ -144,11 +117,7 @@ class TestCalculatorExample:
         toolsets = load_toolsets_from_files([tools_path])
         calc_toolset = toolsets["calc_tools"]
 
-        entries = await expand_toolset_to_entries(calc_toolset)
-        registry = Registry()
-        for e in entries:
-            registry.register(e)
-        ctx = Context(registry, model="test-model")
+        ctx = Context(toolsets=[calc_toolset], model="test-model")
 
         assert await ctx.call("add", {"a": 3, "b": 4}) == 7
         assert await ctx.call("multiply", {"a": 3, "b": 4}) == 12
@@ -172,10 +141,7 @@ class TestCalculatorExample:
         )
 
         assert worker.name == "main"
-        assert len(worker.tools) == 4  # factorial, fibonacci, add, multiply
-
-        tool_names = {t.name for t in worker.tools}
-        assert tool_names == {"factorial", "fibonacci", "add", "multiply"}
+        assert len(worker.toolsets) == 1  # calc_tools toolset
 
 
 class TestApprovalsDemoExample:
@@ -205,10 +171,8 @@ class TestApprovalsDemoExample:
         )
 
         assert worker.name == "main"
-        # Should have filesystem tools: read_file, write_file, list_files
-        assert len(worker.tools) >= 1
-        tool_names = {t.name for t in worker.tools}
-        assert "write_file" in tool_names or "read_file" in tool_names
+        # Should have filesystem toolset
+        assert len(worker.toolsets) >= 1
 
 
 class TestCodeAnalyzerExample:
@@ -240,10 +204,8 @@ class TestCodeAnalyzerExample:
         )
 
         assert worker.name == "main"
-        # Should have shell tool
-        assert len(worker.tools) >= 1
-        tool_names = {t.name for t in worker.tools}
-        assert "shell" in tool_names
+        # Should have shell toolset
+        assert len(worker.toolsets) >= 1
 
 
 class TestPitchdeckEvalExample:
@@ -272,7 +234,6 @@ class TestPitchdeckEvalExample:
     async def test_pitchdeck_builds_with_delegation(self):
         """Test that pitchdeck_eval main worker builds with workers as toolsets."""
         from llm_do.ctx_runtime.cli import build_entry
-        from llm_do.ctx_runtime.entries import ToolsetToolEntry, WorkerToolset
 
         main_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval" / "main.worker")
         eval_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval" / "pitch_evaluator.worker")
@@ -285,17 +246,12 @@ class TestPitchdeckEvalExample:
         )
 
         assert worker.name == "main"
-        # Should have pitch_evaluator and filesystem tools
-        assert len(worker.tools) >= 2
+        # Should have pitch_evaluator and filesystem toolsets
+        assert len(worker.toolsets) >= 2
 
-        # Check that pitch_evaluator is available
-        tool_names = {t.name for t in worker.tools}
-        assert "pitch_evaluator" in tool_names
-
-        # Find the pitch_evaluator - it's a ToolsetToolEntry wrapping WorkerToolset
-        pitch_evaluator = next(t for t in worker.tools if t.name == "pitch_evaluator")
-        assert isinstance(pitch_evaluator, ToolsetToolEntry)
-        assert isinstance(pitch_evaluator.toolset, WorkerToolset)
+        # Check that pitch_evaluator is available as a toolset
+        toolset_ids = [getattr(ts, 'id', None) or getattr(ts, 'name', None) for ts in worker.toolsets]
+        assert "pitch_evaluator" in toolset_ids
 
 
 class TestWhiteboardPlannerExample:
@@ -324,7 +280,6 @@ class TestWhiteboardPlannerExample:
     async def test_whiteboard_builds_with_delegation(self):
         """Test that whiteboard_planner main worker builds with workers as toolsets."""
         from llm_do.ctx_runtime.cli import build_entry
-        from llm_do.ctx_runtime.entries import ToolsetToolEntry, WorkerToolset
 
         main_path = str(EXAMPLES_NEW_DIR / "whiteboard_planner" / "main.worker")
         planner_path = str(EXAMPLES_NEW_DIR / "whiteboard_planner" / "whiteboard_planner.worker")
@@ -337,16 +292,11 @@ class TestWhiteboardPlannerExample:
         )
 
         assert worker.name == "main"
-        # Should have whiteboard_planner and filesystem tools
-        assert len(worker.tools) >= 2
+        # Should have whiteboard_planner and filesystem toolsets
+        assert len(worker.toolsets) >= 2
 
-        tool_names = {t.name for t in worker.tools}
-        assert "whiteboard_planner" in tool_names
-
-        # Verify it's a ToolsetToolEntry wrapping WorkerToolset
-        planner = next(t for t in worker.tools if t.name == "whiteboard_planner")
-        assert isinstance(planner, ToolsetToolEntry)
-        assert isinstance(planner.toolset, WorkerToolset)
+        toolset_ids = [getattr(ts, 'id', None) or getattr(ts, 'name', None) for ts in worker.toolsets]
+        assert "whiteboard_planner" in toolset_ids
 
 
 class TestExamplesIntegration:
@@ -366,7 +316,7 @@ class TestExamplesIntegration:
         )
 
         assert worker.name == "main"
-        assert worker.tools == []
+        assert worker.toolsets == []
         assert "greeter" in worker.instructions.lower()
 
     @pytest.mark.anyio
@@ -384,7 +334,7 @@ class TestExamplesIntegration:
         )
 
         assert worker.name == "main"
-        assert len(worker.tools) == 4
+        assert len(worker.toolsets) == 1
         assert "calculator" in worker.instructions.lower()
 
 
@@ -403,9 +353,8 @@ class TestPitchdeckEvalCodeEntryExample:
 
     @pytest.mark.anyio
     async def test_code_entry_builds_with_worker(self):
-        """Test that code entry point builds with worker as available tool."""
+        """Test that code entry point builds with worker as available toolset."""
         from llm_do.ctx_runtime.cli import build_entry
-        from llm_do.ctx_runtime.entries import ToolsetToolEntry, WorkerToolset
 
         tools_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "tools.py")
         worker_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")
@@ -418,25 +367,19 @@ class TestPitchdeckEvalCodeEntryExample:
             entry_name="main",
         )
 
-        # Entry should be a ToolsetToolEntry (code entry point)
-        assert isinstance(entry, ToolsetToolEntry)
+        # Entry should be a ToolEntry (code entry point)
+        assert isinstance(entry, ToolEntry)
         assert entry.name == "main"
 
-        # entry.tools should include pitch_evaluator
-        tool_names = {t.name for t in entry.tools}
-        assert "pitch_evaluator" in tool_names
-
-        # pitch_evaluator should be a ToolsetToolEntry wrapping WorkerToolset
-        pitch_evaluator = next(t for t in entry.tools if t.name == "pitch_evaluator")
-        assert isinstance(pitch_evaluator, ToolsetToolEntry)
-        assert isinstance(pitch_evaluator.toolset, WorkerToolset)
+        # entry.toolsets should include pitch_evaluator (as WorkerEntry)
+        toolset_ids = [getattr(ts, 'id', None) or getattr(ts, 'name', None) for ts in entry.toolsets]
+        assert "pitch_evaluator" in toolset_ids
 
     @pytest.mark.anyio
     async def test_code_entry_can_call_worker_via_context(self):
-        """Test that code entry can call worker through context (tests WorkerToolset.get_tools fix)."""
+        """Test that code entry can call worker through context."""
         from pydantic_ai.models.test import TestModel
         from llm_do.ctx_runtime.cli import build_entry
-        from llm_do.ctx_runtime.entries import ToolsetToolEntry, WorkerToolset
 
         tools_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "tools.py")
         worker_path = str(EXAMPLES_NEW_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")
@@ -448,29 +391,20 @@ class TestPitchdeckEvalCodeEntryExample:
             entry_name="main",
         )
 
-        # entry.tools is now populated by build_entry
-        assert len(entry.tools) > 0
+        # entry.toolsets is now populated by build_entry
+        assert len(entry.toolsets) > 0
 
-        # Override the worker's model with TestModel
-        pitch_evaluator = next(t for t in entry.tools if t.name == "pitch_evaluator")
-        assert isinstance(pitch_evaluator.toolset, WorkerToolset)
-        pitch_evaluator.toolset.worker.model = TestModel(custom_output_text="Evaluation complete.")
-
-        # Create context - entry.tools is already populated
-        ctx = Context.from_entry(
-            entry,
-            model=TestModel(custom_output_text="Evaluation complete."),
+        # Find and override the worker's model with TestModel
+        pitch_evaluator = next(
+            ts for ts in entry.toolsets
+            if getattr(ts, 'name', None) == "pitch_evaluator"
         )
+        assert isinstance(pitch_evaluator, WorkerEntry)
+        pitch_evaluator.model = TestModel(custom_output_text="Evaluation complete.")
 
-        # Verify pitch_evaluator is in registry
-        assert "pitch_evaluator" in ctx.registry
-
-        # Get the pitch_evaluator entry from registry
-        pitch_evaluator_entry = ctx.registry.get("pitch_evaluator")
-        assert isinstance(pitch_evaluator_entry, ToolsetToolEntry)
+        # Create context - entry.toolsets is already populated
+        ctx = Context.from_entry(entry, model=TestModel(custom_output_text="Evaluation complete."))
 
         # Test that we can call the worker through context
-        # This tests the WorkerToolset.get_tools() fix - previously raised:
-        # KeyError: 'Tool pitch_evaluator not found in toolset'
         result = await ctx.call("pitch_evaluator", {"input": "Test evaluation"})
         assert result == "Evaluation complete."

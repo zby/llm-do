@@ -1,22 +1,22 @@
 """Context-centric dispatcher for tools and workers.
 
 This module provides the core Context class that orchestrates execution of
-tools and workers through a registry-based dispatch system with:
-- Approval enforcement via ApprovalFn callback
+tools and workers through:
+- Toolset-based dispatch (AbstractToolset)
 - Depth tracking to prevent infinite recursion
 - Execution tracing for debugging
 - Model resolution (entry-level or context-default)
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Optional, Protocol, TYPE_CHECKING
 
 from pydantic_ai.models import Model, KnownModelName
+from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import Usage
 from pydantic_ai.tools import RunContext
 
-from .registry import Registry
 from ..model_compat import select_model
 
 if TYPE_CHECKING:
@@ -66,12 +66,11 @@ class CallableEntry(Protocol):
 
 
 class Context:
-    """Dispatches registry calls and enforces approvals + depth.
+    """Dispatches tool calls and manages execution context.
 
     The Context is the central orchestrator for executing tools and workers.
     It manages:
-    - Registry lookups for named entries
-    - Approval enforcement via callback
+    - Toolset-based dispatch via ctx.call()
     - Depth tracking to prevent infinite recursion
     - Model resolution (entry's model vs context default)
     - Execution tracing
@@ -90,7 +89,7 @@ class Context:
         """Create a Context for running an entry.
 
         Args:
-            entry: The entry to run (WorkerEntry or ToolsetToolEntry)
+            entry: The entry to run (WorkerEntry or ToolEntry)
             model: Model override (uses entry.model if not provided)
             approval: Approval callback for tool execution
             max_depth: Maximum call depth
@@ -107,16 +106,19 @@ class Context:
             worker_name=entry_name,
         )
 
-        # Registry: populate from entry.tools
-        registry = Registry()
-        for e in getattr(entry, "tools", []) or []:
-            registry.register(e)
+        # Get toolsets from entry
+        toolsets = list(getattr(entry, "toolsets", []) or [])
 
-        return cls(registry, model=resolved_model, approval=approval, max_depth=max_depth)
+        return cls(
+            toolsets=toolsets,
+            model=resolved_model,
+            approval=approval,
+            max_depth=max_depth,
+        )
 
     def __init__(
         self,
-        registry: Registry,
+        toolsets: list[AbstractToolset[Any]],
         model: ModelType,
         *,
         approval: Optional[ApprovalFn] = None,
@@ -127,7 +129,7 @@ class Context:
         prompt: str = "",
         messages: Optional[list[Any]] = None,
     ) -> None:
-        self.registry = registry
+        self.toolsets = toolsets
         self.model = model
         self.approval = approval or (lambda entry, input_data: True)
         self.max_depth = max_depth
@@ -164,10 +166,16 @@ class Context:
             tool_name=tool_name,
         )
 
-    def _child(self, registry: Optional[Registry] = None) -> "Context":
-        """Create a child context with incremented depth and optionally restricted registry."""
+    def _child(
+        self,
+        toolsets: Optional[list[AbstractToolset[Any]]] = None,
+    ) -> "Context":
+        """Create a child context with incremented depth.
+
+        Note: toolsets are NOT inherited - workers must explicitly specify their tools.
+        """
         return Context(
-            registry if registry is not None else self.registry,
+            toolsets if toolsets is not None else self.toolsets,
             model=self.model,
             approval=self.approval,
             max_depth=self.max_depth,
@@ -179,7 +187,7 @@ class Context:
         )
 
     async def run(self, entry: CallableEntry, input_data: Any) -> Any:
-        """Run an entry directly (no registry lookup needed)."""
+        """Run an entry directly."""
         # Extract prompt from input_data for RunContext
         if isinstance(input_data, dict) and "input" in input_data:
             self.prompt = str(input_data["input"])
@@ -188,9 +196,33 @@ class Context:
         return await self._execute(entry, input_data)
 
     async def call(self, name: str, input_data: Any) -> Any:
-        """Call an entry by name (looked up in registry)."""
-        entry = self.registry.get(name)
-        return await self._execute(entry, input_data)
+        """Call a tool by name (searched across toolsets).
+
+        This enables programmatic tool invocation from code entry points:
+            result = await ctx.deps.call("pitch_evaluator", {"input": "..."})
+        """
+        # Create a temporary run context for get_tools
+        run_ctx = self._make_run_context(name, self.model, self)
+
+        # Search for the tool across all toolsets
+        for toolset in self.toolsets:
+            tools = await toolset.get_tools(run_ctx)
+            if name in tools:
+                tool = tools[name]
+                # Convert input_data to dict if needed
+                if not isinstance(input_data, dict):
+                    input_data = {"input": input_data}
+                result = await toolset.call_tool(name, input_data, run_ctx, tool)
+                # Add trace for this call
+                trace = CallTrace(name=name, kind="tool", depth=self.depth, input_data=input_data, output_data=result)
+                self.trace.append(trace)
+                return result
+
+        available = []
+        for toolset in self.toolsets:
+            tools = await toolset.get_tools(run_ctx)
+            available.extend(tools.keys())
+        raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
     async def _execute(self, entry: CallableEntry, input_data: Any) -> Any:
         """Execute an entry with tracing, approval, and child context creation."""
@@ -204,15 +236,9 @@ class Context:
             trace.error = "approval denied"
             raise PermissionError(f"Approval denied for {entry.name}")
 
-        # Workers get a child context with registry restricted to their declared tools
-        # If entry has a tools attribute, use only those tools (empty list = no tools)
-        child_registry: Registry | None = None
-        if hasattr(entry, "tools"):
-            child_registry = Registry()
-            for tool_entry in entry.tools or []:
-                child_registry.register(tool_entry)
-
-        child_ctx = self._child(registry=child_registry)
+        # Workers get a child context with their declared toolsets
+        child_toolsets = list(getattr(entry, "toolsets", []) or [])
+        child_ctx = self._child(toolsets=child_toolsets)
         resolved_model = self._resolve_model(entry)
         run_ctx = self._make_run_context(entry.name, resolved_model, child_ctx)
 

@@ -1,9 +1,7 @@
 """Callable entry implementations for the context runtime.
 
 This module provides:
-- ToolsetToolEntry: Wraps individual tools from AbstractToolset
-- WorkerEntry: An LLM-powered worker that can use tools
-- WorkerToolset: Adapts WorkerEntry to AbstractToolset interface
+- WorkerEntry: An LLM-powered worker that IS an AbstractToolset
 """
 from __future__ import annotations
 
@@ -16,7 +14,7 @@ from pydantic_ai import Agent
 from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart
 from pydantic_ai.models import Model, KnownModelName
 from pydantic_ai.settings import ModelSettings
-from pydantic_ai.tools import RunContext, Tool, ToolDefinition
+from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
 
@@ -28,49 +26,6 @@ if TYPE_CHECKING:
     from .ctx import CallTrace, Context
 
 
-class WorkerToolset(AbstractToolset[Any]):
-    """Wraps a WorkerEntry as an AbstractToolset for unified discovery."""
-
-    def __init__(self, worker: "WorkerEntry") -> None:
-        self._worker = worker
-
-    @property
-    def id(self) -> str | None:
-        return self._worker.name
-
-    @property
-    def worker(self) -> "WorkerEntry":
-        return self._worker
-
-    async def get_tools(self, ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
-        """Return the worker as a callable tool."""
-        # Truncate instructions for description
-        instructions = self._worker.instructions
-        description = instructions[:200] + "..." if len(instructions) > 200 else instructions
-
-        tool_def = ToolDefinition(
-            name=self._worker.name,
-            description=description,
-            parameters_json_schema={
-                "type": "object",
-                "properties": {
-                    "input": {"type": "string", "description": "Input prompt for the worker"},
-                },
-                "required": ["input"],
-            },
-        )
-
-        return {self._worker.name: ToolsetTool(
-            toolset=self,
-            tool_def=tool_def,
-            max_retries=0,
-            args_validator=TypeAdapter(WorkerInput).validator,
-        )}
-
-    async def call_tool(
-        self, name: str, tool_args: dict[str, Any], ctx: RunContext[Any], tool: ToolsetTool[Any]
-    ) -> Any:
-        return await self._worker.call(tool_args, ctx.deps, ctx)
 
 
 ModelType = Model | KnownModelName
@@ -86,111 +41,104 @@ def _format_prompt(input_data: Any) -> str:
 
 
 @dataclass
-class ToolsetToolEntry:
-    """Wraps an individual tool from an AbstractToolset.
+class ToolEntry:
+    """Wrapper for using a tool from a toolset as an entry point.
 
-    This enables toolset tools to be registered in the Context registry
-    and called through the normal dispatch mechanism. Each tool from
-    a toolset becomes a separate ToolsetToolEntry.
+    This is used for the code entry pattern where a Python tool function
+    is the main entry point instead of a worker.
     """
 
     toolset: AbstractToolset[Any]
     tool_name: str
-    tool_def: ToolDefinition
-    requires_approval: bool = False
     kind: str = "tool"
     model: ModelType | None = None
-    # Original Tool object (for FunctionToolset) - preserves function_schema for LLM
-    _original_tool: Tool[Any] | None = None
-    # Tools available to this entry (symmetric with WorkerEntry)
-    tools: list["ToolsetToolEntry"] = field(default_factory=list)
+    requires_approval: bool = False
+    toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
 
     @property
     def name(self) -> str:
         return self.tool_name
 
     async def call(self, input_data: Any, ctx: "Context", run_ctx: RunContext["Context"]) -> Any:
-        """Call the toolset tool with the provided input data.
-
-        Delegates to the toolset's call_tool method after getting
-        the ToolsetTool wrapper for proper validation.
-        """
-        # Convert to dict if needed
+        """Call the tool via its toolset."""
         if isinstance(input_data, BaseModel):
             input_data = input_data.model_dump()
         elif not isinstance(input_data, dict):
             raise TypeError(f"Expected dict or BaseModel, got {type(input_data)}")
 
-        # Get the ToolsetTool wrapper for this tool
         tools = await self.toolset.get_tools(run_ctx)
         tool = tools.get(self.tool_name)
         if tool is None:
             raise KeyError(f"Tool {self.tool_name} not found in toolset")
 
-        # Delegate to toolset's call_tool
         return await self.toolset.call_tool(self.tool_name, input_data, run_ctx, tool)
 
 
 @dataclass
-class WorkerEntry:
-    """An LLM-powered worker that can use tools.
+class WorkerEntry(AbstractToolset[Any]):
+    """An LLM-powered worker that is also an AbstractToolset.
 
     WorkerEntry represents an agent that uses an LLM to process
-    prompts and can call tools to accomplish tasks.
+    prompts and can call tools to accomplish tasks. As an AbstractToolset,
+    it can be composed into other workers' toolsets.
+
+    Tools are passed as a list of AbstractToolsets which are combined
+    and passed directly to the PydanticAI Agent.
     """
 
     name: str
     instructions: str
     model: ModelType | None = None
-    tools: list["ToolsetToolEntry"] = field(default_factory=list)
+    toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[BaseModel]] = None
     schema_out: Optional[Type[BaseModel]] = None
     requires_approval: bool = False
     kind: str = "worker"
 
-    def _collect_tools(self, ctx: "Context") -> list[Tool[Any]]:
-        """Collect PydanticAI tools from ToolsetToolEntry instances."""
-        tools: list[Tool[Any]] = []
-        for entry in self.tools:
-            # Create a proxy that calls through context
-            async def _tool_proxy(
-                run_ctx: RunContext[Any],
-                _entry_name: str = entry.name,
-                **kwargs: Any,
-            ) -> Any:
-                return await run_ctx.deps.call(_entry_name, kwargs)
+    # AbstractToolset implementation
+    @property
+    def id(self) -> str | None:
+        """Return the worker name as its toolset id."""
+        return self.name
 
-            _tool_proxy.__name__ = entry.name
-            _tool_proxy.__doc__ = entry.tool_def.description
+    async def get_tools(self, ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
+        """Return this worker as a callable tool."""
+        description = self.instructions[:200] + "..." if len(self.instructions) > 200 else self.instructions
 
-            # Use original tool's schema if available (from FunctionToolset)
-            if entry._original_tool is not None:
-                tools.append(Tool(
-                    _tool_proxy,
-                    name=entry.name,
-                    description=entry.tool_def.description,
-                    requires_approval=entry.requires_approval,
-                    function_schema=entry._original_tool.function_schema,
-                ))
-            else:
-                # For non-FunctionToolset (including WorkerToolset)
-                tools.append(Tool(
-                    _tool_proxy,
-                    name=entry.name,
-                    description=entry.tool_def.description,
-                    requires_approval=entry.requires_approval,
-                ))
-        return tools
+        tool_def = ToolDefinition(
+            name=self.name,
+            description=description,
+            parameters_json_schema={
+                "type": "object",
+                "properties": {
+                    "input": {"type": "string", "description": "Input prompt for the worker"},
+                },
+                "required": ["input"],
+            },
+        )
+
+        return {self.name: ToolsetTool(
+            toolset=self,
+            tool_def=tool_def,
+            max_retries=0,
+            args_validator=TypeAdapter(WorkerInput).validator,
+        )}
+
+    async def call_tool(
+        self, name: str, tool_args: dict[str, Any], ctx: RunContext[Any], tool: ToolsetTool[Any]
+    ) -> Any:
+        """Execute the worker when called as a tool."""
+        return await self.call(tool_args, ctx.deps, ctx)
 
     def _build_agent(self, resolved_model: ModelType, ctx: "Context") -> Agent["Context", Any]:
-        """Build a PydanticAI agent with tools registered."""
+        """Build a PydanticAI agent with toolsets passed directly."""
         return Agent(
             model=resolved_model,
             instructions=self.instructions,
             output_type=self.schema_out or str,
             deps_type=type(ctx),
-            tools=self._collect_tools(ctx),
+            toolsets=self.toolsets if self.toolsets else None,
         )
 
     def _extract_tool_traces(
@@ -214,7 +162,7 @@ class WorkerEntry:
                     if isinstance(part, ToolReturnPart):
                         tool_returns[part.tool_call_id] = part
 
-        # Track (name, args_json) pairs already traced via ctx.call() at this depth
+        # Track (name, args_json) pairs already traced at this depth
         # This allows repeated calls with different args to be traced
         def _trace_key(name: str, args: Any) -> tuple[str, str]:
             args_json = json.dumps(args, sort_keys=True) if args else ""

@@ -8,7 +8,6 @@ from llm_do.ctx_runtime import (
     load_module,
     discover_toolsets_from_module,
     discover_entries_from_module,
-    expand_toolset_to_entries,
     load_toolsets_from_files,
 )
 
@@ -81,38 +80,6 @@ public_tools = FunctionToolset()
                 assert "public_tools" in toolsets
             finally:
                 os.unlink(f.name)
-
-
-class TestExpandToolset:
-    """Tests for expand_toolset_to_entries."""
-
-    @pytest.mark.anyio
-    async def test_expand_function_toolset(self):
-        """Test expanding a FunctionToolset into entries."""
-        from pydantic_ai.toolsets import FunctionToolset
-
-        toolset = FunctionToolset()
-
-        @toolset.tool
-        def multiply(a: int, b: int) -> int:
-            """Multiply two numbers."""
-            return a * b
-
-        @toolset.tool
-        def divide(a: int, b: int) -> float:
-            """Divide two numbers."""
-            return a / b
-
-        entries = await expand_toolset_to_entries(toolset)
-
-        assert len(entries) == 2
-        names = {e.name for e in entries}
-        assert names == {"multiply", "divide"}
-
-        # Check entry properties
-        for entry in entries:
-            assert entry.kind == "tool"
-            assert entry.toolset is toolset
 
 
 class TestLoadToolsetsFromFiles:

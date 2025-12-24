@@ -7,14 +7,12 @@ This module provides a new runtime architecture that:
 - Provides the `llm-run` CLI entry point
 """
 from .ctx import Context, CallTrace, ToolsProxy, CallableEntry, ApprovalFn, ModelType
-from .registry import Registry
-from .entries import WorkerEntry, ToolsetToolEntry, WorkerToolset
+from .entries import WorkerEntry, ToolEntry
 from .worker_file import WorkerFile, parse_worker_file, load_worker_file
 from .discovery import (
     load_module,
     discover_toolsets_from_module,
     discover_entries_from_module,
-    expand_toolset_to_entries,
     load_toolsets_from_files,
     load_entries_from_files,
 )
@@ -28,12 +26,9 @@ __all__ = [
     "CallableEntry",
     "ApprovalFn",
     "ModelType",
-    # Registry
-    "Registry",
     # Entries
     "WorkerEntry",
-    "ToolsetToolEntry",
-    "WorkerToolset",
+    "ToolEntry",
     # Worker file
     "WorkerFile",
     "parse_worker_file",
@@ -42,7 +37,6 @@ __all__ = [
     "load_module",
     "discover_toolsets_from_module",
     "discover_entries_from_module",
-    "expand_toolset_to_entries",
     "load_toolsets_from_files",
     "load_entries_from_files",
     # Builtins

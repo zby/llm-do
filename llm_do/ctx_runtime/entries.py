@@ -137,6 +137,9 @@ class WorkerEntry(AbstractToolset[Any]):
             output_type=self.schema_out or str,
             deps_type=type(ctx),
             toolsets=self.toolsets if self.toolsets else None,
+            # Use 'exhaustive' to ensure tool calls are executed even when
+            # text output is present in the same response
+            end_strategy="exhaustive",
         )
 
     def _emit_tool_events(self, messages: list[Any], ctx: "Context") -> None:
@@ -160,11 +163,21 @@ class WorkerEntry(AbstractToolset[Any]):
 
         # Emit events for each tool call/result pair
         for call_id, call_part in tool_calls.items():
+            # Parse args from JSON string if needed
+            args = call_part.args
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    args = {}
+            elif not isinstance(args, dict):
+                args = {}
+
             ctx.on_event(ToolCallEvent(
                 worker=self.name,
                 tool_name=call_part.tool_name,
                 tool_call_id=call_id,
-                args=call_part.args if isinstance(call_part.args, dict) else {},
+                args=args,
             ))
 
             return_part = tool_returns.get(call_id)
@@ -214,5 +227,7 @@ class WorkerEntry(AbstractToolset[Any]):
             # Get the final output
             output = await stream.get_output()
 
-        self._emit_tool_events(stream.new_messages(), ctx)
+            # Emit tool events (must be inside context manager)
+            self._emit_tool_events(stream.new_messages(), ctx)
+
         return output

@@ -1,7 +1,6 @@
 ---
 description: Turn free-form tasks into concrete multi-step workflows by designing workers and invoking them
 name: worker_bootstrapper
-model: anthropic:claude-sonnet-4
 toolsets:
   delegation:
     worker_call: {}

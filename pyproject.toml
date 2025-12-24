@@ -34,7 +34,7 @@ dependencies = [
 ]
 
 [project.scripts]
-llm-run = "llm_do.ctx_runtime.cli:main"
+llm-do = "llm_do.ctx_runtime.cli:main"
 llm-do-oauth = "llm_do.oauth_cli:main"
 
 [project.urls]

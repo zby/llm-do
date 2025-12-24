@@ -25,7 +25,7 @@ Test worker
         monkeypatch.delenv("LLM_DO_MODEL", raising=False)
 
         # Mock sys.argv
-        with patch("sys.argv", ["llm-run", str(worker), "hello"]):
+        with patch("sys.argv", ["llm-do", str(worker), "hello"]):
             exit_code = main()
 
         assert exit_code == 1
@@ -36,7 +36,7 @@ Test worker
         worker = tmp_path / "test.worker"
         worker.write_text("No frontmatter here")
 
-        with patch("sys.argv", ["llm-run", str(worker), "hello"]):
+        with patch("sys.argv", ["llm-do", str(worker), "hello"]):
             with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                 exit_code = main()
 
@@ -51,7 +51,7 @@ name: main
 Test worker
 """)
 
-        with patch("sys.argv", ["llm-run", str(worker), "--entry", "nonexistent", "hello"]):
+        with patch("sys.argv", ["llm-do", str(worker), "--entry", "nonexistent", "hello"]):
             with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                 exit_code = main()
 
@@ -70,7 +70,7 @@ Test worker
         with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = KeyboardInterrupt()
 
-            with patch("sys.argv", ["llm-run", str(worker), "hello"]):
+            with patch("sys.argv", ["llm-do", str(worker), "hello"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
@@ -89,7 +89,7 @@ Test worker
         with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = PermissionError("Tool 'write_file' requires approval")
 
-            with patch("sys.argv", ["llm-run", str(worker), "hello"]):
+            with patch("sys.argv", ["llm-do", str(worker), "hello"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
@@ -114,7 +114,7 @@ Test worker
                 body={"error": {"message": "Invalid API key"}},
             )
 
-            with patch("sys.argv", ["llm-run", str(worker), "hello"]):
+            with patch("sys.argv", ["llm-do", str(worker), "hello"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
@@ -134,7 +134,7 @@ Test worker
         with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
-            with patch("sys.argv", ["llm-run", str(worker), "hello"]):
+            with patch("sys.argv", ["llm-do", str(worker), "hello"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
@@ -153,7 +153,7 @@ Test worker
         with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
-            with patch("sys.argv", ["llm-run", str(worker), "-vv", "hello"]):
+            with patch("sys.argv", ["llm-do", str(worker), "-vv", "hello"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
@@ -178,7 +178,7 @@ Test worker
         with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = ValueError("Test error")
 
-            with patch("sys.argv", ["llm-run", str(worker), "hello", "--debug"]):
+            with patch("sys.argv", ["llm-do", str(worker), "hello", "--debug"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     with pytest.raises(ValueError, match="Test error"):
                         main()

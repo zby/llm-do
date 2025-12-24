@@ -4,7 +4,7 @@ This module provides a new runtime architecture that:
 - Uses Context as the central dispatcher
 - Supports toolsets (AbstractToolset, FunctionToolset)
 - Loads tools from Python files and worker declarations
-- Provides the `llm-run` CLI entry point
+- Provides the `llm-do` CLI entry point
 """
 from .ctx import Context, ToolsProxy, CallableEntry, ApprovalFn, ModelType
 from .entries import WorkerEntry, ToolEntry

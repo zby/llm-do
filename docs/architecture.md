@@ -88,7 +88,7 @@ Python toolsets are discovered from `.py` files using `FunctionToolset` (or any 
 ```
 llm_do/
 ├── ctx_runtime/
-│   ├── cli.py          # llm-run entry point
+│   ├── cli.py          # llm-do entry point
 │   ├── ctx.py          # Context dispatcher and depth tracking
 │   ├── entries.py      # WorkerEntry and ToolEntry
 │   ├── worker_file.py  # .worker parser
@@ -108,7 +108,7 @@ llm_do/
 ## Execution Flow
 
 ```
-llm-run CLI
+llm-do CLI
     |
     v
 load_worker_file() + discovery.load_toolsets_from_files()

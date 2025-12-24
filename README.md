@@ -40,10 +40,10 @@ export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
 
 # Run a worker
 cd examples/greeter
-llm-run main.worker "Tell me a joke"
+llm-do main.worker "Tell me a joke"
 ```
 
-`llm-run` executes the entry point named by `--entry` from the files you pass. If omitted, the entry defaults to `main`, so name your entry worker `main` or pass `--entry` explicitly. See [`examples/`](examples/) for more.
+`llm-do` executes the entry point named by `--entry` from the files you pass. If omitted, the entry defaults to `main`, so name your entry worker `main` or pass `--entry` explicitly. See [`examples/`](examples/) for more.
 
 ### OAuth Login (Anthropic Pro/Max)
 
@@ -124,7 +124,7 @@ def sanitize_filename(name: str) -> str:
     return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
 ```
 
-Functions become LLM-callable tools. Reference the toolset name in your worker's `toolsets` config and pass `tools.py` to `llm-run`.
+Functions become LLM-callable tools. Reference the toolset name in your worker's `toolsets` config and pass `tools.py` to `llm-do`.
 
 To access runtime context (for calling other tools/workers), accept a `RunContext` and use `ctx.deps`:
 
@@ -149,16 +149,16 @@ You can also use:
 
 ```bash
 # Run a worker
-llm-run main.worker "input message"
+llm-do main.worker "input message"
 
 # Run a worker with Python toolsets
-llm-run main.worker tools.py "input message"
+llm-do main.worker tools.py "input message"
 
 # Choose a non-default entry
-llm-run orchestrator.worker tools.py --entry orchestrator "input"
+llm-do orchestrator.worker tools.py --entry orchestrator "input"
 
 # Override config at runtime
-llm-run main.worker --set model=anthropic:claude-sonnet-4 "input"
+llm-do main.worker --set model=anthropic:claude-sonnet-4 "input"
 ```
 
 Common flags: `--headless`, `--tui`, `--json`, `-v/-vv`, `--set`, `--approve-all`, `--model`. See [`docs/cli.md`](docs/cli.md) for details.

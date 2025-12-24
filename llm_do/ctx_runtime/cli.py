@@ -2,8 +2,8 @@
 """Run an LLM worker with tools loaded from Python and/or worker files.
 
 Usage:
-    llm-run <worker.worker> [tools.py...] "Your prompt here"
-    llm-run <worker.worker> [tools.py...] --entry NAME "Your prompt"
+    llm-do <worker.worker> [tools.py...] "Your prompt here"
+    llm-do <worker.worker> [tools.py...] --entry NAME "Your prompt"
 
 Supported file types:
     .py     - Python file with toolsets (auto-discovered via isinstance)
@@ -594,7 +594,7 @@ async def _run_tui_mode(
 
 
 def main() -> int:
-    """Main entry point for llm-run CLI.
+    """Main entry point for llm-do CLI.
 
     Returns:
         Exit code (0 for success, 1 for error)

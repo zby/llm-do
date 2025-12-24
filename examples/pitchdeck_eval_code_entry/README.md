@@ -88,12 +88,12 @@ export ANTHROPIC_API_KEY=...
 
 ```bash
 cd examples/pitchdeck_eval_code_entry
-llm-run tools.py pitch_evaluator.worker --entry main --approve-all "Go"
+llm-do tools.py pitch_evaluator.worker --entry main --approve-all "Go"
 ```
 
 Or with a different model:
 ```bash
-llm-run tools.py pitch_evaluator.worker --entry main -m openai:gpt-4o-mini --approve-all "Go"
+llm-do tools.py pitch_evaluator.worker --entry main -m openai:gpt-4o-mini --approve-all "Go"
 ```
 
 ## Files

@@ -3,7 +3,7 @@
 This package provides the context-centric runtime for LLM workers.
 
 Main entry points:
-- llm-run CLI: Run workers from .worker and .py files
+- llm-do CLI: Run workers from .worker and .py files
 - ctx_runtime module: Programmatic API for running workers
 
 Security model: llm-do is designed to run inside a Docker container.

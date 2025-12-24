@@ -1,27 +1,27 @@
 # CLI Reference
 
-The `llm-run` command-line interface executes workers and tools from explicit `.worker` and `.py` files using the context-centric runtime.
+The `llm-do` command-line interface executes workers and tools from explicit `.worker` and `.py` files using the context-centric runtime.
 
 ## Basic Usage
 
 ```bash
 # Run a worker (entry name defaults to "main")
-llm-run main.worker "input message"
+llm-do main.worker "input message"
 
 # Run a worker with Python toolsets
-llm-run main.worker tools.py "input message"
+llm-do main.worker tools.py "input message"
 
 # Choose a non-default entry name
-llm-run orchestrator.worker helper.worker --entry orchestrator "input message"
+llm-do orchestrator.worker helper.worker --entry orchestrator "input message"
 
 # Code entry point (tool function as entry)
-llm-run tools.py pitch_evaluator.worker --entry main "Go"
+llm-do tools.py pitch_evaluator.worker --entry main "Go"
 ```
 
 Provide the prompt via stdin when needed:
 
 ```bash
-echo "input message" | llm-run main.worker
+echo "input message" | llm-do main.worker
 ```
 
 ## OAuth
@@ -86,10 +86,10 @@ Delegated workers use their own `model` fields. If unset, they inherit the entry
 
 ```bash
 # Override model
-llm-run main.worker --set model=anthropic:claude-haiku-4-5 "hello"
+llm-do main.worker --set model=anthropic:claude-haiku-4-5 "hello"
 
 # Override toolset config
-llm-run main.worker \
+llm-do main.worker \
   --set toolsets.filesystem.write_approval=false \
   --set toolsets.shell.default.approval_required=false \
   "task"

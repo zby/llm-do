@@ -82,7 +82,7 @@ The worker's `message_callback` parses raw events and enqueues typed `UIEvent` o
 The default interactive mode uses Textual when stdout is a TTY:
 
 ```
-llm-run main.worker "task"
+llm-do main.worker "task"
 ```
 
 ### Architecture

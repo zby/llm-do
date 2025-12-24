@@ -24,7 +24,7 @@ Ensure all use cases work with the new runtime before porting Textual.
 - [x] Tool approval patterns work (`requires_approval`, `--approve-all`, `_approval_config`)
 - [x] Worker-calls-worker pattern works
 - [x] Code entry pattern works (Python tool as entry point)
-- [ ] Error handling and reporting is adequate
+- [x] Error handling and reporting is adequate
 - [x] `-v` shows tool calls in real-time
 - [x] `-vv` streams LLM text output
 - [x] `--json` outputs parseable event stream
@@ -120,5 +120,5 @@ All toolsets are wrapped with `ApprovalToolset`:
 
 ## Notes
 - Runtime is at `llm_do/ctx_runtime/`
-- 60 tests passing in `tests/runtime/`
+- 73 tests passing in `tests/runtime/`
 - Keep old `llm-do` working during Phase A (deprecated but functional)

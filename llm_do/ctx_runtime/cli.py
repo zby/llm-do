@@ -30,6 +30,12 @@ from pathlib import Path
 from typing import Any, Callable
 
 from pydantic_ai.toolsets import AbstractToolset
+from pydantic_ai.builtin_tools import (
+    CodeExecutionTool,
+    ImageGenerationTool,
+    WebFetchTool,
+    WebSearchTool,
+)
 from pydantic_ai_blocking_approval import ApprovalToolset, ApprovalMemory
 
 from .ctx import Context, ApprovalFn, EventCallback
@@ -45,6 +51,43 @@ from ..ui.display import DisplayBackend, HeadlessDisplayBackend, JsonDisplayBack
 
 
 ENV_MODEL_VAR = "LLM_DO_MODEL"
+
+
+# Registry of server-side tool factories
+_BUILTIN_TOOL_FACTORIES: dict[str, Callable[[dict[str, Any]], Any]] = {
+    "web_search": lambda cfg: WebSearchTool(
+        max_uses=cfg.get("max_uses"),
+        blocked_domains=cfg.get("blocked_domains"),
+        allowed_domains=cfg.get("allowed_domains"),
+    ),
+    "web_fetch": lambda cfg: WebFetchTool(),
+    "code_execution": lambda cfg: CodeExecutionTool(),
+    "image_generation": lambda cfg: ImageGenerationTool(),
+}
+
+
+def _build_builtin_tools(configs: list[dict[str, Any]]) -> list[Any]:
+    """Convert server_side_tools config to PydanticAI builtin_tools.
+
+    Args:
+        configs: List of tool config dicts from worker file (raw YAML)
+
+    Returns:
+        List of PydanticAI builtin tool instances
+    """
+    tools: list[Any] = []
+    for config in configs:
+        tool_type = config.get("tool_type")
+        if not tool_type:
+            raise ValueError("server_side_tools entry must have 'tool_type'")
+        factory = _BUILTIN_TOOL_FACTORIES.get(tool_type)
+        if not factory:
+            raise ValueError(
+                f"Unknown tool_type: {tool_type}. "
+                f"Supported: {', '.join(_BUILTIN_TOOL_FACTORIES.keys())}"
+            )
+        tools.append(factory(config))
+    return tools
 
 
 def _wrap_toolsets_with_approval(
@@ -88,6 +131,7 @@ def _wrap_toolsets_with_approval(
                 toolsets=_wrap_toolsets_with_approval(
                     toolset.toolsets, approve_all, memory
                 ),
+                builtin_tools=toolset.builtin_tools,
                 schema_in=toolset.schema_in,
                 schema_out=toolset.schema_out,
                 requires_approval=toolset.requires_approval,
@@ -237,11 +281,15 @@ async def build_entry(
         # Apply model override only to entry worker
         worker_model = model if name == entry_name else worker_file.model
 
+        # Build builtin tools from server_side_tools config
+        builtin_tools = _build_builtin_tools(worker_file.server_side_tools)
+
         workers[name] = WorkerEntry(
             name=name,
             instructions=worker_file.instructions,
             model=worker_model,
             toolsets=resolved_toolsets,
+            builtin_tools=builtin_tools,
         )
 
         # Update worker_entries with fully built worker
@@ -313,6 +361,7 @@ async def run(
             instructions=entry.instructions,
             model=entry.model or model,
             toolsets=list(entry.toolsets) + additional,
+            builtin_tools=entry.builtin_tools,
             schema_in=entry.schema_in,
             schema_out=entry.schema_out,
         )
@@ -330,6 +379,7 @@ async def run(
                 instructions=entry.instructions,
                 model=entry.model,
                 toolsets=wrapped_toolsets,
+                builtin_tools=entry.builtin_tools,
                 schema_in=entry.schema_in,
                 schema_out=entry.schema_out,
                 requires_approval=entry.requires_approval,
@@ -372,7 +422,12 @@ async def run(
     return result, ctx
 
 
-def main() -> None:
+def main() -> int:
+    """Main entry point for llm-run CLI.
+
+    Returns:
+        Exit code (0 for success, 1 for error)
+    """
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -397,6 +452,11 @@ def main() -> None:
         "--json",
         action="store_true",
         help="Output events as JSON lines (for piping/automation)",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Show full tracebacks on error",
     )
 
     args = parser.parse_args()
@@ -439,15 +499,61 @@ def main() -> None:
             backend.display(event)  # type: ignore[union-attr]
         on_event = on_event_callback
 
-    result, ctx = asyncio.run(run(
-        files, prompt, args.model, args.entry, args.all_tools, args.approve_all,
-        on_event, args.verbose
-    ))
+    # Import error types for handling
+    from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 
-    # Don't print result when streaming (verbosity >= 2) since it was already streamed
-    if args.verbose < 2:
-        print(result)
+    try:
+        result, ctx = asyncio.run(run(
+            files, prompt, args.model, args.entry, args.all_tools, args.approve_all,
+            on_event, args.verbose
+        ))
+
+        # Don't print result when streaming (verbosity >= 2) since it was already streamed
+        if args.verbose < 2:
+            print(result)
+        return 0
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
+    except PermissionError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
+    except ModelHTTPError as e:
+        message = f"Model API error (status {e.status_code}): {e.model_name}"
+        if e.body and isinstance(e.body, dict):
+            error_info = e.body.get("error", {})
+            if isinstance(error_info, dict):
+                msg = error_info.get("message", "")
+                if msg:
+                    message = f"{message}\n  {msg}"
+        print(message, file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
+    except (UnexpectedModelBehavior, UserError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
+    except KeyboardInterrupt:
+        print("\nAborted by user", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

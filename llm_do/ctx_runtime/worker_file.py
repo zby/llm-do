@@ -36,6 +36,7 @@ class WorkerFile:
     instructions: str
     model: str | None = None
     toolsets: dict[str, dict[str, Any]] = field(default_factory=dict)
+    server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
 
 
 def parse_worker_file(content: str) -> WorkerFile:
@@ -81,12 +82,18 @@ def parse_worker_file(content: str) -> WorkerFile:
                 raise ValueError(f"Invalid config for toolset '{toolset_name}': expected YAML mapping")
             toolsets[toolset_name] = toolset_config
 
+    # Parse server_side_tools section (pass through to PydanticAI)
+    server_side_tools = frontmatter.get("server_side_tools", [])
+    if server_side_tools and not isinstance(server_side_tools, list):
+        raise ValueError("Invalid server_side_tools: expected YAML list")
+
     return WorkerFile(
         name=name,
         description=frontmatter.get("description"),
         instructions=instructions.strip(),
         model=frontmatter.get("model"),
         toolsets=toolsets,
+        server_side_tools=server_side_tools,
     )
 
 

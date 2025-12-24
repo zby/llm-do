@@ -168,3 +168,87 @@ Instructions.
 
         assert result.name == "test_worker"
         assert result.model is None
+
+    def test_server_side_tools_web_search(self):
+        """Test parsing server_side_tools with web_search."""
+        content = """\
+---
+name: searcher
+model: anthropic:claude-haiku-4-5
+server_side_tools:
+  - tool_type: web_search
+    max_uses: 3
+---
+Use web search to find information.
+"""
+        result = parse_worker_file(content)
+
+        assert result.name == "searcher"
+        assert len(result.server_side_tools) == 1
+        assert result.server_side_tools[0]["tool_type"] == "web_search"
+        assert result.server_side_tools[0]["max_uses"] == 3
+
+    def test_server_side_tools_with_domains(self):
+        """Test parsing server_side_tools with domain filtering."""
+        content = """\
+---
+name: searcher
+server_side_tools:
+  - tool_type: web_search
+    allowed_domains:
+      - wikipedia.org
+      - docs.python.org
+---
+Instructions.
+"""
+        result = parse_worker_file(content)
+
+        assert len(result.server_side_tools) == 1
+        tool = result.server_side_tools[0]
+        assert tool["tool_type"] == "web_search"
+        assert tool["allowed_domains"] == ["wikipedia.org", "docs.python.org"]
+
+    def test_server_side_tools_multiple(self):
+        """Test parsing multiple server_side_tools."""
+        content = """\
+---
+name: enhanced
+server_side_tools:
+  - tool_type: web_search
+  - tool_type: code_execution
+  - tool_type: image_generation
+---
+Instructions.
+"""
+        result = parse_worker_file(content)
+
+        assert len(result.server_side_tools) == 3
+        types = [t["tool_type"] for t in result.server_side_tools]
+        assert "web_search" in types
+        assert "code_execution" in types
+        assert "image_generation" in types
+
+    def test_server_side_tools_invalid_format_raises(self):
+        """Test that invalid server_side_tools format raises ValueError."""
+        content = """\
+---
+name: main
+server_side_tools:
+  web_search: {}
+---
+Instructions.
+"""
+        with pytest.raises(ValueError, match="expected YAML list"):
+            parse_worker_file(content)
+
+    def test_server_side_tools_defaults_to_empty_list(self):
+        """Test that server_side_tools defaults to empty list."""
+        content = """\
+---
+name: basic
+---
+Instructions.
+"""
+        result = parse_worker_file(content)
+
+        assert result.server_side_tools == []

@@ -88,6 +88,7 @@ class WorkerEntry(AbstractToolset[Any]):
     instructions: str
     model: ModelType | None = None
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
+    builtin_tools: list[Any] = field(default_factory=list)  # PydanticAI builtin tools
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[BaseModel]] = None
     schema_out: Optional[Type[BaseModel]] = None
@@ -137,6 +138,7 @@ class WorkerEntry(AbstractToolset[Any]):
             output_type=self.schema_out or str,
             deps_type=type(ctx),
             toolsets=self.toolsets if self.toolsets else None,
+            builtin_tools=self.builtin_tools,  # Pass list (empty list is fine)
             # Use 'exhaustive' to ensure tool calls are executed even when
             # text output is present in the same response
             end_strategy="exhaustive",

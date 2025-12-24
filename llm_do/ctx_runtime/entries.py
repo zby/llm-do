@@ -17,6 +17,8 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
+from ..ui.events import TextResponseEvent
+
 
 class WorkerInput(BaseModel):
     """Input schema for workers."""
@@ -200,7 +202,35 @@ class WorkerEntry(AbstractToolset[Any]):
 
         agent = self._build_agent(resolved_model, ctx)
         prompt = _format_prompt(input_data)
-        result = await agent.run(prompt, deps=ctx, model_settings=self.model_settings)
+
+        # Use streaming if verbosity >= 2 and on_event callback is set
+        if ctx.verbosity >= 2 and ctx.on_event is not None:
+            output = await self._run_streaming(agent, prompt, ctx)
+        else:
+            result = await agent.run(prompt, deps=ctx, model_settings=self.model_settings)
+            # Extract and append tool traces from PydanticAI messages (skip duplicates)
+            tool_traces = self._extract_tool_traces(result.new_messages(), ctx.depth, ctx.trace)
+            ctx.trace.extend(tool_traces)
+            output = result.output
+
+        return output
+
+    async def _run_streaming(
+        self, agent: Agent["Context", Any], prompt: str, ctx: "Context"
+    ) -> Any:
+        """Run agent with streaming, emitting text deltas."""
+        async with agent.run_stream(prompt, deps=ctx, model_settings=self.model_settings) as stream:
+            # Stream text deltas
+            async for chunk in stream.stream_text(delta=True):
+                if ctx.on_event:
+                    ctx.on_event(TextResponseEvent(
+                        worker=self.name,
+                        content=chunk,
+                        is_delta=True,
+                    ))
+
+            # Get the final result
+            result = await stream.get_result()
 
         # Extract and append tool traces from PydanticAI messages (skip duplicates)
         tool_traces = self._extract_tool_traces(result.new_messages(), ctx.depth, ctx.trace)

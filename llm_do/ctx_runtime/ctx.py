@@ -13,10 +13,11 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Generic, Iterator, Optional, Protocol, TYPE_CHECKING, TypeVar
 
 from pydantic_ai.toolsets import AbstractToolset
-from pydantic_ai.usage import Usage
+from pydantic_ai.usage import RunUsage
 from pydantic_ai.tools import RunContext
 
 from ..model_compat import select_model
+from ..ui.events import UIEvent
 
 if TYPE_CHECKING:
     from .entries import CallableEntry
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 
 ModelType = str
 ApprovalFn = Callable[["CallableEntry", Any], bool]
+EventCallback = Callable[[UIEvent], None]
 
 T = TypeVar("T")
 
@@ -120,6 +122,8 @@ class Context:
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
         on_trace: Optional[TraceCallback] = None,
+        on_event: Optional[EventCallback] = None,
+        verbosity: int = 0,
     ) -> "Context":
         """Create a Context for running an entry.
 
@@ -129,6 +133,8 @@ class Context:
             approval: Approval callback for tool execution
             max_depth: Maximum call depth
             on_trace: Optional callback invoked when trace entries are added
+            on_event: Optional callback for general UI events (streaming text, etc.)
+            verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
 
         Returns:
             Context configured for the entry
@@ -151,6 +157,8 @@ class Context:
             approval=approval,
             max_depth=max_depth,
             on_trace=on_trace,
+            on_event=on_event,
+            verbosity=verbosity,
         )
 
     def __init__(
@@ -162,10 +170,12 @@ class Context:
         max_depth: int = 5,
         depth: int = 0,
         trace: Optional[ObservableList[CallTrace]] = None,
-        usage: Optional[dict[str, Usage]] = None,
+        usage: Optional[dict[str, RunUsage]] = None,
         prompt: str = "",
         messages: Optional[list[Any]] = None,
         on_trace: Optional[TraceCallback] = None,
+        on_event: Optional[EventCallback] = None,
+        verbosity: int = 0,
     ) -> None:
         self.toolsets = toolsets
         self.model = model
@@ -177,16 +187,18 @@ class Context:
         self.prompt = prompt
         self.messages = messages if messages is not None else []
         self.tools = ToolsProxy(self)
+        self.on_event = on_event
+        self.verbosity = verbosity
 
     def _resolve_model(self, entry: CallableEntry) -> ModelType:
         """Resolve model: entry's model if specified, otherwise context's default."""
         return entry.model if entry.model is not None else self.model
 
-    def _get_usage(self, model: ModelType) -> Usage:
-        """Get or create Usage tracker for a model."""
+    def _get_usage(self, model: ModelType) -> RunUsage:
+        """Get or create RunUsage tracker for a model."""
         key = str(model)
         if key not in self.usage:
-            self.usage[key] = Usage()
+            self.usage[key] = RunUsage()
         return self.usage[key]
 
     def _make_run_context(
@@ -222,6 +234,8 @@ class Context:
             usage=self.usage,
             prompt=self.prompt,
             messages=self.messages,
+            on_event=self.on_event,
+            verbosity=self.verbosity,
         )
 
     async def run(self, entry: CallableEntry, input_data: Any) -> Any:

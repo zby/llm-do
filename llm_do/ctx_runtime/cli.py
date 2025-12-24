@@ -31,7 +31,7 @@ from typing import Any, Callable
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .ctx import Context, ApprovalFn, CallTrace, TraceCallback
+from .ctx import Context, ApprovalFn, CallTrace, TraceCallback, EventCallback
 from .entries import WorkerEntry, ToolEntry
 from .worker_file import load_worker_file
 from .discovery import (
@@ -247,6 +247,8 @@ async def run(
     all_tools: bool = False,
     approve_all: bool = False,
     on_trace: TraceCallback | None = None,
+    on_event: EventCallback | None = None,
+    verbosity: int = 0,
 ) -> tuple[str, Context]:
     """Load entries and run with the given prompt.
 
@@ -258,6 +260,8 @@ async def run(
         all_tools: If True, make all entries available to the entry worker
         approve_all: If True, auto-approve all tool calls
         on_trace: Optional callback for trace events (real-time progress)
+        on_event: Optional callback for general UI events (streaming text)
+        verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
 
     Returns:
         Tuple of (result, context)
@@ -308,6 +312,8 @@ async def run(
         model=model,
         approval=approval,
         on_trace=on_trace,
+        on_event=on_event,
+        verbosity=verbosity,
     )
 
     result = await ctx.run(entry, {"input": prompt})
@@ -372,6 +378,7 @@ def main() -> None:
     # Set up display backend based on flags
     backend: DisplayBackend | None = None
     on_trace: TraceCallback | None = None
+    on_event: EventCallback | None = None
 
     if args.json:
         backend = JsonDisplayBackend(stream=sys.stderr)
@@ -384,8 +391,13 @@ def main() -> None:
             backend.display(event)  # type: ignore[union-attr]
         on_trace = on_trace_callback
 
+        def on_event_callback(event: UIEvent) -> None:
+            backend.display(event)  # type: ignore[union-attr]
+        on_event = on_event_callback
+
     result, ctx = asyncio.run(run(
-        files, prompt, args.model, args.entry, args.all_tools, args.approve_all, on_trace
+        files, prompt, args.model, args.entry, args.all_tools, args.approve_all,
+        on_trace, on_event, args.verbose
     ))
     print(result)
 

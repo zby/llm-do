@@ -2,6 +2,7 @@
 
 ## Prerequisites
 - [x] 60-context-runtime-llm-run (complete)
+- [x] 80-llm-run-streaming-events (complete)
 - [ ] Decision to switch interactive UI to the new runtime
 
 ## Goal
@@ -18,6 +19,7 @@ Port the Textual CLI to the new context-centric runtime, then remove the legacy 
 - [ ] Port Textual CLI to use `llm_do/ctx_runtime` execution flow
 - [ ] Verify approvals/tool loading behave identically in the UI
 - [ ] Wire interactive approval prompts (replaces headless PermissionError)
+- [ ] Connect `on_event` callback to Textual UI for real-time updates
 
 ### Cleanup
 - [ ] Remove legacy runtime modules and related CLI paths
@@ -30,28 +32,35 @@ Port the Textual CLI to the new context-centric runtime, then remove the legacy 
 - [ ] Run `uv run pytest` and fix any breakage
 
 ## Current State
-Ready to start. Task 60 complete - `llm_do/ctx_runtime` + `llm-run` headless CLI are implemented.
+Ready to start. Tasks 60 and 80 complete - `llm_do/ctx_runtime` + `llm-run` CLI with streaming events are implemented.
 
-### Type System (from task 60)
-The new runtime uses 3 core types:
+### Type System
+The new runtime uses these core types:
 
 | Type | Purpose |
 |------|---------|
-| **ToolsetToolEntry** | Any tool (from FunctionToolset, ShellToolset, WorkerToolset, etc.) |
-| **WorkerEntry** | LLM-powered worker that can call tools |
-| **WorkerToolset** | Adapter wrapping WorkerEntry as AbstractToolset |
-
-All tools are unified as `ToolsetToolEntry` - the separate `ToolEntry` type was removed.
+| `Context` | Central dispatcher - manages toolsets, depth, model resolution, event emission |
+| `WorkerEntry` | LLM-powered worker that IS an AbstractToolset (can be composed into other workers) |
+| `ToolEntry` | Wrapper for code entry pattern (Python tool as entry point) |
+| `EventCallback` | `Callable[[UIEvent], None]` for real-time progress updates |
 
 ### Key APIs
-- `build_entry(worker_files, python_files, model, entry_name)` - builds entry (worker or tool) with all toolsets resolved
-  - Returns `(entry, available_tools)` tuple
-  - For tool entries, `available_tools` contains workers the tool can call
-- Workers-as-toolsets: pass multiple `.worker` files to CLI, they can reference each other by name
-- Tool entry pattern: Python function from FunctionToolset can be entry point, gets access to workers
+- `build_entry(worker_files, python_files, model, entry_name)` → `ToolEntry | WorkerEntry`
+  - Returns entry with `toolsets` attribute populated
+  - Workers can reference other workers by name in their toolsets
+- `Context.from_entry(entry, model, on_event, verbosity)` - creates execution context
+- `ctx.run(entry, input_data)` - executes the entry
+- `ctx.call(name, args)` - programmatic tool invocation (searches across toolsets)
+
+### Event System
+- `on_event: EventCallback` passed to Context, inherited by children
+- `verbosity: int` controls detail level (0=quiet, 1=tool events, 2=streaming)
+- Events emitted: `ToolCallEvent`, `ToolResultEvent`, `TextResponseEvent`
+- Display backends: `HeadlessDisplayBackend`, `JsonDisplayBackend`
 
 ## Notes
 - Runtime is at `llm_do/ctx_runtime/` (named to avoid conflict with existing `llm_do/runtime.py`)
-- Keep this phase focused: once Textual CLI is ported, delete old runtime code.
-- The headless `llm-run` from task 60 raises `PermissionError` for unapproved tools; this task adds interactive prompts.
-- 58 tests passing in `tests/runtime/`
+- Keep this phase focused: once Textual CLI is ported, delete old runtime code
+- The headless `llm-run` raises `PermissionError` for unapproved tools; this task adds interactive prompts
+- 59 tests passing in `tests/runtime/`
+- CallTrace removed in favor of event-based progress tracking

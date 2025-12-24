@@ -6,11 +6,12 @@ tools and workers through:
 - Depth tracking to prevent infinite recursion
 - Execution tracing for debugging
 - Model resolution (entry-level or context-default)
+- Event emission for real-time progress updates
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Generic, Iterator, Optional, Protocol, TYPE_CHECKING, TypeVar
+from typing import Any, Awaitable, Callable, Optional, Protocol, TYPE_CHECKING
 
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
@@ -26,41 +27,6 @@ if TYPE_CHECKING:
 ModelType = str
 ApprovalFn = Callable[["CallableEntry", Any], bool]
 EventCallback = Callable[[UIEvent], None]
-
-T = TypeVar("T")
-
-
-class ObservableList(Generic[T]):
-    """A list wrapper that notifies a callback when items are added."""
-
-    def __init__(
-        self,
-        initial: list[T] | None = None,
-        on_append: Callable[[T], None] | None = None,
-    ) -> None:
-        self._items: list[T] = initial if initial is not None else []
-        self._on_append = on_append
-
-    def append(self, item: T) -> None:
-        self._items.append(item)
-        if self._on_append:
-            self._on_append(item)
-
-    def extend(self, items: list[T]) -> None:
-        for item in items:
-            self.append(item)
-
-    def __iter__(self) -> Iterator[T]:
-        return iter(self._items)
-
-    def __len__(self) -> int:
-        return len(self._items)
-
-    def __getitem__(self, index: int) -> T:
-        return self._items[index]
-
-
-TraceCallback = Callable[["CallTrace"], None]
 
 
 @dataclass
@@ -121,7 +87,6 @@ class Context:
         *,
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
-        on_trace: Optional[TraceCallback] = None,
         on_event: Optional[EventCallback] = None,
         verbosity: int = 0,
     ) -> "Context":
@@ -132,8 +97,7 @@ class Context:
             model: Model override (uses entry.model if not provided)
             approval: Approval callback for tool execution
             max_depth: Maximum call depth
-            on_trace: Optional callback invoked when trace entries are added
-            on_event: Optional callback for general UI events (streaming text, etc.)
+            on_event: Optional callback for UI events (tool calls, streaming text)
             verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
 
         Returns:
@@ -156,7 +120,6 @@ class Context:
             model=resolved_model,
             approval=approval,
             max_depth=max_depth,
-            on_trace=on_trace,
             on_event=on_event,
             verbosity=verbosity,
         )
@@ -169,11 +132,10 @@ class Context:
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
         depth: int = 0,
-        trace: Optional[ObservableList[CallTrace]] = None,
+        trace: Optional[list[CallTrace]] = None,
         usage: Optional[dict[str, RunUsage]] = None,
         prompt: str = "",
         messages: Optional[list[Any]] = None,
-        on_trace: Optional[TraceCallback] = None,
         on_event: Optional[EventCallback] = None,
         verbosity: int = 0,
     ) -> None:
@@ -182,7 +144,7 @@ class Context:
         self.approval = approval or (lambda entry, input_data: True)
         self.max_depth = max_depth
         self.depth = depth
-        self.trace = trace if trace is not None else ObservableList(on_append=on_trace)
+        self.trace: list[CallTrace] = trace if trace is not None else []
         self.usage = usage if usage is not None else {}
         self.prompt = prompt
         self.messages = messages if messages is not None else []

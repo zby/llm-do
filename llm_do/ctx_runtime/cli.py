@@ -31,7 +31,7 @@ from typing import Any, Callable
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .ctx import Context, ApprovalFn, CallTrace, TraceCallback, EventCallback
+from .ctx import Context, ApprovalFn, EventCallback
 from .entries import WorkerEntry, ToolEntry
 from .worker_file import load_worker_file
 from .discovery import (
@@ -39,54 +39,11 @@ from .discovery import (
     load_entries_from_files,
 )
 from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
-from ..ui.events import ToolCallEvent, ToolResultEvent, StatusEvent, ErrorEvent, UIEvent
+from ..ui.events import UIEvent
 from ..ui.display import DisplayBackend, HeadlessDisplayBackend, JsonDisplayBackend
 
 
 ENV_MODEL_VAR = "LLM_DO_MODEL"
-
-
-def trace_to_event(trace: CallTrace) -> UIEvent:
-    """Convert a CallTrace to the appropriate UIEvent."""
-    if trace.kind == "tool":
-        if trace.error:
-            return ToolResultEvent(
-                worker="",
-                tool_name=trace.name,
-                content=trace.error,
-                is_error=True,
-            )
-        elif trace.output_data is not None:
-            return ToolResultEvent(
-                worker="",
-                tool_name=trace.name,
-                content=trace.output_data,
-            )
-        else:
-            return ToolCallEvent(
-                worker="",
-                tool_name=trace.name,
-                args=trace.input_data if isinstance(trace.input_data, dict) else {},
-            )
-    else:  # worker/entry
-        if trace.error:
-            return ErrorEvent(
-                worker=trace.name,
-                message=trace.error,
-                error_type="ExecutionError",
-            )
-        elif trace.output_data is not None:
-            return StatusEvent(
-                worker=trace.name,
-                phase="execution",
-                state="completed",
-            )
-        else:
-            return StatusEvent(
-                worker=trace.name,
-                phase="execution",
-                state="started",
-            )
 
 
 async def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
@@ -246,7 +203,6 @@ async def run(
     entry_name: str | None = None,
     all_tools: bool = False,
     approve_all: bool = False,
-    on_trace: TraceCallback | None = None,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
 ) -> tuple[str, Context]:
@@ -259,8 +215,7 @@ async def run(
         entry_name: Optional entry point name (default: "main")
         all_tools: If True, make all entries available to the entry worker
         approve_all: If True, auto-approve all tool calls
-        on_trace: Optional callback for trace events (real-time progress)
-        on_event: Optional callback for general UI events (streaming text)
+        on_event: Optional callback for UI events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
 
     Returns:
@@ -311,7 +266,6 @@ async def run(
         entry,
         model=model,
         approval=approval,
-        on_trace=on_trace,
         on_event=on_event,
         verbosity=verbosity,
     )
@@ -377,7 +331,6 @@ def main() -> None:
 
     # Set up display backend based on flags
     backend: DisplayBackend | None = None
-    on_trace: TraceCallback | None = None
     on_event: EventCallback | None = None
 
     if args.json:
@@ -386,18 +339,13 @@ def main() -> None:
         backend = HeadlessDisplayBackend(stream=sys.stderr, verbosity=args.verbose)
 
     if backend:
-        def on_trace_callback(trace: CallTrace) -> None:
-            event = trace_to_event(trace)
-            backend.display(event)  # type: ignore[union-attr]
-        on_trace = on_trace_callback
-
         def on_event_callback(event: UIEvent) -> None:
             backend.display(event)  # type: ignore[union-attr]
         on_event = on_event_callback
 
     result, ctx = asyncio.run(run(
         files, prompt, args.model, args.entry, args.all_tools, args.approve_all,
-        on_trace, on_event, args.verbose
+        on_event, args.verbose
     ))
     print(result)
 

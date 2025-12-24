@@ -20,18 +20,19 @@ Phased approach to reduce risk:
 Ensure all use cases work with the new runtime before porting Textual.
 
 ### Feature Parity Checklist
-- [ ] All example workers execute correctly
-- [ ] Tool approval patterns work (`requires_approval`, `--approve-all`)
-- [ ] Worker-calls-worker pattern works
-- [ ] Code entry pattern works (Python tool as entry point)
+- [x] All example workers execute correctly
+- [x] Tool approval patterns work (`requires_approval`, `--approve-all`, `_approval_config`)
+- [x] Worker-calls-worker pattern works
+- [x] Code entry pattern works (Python tool as entry point)
 - [ ] Error handling and reporting is adequate
-- [ ] `-v` shows tool calls in real-time
-- [ ] `-vv` streams LLM text output
-- [ ] `--json` outputs parseable event stream
+- [x] `-v` shows tool calls in real-time
+- [x] `-vv` streams LLM text output
+- [x] `--json` outputs parseable event stream
 
 ### Missing Features (if any)
-- [ ] Identify gaps vs old `llm-do` CLI
-- [ ] Implement missing features
+- [x] Identify gaps vs old `llm-do` CLI
+- [x] ApprovalToolset wrapping (secure by default)
+- [x] Event emission from `ctx.call()` for code entry visibility
 
 ---
 
@@ -92,7 +93,32 @@ Once `llm-run` is validated, port the interactive UI.
 - Events: `ToolCallEvent`, `ToolResultEvent`, `TextResponseEvent`
 - Display backends: `HeadlessDisplayBackend`, `JsonDisplayBackend`
 
+## Design Decisions
+
+### No Built-in Jinja Templating
+The old runtime supported Jinja2 templating in `.worker` file instructions. The new runtime intentionally omits this:
+
+- **Code entry pattern is the escape hatch**: Users who need templating can use a Python code entry point and use any templating engine they prefer (Jinja, Mako, f-strings, etc.)
+- **Simpler runtime**: No templating complexity in the core runtime
+- **More flexible**: Not locked into Jinja syntax
+
+Example pattern for templating:
+```python
+@tools.tool
+async def main(ctx: RunContext[Context], input: str) -> str:
+    from jinja2 import Template
+    template = Template(Path("prompts/evaluate.j2").read_text())
+    prompt = template.render(input=input)
+    return await ctx.deps.call("evaluator", {"input": prompt})
+```
+
+### Secure by Default Approvals
+All toolsets are wrapped with `ApprovalToolset`:
+- Toolsets with `needs_approval()` method use that (FileSystemToolset, ShellToolset)
+- Toolsets with `_approval_config` use config-based per-tool pre-approval
+- Other toolsets require approval for all tools unless `--approve-all`
+
 ## Notes
 - Runtime is at `llm_do/ctx_runtime/`
-- 59 tests passing in `tests/runtime/`
+- 60 tests passing in `tests/runtime/`
 - Keep old `llm-do` working during Phase A (deprecated but functional)

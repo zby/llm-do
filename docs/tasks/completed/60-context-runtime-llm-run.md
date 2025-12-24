@@ -208,7 +208,7 @@ llm-run examples-new/calculator/main.worker examples-new/calculator/tools.py "Wh
 ### Tests
 - [x] Create `tests/runtime/` directory structure
 - [x] Port/create `test_context.py` - Context and CallTrace unit tests
-- [ ] Port `test_custom_tools.py` for new runtime (deferred - not blocking)
+- N/A Port `test_custom_tools.py` - CustomToolset pattern replaced by FunctionToolset (already tested in test_examples.py)
 - [x] Port `test_examples.py` for `examples-new/` (30 tests)
 - [x] Verify `test_shell.py` works unchanged (39 tests pass)
 
@@ -256,8 +256,8 @@ tests/runtime/
 |-----------|-------|--------|-------|
 | `test_pydanticai_base.py` | 484 | [ ] | Adapt to new Context/Entry API |
 | `test_worker_delegation.py` | 634 | [ ] | Adapt to new delegation model |
-| `test_custom_tools.py` | 408 | [ ] | Port to `tests/runtime/` |
-| `test_examples.py` | 364 | [ ] | New version for `examples-new/` |
+| `test_custom_tools.py` | 408 | N/A | CustomToolset replaced by FunctionToolset |
+| `test_examples.py` | 364 | [x] | New version for `examples-new/` |
 
 ### Tier 2: Toolset Tests (~230 lines) - Adapt for New Runtime
 | Test File | Lines | Status | Notes |

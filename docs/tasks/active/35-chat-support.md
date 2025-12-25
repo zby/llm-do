@@ -182,7 +182,7 @@ Turn 2+:
    - Each turn respects same approval rules
 
 ## Current State
-Phase 1, 4, 5, and 6 are now wired for the new architecture: message history is passed into `agent.run()` / `agent.run_stream()`, `Context` stores it, and the TUI uses a `run_turn` callback with `auto_quit=False` so follow-ups stay in the same session. Display backends are restored across TUI/headless/JSON, and the input supports history, multi-line entry, turn separators, and exit confirmation. Remaining work: none in this task.
+Phase 1, 4, 5, and 6 are now wired for the new architecture: message history is passed into `agent.run()` / `agent.run_stream()`, `Context` stores it, and the TUI uses a `run_turn` callback with `auto_quit=False` so follow-ups stay in the same session. Display backends are restored across TUI/headless/JSON, and the input supports history, multi-line entry, turn separators, and exit confirmation. Multi-turn chat is gated behind `--chat` in the CLI. Remaining work: none in this task.
 
 ## Notes
 - pydantic-ai agents support conversation history via `message_history` parameter

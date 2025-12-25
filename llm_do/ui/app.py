@@ -6,7 +6,6 @@ All event discrimination happens once, in the parser.
 from __future__ import annotations
 
 import asyncio
-import time
 from typing import Any, Callable, Coroutine
 
 from textual import events
@@ -101,6 +100,8 @@ class LlmDoApp(App[None]):
 
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", show=True),
+        Binding("ctrl+j", "submit_message", "Send", show=True, key_display="Ctrl+J"),
+        Binding("ctrl+m", "submit_message", "Send", show=False),
         Binding("q", "quit_if_idle", "Quit", show=False),
         Binding("a", "approve", "Approve", show=False),
         Binding("s", "approve_session", "Approve Session", show=False),
@@ -132,7 +133,7 @@ class LlmDoApp(App[None]):
         self._input_history: list[str] = []
         self._input_history_index: int | None = None
         self._input_history_draft: str = ""
-        self._exit_requested_at: float | None = None
+        self._exit_requested: bool = False
         self.final_result: str | None = None
 
     def compose(self) -> ComposeResult:
@@ -146,7 +147,7 @@ class LlmDoApp(App[None]):
                 show_line_numbers=False,
                 soft_wrap=True,
                 tab_behavior="focus",
-                placeholder="Enter message...",
+                placeholder="Enter for newline; Ctrl+J to send",
             ),
             id="input-container",
         )
@@ -292,26 +293,25 @@ class LlmDoApp(App[None]):
     def action_quit_if_idle(self) -> None:
         """Quit the app if the input isn't active."""
         if not self._input_is_active():
-            now = time.monotonic()
-            if self._exit_requested_at is None or now - self._exit_requested_at > 2:
-                self._exit_requested_at = now
+            if not self._exit_requested:
+                self._exit_requested = True
                 messages = self.query_one("#messages", MessageContainer)
                 messages.add_status("Press 'q' again to exit.")
                 return
             self.action_quit()
 
+    def action_submit_message(self) -> None:
+        """Submit the current input if it is active."""
+        if self._input_is_active():
+            self._submit_current_input()
+
     def on_key(self, event: events.Key) -> None:
         """Handle key events for submission and history."""
         if not self._input_is_active():
             return
-        if event.key == "enter":
+        if event.key in {"ctrl+j", "ctrl+m"}:
             event.prevent_default().stop()
             self._submit_current_input()
-            return
-        if event.key == "shift+enter":
-            event.prevent_default().stop()
-            user_input = self.query_one("#user-input", TextArea)
-            user_input.insert("\n")
             return
         if event.key == "up":
             if self._history_previous():
@@ -333,7 +333,7 @@ class LlmDoApp(App[None]):
         if not user_text:
             return
         user_input.text = ""
-        self._exit_requested_at = None
+        self._exit_requested = False
         self._input_history.append(user_text)
         self._input_history_index = None
         self._input_history_draft = ""

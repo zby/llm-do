@@ -119,6 +119,18 @@ Without `--approve-all`, approvals are interactive only in TUI mode. In headless
 - `-v` shows tool calls and status updates.
 - `-vv` streams model text deltas.
 
+## Chat Mode
+
+Use `--chat` to keep the TUI open for multi-turn conversations. Chat mode requires the TUI (either a TTY or `--tui`).
+
+```bash
+llm-do main.worker "hello" --chat
+```
+
+Input behavior in chat mode:
+- `Enter` inserts a newline.
+- `Ctrl+J` sends the message.
+
 ## Debugging
 
 **`--debug`** prints full tracebacks on errors.

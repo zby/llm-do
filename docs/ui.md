@@ -121,6 +121,18 @@ Worker Events -> parse_event -> UIEvent queue -> TextualDisplayBackend -> LlmDoA
 - **No TTY:** Falls back to headless rendering. Use `-v` or `-vv` for event output.
 - **Force modes:** `--tui` forces interactive UI; `--headless` disables it.
 
+### Chat Mode
+
+Use `--chat` to keep the TUI open for multi-turn conversations:
+
+```
+llm-do main.worker "hello" --chat
+```
+
+Input behavior in chat mode:
+- `Enter` inserts a newline.
+- `Ctrl+J` sends the message.
+
 ## Future Work
 
 - **Streaming markdown**: Progressive markdown rendering in `AssistantMessage`

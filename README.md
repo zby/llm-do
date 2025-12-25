@@ -161,7 +161,7 @@ llm-do orchestrator.worker tools.py --entry orchestrator "input"
 llm-do main.worker --set model=anthropic:claude-sonnet-4 "input"
 ```
 
-Common flags: `--headless`, `--tui`, `--json`, `-v/-vv`, `--set`, `--approve-all`, `--model`. See [`docs/cli.md`](docs/cli.md) for details.
+Common flags: `--headless`, `--tui`, `--chat`, `--json`, `-v/-vv`, `--set`, `--approve-all`, `--model`. See [`docs/cli.md`](docs/cli.md) for details.
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
 
@@ -193,7 +193,7 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 
 **Working:** Worker resolution, worker delegation, approvals, custom tools.
 
-**TUI:** The interactive terminal UI (Textual-based) is experimental. Use `--headless` for non-interactive mode.
+**TUI:** The interactive terminal UI (Textual-based) is experimental. Use `--chat` to keep it open for multi-turn input, or `--headless` for non-interactive mode.
 
 ## Security
 

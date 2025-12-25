@@ -456,6 +456,7 @@ async def _run_tui_mode(
     entry_name: str | None = None,
     approve_all: bool = False,
     verbosity: int = 0,
+    chat: bool = False,
     debug: bool = False,
     set_overrides: list[str] | None = None,
 ) -> int:
@@ -596,6 +597,8 @@ async def _run_tui_mode(
         history = await run_turn(prompt, None)
         if history is not None and app is not None:
             app._message_history = history
+        if not chat:
+            render_queue.put_nowait(None)
         return worker_exit_code[0]
 
     # Create the Textual app with worker coroutine
@@ -603,8 +606,8 @@ async def _run_tui_mode(
         tui_event_queue,
         approval_queue,
         worker_coro=run_worker_in_background(),
-        run_turn=run_turn,
-        auto_quit=False,
+        run_turn=run_turn if chat else None,
+        auto_quit=not chat,
     )
 
     # Run with mouse disabled to allow terminal text selection
@@ -726,6 +729,11 @@ def main() -> int:
         help="Force TUI mode (interactive UI)",
     )
     parser.add_argument(
+        "--chat",
+        action="store_true",
+        help="Enable multi-turn chat mode in the TUI",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Show full tracebacks on error",
@@ -786,6 +794,10 @@ def main() -> int:
     use_tui = args.tui or (sys.stdout.isatty() and not args.headless and not args.json)
 
     # TUI mode
+    if args.chat and not use_tui:
+        print("Chat mode requires TUI (--tui or a TTY).", file=sys.stderr)
+        return 1
+
     if use_tui:
         tui_verbosity = args.verbose if args.verbose > 0 else 1
         return asyncio.run(_run_tui_mode(
@@ -795,6 +807,7 @@ def main() -> int:
             entry_name=args.entry,
             approve_all=args.approve_all,
             verbosity=tui_verbosity,
+            chat=args.chat,
             debug=args.debug,
             set_overrides=args.set_overrides or None,
         ))

@@ -18,7 +18,7 @@ from textual.widgets import Footer, Header, TextArea
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from .events import ApprovalRequestEvent, CompletionEvent, ErrorEvent, TextResponseEvent, UIEvent
-from .widgets.messages import ApprovalMessage, MessageContainer
+from .widgets.messages import ApprovalPanel, MessageContainer
 
 
 class LlmDoApp(App[None]):
@@ -129,7 +129,7 @@ class LlmDoApp(App[None]):
         self._approval_queue: deque[ApprovalRequest] = deque()
         self._approval_batch_total = 0
         self._approval_batch_index = 0
-        self._approval_message: ApprovalMessage | None = None
+        self._approval_panel: ApprovalPanel | None = None
         self._worker_task: asyncio.Task[Any] | None = None
         self._done = False
         self._messages: list[str] = []
@@ -144,6 +144,7 @@ class LlmDoApp(App[None]):
         yield Header(show_clock=True)
         yield MessageContainer(id="messages")
         yield Vertical(
+            ApprovalPanel(id="approval-panel"),
             TextArea(
                 "",
                 id="user-input",
@@ -262,30 +263,21 @@ class LlmDoApp(App[None]):
 
         self._approval_queue.append(request)
         self._approval_batch_total += 1
-        self._render_active_approval(messages)
+        self._render_active_approval()
 
         user_input = self.query_one("#user-input", TextArea)
         user_input.disabled = True
         messages.focus()
 
-    def _render_active_approval(self, messages: MessageContainer) -> None:
+    def _render_active_approval(self) -> None:
         if not self._approval_queue:
             return
         request = self._approval_queue[0]
         queue_index = self._approval_batch_index + 1
         queue_total = self._approval_batch_total
-        if self._approval_message is None:
-            self._approval_message = messages.add_approval_request(
-                request,
-                queue_index=queue_index,
-                queue_total=queue_total,
-            )
-        else:
-            self._approval_message.set_request(
-                request,
-                queue_index=queue_index,
-                queue_total=queue_total,
-            )
+        if self._approval_panel is None:
+            self._approval_panel = self.query_one("#approval-panel", ApprovalPanel)
+        self._approval_panel.show_request(request, queue_index, queue_total)
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Disable quit binding while the input widget is active."""
@@ -320,14 +312,15 @@ class LlmDoApp(App[None]):
         self._approval_queue.popleft()
         self._approval_batch_index += 1
 
-        messages = self.query_one("#messages", MessageContainer)
         if self._approval_queue:
-            self._render_active_approval(messages)
+            self._render_active_approval()
             return
 
         self._approval_batch_total = 0
         self._approval_batch_index = 0
-        self._approval_message = None
+        if self._approval_panel is None:
+            self._approval_panel = self.query_one("#approval-panel", ApprovalPanel)
+        self._approval_panel.clear_request()
         user_input = self.query_one("#user-input", TextArea)
         user_input.disabled = False
         user_input.focus()

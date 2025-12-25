@@ -199,6 +199,49 @@ class ErrorMessage(BaseMessage):
         return f"[bold red]ERROR {self._error_type}:[/bold red] {self._message}"
 
 
+def _format_approval_request(
+    request: ApprovalRequest,
+    queue_index: int | None,
+    queue_total: int | None,
+) -> str:
+    lines = []
+    if queue_index is not None and queue_total is not None:
+        lines.extend(
+            [
+                f"[bold red]Approval {queue_index} of {queue_total}[/bold red]",
+                f"Tool: {request.tool_name}",
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                f"[bold red]Approval Required: {request.tool_name}[/bold red]",
+                "",
+            ]
+        )
+
+    if request.description:
+        lines.append(f"Reason: {request.description}")
+        lines.append("")
+
+    if request.tool_args:
+        args_str = json.dumps(request.tool_args, indent=2, default=str)
+        lines.append(f"Arguments:\n{args_str}")
+        lines.append("")
+
+    lines.extend(
+        [
+            "[green][[a]][/green] Approve once",
+            "[green][[s]][/green] Approve for session",
+            "[red][[d]][/red] Deny",
+            "[red][[q]][/red] Quit",
+        ]
+    )
+
+    return "\n".join(lines)
+
+
 class ApprovalMessage(BaseMessage):
     """Widget for displaying approval requests."""
 
@@ -228,7 +271,7 @@ class ApprovalMessage(BaseMessage):
         self._request = request
         self._queue_index = queue_index
         self._queue_total = queue_total
-        content = self._format_request()
+        content = _format_approval_request(request, queue_index, queue_total)
         super().__init__(content, **kwargs)
 
     def set_request(
@@ -241,46 +284,37 @@ class ApprovalMessage(BaseMessage):
         self._request = request
         self._queue_index = queue_index
         self._queue_total = queue_total
-        self.update(self._format_request())
+        self.update(_format_approval_request(request, queue_index, queue_total))
 
-    def _format_request(self) -> str:
-        """Format approval request for display."""
-        lines = []
-        if self._queue_index is not None and self._queue_total is not None:
-            lines.extend(
-                [
-                    f"[bold red]Approval {self._queue_index} of {self._queue_total}[/bold red]",
-                    f"Tool: {self._request.tool_name}",
-                    "",
-                ]
-            )
-        else:
-            lines.extend(
-                [
-                    f"[bold red]Approval Required: {self._request.tool_name}[/bold red]",
-                    "",
-                ]
-            )
 
-        if self._request.description:
-            lines.append(f"Reason: {self._request.description}")
-            lines.append("")
+class ApprovalPanel(Static):
+    """Pinned approval panel above the input box."""
 
-        if self._request.tool_args:
-            args_str = json.dumps(self._request.tool_args, indent=2, default=str)
-            lines.append(f"Arguments:\n{args_str}")
-            lines.append("")
+    DEFAULT_CSS = """
+    ApprovalPanel {
+        background: $error-darken-3;
+        border: solid $error;
+        padding: 1;
+        margin: 0 0 1 0;
+    }
+    """
 
-        lines.extend(
-            [
-                "[green][[a]][/green] Approve once",
-                "[green][[s]][/green] Approve for session",
-                "[red][[d]][/red] Deny",
-                "[red][[q]][/red] Quit",
-            ]
-        )
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__("", **kwargs)
+        self.styles.display = "none"
 
-        return "\n".join(lines)
+    def show_request(
+        self,
+        request: ApprovalRequest,
+        queue_index: int | None = None,
+        queue_total: int | None = None,
+    ) -> None:
+        self.update(_format_approval_request(request, queue_index, queue_total))
+        self.styles.display = "block"
+
+    def clear_request(self) -> None:
+        self.update("")
+        self.styles.display = "none"
 
 
 class MessageContainer(ScrollableContainer):

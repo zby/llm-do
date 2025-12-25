@@ -43,6 +43,7 @@ from pydantic_ai_blocking_approval import (
     ApprovalDecision,
 )
 
+from .approval_wrappers import ApprovalDeniedResultToolset
 from .ctx import Context, ApprovalFn, EventCallback
 from .input_utils import coerce_worker_input
 from .entries import WorkerEntry, ToolEntry
@@ -116,6 +117,7 @@ def _wrap_toolsets_with_approval(
     approve_all: bool,
     memory: ApprovalMemory,
     approval_callback: ApprovalCallback | None = None,
+    return_permission_errors: bool = False,
 ) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with ApprovalToolset for approval handling.
 
@@ -127,6 +129,7 @@ def _wrap_toolsets_with_approval(
         approve_all: If True, auto-approve all tool calls
         memory: Shared approval memory for tracking decisions
         approval_callback: Optional callback for interactive approval (TUI mode)
+        return_permission_errors: If True, return tool results on PermissionError
 
     Returns:
         List of wrapped toolsets
@@ -151,7 +154,11 @@ def _wrap_toolsets_with_approval(
                 instructions=toolset.instructions,
                 model=toolset.model,
                 toolsets=_wrap_toolsets_with_approval(
-                    toolset.toolsets, approve_all, memory, approval_callback
+                    toolset.toolsets,
+                    approve_all,
+                    memory,
+                    approval_callback,
+                    return_permission_errors=return_permission_errors,
                 ),
                 builtin_tools=toolset.builtin_tools,
                 schema_in=toolset.schema_in,
@@ -166,12 +173,15 @@ def _wrap_toolsets_with_approval(
         # - Toolsets with needs_approval() method: ApprovalToolset delegates to it
         # - Toolsets with _approval_config: uses config for per-tool pre-approval
         # - Other toolsets: all tools require approval unless --approve-all
-        wrapped.append(ApprovalToolset(
+        approved_toolset: AbstractToolset[Any] = ApprovalToolset(
             inner=toolset,
             approval_callback=approval_callback,
             memory=memory,
             config=config,
-        ))
+        )
+        if return_permission_errors:
+            approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
+        wrapped.append(approved_toolset)
 
     return wrapped
 
@@ -356,6 +366,7 @@ async def run(
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     approval_callback: ApprovalCallback | None = None,
+    return_permission_errors: bool = False,
     message_history: list[Any] | None = None,
     set_overrides: list[str] | None = None,
 ) -> tuple[str, Context]:
@@ -370,6 +381,7 @@ async def run(
         on_event: Optional callback for UI events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
         approval_callback: Optional callback for interactive approval (TUI mode)
+        return_permission_errors: If True, return tool results on PermissionError
         message_history: Optional prior messages for multi-turn conversations
         set_overrides: Optional list of --set KEY=VALUE overrides
 
@@ -389,7 +401,11 @@ async def run(
     memory = ApprovalMemory()
     if hasattr(entry, "toolsets") and entry.toolsets:
         wrapped_toolsets = _wrap_toolsets_with_approval(
-            entry.toolsets, approve_all, memory, approval_callback
+            entry.toolsets,
+            approve_all,
+            memory,
+            approval_callback,
+            return_permission_errors=return_permission_errors,
         )
         if isinstance(entry, WorkerEntry):
             entry = WorkerEntry(
@@ -549,6 +565,7 @@ async def _run_tui_mode(
                 on_event=on_event,
                 verbosity=verbosity,
                 approval_callback=tui_approval_callback,
+                return_permission_errors=True,
                 message_history=message_history,
                 set_overrides=set_overrides,
             )

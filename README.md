@@ -11,6 +11,12 @@ Most agent frameworks are **graph DSLs**—you define nodes and edges, an engine
 | **Orchestration** | Declarative: define Node A → Node B | Imperative: Worker A calls Worker B as a function |
 | **State** | Global context passed through graph | Local scope—each worker receives only its arguments |
 | **Approvals** | Checkpoints: serialize graph state, resume after input | Interception: blocking "syscall" at the tool level |
+| **Refactoring** | Redraw edges, update graph definitions | Change code—extract functions, inline workers |
+| **Control flow** | DSL constructs (branches, loops) | Native Python: `if`, `for`, `try/except` |
+| **Durability** | Often built-in checkpointing/replay | None—restart on failure (or integrate external engine) |
+| **Visualization** | Graph editors, visual debugging | Code is the source of truth |
+
+> For the full design rationale—including bidirectional refactoring, security posture, and related research—see [`docs/concept.md`](docs/concept.md).
 
 This is the **Unix philosophy for agents**: workers are files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
 
@@ -194,6 +200,10 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 **Working:** Worker resolution, worker delegation, approvals, custom tools.
 
 **TUI:** The interactive terminal UI (Textual-based) is experimental. Use `--chat` to keep it open for multi-turn input, or `--headless` for non-interactive mode.
+
+## Tradeoffs
+
+llm-do excels at normal-code control flow and progressive hardening. It's not a durable workflow engine—no built-in checkpointing or replay. For that, use llm-do as a component within Temporal, Prefect, or similar.
 
 ## Security
 

@@ -6,6 +6,7 @@ All event discrimination happens once, in the parser.
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from typing import Any, Callable, Coroutine
 
 from textual import events
@@ -17,7 +18,7 @@ from textual.widgets import Footer, Header, TextArea
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from .events import ApprovalRequestEvent, CompletionEvent, ErrorEvent, TextResponseEvent, UIEvent
-from .widgets.messages import MessageContainer
+from .widgets.messages import ApprovalMessage, MessageContainer
 
 
 class LlmDoApp(App[None]):
@@ -125,7 +126,10 @@ class LlmDoApp(App[None]):
         self._worker_coro = worker_coro
         self._run_turn = run_turn
         self._auto_quit = auto_quit
-        self._pending_approval: ApprovalRequest | None = None
+        self._approval_queue: deque[ApprovalRequest] = deque()
+        self._approval_batch_total = 0
+        self._approval_batch_index = 0
+        self._approval_message: ApprovalMessage | None = None
         self._worker_task: asyncio.Task[Any] | None = None
         self._done = False
         self._messages: list[str] = []
@@ -200,15 +204,18 @@ class LlmDoApp(App[None]):
                 self._event_queue.task_done()
                 break
 
-            # Let MessageContainer handle streaming and widget mounting (with error handling)
-            try:
-                messages.handle_event(event)
-            except Exception as e:
-                # Log display errors but don't crash the UI
-                messages.add_status(f"Display error: {e}")
+            if isinstance(event, ApprovalRequestEvent):
+                self._enqueue_approval_request(event, messages)
+            else:
+                # Let MessageContainer handle streaming and widget mounting (with error handling)
+                try:
+                    messages.handle_event(event)
+                except Exception as e:
+                    # Log display errors but don't crash the UI
+                    messages.add_status(f"Display error: {e}")
 
-            # Handle special cases that need app state management
-            self._handle_event_state(event)
+                # Handle special cases that need app state management
+                self._handle_event_state(event)
 
             self._event_queue.task_done()
 
@@ -217,7 +224,7 @@ class LlmDoApp(App[None]):
 
         Only handles:
         - TextResponseEvent: Capture complete responses for final output
-        - ApprovalRequestEvent: Store pending approval for action handlers
+        - ApprovalRequestEvent: handled separately to support queued approvals
         """
         if isinstance(event, TextResponseEvent):
             if event.is_complete:
@@ -225,20 +232,60 @@ class LlmDoApp(App[None]):
                 self._messages.append(event.content)
         elif isinstance(event, CompletionEvent):
             if not self._auto_quit:
-                user_input = self.query_one("#user-input", TextArea)
-                user_input.disabled = False
-                user_input.focus()
+                if not self._has_pending_approvals():
+                    user_input = self.query_one("#user-input", TextArea)
+                    user_input.disabled = False
+                    user_input.focus()
         elif isinstance(event, ErrorEvent):
             if self._auto_quit:
                 self._done = True
                 self.exit()
-        elif isinstance(event, ApprovalRequestEvent):
-            # Store pending approval for action handlers
-            self._pending_approval = event.request
-            user_input = self.query_one("#user-input", TextArea)
-            user_input.disabled = True
-            messages = self.query_one("#messages", MessageContainer)
-            messages.focus()
+
+    def _has_pending_approvals(self) -> bool:
+        return bool(self._approval_queue)
+
+    def _enqueue_approval_request(
+        self,
+        event: ApprovalRequestEvent,
+        messages: MessageContainer,
+    ) -> None:
+        request = event.request or ApprovalRequest(
+            tool_name=event.tool_name,
+            tool_args=event.args,
+            description=event.reason,
+        )
+
+        # TODO: Sequential approval queue UX may change as we refine stacking behavior.
+        if not self._approval_queue:
+            self._approval_batch_total = 0
+            self._approval_batch_index = 0
+
+        self._approval_queue.append(request)
+        self._approval_batch_total += 1
+        self._render_active_approval(messages)
+
+        user_input = self.query_one("#user-input", TextArea)
+        user_input.disabled = True
+        messages.focus()
+
+    def _render_active_approval(self, messages: MessageContainer) -> None:
+        if not self._approval_queue:
+            return
+        request = self._approval_queue[0]
+        queue_index = self._approval_batch_index + 1
+        queue_total = self._approval_batch_total
+        if self._approval_message is None:
+            self._approval_message = messages.add_approval_request(
+                request,
+                queue_index=queue_index,
+                queue_total=queue_total,
+            )
+        else:
+            self._approval_message.set_request(
+                request,
+                queue_index=queue_index,
+                queue_total=queue_total,
+            )
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Disable quit binding while the input widget is active."""
@@ -256,34 +303,34 @@ class LlmDoApp(App[None]):
 
     def action_approve(self) -> None:
         """Handle 'a' key - approve once."""
-        if self._pending_approval and self._approval_response_queue:
-            self._approval_response_queue.put_nowait(ApprovalDecision(approved=True))
-            self._pending_approval = None
-            user_input = self.query_one("#user-input", TextArea)
-            user_input.disabled = False
-            user_input.focus()
+        self._resolve_approval(ApprovalDecision(approved=True))
 
     def action_approve_session(self) -> None:
         """Handle 's' key - approve for session."""
-        if self._pending_approval and self._approval_response_queue:
-            self._approval_response_queue.put_nowait(
-                ApprovalDecision(approved=True, remember="session")
-            )
-            self._pending_approval = None
-            user_input = self.query_one("#user-input", TextArea)
-            user_input.disabled = False
-            user_input.focus()
+        self._resolve_approval(ApprovalDecision(approved=True, remember="session"))
 
     def action_deny(self) -> None:
         """Handle 'd' key - deny."""
-        if self._pending_approval and self._approval_response_queue:
-            self._approval_response_queue.put_nowait(
-                ApprovalDecision(approved=False, note="Rejected via TUI")
-            )
-            self._pending_approval = None
-            user_input = self.query_one("#user-input", TextArea)
-            user_input.disabled = False
-            user_input.focus()
+        self._resolve_approval(ApprovalDecision(approved=False, note="Rejected via TUI"))
+
+    def _resolve_approval(self, decision: ApprovalDecision) -> None:
+        if not self._approval_queue or not self._approval_response_queue:
+            return
+        self._approval_response_queue.put_nowait(decision)
+        self._approval_queue.popleft()
+        self._approval_batch_index += 1
+
+        messages = self.query_one("#messages", MessageContainer)
+        if self._approval_queue:
+            self._render_active_approval(messages)
+            return
+
+        self._approval_batch_total = 0
+        self._approval_batch_index = 0
+        self._approval_message = None
+        user_input = self.query_one("#user-input", TextArea)
+        user_input.disabled = False
+        user_input.focus()
 
     def action_quit(self) -> None:
         """Quit the app."""

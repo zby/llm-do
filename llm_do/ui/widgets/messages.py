@@ -218,17 +218,49 @@ class ApprovalMessage(BaseMessage):
     }
     """
 
-    def __init__(self, request: ApprovalRequest, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        request: ApprovalRequest,
+        queue_index: int | None = None,
+        queue_total: int | None = None,
+        **kwargs: Any,
+    ) -> None:
         self._request = request
+        self._queue_index = queue_index
+        self._queue_total = queue_total
         content = self._format_request()
         super().__init__(content, **kwargs)
 
+    def set_request(
+        self,
+        request: ApprovalRequest,
+        queue_index: int | None = None,
+        queue_total: int | None = None,
+    ) -> None:
+        """Update the displayed approval request."""
+        self._request = request
+        self._queue_index = queue_index
+        self._queue_total = queue_total
+        self.update(self._format_request())
+
     def _format_request(self) -> str:
         """Format approval request for display."""
-        lines = [
-            f"[bold red]Approval Required: {self._request.tool_name}[/bold red]",
-            "",
-        ]
+        lines = []
+        if self._queue_index is not None and self._queue_total is not None:
+            lines.extend(
+                [
+                    f"[bold red]Approval {self._queue_index} of {self._queue_total}[/bold red]",
+                    f"Tool: {self._request.tool_name}",
+                    "",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    f"[bold red]Approval Required: {self._request.tool_name}[/bold red]",
+                    "",
+                ]
+            )
 
         if self._request.description:
             lines.append(f"Reason: {self._request.description}")
@@ -336,10 +368,15 @@ class MessageContainer(ScrollableContainer):
         self.scroll_end(animate=False)
         return msg
 
-    def add_approval_request(self, request: ApprovalRequest) -> ApprovalMessage:
+    def add_approval_request(
+        self,
+        request: ApprovalRequest,
+        queue_index: int | None = None,
+        queue_total: int | None = None,
+    ) -> ApprovalMessage:
         """Add an approval request message."""
         self._current_assistant = None
-        msg = ApprovalMessage(request)
+        msg = ApprovalMessage(request, queue_index=queue_index, queue_total=queue_total)
         self.mount(msg)
         self.scroll_end(animate=False)
         return msg

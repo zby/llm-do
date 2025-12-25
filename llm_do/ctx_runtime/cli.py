@@ -744,11 +744,18 @@ def main() -> int:
     # Separate files from prompt in the files list (prompt might be mixed in)
     files = []
     prompt_parts = []
+    missing_files = []
     for arg in args.files:
-        if Path(arg).suffix in (".py", ".worker") and Path(arg).exists():
-            files.append(arg)
+        if Path(arg).suffix in (".py", ".worker"):
+            if Path(arg).exists():
+                files.append(arg)
+            else:
+                missing_files.append(arg)
         else:
             prompt_parts.append(arg)
+
+    if missing_files:
+        parser.error(f"File not found: {', '.join(missing_files)}")
 
     if not files:
         parser.error("At least one .worker or .py file required")

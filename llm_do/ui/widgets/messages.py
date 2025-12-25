@@ -164,6 +164,20 @@ class StatusMessage(BaseMessage):
     """
 
 
+class TurnSeparator(BaseMessage):
+    """Widget for visually separating conversation turns."""
+
+    DEFAULT_CSS = """
+    TurnSeparator {
+        color: $text-muted;
+        padding: 0 1;
+        margin: 1 0;
+        background: transparent;
+        border: none;
+    }
+    """
+
+
 class ErrorMessage(BaseMessage):
     """Widget for displaying errors."""
 
@@ -303,6 +317,13 @@ class MessageContainer(ScrollableContainer):
     def add_status(self, text: str) -> StatusMessage:
         """Add a status message."""
         msg = StatusMessage(f"[dim]{text}[/dim]")
+        self.mount(msg)
+        self.scroll_end(animate=False)
+        return msg
+
+    def add_turn_separator(self) -> TurnSeparator:
+        """Add a visual separator between turns."""
+        msg = TurnSeparator("─" * 48)
         self.mount(msg)
         self.scroll_end(animate=False)
         return msg

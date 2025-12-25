@@ -6,12 +6,14 @@ All event discrimination happens once, in the parser.
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any, Callable, Coroutine
 
+from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
-from textual.widgets import Footer, Header, Input
+from textual.widgets import Footer, Header, TextArea
 
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
@@ -45,6 +47,8 @@ class LlmDoApp(App[None]):
 
     #user-input {
         width: 100%;
+        min-height: 4;
+        max-height: 8;
     }
 
     Footer {
@@ -97,7 +101,7 @@ class LlmDoApp(App[None]):
 
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit", show=True),
-        Binding("q", "quit", "Quit", show=False),
+        Binding("q", "quit_if_idle", "Quit", show=False),
         Binding("a", "approve", "Approve", show=False),
         Binding("s", "approve_session", "Approve Session", show=False),
         Binding("d", "deny", "Deny", show=False),
@@ -125,13 +129,25 @@ class LlmDoApp(App[None]):
         self._done = False
         self._messages: list[str] = []
         self._message_history: list[Any] = []
+        self._input_history: list[str] = []
+        self._input_history_index: int | None = None
+        self._input_history_draft: str = ""
+        self._exit_requested_at: float | None = None
         self.final_result: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         yield MessageContainer(id="messages")
         yield Vertical(
-            Input(placeholder="Enter message...", id="user-input", disabled=True),
+            TextArea(
+                "",
+                id="user-input",
+                disabled=True,
+                show_line_numbers=False,
+                soft_wrap=True,
+                tab_behavior="focus",
+                placeholder="Enter message...",
+            ),
             id="input-container",
         )
         yield Footer()
@@ -142,7 +158,7 @@ class LlmDoApp(App[None]):
         if self._worker_coro is not None:
             self._worker_task = asyncio.create_task(self._worker_coro)
         if not self._auto_quit:
-            user_input = self.query_one("#user-input", Input)
+            user_input = self.query_one("#user-input", TextArea)
             user_input.disabled = False
             user_input.focus()
 
@@ -208,7 +224,7 @@ class LlmDoApp(App[None]):
                 self._messages.append(event.content)
         elif isinstance(event, CompletionEvent):
             if not self._auto_quit:
-                user_input = self.query_one("#user-input", Input)
+                user_input = self.query_one("#user-input", TextArea)
                 user_input.disabled = False
                 user_input.focus()
         elif isinstance(event, ErrorEvent):
@@ -218,17 +234,31 @@ class LlmDoApp(App[None]):
         elif isinstance(event, ApprovalRequestEvent):
             # Store pending approval for action handlers
             self._pending_approval = event.request
-            user_input = self.query_one("#user-input", Input)
+            user_input = self.query_one("#user-input", TextArea)
             user_input.disabled = True
             messages = self.query_one("#messages", MessageContainer)
             messages.focus()
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Disable quit binding while the input widget is active."""
+        if action == "quit_if_idle":
+            return not self._input_is_active()
+        return super().check_action(action, parameters)
+
+    def _input_is_active(self) -> bool:
+        """Return True when the input widget is focused and editable."""
+        try:
+            user_input = self.query_one("#user-input", TextArea)
+        except Exception:
+            return False
+        return user_input.has_focus and not user_input.disabled
 
     def action_approve(self) -> None:
         """Handle 'a' key - approve once."""
         if self._pending_approval and self._approval_response_queue:
             self._approval_response_queue.put_nowait(ApprovalDecision(approved=True))
             self._pending_approval = None
-            user_input = self.query_one("#user-input", Input)
+            user_input = self.query_one("#user-input", TextArea)
             user_input.disabled = False
             user_input.focus()
 
@@ -239,7 +269,7 @@ class LlmDoApp(App[None]):
                 ApprovalDecision(approved=True, remember="session")
             )
             self._pending_approval = None
-            user_input = self.query_one("#user-input", Input)
+            user_input = self.query_one("#user-input", TextArea)
             user_input.disabled = False
             user_input.focus()
 
@@ -250,7 +280,7 @@ class LlmDoApp(App[None]):
                 ApprovalDecision(approved=False, note="Rejected via TUI")
             )
             self._pending_approval = None
-            user_input = self.query_one("#user-input", Input)
+            user_input = self.query_one("#user-input", TextArea)
             user_input.disabled = False
             user_input.focus()
 
@@ -259,21 +289,62 @@ class LlmDoApp(App[None]):
         self._done = True
         self.exit()
 
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        """Handle Enter in the input widget."""
+    def action_quit_if_idle(self) -> None:
+        """Quit the app if the input isn't active."""
+        if not self._input_is_active():
+            now = time.monotonic()
+            if self._exit_requested_at is None or now - self._exit_requested_at > 2:
+                self._exit_requested_at = now
+                messages = self.query_one("#messages", MessageContainer)
+                messages.add_status("Press 'q' again to exit.")
+                return
+            self.action_quit()
+
+    def on_key(self, event: events.Key) -> None:
+        """Handle key events for submission and history."""
+        if not self._input_is_active():
+            return
+        if event.key == "enter":
+            event.prevent_default().stop()
+            self._submit_current_input()
+            return
+        if event.key == "shift+enter":
+            event.prevent_default().stop()
+            user_input = self.query_one("#user-input", TextArea)
+            user_input.insert("\n")
+            return
+        if event.key == "up":
+            if self._history_previous():
+                event.prevent_default().stop()
+            return
+        if event.key == "down":
+            if self._history_next():
+                event.prevent_default().stop()
+            return
+
+    def _submit_current_input(self) -> None:
+        """Submit the current text area content as a message."""
         if self._worker_task is not None and not self._worker_task.done():
             messages = self.query_one("#messages", MessageContainer)
             messages.add_status("Wait for the current response to finish.")
             return
-        user_text = event.value.strip()
+        user_input = self.query_one("#user-input", TextArea)
+        user_text = user_input.text.strip()
         if not user_text:
             return
-        event.input.clear()
+        user_input.text = ""
+        self._exit_requested_at = None
+        self._input_history.append(user_text)
+        self._input_history_index = None
+        self._input_history_draft = ""
         asyncio.create_task(self._submit_user_message(user_text))
 
     async def _submit_user_message(self, text: str) -> None:
         """Submit a new user message and run another turn."""
-        user_input = self.query_one("#user-input", Input)
+        user_input = self.query_one("#user-input", TextArea)
+        if self._message_history:
+            messages = self.query_one("#messages", MessageContainer)
+            messages.add_turn_separator()
 
         if self._run_turn is None:
             messages = self.query_one("#messages", MessageContainer)
@@ -298,3 +369,35 @@ class LlmDoApp(App[None]):
     def signal_done(self) -> None:
         """Signal that the worker is done."""
         self._done = True
+
+    def _history_previous(self) -> bool:
+        """Move to the previous history entry if possible."""
+        user_input = self.query_one("#user-input", TextArea)
+        if not self._input_history or not user_input.cursor_at_first_line:
+            return False
+        if self._input_history_index is None:
+            self._input_history_draft = user_input.text
+            self._input_history_index = len(self._input_history) - 1
+        elif self._input_history_index > 0:
+            self._input_history_index -= 1
+        else:
+            return True
+        user_input.text = self._input_history[self._input_history_index]
+        user_input.move_cursor(user_input.document.end)
+        return True
+
+    def _history_next(self) -> bool:
+        """Move to the next history entry if possible."""
+        user_input = self.query_one("#user-input", TextArea)
+        if self._input_history_index is None or not user_input.cursor_at_last_line:
+            return False
+        if self._input_history_index < len(self._input_history) - 1:
+            self._input_history_index += 1
+            user_input.text = self._input_history[self._input_history_index]
+            user_input.move_cursor(user_input.document.end)
+            return True
+        user_input.text = self._input_history_draft
+        user_input.move_cursor(user_input.document.end)
+        self._input_history_index = None
+        self._input_history_draft = ""
+        return True

@@ -68,7 +68,7 @@ Enable input widget after worker response completes (new architecture).
 
 - [x] `llm_do/ui/app.py`: Enable input widget on CompletionEvent (non-auto-quit mode)
 - [x] `llm_do/ui/app.py`: Handle `Input.Submitted` event
-- [ ] `llm_do/ui/app.py`: Rebind 'q' to only work when not in input mode
+- [x] `llm_do/ui/app.py`: Rebind 'q' to only work when not in input mode
 
 ```python
 # In LlmDoApp:
@@ -128,10 +128,10 @@ async def run_single_turn(
 ```
 
 ### Phase 6: UX Polish (Optional for initial release)
-- [ ] Command history (up/down arrows for previous inputs)
-- [ ] Multi-line input support (Shift+Enter or similar)
-- [ ] Clear visual separation between turns
-- [ ] Exit confirmation or `/exit` command
+- [x] Command history (up/down arrows for previous inputs)
+- [x] Multi-line input support (Shift+Enter or similar)
+- [x] Clear visual separation between turns
+- [x] Exit confirmation or `/exit` command
 
 ## Implementation Details
 
@@ -182,7 +182,7 @@ Turn 2+:
    - Each turn respects same approval rules
 
 ## Current State
-Phase 1, 4, and 5 are now wired for the new architecture: message history is passed into `agent.run()` / `agent.run_stream()`, `Context` stores it, and the TUI uses a `run_turn` callback with `auto_quit=False` so follow-ups stay in the same session. Display backends are restored across TUI/headless/JSON, so conversation wiring flows through the `DisplayBackend` pipeline. Remaining work: Phase 3 keybinding tweak (`q` only outside input) and optional Phase 6 polish.
+Phase 1, 4, 5, and 6 are now wired for the new architecture: message history is passed into `agent.run()` / `agent.run_stream()`, `Context` stores it, and the TUI uses a `run_turn` callback with `auto_quit=False` so follow-ups stay in the same session. Display backends are restored across TUI/headless/JSON, and the input supports history, multi-line entry, turn separators, and exit confirmation. Remaining work: none in this task.
 
 ## Notes
 - pydantic-ai agents support conversation history via `message_history` parameter

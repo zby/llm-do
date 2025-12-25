@@ -95,6 +95,19 @@ Test worker
 
         assert exit_code == 1
 
+    def test_missing_worker_file_error(self, capsys):
+        """Test that missing worker files show a helpful error."""
+        missing_worker = "missing.worker"
+
+        with patch("sys.argv", ["llm-do", missing_worker, "hello"]):
+            with pytest.raises(SystemExit) as excinfo:
+                main()
+
+        assert excinfo.value.code == 2
+        captured = capsys.readouterr()
+        assert "File not found:" in captured.err
+        assert missing_worker in captured.err
+
     def test_model_http_error_handled(self, tmp_path):
         """Test that ModelHTTPError is handled gracefully."""
         from pydantic_ai.exceptions import ModelHTTPError

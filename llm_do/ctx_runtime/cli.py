@@ -59,6 +59,7 @@ from ..ui.display import (
     HeadlessDisplayBackend,
     JsonDisplayBackend,
     RichDisplayBackend,
+    TextualDisplayBackend,
 )
 from ..ui.parser import parse_approval_request
 
@@ -355,6 +356,7 @@ async def run(
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     approval_callback: ApprovalCallback | None = None,
+    message_history: list[Any] | None = None,
     set_overrides: list[str] | None = None,
 ) -> tuple[str, Context]:
     """Load entries and run with the given prompt.
@@ -368,6 +370,7 @@ async def run(
         on_event: Optional callback for UI events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
         approval_callback: Optional callback for interactive approval (TUI mode)
+        message_history: Optional prior messages for multi-turn conversations
         set_overrides: Optional list of --set KEY=VALUE overrides
 
     Returns:
@@ -428,6 +431,7 @@ async def run(
         entry,
         model=model,
         approval=approval,
+        messages=list(message_history) if message_history else None,
         on_event=on_event,
         verbosity=verbosity,
     )
@@ -462,13 +466,17 @@ async def _run_tui_mode(
     """
     from ..ui.app import LlmDoApp
 
-    # Set up queues for app communication
-    event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
+    app: LlmDoApp | None = None
+
+    # Set up queues for render pipeline and app communication
+    render_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
+    tui_event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
 
     # Create output buffer to capture events for post-TUI display
     output_buffer = io.StringIO()
     log_backend = RichDisplayBackend(output_buffer, force_terminal=True, verbosity=verbosity)
+    tui_backend = TextualDisplayBackend(tui_event_queue)
 
     # Container for result and exit code
     worker_result: list[Any] = []
@@ -481,14 +489,31 @@ async def _run_tui_mode(
             message=message,
             error_type=error_type,
         )
-        event_queue.put_nowait(error_event)
-        log_backend.display(error_event)
+        render_queue.put_nowait(error_event)
         worker_exit_code[0] = 1
 
     def on_event(event: UIEvent) -> None:
-        """Forward events to both TUI and log buffer."""
-        event_queue.put_nowait(event)
-        log_backend.display(event)
+        """Forward events to the render pipeline."""
+        render_queue.put_nowait(event)
+
+    async def render_loop() -> None:
+        """Render UI events through the configured backends."""
+        backends = (tui_backend, log_backend)
+        for backend in backends:
+            await backend.start()
+        try:
+            while True:
+                event = await render_queue.get()
+                if event is None:
+                    tui_event_queue.put_nowait(None)
+                    render_queue.task_done()
+                    break
+                for backend in backends:
+                    backend.display(event)
+                render_queue.task_done()
+        finally:
+            for backend in backends:
+                await backend.stop()
 
     async def tui_approval_callback(request: ApprovalRequest) -> ApprovalDecision:
         """Async approval callback that sends to TUI and waits for response.
@@ -501,45 +526,46 @@ async def _run_tui_mode(
 
         # Parse the approval request into a typed event and send to TUI
         approval_event = parse_approval_request(request)
-        event_queue.put_nowait(approval_event)
+        render_queue.put_nowait(approval_event)
 
         # Await response from TUI
         return await approval_queue.get()
 
-    async def run_worker_in_background() -> int:
-        """Run the worker and send events to the app."""
+    async def run_turn(
+        user_prompt: str,
+        message_history: list[Any] | None,
+    ) -> list[Any] | None:
+        """Run a single conversation turn and return updated message history."""
         from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 
         try:
             result, ctx = await run(
                 files=files,
-                prompt=prompt,
+                prompt=user_prompt,
                 model=model,
                 entry_name=entry_name,
                 approve_all=approve_all,
                 on_event=on_event,
                 verbosity=verbosity,
                 approval_callback=tui_approval_callback,
+                message_history=message_history,
                 set_overrides=set_overrides,
             )
             worker_result[:] = [result]
-            return 0
+            return list(ctx.messages)
 
         except FileNotFoundError as e:
             emit_error_event(f"Error: {e}", type(e).__name__)
             if debug:
                 raise
-            return 1
         except ValueError as e:
             emit_error_event(f"Error: {e}", type(e).__name__)
             if debug:
                 raise
-            return 1
         except PermissionError as e:
             emit_error_event(f"Error: {e}", type(e).__name__)
             if debug:
                 raise
-            return 1
         except ModelHTTPError as e:
             message = f"Model API error (status {e.status_code}): {e.model_name}"
             if e.body and isinstance(e.body, dict):
@@ -551,34 +577,42 @@ async def _run_tui_mode(
             emit_error_event(message, type(e).__name__)
             if debug:
                 raise
-            return 1
         except (UnexpectedModelBehavior, UserError) as e:
             emit_error_event(f"Error: {e}", type(e).__name__)
             if debug:
                 raise
-            return 1
         except KeyboardInterrupt:
             emit_error_event("Aborted by user", "KeyboardInterrupt")
-            return 1
         except Exception as e:
             emit_error_event(f"Unexpected error: {e}", type(e).__name__)
             if debug:
                 raise
-            return 1
-        finally:
-            # Signal TUI that worker is done
-            event_queue.put_nowait(None)
+
+        worker_exit_code[0] = 1
+        return None
+
+    async def run_worker_in_background() -> int:
+        """Run the worker and send events to the app."""
+        history = await run_turn(prompt, None)
+        if history is not None and app is not None:
+            app._message_history = history
+        return worker_exit_code[0]
 
     # Create the Textual app with worker coroutine
     app = LlmDoApp(
-        event_queue,
+        tui_event_queue,
         approval_queue,
         worker_coro=run_worker_in_background(),
-        auto_quit=True,
+        run_turn=run_turn,
+        auto_quit=False,
     )
 
     # Run with mouse disabled to allow terminal text selection
+    render_task = asyncio.create_task(render_loop())
     await app.run_async(mouse=False)
+    render_queue.put_nowait(None)
+    if not render_task.done():
+        await render_task
 
     # Print captured output to stderr (session log)
     captured_output = output_buffer.getvalue()
@@ -591,6 +625,64 @@ async def _run_tui_mode(
         print(result)
 
     return worker_exit_code[0]
+
+
+async def _run_headless_mode(
+    files: list[str],
+    prompt: str,
+    model: str | None,
+    entry_name: str | None,
+    approve_all: bool,
+    verbosity: int,
+    backend: DisplayBackend | None,
+    set_overrides: list[str] | None,
+) -> str:
+    """Run in headless/JSON mode with the display backend pipeline."""
+    render_task: asyncio.Task[None] | None = None
+    render_queue: asyncio.Queue[UIEvent | None] | None = None
+    on_event: EventCallback | None = None
+
+    if backend is not None:
+        render_queue = asyncio.Queue()
+
+        def on_event_callback(event: UIEvent) -> None:
+            render_queue.put_nowait(event)
+
+        on_event = on_event_callback
+
+        async def render_loop() -> None:
+            await backend.start()
+            try:
+                while True:
+                    event = await render_queue.get()
+                    if event is None:
+                        render_queue.task_done()
+                        break
+                    backend.display(event)
+                    render_queue.task_done()
+            finally:
+                await backend.stop()
+
+        render_task = asyncio.create_task(render_loop())
+
+    try:
+        result, _ctx = await run(
+            files,
+            prompt,
+            model,
+            entry_name,
+            approve_all,
+            on_event,
+            verbosity,
+            set_overrides=set_overrides,
+        )
+    finally:
+        if render_queue is not None:
+            render_queue.put_nowait(None)
+            if render_task is not None and not render_task.done():
+                await render_task
+
+    return result
 
 
 def main() -> int:
@@ -702,25 +794,25 @@ def main() -> int:
 
     # Headless mode: set up display backend based on flags
     backend: DisplayBackend | None = None
-    on_event: EventCallback | None = None
 
     if args.json:
         backend = JsonDisplayBackend(stream=sys.stderr)
     elif args.verbose > 0:
         backend = HeadlessDisplayBackend(stream=sys.stderr, verbosity=args.verbose)
 
-    if backend:
-        def on_event_callback(event: UIEvent) -> None:
-            backend.display(event)  # type: ignore[union-attr]
-        on_event = on_event_callback
-
     # Import error types for handling
     from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 
     try:
-        result, ctx = asyncio.run(run(
-            files, prompt, args.model, args.entry, args.approve_all,
-            on_event, args.verbose, set_overrides=args.set_overrides or None
+        result = asyncio.run(_run_headless_mode(
+            files=files,
+            prompt=prompt,
+            model=args.model,
+            entry_name=args.entry,
+            approve_all=args.approve_all,
+            verbosity=args.verbose,
+            backend=backend,
+            set_overrides=args.set_overrides or None,
         ))
 
         # Don't print result when streaming (verbosity >= 2) since it was already streamed

@@ -108,7 +108,10 @@ class LlmDoApp(App[None]):
         event_queue: asyncio.Queue[UIEvent | None],
         approval_response_queue: asyncio.Queue[ApprovalDecision] | None = None,
         worker_coro: Coroutine[Any, Any, Any] | None = None,
-        run_turn: Callable[[str, list[Any] | None], Coroutine[Any, Any, Any]] | None = None,
+        run_turn: Callable[
+            [str, list[Any] | None],
+            Coroutine[Any, Any, list[Any] | None],
+        ] | None = None,
         auto_quit: bool = True,
     ):
         super().__init__()
@@ -270,22 +273,24 @@ class LlmDoApp(App[None]):
 
     async def _submit_user_message(self, text: str) -> None:
         """Submit a new user message and run another turn."""
-        messages = self.query_one("#messages", MessageContainer)
-        messages.add_user_message(text)
         user_input = self.query_one("#user-input", Input)
 
         if self._run_turn is None:
+            messages = self.query_one("#messages", MessageContainer)
             messages.add_status("Conversation runner not configured.")
             user_input.focus()
             return
 
+        user_input.disabled = True
+
         async def _run_turn_task() -> None:
             try:
                 history = self._message_history or None
-                result = await self._run_turn(text, history)
-                if result is not None:
-                    self._message_history = list(result.messages or [])
+                new_history = await self._run_turn(text, history)
+                if new_history is not None:
+                    self._message_history = list(new_history)
             finally:
+                user_input.disabled = False
                 user_input.focus()
 
         self._worker_task = asyncio.create_task(_run_turn_task())

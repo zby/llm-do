@@ -111,6 +111,26 @@ def _build_user_prompt(input_data: Any) -> str | Sequence[UserContent]:
     return parts
 
 
+def _should_use_message_history(ctx: "Context") -> bool:
+    """Only use message history for the top-level worker run."""
+    return ctx.depth <= 1
+
+
+def _get_all_messages(result: Any) -> list[Any]:
+    """Return all messages from a run result or stream object."""
+    all_messages = getattr(result, "all_messages", None)
+    if callable(all_messages):
+        return list(all_messages())
+    if all_messages is not None:
+        return list(all_messages)
+    return []
+
+
+def _update_message_history(ctx: "Context", result: Any) -> None:
+    """Update message history in-place to keep shared references intact."""
+    ctx.messages[:] = _get_all_messages(result)
+
+
 class _DictValidator:
     """Validator wrapper that validates against schema but returns dict.
 
@@ -299,7 +319,8 @@ class WorkerEntry(AbstractToolset[Any]):
         if ctx.depth >= ctx.max_depth:
             raise RuntimeError(f"Max depth exceeded: {ctx.max_depth}")
 
-        child_ctx = ctx._child(toolsets=self.toolsets)
+        child_messages = None if ctx.depth == 0 else []
+        child_ctx = ctx._child(toolsets=self.toolsets, messages=child_messages)
 
         # Resolve model: entry's model or context's default
         resolved_model = self.model if self.model is not None else child_ctx.model
@@ -313,7 +334,17 @@ class WorkerEntry(AbstractToolset[Any]):
             else:
                 output = await self._run_with_event_stream(agent, prompt, child_ctx)
         else:
-            result = await agent.run(prompt, deps=child_ctx, model_settings=self.model_settings)
+            message_history = (
+                child_ctx.messages if _should_use_message_history(child_ctx) and child_ctx.messages else None
+            )
+            result = await agent.run(
+                prompt,
+                deps=child_ctx,
+                model_settings=self.model_settings,
+                message_history=message_history,
+            )
+            if _should_use_message_history(child_ctx):
+                _update_message_history(child_ctx, result)
             output = result.output
 
         return output
@@ -345,14 +376,18 @@ class WorkerEntry(AbstractToolset[Any]):
                 if ctx.on_event is not None:
                     ctx.on_event(ui_event)
 
+        message_history = ctx.messages if _should_use_message_history(ctx) and ctx.messages else None
         result = await agent.run(
             prompt,
             deps=ctx,
             model_settings=self.model_settings,
             event_stream_handler=event_stream_handler,
+            message_history=message_history,
         )
         if ctx.on_event is not None and not emitted_tool_events:
             self._emit_tool_events(result.new_messages(), ctx)
+        if _should_use_message_history(ctx):
+            _update_message_history(ctx, result)
         return result.output
 
     async def _run_streaming(
@@ -362,7 +397,13 @@ class WorkerEntry(AbstractToolset[Any]):
         ctx: "Context",
     ) -> Any:
         """Run agent with streaming, emitting text deltas."""
-        async with agent.run_stream(prompt, deps=ctx, model_settings=self.model_settings) as stream:
+        message_history = ctx.messages if _should_use_message_history(ctx) and ctx.messages else None
+        async with agent.run_stream(
+            prompt,
+            deps=ctx,
+            model_settings=self.model_settings,
+            message_history=message_history,
+        ) as stream:
             # Stream text deltas
             async for chunk in stream.stream_text(delta=True):
                 if ctx.on_event:
@@ -378,5 +419,7 @@ class WorkerEntry(AbstractToolset[Any]):
 
             # Emit tool events (must be inside context manager)
             self._emit_tool_events(stream.new_messages(), ctx)
+            if _should_use_message_history(ctx):
+                _update_message_history(ctx, stream)
 
         return output

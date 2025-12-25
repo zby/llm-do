@@ -76,6 +76,7 @@ class Context:
         *,
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
+        messages: Optional[list[Any]] = None,
         on_event: Optional[EventCallback] = None,
         verbosity: int = 0,
     ) -> "Context":
@@ -86,6 +87,7 @@ class Context:
             model: Model override (uses entry.model if not provided)
             approval: Approval callback for tool execution
             max_depth: Maximum call depth
+            messages: Optional message history for multi-turn conversations
             on_event: Optional callback for UI events (tool calls, streaming text)
             verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
 
@@ -110,6 +112,7 @@ class Context:
             cli_model=model,
             approval=approval,
             max_depth=max_depth,
+            messages=messages,
             on_event=on_event,
             verbosity=verbosity,
         )
@@ -180,6 +183,7 @@ class Context:
         toolsets: Optional[list[AbstractToolset[Any]]] = None,
         *,
         model: ModelType | None = None,
+        messages: Optional[list[Any]] = None,
     ) -> "Context":
         """Create a child context with incremented depth.
 
@@ -196,7 +200,7 @@ class Context:
             depth=self.depth + 1,
             usage=self.usage,
             prompt=self.prompt,
-            messages=self.messages,
+            messages=self.messages if messages is None else messages,
             on_event=self.on_event,
             verbosity=self.verbosity,
         )

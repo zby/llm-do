@@ -66,3 +66,21 @@ async def test_server_side_tools_example_builds():
         model="test-model",
     )
     assert len(worker.builtin_tools) == 1
+
+
+@pytest.mark.anyio
+async def test_file_organizer_example_builds():
+    """Test file_organizer: hardening pattern with semantic/mechanical separation."""
+    worker_file = load_worker_file(EXAMPLES_DIR / "file_organizer" / "main.worker")
+    assert "file_tools" in worker_file.toolsets
+    assert "shell" in worker_file.toolsets
+
+    toolsets = load_toolsets_from_files([EXAMPLES_DIR / "file_organizer" / "tools.py"])
+    assert "file_tools" in toolsets
+
+    worker = await build_entry(
+        [str(EXAMPLES_DIR / "file_organizer" / "main.worker")],
+        [str(EXAMPLES_DIR / "file_organizer" / "tools.py")],
+        model="test-model",
+    )
+    assert len(worker.toolsets) == 2  # file_tools + shell

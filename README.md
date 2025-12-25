@@ -183,6 +183,7 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 | [`pitchdeck_eval_code_entry/`](examples/pitchdeck_eval_code_entry/) | Full hardening: Python orchestration, tool entry point |
 | [`calculator/`](examples/calculator/) | Custom Python tools |
 | [`approvals_demo/`](examples/approvals_demo/) | Write approval for file operations |
+| [`file_organizer/`](examples/file_organizer/) | Hardening pattern: LLM semantic decisions + Python cleanup |
 | [`code_analyzer/`](examples/code_analyzer/) | Shell commands with approval rules |
 | [`web_searcher/`](examples/web_searcher/) | Server-side tools (web search) |
 

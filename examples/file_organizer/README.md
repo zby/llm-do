@@ -1,6 +1,6 @@
 # File Organizer Example
 
-Demonstrates the **hardening pattern** from [concept.md](../../docs/concept.md): the LLM handles semantic decisions while deterministic Python handles the mechanical parts.
+Demonstrates the **hardening pattern**: the LLM makes semantic decisions while deterministic Python handles mechanical cleanup.
 
 ## What It Does
 
@@ -9,23 +9,28 @@ Renames messy filenames to clean, consistent formats:
 - `FINAL_Report_v3.pdf` → `report.pdf`
 - `John's Birthday Photo!!.jpg` → `johns-birthday-photo.jpg`
 
-**Simplification**: This organizer only sees filenames, not file contents. It makes decisions purely based on the name. A real organizer might inspect contents to categorize files—that would be another worker call.
+**Simplification**: This organizer only sees filenames, not file contents. A real organizer might inspect contents to categorize files.
 
-## The Hardening Pattern
+## The Pattern
 
-| Component | Role |
-|-----------|------|
-| **LLM** | Semantic decisions: "remove 'FINAL' and 'v3'", "this is a date, keep it" |
-| **Python** (`sanitize_filename`) | Mechanical cleanup: lowercase, hyphens, safe characters |
-| **Approval** | The `mv` command requires operator approval |
+| Component | Role | Approval |
+|-----------|------|----------|
+| **LLM** | Semantic decisions: "this is a Report, not FINAL_Report_v3" | — |
+| **`sanitize_filename`** | Mechanical cleanup: lowercase, hyphens, safe chars | Pre-approved (pure function) |
+| **`mv`** | Actually rename the file | Requires approval |
+
+The LLM passes human-readable names like "Meeting Notes.docx" to `sanitize_filename`, which returns "meeting-notes.docx". This separation means:
+- Consistent formatting (no LLM variability in character handling)
+- The semantic decision (what to call it) stays with the LLM
+- The mechanical decision (how to format it) is deterministic Python
 
 ## Usage
 
 ```bash
 cd examples/file_organizer
-./reset.sh                                            # Create sample files
-llm-do main.worker tools.py "Organize the files"     # Run organizer
-./reset.sh                                            # Reset for next demo
+./reset.sh                                        # Create sample files
+llm-do main.worker tools.py "Organize the files"  # Run organizer
+./reset.sh                                        # Reset for next demo
 ```
 
 ## Files

@@ -12,24 +12,25 @@ file_tools = FunctionToolset()
 
 @file_tools.tool
 def sanitize_filename(name: str) -> str:
-    """Sanitize a filename to a clean, consistent format.
+    """Convert a human-readable filename to a clean, filesystem-safe format.
 
-    This is the "hardened" part - deterministic, tested, no LLM variability.
-    The LLM decides what the file should be called; this function ensures
-    the name is filesystem-safe and follows conventions.
+    Pass your SEMANTIC name with normal spacing and capitalization.
+    Examples:
+        "Meeting Notes.docx" → "meeting-notes.docx"
+        "John's Report.pdf" → "johns-report.pdf"
+        "Q1 Sales Data.xlsx" → "q1-sales-data.xlsx"
 
-    Transformations:
+    Do NOT pre-sanitize - pass the readable name, I'll handle cleanup:
     - Converts to lowercase
-    - Replaces spaces and underscores with hyphens
-    - Removes special characters except hyphens, dots, and alphanumerics
-    - Collapses multiple hyphens into one
+    - Replaces spaces/underscores with hyphens
+    - Removes special characters
     - Preserves file extension
 
     Args:
-        name: The proposed filename (can include extension)
+        name: Human-readable filename with extension (e.g. "My Report.pdf")
 
     Returns:
-        Sanitized filename safe for any filesystem
+        Clean filename safe for any filesystem
     """
     # Split extension
     if "." in name:

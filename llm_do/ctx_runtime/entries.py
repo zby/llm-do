@@ -6,12 +6,21 @@ This module provides:
 from __future__ import annotations
 
 import json
+import mimetypes
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterable, Optional, Type, TYPE_CHECKING
+from pathlib import Path
+from typing import Any, AsyncIterable, Optional, Sequence, Type, TYPE_CHECKING
 
 from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
-from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart
+from pydantic_ai.messages import (
+    BinaryContent,
+    ModelRequest,
+    ModelResponse,
+    ToolCallPart,
+    ToolReturnPart,
+    UserContent,
+)
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
@@ -22,6 +31,7 @@ from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
 class WorkerInput(BaseModel):
     """Input schema for workers."""
     input: str
+    attachments: list[str] = []
 
 if TYPE_CHECKING:
     from .ctx import Context
@@ -36,6 +46,101 @@ def _format_prompt(input_data: Any) -> str:
     if isinstance(input_data, dict):
         return json.dumps(input_data, indent=2)
     return str(input_data)
+
+
+def _load_attachment(path: str) -> BinaryContent:
+    """Load a file as BinaryContent for use in multimodal prompts.
+
+    Args:
+        path: Path to the file (relative or absolute)
+
+    Returns:
+        BinaryContent with file data and detected media type
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist
+    """
+    file_path = Path(path)
+    if not file_path.exists():
+        raise FileNotFoundError(f"Attachment not found: {path}")
+
+    # Detect media type from extension
+    media_type, _ = mimetypes.guess_type(str(file_path))
+    if media_type is None:
+        # Default to octet-stream for unknown types
+        media_type = "application/octet-stream"
+
+    data = file_path.read_bytes()
+    return BinaryContent(data=data, media_type=media_type)
+
+
+def _build_user_prompt(input_data: Any) -> str | Sequence[UserContent]:
+    """Build user prompt from input data, handling attachments.
+
+    If input_data contains attachments, returns a sequence of UserContent
+    parts (text + binary content). Otherwise returns a plain string.
+
+    Args:
+        input_data: Dict with 'input' and optional 'attachments' keys,
+                   or a plain string/BaseModel
+
+    Returns:
+        String prompt or sequence of UserContent parts
+    """
+    # Extract text and attachments
+    attachments: list[str] = []
+
+    if isinstance(input_data, dict):
+        text = str(input_data.get("input", input_data))
+        attachments = input_data.get("attachments", [])
+    elif isinstance(input_data, BaseModel):
+        text = getattr(input_data, "input", str(input_data))
+        attachments = getattr(input_data, "attachments", [])
+    else:
+        text = str(input_data)
+
+    # If no attachments, return plain string
+    if not attachments:
+        return text
+
+    # Build multimodal prompt with attachments
+    parts: list[UserContent] = [text]
+    for attachment_path in attachments:
+        parts.append(_load_attachment(attachment_path))
+
+    return parts
+
+
+class _DictValidator:
+    """Validator wrapper that validates against schema but returns dict.
+
+    This is needed because ApprovalToolset expects tool_args to be a dict,
+    but TypeAdapter.validator returns the validated BaseModel instance.
+
+    Wraps a pydantic validator to provide the same interface (validate_python,
+    validate_json, validate_strings) but converts BaseModel results to dicts.
+    """
+
+    def __init__(self, schema: Type[BaseModel]) -> None:
+        self._adapter = TypeAdapter(schema)
+        self._inner = self._adapter.validator
+
+    def _to_dict(self, result: Any) -> dict[str, Any]:
+        if isinstance(result, BaseModel):
+            return result.model_dump()
+        return result
+
+    def validate_python(self, data: Any, **kwargs: Any) -> dict[str, Any]:
+        result = self._inner.validate_python(data, **kwargs)
+        return self._to_dict(result)
+
+    def validate_json(self, data: str | bytes, **kwargs: Any) -> dict[str, Any]:
+        result = self._inner.validate_json(data, **kwargs)
+        return self._to_dict(result)
+
+    def validate_strings(self, data: Any, **kwargs: Any) -> dict[str, Any]:
+        result = self._inner.validate_strings(data, **kwargs)
+        return self._to_dict(result)
 
 
 @dataclass
@@ -116,7 +221,7 @@ class WorkerEntry(AbstractToolset[Any]):
             toolset=self,
             tool_def=tool_def,
             max_retries=0,
-            args_validator=TypeAdapter(input_schema).validator,
+            args_validator=_DictValidator(input_schema),
         )}
 
     async def call_tool(
@@ -200,7 +305,7 @@ class WorkerEntry(AbstractToolset[Any]):
         resolved_model = self.model if self.model is not None else child_ctx.model
 
         agent = self._build_agent(resolved_model, child_ctx)
-        prompt = _format_prompt(input_data)
+        prompt = _build_user_prompt(input_data)
 
         if child_ctx.on_event is not None:
             if child_ctx.verbosity >= 2:
@@ -214,7 +319,10 @@ class WorkerEntry(AbstractToolset[Any]):
         return output
 
     async def _run_with_event_stream(
-        self, agent: Agent["Context", Any], prompt: str, ctx: "Context"
+        self,
+        agent: Agent["Context", Any],
+        prompt: str | Sequence[UserContent],
+        ctx: "Context",
     ) -> Any:
         """Run agent with event stream handler for non-streaming UI updates."""
         from pydantic_ai.messages import PartDeltaEvent
@@ -248,7 +356,10 @@ class WorkerEntry(AbstractToolset[Any]):
         return result.output
 
     async def _run_streaming(
-        self, agent: Agent["Context", Any], prompt: str, ctx: "Context"
+        self,
+        agent: Agent["Context", Any],
+        prompt: str | Sequence[UserContent],
+        ctx: "Context",
     ) -> Any:
         """Run agent with streaming, emitting text deltas."""
         async with agent.run_stream(prompt, deps=ctx, model_settings=self.model_settings) as stream:

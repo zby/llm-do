@@ -67,7 +67,7 @@ Need dynamic routing? Let the LLM decide which worker to call.
 
 The same function-call semantics work for both—no new orchestration language required.
 
-## Bidirectional Refactoring
+## Hardening and Softening
 
 The unified interface enables refactoring in both directions.
 

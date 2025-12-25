@@ -16,7 +16,7 @@ Most agent frameworks are **graph DSLs**—you define nodes and edges, an engine
 | **Durability** | Often built-in checkpointing/replay | None—restart on failure (or integrate external engine) |
 | **Visualization** | Graph editors, visual debugging | Code is the source of truth |
 
-> For the full design rationale—including bidirectional refactoring, security posture, and related research—see [`docs/concept.md`](docs/concept.md).
+> For the full design rationale—including hardening prompts into code (and softening code back to prompts), security posture, and related research—see [`docs/concept.md`](docs/concept.md).
 
 This is the **Unix philosophy for agents**: workers are files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
 

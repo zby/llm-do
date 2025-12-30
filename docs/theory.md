@@ -1,10 +1,18 @@
-# Stochastic Computation Theory: A Sketch
+# Stochastic Computation: A Sketch
 
 > This document sketches a theoretical framing for llm-do. It's not a complete theory—just enough conceptual machinery to clarify why certain design choices make sense.
 
-## The Core Distinction
+## The Gap in Existing Models
 
-Traditional computers are deterministic: given program P and input I, you get output O. The same input always produces the same output.
+Classical models of nondeterminism and probability—nondeterministic automata, probabilistic Turing machines, probabilistic programming, Markov decision processes—treat uncertainty as a property of an otherwise well-defined machine. Probability attaches to explicit transitions or sampled variables, and execution denotes a fixed mathematical object: a language, a distribution, or an optimal policy.
+
+Large language models don't fit this pattern. They act as **stochastic interpreters**: the uncertainty is not confined to modeled variables or transitions but resides in the act of interpretation itself. The same specification may be rendered into different executable behaviors across invocations, model versions, or contexts. Interpretation becomes an observable, path-dependent process rather than a transparent execution step.
+
+Existing theories do not account for this regime, in which compilation is non-idempotent and its artifacts must be treated as first-class, revisable objects. This sketch doesn't propose a full formalization—only notes that the gap exists and explores its practical consequences for system design.
+
+## Stochastic Computers
+
+The gap suggests a different framing. Traditional computers are deterministic: given program P and input I, you get output O. The same input always produces the same output.
 
 LLMs are **stochastic computers**: given a specification S and input I, you get a sample from a probability distribution over outputs.
 
@@ -59,14 +67,6 @@ spec → LLM → code → executor → result
 ```
 
 **Practical consequence**: Both spec and generated code are distinct artifacts that should be versioned. If you keep only the spec, you can't reproduce what you deployed. If you keep only the code, you lose the intent that generated it. Regeneration gives you a *different sample*, not the same code.
-
-## Relation to Existing Models
-
-Classical models of nondeterminism and probability—nondeterministic automata, probabilistic Turing machines, probabilistic programming, Markov decision processes—treat uncertainty as a property of an otherwise well-defined machine. Probability attaches to explicit transitions or sampled variables, and execution denotes a fixed mathematical object: a language, a distribution, or an optimal policy.
-
-By contrast, large language models act as **stochastic interpreters**: the uncertainty is not confined to modeled variables or transitions but resides in the act of interpretation itself. The same specification may be rendered into different executable behaviors across invocations, model versions, or contexts, making interpretation an observable, path-dependent process rather than a transparent execution step.
-
-Existing theories do not account for this regime, in which compilation is non-idempotent and its artifacts must be treated as first-class, revisable objects. This sketch doesn't propose a full formalization—only notes that the gap exists and has practical consequences for system design.
 
 ## Hardening and Softening
 

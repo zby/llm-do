@@ -6,22 +6,22 @@
 
 Classical models of nondeterminism and probability—nondeterministic automata, probabilistic Turing machines, probabilistic programming, Markov decision processes—treat uncertainty as a property of an otherwise well-defined machine. Probability attaches to explicit transitions or sampled variables, and execution denotes a fixed mathematical object: a language, a distribution, or an optimal policy.
 
-Large language models don't fit this pattern. They act as **stochastic interpreters**: the uncertainty is not confined to modeled variables or transitions but resides in the act of interpretation itself. The same specification may be rendered into different executable behaviors across invocations, model versions, or contexts. Interpretation becomes an observable, path-dependent process rather than a transparent execution step.
+Large language models don't fit this pattern. The uncertainty is not confined to modeled variables or transitions—it resides in how the specification is understood. There is no fixed mathematical object that a prompt denotes; the mapping from spec to behavior is itself a stochastic process.
 
 Existing theories do not account for this regime. This sketch doesn't propose a full formalization—only notes that the gap exists and explores its practical consequences for system design.
 
 ## Stochastic Computers
 
-The gap suggests a different framing. Traditional computers are deterministic: given program P and input I, you get output O. The same input always produces the same output.
-
-LLMs are **stochastic computers**: given a specification S and input I, you get a sample from a probability distribution over outputs.
+We frame this by treating LLMs as **stochastic computers**: given a specification S and input I, you get a sample from a probability distribution over outputs.
 
 ```
 Traditional:   (Program, Input) → Output
 Stochastic:    (Spec, Input) → sample from Distribution[Output]
 ```
 
-This isn't a bug awaiting a fix—though for many applications we do want to reduce variance. It's intrinsic to how these systems work. The temperature parameter makes it explicit: you're controlling how broadly you sample from the distribution.
+The contrast with traditional computation is in the arrow, not just the output. A traditional program denotes a function; a stochastic spec denotes a distribution. Each invocation samples from that distribution—the temperature parameter makes this explicit, controlling how broadly you sample.
+
+This isn't a bug awaiting a fix. For many applications we want to reduce variance, but the stochasticity is intrinsic to how these systems work. The question becomes: how do you build reliable systems on a stochastic foundation?
 
 ## What Shapes the Distribution
 

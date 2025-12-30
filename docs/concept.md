@@ -14,6 +14,17 @@ LLM apps usually start as "just prompt it" and then hit a wall:
 
 llm-do is a response: keep control flow in normal code, treat prompts as callable units, and progressively replace uncertainty with determinism where it pays off.
 
+## Theoretical Foundation
+
+llm-do is grounded in a view of LLMs as **stochastic computers**—systems that map natural language specifications to probability distributions over behaviors, rather than deterministic outputs. This model explains:
+
+- Why prompts are powerful but fragile (they shape distributions, not exact behaviors)
+- Why hardening matters (collapsing distributions toward determinism where reliability is needed)
+- Why bidirectional refactoring is essential (logic needs to move fluidly across the stochastic/deterministic boundary)
+- Why both specs and generated code must be versioned (stochastic compilation produces non-reproducible intermediate forms)
+
+See [Stochastic Computation: A Sketch](theory.md) for the full treatment.
+
 ## Core Idea
 
 **Workers are functions.**
@@ -24,7 +35,7 @@ A **worker** is a prompt + configuration + tools (and optionally schemas/policie
 
 ## Unified Function Space
 
-Workers and tools are the same abstraction: **a callable**. Both can call each other in any combination—just like in a regular program. Whether a function is implemented as an LLM agent loop or Python code is an implementation detail; the mental model is the same even if the syntax differs slightly.
+Workers and tools are the same abstraction: **a callable**. Both can call each other in any combination—just like in a regular program. Whether a function is implemented as an LLM agent loop or Python code is an implementation detail; the calling convention is the same.
 
 This is neuro-symbolic computing in practice:
 
@@ -53,6 +64,24 @@ Pure Python ◄─────────────────────�
 ```
 
 Any component can slide along this spectrum as requirements evolve.
+
+## Unified but Not Uniform
+
+The unified calling convention enables composition and refactoring—you can swap a worker for a tool or vice versa. But unification at the interface level doesn't mean identical semantics underneath.
+
+A call into an LLM crosses a **distribution boundary**: from deterministic execution into stochastic computation and back. This matters:
+
+|                  | Deterministic call (tool) | Stochastic call (worker) |
+|------------------|---------------------------|--------------------------|
+| Same input       | Same output               | Distribution over outputs |
+| Failure modes    | Crashes, exceptions       | Hallucination, refusal, drift |
+| Retry semantics  | Usually safe              | May get different result |
+| Testing          | Assert equality           | Sample and check distribution |
+| Debugging        | Trace execution           | Reshape probability distribution |
+
+If the abstraction hides this boundary completely, you'll write code assuming reproducibility and get bitten. If the abstraction makes everything special-cased, you can't refactor.
+
+The goal is an interface that's **thin enough to enable composition** and **honest enough that you know when you're crossing the boundary**. Same calling convention, different expectations.
 
 ## Harness, Not Graph
 
@@ -88,7 +117,14 @@ Workers start flexible, then harden as patterns stabilize:
 
 ### Softening: Symbolic → Neural
 
-When rigid code needs flexibility, replace deterministic logic with worker calls.
+The common path for softening is **extension**: you need new functionality, you describe it as a spec (or even just user stories), and you plug it into the system as a worker. You can also use an LLM to combine user stories into a coherent spec.
+
+```python
+# New capability added by writing a spec
+result = await ctx.call("sentiment_analyzer", customer_feedback)
+```
+
+The rarer path is **replacement**: rigid code is drowning in edge cases, so you swap it for an LLM call that handles variation gracefully.
 
 **Example**: A Python tool routes support tickets using keyword matching. Edge cases multiply—users describe the same issue in countless ways, and the if/else tree becomes unmaintainable. Replace classification with `ctx.call("ticket_router", ticket_text)`. The worker handles linguistic variation; deterministic rules still enforce valid category codes on the output.
 
@@ -140,9 +176,10 @@ If you need durable workflows with automatic retry and state persistence, llm-do
 
 1. **Workers as functions** — Focused, composable units that do one thing well
 2. **Unified function space** — Workers and tools call each other freely; LLM vs Python is an implementation detail
-3. **Bidirectional refactoring** — Harden prompts to code as patterns stabilize; soften rigid code to prompts when flexibility is needed
-4. **Guardrails by construction** — Tool schema validation and approval enforcement in code, guarding against LLM mistakes
-5. **Bounded recursion** — Workers calling workers feels like function calls, with depth limits to prevent runaway recursion and context blowup
+3. **Honest abstraction** — Same calling convention across the distribution boundary, but the boundary is visible
+4. **Bidirectional refactoring** — Harden prompts to code as patterns stabilize; soften by adding new capabilities via specs
+5. **Guardrails by construction** — Tool schema validation and approval enforcement in code, guarding against LLM mistakes
+6. **Bounded recursion** — Workers calling workers feels like function calls, with depth limits to prevent runaway recursion and context blowup
 
 ## Related Work
 

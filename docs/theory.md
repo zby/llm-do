@@ -12,9 +12,7 @@ Existing theories do not account for this regime. This sketch doesn't propose a 
 
 ## Stochastic Computers
 
-We frame this by treating LLMs as **stochastic computers**. The key distinction from classical probabilistic models: the *program itself* is sampled, not just the execution.[^models]
-
-[^models]: In probabilistic programming, random variables are explicit within a fixed program structure. In MDPs, the model is fixed and uncertainty lies in environment transitions. In both cases, you know what program you're running. Here, the program is what varies.
+We frame this by treating LLMs as **stochastic computers**. The key distinction from classical probabilistic models: the *program itself* is sampled, not just the execution.
 
 ```
 Traditional:     (Program, Input) → Output

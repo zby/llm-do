@@ -19,12 +19,13 @@ We frame this by treating LLMs as **stochastic computers**. The key distinction 
 ```
 Traditional:     (Program, Input) → Output
 Probabilistic:   (Program, Input) → sample from D(Program, Input)
-Stochastic:      (Spec, Input) → sample P from M(Spec), then P(Input) → Output
+Stochastic:      (Spec, Input) → sample from D(Spec, Input)
+                 where D(S,I) ≈ Σ Pr[P|S] · D(P,I)
 ```
 
-A spec S induces a distribution over programs P via the model M. The output distribution is a mixture over these possible programs: D(S,I) = Σ Pr[P|S] · D(P,I). The interpretation varies, not just the execution path.
+Technically, the stochastic case is a special case of probabilistic computation—both produce distributions over outputs. But conceptually, programmers model it differently: the output distribution *behaves as if* the spec induced a distribution over programs, each of which would handle the input differently. The LLM doesn't literally sample a program then execute it, but the mixture model captures the intuition: the interpretation varies, not just the execution path.
 
-Each invocation samples a program from that distribution. The temperature parameter makes this explicit, controlling how broadly you sample. This stochasticity isn't a bug awaiting a fix—it's intrinsic to how these systems work. For many applications we want to reduce variance, but the question becomes: how do you build reliable systems on a stochastic foundation?
+Each invocation samples from this distribution. The temperature parameter controls how broadly you sample. This stochasticity isn't a bug awaiting a fix—it's intrinsic to how these systems work. For many applications we want to reduce variance, but the question becomes: how do you build reliable systems on a stochastic foundation?
 
 ## What Shapes the Distribution
 

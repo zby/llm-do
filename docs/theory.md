@@ -8,7 +8,7 @@ Classical models of nondeterminism and probability—nondeterministic automata, 
 
 Large language models don't fit this pattern. They act as **stochastic interpreters**: the uncertainty is not confined to modeled variables or transitions but resides in the act of interpretation itself. The same specification may be rendered into different executable behaviors across invocations, model versions, or contexts. Interpretation becomes an observable, path-dependent process rather than a transparent execution step.
 
-Existing theories do not account for this regime, in which compilation is non-idempotent and its artifacts must be treated as first-class, revisable objects. This sketch doesn't propose a full formalization—only notes that the gap exists and explores its practical consequences for system design.
+Existing theories do not account for this regime. This sketch doesn't propose a full formalization—only notes that the gap exists and explores its practical consequences for system design.
 
 ## Stochastic Computers
 

@@ -14,6 +14,11 @@ Working documents for exploration, design thinking, and capturing insights.
 - **Archiving**: Move to `archive/` when resolved, implemented, or no longer relevant (archived notes are kept as-is)
 - **Referencing**: Link from AGENTS.md or tasks when the note informs decisions
 
+## Subdirectories
+
+- `archive/` — resolved or superseded notes (immutable after archiving)
+- `agent-learnings/` — staging area for agent-discovered insights (see its README)
+
 ## Note Template
 
 ```markdown

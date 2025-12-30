@@ -31,11 +31,23 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 ---
 
+## Quality Checks
+
+Run relevant checks before submitting changes:
+- **Tests**: `uv run pytest` — all tests must pass. Tests use dummy models, no API calls needed.
+- **Lint**: `uv run ruff check .` — fix issues or explain why they're acceptable
+- **Format**: `uv run black --check .` — run `uv run black .` to auto-fix
+
+**Never claim checks passed unless they were actually run.** If checks cannot be run, explicitly state why.
+
+---
+
 ## Git Discipline
 
-- **Run tests before every commit**: `uv run pytest` — all tests must pass before committing. Tests use dummy models, no API calls needed.
 - **Never** `git add -A` — review `git status` and stage specific files
 - Check `git diff` before committing
+- **Never** use `git reset --hard` or force-push without explicit permission
+- Prefer safe alternatives: `git revert`, new commits, temporary branches
 
 ---
 
@@ -63,6 +75,25 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 - Use `docs/notes/` for explorations and reasoning that doesn’t belong in code or tasks; follow the note template.
 - Include "Open Questions" for unresolved items; move to `docs/notes/archive/` when resolved.
 - Archived notes are immutable — do not edit content after archiving.
+
+---
+
+## Agent Self-Improvement
+
+Agents can capture learnings in `docs/notes/agent-learnings/` without approval.
+
+**When to write:**
+- Friction or gotchas worth documenting
+- Patterns that should become conventions
+- Corrections received that reveal missing guidance
+- Tool-specific behaviors worth codifying
+
+**Guidelines:**
+- Don't interrupt the current task — jot quickly and continue
+- Keep notes brief and actionable
+- One learning per note
+
+Learnings are periodically reviewed and promoted to AGENTS.md, tool READMEs, or architecture docs.
 
 ---
 

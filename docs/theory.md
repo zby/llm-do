@@ -1,4 +1,4 @@
-# Stochastic Computation: A Sketch
+# Stochastic Computation Theory: A Sketch
 
 > This document sketches a theoretical framing for llm-do. It's not a complete theory—just enough conceptual machinery to clarify why certain design choices make sense.
 

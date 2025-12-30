@@ -23,7 +23,7 @@ llm-do is grounded in a view of LLMs as **stochastic computers**—systems that 
 - Why bidirectional refactoring is essential (logic needs to move fluidly across the stochastic/deterministic boundary)
 - Why both specs and generated code must be versioned (stochastic compilation produces non-reproducible intermediate forms)
 
-See [Stochastic Computation: A Sketch](theory.md) for the full treatment.
+See [Stochastic Computation Theory: A Sketch](theory.md) for the full treatment.
 
 ## Core Idea
 

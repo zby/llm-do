@@ -10,7 +10,7 @@ LLM apps usually start as "just prompt it" and then hit a wall:
 - **Pure code is reliable but brittle** — Edge cases multiply into unmaintainable conditionals.
 - **Graph/DSL frameworks add structure, but also new abstractions** — Refactoring means redrawing edges.
 
-llm-do is a response: keep control flow in normal code, treat prompts as callable units, and progressively replace uncertainty with determinism where it pays off.
+llm-do is a response: treat prompts as callable units, let control flow live in code or LLM instructions (your choice), and progressively replace uncertainty with determinism where it pays off.
 
 ## Theoretical Foundation
 
@@ -28,7 +28,7 @@ A **worker** is a prompt + configuration + tools (and optionally schemas/policie
 
 ## Unified Function Space
 
-Workers and tools share a calling convention. Whether a function is implemented as an LLM agent loop or Python code is an implementation detail.
+Workers and tools share a calling convention. Whether a function is implemented as an LLM agent loop or Python code is an implementation detail. This is **neuro-symbolic computation** in practice:
 
 ```
 LLM ──calls──▶ Tool ──calls──▶ LLM ──calls──▶ Tool ...

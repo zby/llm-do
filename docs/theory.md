@@ -31,12 +31,12 @@ The "spec" isn't a single thing. Multiple factors shape the output distribution,
 |--------|----------------------|
 | System prompt | Sets prior expectations, narrows toward intended behavior |
 | Few-shot examples | Shifts probability mass toward demonstrated patterns |
-| Tool definitions | Truncates distribution to valid action space |
-| Output schemas | Constrains structure, not content |
+| Tool definitions | Biases toward valid action space; can truncate support when tool-only decoding is enforced |
+| Output schemas | Constrain structure and sometimes content (enums, ranges, regexes) |
 | Conversation history | Dynamic reshaping as context accumulates |
-| Temperature | Controls sampling breadth, not distribution shape |
+| Temperature | Controls sampling breadth by flattening/sharpening the effective distribution |
 
-Understanding these as **distribution-shaping techniques** clarifies what each intervention can and can't do. Examples shift the mode; schemas constrain the support; temperature affects sampling, not the underlying probabilities.
+Understanding these as **distribution-shaping techniques** clarifies what each intervention can and can't do. Examples shift the mode; schemas constrain the support; temperature reshapes the effective distribution at sampling time without changing model weights.
 
 ## Distribution Boundaries
 
@@ -49,32 +49,18 @@ distribution   point mass    distribution
 ```
 
 At each crossing:
-- **Stochastic → Deterministic**: Variance collapses. Whatever probabilistic path got here, the tool's behavior is now fixed.
+- **Stochastic → Deterministic**: Variance collapses unless the tool itself is nondeterministic.
 - **Deterministic → Stochastic**: Variance is introduced. A fixed input enters a system that produces a distribution over outputs.
 
-These boundaries are natural **checkpoints**. The deterministic code doesn't care how it was reached—only what arguments it received. This matters for debugging, testing, and reasoning about the system.
-
-## Stochastic Compilation
-
-LLMs can act as compilers: spec in, code out. But unlike traditional compilation, each run may yield different code.
-
-Traditional compilation fuses with execution because it's deterministic—the intermediate form is derivable from the source. Stochastic compilation breaks this:
-
-```
-spec → LLM → code → executor → result
-       ↑
-       samples from distribution
-```
-
-**Practical consequence**: Both spec and generated code are distinct artifacts that should be versioned. If you keep only the spec, you can't reproduce what you deployed. If you keep only the code, you lose the intent that generated it. Regeneration gives you a *different sample*, not the same code.
+These boundaries are natural **checkpoints**. The deterministic code doesn't care how it was reached—only what arguments it received. This matters for debugging, testing, and reasoning about the system. (Operational concerns like audit logs and approval policies may still need to track provenance, but the computation itself is context-free at the boundary.)
 
 ## Hardening and Softening
 
 Logic can move across the distribution boundary in both directions.
 
-**Hardening** (stochastic → deterministic): As patterns stabilize, extract them to code. Deterministic code doesn't hallucinate, can be unit tested, runs faster, and doesn't consume API tokens.
+**Hardening** (stochastic → deterministic): Sample from the distribution and freeze the result. The output becomes a fixed artifact—code, configuration, a decision—that no longer varies.
 
-**Softening** (deterministic → stochastic): Add new functionality by writing a spec—or even just user stories—and plugging it into the system as a worker. The spec describes what you want; the LLM figures out how to do it. You can also combine user stories into a coherent spec using an LLM, then patch that into your program.
+**Softening** (deterministic → stochastic): Replace fixed logic with a spec. Add new functionality by describing it in natural language; the LLM figures out how to do it.
 
 ```
 Harden                              Soften
@@ -84,7 +70,38 @@ Stochastic ◄─────────────────────►
  handles ambiguity)                  testable, cheap)
 ```
 
-The common softening path is **extension**: you need new capability, you describe it in natural language, and it becomes callable. The rarer path is **replacement**: rigid code is drowning in edge cases, so you swap it for an LLM call that handles linguistic variation.
+### One-shot hardening (stochastic compilation)
+
+LLMs can act as compilers: spec in, code out. Each run samples from the distribution, producing a different but (hopefully) valid implementation.
+
+```
+spec → LLM → code → executor → result
+       ↑
+       samples from distribution
+```
+
+This is hardening in one step: a stochastic spec becomes deterministic code. But unlike traditional compilation, regeneration gives you a *different sample*, not the same code.
+
+**Versioning implication**: Both spec and generated code are distinct artifacts that should be versioned. If you keep only the spec, reproducing what you deployed is practically impossible.[^repro] If you keep only the code, you lose the intent that generated it.
+
+[^repro]: Theoretical reproducibility requires pinning model version, decoding parameters, RNG seeds, and more. In practice, this is rarely done.
+
+### Progressive hardening
+
+Rather than generating code in one shot, you can harden incrementally:
+
+1. Start with a stochastic component (a worker/agent)
+2. Run it, observe patterns in its behavior
+3. Extract stable patterns to deterministic code
+4. Keep the stochastic component for remaining ambiguous cases
+
+The worker still handles edge cases ("is this a date or a version number?"), but the common path is now code—tested, fast, and predictable.
+
+### Softening as extension
+
+The common path for softening is **extension**: you need new capability, you describe it in natural language, and it becomes callable. You can write a spec, or even just user stories, and plug it into the system. An LLM can combine user stories into a coherent spec. (The new capability is still bounded by available tools and permissions—natural language doesn't conjure abilities the system lacks.)
+
+The rarer path is **replacement**: rigid code is drowning in edge cases, so you swap it for an LLM call that handles linguistic variation.
 
 Real systems need both directions. A component might start as an LLM call (quick to add), harden to code as patterns emerge (reliable and fast), then have new capabilities softened in as requirements grow.
 
@@ -124,7 +141,7 @@ Same interface doesn't mean same semantics. The caller may still need to know wh
 
 Stochastic systems require different approaches.
 
-**Testing**: Run the same input N times. Check that the distribution of outputs meets expectations. This is statistical hypothesis testing, not assertion equality. Every piece you harden becomes traditionally testable—a strong argument for progressive hardening.
+**Testing**: Run the same input N times. Check that the distribution of outputs meets expectations. This is statistical hypothesis testing, not assertion equality. (Caching and model updates can break i.i.d. assumptions, so treat results with appropriate caution.) Every piece you harden becomes traditionally testable—a strong argument for progressive hardening.
 
 **Debugging**: When a prompt "fails," you're not tracing execution—you're reshaping a probability distribution. The failure might not reproduce. Changes have non-local effects. There's no stack trace. This is why prompt engineering is empirical and iterative.
 
@@ -142,7 +159,7 @@ Taking stochastic computation seriously suggests:
 
 4. **Preserve distribution width where it helps**—don't over-constrain creative or ambiguous tasks
 
-5. **Version intermediate forms**—if LLMs generate artifacts, version those alongside the specs
+5. **Version intermediate forms**—when you harden (one-shot or progressive), both the spec and the frozen artifact matter
 
 6. **Accept statistical failure**—design for retry and graceful degradation rather than assuming failures can be eliminated
 

@@ -60,6 +60,14 @@ spec → LLM → code → executor → result
 
 **Practical consequence**: Both spec and generated code are distinct artifacts that should be versioned. If you keep only the spec, you can't reproduce what you deployed. If you keep only the code, you lose the intent that generated it. Regeneration gives you a *different sample*, not the same code.
 
+## Relation to Existing Models
+
+Classical models of nondeterminism and probability—nondeterministic automata, probabilistic Turing machines, probabilistic programming, Markov decision processes—treat uncertainty as a property of an otherwise well-defined machine. Probability attaches to explicit transitions or sampled variables, and execution denotes a fixed mathematical object: a language, a distribution, or an optimal policy.
+
+By contrast, large language models act as **stochastic interpreters**: the uncertainty is not confined to modeled variables or transitions but resides in the act of interpretation itself. The same specification may be rendered into different executable behaviors across invocations, model versions, or contexts, making interpretation an observable, path-dependent process rather than a transparent execution step.
+
+Existing theories do not account for this regime, in which compilation is non-idempotent and its artifacts must be treated as first-class, revisable objects. This sketch doesn't propose a full formalization—only notes that the gap exists and has practical consequences for system design.
+
 ## Hardening and Softening
 
 Logic can move across the distribution boundary in both directions.

@@ -4,24 +4,27 @@
 
 ## The Gap in Existing Models
 
-Classical models of nondeterminism and probability—nondeterministic automata, probabilistic Turing machines, probabilistic programming, Markov decision processes—treat uncertainty as a property of an otherwise well-defined machine. Probability attaches to explicit transitions or sampled variables, and execution denotes a fixed mathematical object: a language, a distribution, or an optimal policy.
+Classical models of nondeterminism and probability—nondeterministic automata, probabilistic Turing machines, probabilistic programming, Markov decision processes—treat uncertainty as a property of an otherwise well-defined machine. Probability attaches to explicit transitions or sampled variables. Execution denotes a fixed mathematical object: a language, a distribution, or an optimal policy.
 
-Large language models don't fit this pattern. The uncertainty is not confined to modeled variables or transitions—it resides in how the specification is understood. There is no fixed mathematical object that a prompt denotes; the mapping from spec to behavior is itself a stochastic process.
+Large language models don't fit this pattern. The uncertainty is not confined to modeled variables or transitions—it resides in how the specification is understood. A prompt doesn't denote a single behavior or program; it denotes a distribution over them.
 
 Existing theories do not account for this regime. This sketch doesn't propose a full formalization—only notes that the gap exists and explores its practical consequences for system design.
 
 ## Stochastic Computers
 
-We frame this by treating LLMs as **stochastic computers**: given a specification S and input I, you get a sample from a probability distribution over outputs.
+We frame this by treating LLMs as **stochastic computers**. The key distinction from classical probabilistic models: the *program itself* is sampled, not just the execution.[^models]
+
+[^models]: In probabilistic programming, random variables are explicit within a fixed program structure. In MDPs, the model is fixed and uncertainty lies in environment transitions. In both cases, you know what program you're running. Here, the program is what varies.
 
 ```
-Traditional:   (Program, Input) → Output
-Stochastic:    (Spec, Input) → sample from Distribution[Output]
+Traditional:     (Program, Input) → Output
+Probabilistic:   (Program, Input) → sample from D(Program, Input)
+Stochastic:      (Spec, Input) → sample P from M(Spec), then P(Input) → Output
 ```
 
-The contrast with traditional computation is in the arrow, not just the output. A traditional program denotes a function; a stochastic spec denotes a distribution. Each invocation samples from that distribution—the temperature parameter makes this explicit, controlling how broadly you sample.
+A spec S induces a distribution over programs P via the model M. The output distribution is a mixture over these possible programs: D(S,I) = Σ Pr[P|S] · D(P,I). The interpretation varies, not just the execution path.
 
-This isn't a bug awaiting a fix. For many applications we want to reduce variance, but the stochasticity is intrinsic to how these systems work. The question becomes: how do you build reliable systems on a stochastic foundation?
+Each invocation samples a program from that distribution. The temperature parameter makes this explicit, controlling how broadly you sample. This stochasticity isn't a bug awaiting a fix—it's intrinsic to how these systems work. For many applications we want to reduce variance, but the question becomes: how do you build reliable systems on a stochastic foundation?
 
 ## What Shapes the Distribution
 
@@ -40,7 +43,7 @@ Understanding these as **distribution-shaping techniques** clarifies what each i
 
 ## Distribution Boundaries
 
-When stochastic computation calls deterministic code (or vice versa), execution crosses a **distribution boundary**.
+When stochastic computation calls deterministic code (or vice versa), execution crosses a **distribution boundary**. Example: an LLM decides to call a calculator—that decision was sampled from a distribution, but the arithmetic itself is deterministic.
 
 ```
 Stochastic → Deterministic → Stochastic
@@ -95,7 +98,7 @@ Rather than generating code in one shot, you can harden incrementally:
 3. Extract stable patterns to deterministic code
 4. Keep the stochastic component for remaining ambiguous cases
 
-The worker still handles edge cases ("is this a date or a version number?"), but the common path is now code—tested, fast, and predictable.
+Example: a file-renaming agent initially uses LLM judgment for everything. You notice it always lowercases and replaces spaces with underscores—so you extract `sanitize_filename()` to Python. The agent still handles ambiguous cases ("is '2024-03' a date or a version?"), but the common path is now code.
 
 ### Softening as extension
 

@@ -16,7 +16,7 @@ llm-do is a response: treat prompts as callable units, let control flow live in 
 
 LLMs are stochastic computers: specs map to distributions over behaviors, not deterministic outputs. Calls cross distribution boundaries between stochastic and deterministic execution. Reliability comes from shaping distributions and hardening boundaries where it matters.
 
-See [Stochastic Computation: A Sketch](theory.md) for the full treatment.
+See [LLM-Based Agentic Systems as Probabilistic Programs](theory.md) for the full treatment.
 
 ## Core Idea
 
@@ -192,6 +192,6 @@ llm-do can be a component *within* durable workflow systems, but doesn't replace
 ---
 
 **Further reading:**
-- [theory.md](theory.md) — Stochastic computation theory and related work
+- [theory.md](theory.md) — Probabilistic programs framing: distribution boundaries, hardening/softening, the harness pattern
 - [architecture.md](architecture.md) — Implementation details: worker definitions, toolsets, approvals, runtime API
 - [examples/](../examples/) — Working examples showing the hardening progression

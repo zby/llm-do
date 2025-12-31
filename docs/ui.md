@@ -43,10 +43,11 @@ They optionally implement `start()`/`stop()` for setup and teardown.
 ### Textual TUI
 
 `TextualDisplayBackend` forwards events to the Textual app via an async queue.
-`LlmDoApp` is a thin consumer that only manages approval state and final output,
-while `MessageContainer` handles streaming and widget mounting.
+`LlmDoApp` orchestrates the TUI and delegates stateful logic to controllers
+(approval batching, input history, exit confirmation, worker runs), while
+`MessageContainer` handles streaming and widget mounting.
 
-Approval requests are displayed in the TUI and resolved via an approval queue.
+Approval requests are displayed in the TUI and resolved via `ApprovalWorkflowController`.
 Non-interactive modes should use `--approve-all` when approvals are required.
 
 ## Event Flow
@@ -75,7 +76,16 @@ The worker's `message_callback` parses raw events and enqueues typed `UIEvent` o
 | `llm_do/ui/parser.py` | Raw event parsing into UIEvent |
 | `llm_do/ui/display.py` | DisplayBackend implementations |
 | `llm_do/ui/app.py` | Textual TUI application (`LlmDoApp`) |
+| `llm_do/ui/controllers/` | UI-agnostic controllers used by the Textual app |
 | `llm_do/ui/widgets/messages.py` | Message widgets and MessageContainer |
+
+### Controllers
+
+`llm_do/ui/controllers/` holds UI-agnostic state used by the Textual app:
+- `ApprovalWorkflowController` — approval queue + batch numbering
+- `InputHistoryController` — input history navigation and draft preservation
+- `ExitConfirmationController` — double-quit confirmation state
+- `WorkerRunner` — background task tracking + message history storage
 
 ## Textual TUI
 
@@ -91,6 +101,9 @@ llm-do main.worker "task"
 Worker Events -> parse_event -> UIEvent queue -> TextualDisplayBackend -> LlmDoApp
                                                              |
                                                              v
+                                                       Controllers
+                                                            |
+                                                            v
                                                     MessageContainer
                                                         | | |
                                              Assistant  ToolCall  Approval
@@ -132,9 +145,10 @@ llm-do main.worker "hello" --chat
 Input behavior in chat mode:
 - `Enter` inserts a newline.
 - `Ctrl+J` sends the message.
+- Input stays disabled in single-turn mode; the app exits automatically on completion.
 
 ## Future Work
 
 - **Streaming markdown**: Progressive markdown rendering in `AssistantMessage`
 - **Deferred tools**: Real-time status updates for long-running tool execution
-- **Multi-turn input**: Enable text input widget for conversation continuation
+- **Input UX**: Tighter shortcuts, sizing, and draft persistence polish

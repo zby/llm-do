@@ -5,7 +5,7 @@ import tempfile
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import WorkerEntry
+from llm_do.ctx_runtime import WorkerInvocable
 from llm_do.ctx_runtime.cli import build_entry
 
 
@@ -23,12 +23,12 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
     entry = await build_entry(worker_files, python_files, model="test-model")
-    assert isinstance(entry, WorkerEntry)
+    assert isinstance(entry, WorkerInvocable)
 
     extractor = next(
         toolset
         for toolset in entry.toolsets
-        if isinstance(toolset, WorkerEntry) and toolset.name == "web_research_extractor"
+        if isinstance(toolset, WorkerInvocable) and toolset.name == "web_research_extractor"
     )
     function_toolsets = [
         toolset for toolset in extractor.toolsets if isinstance(toolset, FunctionToolset)

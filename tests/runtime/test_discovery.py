@@ -7,9 +7,9 @@ from pathlib import Path
 from llm_do.ctx_runtime import (
     load_module,
     discover_toolsets_from_module,
-    discover_entries_from_module,
+    discover_workers_from_module,
     load_toolsets_from_files,
-    load_entries_from_files,
+    load_workers_from_files,
 )
 
 
@@ -158,41 +158,41 @@ duplicate_tools = FunctionToolset()
                 os.unlink(f.name)
 
 
-class TestLoadEntriesFromFiles:
-    """Tests for load_entries_from_files."""
+class TestLoadWorkersFromFiles:
+    """Tests for load_workers_from_files."""
 
     def test_duplicate_worker_name_in_file_raises(self):
-        """Test duplicate WorkerEntry names in a single file."""
+        """Test duplicate WorkerInvocable names in a single file."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
-from llm_do.ctx_runtime import WorkerEntry
+from llm_do.ctx_runtime import WorkerInvocable
 
-entry_one = WorkerEntry(name="dup", instructions="first")
-entry_two = WorkerEntry(name="dup", instructions="second")
+worker_one = WorkerInvocable(name="dup", instructions="first")
+worker_two = WorkerInvocable(name="dup", instructions="second")
 """)
             f.flush()
 
             try:
                 with pytest.raises(ValueError, match="Duplicate worker name"):
-                    load_entries_from_files([f.name])
+                    load_workers_from_files([f.name])
             finally:
                 os.unlink(f.name)
 
     def test_duplicate_worker_name_across_files_raises(self):
-        """Test duplicate WorkerEntry names across multiple files."""
+        """Test duplicate WorkerInvocable names across multiple files."""
         files = []
         try:
             for label in ("one", "two"):
                 with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                     f.write(f"""\
-from llm_do.ctx_runtime import WorkerEntry
+from llm_do.ctx_runtime import WorkerInvocable
 
-entry_{label} = WorkerEntry(name="dup", instructions="{label}")
+worker_{label} = WorkerInvocable(name="dup", instructions="{label}")
 """)
                     files.append(f.name)
 
             with pytest.raises(ValueError, match="Duplicate worker name"):
-                load_entries_from_files(files)
+                load_workers_from_files(files)
         finally:
             for fname in files:
                 os.unlink(fname)

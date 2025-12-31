@@ -29,7 +29,7 @@ Update all user-facing documentation to reference the `llm-run` CLI and `llm_do/
 
 ### docs/architecture.md
 - [x] Update module tree to `llm_do/ctx_runtime/*` + current top-level files
-- [x] Update execution flow to `Context.run` + `WorkerEntry` / `ToolEntry` + ApprovalToolset
+- [x] Update execution flow to `Context.run` + `WorkerInvocable` / `ToolInvocable` + ApprovalToolset
 - [x] Update toolset discovery (worker file toolsets + python toolsets + builtins)
 - [x] Remove old runtime references (`runtime.py`, `cli_async.py`, `registry.py`, etc.)
 

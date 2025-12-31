@@ -112,12 +112,12 @@ class TestStreamingModels:
         When streaming with verbosity=2, we should see streaming deltas
         but NOT a final "complete" TextResponseEvent (which would duplicate output).
         """
-        from llm_do.ctx_runtime import Context, WorkerEntry
+        from llm_do.ctx_runtime import Context, WorkerInvocable
         from llm_do.ui.events import TextResponseEvent
 
         events = []
 
-        worker = WorkerEntry(
+        worker = WorkerInvocable(
             name="helper",
             instructions="You are a helper.",
             model=create_scenario_model(

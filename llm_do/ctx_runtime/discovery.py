@@ -3,7 +3,7 @@
 This module provides functions to:
 - Load Python modules from file paths
 - Discover AbstractToolset instances (including FunctionToolset)
-- Discover WorkerEntry instances
+- Discover WorkerInvocable instances
 
 Discovery uses isinstance() checks to find toolset instances
 in module attributes.
@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .entries import WorkerEntry
+from .invocables import WorkerInvocable
 
 
 def load_module(path: str | Path) -> ModuleType:
@@ -68,23 +68,23 @@ def discover_toolsets_from_module(module: ModuleType) -> dict[str, AbstractTools
     return toolsets
 
 
-def discover_entries_from_module(module: ModuleType) -> list[WorkerEntry]:
-    """Discover WorkerEntry instances from a module.
+def discover_workers_from_module(module: ModuleType) -> list[WorkerInvocable]:
+    """Discover WorkerInvocable instances from a module.
 
     Args:
         module: Loaded Python module
 
     Returns:
-        List of discovered entries
+        List of discovered workers
     """
-    entries: list[WorkerEntry] = []
+    workers: list[WorkerInvocable] = []
     for name in dir(module):
         if name.startswith("_"):
             continue
         obj = getattr(module, name)
-        if isinstance(obj, WorkerEntry):
-            entries.append(obj)
-    return entries
+        if isinstance(obj, WorkerInvocable):
+            workers.append(obj)
+    return workers
 
 
 def load_toolsets_from_files(files: list[str | Path]) -> dict[str, AbstractToolset[Any]]:
@@ -117,17 +117,17 @@ def load_toolsets_from_files(files: list[str | Path]) -> dict[str, AbstractTools
     return all_toolsets
 
 
-def load_entries_from_files(files: list[str | Path]) -> dict[str, WorkerEntry]:
-    """Load all WorkerEntry instances from multiple Python files.
+def load_workers_from_files(files: list[str | Path]) -> dict[str, WorkerInvocable]:
+    """Load all WorkerInvocable instances from multiple Python files.
 
     Args:
         files: List of paths to Python files
 
     Returns:
-        Dict mapping entry names to instances
+        Dict mapping worker names to instances
     """
-    all_entries: dict[str, WorkerEntry] = {}
-    entry_paths: dict[str, Path] = {}
+    all_workers: dict[str, WorkerInvocable] = {}
+    worker_paths: dict[str, Path] = {}
 
     for file_path in files:
         path = Path(file_path)
@@ -135,17 +135,16 @@ def load_entries_from_files(files: list[str | Path]) -> dict[str, WorkerEntry]:
             continue
 
         module = load_module(path)
-        entries = discover_entries_from_module(module)
+        workers = discover_workers_from_module(module)
 
-        for entry in entries:
-            if entry.name in all_entries:
-                existing_path = entry_paths[entry.name]
+        for worker in workers:
+            if worker.name in all_workers:
+                existing_path = worker_paths[worker.name]
                 raise ValueError(
-                    f"Duplicate worker name: {entry.name} "
+                    f"Duplicate worker name: {worker.name} "
                     f"(from {existing_path} and {path})"
                 )
-            all_entries[entry.name] = entry
-            entry_paths[entry.name] = path
+            all_workers[worker.name] = worker
+            worker_paths[worker.name] = path
 
-    return all_entries
-
+    return all_workers

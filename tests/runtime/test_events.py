@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import Context, WorkerEntry
+from llm_do.ctx_runtime import Context, WorkerInvocable
 from llm_do.ui.events import (
     UIEvent,
     ToolCallEvent,
@@ -83,12 +83,12 @@ class TestContextEventCallback:
         assert result_event.content == "Hello, World!"
 
 
-class TestWorkerEntryToolEvents:
-    """Tests for ToolCallEvent/ToolResultEvent emission from WorkerEntry."""
+class TestWorkerInvocableToolEvents:
+    """Tests for ToolCallEvent/ToolResultEvent emission from WorkerInvocable."""
 
     @pytest.mark.anyio
     async def test_worker_emits_tool_call_event(self):
-        """Test that WorkerEntry emits ToolCallEvent when tools are called."""
+        """Test that WorkerInvocable emits ToolCallEvent when tools are called."""
         events: list[UIEvent] = []
 
         # Create a toolset with a simple tool
@@ -100,7 +100,7 @@ class TestWorkerEntryToolEvents:
             return a + b
 
         # Create worker with the toolset
-        worker = WorkerEntry(
+        worker = WorkerInvocable(
             name="calculator",
             instructions="You are a calculator. Use add tool.",
             model=TestModel(call_tools=["add"]),
@@ -134,7 +134,7 @@ class TestWorkerEntryToolEvents:
 
     @pytest.mark.anyio
     async def test_worker_emits_events_for_multiple_tool_calls(self):
-        """Test that WorkerEntry emits events for multiple tool calls."""
+        """Test that WorkerInvocable emits events for multiple tool calls."""
         events: list[UIEvent] = []
 
         toolset = FunctionToolset()
@@ -149,7 +149,7 @@ class TestWorkerEntryToolEvents:
             """Multiply two numbers."""
             return a * b
 
-        worker = WorkerEntry(
+        worker = WorkerInvocable(
             name="calculator",
             instructions="You are a calculator.",
             model=TestModel(call_tools=["add", "multiply"]),
@@ -186,7 +186,7 @@ class TestWorkerEntryToolEvents:
             """Greet someone."""
             return f"Hello, {name}!"
 
-        worker = WorkerEntry(
+        worker = WorkerInvocable(
             name="greeter",
             instructions="Greet the user.",
             model=TestModel(call_tools=["greet"]),
@@ -222,7 +222,7 @@ class TestWorkerEntryToolEvents:
         def echo(msg: str) -> str:
             return msg
 
-        worker = WorkerEntry(
+        worker = WorkerInvocable(
             name="echo",
             instructions="Echo the input.",
             model=TestModel(call_tools=["echo"]),
@@ -238,7 +238,7 @@ class TestWorkerEntryToolEvents:
         assert result is not None
 
 
-class TestWorkerEntryStreamingEvents:
+class TestWorkerInvocableStreamingEvents:
     """Tests for TextResponseEvent emission during streaming."""
 
     @pytest.mark.anyio
@@ -246,7 +246,7 @@ class TestWorkerEntryStreamingEvents:
         """Test that streaming mode emits TextResponseEvent deltas."""
         events: list[UIEvent] = []
 
-        worker = WorkerEntry(
+        worker = WorkerInvocable(
             name="assistant",
             instructions="Respond to the user.",
             model=TestModel(custom_output_text="Hello there!"),
@@ -275,7 +275,7 @@ class TestWorkerEntryStreamingEvents:
         """Test that verbosity < 2 doesn't stream (still emits tool events)."""
         events: list[UIEvent] = []
 
-        worker = WorkerEntry(
+        worker = WorkerInvocable(
             name="assistant",
             instructions="Respond to the user.",
             model=TestModel(custom_output_text="Hello!"),
@@ -317,7 +317,7 @@ Test worker
         original_build = cli_module.build_entry
 
         async def patched_build(*args, **kwargs):
-            return WorkerEntry(
+            return WorkerInvocable(
                 name="main",
                 instructions="Test worker",
                 model=TestModel(custom_output_text="Hello!"),
@@ -365,7 +365,7 @@ Test worker
             def add(a: int, b: int) -> int:
                 return a + b
 
-            return WorkerEntry(
+            return WorkerInvocable(
                 name="main",
                 instructions="Test worker",
                 model=TestModel(

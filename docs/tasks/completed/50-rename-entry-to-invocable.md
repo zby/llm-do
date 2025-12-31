@@ -1,7 +1,7 @@
 # Rename Entry → Invocable
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] `docs/tasks/completed/49-approval-unification.md` (removes `requires_approval` field first)
@@ -11,11 +11,11 @@ Rename Entry types to Invocable across the codebase. This clarifies that the abs
 
 ## Context
 - Relevant files/symbols:
-  - `llm_do/ctx_runtime/ctx.py`: `CallableEntry` (protocol)
-  - `llm_do/ctx_runtime/entries.py`: `WorkerEntry`, `ToolEntry` (classes)
-  - `llm_do/ctx_runtime/discovery.py`: imports/exports WorkerEntry
+  - `llm_do/ctx_runtime/ctx.py`: `Invocable` (protocol)
+  - `llm_do/ctx_runtime/invocables.py`: `WorkerInvocable`, `ToolInvocable` (classes)
+  - `llm_do/ctx_runtime/discovery.py`: imports/exports WorkerInvocable
   - `llm_do/ctx_runtime/__init__.py`: public exports
-  - `llm_do/ctx_runtime/cli.py`: uses WorkerEntry, ToolEntry
+  - `llm_do/ctx_runtime/cli.py`: uses WorkerInvocable, ToolInvocable
   - `llm_do/__init__.py`: public exports
   - `experiments/`: references runtime types (e.g. `experiments/inv/v2_direct/run.py`)
   - Docs: `docs/architecture.md`, `docs/cli.md`
@@ -43,25 +43,25 @@ Rename Entry types to Invocable across the codebase. This clarifies that the abs
   - Keep CLI “entrypoint” terminology (e.g., `--entry`, `entry_name`, “entry point”) since it refers to selecting which invocable to run, not the invocable types themselves.
 
 ## Tasks
-- [ ] Rename `CallableEntry` → `Invocable` in `ctx.py`
-- [ ] Rename `entries.py` → `invocables.py`
-- [ ] Rename `WorkerEntry` → `WorkerInvocable` in `invocables.py`
-- [ ] Rename `ToolEntry` → `ToolInvocable` in `invocables.py`
-- [ ] Rename `discover_entries_from_module()` → `discover_workers_from_module()` and update call sites
-- [ ] Rename `load_entries_from_files()` → `load_workers_from_files()` and update call sites
-- [ ] Update `llm_do/ctx_runtime/discovery.py` imports/exports and docstrings
-- [ ] Update `llm_do/ctx_runtime/__init__.py` exports
-- [ ] Update `llm_do/__init__.py` exports
-- [ ] Update `cli.py` references
-- [ ] Update `experiments/` references (e.g., `experiments/inv/v2_direct/run.py`)
-- [ ] Update high-signal docs (`docs/architecture.md`, `docs/cli.md`) to match new names
-- [ ] Update all test files
-- [ ] Run `uv run pytest`
+- [x] Rename `CallableEntry` → `Invocable` in `ctx.py`
+- [x] Rename `entries.py` → `invocables.py`
+- [x] Rename `WorkerEntry` → `WorkerInvocable` in `invocables.py`
+- [x] Rename `ToolEntry` → `ToolInvocable` in `invocables.py`
+- [x] Rename `discover_entries_from_module()` → `discover_workers_from_module()` and update call sites
+- [x] Rename `load_entries_from_files()` → `load_workers_from_files()` and update call sites
+- [x] Update `llm_do/ctx_runtime/discovery.py` imports/exports and docstrings
+- [x] Update `llm_do/ctx_runtime/__init__.py` exports
+- [x] Update `llm_do/__init__.py` exports
+- [x] Update `cli.py` references
+- [x] Update `experiments/` references (e.g., `experiments/inv/v2_direct/run.py`)
+- [x] Update high-signal docs (`docs/architecture.md`, `docs/cli.md`) to match new names
+- [x] Update all test files
+- [x] Run `uv run pytest`
 
 ## Current State
-Task created. Ready to implement.
+Implementation complete; `uv run pytest` passed.
 
 ## Notes
 - Pure rename task — no structural or behavioral changes
 - Task 47 (Split Context) depends on this for clean naming
-- When implementing, `rg` for `WorkerEntry`, `ToolEntry`, `CallableEntry`, and `ctx_runtime/entries.py` to ensure no stragglers remain (excluding true “entrypoint” CLI text like `--entry`).
+- When verifying, `rg` for `WorkerEntry`, `ToolEntry`, `CallableEntry`, and `ctx_runtime/entries.py` to ensure no stragglers remain (excluding true “entrypoint” CLI text like `--entry`).

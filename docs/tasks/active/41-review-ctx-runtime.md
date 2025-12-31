@@ -9,7 +9,7 @@ Review ctx_runtime core for bugs, inconsistencies, overengineering, and other is
 ## Tasks
 - [ ] Review `llm_do/ctx_runtime/cli.py`
 - [ ] Review `llm_do/ctx_runtime/ctx.py`
-- [ ] Review `llm_do/ctx_runtime/entries.py`
+- [ ] Review `llm_do/ctx_runtime/invocables.py`
 - [ ] Review `llm_do/ctx_runtime/discovery.py`
 - [ ] Review `llm_do/ctx_runtime/worker_file.py`
 - [ ] Update `docs/notes/reviews/review-ctx-runtime.md` with findings and open questions

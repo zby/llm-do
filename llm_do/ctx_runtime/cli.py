@@ -49,11 +49,11 @@ from .approval_wrappers import (
 )
 from .ctx import Context, EventCallback
 from .input_utils import coerce_worker_input
-from .entries import WorkerEntry, ToolEntry
+from .invocables import WorkerInvocable, ToolInvocable
 from .worker_file import load_worker_file
 from .discovery import (
     load_toolsets_from_files,
-    load_entries_from_files,
+    load_workers_from_files,
 )
 from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
 from ..config_overrides import apply_overrides
@@ -119,7 +119,7 @@ def _wrap_toolsets_with_approval(
     and delegates to it. Otherwise it uses optional config and defaults to
     "needs approval" (secure by default).
 
-    Recurses into nested WorkerEntry.toolsets so tool calls inside delegated
+    Recurses into nested WorkerInvocable.toolsets so tool calls inside delegated
     workers are also gated.
 
     Args:
@@ -132,9 +132,9 @@ def _wrap_toolsets_with_approval(
     """
     wrapped: list[AbstractToolset[Any]] = []
     for toolset in toolsets:
-        # Recursively wrap toolsets inside WorkerEntry
-        if isinstance(toolset, WorkerEntry) and toolset.toolsets:
-            toolset = WorkerEntry(
+        # Recursively wrap toolsets inside WorkerInvocable
+        if isinstance(toolset, WorkerInvocable) and toolset.toolsets:
+            toolset = WorkerInvocable(
                 name=toolset.name,
                 instructions=toolset.instructions,
                 model=toolset.model,
@@ -173,8 +173,8 @@ async def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
     if isinstance(toolset, FunctionToolset):
         return list(toolset.tools.keys())
     # For other toolsets, we'd need a RunContext - return empty for now
-    # WorkerEntry returns itself as a single tool
-    if isinstance(toolset, WorkerEntry):
+    # WorkerInvocable returns itself as a single tool
+    if isinstance(toolset, WorkerInvocable):
         return [toolset.name]
     return []
 
@@ -185,12 +185,12 @@ async def build_entry(
     model: str | None = None,
     entry_name: str = "main",
     set_overrides: list[str] | None = None,
-) -> ToolEntry | WorkerEntry:
+) -> ToolInvocable | WorkerInvocable:
     """Build the entry point with all toolsets resolved.
 
     This function:
-    1. Loads all Python toolsets and entries
-    2. Creates WorkerEntry stubs for all .worker files (WorkerEntry IS an AbstractToolset)
+    1. Loads all Python toolsets and workers
+    2. Creates WorkerInvocable stubs for all .worker files (WorkerInvocable IS an AbstractToolset)
     3. Resolves toolset references (workers can call other workers)
     4. Returns the entry (tool or worker) by name with toolsets populated
 
@@ -202,7 +202,7 @@ async def build_entry(
         set_overrides: Optional list of --set KEY=VALUE overrides
 
     Returns:
-        The ToolEntry or WorkerEntry to run, with toolsets attribute populated
+        The ToolInvocable or WorkerInvocable to run, with toolsets attribute populated
 
     Raises:
         ValueError: If entry not found, name conflict, or unknown toolset
@@ -223,14 +223,14 @@ async def build_entry(
                 )
             python_tool_map[tool_name] = (toolset, tool_name, toolset_name)
 
-    # Load Python WorkerEntry instances
-    python_workers = load_entries_from_files(python_files)
+    # Load Python WorkerInvocable instances
+    python_workers = load_workers_from_files(python_files)
 
     if not worker_files and not python_tool_map and not python_workers:
         raise ValueError("At least one .worker or .py file with entries required")
 
-    # First pass: create stub WorkerEntry instances (they ARE AbstractToolsets)
-    worker_entries: dict[str, WorkerEntry] = {}
+    # First pass: create stub WorkerInvocable instances (they ARE AbstractToolsets)
+    worker_entries: dict[str, WorkerInvocable] = {}
     worker_paths: dict[str, str] = {}  # name -> path
 
     for worker_path in worker_files:
@@ -245,7 +245,7 @@ async def build_entry(
         if name in python_workers or name in python_tool_map:
             raise ValueError(f"Worker name '{name}' conflicts with Python entry")
 
-        stub = WorkerEntry(
+        stub = WorkerInvocable(
             name=name,
             instructions=worker_file.instructions,
             model=worker_file.model,
@@ -267,7 +267,7 @@ async def build_entry(
         raise ValueError(f"Entry '{entry_name}' not found. Available: {available}")
 
     # Second pass: build all workers with resolved toolsets
-    workers: dict[str, WorkerEntry] = {}
+    workers: dict[str, WorkerInvocable] = {}
 
     for name, worker_path in worker_paths.items():
         # Apply overrides only to entry worker
@@ -275,7 +275,7 @@ async def build_entry(
         worker_file = load_worker_file(worker_path, overrides=overrides)
 
         # Available toolsets: Python + other workers (not self)
-        # WorkerEntry IS an AbstractToolset, so we can use it directly
+        # WorkerInvocable IS an AbstractToolset, so we can use it directly
         available_workers = {k: v for k, v in worker_entries.items() if k != name}
         all_toolsets: dict[str, AbstractToolset[Any]] = {}
         all_toolsets.update(python_toolsets)
@@ -329,9 +329,9 @@ async def build_entry(
         all_toolsets_list.extend(worker_entries.values())
         all_toolsets_list.extend(python_toolsets.values())
 
-        # Create ToolEntry for the code entry point
+        # Create ToolInvocable for the code entry point
         toolset, tool_name, _toolset_name = python_tool_map[entry_name]
-        return ToolEntry(
+        return ToolInvocable(
             toolset=toolset,
             tool_name=tool_name,
             toolsets=all_toolsets_list,
@@ -394,8 +394,8 @@ async def run(
             tool_approval_callback,
             return_permission_errors=return_permission_errors,
         )
-        if isinstance(entry, WorkerEntry):
-            entry = WorkerEntry(
+        if isinstance(entry, WorkerInvocable):
+            entry = WorkerInvocable(
                 name=entry.name,
                 instructions=entry.instructions,
                 model=entry.model,
@@ -404,8 +404,8 @@ async def run(
                 schema_in=entry.schema_in,
                 schema_out=entry.schema_out,
             )
-        elif isinstance(entry, ToolEntry):
-            entry = ToolEntry(
+        elif isinstance(entry, ToolInvocable):
+            entry = ToolInvocable(
                 toolset=entry.toolset,
                 tool_name=entry.tool_name,
                 toolsets=wrapped_toolsets,
@@ -421,7 +421,7 @@ async def run(
         verbosity=verbosity,
     )
 
-    if isinstance(entry, WorkerEntry):
+    if isinstance(entry, WorkerInvocable):
         input_data = coerce_worker_input(entry.schema_in, prompt)
     else:
         input_data = {"input": prompt}

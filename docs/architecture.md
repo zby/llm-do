@@ -52,9 +52,9 @@ my-project/
 
 1. **Definition** - `.worker` file describes instructions, toolsets, model
 2. **Loading** - `worker_file.load_worker_file()` parses frontmatter and instructions
-3. **Resolution** - `ctx_runtime.build_entry()` resolves toolsets and builds `WorkerEntry`/`ToolEntry`
+3. **Resolution** - `ctx_runtime.build_entry()` resolves toolsets and builds `WorkerInvocable`/`ToolInvocable`
 4. **Context** - `Context.from_entry()` selects the effective model and assembles the runtime
-5. **Execution** - `WorkerEntry` builds a PydanticAI `Agent` and runs it
+5. **Execution** - `WorkerInvocable` builds a PydanticAI `Agent` and runs it
 6. **Result** - Final output is returned (usage tracked in `Context`)
 
 ### Key Capabilities
@@ -91,7 +91,7 @@ llm_do/
 ├── ctx_runtime/
 │   ├── cli.py          # llm-do entry point
 │   ├── ctx.py          # Context dispatcher and depth tracking
-│   ├── entries.py      # WorkerEntry and ToolEntry
+│   ├── invocables.py   # WorkerInvocable and ToolInvocable
 │   ├── worker_file.py  # .worker parser
 │   ├── discovery.py    # Load toolsets/entries from .py files
 │   ├── builtins.py     # Built-in toolset registry
@@ -115,7 +115,7 @@ llm-do CLI
 load_worker_file() + discovery.load_toolsets_from_files()
     |
     v
-build_entry() -> WorkerEntry or ToolEntry
+build_entry() -> WorkerInvocable or ToolInvocable
     |
     v
 wrap toolsets with ApprovalToolset
@@ -127,7 +127,7 @@ Context.from_entry()
 Context.run(entry, {"input": prompt})
     |
     v
-WorkerEntry builds Agent -> agent.run() or run_stream()
+WorkerInvocable builds Agent -> agent.run() or run_stream()
     |
     v
 final output
@@ -141,7 +141,7 @@ Worker tool calls use the same dispatcher as code entry points:
 Worker A (depth=0)
     |
     v
-LLM calls tool "analyzer" (WorkerEntry)
+LLM calls tool "analyzer" (WorkerInvocable)
     |
     v
 Worker B (depth=1)

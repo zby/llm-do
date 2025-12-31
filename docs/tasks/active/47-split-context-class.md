@@ -1,21 +1,21 @@
 # Split and Rename `Context` Class
 
 ## Status
-waiting for Task 50 (Rename Entry → Invocable)
+ready for implementation
 
 ## Prerequisites
-- [x] Task 49: Approval Unification (removes `requires_approval` and `Context.approval`)
-- [ ] Task 50: Rename Entry → Invocable (renames types before structural split)
+- [x] `docs/tasks/completed/49-approval-unification.md` (removes `requires_approval` and `Context.approval`)
+- [x] `docs/tasks/completed/50-rename-entry-to-invocable.md` (renames types before structural split)
 
 ## Goal
 Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immutable) + `CallFrame` (per-worker, forked on spawn). This separates dispatch mechanics from per-call state, enables correct concurrent worker support, and uses clearer naming.
 
 ## Context
 - Relevant files/symbols:
-  - `llm_do/ctx_runtime/ctx.py`: `Context`, `ToolsProxy`, `CallableEntry` (protocol), `Context.from_entry()`, `Context.call()`, `Context._execute()`
-  - `llm_do/ctx_runtime/entries.py`: `WorkerEntry`, `ToolEntry` (concrete classes implementing CallableEntry)
+  - `llm_do/ctx_runtime/ctx.py`: `Context`, `ToolsProxy`, `Invocable` (protocol), `Context.from_entry()`, `Context.call()`, `Context._execute()`
+  - `llm_do/ctx_runtime/invocables.py`: `WorkerInvocable`, `ToolInvocable` (concrete classes implementing `Invocable`)
   - `llm_do/ctx_runtime/cli.py`: context construction + approval toolset wrapping
-  - `llm_do/ctx_runtime/discovery.py`: imports/exports WorkerEntry
+  - `llm_do/ctx_runtime/discovery.py`: imports/exports WorkerInvocable
   - `llm_do/ctx_runtime/__init__.py`: public exports
   - Tests: `tests/runtime/test_context.py`, `tests/runtime/test_model_resolution.py`, `tests/runtime/test_events.py`
 - Related notes/docs:
@@ -50,7 +50,7 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
 - Why "Context" is problematic:
   - Overloaded term (React Context, Python contextvars, PydanticAI RunContext)
   - Doesn't communicate what the class actually does
-- Entry → Invocable rename: See Task 50 (`docs/tasks/active/50-rename-entry-to-invocable.md`)
+- Entry → Invocable rename: See Task 50 (`docs/tasks/completed/50-rename-entry-to-invocable.md`)
   - Done as prerequisite before this task
   - Uses `Invocable` (protocol), `WorkerInvocable`, `ToolInvocable`, `invocables.py`
 - Concurrency semantics:
@@ -92,7 +92,7 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
 - [ ] Run `uv run pytest`
 
 ## Current State
-Decision made: Split `Context` into `RuntimeConfig` + `CallFrame` with `WorkerRuntime` facade. Waiting for prerequisites (Task 49, Task 50).
+Decision made: Split `Context` into `RuntimeConfig` + `CallFrame` with `WorkerRuntime` facade. Prerequisites complete; task is ready to implement.
 
 **Scope**: Structural refactoring only (Context split + rename to WorkerRuntime).
 

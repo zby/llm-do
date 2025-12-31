@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 
 from llm_do.ctx_runtime import (
-    ToolEntry,
+    ToolInvocable,
     load_worker_file,
     load_toolsets_from_files,
 )
@@ -51,7 +51,7 @@ async def test_code_entry_example_builds():
         model="test-model",
         entry_name="main",
     )
-    assert isinstance(entry, ToolEntry)
+    assert isinstance(entry, ToolInvocable)
 
 
 @pytest.mark.anyio

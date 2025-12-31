@@ -10,7 +10,7 @@ tools and workers through:
 
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Optional, Protocol, TYPE_CHECKING
+from typing import Any, Awaitable, Callable, Optional, Protocol
 
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
@@ -19,10 +19,6 @@ from pydantic_ai.tools import RunContext
 from .input_utils import coerce_worker_input
 from ..model_compat import select_model
 from ..ui.events import UIEvent
-
-if TYPE_CHECKING:
-    from .entries import CallableEntry
-
 
 ModelType = str
 EventCallback = Callable[[UIEvent], None]
@@ -45,8 +41,8 @@ class ToolsProxy:
         return _call
 
 
-class CallableEntry(Protocol):
-    """Protocol for entries that can be called via the Context dispatcher."""
+class Invocable(Protocol):
+    """Protocol for objects that can be invoked via the Context dispatcher."""
 
     name: str
     kind: str
@@ -72,7 +68,7 @@ class Context:
     @classmethod
     def from_entry(
         cls,
-        entry: "CallableEntry",
+        entry: "Invocable",
         model: ModelType | None = None,
         *,
         max_depth: int = 5,
@@ -83,7 +79,7 @@ class Context:
         """Create a Context for running an entry.
 
         Args:
-            entry: The entry to run (WorkerEntry or ToolEntry)
+            entry: The entry to run (WorkerInvocable or ToolInvocable)
             model: Model override (uses entry.model if not provided)
             max_depth: Maximum call depth
             messages: Optional message history for multi-turn conversations
@@ -144,7 +140,7 @@ class Context:
         self.on_event = on_event
         self.verbosity = verbosity
 
-    def _resolve_model(self, entry: CallableEntry) -> ModelType:
+    def _resolve_model(self, entry: Invocable) -> ModelType:
         """Resolve model: entry's model if specified, otherwise context's default."""
         return select_model(
             worker_model=getattr(entry, "model", None),
@@ -226,7 +222,7 @@ class Context:
             verbosity=self.verbosity,
         )
 
-    async def run(self, entry: CallableEntry, input_data: Any) -> Any:
+    async def run(self, entry: Invocable, input_data: Any) -> Any:
         """Run an entry directly."""
         # Extract prompt from input_data for RunContext
         if isinstance(input_data, dict) and "input" in input_data:
@@ -296,7 +292,7 @@ class Context:
             available.extend(tools.keys())
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
-    async def _execute(self, entry: CallableEntry, input_data: Any) -> Any:
+    async def _execute(self, entry: Invocable, input_data: Any) -> Any:
         """Execute an entry."""
         # Prepare a context with resolved model and toolsets at the same depth.
         child_toolsets = list(getattr(entry, "toolsets", []) or [])

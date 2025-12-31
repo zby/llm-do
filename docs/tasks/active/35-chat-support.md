@@ -28,12 +28,12 @@ This implementation is designed to align with Task 30 (Vibe UI Patterns):
 ### Phase 1: Runtime Support for Message History
 Add `message_history` parameter to the execution stack (new architecture).
 
-- [x] `llm_do/ctx_runtime/entries.py`: Pass `message_history` to `agent.run()` / `agent.run_stream()`
+- [x] `llm_do/ctx_runtime/invocables.py`: Pass `message_history` to `agent.run()` / `agent.run_stream()`
 - [x] `llm_do/ctx_runtime/ctx.py`: Store and propagate `message_history` on `Context`
 - [x] `llm_do/ctx_runtime/cli.py`: Plumb `message_history` into `run()` / TUI turn runner
 
 ```python
-# In entries.py WorkerEntry._run_with_event_stream():
+# In invocables.py WorkerInvocable._run_with_event_stream():
 result = await agent.run(
     prompt,
     deps=ctx,
@@ -139,7 +139,7 @@ async def run_single_turn(
 
 | File | Changes |
 |------|---------|
-| `llm_do/ctx_runtime/entries.py` | Pass `message_history` to `agent.run()` / `agent.run_stream()` and update stored messages |
+| `llm_do/ctx_runtime/invocables.py` | Pass `message_history` to `agent.run()` / `agent.run_stream()` and update stored messages |
 | `llm_do/ctx_runtime/ctx.py` | Store and propagate `message_history` on `Context` |
 | `llm_do/ctx_runtime/cli.py` | Wire conversation turns and history plumbing |
 | `llm_do/ui/events.py` | Add `UserMessageEvent` class |

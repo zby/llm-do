@@ -4,7 +4,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import Context, WorkerEntry
+from llm_do.ctx_runtime import Context, WorkerInvocable
 
 
 class TestContext:
@@ -63,7 +63,7 @@ class TestContext:
             seen["call_probe"] = {"before": before, "probe": probe_depth, "after": after}
             return seen["call_probe"]
 
-        worker = WorkerEntry(
+        worker = WorkerInvocable(
             name="depth-checker",
             instructions="Call call_probe.",
             model=TestModel(call_tools=["call_probe"], custom_output_text="done"),

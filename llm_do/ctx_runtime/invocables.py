@@ -1,7 +1,8 @@
-"""Callable entry implementations for the context runtime.
+"""Invocable implementations for the context runtime.
 
 This module provides:
-- WorkerEntry: An LLM-powered worker that IS an AbstractToolset
+- WorkerInvocable: An LLM-powered worker that IS an AbstractToolset
+- ToolInvocable: Wrapper for tool-as-entrypoint usage
 """
 from __future__ import annotations
 
@@ -164,7 +165,7 @@ class _DictValidator:
 
 
 @dataclass
-class ToolEntry:
+class ToolInvocable:
     """Wrapper for using a tool from a toolset as an entry point.
 
     This is used for the code entry pattern where a Python tool function
@@ -197,10 +198,10 @@ class ToolEntry:
 
 
 @dataclass
-class WorkerEntry(AbstractToolset[Any]):
+class WorkerInvocable(AbstractToolset[Any]):
     """An LLM-powered worker that is also an AbstractToolset.
 
-    WorkerEntry represents an agent that uses an LLM to process
+    WorkerInvocable represents an agent that uses an LLM to process
     prompts and can call tools to accomplish tasks. As an AbstractToolset,
     it can be composed into other workers' toolsets.
 

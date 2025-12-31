@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 import pytest
 
-from llm_do.ctx_runtime import Context, WorkerEntry
+from llm_do.ctx_runtime import Context, WorkerInvocable
 
 
 class TopicInput(BaseModel):
@@ -15,7 +15,7 @@ class TextInput(BaseModel):
 
 @pytest.mark.anyio
 async def test_worker_tool_schema_uses_schema_in() -> None:
-    worker = WorkerEntry(
+    worker = WorkerInvocable(
         name="topic_worker",
         instructions="Extract topic details.",
         schema_in=TopicInput,
@@ -34,7 +34,7 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
 
 @pytest.mark.anyio
 async def test_ctx_call_wraps_plain_text_for_input_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    worker = WorkerEntry(
+    worker = WorkerInvocable(
         name="text_worker",
         instructions="Echo input.",
         schema_in=TextInput,
@@ -45,7 +45,7 @@ async def test_ctx_call_wraps_plain_text_for_input_schema(monkeypatch: pytest.Mo
         captured["data"] = input_data
         return input_data
 
-    monkeypatch.setattr(worker, "call", fake_call.__get__(worker, WorkerEntry))
+    monkeypatch.setattr(worker, "call", fake_call.__get__(worker, WorkerInvocable))
     ctx = Context(toolsets=[worker], model="test-model")
 
     await ctx.call("text_worker", "hello")
@@ -55,7 +55,7 @@ async def test_ctx_call_wraps_plain_text_for_input_schema(monkeypatch: pytest.Mo
 
 @pytest.mark.anyio
 async def test_ctx_call_passes_plain_text_for_non_input_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    worker = WorkerEntry(
+    worker = WorkerInvocable(
         name="topic_worker",
         instructions="Process topic.",
         schema_in=TopicInput,
@@ -66,7 +66,7 @@ async def test_ctx_call_passes_plain_text_for_non_input_schema(monkeypatch: pyte
         captured["data"] = input_data
         return input_data
 
-    monkeypatch.setattr(worker, "call", fake_call.__get__(worker, WorkerEntry))
+    monkeypatch.setattr(worker, "call", fake_call.__get__(worker, WorkerInvocable))
     ctx = Context(toolsets=[worker], model="test-model")
 
     await ctx.call("topic_worker", "hello")

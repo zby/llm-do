@@ -18,7 +18,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from llm_do.ctx_runtime.ctx import Context
-from llm_do.ctx_runtime.entries import WorkerEntry
+from llm_do.ctx_runtime.invocables import WorkerInvocable
 from llm_do.filesystem_toolset import FileSystemToolset
 from llm_do.ui.events import UIEvent
 from llm_do.ui.display import HeadlessDisplayBackend
@@ -55,18 +55,18 @@ def load_instructions(name: str) -> str:
     return (HERE / "instructions" / f"{name}.md").read_text()
 
 
-def build_workers() -> tuple[WorkerEntry, WorkerEntry]:
+def build_workers() -> tuple[WorkerInvocable, WorkerInvocable]:
     """Build and return the worker entries."""
     filesystem = FileSystemToolset(config={})
 
-    pitch_evaluator = WorkerEntry(
+    pitch_evaluator = WorkerInvocable(
         name="pitch_evaluator",
         model=MODEL,
         instructions=load_instructions("pitch_evaluator"),
         toolsets=[],
     )
 
-    main = WorkerEntry(
+    main = WorkerInvocable(
         name="main",
         model=MODEL,
         instructions=load_instructions("main"),
@@ -93,9 +93,9 @@ def wrap_with_approval(
 
     wrapped = []
     for toolset in toolsets:
-        # Recursively wrap nested toolsets in WorkerEntry
-        if isinstance(toolset, WorkerEntry) and toolset.toolsets:
-            toolset = WorkerEntry(
+        # Recursively wrap nested toolsets in WorkerInvocable
+        if isinstance(toolset, WorkerInvocable) and toolset.toolsets:
+            toolset = WorkerInvocable(
                 name=toolset.name,
                 instructions=toolset.instructions,
                 model=toolset.model,
@@ -125,7 +125,7 @@ async def run_evaluation() -> str:
     wrapped_toolsets = wrap_with_approval(main.toolsets, APPROVE_ALL)
 
     # Create new main entry with wrapped toolsets
-    main = WorkerEntry(
+    main = WorkerInvocable(
         name=main.name,
         instructions=main.instructions,
         model=main.model,

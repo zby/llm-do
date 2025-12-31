@@ -35,8 +35,6 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 Run relevant checks before submitting changes:
 - **Tests**: `uv run pytest` — all tests must pass. Tests use dummy models, no API calls needed.
-- **Lint**: `uv run ruff check .` — fix issues or explain why they're acceptable
-- **Format**: `uv run black --check .` — run `uv run black .` to auto-fix
 
 **Never claim checks passed unless they were actually run.** If checks cannot be run, explicitly state why.
 

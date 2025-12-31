@@ -7,6 +7,7 @@ Security model: llm-do is designed to run inside a Docker container.
 The container provides the security boundary. Running on bare metal
 is at user's own risk.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -419,3 +420,4 @@ class FileSystemToolset(AbstractToolset[Any]):
 
         else:
             raise ValueError(f"Unknown tool: {name}")
+

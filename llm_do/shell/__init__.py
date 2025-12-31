@@ -22,9 +22,6 @@ from .execution import (
 )
 from .types import ShellDefault, ShellResult, ShellRule
 
-# Note: ShellToolset is imported separately to avoid circular imports
-# Use: from llm_do.shell.toolset import ShellToolset
-
 __all__ = [
     # Constants
     "BLOCKED_METACHARACTERS",
@@ -42,11 +39,3 @@ __all__ = [
     "match_shell_rules",
     "parse_command",
 ]
-
-
-def __getattr__(name: str):
-    """Lazy import for ShellToolset to avoid circular imports."""
-    if name == "ShellToolset":
-        from .toolset import ShellToolset
-        return ShellToolset
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

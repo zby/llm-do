@@ -36,6 +36,7 @@ Instructions for the worker...
 
 - `toolsets` maps names to configuration. Names refer to built-ins, Python toolsets, or other workers.
 - `server_side_tools` enables PydanticAI builtin tools (web search, fetch, code execution, image generation).
+- Toolsets can also be declared by fully-qualified class path (plugin-style loading).
 
 ### Project Structure
 
@@ -81,6 +82,9 @@ llm-do ships with:
 - **filesystem**: `read_file`, `write_file`, `list_files`
 - **shell**: command execution with whitelist-based approval rules
 
+Built-ins can be referenced by short alias (`shell`, `filesystem`) or by class path
+(e.g. `llm_do.toolsets.shell.ShellToolset`).
+
 Python toolsets are discovered from `.py` files using `FunctionToolset` (or any `AbstractToolset`).
 
 ---
@@ -97,8 +101,12 @@ llm_do/
 │   ├── discovery.py    # Load toolsets/entries from .py files
 │   ├── builtins.py     # Built-in toolset registry
 │   └── __init__.py
-├── filesystem_toolset.py
-├── shell/              # Shell toolset implementation
+├── toolset_loader.py   # Toolset class-path loader
+├── toolsets/           # Built-in toolset implementations
+│   ├── filesystem.py
+│   ├── shell.py
+│   └── __init__.py
+├── shell/              # Shell execution helpers
 ├── ui/                 # UI events and display backends
 ├── config_overrides.py # --set parsing and application
 ├── model_compat.py     # Model selection and compatibility checks

@@ -8,7 +8,7 @@ Run with:
 from pathlib import Path
 
 from llm_do.ctx_runtime.invocables import WorkerInvocable
-from llm_do.filesystem_toolset import FileSystemToolset
+from llm_do.toolsets.filesystem import FileSystemToolset
 
 HERE = Path(__file__).parent
 

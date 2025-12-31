@@ -55,7 +55,7 @@ from .discovery import (
     load_toolsets_from_files,
     load_workers_from_files,
 )
-from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
+from ..toolset_loader import ToolsetBuildContext, build_toolsets
 from ..config_overrides import apply_overrides
 from ..ui.events import UIEvent, ErrorEvent, UserMessageEvent
 from ..ui.display import (
@@ -132,6 +132,14 @@ def _wrap_toolsets_with_approval(
     """
     wrapped: list[AbstractToolset[Any]] = []
     for toolset in toolsets:
+        # Avoid double-wrapping toolsets that already have approval handling.
+        if isinstance(toolset, ApprovalToolset):
+            approved_toolset: AbstractToolset[Any] = toolset
+            if return_permission_errors:
+                approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
+            wrapped.append(approved_toolset)
+            continue
+
         # Recursively wrap toolsets inside WorkerInvocable
         if isinstance(toolset, WorkerInvocable) and toolset.toolsets:
             toolset = WorkerInvocable(
@@ -281,25 +289,13 @@ async def build_entry(
         all_toolsets.update(python_toolsets)
         all_toolsets.update(available_workers)
 
-        # Resolve toolsets by name
-        resolved_toolsets: list[AbstractToolset[Any]] = []
-
-        for toolset_name, toolset_config in worker_file.toolsets.items():
-            if toolset_name in all_toolsets:
-                toolset = all_toolsets[toolset_name]
-                # Extract approval config for non-builtin toolsets (workers, Python toolsets)
-                if isinstance(toolset_config, dict) and "_approval_config" in toolset_config:
-                    toolset._approval_config = toolset_config["_approval_config"]  # type: ignore[attr-defined]
-                resolved_toolsets.append(toolset)
-            elif toolset_name in BUILTIN_TOOLSETS:
-                toolset, approval_config = get_builtin_toolset(toolset_name, toolset_config)
-                # Store approval config on the toolset for later use by ApprovalToolset
-                if approval_config:
-                    toolset._approval_config = approval_config  # type: ignore[attr-defined]
-                resolved_toolsets.append(toolset)
-            else:
-                available_names = list(all_toolsets.keys()) + list(BUILTIN_TOOLSETS.keys())
-                raise ValueError(f"Unknown toolset '{toolset_name}'. Available: {available_names}")
+        # Resolve toolsets: worker refs + python toolsets + (built-in aliases or class paths)
+        toolset_context = ToolsetBuildContext(
+            worker_name=name,
+            worker_path=Path(worker_path).resolve(),
+            available_toolsets=all_toolsets,
+        )
+        resolved_toolsets = build_toolsets(worker_file.toolsets, toolset_context)
 
         # Apply model override only to entry worker (if override provided)
         if model and name == entry_name:

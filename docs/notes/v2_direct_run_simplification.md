@@ -76,7 +76,7 @@ result = runner.run(
 
 ```python
 from llm_do import WorkerEntry, Runner
-from llm_do.filesystem_toolset import FileSystemToolset
+from llm_do.toolsets.filesystem import FileSystemToolset
 
 pitch_evaluator = WorkerEntry(
     name="pitch_evaluator",

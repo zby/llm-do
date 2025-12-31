@@ -1,19 +1,22 @@
 # Split and Rename `Context` Class
 
 ## Status
-ready for implementation
+waiting for Task 50 (Rename Entry → Invocable)
 
 ## Prerequisites
-- [x] none
+- [x] Task 49: Approval Unification (removes `requires_approval` and `Context.approval`)
+- [ ] Task 50: Rename Entry → Invocable (renames types before structural split)
 
 ## Goal
-Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immutable) + `CallFrame` (per-worker, forked on spawn). Also rename `WorkerEntry` to `Invocable`. This separates policy (model selection, approval) from dispatch mechanics, enables correct concurrent worker support, and uses clearer naming.
+Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immutable) + `CallFrame` (per-worker, forked on spawn). This separates dispatch mechanics from per-call state, enables correct concurrent worker support, and uses clearer naming.
 
 ## Context
 - Relevant files/symbols:
-  - `llm_do/ctx_runtime/ctx.py`: `Context`, `ToolsProxy`, `Context.from_entry()`, `Context.call()`, `Context._execute()`
-  - `llm_do/ctx_runtime/entries.py`: `WorkerEntry` (→ `Invocable`), depends on `ctx.depth`, `ctx.max_depth`, `ctx._child()`, `ctx.on_event`, `ctx.messages`
+  - `llm_do/ctx_runtime/ctx.py`: `Context`, `ToolsProxy`, `CallableEntry` (protocol), `Context.from_entry()`, `Context.call()`, `Context._execute()`
+  - `llm_do/ctx_runtime/entries.py`: `WorkerEntry`, `ToolEntry` (concrete classes implementing CallableEntry)
   - `llm_do/ctx_runtime/cli.py`: context construction + approval toolset wrapping
+  - `llm_do/ctx_runtime/discovery.py`: imports/exports WorkerEntry
+  - `llm_do/ctx_runtime/__init__.py`: public exports
   - Tests: `tests/runtime/test_context.py`, `tests/runtime/test_model_resolution.py`, `tests/runtime/test_events.py`
 - Related notes/docs:
   - `docs/notes/reviews/review-solid.md` (Ctx runtime core finding)
@@ -36,6 +39,7 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
     - `max_depth`
     - event sink + verbosity (`on_event`, `verbosity`) (thread-safe if shared)
     - usage sink/collector (thread-safe if shared)
+    - (no `approval` field — removed by Task 49)
   - `CallFrame` — per-worker/per-branch state (forked on spawn):
     - `depth: int`
     - `prompt: str`
@@ -46,19 +50,17 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
 - Why "Context" is problematic:
   - Overloaded term (React Context, Python contextvars, PydanticAI RunContext)
   - Doesn't communicate what the class actually does
-- Why "Entry" → "Invocable":
-  - "Entry" sounds like "entrypoint" or "entry worker"
-  - Actually represents a unified abstraction for callable units (both tools and workers)
-  - "Invocable" clearly communicates "something you can invoke/call"
-  - `WorkerEntry` → `Invocable`, `entries.py` → `invocables.py`
+- Entry → Invocable rename: See Task 50 (`docs/tasks/active/50-rename-entry-to-invocable.md`)
+  - Done as prerequisite before this task
+  - Uses `Invocable` (protocol), `WorkerInvocable`, `ToolInvocable`, `invocables.py`
 - Concurrency semantics:
   - `depth` is per-call-chain (local), not global
   - Spawning a child worker forks the `CallFrame` (child gets independent depth, messages)
   - Siblings don't affect each other's depth
   - `max_depth` is enforced per-branch
+  - **Message history location**: `messages` lives in `CallFrame` (per-worker), NOT in `RuntimeConfig` (shared). Each forked frame gets its own message list to prevent concurrent workers from mutating a shared list. Top-level worker may receive persisted history; child frames start fresh.
 - Follow-ups:
   - Consider a separate task to unify/centralize UI event emission (currently split between `WorkerRuntime.call()` and `Invocable` event parsing).
-  - Remove `requires_approval` field from Invocables — approval should be unified via `ApprovalToolset` only (see Approval Unification note below).
 
 ## Tasks
 - [ ] Document current invariants (depth behavior, message history sharing, usage aggregation) to preserve during refactor
@@ -68,6 +70,7 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
   - Event sink (`on_event`) + `verbosity` (document concurrency assumptions)
   - Usage sink/collector (document concurrency assumptions)
   - `max_depth`, `cli_model`
+  - (no `approval` — already removed by Task 49)
 - [ ] Create `CallFrame` class with:
   - `depth: int`
   - `prompt: str`
@@ -85,26 +88,19 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
   - input coercion (`coerce_worker_input` vs `{"input": ...}`)
   - `ToolCallEvent` / `ToolResultEvent` emission and call-id generation
 - [ ] Rename `Context` → `WorkerRuntime` across codebase
-- [ ] Rename `WorkerEntry` → `Invocable` across codebase (including `entries.py` → `invocables.py`)
 - [ ] Update runtime call sites and tests to match the new structure
 - [ ] Run `uv run pytest`
 
 ## Current State
-Decision made: Split `Context` into `RuntimeConfig` + `CallFrame` with `WorkerRuntime` facade, and rename `WorkerEntry` to `Invocable`. Ready to implement.
+Decision made: Split `Context` into `RuntimeConfig` + `CallFrame` with `WorkerRuntime` facade. Waiting for prerequisites (Task 49, Task 50).
+
+**Scope**: Structural refactoring only (Context split + rename to WorkerRuntime).
 
 ## Notes
 - `CallFrame.fork()` is the key to concurrency correctness — each spawned worker gets an independent frame.
 - "Context" → "WorkerRuntime" rename improves clarity and avoids collision with overloaded "context" terminology.
-- "WorkerEntry" → "Invocable" rename clarifies that it's a callable unit (tool or worker), not an entrypoint.
 
-### Approval Unification
-Currently there are two redundant approval mechanisms:
-1. `requires_approval` flag on Invocables + `Context.approval()` function — static, per-invocable
-2. `ApprovalToolset` wrapping — dynamic, can inspect args/context
+### Approval Unification (PREREQUISITE — Task 49)
+See `docs/tasks/completed/49-approval-unification.md`.
 
-These should be unified: remove `requires_approval` from Invocables and use `ApprovalToolset` exclusively.
-- User-initiated top-level calls don't need approval (user already consented)
-- LLM-initiated nested calls go through `ApprovalToolset`
-- `ApprovalToolset.needs_approval()` or config handles the decision
-
-This removes `Context.approval` field from `RuntimeConfig` and simplifies the approval model.
+Task 49 removes `requires_approval` and `Context.approval` before this task runs, so this refactoring doesn't need to migrate approval logic.

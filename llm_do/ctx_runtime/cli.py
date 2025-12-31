@@ -47,7 +47,7 @@ from .approval_wrappers import (
     make_headless_approval_callback,
     make_tui_approval_callback,
 )
-from .ctx import Context, ApprovalFn, EventCallback
+from .ctx import Context, EventCallback
 from .input_utils import coerce_worker_input
 from .entries import WorkerEntry, ToolEntry
 from .worker_file import load_worker_file
@@ -146,7 +146,6 @@ def _wrap_toolsets_with_approval(
                 builtin_tools=toolset.builtin_tools,
                 schema_in=toolset.schema_in,
                 schema_out=toolset.schema_out,
-                requires_approval=toolset.requires_approval,
             )
 
         # Get any stored approval config from the toolset
@@ -404,7 +403,6 @@ async def run(
                 builtin_tools=entry.builtin_tools,
                 schema_in=entry.schema_in,
                 schema_out=entry.schema_out,
-                requires_approval=entry.requires_approval,
             )
         elif isinstance(entry, ToolEntry):
             entry = ToolEntry(
@@ -412,33 +410,12 @@ async def run(
                 tool_name=entry.tool_name,
                 toolsets=wrapped_toolsets,
                 model=entry.model,
-                requires_approval=entry.requires_approval,
             )
-
-    # Set up entry-level approval function (for entry.requires_approval)
-    approval: ApprovalFn | None = None
-    if approve_all:
-        approval = lambda entry, input_data: True
-    else:
-        # In headless mode without --approve-all, deny entries that require approval
-        def headless_approval(e: Any, data: Any) -> bool:
-            if getattr(e, "requires_approval", False):
-                if reject_all:
-                    raise PermissionError(
-                        f"Entry '{e.name}' requires approval and was rejected by --reject-all."
-                    )
-                raise PermissionError(
-                    f"Entry '{e.name}' requires approval. "
-                    f"Use --approve-all to auto-approve."
-                )
-            return True
-        approval = headless_approval
 
     # Create context from entry (entry.toolsets is already populated)
     ctx = Context.from_entry(
         entry,
         model=model,
-        approval=approval,
         messages=list(message_history) if message_history else None,
         on_event=on_event,
         verbosity=verbosity,
@@ -715,11 +692,15 @@ def main() -> int:
         default=os.environ.get(ENV_MODEL_VAR),
         help=f"Model to use (default: ${ENV_MODEL_VAR} env var)",
     )
-    parser.add_argument("--approve-all", action="store_true", help="Auto-approve all tool calls")
+    parser.add_argument(
+        "--approve-all",
+        action="store_true",
+        help="Auto-approve all LLM-invoked tool calls",
+    )
     parser.add_argument(
         "--reject-all",
         action="store_true",
-        help="Auto-reject all tool calls that require approval",
+        help="Auto-reject all LLM-invoked tool calls that require approval",
     )
     parser.add_argument(
         "-v", "--verbose",

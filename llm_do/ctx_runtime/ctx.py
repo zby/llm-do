@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
 
 ModelType = str
-ApprovalFn = Callable[["CallableEntry", Any], bool]
 EventCallback = Callable[[UIEvent], None]
 _UNSET = object()
 
@@ -51,7 +50,6 @@ class CallableEntry(Protocol):
 
     name: str
     kind: str
-    requires_approval: bool
     model: ModelType | None
 
     async def call(
@@ -77,7 +75,6 @@ class Context:
         entry: "CallableEntry",
         model: ModelType | None = None,
         *,
-        approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
         messages: Optional[list[Any]] = None,
         on_event: Optional[EventCallback] = None,
@@ -88,7 +85,6 @@ class Context:
         Args:
             entry: The entry to run (WorkerEntry or ToolEntry)
             model: Model override (uses entry.model if not provided)
-            approval: Approval callback for tool execution
             max_depth: Maximum call depth
             messages: Optional message history for multi-turn conversations
             on_event: Optional callback for UI events (tool calls, streaming text)
@@ -113,7 +109,6 @@ class Context:
             toolsets=toolsets,
             model=resolved_model,
             cli_model=model,
-            approval=approval,
             max_depth=max_depth,
             usage=[],
             messages=messages,
@@ -127,7 +122,6 @@ class Context:
         model: ModelType,
         *,
         cli_model: ModelType | None | object = _UNSET,
-        approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
         depth: int = 0,
         usage: list[RunUsage] | None = None,
@@ -141,7 +135,6 @@ class Context:
         self.toolsets = toolsets
         self.model = model
         self.cli_model = cli_model
-        self.approval = approval or (lambda entry, input_data: True)
         self.max_depth = max_depth
         self.depth = depth
         self.usage: list[RunUsage] = usage if usage is not None else []
@@ -202,7 +195,6 @@ class Context:
             toolsets if toolsets is not None else self.toolsets,
             model=model,
             cli_model=self.cli_model,
-            approval=self.approval,
             max_depth=self.max_depth,
             depth=self.depth + 1,
             usage=self.usage,
@@ -225,7 +217,6 @@ class Context:
             toolsets if toolsets is not None else self.toolsets,
             model=model,
             cli_model=self.cli_model,
-            approval=self.approval,
             max_depth=self.max_depth,
             depth=self.depth,
             usage=self.usage,
@@ -306,10 +297,7 @@ class Context:
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
     async def _execute(self, entry: CallableEntry, input_data: Any) -> Any:
-        """Execute an entry with approval check."""
-        if entry.requires_approval and not self.approval(entry, input_data):
-            raise PermissionError(f"Approval denied for {entry.name}")
-
+        """Execute an entry."""
         # Prepare a context with resolved model and toolsets at the same depth.
         child_toolsets = list(getattr(entry, "toolsets", []) or [])
         resolved_model = self._resolve_model(entry)

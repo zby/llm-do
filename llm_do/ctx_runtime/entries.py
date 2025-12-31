@@ -175,7 +175,6 @@ class ToolEntry:
     tool_name: str
     kind: str = "tool"
     model: ModelType | None = None
-    requires_approval: bool = False
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
 
     @property
@@ -217,7 +216,6 @@ class WorkerEntry(AbstractToolset[Any]):
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[BaseModel]] = None
     schema_out: Optional[Type[BaseModel]] = None
-    requires_approval: bool = False
     kind: str = "worker"
 
     # AbstractToolset implementation

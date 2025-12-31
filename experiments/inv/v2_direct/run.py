@@ -22,7 +22,7 @@ from llm_do.ctx_runtime.entries import WorkerEntry
 from llm_do.filesystem_toolset import FileSystemToolset
 from llm_do.ui.events import UIEvent
 from llm_do.ui.display import HeadlessDisplayBackend
-from pydantic_ai_blocking_approval import ApprovalToolset, ApprovalDecision
+from pydantic_ai_blocking_approval import ApprovalToolset
 from llm_do.ctx_runtime.approval_wrappers import make_headless_approval_callback
 
 # =============================================================================
@@ -103,7 +103,6 @@ def wrap_with_approval(
                 builtin_tools=toolset.builtin_tools,
                 schema_in=toolset.schema_in,
                 schema_out=toolset.schema_out,
-                requires_approval=toolset.requires_approval,
             )
         wrapped.append(ApprovalToolset(
             inner=toolset,
@@ -134,7 +133,6 @@ async def run_evaluation() -> str:
         builtin_tools=main.builtin_tools,
         schema_in=main.schema_in,
         schema_out=main.schema_out,
-        requires_approval=main.requires_approval,
     )
 
     # Create context and run

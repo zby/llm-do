@@ -103,9 +103,11 @@ llm-do main.worker \
 
 ## Approvals
 
-**`--approve-all`** auto-approves all tool calls without prompting.
+**`--approve-all`** auto-approves all LLM-invoked tool calls without prompting.
 
-**`--reject-all`** auto-rejects all tool calls that require approval without prompting.
+**`--reject-all`** auto-rejects all LLM-invoked tool calls that require approval without prompting.
+
+Approvals apply only to LLM-invoked actions; user-invoked top-level entries are not gated.
 
 Without either flag, approvals are interactive only in TUI mode. In headless or JSON mode, any tool that requires approval will fail with a permission error.
 

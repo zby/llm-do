@@ -13,7 +13,7 @@ This note captures the current state, why recursion exists, and multiple archite
   - Calls `needs_approval()` when implemented (e.g., filesystem, shell).
   - Reads optional per-tool `_approval_config`.
   - Uses a shared `ApprovalMemory` and an approval callback (headless or TUI).
-- Entry-level approval (for `entry.requires_approval`) is handled separately in `Context.from_entry` via an `approval` callback (CLI sets it in `run(...)`).
+- Entry-level approval has been removed; approvals are handled only at the tool layer via `ApprovalToolset`.
 
 ### Design goals
 - **Ergonomics**: avoid explicit recursive wrapping in user scripts.
@@ -188,4 +188,3 @@ class Context:
 - If we want quick wins, implement Option A with a `wrap_entry_for_approval(...)` helper and use it in `experiments/` plus docs.
 - If we want a clean user story, prototype Option B by adding approval parameters to `Context.from_entry` and moving CLI logic to a shared helper.
 - If a larger refactor is acceptable, draft a spec-based loader (Option D) and identify migration path for tests and examples.
-

@@ -6,7 +6,7 @@ This module provides a new runtime architecture that:
 - Loads tools from Python files and worker declarations
 - Provides the `llm-do` CLI entry point
 """
-from .ctx import Context, ToolsProxy, CallableEntry, ApprovalFn, ModelType
+from .ctx import Context, ToolsProxy, CallableEntry, ModelType
 from .entries import WorkerEntry, ToolEntry
 from .worker_file import WorkerFile, parse_worker_file, load_worker_file
 from .discovery import (
@@ -23,7 +23,6 @@ __all__ = [
     "Context",
     "ToolsProxy",
     "CallableEntry",
-    "ApprovalFn",
     "ModelType",
     # Entries
     "WorkerEntry",

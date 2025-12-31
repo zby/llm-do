@@ -153,4 +153,4 @@ Code entry points can call tools directly:
 result = await ctx.deps.call("analyzer", {"input": "..."})
 ```
 
-Context state (model, approvals, depth, usage, events) flows down the call tree.
+Context state (model, depth, usage, events) flows down the call tree.

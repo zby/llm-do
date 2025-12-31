@@ -55,7 +55,6 @@ class DummyEntry:
     toolsets: list[AbstractToolset[Any]]
     model: Optional[str] = None
     kind: str = "worker"
-    requires_approval: bool = False
 
     async def call(self, input_data: Any, ctx: Context, run_ctx: RunContext[Context]) -> Any:
         return await ctx.call("capture", {"value": 1})

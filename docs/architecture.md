@@ -65,7 +65,7 @@ Workers delegate by declaring other worker names in `toolsets`:
 - Worker entries are exposed as tools
 - Nested calls are tracked in `WorkerRuntime.depth` (default max depth: 5)
 - Toolsets are not inherited; each worker declares its own
-- Child workers start with a clean message history; only top-level runs reuse chat history
+- Workers start with a clean message history; chat history is not reused yet
 
 **2. Tool Approval System**
 

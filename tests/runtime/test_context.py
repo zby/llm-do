@@ -1,14 +1,14 @@
-"""Tests for Context."""
+"""Tests for WorkerRuntime."""
 import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import Context, WorkerInvocable
+from llm_do.ctx_runtime import WorkerRuntime, WorkerInvocable
 
 
 class TestContext:
-    """Tests for Context class."""
+    """Tests for WorkerRuntime class."""
 
     @pytest.mark.anyio
     async def test_context_call_tool(self):
@@ -19,14 +19,14 @@ class TestContext:
         def multiply(a: int, b: int) -> int:
             return a * b
 
-        ctx = Context(toolsets=[toolset], model="test-model")
+        ctx = WorkerRuntime(toolsets=[toolset], model="test-model")
         result = await ctx.call("multiply", {"a": 3, "b": 4})
         assert result == 12
 
     @pytest.mark.anyio
     async def test_context_tool_not_found(self):
         """Test that calling unknown tool raises KeyError."""
-        ctx = Context(toolsets=[], model="test-model")
+        ctx = WorkerRuntime(toolsets=[], model="test-model")
         with pytest.raises(KeyError, match="Tool 'nonexistent' not found"):
             await ctx.call("nonexistent", {"x": 1})
 
@@ -39,7 +39,7 @@ class TestContext:
         def greet(name: str) -> str:
             return f"Hello, {name}!"
 
-        ctx = Context(toolsets=[toolset], model="test-model")
+        ctx = WorkerRuntime(toolsets=[toolset], model="test-model")
         result = await ctx.tools.greet(name="World")
         assert result == "Hello, World!"
 
@@ -50,13 +50,13 @@ class TestContext:
         seen: dict[str, dict[str, int] | int] = {}
 
         @toolset.tool
-        async def probe(ctx: RunContext[Context]) -> int:
+        async def probe(ctx: RunContext[WorkerRuntime]) -> int:
             depth = ctx.deps.depth
             seen["probe"] = depth
             return depth
 
         @toolset.tool
-        async def call_probe(ctx: RunContext[Context]) -> dict[str, int]:
+        async def call_probe(ctx: RunContext[WorkerRuntime]) -> dict[str, int]:
             before = ctx.deps.depth
             probe_depth = await ctx.deps.call("probe", {})
             after = ctx.deps.depth
@@ -69,7 +69,7 @@ class TestContext:
             model=TestModel(call_tools=["call_probe"], custom_output_text="done"),
             toolsets=[toolset],
         )
-        ctx = Context.from_entry(worker)
+        ctx = WorkerRuntime.from_entry(worker)
         await ctx.run(worker, {"input": "go"})
 
         assert seen["call_probe"] == {"before": 1, "probe": 1, "after": 1}

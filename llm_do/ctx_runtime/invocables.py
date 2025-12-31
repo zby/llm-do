@@ -35,7 +35,7 @@ class WorkerInput(BaseModel):
     attachments: list[str] = []
 
 if TYPE_CHECKING:
-    from .ctx import Context
+    from .ctx import WorkerRuntime
 
 from .ctx import ModelType
 
@@ -112,7 +112,7 @@ def _build_user_prompt(input_data: Any) -> str | Sequence[UserContent]:
     return parts
 
 
-def _should_use_message_history(ctx: "Context") -> bool:
+def _should_use_message_history(ctx: "WorkerRuntime") -> bool:
     """Only use message history for the top-level worker run."""
     return ctx.depth <= 1
 
@@ -127,7 +127,7 @@ def _get_all_messages(result: Any) -> list[Any]:
     return []
 
 
-def _update_message_history(ctx: "Context", result: Any) -> None:
+def _update_message_history(ctx: "WorkerRuntime", result: Any) -> None:
     """Update message history in-place to keep shared references intact."""
     ctx.messages[:] = _get_all_messages(result)
 
@@ -182,7 +182,12 @@ class ToolInvocable:
     def name(self) -> str:
         return self.tool_name
 
-    async def call(self, input_data: Any, ctx: "Context", run_ctx: RunContext["Context"]) -> Any:
+    async def call(
+        self,
+        input_data: Any,
+        ctx: "WorkerRuntime",
+        run_ctx: RunContext["WorkerRuntime"],
+    ) -> Any:
         """Call the tool via its toolset."""
         if isinstance(input_data, BaseModel):
             input_data = input_data.model_dump()
@@ -249,7 +254,7 @@ class WorkerInvocable(AbstractToolset[Any]):
         """Execute the worker when called as a tool."""
         return await self.call(tool_args, ctx.deps, ctx)
 
-    def _build_agent(self, resolved_model: ModelType, ctx: "Context") -> Agent["Context", Any]:
+    def _build_agent(self, resolved_model: ModelType, ctx: "WorkerRuntime") -> Agent["WorkerRuntime", Any]:
         """Build a PydanticAI agent with toolsets passed directly."""
         return Agent(
             model=resolved_model,
@@ -263,7 +268,7 @@ class WorkerInvocable(AbstractToolset[Any]):
             end_strategy="exhaustive",
         )
 
-    def _emit_tool_events(self, messages: list[Any], ctx: "Context") -> None:
+    def _emit_tool_events(self, messages: list[Any], ctx: "WorkerRuntime") -> None:
         """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
         if ctx.on_event is None:
             return
@@ -310,7 +315,12 @@ class WorkerInvocable(AbstractToolset[Any]):
                     content=return_part.content,
                 ))
 
-    async def call(self, input_data: Any, ctx: "Context", run_ctx: RunContext["Context"]) -> Any:
+    async def call(
+        self,
+        input_data: Any,
+        ctx: "WorkerRuntime",
+        run_ctx: RunContext["WorkerRuntime"],
+    ) -> Any:
         """Execute the worker with the given input."""
         if self.schema_in is not None:
             input_data = self.schema_in.model_validate(input_data)
@@ -319,10 +329,12 @@ class WorkerInvocable(AbstractToolset[Any]):
             raise RuntimeError(f"Max depth exceeded: {ctx.max_depth}")
 
         child_messages = None if ctx.depth == 0 else []
-        child_ctx = ctx._child(toolsets=self.toolsets, messages=child_messages)
-
-        # Resolve model: entry's model or context's default
-        resolved_model = self.model if self.model is not None else child_ctx.model
+        resolved_model = self.model if self.model is not None else ctx.model
+        child_ctx = ctx.spawn_child(
+            toolsets=self.toolsets,
+            model=resolved_model,
+            messages=child_messages,
+        )
 
         agent = self._build_agent(resolved_model, child_ctx)
         prompt = _build_user_prompt(input_data)
@@ -332,6 +344,8 @@ class WorkerInvocable(AbstractToolset[Any]):
                 output = await self._run_streaming(agent, prompt, child_ctx)
             else:
                 output = await self._run_with_event_stream(agent, prompt, child_ctx)
+            if _should_use_message_history(child_ctx):
+                ctx.messages[:] = list(child_ctx.messages)
         else:
             message_history = (
                 child_ctx.messages if _should_use_message_history(child_ctx) and child_ctx.messages else None
@@ -344,15 +358,16 @@ class WorkerInvocable(AbstractToolset[Any]):
             )
             if _should_use_message_history(child_ctx):
                 _update_message_history(child_ctx, result)
+                _update_message_history(ctx, result)
             output = result.output
 
         return output
 
     async def _run_with_event_stream(
         self,
-        agent: Agent["Context", Any],
+        agent: Agent["WorkerRuntime", Any],
         prompt: str | Sequence[UserContent],
-        ctx: "Context",
+        ctx: "WorkerRuntime",
     ) -> Any:
         """Run agent with event stream handler for non-streaming UI updates."""
         from pydantic_ai.messages import PartDeltaEvent
@@ -362,7 +377,7 @@ class WorkerInvocable(AbstractToolset[Any]):
         emitted_tool_events = False
 
         async def event_stream_handler(
-            _: RunContext["Context"],
+            _: RunContext["WorkerRuntime"],
             events: AsyncIterable[Any],
         ) -> None:
             nonlocal emitted_tool_events
@@ -391,9 +406,9 @@ class WorkerInvocable(AbstractToolset[Any]):
 
     async def _run_streaming(
         self,
-        agent: Agent["Context", Any],
+        agent: Agent["WorkerRuntime", Any],
         prompt: str | Sequence[UserContent],
-        ctx: "Context",
+        ctx: "WorkerRuntime",
     ) -> Any:
         """Run agent with streaming, emitting text deltas."""
         message_history = ctx.messages if _should_use_message_history(ctx) and ctx.messages else None

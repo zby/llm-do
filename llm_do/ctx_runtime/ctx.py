@@ -1,15 +1,15 @@
-"""Context-centric dispatcher for tools and workers.
+"""Worker runtime dispatcher for tools and workers.
 
-This module provides the core Context class that orchestrates execution of
-tools and workers through:
-- Toolset-based dispatch (AbstractToolset)
-- Depth tracking to prevent infinite recursion
-- Model resolution (entry-level or context-default)
-- Event emission for real-time progress updates
+This module provides the core runtime types used by llm-do:
+- RuntimeConfig: shared (structurally immutable) runtime configuration
+- CallFrame: per-branch/per-worker mutable call state
+- WorkerRuntime: facade over config+frame, used as PydanticAI deps
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+import threading
 from typing import Any, Awaitable, Callable, Optional, Protocol
 
 from pydantic_ai.toolsets import AbstractToolset
@@ -31,7 +31,7 @@ class ToolsProxy:
     Enables syntax like `ctx.tools.shell(command="ls")` to invoke tools.
     """
 
-    def __init__(self, ctx: "Context") -> None:
+    def __init__(self, ctx: "WorkerRuntime") -> None:
         self._ctx = ctx
 
     def __getattr__(self, name: str) -> Callable[[Any], Awaitable[Any]]:
@@ -42,27 +42,93 @@ class ToolsProxy:
 
 
 class Invocable(Protocol):
-    """Protocol for objects that can be invoked via the Context dispatcher."""
+    """Protocol for objects that can be invoked via the WorkerRuntime dispatcher."""
 
     name: str
     kind: str
     model: ModelType | None
 
     async def call(
-        self, input_data: Any, ctx: "Context", run_ctx: RunContext["Context"]
+        self, input_data: Any, ctx: "WorkerRuntime", run_ctx: RunContext["WorkerRuntime"]
     ) -> Any: ...
 
 
-class Context:
-    """Dispatches tool calls and manages execution context.
+class UsageCollector:
+    """Thread-safe sink for RunUsage objects."""
 
-    The Context is the central orchestrator for executing tools and workers.
-    It manages:
-    - Toolset-based dispatch via ctx.call()
-    - Depth tracking to prevent infinite recursion
-    - Model resolution (entry's model vs context default)
-    - Event emission for real-time progress
-    - Usage tracking per model
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._usages: list[RunUsage] = []
+
+    def create(self) -> RunUsage:
+        usage = RunUsage()
+        with self._lock:
+            self._usages.append(usage)
+        return usage
+
+    def all(self) -> list[RunUsage]:
+        with self._lock:
+            return list(self._usages)
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeConfig:
+    """Shared runtime configuration (no per-call-chain state)."""
+
+    cli_model: ModelType | None
+    max_depth: int = 5
+    on_event: EventCallback | None = None
+    verbosity: int = 0
+    usage: UsageCollector = field(default_factory=UsageCollector)
+
+
+@dataclass(slots=True)
+class CallFrame:
+    """Per-branch/per-worker call state (forked on spawn)."""
+
+    toolsets: list[AbstractToolset[Any]]
+    model: ModelType
+    depth: int = 0
+    prompt: str = ""
+    messages: list[Any] = field(default_factory=list)
+
+    def fork(
+        self,
+        toolsets: Optional[list[AbstractToolset[Any]]] = None,
+        *,
+        model: ModelType | None = None,
+        messages: Optional[list[Any]] = None,
+    ) -> "CallFrame":
+        return CallFrame(
+            toolsets=self.toolsets if toolsets is None else toolsets,
+            model=self.model if model is None else model,
+            depth=self.depth + 1,
+            prompt=self.prompt,
+            messages=list(self.messages) if messages is None else list(messages),
+        )
+
+    def clone_same_depth(
+        self,
+        toolsets: Optional[list[AbstractToolset[Any]]] = None,
+        *,
+        model: ModelType | None = None,
+    ) -> "CallFrame":
+        return CallFrame(
+            toolsets=self.toolsets if toolsets is None else toolsets,
+            model=self.model if model is None else model,
+            depth=self.depth,
+            prompt=self.prompt,
+            messages=self.messages,
+        )
+
+
+class WorkerRuntime:
+    """Dispatches tool calls and manages worker runtime state.
+
+    WorkerRuntime is the central orchestrator for executing tools and workers.
+    It holds:
+    - shared config (RuntimeConfig): model resolution inputs, events, usage sink
+    - per-branch state (CallFrame): depth, prompt/messages, toolsets, effective model
     """
 
     @classmethod
@@ -75,8 +141,8 @@ class Context:
         messages: Optional[list[Any]] = None,
         on_event: Optional[EventCallback] = None,
         verbosity: int = 0,
-    ) -> "Context":
-        """Create a Context for running an entry.
+    ) -> "WorkerRuntime":
+        """Create a WorkerRuntime for running an entry.
 
         Args:
             entry: The entry to run (WorkerInvocable or ToolInvocable)
@@ -87,7 +153,7 @@ class Context:
             verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
 
         Returns:
-            Context configured for the entry
+            WorkerRuntime configured for the entry
         """
         # Resolve model using model_compat module
         entry_name = getattr(entry, "name", str(entry))
@@ -101,125 +167,157 @@ class Context:
         # Get toolsets from entry
         toolsets = list(getattr(entry, "toolsets", []) or [])
 
-        return cls(
-            toolsets=toolsets,
-            model=resolved_model,
+        config = RuntimeConfig(
             cli_model=model,
             max_depth=max_depth,
-            usage=[],
-            messages=messages,
             on_event=on_event,
             verbosity=verbosity,
         )
+        frame = CallFrame(
+            toolsets=toolsets,
+            model=resolved_model,
+            messages=messages if messages is not None else [],
+        )
+        return cls(config=config, frame=frame)
 
     def __init__(
         self,
-        toolsets: list[AbstractToolset[Any]],
-        model: ModelType,
+        toolsets: list[AbstractToolset[Any]] | None = None,
+        model: ModelType | None = None,
         *,
+        config: RuntimeConfig | None = None,
+        frame: CallFrame | None = None,
         cli_model: ModelType | None | object = _UNSET,
         max_depth: int = 5,
         depth: int = 0,
-        usage: list[RunUsage] | None = None,
         prompt: str = "",
         messages: Optional[list[Any]] = None,
         on_event: Optional[EventCallback] = None,
         verbosity: int = 0,
+        usage: UsageCollector | None = None,
     ) -> None:
-        if cli_model is _UNSET:
-            cli_model = model
-        self.toolsets = toolsets
-        self.model = model
-        self.cli_model = cli_model
-        self.max_depth = max_depth
-        self.depth = depth
-        self.usage: list[RunUsage] = usage if usage is not None else []
-        self.prompt = prompt
-        self.messages = messages if messages is not None else []
+        if config is not None or frame is not None:
+            if config is None or frame is None:
+                raise TypeError("WorkerRuntime requires both 'config' and 'frame' when either is provided")
+            self.config = config
+            self.frame = frame
+        else:
+            if toolsets is None or model is None:
+                raise TypeError("WorkerRuntime requires 'toolsets' and 'model' when 'config'/'frame' are not provided")
+            if cli_model is _UNSET:
+                cli_model = model
+            runtime_usage = usage or UsageCollector()
+            self.config = RuntimeConfig(
+                cli_model=cli_model if cli_model is not _UNSET else None,
+                max_depth=max_depth,
+                on_event=on_event,
+                verbosity=verbosity,
+                usage=runtime_usage,
+            )
+            self.frame = CallFrame(
+                toolsets=toolsets,
+                model=model,
+                depth=depth,
+                prompt=prompt,
+                messages=messages if messages is not None else [],
+            )
         self.tools = ToolsProxy(self)
-        self.on_event = on_event
-        self.verbosity = verbosity
+
+    @property
+    def toolsets(self) -> list[AbstractToolset[Any]]:
+        return self.frame.toolsets
+
+    @property
+    def model(self) -> ModelType:
+        return self.frame.model
+
+    @property
+    def cli_model(self) -> ModelType | None:
+        return self.config.cli_model
+
+    @property
+    def max_depth(self) -> int:
+        return self.config.max_depth
+
+    @property
+    def depth(self) -> int:
+        return self.frame.depth
+
+    @property
+    def prompt(self) -> str:
+        return self.frame.prompt
+
+    @prompt.setter
+    def prompt(self, value: str) -> None:
+        self.frame.prompt = value
+
+    @property
+    def messages(self) -> list[Any]:
+        return self.frame.messages
+
+    @property
+    def on_event(self) -> EventCallback | None:
+        return self.config.on_event
+
+    @property
+    def verbosity(self) -> int:
+        return self.config.verbosity
+
+    @property
+    def usage(self) -> list[RunUsage]:
+        return self.config.usage.all()
 
     def _resolve_model(self, entry: Invocable) -> ModelType:
         """Resolve model: entry's model if specified, otherwise context's default."""
         return select_model(
             worker_model=getattr(entry, "model", None),
-            cli_model=self.cli_model if self.cli_model is not _UNSET else None,
+            cli_model=self.config.cli_model,
             compatible_models=getattr(entry, "compatible_models", None),
             worker_name=getattr(entry, "name", "worker"),
         )
 
     def _create_usage(self) -> RunUsage:
-        """Create a new RunUsage and append to the usage list.
-
-        TODO: Add thread synchronization when implementing concurrent workers.
-        Consider using threading.Lock or queue.Queue for thread-safe appends.
-        """
-        new_usage = RunUsage()
-        self.usage.append(new_usage)
-        return new_usage
+        """Create a new RunUsage and add it to the shared usage sink."""
+        return self.config.usage.create()
 
     def _make_run_context(
-        self, tool_name: str, resolved_model: ModelType, deps_ctx: "Context"
-    ) -> RunContext["Context"]:
+        self, tool_name: str, resolved_model: ModelType, deps_ctx: "WorkerRuntime"
+    ) -> RunContext["WorkerRuntime"]:
         """Construct a RunContext for direct tool invocation."""
         return RunContext(
             deps=deps_ctx,
             model=resolved_model,
             usage=self._create_usage(),
-            prompt=self.prompt,
-            messages=list(self.messages),
+            prompt=deps_ctx.prompt,
+            messages=list(deps_ctx.messages),
             run_step=deps_ctx.depth,
             retry=0,
             tool_name=tool_name,
         )
 
-    def _child(
+    def spawn_child(
         self,
         toolsets: Optional[list[AbstractToolset[Any]]] = None,
         *,
         model: ModelType | None = None,
         messages: Optional[list[Any]] = None,
-    ) -> "Context":
-        """Create a child context with incremented depth.
-
-        Note: toolsets are NOT inherited - workers must explicitly specify their tools.
-        """
-        if model is None:
-            model = self.model
-        return Context(
-            toolsets if toolsets is not None else self.toolsets,
-            model=model,
-            cli_model=self.cli_model,
-            max_depth=self.max_depth,
-            depth=self.depth + 1,
-            usage=self.usage,
-            prompt=self.prompt,
-            messages=self.messages if messages is None else messages,
-            on_event=self.on_event,
-            verbosity=self.verbosity,
+    ) -> "WorkerRuntime":
+        """Spawn a child worker runtime with a forked CallFrame (depth+1)."""
+        return WorkerRuntime(
+            config=self.config,
+            frame=self.frame.fork(toolsets, model=model, messages=messages),
         )
 
-    def _clone(
+    def clone_same_depth(
         self,
         toolsets: Optional[list[AbstractToolset[Any]]] = None,
         *,
         model: ModelType | None = None,
-    ) -> "Context":
-        """Create a context copy without changing depth."""
-        if model is None:
-            model = self.model
-        return Context(
-            toolsets if toolsets is not None else self.toolsets,
-            model=model,
-            cli_model=self.cli_model,
-            max_depth=self.max_depth,
-            depth=self.depth,
-            usage=self.usage,
-            prompt=self.prompt,
-            messages=self.messages,
-            on_event=self.on_event,
-            verbosity=self.verbosity,
+    ) -> "WorkerRuntime":
+        """Create a runtime copy without changing depth (shares CallFrame messages)."""
+        return WorkerRuntime(
+            config=self.config,
+            frame=self.frame.clone_same_depth(toolsets, model=model),
         )
 
     async def run(self, entry: Invocable, input_data: Any) -> Any:
@@ -297,7 +395,7 @@ class Context:
         # Prepare a context with resolved model and toolsets at the same depth.
         child_toolsets = list(getattr(entry, "toolsets", []) or [])
         resolved_model = self._resolve_model(entry)
-        child_ctx = self._clone(toolsets=child_toolsets, model=resolved_model)
+        child_ctx = self.clone_same_depth(toolsets=child_toolsets, model=resolved_model)
         run_ctx = self._make_run_context(entry.name, resolved_model, child_ctx)
 
         return await entry.call(input_data, child_ctx, run_ctx)

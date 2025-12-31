@@ -17,8 +17,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from llm_do.ctx_runtime.ctx import Context
-from llm_do.ctx_runtime.invocables import WorkerInvocable
+from llm_do.ctx_runtime import WorkerRuntime, WorkerInvocable
 from llm_do.filesystem_toolset import FileSystemToolset
 from llm_do.ui.events import UIEvent
 from llm_do.ui.display import HeadlessDisplayBackend
@@ -135,15 +134,15 @@ async def run_evaluation() -> str:
         schema_out=main.schema_out,
     )
 
-    # Create context and run
-    ctx = Context.from_entry(
+    # Create runtime and run
+    runtime = WorkerRuntime.from_entry(
         main,
         model=MODEL,
         on_event=on_event if VERBOSITY > 0 else None,
         verbosity=VERBOSITY,
     )
 
-    result = await ctx.run(main, {"input": PROMPT})
+    result = await runtime.run(main, {"input": PROMPT})
     return result
 
 

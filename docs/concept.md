@@ -134,7 +134,7 @@ Python handles deterministic logic; workers handle judgment:
 
 ```python
 @tools.tool
-async def evaluate_document(ctx: RunContext[Context], path: str) -> dict:
+async def evaluate_document(ctx: RunContext[WorkerRuntime], path: str) -> dict:
     content = load_file(path)  # deterministic
     if not validate_format(content):
         raise ValueError("Invalid format")

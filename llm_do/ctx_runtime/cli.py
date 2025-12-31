@@ -47,7 +47,7 @@ from .approval_wrappers import (
     make_headless_approval_callback,
     make_tui_approval_callback,
 )
-from .ctx import Context, EventCallback
+from .ctx import WorkerRuntime, EventCallback
 from .input_utils import coerce_worker_input
 from .invocables import WorkerInvocable, ToolInvocable
 from .worker_file import load_worker_file
@@ -351,7 +351,7 @@ async def run(
     return_permission_errors: bool = False,
     message_history: list[Any] | None = None,
     set_overrides: list[str] | None = None,
-) -> tuple[str, Context]:
+) -> tuple[str, WorkerRuntime]:
     """Load entries and run with the given prompt.
 
     Args:
@@ -413,7 +413,7 @@ async def run(
             )
 
     # Create context from entry (entry.toolsets is already populated)
-    ctx = Context.from_entry(
+    ctx = WorkerRuntime.from_entry(
         entry,
         model=model,
         messages=list(message_history) if message_history else None,

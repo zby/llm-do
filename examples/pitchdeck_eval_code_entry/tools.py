@@ -12,7 +12,7 @@ Benefits:
 
 Key difference from the old llm-do runtime:
 - Old: @tool_context decorator injects ctx
-- New: Tool receives RunContext[Context] where run_ctx.deps is the Context
+- New: Tool receives RunContext[WorkerRuntime] where run_ctx.deps is the WorkerRuntime
 """
 
 from pathlib import Path
@@ -27,8 +27,8 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
-# Import Context type for type hints
-from llm_do.ctx_runtime import Context
+# Import WorkerRuntime type for type hints
+from llm_do.ctx_runtime import WorkerRuntime
 
 tools = FunctionToolset()
 
@@ -57,7 +57,7 @@ def list_pitchdecks(path: str = "input") -> list[dict]:
 
 
 @tools.tool
-async def main(ctx: RunContext[Context], input: str) -> str:
+async def main(ctx: RunContext[WorkerRuntime], input: str) -> str:
     """Evaluate all pitch decks in input directory.
 
     This is a code entry point that orchestrates the evaluation workflow:
@@ -69,7 +69,7 @@ async def main(ctx: RunContext[Context], input: str) -> str:
     call() for invoking other tools including LLM workers.
 
     Args:
-        ctx: RunContext with Context as deps - provides call() method
+        ctx: RunContext with WorkerRuntime as deps - provides call() method
         input: User input (ignored - workflow is deterministic)
     """
     decks = list_pitchdecks()
@@ -80,7 +80,7 @@ async def main(ctx: RunContext[Context], input: str) -> str:
     results = []
 
     for deck in decks:
-        # Call LLM worker for analysis via ctx.deps (the Context)
+        # Call LLM worker for analysis via ctx.deps (the WorkerRuntime)
         report = await ctx.deps.call(
             "pitch_evaluator",
             {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]}

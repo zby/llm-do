@@ -112,7 +112,7 @@ class TestStreamingModels:
         When streaming with verbosity=2, we should see streaming deltas
         but NOT a final "complete" TextResponseEvent (which would duplicate output).
         """
-        from llm_do.ctx_runtime import Context, WorkerInvocable
+        from llm_do.ctx_runtime import WorkerRuntime, WorkerInvocable
         from llm_do.ui.events import TextResponseEvent
 
         events = []
@@ -128,7 +128,7 @@ class TestStreamingModels:
         )
 
         # verbosity=2 enables streaming
-        ctx = Context.from_entry(worker, on_event=events.append, verbosity=2)
+        ctx = WorkerRuntime.from_entry(worker, on_event=events.append, verbosity=2)
         result = await ctx.run(worker, {"input": "say hello"})
 
         # The result should be "Hello world!"

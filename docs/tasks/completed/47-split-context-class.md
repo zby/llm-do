@@ -1,7 +1,7 @@
 # Split and Rename `Context` Class
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] `docs/tasks/completed/49-approval-unification.md` (removes `requires_approval` and `Context.approval`)
@@ -12,7 +12,7 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
 
 ## Context
 - Relevant files/symbols:
-  - `llm_do/ctx_runtime/ctx.py`: `Context`, `ToolsProxy`, `Invocable` (protocol), `Context.from_entry()`, `Context.call()`, `Context._execute()`
+  - `llm_do/ctx_runtime/ctx.py`: `WorkerRuntime`, `RuntimeConfig`, `CallFrame`, `ToolsProxy`, `Invocable`
   - `llm_do/ctx_runtime/invocables.py`: `WorkerInvocable`, `ToolInvocable` (concrete classes implementing `Invocable`)
   - `llm_do/ctx_runtime/cli.py`: context construction + approval toolset wrapping
   - `llm_do/ctx_runtime/discovery.py`: imports/exports WorkerInvocable
@@ -63,15 +63,15 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
   - Consider a separate task to unify/centralize UI event emission (currently split between `WorkerRuntime.call()` and `Invocable` event parsing).
 
 ## Tasks
-- [ ] Document current invariants (depth behavior, message history sharing, usage aggregation) to preserve during refactor
-- [ ] Classify `Context` fields into `RuntimeConfig` (shared) vs `CallFrame` (per-worker)
-- [ ] Create `RuntimeConfig` class with:
+- [x] Document current invariants (depth behavior, message history sharing, usage aggregation) to preserve during refactor
+- [x] Classify `Context` fields into `RuntimeConfig` (shared) vs `CallFrame` (per-worker)
+- [x] Create `RuntimeConfig` class with:
   - Model resolver inputs/wrapper
   - Event sink (`on_event`) + `verbosity` (document concurrency assumptions)
   - Usage sink/collector (document concurrency assumptions)
   - `max_depth`, `cli_model`
   - (no `approval` — already removed by Task 49)
-- [ ] Create `CallFrame` class with:
+- [x] Create `CallFrame` class with:
   - `depth: int`
   - `prompt: str`
   - `messages: list`
@@ -79,20 +79,20 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
   - `model: ModelType`
   - `fork()` method that creates independent child frame with incremented depth
   - `clone_same_depth()` (or similar) to support “swap toolsets/model without changing depth” (current `_clone` behavior)
-- [ ] Create `WorkerRuntime` facade:
+- [x] Create `WorkerRuntime` facade:
   - Holds `config: RuntimeConfig` + `frame: CallFrame`
   - Exposes the minimal deps API used by tool code/tests (`call()`, `tools`, `depth`, `max_depth`, `messages`, etc.)
   - `spawn_child()` returns new `WorkerRuntime` with forked `CallFrame`, same `RuntimeConfig`
   - `with_frame()`/`with_toolsets_model()` helper for same-depth context preparation in `_execute`
-- [ ] Extract tool lookup/call mechanics into `ToolDispatcher` (or keep on facade), including:
+- [x] Extract tool lookup/call mechanics into `ToolDispatcher` (or keep on facade), including:
   - input coercion (`coerce_worker_input` vs `{"input": ...}`)
   - `ToolCallEvent` / `ToolResultEvent` emission and call-id generation
-- [ ] Rename `Context` → `WorkerRuntime` across codebase
-- [ ] Update runtime call sites and tests to match the new structure
-- [ ] Run `uv run pytest`
+- [x] Rename `Context` → `WorkerRuntime` across codebase
+- [x] Update runtime call sites and tests to match the new structure
+- [x] Run `uv run pytest`
 
 ## Current State
-Decision made: Split `Context` into `RuntimeConfig` + `CallFrame` with `WorkerRuntime` facade. Prerequisites complete; task is ready to implement.
+Implemented `WorkerRuntime` facade over `RuntimeConfig` + `CallFrame`, updated all call sites, tests, and key docs/examples. `spawn_child()` forks per-branch state (including independent message lists) and top-level runs synchronize message history back to the parent. Verified with `uv run pytest` (208 passed).
 
 **Scope**: Structural refactoring only (Context split + rename to WorkerRuntime).
 

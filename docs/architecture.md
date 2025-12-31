@@ -53,9 +53,9 @@ my-project/
 1. **Definition** - `.worker` file describes instructions, toolsets, model
 2. **Loading** - `worker_file.load_worker_file()` parses frontmatter and instructions
 3. **Resolution** - `ctx_runtime.build_entry()` resolves toolsets and builds `WorkerInvocable`/`ToolInvocable`
-4. **Context** - `Context.from_entry()` selects the effective model and assembles the runtime
+4. **Runtime** - `WorkerRuntime.from_entry()` selects the effective model and assembles the runtime
 5. **Execution** - `WorkerInvocable` builds a PydanticAI `Agent` and runs it
-6. **Result** - Final output is returned (usage tracked in `Context`)
+6. **Result** - Final output is returned (usage tracked in `WorkerRuntime`)
 
 ### Key Capabilities
 
@@ -63,7 +63,7 @@ my-project/
 
 Workers delegate by declaring other worker names in `toolsets`:
 - Worker entries are exposed as tools
-- Nested calls are tracked in `Context.depth` (default max depth: 5)
+- Nested calls are tracked in `WorkerRuntime.depth` (default max depth: 5)
 - Toolsets are not inherited; each worker declares its own
 
 **2. Tool Approval System**
@@ -90,7 +90,7 @@ Python toolsets are discovered from `.py` files using `FunctionToolset` (or any 
 llm_do/
 ├── ctx_runtime/
 │   ├── cli.py          # llm-do entry point
-│   ├── ctx.py          # Context dispatcher and depth tracking
+│   ├── ctx.py          # Worker runtime dispatcher and depth tracking
 │   ├── invocables.py   # WorkerInvocable and ToolInvocable
 │   ├── worker_file.py  # .worker parser
 │   ├── discovery.py    # Load toolsets/entries from .py files
@@ -121,10 +121,10 @@ build_entry() -> WorkerInvocable or ToolInvocable
 wrap toolsets with ApprovalToolset
     |
     v
-Context.from_entry()
+WorkerRuntime.from_entry()
     |
     v
-Context.run(entry, {"input": prompt})
+WorkerRuntime.run(entry, {"input": prompt})
     |
     v
 WorkerInvocable builds Agent -> agent.run() or run_stream()
@@ -153,4 +153,4 @@ Code entry points can call tools directly:
 result = await ctx.deps.call("analyzer", {"input": "..."})
 ```
 
-Context state (model, depth, usage, events) flows down the call tree.
+WorkerRuntime state (model, depth, usage, events) flows down the call tree.

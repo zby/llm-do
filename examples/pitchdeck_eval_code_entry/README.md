@@ -41,18 +41,18 @@ The LLM is reserved for what it's good at: **evaluating pitch decks**.
 
 ## How It Works
 
-The `main` tool in `tools.py` uses `RunContext[Context]` to receive
+The `main` tool in `tools.py` uses `RunContext[WorkerRuntime]` to receive
 a context object that enables calling other tools:
 
 ```python
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.ctx_runtime import Context
+from llm_do.ctx_runtime import WorkerRuntime
 
 tools = FunctionToolset()
 
 @tools.tool
-async def main(ctx: RunContext[Context], input: str) -> str:
+async def main(ctx: RunContext[WorkerRuntime], input: str) -> str:
     """Entry point - Python orchestration."""
     decks = list_pitchdecks()
 
@@ -71,7 +71,7 @@ async def main(ctx: RunContext[Context], input: str) -> str:
 
 Key difference from the old `llm-do` runtime:
 - Old: `@tool_context` decorator injects `ctx`
-- New: Tool receives `RunContext[Context]` where `ctx.deps` is the Context
+- New: Tool receives `RunContext[WorkerRuntime]` where `ctx.deps` is the WorkerRuntime
 
 The `ctx.deps.call()` method can invoke:
 - **Code tools**: Other functions in `FunctionToolset`

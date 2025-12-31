@@ -1,12 +1,12 @@
-"""Context-centric runtime for llm-do.
+"""WorkerRuntime-centric runtime for llm-do.
 
 This module provides a new runtime architecture that:
-- Uses Context as the central dispatcher
+- Uses WorkerRuntime as the central dispatcher
 - Supports toolsets (AbstractToolset, FunctionToolset)
 - Loads tools from Python files and worker declarations
 - Provides the `llm-do` CLI entry point
 """
-from .ctx import Context, ToolsProxy, Invocable, ModelType
+from .ctx import WorkerRuntime, ToolsProxy, Invocable, ModelType
 from .invocables import WorkerInvocable, ToolInvocable
 from .worker_file import WorkerFile, parse_worker_file, load_worker_file
 from .discovery import (
@@ -19,8 +19,8 @@ from .discovery import (
 from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
 
 __all__ = [
-    # Context
-    "Context",
+    # Runtime
+    "WorkerRuntime",
     "ToolsProxy",
     "Invocable",
     "ModelType",

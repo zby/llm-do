@@ -138,12 +138,12 @@ To access runtime context (for calling other tools/workers), accept a `RunContex
 # tools.py
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.ctx_runtime import Context
+from llm_do.ctx_runtime import WorkerRuntime
 
 tools = FunctionToolset()
 
 @tools.tool
-async def analyze_config(ctx: RunContext[Context], raw: str) -> str:
+async def analyze_config(ctx: RunContext[WorkerRuntime], raw: str) -> str:
     """Delegate parsing to a worker."""
     return await ctx.deps.call("config_parser", {"input": raw})
 ```

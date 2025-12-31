@@ -6,7 +6,7 @@ independent of the LLM/worker infrastructure.
 import pytest
 from pathlib import Path
 
-from llm_do.ctx_runtime import Context, load_toolsets_from_files
+from llm_do.ctx_runtime import WorkerRuntime, load_toolsets_from_files
 
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
@@ -24,7 +24,7 @@ class TestCalculatorTools:
     @pytest.fixture
     def ctx(self, calc_toolset):
         """Create context with calculator toolset."""
-        return Context(toolsets=[calc_toolset], model="test-model")
+        return WorkerRuntime(toolsets=[calc_toolset], model="test-model")
 
     @pytest.mark.anyio
     async def test_add(self, ctx):
@@ -66,7 +66,7 @@ class TestPitchdeckHardenedTools:
     @pytest.fixture
     def ctx(self, pitchdeck_toolset):
         """Create context with pitchdeck toolset."""
-        return Context(toolsets=[pitchdeck_toolset], model="test-model")
+        return WorkerRuntime(toolsets=[pitchdeck_toolset], model="test-model")
 
     @pytest.mark.anyio
     async def test_list_pitchdecks(self, ctx, tmp_path):

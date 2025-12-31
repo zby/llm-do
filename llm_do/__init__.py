@@ -30,7 +30,7 @@ from .model_compat import (
 )
 
 # Re-export from ctx_runtime for convenience
-from .ctx_runtime import Context, WorkerInvocable, ToolInvocable
+from .ctx_runtime import WorkerRuntime, WorkerInvocable, ToolInvocable
 
 __all__ = [
     # Approval handling
@@ -47,7 +47,7 @@ __all__ = [
     "ModelCompatibilityError",
     "NoModelError",
     # Runtime types
-    "Context",
+    "WorkerRuntime",
     "WorkerInvocable",
     "ToolInvocable",
     # Version

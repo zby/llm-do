@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 import pytest
 
-from llm_do.ctx_runtime import Context, WorkerInvocable
+from llm_do.ctx_runtime import WorkerRuntime, WorkerInvocable
 
 
 class TopicInput(BaseModel):
@@ -20,7 +20,7 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
         instructions="Extract topic details.",
         schema_in=TopicInput,
     )
-    ctx = Context(toolsets=[], model="test-model")
+    ctx = WorkerRuntime(toolsets=[], model="test-model")
     run_ctx = ctx._make_run_context(worker.name, "test-model", ctx)
 
     tools = await worker.get_tools(run_ctx)
@@ -46,7 +46,7 @@ async def test_ctx_call_wraps_plain_text_for_input_schema(monkeypatch: pytest.Mo
         return input_data
 
     monkeypatch.setattr(worker, "call", fake_call.__get__(worker, WorkerInvocable))
-    ctx = Context(toolsets=[worker], model="test-model")
+    ctx = WorkerRuntime(toolsets=[worker], model="test-model")
 
     await ctx.call("text_worker", "hello")
 
@@ -67,7 +67,7 @@ async def test_ctx_call_passes_plain_text_for_non_input_schema(monkeypatch: pyte
         return input_data
 
     monkeypatch.setattr(worker, "call", fake_call.__get__(worker, WorkerInvocable))
-    ctx = Context(toolsets=[worker], model="test-model")
+    ctx = WorkerRuntime(toolsets=[worker], model="test-model")
 
     await ctx.call("topic_worker", "hello")
 

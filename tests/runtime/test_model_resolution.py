@@ -8,7 +8,7 @@ from pydantic import BaseModel, TypeAdapter
 from pydantic_ai.tools import ToolDefinition, RunContext
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
-from llm_do.ctx_runtime import Context
+from llm_do.ctx_runtime import WorkerRuntime
 
 
 class CaptureArgs(BaseModel):
@@ -56,7 +56,12 @@ class DummyEntry:
     model: Optional[str] = None
     kind: str = "worker"
 
-    async def call(self, input_data: Any, ctx: Context, run_ctx: RunContext[Context]) -> Any:
+    async def call(
+        self,
+        input_data: Any,
+        ctx: WorkerRuntime,
+        run_ctx: RunContext[WorkerRuntime],
+    ) -> Any:
         return await ctx.call("capture", {"value": 1})
 
 
@@ -64,7 +69,7 @@ class DummyEntry:
 async def test_worker_uses_cli_model_for_tool_calls() -> None:
     toolset = CaptureToolset()
     entry = DummyEntry(name="child", toolsets=[toolset])
-    ctx = Context(toolsets=[], model="parent-model", cli_model="cli-model")
+    ctx = WorkerRuntime(toolsets=[], model="parent-model", cli_model="cli-model")
 
     await ctx._execute(entry, {"input": "hi"})
 
@@ -75,7 +80,7 @@ async def test_worker_uses_cli_model_for_tool_calls() -> None:
 async def test_worker_model_overrides_cli_model_for_tool_calls() -> None:
     toolset = CaptureToolset()
     entry = DummyEntry(name="child", toolsets=[toolset], model="worker-model")
-    ctx = Context(toolsets=[], model="parent-model", cli_model="cli-model")
+    ctx = WorkerRuntime(toolsets=[], model="parent-model", cli_model="cli-model")
 
     await ctx._execute(entry, {"input": "hi"})
 

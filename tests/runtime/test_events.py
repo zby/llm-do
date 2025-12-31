@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import Context, WorkerInvocable
+from llm_do.ctx_runtime import WorkerRuntime, WorkerInvocable
 from llm_do.ui.events import (
     UIEvent,
     ToolCallEvent,
@@ -17,28 +17,28 @@ from llm_do.ui.events import (
 
 
 class TestContextEventCallback:
-    """Tests for Context.on_event callback."""
+    """Tests for WorkerRuntime event callback wiring."""
 
     def test_child_context_inherits_on_event(self):
         """Test that child contexts inherit on_event callback."""
         events = []
         callback = lambda e: events.append(e)
-        ctx = Context(
+        ctx = WorkerRuntime(
             toolsets=[],
             model="test-model",
             on_event=callback,
         )
-        child = ctx._child()
+        child = ctx.spawn_child()
         assert child.on_event is callback
 
     def test_child_context_inherits_verbosity(self):
         """Test that child contexts inherit verbosity."""
-        ctx = Context(
+        ctx = WorkerRuntime(
             toolsets=[],
             model="test-model",
             verbosity=2,
         )
-        child = ctx._child()
+        child = ctx.spawn_child()
         assert child.verbosity == 2
 
     @pytest.mark.anyio
@@ -54,7 +54,7 @@ class TestContextEventCallback:
             """Greet someone."""
             return f"Hello, {name}!"
 
-        ctx = Context(
+        ctx = WorkerRuntime(
             toolsets=[toolset],
             model="test-model",
             on_event=lambda e: events.append(e),
@@ -107,7 +107,7 @@ class TestWorkerInvocableToolEvents:
             toolsets=[toolset],
         )
 
-        ctx = Context.from_entry(
+        ctx = WorkerRuntime.from_entry(
             worker,
             on_event=lambda e: events.append(e),
         )
@@ -156,7 +156,7 @@ class TestWorkerInvocableToolEvents:
             toolsets=[toolset],
         )
 
-        ctx = Context.from_entry(
+        ctx = WorkerRuntime.from_entry(
             worker,
             on_event=lambda e: events.append(e),
         )
@@ -193,7 +193,7 @@ class TestWorkerInvocableToolEvents:
             toolsets=[toolset],
         )
 
-        ctx = Context.from_entry(
+        ctx = WorkerRuntime.from_entry(
             worker,
             on_event=lambda e: events.append(e),
         )
@@ -230,7 +230,7 @@ class TestWorkerInvocableToolEvents:
         )
 
         # No on_event callback
-        ctx = Context.from_entry(worker)
+        ctx = WorkerRuntime.from_entry(worker)
         assert ctx.on_event is None
 
         # Should not crash
@@ -253,7 +253,7 @@ class TestWorkerInvocableStreamingEvents:
             toolsets=[],
         )
 
-        ctx = Context.from_entry(
+        ctx = WorkerRuntime.from_entry(
             worker,
             on_event=lambda e: events.append(e),
             verbosity=2,  # Enable streaming
@@ -282,7 +282,7 @@ class TestWorkerInvocableStreamingEvents:
             toolsets=[],
         )
 
-        ctx = Context.from_entry(
+        ctx = WorkerRuntime.from_entry(
             worker,
             on_event=lambda e: events.append(e),
             verbosity=1,  # Not streaming level

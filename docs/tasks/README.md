@@ -53,6 +53,9 @@ What would make this worth doing.
 ```markdown
 # Task Name
 
+## Status
+information gathering | ready for implementation | waiting for <dependency>
+
 ## Prerequisites
 - [ ] other-task-name (dependency on another task)
 - [ ] design decision needed (new design / approval)
@@ -65,6 +68,13 @@ One sentence: what "done" looks like.
 - Relevant files/symbols:
 - Related tasks/notes/docs:
 - How to verify / reproduce:
+
+## Decision Record
+- Decision:
+- Inputs:
+- Options:
+- Outcome:
+- Follow-ups:
 
 ## Tasks
 - [x] completed step
@@ -84,6 +94,8 @@ Where things stand right now. Update as work progresses.
 - Keep tasks focused - one coherent unit of work
 - Front-load background gathering so tasks are startable without extra research
 - Prefer `Prerequisites: none` unless blocked by new design or another task
+- Record decisions in the task body; if a decision spans multiple tasks, extract
+  it into a dedicated task and add dependencies
 - Update current state frequently
 - Notes prevent repeating mistakes after recovery
 - Delete or archive when done - this is not documentation

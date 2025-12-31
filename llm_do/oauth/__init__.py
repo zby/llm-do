@@ -9,16 +9,9 @@ from .anthropic import login_anthropic, refresh_anthropic_token
 from .storage import (
     OAuthCredentials,
     OAuthProvider,
+    OAuthStorage,
     OAuthStorageBackend,
     get_oauth_path,
-    has_oauth_credentials,
-    list_oauth_providers,
-    load_oauth_credentials,
-    load_oauth_storage,
-    remove_oauth_credentials,
-    reset_oauth_storage,
-    save_oauth_credentials,
-    set_oauth_storage,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,9 +37,14 @@ def _split_model_identifier(model: str) -> Tuple[Optional[str], str]:
     return provider, name
 
 
-async def refresh_token(provider: OAuthProvider) -> str:
+def _ensure_storage(storage: Optional[OAuthStorage]) -> OAuthStorage:
+    return storage or OAuthStorage()
+
+
+async def refresh_token(provider: OAuthProvider, storage: Optional[OAuthStorage] = None) -> str:
     """Refresh OAuth token for a provider and return the new access token."""
-    credentials = load_oauth_credentials(provider)
+    oauth_storage = _ensure_storage(storage)
+    credentials = oauth_storage.load_credentials(provider)
     if not credentials:
         raise RuntimeError(f"No OAuth credentials found for {provider}")
 
@@ -55,22 +53,23 @@ async def refresh_token(provider: OAuthProvider) -> str:
     else:
         raise RuntimeError(f"Unknown OAuth provider: {provider}")
 
-    save_oauth_credentials(provider, new_credentials)
+    oauth_storage.save_credentials(provider, new_credentials)
     return new_credentials.access
 
 
-async def get_oauth_api_key(provider: OAuthProvider) -> Optional[str]:
+async def get_oauth_api_key(provider: OAuthProvider, storage: Optional[OAuthStorage] = None) -> Optional[str]:
     """Return an API token for a provider, refreshing if expired."""
-    credentials = load_oauth_credentials(provider)
+    oauth_storage = _ensure_storage(storage)
+    credentials = oauth_storage.load_credentials(provider)
     if not credentials:
         return None
 
     if credentials.is_expired():
         try:
-            return await refresh_token(provider)
+            return await refresh_token(provider, storage=oauth_storage)
         except Exception as exc:
             logger.warning("Failed to refresh OAuth token for %s: %s", provider, exc)
-            remove_oauth_credentials(provider)
+            oauth_storage.remove_credentials(provider)
             return None
 
     return credentials.access
@@ -95,7 +94,10 @@ def _build_anthropic_oauth_model(model_name: str, token: str) -> Any:
     return AnthropicModel(model_name=model_name, provider=provider)
 
 
-async def resolve_oauth_overrides(model: Any) -> Optional[OAuthModelOverrides]:
+async def resolve_oauth_overrides(
+    model: Any,
+    storage: Optional[OAuthStorage] = None,
+) -> Optional[OAuthModelOverrides]:
     """Return OAuth model overrides if the model should use OAuth."""
     if not isinstance(model, str):
         return None
@@ -105,7 +107,7 @@ async def resolve_oauth_overrides(model: Any) -> Optional[OAuthModelOverrides]:
     if oauth_provider != "anthropic":
         return None
 
-    token = await get_oauth_api_key("anthropic")
+    token = await get_oauth_api_key("anthropic", storage=storage)
     if not token:
         return None
 
@@ -133,16 +135,9 @@ __all__ = [
     "ANTHROPIC_OAUTH_SYSTEM_PROMPT",
     "OAuthCredentials",
     "OAuthProvider",
+    "OAuthStorage",
     "OAuthStorageBackend",
     "get_oauth_path",
-    "has_oauth_credentials",
-    "list_oauth_providers",
-    "load_oauth_credentials",
-    "load_oauth_storage",
-    "remove_oauth_credentials",
-    "reset_oauth_storage",
-    "save_oauth_credentials",
-    "set_oauth_storage",
     "login_anthropic",
     "refresh_anthropic_token",
     "refresh_token",

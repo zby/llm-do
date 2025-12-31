@@ -9,7 +9,7 @@ import time
 import httpx
 
 from .pkce import generate_pkce
-from .storage import OAuthCredentials, save_oauth_credentials
+from .storage import OAuthCredentials, OAuthStorage
 
 
 def _decode(value: str) -> str:
@@ -26,8 +26,10 @@ SCOPES = "org:create_api_key user:profile user:inference"
 async def login_anthropic(
     on_auth_url: Callable[[str], None],
     on_prompt_code: Callable[[], Awaitable[str]],
+    storage: OAuthStorage | None = None,
 ) -> OAuthCredentials:
     """Login with Anthropic OAuth (authorization code + PKCE)."""
+    oauth_storage = storage or OAuthStorage()
     verifier, challenge = generate_pkce()
 
     params = {
@@ -76,7 +78,7 @@ async def login_anthropic(
         expires=expires_at,
     )
 
-    save_oauth_credentials("anthropic", credentials)
+    oauth_storage.save_credentials("anthropic", credentials)
     return credentials
 
 

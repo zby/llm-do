@@ -12,13 +12,7 @@ import asyncio
 import sys
 import webbrowser
 
-from .oauth import (
-    get_oauth_path,
-    has_oauth_credentials,
-    login_anthropic,
-    load_oauth_credentials,
-    remove_oauth_credentials,
-)
+from .oauth import OAuthStorage, get_oauth_path, login_anthropic
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
@@ -65,6 +59,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 async def run_oauth_cli(argv: list[str]) -> int:
     """Handle the OAuth CLI entrypoint."""
     args = _parse_args(argv)
+    storage = OAuthStorage()
 
     if args.command == "login":
         if args.provider != "anthropic":
@@ -81,7 +76,7 @@ async def run_oauth_cli(argv: list[str]) -> int:
             return input("Paste the authorization code (format: code#state): ").strip()
 
         try:
-            await login_anthropic(on_auth_url, on_prompt_code)
+            await login_anthropic(on_auth_url, on_prompt_code, storage=storage)
         except Exception as exc:
             print(f"OAuth login failed: {exc}", file=sys.stderr)
             return 1
@@ -93,10 +88,10 @@ async def run_oauth_cli(argv: list[str]) -> int:
         if args.provider != "anthropic":
             print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
             return 2
-        if not has_oauth_credentials(args.provider):
+        if not storage.has_credentials(args.provider):
             print(f"No OAuth credentials found for {args.provider}")
             return 0
-        remove_oauth_credentials(args.provider)
+        storage.remove_credentials(args.provider)
         print(f"Cleared OAuth credentials for {args.provider}")
         return 0
 
@@ -104,7 +99,7 @@ async def run_oauth_cli(argv: list[str]) -> int:
         if args.provider != "anthropic":
             print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
             return 2
-        credentials = load_oauth_credentials(args.provider)
+        credentials = storage.load_credentials(args.provider)
         if not credentials:
             status = "not logged in"
         elif credentials.is_expired():

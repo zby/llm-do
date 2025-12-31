@@ -109,55 +109,41 @@ class FileSystemStorage:
             pass
 
 
-_storage_backend: OAuthStorageBackend = FileSystemStorage()
+class OAuthStorage:
+    """OAuth storage wrapper with an injectable backend."""
 
+    def __init__(self, backend: Optional[OAuthStorageBackend] = None) -> None:
+        self._backend = backend or FileSystemStorage()
 
-def set_oauth_storage(backend: OAuthStorageBackend) -> None:
-    """Configure the OAuth storage backend."""
-    global _storage_backend
-    _storage_backend = backend
+    def load_storage(self) -> Dict[str, OAuthCredentials]:
+        """Load all OAuth credentials."""
+        return self._backend.load()
 
+    def load_credentials(self, provider: OAuthProvider) -> Optional[OAuthCredentials]:
+        """Load OAuth credentials for a specific provider."""
+        return self._backend.load().get(provider)
 
-def reset_oauth_storage() -> None:
-    """Reset to default filesystem storage."""
-    global _storage_backend
-    _storage_backend = FileSystemStorage()
+    def save_credentials(self, provider: OAuthProvider, creds: OAuthCredentials) -> None:
+        """Save OAuth credentials for a specific provider."""
+        storage = self._backend.load()
+        storage[provider] = creds
+        self._backend.save(storage)
+
+    def remove_credentials(self, provider: OAuthProvider) -> None:
+        """Remove OAuth credentials for a specific provider."""
+        storage = self._backend.load()
+        storage.pop(provider, None)
+        self._backend.save(storage)
+
+    def has_credentials(self, provider: OAuthProvider) -> bool:
+        """Return True if OAuth credentials exist for a provider."""
+        return self.load_credentials(provider) is not None
+
+    def list_providers(self) -> list[str]:
+        """List all providers with stored OAuth credentials."""
+        return list(self._backend.load().keys())
 
 
 def get_oauth_path() -> Path:
     """Return the default OAuth storage path."""
     return FileSystemStorage.DEFAULT_PATH
-
-
-def load_oauth_storage() -> Dict[str, OAuthCredentials]:
-    """Load all OAuth credentials."""
-    return _storage_backend.load()
-
-
-def load_oauth_credentials(provider: str) -> Optional[OAuthCredentials]:
-    """Load OAuth credentials for a specific provider."""
-    return _storage_backend.load().get(provider)
-
-
-def save_oauth_credentials(provider: str, creds: OAuthCredentials) -> None:
-    """Save OAuth credentials for a specific provider."""
-    storage = _storage_backend.load()
-    storage[provider] = creds
-    _storage_backend.save(storage)
-
-
-def remove_oauth_credentials(provider: str) -> None:
-    """Remove OAuth credentials for a specific provider."""
-    storage = _storage_backend.load()
-    storage.pop(provider, None)
-    _storage_backend.save(storage)
-
-
-def has_oauth_credentials(provider: str) -> bool:
-    """Return True if OAuth credentials exist for a provider."""
-    return load_oauth_credentials(provider) is not None
-
-
-def list_oauth_providers() -> list[str]:
-    """List all providers with stored OAuth credentials."""
-    return list(_storage_backend.load().keys())

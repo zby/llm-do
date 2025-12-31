@@ -1,7 +1,7 @@
 # OAuth Storage Dependency Injection
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] none
@@ -22,7 +22,7 @@ Replace module-level global `_storage_backend` with dependency injection so call
   - OAuth CLI still works: `llm-do-oauth login`, `llm-do-oauth status`
 
 ## Decision Record
-- Decision: TBD — choose between options below
+- Decision: Option A (OAuthStorage wrapper with injectable backend).
 - Problem:
   - Module-level `_storage_backend` is global mutable state
   - Callers forced to use `set_oauth_storage()` to swap backends (side effects)
@@ -31,21 +31,21 @@ Replace module-level global `_storage_backend` with dependency injection so call
 - Options:
   - A) **Storage class with instance methods**: Create `OAuthStorage` class that takes backend in `__init__`, replace module functions with methods. CLI creates instance.
   - B) **Pass backend to each function**: Add `backend: OAuthStorageBackend = None` param to each function, defaulting to `FileSystemStorage()`.
-  - C) **Context manager**: `with oauth_storage(backend): ...` temporarily sets backend for a scope.
-  - D) **Keep global but add explicit param**: Functions accept optional `backend` param, fall back to global if not provided.
-- Recommendation: **Option A** — cleaner API, explicit dependencies, easy to test
+- Outcome:
+  - Implemented `OAuthStorage` and removed global backend/mutators.
+  - Updated CLI and OAuth helpers to take explicit storage.
 
 ## Tasks
-- [ ] Decide on approach (A/B/C/D)
-- [ ] Implement chosen approach
-- [ ] Update `oauth_cli.py` to use new API
-- [ ] Update any other callers
-- [ ] Add/update tests for OAuth storage
-- [ ] Remove global `_storage_backend` and mutator functions
-- [ ] Run `uv run pytest`
+- [x] Decide on approach (A/B/C/D)
+- [x] Implement chosen approach
+- [x] Update `oauth_cli.py` to use new API
+- [x] Update any other callers
+- [x] Add/update tests for OAuth storage
+- [x] Remove global `_storage_backend` and mutator functions
+- [x] Run `uv run pytest`
 
 ## Current State
-Task created from SOLID review. Ready for decision and implementation.
+OAuth storage now uses an injectable `OAuthStorage` wrapper. CLI and OAuth helpers accept storage instances. Tests pass (`uv run pytest`).
 
 ## Notes
 - Current code already has `OAuthStorageBackend` protocol — good foundation

@@ -13,13 +13,7 @@ from llm_do.oauth import (
     resolve_oauth_overrides,
 )
 from llm_do.oauth import anthropic as oauth_anthropic
-from llm_do.oauth.storage import (
-    OAuthCredentials,
-    load_oauth_credentials,
-    reset_oauth_storage,
-    save_oauth_credentials,
-    set_oauth_storage,
-)
+from llm_do.oauth.storage import OAuthCredentials, OAuthStorage
 
 
 class InMemoryStorage:
@@ -35,10 +29,7 @@ class InMemoryStorage:
 
 @pytest.fixture
 def memory_storage():
-    storage = InMemoryStorage()
-    set_oauth_storage(storage)
-    yield storage
-    reset_oauth_storage()
+    return OAuthStorage(InMemoryStorage())
 
 
 class FakeResponse:
@@ -96,9 +87,15 @@ def test_login_anthropic_stores_credentials(monkeypatch, memory_storage):
     async def on_prompt_code() -> str:
         return "authcode#authstate"
 
-    creds = asyncio.run(oauth_anthropic.login_anthropic(on_auth_url, on_prompt_code))
+    creds = asyncio.run(
+        oauth_anthropic.login_anthropic(
+            on_auth_url,
+            on_prompt_code,
+            storage=memory_storage,
+        )
+    )
 
-    stored = load_oauth_credentials("anthropic")
+    stored = memory_storage.load_credentials("anthropic")
     assert stored is not None
     assert stored.access == "access123"
     assert stored.refresh == "refresh123"
@@ -144,7 +141,7 @@ def test_refresh_anthropic_token(monkeypatch):
 
 
 def test_resolve_oauth_overrides(memory_storage):
-    save_oauth_credentials(
+    memory_storage.save_credentials(
         "anthropic",
         OAuthCredentials(
             refresh="refresh",
@@ -153,7 +150,9 @@ def test_resolve_oauth_overrides(memory_storage):
         ),
     )
 
-    overrides = asyncio.run(resolve_oauth_overrides("anthropic:claude-sonnet-4"))
+    overrides = asyncio.run(
+        resolve_oauth_overrides("anthropic:claude-sonnet-4", storage=memory_storage)
+    )
     assert overrides is not None
     assert overrides.system_prompt == ANTHROPIC_OAUTH_SYSTEM_PROMPT
     assert overrides.model_settings is not None

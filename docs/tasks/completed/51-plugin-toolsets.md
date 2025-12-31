@@ -1,19 +1,20 @@
 # Plugin Toolsets
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
-- [ ] none (independent of Context/Invocable refactoring)
+- [x] none (independent of Context/Invocable refactoring)
 
 ## Goal
 Move toolsets to `llm_do/toolsets/` directory and implement dynamic loading via class paths, enabling third-party toolsets without modifying llm-do core.
 
 ## Context
 - Relevant files/symbols:
-  - `llm_do/filesystem_toolset.py` → move to `llm_do/toolsets/filesystem.py`
-  - `llm_do/shell/toolset.py` → move to `llm_do/toolsets/shell.py`
-  - `llm_do/ctx_runtime/cli.py`: hardcoded toolset creation
+  - `llm_do/toolsets/filesystem.py` (moved)
+  - `llm_do/toolsets/shell.py` (moved)
+  - `llm_do/toolset_loader.py`: class path loader and alias support
+  - `llm_do/ctx_runtime/cli.py`: dynamic toolset creation via loader
   - `pydantic_ai_blocking_approval`: `ApprovalToolset`, `SupportsNeedsApproval`
 - Related tasks/notes/docs:
   - `docs/notes/archive/toolset_plugin_architecture.md` (full design doc)
@@ -39,22 +40,27 @@ Move toolsets to `llm_do/toolsets/` directory and implement dynamic loading via 
   - Update config examples/documentation when implementation lands
 
 ## Tasks
-- [ ] Create `llm_do/toolsets/` directory
-- [ ] Move `filesystem_toolset.py` → `llm_do/toolsets/filesystem.py`
-- [ ] Move `shell/toolset.py` → `llm_do/toolsets/shell.py`
-- [ ] Create `llm_do/toolsets/__init__.py` with exports
-- [ ] Create `llm_do/toolset_loader.py` with:
+- [x] Create `llm_do/toolsets/` directory
+- [x] Move `filesystem_toolset.py` → `llm_do/toolsets/filesystem.py`
+- [x] Move `shell/toolset.py` → `llm_do/toolsets/shell.py`
+- [x] Create `llm_do/toolsets/__init__.py` with exports
+- [x] Create `llm_do/toolset_loader.py` with:
   - `_import_class(class_path)` — dynamic import
   - `create_toolset(class_path, config, context, approval_callback)` — factory
   - `build_toolsets(definition, context)` — build all toolsets for a worker
-- [ ] Add alias mapping for built-ins (`shell`, `filesystem`, etc.)
-- [ ] Update config format to support class paths as keys
-- [ ] Replace hardcoded toolset creation in CLI with `build_toolsets()`
-- [ ] Update imports across codebase
-- [ ] Run `uv run pytest`
+- [x] Add alias mapping for built-ins (`shell`, `filesystem`, etc.)
+- [x] Update config format to support class paths as keys
+- [x] Replace hardcoded toolset creation in CLI with `build_toolsets()`
+- [x] Update imports across codebase
+- [x] Run `uv run pytest`
 
 ## Current State
-Task activated from backlog. Design exists in archive doc. Ready to implement.
+Completed.
+
+- Toolsets moved under `llm_do/toolsets/` with exports for shell and filesystem.
+- Added dynamic loader with alias support for built-ins and signature-based dependency injection.
+- CLI uses `build_toolsets()` to resolve worker toolsets (built-ins, class paths, or Python-defined toolsets).
+- Worker files now support class-path toolset keys alongside aliases.
 
 ## Notes
 - This is independent of Tasks 47-50 (Context/Invocable refactoring)

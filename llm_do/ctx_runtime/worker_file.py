@@ -13,9 +13,10 @@ toolsets:
 Instructions for the worker...
 ```
 
-The `toolsets` section maps toolset names to their configuration.
-Toolset names can reference:
-- Built-in toolsets (e.g., "shell", "filesystem")
+The `toolsets` section maps toolset class paths (or aliases) to their configuration.
+Toolset entries can reference:
+- Built-in aliases (e.g., "shell", "filesystem")
+- Fully-qualified class paths (e.g., ``llm_do.toolsets.shell.ShellToolset``)
 - Toolsets discovered from Python files passed to CLI
 """
 from __future__ import annotations

@@ -185,7 +185,7 @@ class TestShellToolsetNeedsApproval:
 
     def test_metacharacter_blocked_in_needs_approval(self):
         """Metacharacters are blocked at the approval layer."""
-        from llm_do.shell.toolset import ShellToolset
+        from llm_do.toolsets.shell import ShellToolset
 
         toolset = ShellToolset(config={"default": {"approval_required": False}})
         result = toolset.needs_approval(
@@ -199,7 +199,7 @@ class TestShellToolsetNeedsApproval:
 
     def test_clean_command_not_blocked(self):
         """Clean commands pass metacharacter check."""
-        from llm_do.shell.toolset import ShellToolset
+        from llm_do.toolsets.shell import ShellToolset
 
         toolset = ShellToolset(config={"default": {"approval_required": False}})
         result = toolset.needs_approval(

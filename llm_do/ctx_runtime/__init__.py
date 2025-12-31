@@ -16,7 +16,11 @@ from .discovery import (
     load_toolsets_from_files,
     load_workers_from_files,
 )
-from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
+from ..toolset_loader import (
+    BUILTIN_TOOLSET_ALIASES,
+    ToolsetBuildContext,
+    build_toolsets,
+)
 
 __all__ = [
     # Context
@@ -37,7 +41,8 @@ __all__ = [
     "discover_workers_from_module",
     "load_toolsets_from_files",
     "load_workers_from_files",
-    # Builtins
-    "BUILTIN_TOOLSETS",
-    "get_builtin_toolset",
+    # Toolset loader
+    "BUILTIN_TOOLSET_ALIASES",
+    "ToolsetBuildContext",
+    "build_toolsets",
 ]

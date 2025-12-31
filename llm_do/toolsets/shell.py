@@ -27,14 +27,14 @@ from pydantic_ai_blocking_approval import (
     needs_approval_from_config,
 )
 
-from .execution import (
+from llm_do.shell.execution import (
     ShellBlockedError,
     check_metacharacters,
     execute_shell,
     match_shell_rules,
     parse_command,
 )
-from .types import ShellResult
+from llm_do.shell.types import ShellResult
 
 logger = logging.getLogger(__name__)
 

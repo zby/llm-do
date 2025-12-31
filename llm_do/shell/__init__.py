@@ -23,7 +23,7 @@ from .execution import (
 from .types import ShellDefault, ShellResult, ShellRule
 
 # Note: ShellToolset is imported separately to avoid circular imports
-# Use: from llm_do.shell.toolset import ShellToolset
+# Use: from llm_do.toolsets.shell import ShellToolset
 
 __all__ = [
     # Constants
@@ -47,6 +47,6 @@ __all__ = [
 def __getattr__(name: str):
     """Lazy import for ShellToolset to avoid circular imports."""
     if name == "ShellToolset":
-        from .toolset import ShellToolset
+        from llm_do.toolsets.shell import ShellToolset
         return ShellToolset
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

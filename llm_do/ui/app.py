@@ -6,7 +6,6 @@ All event discrimination happens once, in the parser.
 from __future__ import annotations
 
 import asyncio
-from collections import deque
 from typing import Any, Callable, Coroutine
 
 from textual import events
@@ -18,6 +17,13 @@ from textual.widgets import Footer, Header, TextArea
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from .events import ApprovalRequestEvent, CompletionEvent, ErrorEvent, TextResponseEvent, UIEvent
+from .controllers import (
+    ApprovalWorkflowController,
+    ExitConfirmationController,
+    ExitDecision,
+    InputHistoryController,
+    WorkerRunner,
+)
 from .widgets.messages import ApprovalPanel, MessageContainer
 
 
@@ -124,20 +130,14 @@ class LlmDoApp(App[None]):
         self._event_queue = event_queue
         self._approval_response_queue = approval_response_queue
         self._worker_coro = worker_coro
-        self._run_turn = run_turn
         self._auto_quit = auto_quit
-        self._approval_queue: deque[ApprovalRequest] = deque()
-        self._approval_batch_total = 0
-        self._approval_batch_index = 0
+        self._runner = WorkerRunner(run_turn=run_turn)
+        self._approvals = ApprovalWorkflowController()
         self._approval_panel: ApprovalPanel | None = None
-        self._worker_task: asyncio.Task[Any] | None = None
         self._done = False
         self._messages: list[str] = []
-        self._message_history: list[Any] = []
-        self._input_history: list[str] = []
-        self._input_history_index: int | None = None
-        self._input_history_draft: str = ""
-        self._exit_requested: bool = False
+        self._input_history = InputHistoryController()
+        self._exit_confirmation = ExitConfirmationController()
         self.final_result: str | None = None
 
     def compose(self) -> ComposeResult:
@@ -162,7 +162,7 @@ class LlmDoApp(App[None]):
         """Start the event consumer and worker when app mounts."""
         self._event_task = asyncio.create_task(self._consume_events())
         if self._worker_coro is not None:
-            self._worker_task = asyncio.create_task(self._worker_coro)
+            self._runner.start_background(self._worker_coro)
         if not self._auto_quit:
             user_input = self.query_one("#user-input", TextArea)
             user_input.disabled = False
@@ -243,7 +243,7 @@ class LlmDoApp(App[None]):
                 self.exit()
 
     def _has_pending_approvals(self) -> bool:
-        return bool(self._approval_queue)
+        return self._approvals.has_pending()
 
     def _enqueue_approval_request(
         self,
@@ -257,12 +257,7 @@ class LlmDoApp(App[None]):
         )
 
         # TODO: Sequential approval queue UX may change as we refine stacking behavior.
-        if not self._approval_queue:
-            self._approval_batch_total = 0
-            self._approval_batch_index = 0
-
-        self._approval_queue.append(request)
-        self._approval_batch_total += 1
+        self._approvals.enqueue(request)
         self._render_active_approval()
 
         user_input = self.query_one("#user-input", TextArea)
@@ -270,14 +265,16 @@ class LlmDoApp(App[None]):
         messages.focus()
 
     def _render_active_approval(self) -> None:
-        if not self._approval_queue:
+        pending = self._approvals.current()
+        if pending is None:
             return
-        request = self._approval_queue[0]
-        queue_index = self._approval_batch_index + 1
-        queue_total = self._approval_batch_total
         if self._approval_panel is None:
             self._approval_panel = self.query_one("#approval-panel", ApprovalPanel)
-        self._approval_panel.show_request(request, queue_index, queue_total)
+        self._approval_panel.show_request(
+            pending.request,
+            pending.queue_index,
+            pending.queue_total,
+        )
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Disable quit binding while the input widget is active."""
@@ -306,18 +303,15 @@ class LlmDoApp(App[None]):
         self._resolve_approval(ApprovalDecision(approved=False, note="Rejected via TUI"))
 
     def _resolve_approval(self, decision: ApprovalDecision) -> None:
-        if not self._approval_queue or not self._approval_response_queue:
+        if not self._approvals.has_pending() or not self._approval_response_queue:
             return
         self._approval_response_queue.put_nowait(decision)
-        self._approval_queue.popleft()
-        self._approval_batch_index += 1
+        self._approvals.pop_current()
 
-        if self._approval_queue:
+        if self._approvals.has_pending():
             self._render_active_approval()
             return
 
-        self._approval_batch_total = 0
-        self._approval_batch_index = 0
         if self._approval_panel is None:
             self._approval_panel = self.query_one("#approval-panel", ApprovalPanel)
         self._approval_panel.clear_request()
@@ -333,8 +327,8 @@ class LlmDoApp(App[None]):
     def action_quit_if_idle(self) -> None:
         """Quit the app if the input isn't active."""
         if not self._input_is_active():
-            if not self._exit_requested:
-                self._exit_requested = True
+            decision = self._exit_confirmation.request()
+            if decision == ExitDecision.PROMPT:
                 messages = self.query_one("#messages", MessageContainer)
                 messages.add_status("Press 'q' again to exit.")
                 return
@@ -344,6 +338,9 @@ class LlmDoApp(App[None]):
         """Submit the current input if it is active."""
         if self._input_is_active():
             self._submit_current_input()
+
+    def set_message_history(self, history: list[Any] | None) -> None:
+        self._runner.set_message_history(history)
 
     def on_key(self, event: events.Key) -> None:
         """Handle key events for submission and history."""
@@ -364,7 +361,7 @@ class LlmDoApp(App[None]):
 
     def _submit_current_input(self) -> None:
         """Submit the current text area content as a message."""
-        if self._worker_task is not None and not self._worker_task.done():
+        if self._runner.is_running():
             messages = self.query_one("#messages", MessageContainer)
             messages.add_status("Wait for the current response to finish.")
             return
@@ -373,20 +370,18 @@ class LlmDoApp(App[None]):
         if not user_text:
             return
         user_input.text = ""
-        self._exit_requested = False
-        self._input_history.append(user_text)
-        self._input_history_index = None
-        self._input_history_draft = ""
+        self._exit_confirmation.reset()
+        self._input_history.record_submission(user_text)
         asyncio.create_task(self._submit_user_message(user_text))
 
     async def _submit_user_message(self, text: str) -> None:
         """Submit a new user message and run another turn."""
         user_input = self.query_one("#user-input", TextArea)
-        if self._message_history:
+        if self._runner.message_history:
             messages = self.query_one("#messages", MessageContainer)
             messages.add_turn_separator()
 
-        if self._run_turn is None:
+        if self._runner.run_turn is None:
             messages = self.query_one("#messages", MessageContainer)
             messages.add_status("Conversation runner not configured.")
             user_input.focus()
@@ -394,17 +389,22 @@ class LlmDoApp(App[None]):
 
         user_input.disabled = True
 
-        async def _run_turn_task() -> None:
+        task = self._runner.start_turn_task(text)
+
+        def _on_done(done_task: asyncio.Task[list[Any] | None]) -> None:
             try:
-                history = self._message_history or None
-                new_history = await self._run_turn(text, history)
-                if new_history is not None:
-                    self._message_history = list(new_history)
+                done_task.result()
+            except Exception as e:
+                try:
+                    messages = self.query_one("#messages", MessageContainer)
+                    messages.add_status(f"Conversation runner error: {e}")
+                except Exception:
+                    pass
             finally:
                 user_input.disabled = False
                 user_input.focus()
 
-        self._worker_task = asyncio.create_task(_run_turn_task())
+        task.add_done_callback(_on_done)
 
     def signal_done(self) -> None:
         """Signal that the worker is done."""
@@ -413,31 +413,25 @@ class LlmDoApp(App[None]):
     def _history_previous(self) -> bool:
         """Move to the previous history entry if possible."""
         user_input = self.query_one("#user-input", TextArea)
-        if not self._input_history or not user_input.cursor_at_first_line:
+        if not self._input_history.entries or not user_input.cursor_at_first_line:
             return False
-        if self._input_history_index is None:
-            self._input_history_draft = user_input.text
-            self._input_history_index = len(self._input_history) - 1
-        elif self._input_history_index > 0:
-            self._input_history_index -= 1
-        else:
-            return True
-        user_input.text = self._input_history[self._input_history_index]
-        user_input.move_cursor(user_input.document.end)
+        nav = self._input_history.previous(user_input.text)
+        if not nav.handled:
+            return False
+        if nav.text is not None:
+            user_input.text = nav.text
+            user_input.move_cursor(user_input.document.end)
         return True
 
     def _history_next(self) -> bool:
         """Move to the next history entry if possible."""
         user_input = self.query_one("#user-input", TextArea)
-        if self._input_history_index is None or not user_input.cursor_at_last_line:
+        if not user_input.cursor_at_last_line:
             return False
-        if self._input_history_index < len(self._input_history) - 1:
-            self._input_history_index += 1
-            user_input.text = self._input_history[self._input_history_index]
+        nav = self._input_history.next()
+        if not nav.handled:
+            return False
+        if nav.text is not None:
+            user_input.text = nav.text
             user_input.move_cursor(user_input.document.end)
-            return True
-        user_input.text = self._input_history_draft
-        user_input.move_cursor(user_input.document.end)
-        self._input_history_index = None
-        self._input_history_draft = ""
         return True

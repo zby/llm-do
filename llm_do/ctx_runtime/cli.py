@@ -580,7 +580,7 @@ async def _run_tui_mode(
         """Run the worker and send events to the app."""
         history = await run_turn(prompt, None)
         if history is not None and app is not None:
-            app._message_history = history
+            app.set_message_history(history)
         if not chat:
             render_queue.put_nowait(None)
         return worker_exit_code[0]

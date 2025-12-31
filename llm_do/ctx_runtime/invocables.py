@@ -328,12 +328,10 @@ class WorkerInvocable(AbstractToolset[Any]):
         if ctx.depth >= ctx.max_depth:
             raise RuntimeError(f"Max depth exceeded: {ctx.max_depth}")
 
-        child_messages = None if ctx.depth == 0 else []
         resolved_model = self.model if self.model is not None else ctx.model
         child_ctx = ctx.spawn_child(
             toolsets=self.toolsets,
             model=resolved_model,
-            messages=child_messages,
         )
 
         agent = self._build_agent(resolved_model, child_ctx)

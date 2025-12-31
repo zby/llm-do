@@ -83,7 +83,7 @@ Theory identifies what shapes distributions. Here's how those map to llm-do surf
 | System prompt / examples | Worker `system_prompt`, `spec` fields |
 | Tool definitions | Tool registry, `@tools.tool` decorators, schema validation |
 | Output schemas | Structured outputs, Pydantic models, enums/ranges |
-| Conversation history | Run context, delegation patterns, `ctx.call()` |
+| Conversation history | Run context for top-level chat; delegation starts clean |
 | Temperature / model | Worker config: `model`, `temperature`, defaults |
 
 Each knob narrows the distribution differently. Schemas constrain structure; examples shift the mode; temperature controls sampling breadth.

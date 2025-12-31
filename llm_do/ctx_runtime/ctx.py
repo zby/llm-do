@@ -97,14 +97,13 @@ class CallFrame:
         toolsets: Optional[list[AbstractToolset[Any]]] = None,
         *,
         model: ModelType | None = None,
-        messages: Optional[list[Any]] = None,
     ) -> "CallFrame":
         return CallFrame(
             toolsets=self.toolsets if toolsets is None else toolsets,
             model=self.model if model is None else model,
             depth=self.depth + 1,
             prompt=self.prompt,
-            messages=list(self.messages) if messages is None else list(messages),
+            messages=[],
         )
 
     def clone_same_depth(
@@ -300,12 +299,11 @@ class WorkerRuntime:
         toolsets: Optional[list[AbstractToolset[Any]]] = None,
         *,
         model: ModelType | None = None,
-        messages: Optional[list[Any]] = None,
     ) -> "WorkerRuntime":
         """Spawn a child worker runtime with a forked CallFrame (depth+1)."""
         return WorkerRuntime(
             config=self.config,
-            frame=self.frame.fork(toolsets, model=model, messages=messages),
+            frame=self.frame.fork(toolsets, model=model),
         )
 
     def clone_same_depth(

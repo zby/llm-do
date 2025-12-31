@@ -7,6 +7,7 @@ Operational documents for tracking work in progress.
 1. **Recovery** - After crash/context loss, AI reads task and resumes work
 2. **Scoping** - Break work into chunks that fit in context window
 3. **Dependencies** - Track what must be done first
+4. **Bootstrap** - Capture key context (files, commands, links) so work can start immediately
 
 ## Directories
 
@@ -53,11 +54,17 @@ What would make this worth doing.
 # Task Name
 
 ## Prerequisites
-- [ ] other-task-name (if dependent on another task)
-- [ ] specific condition that must be true before starting
+- [ ] other-task-name (dependency on another task)
+- [ ] design decision needed (new design / approval)
+- [ ] none
 
 ## Goal
 One sentence: what "done" looks like.
+
+## Context
+- Relevant files/symbols:
+- Related tasks/notes/docs:
+- How to verify / reproduce:
 
 ## Tasks
 - [x] completed step
@@ -75,6 +82,8 @@ Where things stand right now. Update as work progresses.
 ## Guidelines
 
 - Keep tasks focused - one coherent unit of work
+- Front-load background gathering so tasks are startable without extra research
+- Prefer `Prerequisites: none` unless blocked by new design or another task
 - Update current state frequently
 - Notes prevent repeating mistakes after recovery
 - Delete or archive when done - this is not documentation

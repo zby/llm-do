@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from pydantic_ai.toolsets import AbstractToolset
+from pydantic_ai_blocking_approval import ApprovalToolset
 
 
 BUILTIN_TOOLSET_ALIASES: dict[str, str] = {
@@ -43,12 +44,12 @@ def create_toolset(
     config: Mapping[str, Any] | None,
     context: ToolsetBuildContext,
     approval_callback: Any | None = None,
+    approval_config: Mapping[str, Any] | None = None,
 ) -> AbstractToolset[Any]:
     """Instantiate a toolset, injecting known dependencies if requested."""
 
     toolset_class = _import_class(class_path)
     config = dict(config or {})
-    approval_config = config.pop("_approval_config", {})
 
     sig = inspect.signature(toolset_class.__init__)
     accepts_kwargs = any(
@@ -73,6 +74,13 @@ def create_toolset(
 
     if approval_config:
         toolset._approval_config = approval_config  # type: ignore[attr-defined]
+
+    if approval_callback:
+        toolset = ApprovalToolset(
+            inner=toolset,
+            approval_callback=approval_callback,
+            config=approval_config,
+        )
 
     return toolset
 
@@ -99,10 +107,18 @@ def build_toolsets(
                 config=config,
                 context=context,
                 approval_callback=context.approval_callback,
+                approval_config=approval_config,
             )
 
-        if approval_config:
+        if approval_config and not isinstance(toolset, ApprovalToolset):
             toolset._approval_config = approval_config  # type: ignore[attr-defined]
+
+        if context.approval_callback and not isinstance(toolset, ApprovalToolset):
+            toolset = ApprovalToolset(
+                inner=toolset,
+                approval_callback=context.approval_callback,
+                config=approval_config or getattr(toolset, "_approval_config", None),
+            )
 
         toolsets.append(toolset)
 

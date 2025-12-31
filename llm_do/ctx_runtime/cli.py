@@ -151,6 +151,14 @@ def _wrap_toolsets_with_approval(
         # Get any stored approval config from the toolset
         config = getattr(toolset, "_approval_config", None)
 
+        # Avoid double-wrapping
+        if isinstance(toolset, ApprovalToolset):
+            approved_toolset: AbstractToolset[Any] = toolset
+            if return_permission_errors:
+                approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
+            wrapped.append(approved_toolset)
+            continue
+
         # Wrap all toolsets with ApprovalToolset (secure by default)
         # - Toolsets with needs_approval() method: ApprovalToolset delegates to it
         # - Toolsets with _approval_config: uses config for per-tool pre-approval
@@ -185,6 +193,7 @@ async def build_entry(
     model: str | None = None,
     entry_name: str = "main",
     set_overrides: list[str] | None = None,
+    approval_callback: ApprovalCallback | None = None,
 ) -> ToolInvocable | WorkerInvocable:
     """Build the entry point with all toolsets resolved.
 
@@ -281,7 +290,10 @@ async def build_entry(
         all_toolsets.update(python_toolsets)
         all_toolsets.update(available_workers)
 
-        build_context = ToolsetBuildContext(available_toolsets=all_toolsets)
+        build_context = ToolsetBuildContext(
+            available_toolsets=all_toolsets,
+            approval_callback=approval_callback,
+        )
         resolved_toolsets = build_toolsets(worker_file.toolsets, build_context)
 
         # Apply model override only to entry worker (if override provided)
@@ -363,14 +375,21 @@ async def run(
 
     # Build entry point
     resolved_entry_name = entry_name or "main"
-    entry = await build_entry(worker_files, python_files, model, resolved_entry_name, set_overrides)
-
-    # Wrap toolsets with ApprovalToolset for tool-level approval
-    # This handles needs_approval() on toolsets like FileSystemToolset, ShellToolset
     tool_approval_callback = approval_callback or make_headless_approval_callback(
         approve_all=approve_all,
         reject_all=reject_all,
     )
+    entry = await build_entry(
+        worker_files,
+        python_files,
+        model,
+        resolved_entry_name,
+        set_overrides,
+        tool_approval_callback,
+    )
+
+    # Wrap toolsets with ApprovalToolset for tool-level approval when not already wrapped
+    # This handles needs_approval() on toolsets like FileSystemToolset, ShellToolset
     if hasattr(entry, "toolsets") and entry.toolsets:
         wrapped_toolsets = _wrap_toolsets_with_approval(
             entry.toolsets,

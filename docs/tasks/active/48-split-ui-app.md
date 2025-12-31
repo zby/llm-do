@@ -4,7 +4,7 @@
 information gathering
 
 ## Prerequisites
-- [ ] none
+- [ ] `docs/tasks/active/47-split-context-class.md` (stabilize runtime boundary before UI split)
 
 ## Goal
 Extract `LlmDoApp` responsibilities into composable components so the TUI can be replaced or tested without altering core message rendering and worker orchestration.
@@ -20,6 +20,12 @@ Extract `LlmDoApp` responsibilities into composable components so the TUI can be
 - How to verify:
   - `uv run pytest`
   - Manual TUI smoke test
+- Behaviors to preserve:
+  - Message ordering and grouping matches current render order.
+  - Approval batching stays consistent (no extra prompts, no missed approvals).
+  - Input history navigation (up/down) preserves prior entries.
+  - Worker lifecycle: spawn/cancel/complete state transitions remain correct.
+  - UI remains responsive during worker runs (no blocking input loop).
 
 ## Decision Record
 - Decision: TBD

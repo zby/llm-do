@@ -21,7 +21,11 @@ from typing import Any, Optional
 from pydantic import TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
-from pydantic_ai_blocking_approval import ApprovalResult
+from pydantic_ai_blocking_approval import (
+    ApprovalConfig,
+    ApprovalResult,
+    needs_approval_from_config,
+)
 
 from .execution import (
     ShellBlockedError,
@@ -76,17 +80,28 @@ class ShellToolset(AbstractToolset[Any]):
         """Return the toolset configuration."""
         return self._config
 
-    def needs_approval(self, name: str, tool_args: dict, ctx: Any) -> ApprovalResult:
+    def needs_approval(
+        self,
+        name: str,
+        tool_args: dict,
+        ctx: Any,
+        config: ApprovalConfig | None = None,
+    ) -> ApprovalResult:
         """Determine if shell command needs approval based on whitelist rules.
 
         Args:
             name: Tool name (should be "shell")
             tool_args: Tool arguments with "command"
             ctx: RunContext with deps
+            config: Per-tool approval config from ApprovalToolset
 
         Returns:
             ApprovalResult with status: blocked, pre_approved, or needs_approval
         """
+        base = needs_approval_from_config(name, config)
+        if base.is_pre_approved:
+            return base
+
         if name != "shell":
             # Unknown tool - require approval
             return ApprovalResult.needs_approval()

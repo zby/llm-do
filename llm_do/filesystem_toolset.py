@@ -15,7 +15,11 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
-from pydantic_ai_blocking_approval import ApprovalResult
+from pydantic_ai_blocking_approval import (
+    ApprovalConfig,
+    ApprovalResult,
+    needs_approval_from_config,
+)
 
 
 DEFAULT_MAX_READ_CHARS = 20_000
@@ -87,7 +91,11 @@ class FileSystemToolset(AbstractToolset[Any]):
         return Path(path).expanduser().resolve()
 
     def needs_approval(
-        self, name: str, tool_args: dict[str, Any], ctx: Any
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+        config: ApprovalConfig | None = None,
     ) -> ApprovalResult:
         """Check if the tool call requires approval.
 
@@ -95,10 +103,15 @@ class FileSystemToolset(AbstractToolset[Any]):
             name: Tool name being called
             tool_args: Arguments passed to the tool
             ctx: PydanticAI run context
+            config: Per-tool approval config from ApprovalToolset
 
         Returns:
             ApprovalResult with status: pre_approved or needs_approval
         """
+        base = needs_approval_from_config(name, config)
+        if base.is_pre_approved:
+            return base
+
         if name == "read_file":
             if self._read_approval:
                 return ApprovalResult.needs_approval()

@@ -188,7 +188,12 @@ class TestShellToolsetNeedsApproval:
         from llm_do.shell.toolset import ShellToolset
 
         toolset = ShellToolset(config={"default": {"approval_required": False}})
-        result = toolset.needs_approval("shell", {"command": "echo hello | cat"}, None)
+        result = toolset.needs_approval(
+            "shell",
+            {"command": "echo hello | cat"},
+            None,
+            None,
+        )
         assert result.is_blocked
         assert "blocked metacharacter" in result.block_reason.lower()
 
@@ -197,6 +202,11 @@ class TestShellToolsetNeedsApproval:
         from llm_do.shell.toolset import ShellToolset
 
         toolset = ShellToolset(config={"default": {"approval_required": False}})
-        result = toolset.needs_approval("shell", {"command": "ls -la /tmp"}, None)
+        result = toolset.needs_approval(
+            "shell",
+            {"command": "ls -la /tmp"},
+            None,
+            None,
+        )
         assert not result.is_blocked
         assert result.is_pre_approved

@@ -54,9 +54,6 @@ dev = [
 where = ["."]
 include = ["llm_do*"]
 
-[tool.uv.sources]
-pydantic-ai-blocking-approval = { path = "../pydantic-ai-blocking-approval" }
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

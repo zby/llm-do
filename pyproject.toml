@@ -22,7 +22,7 @@ requires-python = ">=3.10"
 dependencies = [
     "pydantic-ai>=0.0.13",
     "pydantic>=2.7",
-    "pydantic-ai-blocking-approval>=0.8.0",
+    "pydantic-ai-blocking-approval>=0.9.0",
     "httpx>=0.25.0",
     "PyYAML",
     "jinja2>=3.0",
@@ -53,6 +53,9 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["llm_do*"]
+
+[tool.uv.sources]
+pydantic-ai-blocking-approval = { path = "../pydantic-ai-blocking-approval" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

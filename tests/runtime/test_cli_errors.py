@@ -30,6 +30,43 @@ Test worker
 
         assert exit_code == 1
 
+    def test_approve_all_and_reject_all_are_mutually_exclusive(self, tmp_path, capsys):
+        """Test that --approve-all and --reject-all cannot be combined."""
+        worker = tmp_path / "test.worker"
+        worker.write_text("""---
+name: main
+---
+Test worker
+""")
+
+        with patch("sys.argv", ["llm-do", str(worker), "--approve-all", "--reject-all", "hello"]):
+            with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Cannot combine --approve-all and --reject-all" in captured.err
+
+    def test_reject_all_flag_passed_to_run(self, tmp_path):
+        """Test that --reject-all is accepted and passed through to run()."""
+        worker = tmp_path / "test.worker"
+        worker.write_text("""---
+name: main
+---
+Test worker
+""")
+
+        mock_ctx = AsyncMock()
+        with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = ("Success!", mock_ctx)
+
+            with patch("sys.argv", ["llm-do", str(worker), "--reject-all", "hello"]):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                    exit_code = main()
+
+        assert exit_code == 0
+        assert mock_run.call_args.kwargs["reject_all"] is True
+
     def test_invalid_worker_file_error(self, tmp_path):
         """Test that invalid worker file shows helpful error."""
         # Create an invalid worker file (missing frontmatter)

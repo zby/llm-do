@@ -70,8 +70,9 @@ Workers delegate by declaring other worker names in `toolsets`:
 
 Toolsets are wrapped by `ApprovalToolset`:
 - Built-in toolsets implement `needs_approval()` for per-call decisions
-- `ApprovalMemory` tracks session approvals in interactive mode
+- TUI session approvals are cached in the approval callback wrapper (`remember="session"`)
 - `--approve-all` bypasses prompts for automation
+- `--reject-all` denies approval-required tools without prompting
 
 **3. Built-in Toolsets**
 

@@ -23,11 +23,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import io
-import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Coroutine, Union
+from typing import Any, Callable, Coroutine
 
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.builtin_tools import (
@@ -37,13 +36,17 @@ from pydantic_ai.builtin_tools import (
     WebSearchTool,
 )
 from pydantic_ai_blocking_approval import (
-    ApprovalToolset,
-    ApprovalMemory,
-    ApprovalRequest,
+    ApprovalCallback,
     ApprovalDecision,
+    ApprovalRequest,
+    ApprovalToolset,
 )
 
-from .approval_wrappers import ApprovalDeniedResultToolset
+from .approval_wrappers import (
+    ApprovalDeniedResultToolset,
+    make_headless_approval_callback,
+    make_tui_approval_callback,
+)
 from .ctx import Context, ApprovalFn, EventCallback
 from .input_utils import coerce_worker_input
 from .entries import WorkerEntry, ToolEntry
@@ -105,46 +108,28 @@ def _build_builtin_tools(configs: list[dict[str, Any]]) -> list[Any]:
     return tools
 
 
-# Type for approval callbacks (supports both sync and async)
-ApprovalCallback = Callable[
-    [ApprovalRequest],
-    Union[ApprovalDecision, Awaitable[ApprovalDecision]]
-]
-
-
 def _wrap_toolsets_with_approval(
     toolsets: list[AbstractToolset[Any]],
-    approve_all: bool,
-    memory: ApprovalMemory,
-    approval_callback: ApprovalCallback | None = None,
+    approval_callback: ApprovalCallback,
     return_permission_errors: bool = False,
 ) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with ApprovalToolset for approval handling.
 
-    ApprovalToolset auto-detects if the inner toolset has needs_approval().
-    Toolsets without needs_approval() are passed through unchanged.
+    ApprovalToolset auto-detects if the inner toolset has needs_approval()
+    and delegates to it. Otherwise it uses optional config and defaults to
+    "needs approval" (secure by default).
+
+    Recurses into nested WorkerEntry.toolsets so tool calls inside delegated
+    workers are also gated.
 
     Args:
         toolsets: List of toolsets to wrap
-        approve_all: If True, auto-approve all tool calls
-        memory: Shared approval memory for tracking decisions
-        approval_callback: Optional callback for interactive approval (TUI mode)
+        approval_callback: Callback invoked when approval is needed
         return_permission_errors: If True, return tool results on PermissionError
 
     Returns:
         List of wrapped toolsets
     """
-    if approval_callback is None:
-        def approval_callback(request: ApprovalRequest) -> ApprovalDecision:
-            """Default approval callback for headless mode."""
-            if approve_all:
-                return ApprovalDecision(approved=True)
-            # In headless mode without --approve-all, deny tools that need approval
-            raise PermissionError(
-                f"Tool '{request.tool_name}' requires approval. "
-                f"Use --approve-all to auto-approve all tools in headless mode."
-            )
-
     wrapped: list[AbstractToolset[Any]] = []
     for toolset in toolsets:
         # Recursively wrap toolsets inside WorkerEntry
@@ -155,8 +140,6 @@ def _wrap_toolsets_with_approval(
                 model=toolset.model,
                 toolsets=_wrap_toolsets_with_approval(
                     toolset.toolsets,
-                    approve_all,
-                    memory,
                     approval_callback,
                     return_permission_errors=return_permission_errors,
                 ),
@@ -172,11 +155,10 @@ def _wrap_toolsets_with_approval(
         # Wrap all toolsets with ApprovalToolset (secure by default)
         # - Toolsets with needs_approval() method: ApprovalToolset delegates to it
         # - Toolsets with _approval_config: uses config for per-tool pre-approval
-        # - Other toolsets: all tools require approval unless --approve-all
+        # - Other toolsets: all tools require approval unless config pre-approves
         approved_toolset: AbstractToolset[Any] = ApprovalToolset(
             inner=toolset,
             approval_callback=approval_callback,
-            memory=memory,
             config=config,
         )
         if return_permission_errors:
@@ -363,6 +345,7 @@ async def run(
     model: str | None = None,
     entry_name: str | None = None,
     approve_all: bool = False,
+    reject_all: bool = False,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     approval_callback: ApprovalCallback | None = None,
@@ -378,9 +361,10 @@ async def run(
         model: Optional model override
         entry_name: Optional entry point name (default: "main")
         approve_all: If True, auto-approve all tool calls
+        reject_all: If True, auto-reject all tool calls that require approval
         on_event: Optional callback for UI events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
-        approval_callback: Optional callback for interactive approval (TUI mode)
+        approval_callback: Optional interactive approval callback (TUI mode)
         return_permission_errors: If True, return tool results on PermissionError
         message_history: Optional prior messages for multi-turn conversations
         set_overrides: Optional list of --set KEY=VALUE overrides
@@ -388,6 +372,9 @@ async def run(
     Returns:
         Tuple of (result, context)
     """
+    if approve_all and reject_all:
+        raise ValueError("Cannot set both approve_all and reject_all")
+
     # Separate worker files and Python files
     worker_files = [f for f in files if f.endswith(".worker")]
     python_files = [f for f in files if f.endswith(".py")]
@@ -398,13 +385,14 @@ async def run(
 
     # Wrap toolsets with ApprovalToolset for tool-level approval
     # This handles needs_approval() on toolsets like FileSystemToolset, ShellToolset
-    memory = ApprovalMemory()
+    tool_approval_callback = approval_callback or make_headless_approval_callback(
+        approve_all=approve_all,
+        reject_all=reject_all,
+    )
     if hasattr(entry, "toolsets") and entry.toolsets:
         wrapped_toolsets = _wrap_toolsets_with_approval(
             entry.toolsets,
-            approve_all,
-            memory,
-            approval_callback,
+            tool_approval_callback,
             return_permission_errors=return_permission_errors,
         )
         if isinstance(entry, WorkerEntry):
@@ -435,9 +423,13 @@ async def run(
         # In headless mode without --approve-all, deny entries that require approval
         def headless_approval(e: Any, data: Any) -> bool:
             if getattr(e, "requires_approval", False):
+                if reject_all:
+                    raise PermissionError(
+                        f"Entry '{e.name}' requires approval and was rejected by --reject-all."
+                    )
                 raise PermissionError(
                     f"Entry '{e.name}' requires approval. "
-                    f"Use --approve-all to auto-approve in headless mode."
+                    f"Use --approve-all to auto-approve."
                 )
             return True
         approval = headless_approval
@@ -471,6 +463,7 @@ async def _run_tui_mode(
     model: str | None = None,
     entry_name: str | None = None,
     approve_all: bool = False,
+    reject_all: bool = False,
     verbosity: int = 0,
     chat: bool = False,
     debug: bool = False,
@@ -532,21 +525,17 @@ async def _run_tui_mode(
             for backend in backends:
                 await backend.stop()
 
-    async def tui_approval_callback(request: ApprovalRequest) -> ApprovalDecision:
-        """Async approval callback that sends to TUI and waits for response.
-
-        This is called from ApprovalToolset.call_tool which is async, so we
-        can await the queue response directly.
-        """
-        if approve_all:
-            return ApprovalDecision(approved=True)
-
-        # Parse the approval request into a typed event and send to TUI
+    async def _prompt_approval_in_tui(request: ApprovalRequest) -> ApprovalDecision:
+        """Send an approval request to the TUI and await the user's decision."""
         approval_event = parse_approval_request(request)
         render_queue.put_nowait(approval_event)
-
-        # Await response from TUI
         return await approval_queue.get()
+
+    tui_approval_callback = make_tui_approval_callback(
+        _prompt_approval_in_tui,
+        approve_all=approve_all,
+        reject_all=reject_all,
+    )
 
     async def run_turn(
         user_prompt: str,
@@ -562,6 +551,7 @@ async def _run_tui_mode(
                 model=model,
                 entry_name=entry_name,
                 approve_all=approve_all,
+                reject_all=reject_all,
                 on_event=on_event,
                 verbosity=verbosity,
                 approval_callback=tui_approval_callback,
@@ -653,6 +643,7 @@ async def _run_headless_mode(
     model: str | None,
     entry_name: str | None,
     approve_all: bool,
+    reject_all: bool,
     verbosity: int,
     backend: DisplayBackend | None,
     set_overrides: list[str] | None,
@@ -687,13 +678,14 @@ async def _run_headless_mode(
 
     try:
         result, _ctx = await run(
-            files,
-            prompt,
-            model,
-            entry_name,
-            approve_all,
-            on_event,
-            verbosity,
+            files=files,
+            prompt=prompt,
+            model=model,
+            entry_name=entry_name,
+            approve_all=approve_all,
+            reject_all=reject_all,
+            on_event=on_event,
+            verbosity=verbosity,
             set_overrides=set_overrides,
         )
     finally:
@@ -724,6 +716,11 @@ def main() -> int:
         help=f"Model to use (default: ${ENV_MODEL_VAR} env var)",
     )
     parser.add_argument("--approve-all", action="store_true", help="Auto-approve all tool calls")
+    parser.add_argument(
+        "--reject-all",
+        action="store_true",
+        help="Auto-reject all tool calls that require approval",
+    )
     parser.add_argument(
         "-v", "--verbose",
         action="count",
@@ -798,6 +795,9 @@ def main() -> int:
             parser.error("Prompt required (as argument or via stdin)")
 
     # Validate mutually exclusive flags
+    if args.approve_all and args.reject_all:
+        print("Cannot combine --approve-all and --reject-all", file=sys.stderr)
+        return 1
     if args.json and args.tui:
         print("Cannot combine --json and --tui", file=sys.stderr)
         return 1
@@ -823,6 +823,7 @@ def main() -> int:
             model=args.model,
             entry_name=args.entry,
             approve_all=args.approve_all,
+            reject_all=args.reject_all,
             verbosity=tui_verbosity,
             chat=args.chat,
             debug=args.debug,
@@ -847,6 +848,7 @@ def main() -> int:
             model=args.model,
             entry_name=args.entry,
             approve_all=args.approve_all,
+            reject_all=args.reject_all,
             verbosity=args.verbose,
             backend=backend,
             set_overrides=args.set_overrides or None,

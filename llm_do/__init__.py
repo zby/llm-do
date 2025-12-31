@@ -12,7 +12,16 @@ is at user's own risk.
 """
 from __future__ import annotations
 
-from pydantic_ai_blocking_approval import ApprovalController, ApprovalDecision
+from pydantic_ai_blocking_approval import (
+    ApprovalBlocked,
+    ApprovalCallback,
+    ApprovalDecision,
+    ApprovalDenied,
+    ApprovalError,
+    ApprovalRequest,
+    ApprovalResult,
+    ApprovalToolset,
+)
 
 from .model_compat import (
     InvalidCompatibleModelsError,
@@ -25,8 +34,14 @@ from .ctx_runtime import Context, WorkerEntry, ToolEntry
 
 __all__ = [
     # Approval handling
-    "ApprovalController",
+    "ApprovalBlocked",
+    "ApprovalCallback",
     "ApprovalDecision",
+    "ApprovalDenied",
+    "ApprovalError",
+    "ApprovalRequest",
+    "ApprovalResult",
+    "ApprovalToolset",
     # Model errors
     "InvalidCompatibleModelsError",
     "ModelCompatibilityError",

@@ -22,7 +22,8 @@ from llm_do.ctx_runtime.entries import WorkerEntry
 from llm_do.filesystem_toolset import FileSystemToolset
 from llm_do.ui.events import UIEvent
 from llm_do.ui.display import HeadlessDisplayBackend
-from pydantic_ai_blocking_approval import ApprovalToolset, ApprovalMemory, ApprovalDecision
+from pydantic_ai_blocking_approval import ApprovalToolset, ApprovalDecision
+from llm_do.ctx_runtime.approval_wrappers import make_headless_approval_callback
 
 # =============================================================================
 # CONFIGURATION - Edit these constants to experiment
@@ -82,17 +83,13 @@ def build_workers() -> tuple[WorkerEntry, WorkerEntry]:
 def wrap_with_approval(
     toolsets: list,
     approve_all: bool,
-    memory: ApprovalMemory,
 ) -> list:
     """Wrap toolsets with ApprovalToolset for tool-level approval."""
-    def approval_callback(request):
-        if approve_all:
-            return ApprovalDecision(approved=True)
-        # In non-interactive mode, deny if not auto-approved
-        raise PermissionError(
-            f"Tool '{request.tool_name}' requires approval. "
-            f"Set APPROVE_ALL=True to auto-approve."
-        )
+    approval_callback = make_headless_approval_callback(
+        approve_all=approve_all,
+        reject_all=False,
+        deny_note="Set APPROVE_ALL=True to auto-approve.",
+    )
 
     wrapped = []
     for toolset in toolsets:
@@ -102,7 +99,7 @@ def wrap_with_approval(
                 name=toolset.name,
                 instructions=toolset.instructions,
                 model=toolset.model,
-                toolsets=wrap_with_approval(toolset.toolsets, approve_all, memory),
+                toolsets=wrap_with_approval(toolset.toolsets, approve_all),
                 builtin_tools=toolset.builtin_tools,
                 schema_in=toolset.schema_in,
                 schema_out=toolset.schema_out,
@@ -111,7 +108,6 @@ def wrap_with_approval(
         wrapped.append(ApprovalToolset(
             inner=toolset,
             approval_callback=approval_callback,
-            memory=memory,
         ))
     return wrapped
 
@@ -127,8 +123,7 @@ async def run_evaluation() -> str:
         backend.display(event)
 
     # Wrap toolsets with approval
-    memory = ApprovalMemory()
-    wrapped_toolsets = wrap_with_approval(main.toolsets, APPROVE_ALL, memory)
+    wrapped_toolsets = wrap_with_approval(main.toolsets, APPROVE_ALL)
 
     # Create new main entry with wrapped toolsets
     main = WorkerEntry(

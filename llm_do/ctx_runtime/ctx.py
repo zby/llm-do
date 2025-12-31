@@ -7,6 +7,7 @@ tools and workers through:
 - Model resolution (entry-level or context-default)
 - Event emission for real-time progress updates
 """
+
 from __future__ import annotations
 
 from typing import Any, Awaitable, Callable, Optional, Protocol, TYPE_CHECKING
@@ -47,13 +48,15 @@ class ToolsProxy:
 
 class CallableEntry(Protocol):
     """Protocol for entries that can be called via the Context dispatcher."""
+
     name: str
     kind: str
     requires_approval: bool
     model: ModelType | None
 
-    async def call(self, input_data: Any, ctx: "Context", run_ctx: RunContext["Context"]) -> Any:
-        ...
+    async def call(
+        self, input_data: Any, ctx: "Context", run_ctx: RunContext["Context"]
+    ) -> Any: ...
 
 
 class Context:
@@ -112,6 +115,7 @@ class Context:
             cli_model=model,
             approval=approval,
             max_depth=max_depth,
+            usage=[],
             messages=messages,
             on_event=on_event,
             verbosity=verbosity,
@@ -126,7 +130,7 @@ class Context:
         approval: Optional[ApprovalFn] = None,
         max_depth: int = 5,
         depth: int = 0,
-        usage: Optional[dict[str, RunUsage]] = None,
+        usage: list[RunUsage] | None = None,
         prompt: str = "",
         messages: Optional[list[Any]] = None,
         on_event: Optional[EventCallback] = None,
@@ -140,7 +144,7 @@ class Context:
         self.approval = approval or (lambda entry, input_data: True)
         self.max_depth = max_depth
         self.depth = depth
-        self.usage = usage if usage is not None else {}
+        self.usage: list[RunUsage] = usage if usage is not None else []
         self.prompt = prompt
         self.messages = messages if messages is not None else []
         self.tools = ToolsProxy(self)
@@ -156,12 +160,15 @@ class Context:
             worker_name=getattr(entry, "name", "worker"),
         )
 
-    def _get_usage(self, model: ModelType) -> RunUsage:
-        """Get or create RunUsage tracker for a model."""
-        key = str(model)
-        if key not in self.usage:
-            self.usage[key] = RunUsage()
-        return self.usage[key]
+    def _create_usage(self) -> RunUsage:
+        """Create a new RunUsage and append to the usage list.
+
+        TODO: Add thread synchronization when implementing concurrent workers.
+        Consider using threading.Lock or queue.Queue for thread-safe appends.
+        """
+        new_usage = RunUsage()
+        self.usage.append(new_usage)
+        return new_usage
 
     def _make_run_context(
         self, tool_name: str, resolved_model: ModelType, deps_ctx: "Context"
@@ -170,7 +177,7 @@ class Context:
         return RunContext(
             deps=deps_ctx,
             model=resolved_model,
-            usage=self._get_usage(resolved_model),
+            usage=self._create_usage(),
             prompt=self.prompt,
             messages=list(self.messages),
             run_step=deps_ctx.depth,
@@ -267,24 +274,28 @@ class Context:
 
                 # Emit ToolCallEvent before execution
                 if self.on_event is not None:
-                    self.on_event(ToolCallEvent(
-                        worker="code_entry",
-                        tool_name=name,
-                        tool_call_id=call_id,
-                        args=input_data,
-                    ))
+                    self.on_event(
+                        ToolCallEvent(
+                            worker="code_entry",
+                            tool_name=name,
+                            tool_call_id=call_id,
+                            args=input_data,
+                        )
+                    )
 
                 # Execute the tool
                 result = await toolset.call_tool(name, input_data, run_ctx, tool)
 
                 # Emit ToolResultEvent after execution
                 if self.on_event is not None:
-                    self.on_event(ToolResultEvent(
-                        worker="code_entry",
-                        tool_name=name,
-                        tool_call_id=call_id,
-                        content=result,
-                    ))
+                    self.on_event(
+                        ToolResultEvent(
+                            worker="code_entry",
+                            tool_name=name,
+                            tool_call_id=call_id,
+                            content=result,
+                        )
+                    )
 
                 return result
 

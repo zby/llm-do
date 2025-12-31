@@ -4,7 +4,7 @@
 ready for implementation
 
 ## Prerequisites
-- [x] none (independent of Context/Invocable refactoring)
+- [ ] none (independent of Context/Invocable refactoring)
 
 ## Goal
 Move toolsets to `llm_do/toolsets/` directory and implement dynamic loading via class paths, enabling third-party toolsets without modifying llm-do core.
@@ -24,12 +24,19 @@ Move toolsets to `llm_do/toolsets/` directory and implement dynamic loading via 
 
 ## Decision Record
 - Decision: Dynamic loading with class paths and signature introspection
-- Design: See `docs/notes/archive/toolset_plugin_architecture.md`
-- Key points:
+- Inputs:
+  - Design doc in `docs/notes/archive/toolset_plugin_architecture.md`
+  - Goal to enable third-party toolsets without core changes
+- Options:
+  - Hardcoded toolset wiring in CLI (status quo)
+  - Plugin loader with class path config and dependency injection (chosen)
+- Outcome:
   - Workers declare toolsets by full class path (e.g., `llm_do.toolsets.shell.ShellToolset`)
   - Loader introspects `__init__` signature to inject available deps (config, sandbox, etc.)
   - `ApprovalToolset` auto-detects `SupportsNeedsApproval` protocol
   - Support aliases for built-ins (`shell` → `llm_do.toolsets.shell.ShellToolset`)
+- Follow-ups:
+  - Update config examples/documentation when implementation lands
 
 ## Tasks
 - [ ] Create `llm_do/toolsets/` directory
@@ -51,6 +58,5 @@ Task activated from backlog. Design exists in archive doc. Ready to implement.
 
 ## Notes
 - This is independent of Tasks 47-50 (Context/Invocable refactoring)
-- Backward compatibility: support both old config format and new class path format initially
 - Security: class loading is config-controlled (user's YAML), not LLM-controlled
 - Third-party toolsets can implement `SupportsNeedsApproval` for smart approval or use `_approval_config` dict

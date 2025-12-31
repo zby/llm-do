@@ -10,6 +10,7 @@ Review config and auth modules for bugs, inconsistencies, overengineering, and o
 - [ ] Review `llm_do/config_overrides.py`
 - [ ] Review `llm_do/model_compat.py`
 - [ ] Review `llm_do/oauth/`
+- [ ] Review `llm_do/oauth_cli.py`
 - [ ] Update `docs/notes/reviews/review-config-auth.md` with findings and open questions
 
 ## Current State

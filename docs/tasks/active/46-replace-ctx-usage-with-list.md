@@ -7,8 +7,8 @@
 Replace `ctx.usage` (currently `dict[str, RunUsage]`) with a simple `list[RunUsage]` to collect usage data from all agent runs. Later work will add summarization per model and cost estimation.
 
 ## Tasks
-- [ ] Update Context.__init__ signature: change `usage: Optional[dict[str, RunUsage]]` to `usage: Optional[list[RunUsage]]`
-- [ ] Update usage initialization from `{}` to `[]`
+- [ ] Update Context.__init__ signature: change `usage: Optional[dict[str, RunUsage]] = None` to `usage: list[RunUsage]` (required, no default in signature)
+- [ ] Update usage initialization: remove `if usage is not None` check, use `usage if usage else []` or just assign directly
 - [ ] Refactor `_get_usage()` method to create and append new RunUsage instead of dict lookup
 - [ ] Update `_make_run_context()` to use the new usage tracking approach
 - [ ] Verify child context sharing still works (_child and _clone methods)
@@ -49,8 +49,10 @@ usage=self.usage,  # in _child() and _clone()
 ### Changes Required
 
 1. **Type signature change** (line 129, 143):
-   - From: `Optional[dict[str, RunUsage]]` with default `{}`
-   - To: `Optional[list[RunUsage]]` with default `[]`
+   - Parameter: Keep `Optional[list[RunUsage]] = None` (or use `list[RunUsage] | None = None`)
+   - Attribute: Type as `list[RunUsage]` (never None after init)
+   - Initialization: `self.usage: list[RunUsage] = usage if usage is not None else []`
+   - This ensures the attribute is always a list, even when parameter is None
 
 2. **Refactor `_get_usage()` method** (lines 159-164):
    - Current: Returns existing or creates new RunUsage keyed by model
@@ -101,3 +103,4 @@ usage=self.usage,  # in _child() and _clone()
 - User explicitly stated this is a first step; summarization/cost estimation comes later
 - No need to preserve model-keyed lookup since summarization is future work
 - The `_get_usage()` method name might be misleading after changes - consider renaming to `_create_usage()` or removing entirely
+- **Required list**: The `usage` attribute should always be a list (never None). The `__init__` parameter can be None for convenience, but gets initialized to `[]` immediately. This is cleaner than Optional throughout the codebase.

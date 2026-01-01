@@ -336,18 +336,18 @@ class WorkerInvocable(AbstractToolset[Any]):
 
         agent = self._build_agent(resolved_model, child_ctx)
         prompt = _build_user_prompt(input_data)
+        message_history = (
+            list(ctx.messages) if _should_use_message_history(child_ctx) and ctx.messages else None
+        )
 
         if child_ctx.on_event is not None:
             if child_ctx.verbosity >= 2:
-                output = await self._run_streaming(agent, prompt, child_ctx)
+                output = await self._run_streaming(agent, prompt, child_ctx, message_history)
             else:
-                output = await self._run_with_event_stream(agent, prompt, child_ctx)
+                output = await self._run_with_event_stream(agent, prompt, child_ctx, message_history)
             if _should_use_message_history(child_ctx):
                 ctx.messages[:] = list(child_ctx.messages)
         else:
-            message_history = (
-                child_ctx.messages if _should_use_message_history(child_ctx) and child_ctx.messages else None
-            )
             result = await agent.run(
                 prompt,
                 deps=child_ctx,
@@ -366,6 +366,7 @@ class WorkerInvocable(AbstractToolset[Any]):
         agent: Agent["WorkerRuntime", Any],
         prompt: str | Sequence[UserContent],
         ctx: "WorkerRuntime",
+        message_history: list[Any] | None,
     ) -> Any:
         """Run agent with event stream handler for non-streaming UI updates."""
         from pydantic_ai.messages import PartDeltaEvent
@@ -388,7 +389,6 @@ class WorkerInvocable(AbstractToolset[Any]):
                 if ctx.on_event is not None:
                     ctx.on_event(ui_event)
 
-        message_history = ctx.messages if _should_use_message_history(ctx) and ctx.messages else None
         result = await agent.run(
             prompt,
             deps=ctx,
@@ -407,9 +407,9 @@ class WorkerInvocable(AbstractToolset[Any]):
         agent: Agent["WorkerRuntime", Any],
         prompt: str | Sequence[UserContent],
         ctx: "WorkerRuntime",
+        message_history: list[Any] | None,
     ) -> Any:
         """Run agent with streaming, emitting text deltas."""
-        message_history = ctx.messages if _should_use_message_history(ctx) and ctx.messages else None
         async with agent.run_stream(
             prompt,
             deps=ctx,

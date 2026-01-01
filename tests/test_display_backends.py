@@ -65,6 +65,21 @@ class TestHeadlessDisplayBackend:
         assert "[assistant] Response:" in output
         assert "Hello, this is the response." in output
 
+    def test_streaming_delta_does_not_append_newline(self):
+        """Backend writes streaming deltas inline without a newline."""
+        stream = io.StringIO()
+        backend = HeadlessDisplayBackend(stream=stream, verbosity=2)
+
+        event = TextResponseEvent(
+            worker="assistant",
+            content="Hello",
+            is_complete=False,
+            is_delta=True,
+        )
+        backend.display(event)
+
+        assert stream.getvalue() == "Hello"
+
     def test_handles_tool_call_event(self):
         """Backend shows tool calls with name and args."""
         stream = io.StringIO()

@@ -270,6 +270,10 @@ class TestWorkerInvocableStreamingEvents:
         delta_events = [e for e in text_events if e.is_delta]
         assert len(delta_events) >= 1, "Expected delta text events during streaming"
 
+        # Streaming should still emit a final complete response
+        complete_events = [e for e in text_events if e.is_complete and not e.is_delta]
+        assert len(complete_events) >= 1, "Expected final complete text response after streaming"
+
     @pytest.mark.anyio
     async def test_no_streaming_without_verbosity(self):
         """Test that verbosity < 2 doesn't stream (still emits tool events)."""

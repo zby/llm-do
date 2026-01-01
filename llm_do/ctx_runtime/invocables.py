@@ -429,6 +429,14 @@ class WorkerInvocable(AbstractToolset[Any]):
             # Get the final output
             output = await stream.get_output()
 
+            if ctx.on_event:
+                ctx.on_event(TextResponseEvent(
+                    worker=self.name,
+                    content=output,
+                    is_complete=True,
+                    is_delta=False,
+                ))
+
             # Emit tool events (must be inside context manager)
             self._emit_tool_events(stream.new_messages(), ctx)
             if _should_use_message_history(ctx):

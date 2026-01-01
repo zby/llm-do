@@ -15,14 +15,14 @@ Address the UI review findings by aligning streaming output and TUI rendering wi
 - How to verify / reproduce: run `llm-do` in TUI (`--tui`, `--chat`) and headless (`-vv`, `--json`) to compare streaming output and approval/tool rendering
 
 ## Decision Record
-- Decision: TUI renders assistant/tool output as literal text; tool call args use safe JSON with truncation indicator; dead CSS removed; approvals stay in the pinned panel (no scrollback logging).
+- Decision: TUI renders assistant/tool output as literal text; tool call args use safe JSON with truncation indicator; dead CSS removed; approvals stay in the pinned panel (no scrollback logging); streaming uses deltas plus a final complete response event.
 - Inputs: `docs/notes/reviews/review-ui.md`, user decisions on truncation indicator and literal text.
-- Options: allow markup vs literal; scrollback approvals vs panel-only; truncation behavior vs full payloads.
-- Outcome: use literal text with explicit truncation indicator "… [truncated]."; keep approvals in the pinned panel; defer richer rendering to semantic tool output note.
-- Follow-ups: decide streaming delta/final response behavior and update headless/rich/TUI for parity.
+- Options: allow markup vs literal; scrollback approvals vs panel-only; truncation behavior vs full payloads; delta-only streaming vs final response event.
+- Outcome: use literal text with explicit truncation indicator "… [truncated]."; keep approvals in the pinned panel; stream deltas inline and emit a final `TextResponseEvent`.
+- Follow-ups: decide whether to remove or repurpose `ApprovalMessage` for panel-only approvals.
 
 ## Tasks
-- [ ] Decide streaming verbosity behavior and whether to emit a final `TextResponseEvent`.
+- [x] Decide streaming verbosity behavior and whether to emit a final `TextResponseEvent`.
 - [x] Make TUI tool-call formatting robust (safe JSON, truncation consistent with headless).
 - [x] Decide and implement markup handling for assistant/tool output (literal vs markup).
 - [x] Remove unused CSS (dead class blocks in `LlmDoApp.CSS`).
@@ -30,7 +30,7 @@ Address the UI review findings by aligning streaming output and TUI rendering wi
 - [ ] Update docs/tests as needed.
 
 ## Current State
-Decisions recorded for literal text rendering, truncation indicator, and CSS cleanup. Streaming behavior and `ApprovalMessage` cleanup remain open.
+Streaming parity decisions recorded; tool formatting, literal rendering, and CSS cleanup implemented. `ApprovalMessage` cleanup remains open.
 
 ## Notes
 - Findings recorded in `docs/notes/reviews/review-ui.md`.

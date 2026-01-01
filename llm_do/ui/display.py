@@ -61,7 +61,12 @@ class RichDisplayBackend(DisplayBackend):
     def display(self, event: UIEvent) -> None:
         renderable = event.render_rich(self.verbosity)
         if renderable is not None:
-            self.console.print(renderable)
+            from .events import TextResponseEvent
+
+            if isinstance(event, TextResponseEvent) and event.is_delta:
+                self.console.print(renderable, end="")
+            else:
+                self.console.print(renderable)
 
 
 class HeadlessDisplayBackend(DisplayBackend):
@@ -80,7 +85,12 @@ class HeadlessDisplayBackend(DisplayBackend):
     def display(self, event: UIEvent) -> None:
         text = event.render_text(self.verbosity)
         if text is not None:
-            self.stream.write(text + "\n")
+            from .events import TextResponseEvent
+
+            if isinstance(event, TextResponseEvent) and event.is_delta:
+                self.stream.write(text)
+            else:
+                self.stream.write(text + "\n")
             self.stream.flush()
 
 

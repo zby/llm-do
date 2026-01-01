@@ -106,11 +106,11 @@ class TestStreamingModels:
         assert "Hello there" in "".join(chunks)
 
     @pytest.mark.anyio
-    async def test_streaming_events_no_complete_event(self):
-        """Test that streaming deltas don't also emit a complete event.
+    async def test_streaming_events_include_complete_event(self):
+        """Test that streaming deltas also emit a final complete event.
 
         When streaming with verbosity=2, we should see streaming deltas
-        but NOT a final "complete" TextResponseEvent (which would duplicate output).
+        and a final "complete" TextResponseEvent to mark completion.
         """
         from llm_do.ctx_runtime import WorkerRuntime, WorkerInvocable
         from llm_do.ui.events import TextResponseEvent
@@ -143,11 +143,11 @@ class TestStreamingModels:
         # We should have delta events (streaming chunks)
         assert len(delta_events) >= 1, "Should have streaming delta events"
 
-        # KEY ASSERTION: When streaming, we should NOT also emit a "complete" event
-        # because that would cause duplicate display (streaming chunks + full response)
-        assert len(complete_events) == 0, (
-            f"Should not have complete TextResponseEvent when streaming, "
-            f"but got {len(complete_events)}: {[e.content for e in complete_events]}"
+        # KEY ASSERTION: When streaming, we should also emit a "complete" event
+        # to provide a final response for logs and non-TUI displays.
+        assert len(complete_events) >= 1, (
+            "Expected complete TextResponseEvent when streaming, "
+            "but none were emitted."
         )
 
     @pytest.mark.anyio

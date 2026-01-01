@@ -13,6 +13,21 @@ if TYPE_CHECKING:
     from llm_do.ui.events import UIEvent
 
 
+_TRUNCATION_INDICATOR = "… [truncated]."
+
+
+def _truncate_text(text: str, max_len: int) -> str:
+    if len(text) <= max_len:
+        return text
+    return text[:max_len] + _TRUNCATION_INDICATOR
+
+
+def _tool_call_max_args_display() -> int:
+    from llm_do.ui.events import ToolCallEvent
+
+    return ToolCallEvent.MAX_ARGS_DISPLAY
+
+
 class BaseMessage(Static):
     """Base class for all message widgets."""
 
@@ -36,7 +51,7 @@ class AssistantMessage(BaseMessage):
     """
 
     def __init__(self, content: str = "", **kwargs: Any) -> None:
-        super().__init__(content, **kwargs)
+        super().__init__(content, markup=False, **kwargs)
         self._content = content
 
     def append_text(self, text: str) -> None:
@@ -60,6 +75,9 @@ class UserMessage(BaseMessage):
     }
     """
 
+    def __init__(self, content: str = "", **kwargs: Any) -> None:
+        super().__init__(content, markup=False, **kwargs)
+
 
 class ToolCallMessage(BaseMessage):
     """Widget for displaying tool calls."""
@@ -77,23 +95,28 @@ class ToolCallMessage(BaseMessage):
 
         # Format the tool call for display
         content = self._format_tool_call()
-        super().__init__(content, **kwargs)
+        super().__init__(content, markup=False, **kwargs)
 
     def _format_tool_call(self) -> str:
         """Format tool call for display."""
-        lines = [f"[bold yellow]Tool: {self._tool_name}[/bold yellow]"]
+        lines = [f"Tool: {self._tool_name}"]
 
         # Handle both dict args and objects with .args attribute
+        args: Any | None
         if isinstance(self._tool_call, dict):
             args = self._tool_call
-            args_str = json.dumps(args, indent=2)
-            lines.append(f"Args: {args_str}")
         elif hasattr(self._tool_call, "args"):
             args = self._tool_call.args
+        else:
+            args = None
+
+        if args is not None:
+            # TODO: support semantic tool renderers (see docs/notes/tool-output-rendering-semantics.md).
             if isinstance(args, dict):
-                args_str = json.dumps(args, indent=2)
+                args_str = json.dumps(args, indent=2, default=str)
             else:
                 args_str = str(args)
+            args_str = _truncate_text(args_str, _tool_call_max_args_display())
             lines.append(f"Args: {args_str}")
 
         return "\n".join(lines)
@@ -119,33 +142,34 @@ class ToolResultMessage(BaseMessage):
         self._is_error = is_error
 
         content = self._format_result()
-        super().__init__(content, **kwargs)
+        super().__init__(content, markup=False, **kwargs)
         if is_error:
             self.add_class("error")
 
     def _format_result(self) -> str:
         """Format tool result for display."""
         if self._is_error:
-            label = f"[bold red]Error: {self._tool_name}[/bold red]"
+            label = f"Error: {self._tool_name}"
         else:
-            label = f"[bold green]Result: {self._tool_name}[/bold green]"
+            label = f"Result: {self._tool_name}"
         lines = [label]
 
         # Handle both string results and objects with .content attribute
         if isinstance(self._result, str):
             content = self._result
             if len(content) > 500:
-                content = content[:500] + "..."
+                content = content[:500] + _TRUNCATION_INDICATOR
             lines.append(content)
         elif hasattr(self._result, "content"):
             content = self._result.content
             if isinstance(content, str):
                 # Truncate long results
                 if len(content) > 500:
-                    content = content[:500] + "..."
+                    content = content[:500] + _TRUNCATION_INDICATOR
                 lines.append(content)
             else:
-                lines.append(json.dumps(content, indent=2, default=str)[:500])
+                content_str = json.dumps(content, indent=2, default=str)
+                lines.append(_truncate_text(content_str, 500))
 
         return "\n".join(lines)
 

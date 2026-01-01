@@ -61,48 +61,6 @@ class LlmDoApp(App[None]):
         height: auto;
     }
 
-    .assistant-message {
-        background: $primary-background;
-        padding: 1;
-        margin: 1 0;
-        border: solid $primary;
-    }
-
-    .tool-call-message {
-        background: $warning-darken-3;
-        padding: 1;
-        margin: 1 0;
-        border: solid $warning;
-    }
-
-    .tool-result-message {
-        background: $success-darken-3;
-        padding: 1;
-        margin: 1 0;
-        border: solid $success;
-    }
-
-    .status-message {
-        color: $text-muted;
-        padding: 0 1;
-        margin: 0;
-    }
-
-    .approval-message {
-        background: $error-darken-3;
-        padding: 1;
-        margin: 1 0;
-        border: solid $error;
-    }
-
-    .approval-message .title {
-        color: $error;
-        text-style: bold;
-    }
-
-    .approval-message .options {
-        margin-top: 1;
-    }
     """
 
     BINDINGS = [

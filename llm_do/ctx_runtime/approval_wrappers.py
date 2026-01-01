@@ -257,7 +257,11 @@ def wrap_entry_for_approval(
     entry: Any,
     approval_policy: ApprovalPolicy,
 ) -> Any:
-    """Return entry with toolsets wrapped for approval handling."""
+    """Return entry with toolsets wrapped for approval handling.
+
+    This wraps only the entry's toolsets; the entry invocation itself is trusted
+    and is not approval-gated for code-entry tools.
+    """
     toolsets = list(getattr(entry, "toolsets", []) or [])
     if not toolsets:
         return entry

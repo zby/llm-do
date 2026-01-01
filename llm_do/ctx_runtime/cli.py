@@ -263,6 +263,7 @@ async def run(
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     approval_callback: ApprovalCallback | None = None,
+    approval_cache: dict[Any, ApprovalDecision] | None = None,
     return_permission_errors: bool = False,
     message_history: list[Any] | None = None,
     set_overrides: list[str] | None = None,
@@ -279,6 +280,7 @@ async def run(
         on_event: Optional callback for UI events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
         approval_callback: Optional interactive approval callback (TUI mode)
+        approval_cache: Optional shared cache for remember="session" approvals
         return_permission_errors: If True, return tool results on PermissionError
         message_history: Optional prior messages for multi-turn conversations
         set_overrides: Optional list of --set KEY=VALUE overrides
@@ -306,6 +308,7 @@ async def run(
     approval_policy = ApprovalPolicy(
         mode=approval_mode,
         approval_callback=approval_callback,
+        cache=approval_cache,
         return_permission_errors=return_permission_errors,
     )
 
@@ -346,6 +349,8 @@ async def _run_tui_mode(
     render_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     tui_event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
+    # Shared across turns for remember="session" approvals.
+    approval_cache: dict[Any, ApprovalDecision] = {}
 
     # Create output buffer to capture events for post-TUI display
     output_buffer = io.StringIO()
@@ -417,6 +422,7 @@ async def _run_tui_mode(
                 on_event=on_event,
                 verbosity=verbosity,
                 approval_callback=_prompt_approval_in_tui,
+                approval_cache=approval_cache,
                 return_permission_errors=True,
                 message_history=message_history,
                 set_overrides=set_overrides,

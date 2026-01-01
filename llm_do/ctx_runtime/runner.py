@@ -20,7 +20,11 @@ async def run_entry(
     verbosity: int = 0,
     message_history: list[Any] | None = None,
 ) -> tuple[Any, WorkerRuntime]:
-    """Run a resolved entry with the provided execution policy."""
+    """Run a resolved entry with the provided execution policy.
+
+    ApprovalPolicy gates tool calls during execution (LLM tool calls or
+    programmatic ctx.deps.call), not the entry invocation itself.
+    """
     wrapped_entry = wrap_entry_for_approval(entry, approval_policy)
     invocable_entry = cast(Invocable, wrapped_entry)
 

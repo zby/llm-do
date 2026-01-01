@@ -4,10 +4,7 @@ Periodic review of codebase alignment with SOLID principles.
 
 ## Scope
 
-- `llm_do/runtime/` - Core runtime
-- `llm_do/ui/` - UI system
-- `llm_do/toolsets/` - Toolset implementations
-- `llm_do/` - Config, auth, model compat
+Review `llm_do/` as a whole - SOLID principles require holistic analysis of module interactions.
 
 ## Checklist
 
@@ -23,4 +20,4 @@ Record findings in `docs/notes/reviews/review-solid.md`.
 
 ## Last Run
 
-2024-12 (initial review completed)
+2026-01 (updated findings; main pressure in runtime↔UI coupling and SRP hotspots in `WorkerRuntime`/`Worker`)

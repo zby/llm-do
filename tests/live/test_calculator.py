@@ -8,26 +8,22 @@ Run:
 
 import asyncio
 
-from llm_do import run_worker_async
-
-from .conftest import skip_no_llm
+from .conftest import run_example, skip_no_llm
 
 
 @skip_no_llm
-def test_calculator_multiple_operations(calculator_registry, default_model, approve_all_controller):
+def test_calculator_multiple_operations(calculator_example, default_model, approve_all_callback):
     """Test that calculator can handle multiple tool calls in one request."""
     result = asyncio.run(
-        run_worker_async(
-            registry=calculator_registry,
-            worker="main",
-            input_data="Calculate the 8th Fibonacci number and 5 factorial",
-            cli_model=default_model,
-            approval_controller=approve_all_controller,
+        run_example(
+            calculator_example,
+            "Calculate the 8th Fibonacci number and 5 factorial",
+            model=default_model,
+            approval_callback=approve_all_callback,
         )
     )
 
     assert result is not None
-    assert result.output is not None
     # 8th Fibonacci = 21, 5! = 120
-    assert "21" in result.output
-    assert "120" in result.output
+    assert "21" in result
+    assert "120" in result

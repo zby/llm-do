@@ -13,13 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from llm_do import run_worker_async
-
-from .conftest import skip_no_anthropic
+from .conftest import run_example, skip_no_anthropic
 
 
 @skip_no_anthropic
-def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_registry, approve_all_controller):
+def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_all_callback):
     """Test that the main orchestrator can process PDF pitch decks.
 
     This is the main integration test for the pitchdeck_eval example.
@@ -41,12 +39,11 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_registry, approve_
     evaluations_dir.mkdir(exist_ok=True)
 
     result = asyncio.run(
-        run_worker_async(
-            registry=pitchdeck_eval_registry,
-            worker="main",
-            input_data={},
-            cli_model="anthropic:claude-haiku-4-5",
-            approval_controller=approve_all_controller,
+        run_example(
+            pitchdeck_eval_example,
+            "",
+            model="anthropic:claude-haiku-4-5",
+            approval_callback=approve_all_callback,
         )
     )
 
@@ -58,7 +55,7 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_registry, approve_
 
 
 @skip_no_anthropic
-def test_pitch_evaluator_directly(pitchdeck_eval_registry, approve_all_controller):
+def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback):
     """Test calling the pitch_evaluator worker directly with an attachment.
 
     This tests the attachment handling without the orchestrator.
@@ -73,14 +70,16 @@ def test_pitch_evaluator_directly(pitchdeck_eval_registry, approve_all_controlle
     pdf_path = pdf_files[0]
 
     result = asyncio.run(
-        run_worker_async(
-            registry=pitchdeck_eval_registry,
-            worker="pitch_evaluator",
-            input_data="Evaluate this pitch deck.",
-            attachments=[str(pdf_path)],
-            cli_model="anthropic:claude-haiku-4-5",
-            approval_controller=approve_all_controller,
+        run_example(
+            pitchdeck_eval_example,
+            {
+                "input": "Evaluate this pitch deck.",
+                "attachments": [str(pdf_path)],
+            },
+            entry_name="pitch_evaluator",
+            model="anthropic:claude-haiku-4-5",
+            approval_callback=approve_all_callback,
         )
     )
 
-    assert result and result.output is not None
+    assert result is not None

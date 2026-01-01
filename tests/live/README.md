@@ -60,6 +60,7 @@ LLM tests are inherently non-deterministic. If a test fails:
 
 1. Create `test_<example_name>.py` in this directory
 2. Import skip conditions from `conftest.py`
-3. Use the `example_registry_factory` or specific `*_registry` fixtures
-4. Use `approve_all_controller` fixture for non-interactive runs
-5. Use `default_model` fixture or hardcode model for provider-specific tests
+3. Use the `example_dir_factory` or specific `*_example` fixtures
+4. Use `run_example(...)` to build and run the entry worker
+5. Use `approve_all_callback` fixture for non-interactive runs
+6. Use `default_model` fixture or hardcode model for provider-specific tests

@@ -6,24 +6,21 @@ Run:
     pytest tests/live/test_web_research_agent.py -v
 
 Requirements:
-    - ANTHROPIC_API_KEY or OPENAI_API_KEY
+    - ANTHROPIC_API_KEY
     - SERPAPI_API_KEY for web search functionality
 """
 
 import asyncio
+import json
 from pathlib import Path
 
-import pytest
-
-from llm_do import run_worker_async
-
-from .conftest import skip_no_llm, skip_no_serpapi, get_default_model
+from .conftest import get_default_model, run_example, skip_no_anthropic, skip_no_serpapi
 
 
-@skip_no_llm
+@skip_no_anthropic
 @skip_no_serpapi
 def test_web_research_orchestrator_full_workflow(
-    web_research_agent_registry, approve_all_controller
+    web_research_agent_example, approve_all_callback
 ):
     """Test the full web research workflow.
 
@@ -37,12 +34,11 @@ def test_web_research_orchestrator_full_workflow(
     reports_dir.mkdir(exist_ok=True)
 
     result = asyncio.run(
-        run_worker_async(
-            registry=web_research_agent_registry,
-            worker="web_research_orchestrator",
-            input_data="Python 3.13 new features",
-            cli_model=get_default_model(),
-            approval_controller=approve_all_controller,
+        run_example(
+            web_research_agent_example,
+            "Python 3.13 new features",
+            model=get_default_model(),
+            approval_callback=approve_all_callback,
         )
     )
 
@@ -54,32 +50,56 @@ def test_web_research_orchestrator_full_workflow(
     assert md_files, "Should have written a markdown report"
 
 
-@skip_no_llm
-def test_web_research_consolidator(web_research_agent_registry, approve_all_controller):
+@skip_no_anthropic
+def test_web_research_consolidator(web_research_agent_example, approve_all_callback):
     """Test the consolidator worker.
 
     The consolidator merges insights from multiple sources.
     This test doesn't require SerpAPI as we provide mock data.
     """
     # Provide mock insights for consolidation
-    mock_insights = """
-    Source 1 findings:
-    - Python 3.12 introduces improved error messages
-    - New syntax features for type hints
-
-    Source 2 findings:
-    - Performance improvements in the interpreter
-    - New standard library modules
-    """
+    mock_insights = {
+        "topic": "Python release highlights",
+        "extractions": [
+            {
+                "url": "https://example.com/python-1",
+                "title": "Python 3.12 Overview",
+                "summary": "Summary of improvements and new syntax.",
+                "main_points": [
+                    "Improved error messages",
+                    "New syntax features for type hints",
+                ],
+                "metrics": [],
+                "pros": ["Clearer errors"],
+                "cons": [],
+                "quotes": [],
+                "confidence": 0.7,
+            },
+            {
+                "url": "https://example.com/python-2",
+                "title": "Interpreter Performance",
+                "summary": "Highlights on runtime improvements.",
+                "main_points": [
+                    "Interpreter performance improvements",
+                    "New standard library modules",
+                ],
+                "metrics": [],
+                "pros": ["Faster execution"],
+                "cons": [],
+                "quotes": [],
+                "confidence": 0.65,
+            },
+        ],
+    }
 
     result = asyncio.run(
-        run_worker_async(
-            registry=web_research_agent_registry,
-            worker="web_research_consolidator",
-            input_data=f"Consolidate these research findings:\n{mock_insights}",
-            cli_model=get_default_model(),
-            approval_controller=approve_all_controller,
+        run_example(
+            web_research_agent_example,
+            json.dumps(mock_insights),
+            entry_name="web_research_consolidator",
+            model=get_default_model(),
+            approval_callback=approve_all_callback,
         )
     )
 
-    assert result and result.output is not None
+    assert result is not None

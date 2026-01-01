@@ -13,14 +13,12 @@ from pathlib import Path
 
 import pytest
 
-from llm_do import run_worker_async
-
-from .conftest import skip_no_anthropic
+from .conftest import run_example, skip_no_anthropic
 
 
 @skip_no_anthropic
 def test_whiteboard_orchestrator_processes_images(
-    whiteboard_planner_registry, approve_all_controller
+    whiteboard_planner_example, approve_all_callback
 ):
     """Test that the orchestrator processes whiteboard images.
 
@@ -45,12 +43,11 @@ def test_whiteboard_orchestrator_processes_images(
         pytest.skip("No image files in input/ directory")
 
     result = asyncio.run(
-        run_worker_async(
-            registry=whiteboard_planner_registry,
-            worker="main",
-            input_data={},
-            cli_model="anthropic:claude-haiku-4-5",
-            approval_controller=approve_all_controller,
+        run_example(
+            whiteboard_planner_example,
+            "",
+            model="anthropic:claude-haiku-4-5",
+            approval_callback=approve_all_callback,
         )
     )
 
@@ -63,7 +60,7 @@ def test_whiteboard_orchestrator_processes_images(
 
 
 @skip_no_anthropic
-def test_whiteboard_planner_directly(whiteboard_planner_registry, approve_all_controller):
+def test_whiteboard_planner_directly(whiteboard_planner_example, approve_all_callback):
     """Test calling the whiteboard_planner worker directly with an image.
 
     This tests the vision capabilities without the orchestrator layer.
@@ -79,14 +76,16 @@ def test_whiteboard_planner_directly(whiteboard_planner_registry, approve_all_co
     image_path = image_files[0]
 
     result = asyncio.run(
-        run_worker_async(
-            registry=whiteboard_planner_registry,
-            worker="whiteboard_planner",
-            input_data="Analyze this whiteboard and create a plan.",
-            attachments=[str(image_path)],
-            cli_model="anthropic:claude-haiku-4-5",
-            approval_controller=approve_all_controller,
+        run_example(
+            whiteboard_planner_example,
+            {
+                "input": "Analyze this whiteboard and create a plan.",
+                "attachments": [str(image_path)],
+            },
+            entry_name="whiteboard_planner",
+            model="anthropic:claude-haiku-4-5",
+            approval_callback=approve_all_callback,
         )
     )
 
-    assert result and result.output is not None
+    assert result is not None

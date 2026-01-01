@@ -181,7 +181,49 @@ keeping CLI as the policy builder.
 
 ---
 
-## 5. Open Questions
+## 5. Dynamic Workers
+
+### Problem
+
+Currently, workers are resolved at `build_entry()` time before any worker runs.
+This prevents runtime worker creation - an LLM cannot create and invoke a new
+worker during execution.
+
+### Use Cases
+
+- **Bootstrapping**: LLM creates specialized workers on-the-fly for novel tasks
+- **Iterative refinement**: create → run → evaluate → refine loop
+- **Dynamic decomposition**: break complex tasks into purpose-built workers
+
+### Required Capabilities
+
+1. **`worker_create(name, instructions, ...)`** - Write a `.worker` file at runtime
+2. **`worker_call(worker, input, ...)`** - Invoke a dynamically created worker
+
+`worker_call` is needed because `ctx.deps.call(name, input)` only works for
+workers that were resolved at startup. Alternatives:
+- Dynamic re-resolution (complex, may have side effects)
+- Shell workaround: `llm-do new.worker "input"` (works but hacky)
+
+### Interaction with Approval
+
+Dynamic workers need the same approval wrapping as static workers:
+- `worker_create` itself may need approval (creating executable code)
+- Tools within the created worker need approval wrapping
+- If using `worker_call`, the runtime must wrap the new worker before invocation
+
+### Open Design Questions
+
+- Should created workers persist across runs or be ephemeral?
+- Where should generated workers be stored? (configurable output directory)
+- Should `worker_call` build a fresh `WorkerRuntime` or reuse the parent's config?
+- Can dynamic resolution eliminate the need for explicit `worker_call`?
+
+See `docs/tasks/backlog/dynamic-workers.md` for implementation tracking.
+
+---
+
+## 6. Open Questions
 
 ### Context Injection
 - Do we want a small Protocol ("ToolContext") to type the minimal surface
@@ -198,7 +240,7 @@ keeping CLI as the policy builder.
 
 ---
 
-## 6. Decision Factors
+## 7. Decision Factors
 
 - **Urgency**: Option A or B for near-term ergonomics.
 - **Scope tolerance**: Option D/E require non-trivial refactors.

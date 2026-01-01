@@ -1,14 +1,14 @@
 """Smoke tests for representative examples/ patterns."""
-import pytest
 from pathlib import Path
+
+import pytest
 
 from llm_do.ctx_runtime import (
     ToolInvocable,
-    load_worker_file,
     load_toolsets_from_files,
+    load_worker_file,
 )
 from llm_do.ctx_runtime.cli import build_entry
-
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 

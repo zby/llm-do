@@ -8,17 +8,17 @@ This module provides the core runtime types used by llm-do:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import threading
+from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Optional, Protocol
 
+from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
-from pydantic_ai.tools import RunContext
 
-from .input_utils import coerce_worker_input
 from ..model_compat import select_model
 from ..ui.events import UIEvent
+from .input_utils import coerce_worker_input
 
 ModelType = str
 EventCallback = Callable[[UIEvent], None]
@@ -334,6 +334,7 @@ class WorkerRuntime:
             result = await ctx.deps.call("pitch_evaluator", {"input": "..."})
         """
         import uuid
+
         from ..ui.events import ToolCallEvent, ToolResultEvent
 
         # Create a temporary run context for get_tools

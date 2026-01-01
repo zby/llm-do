@@ -7,8 +7,8 @@ from __future__ import annotations
 import json
 import os
 import re
-import ssl
 import socket
+import ssl
 import time
 from html.parser import HTMLParser
 from typing import Dict, List
@@ -16,7 +16,6 @@ from urllib import parse, request
 from urllib.error import HTTPError, URLError
 
 from pydantic_ai.toolsets import FunctionToolset
-
 
 # =============================================================================
 # Constants

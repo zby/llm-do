@@ -7,6 +7,7 @@ that don't benefit from LLM reasoning.
 """
 
 from pathlib import Path
+
 from pydantic_ai.toolsets import FunctionToolset
 
 try:

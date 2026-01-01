@@ -14,14 +14,13 @@ from pathlib import Path
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, TypeAdapter
-from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
+from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai_blocking_approval import (
     ApprovalConfig,
     ApprovalResult,
     needs_approval_from_config,
 )
-
 
 DEFAULT_MAX_READ_CHARS = 20_000
 """Default maximum characters to read from a file."""

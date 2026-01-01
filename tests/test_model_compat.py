@@ -2,8 +2,8 @@
 import pytest
 
 from llm_do.model_compat import (
-    InvalidCompatibleModelsError,
     LLM_DO_MODEL_ENV,
+    InvalidCompatibleModelsError,
     ModelCompatibilityError,
     ModelConfigError,
     ModelValidationResult,

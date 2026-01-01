@@ -1,9 +1,9 @@
 """OAuth helpers for llm-do."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
-import logging
 
 from .anthropic import login_anthropic, refresh_anthropic_token
 from .storage import (

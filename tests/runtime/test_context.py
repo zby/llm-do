@@ -4,7 +4,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import WorkerRuntime, WorkerInvocable
+from llm_do.ctx_runtime import WorkerInvocable, WorkerRuntime
 
 
 class TestContext:

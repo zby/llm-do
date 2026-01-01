@@ -5,6 +5,7 @@ be called (semantic decision), but the actual character sanitization is
 handled by deterministic Python code (no LLM variability).
 """
 import re
+
 from pydantic_ai.toolsets import FunctionToolset
 
 file_tools = FunctionToolset()

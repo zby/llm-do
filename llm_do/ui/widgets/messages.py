@@ -4,10 +4,9 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
+from pydantic_ai_blocking_approval import ApprovalRequest
 from textual.containers import ScrollableContainer
 from textual.widgets import Static
-
-from pydantic_ai_blocking_approval import ApprovalRequest
 
 if TYPE_CHECKING:
     from llm_do.ui.events import UIEvent

@@ -6,14 +6,14 @@ import pytest
 
 from llm_do.ui.display import HeadlessDisplayBackend, JsonDisplayBackend
 from llm_do.ui.events import (
+    CompletionEvent,
+    DeferredToolEvent,
+    ErrorEvent,
     InitialRequestEvent,
     StatusEvent,
     TextResponseEvent,
     ToolCallEvent,
     ToolResultEvent,
-    DeferredToolEvent,
-    CompletionEvent,
-    ErrorEvent,
 )
 from llm_do.ui.parser import parse_event
 

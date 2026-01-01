@@ -27,15 +27,15 @@ import os
 import sys
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Callable, Coroutine
+from typing import Any, Callable
 
-from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.builtin_tools import (
     CodeExecutionTool,
     ImageGenerationTool,
     WebFetchTool,
     WebSearchTool,
 )
+from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai_blocking_approval import (
     ApprovalCallback,
     ApprovalDecision,
@@ -43,21 +43,7 @@ from pydantic_ai_blocking_approval import (
     ApprovalToolset,
 )
 
-from .approval_wrappers import (
-    ApprovalDeniedResultToolset,
-    make_headless_approval_callback,
-    make_tui_approval_callback,
-)
-from .ctx import WorkerRuntime, EventCallback
-from .input_utils import coerce_worker_input
-from .invocables import WorkerInvocable, ToolInvocable
-from .worker_file import load_worker_file
-from .discovery import (
-    load_toolsets_and_workers_from_files,
-)
 from ..toolset_loader import ToolsetBuildContext, build_toolsets
-from ..config_overrides import apply_overrides
-from ..ui.events import UIEvent, ErrorEvent, UserMessageEvent
 from ..ui.display import (
     DisplayBackend,
     HeadlessDisplayBackend,
@@ -65,8 +51,20 @@ from ..ui.display import (
     RichDisplayBackend,
     TextualDisplayBackend,
 )
+from ..ui.events import ErrorEvent, UIEvent, UserMessageEvent
 from ..ui.parser import parse_approval_request
-
+from .approval_wrappers import (
+    ApprovalDeniedResultToolset,
+    make_headless_approval_callback,
+    make_tui_approval_callback,
+)
+from .ctx import EventCallback, WorkerRuntime
+from .discovery import (
+    load_toolsets_and_workers_from_files,
+)
+from .input_utils import coerce_worker_input
+from .invocables import ToolInvocable, WorkerInvocable
+from .worker_file import load_worker_file
 
 ENV_MODEL_VAR = "LLM_DO_MODEL"
 
@@ -515,7 +513,11 @@ async def _run_tui_mode(
         message_history: list[Any] | None,
     ) -> list[Any] | None:
         """Run a single conversation turn and return updated message history."""
-        from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
+        from pydantic_ai.exceptions import (
+            ModelHTTPError,
+            UnexpectedModelBehavior,
+            UserError,
+        )
 
         try:
             result, ctx = await run(
@@ -820,7 +822,11 @@ def main() -> int:
         backend = HeadlessDisplayBackend(stream=sys.stderr, verbosity=args.verbose)
 
     # Import error types for handling
-    from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
+    from pydantic_ai.exceptions import (
+        ModelHTTPError,
+        UnexpectedModelBehavior,
+        UserError,
+    )
 
     try:
         result = asyncio.run(_run_headless_mode(

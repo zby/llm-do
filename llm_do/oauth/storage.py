@@ -1,11 +1,11 @@
 """OAuth credential storage with configurable backend."""
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Literal, Optional, Protocol
-import json
-import os
 
 OAuthProvider = Literal["anthropic"]
 

@@ -1,13 +1,14 @@
 """Tests for module loading and discovery."""
-import pytest
-import tempfile
 import os
+import tempfile
 from pathlib import Path
 
+import pytest
+
 from llm_do.ctx_runtime import (
-    load_module,
     discover_toolsets_from_module,
     discover_workers_from_module,
+    load_module,
     load_toolsets_from_files,
     load_workers_from_files,
 )

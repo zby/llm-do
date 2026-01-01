@@ -17,12 +17,13 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from llm_do.ctx_runtime import WorkerRuntime, WorkerInvocable
-from llm_do.toolsets.filesystem import FileSystemToolset
-from llm_do.ui.events import UIEvent
-from llm_do.ui.display import HeadlessDisplayBackend
 from pydantic_ai_blocking_approval import ApprovalToolset
+
+from llm_do.ctx_runtime import WorkerInvocable, WorkerRuntime
 from llm_do.ctx_runtime.approval_wrappers import make_headless_approval_callback
+from llm_do.toolsets.filesystem import FileSystemToolset
+from llm_do.ui.display import HeadlessDisplayBackend
+from llm_do.ui.events import UIEvent
 
 # =============================================================================
 # CONFIGURATION - Edit these constants to experiment

@@ -20,8 +20,8 @@ import logging
 from typing import Any, Optional
 
 from pydantic import TypeAdapter
-from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.tools import ToolDefinition
+from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai_blocking_approval import (
     ApprovalConfig,
     ApprovalResult,

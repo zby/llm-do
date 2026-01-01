@@ -13,9 +13,8 @@ from typing import Any, Type
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from llm_do.toolsets.shell import ShellToolset
 from llm_do.toolsets.filesystem import FileSystemToolset
-
+from llm_do.toolsets.shell import ShellToolset
 
 BUILTIN_TOOLSETS: dict[str, Type[AbstractToolset[Any]]] = {
     "shell": ShellToolset,

@@ -21,7 +21,6 @@ from typing import Any, Mapping
 
 from pydantic_ai.toolsets import AbstractToolset
 
-
 BUILTIN_TOOLSET_ALIASES: dict[str, str] = {
     "shell": "llm_do.toolsets.shell.ShellToolset",
     "filesystem": "llm_do.toolsets.filesystem.FileSystemToolset",

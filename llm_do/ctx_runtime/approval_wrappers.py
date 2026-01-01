@@ -9,7 +9,6 @@ from typing import Any, Optional
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-
 ApprovalCallback = Callable[
     [ApprovalRequest],
     ApprovalDecision | Awaitable[ApprovalDecision],

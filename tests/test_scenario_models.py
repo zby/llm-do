@@ -4,11 +4,11 @@ from pydantic_ai import Agent
 from pydantic_ai.toolsets import FunctionToolset
 
 from tests.conftest_models import (
+    ConversationModel,
     Scenario,
     ToolCall,
-    create_scenario_model,
     create_calculator_model,
-    ConversationModel,
+    create_scenario_model,
 )
 
 
@@ -112,7 +112,7 @@ class TestStreamingModels:
         When streaming with verbosity=2, we should see streaming deltas
         and a final "complete" TextResponseEvent to mark completion.
         """
-        from llm_do.ctx_runtime import WorkerRuntime, WorkerInvocable
+        from llm_do.ctx_runtime import WorkerInvocable, WorkerRuntime
         from llm_do.ui.events import TextResponseEvent
 
         events = []

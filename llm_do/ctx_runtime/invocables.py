@@ -10,7 +10,7 @@ import json
 import mimetypes
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterable, Optional, Sequence, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, AsyncIterable, Optional, Sequence, Type
 
 from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
@@ -26,6 +26,9 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
+if TYPE_CHECKING:
+    from .ctx import ModelType, WorkerRuntime
+
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
 
 
@@ -33,11 +36,6 @@ class WorkerInput(BaseModel):
     """Input schema for workers."""
     input: str
     attachments: list[str] = []
-
-if TYPE_CHECKING:
-    from .ctx import WorkerRuntime
-
-from .ctx import ModelType
 
 
 def _format_prompt(input_data: Any) -> str:

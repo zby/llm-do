@@ -8,21 +8,26 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Coroutine
 
+from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.widgets import Footer, Header, TextArea
 
-from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
-
-from .events import ApprovalRequestEvent, CompletionEvent, ErrorEvent, TextResponseEvent, UIEvent
 from .controllers import (
     ApprovalWorkflowController,
     ExitConfirmationController,
     ExitDecision,
     InputHistoryController,
     WorkerRunner,
+)
+from .events import (
+    ApprovalRequestEvent,
+    CompletionEvent,
+    ErrorEvent,
+    TextResponseEvent,
+    UIEvent,
 )
 from .widgets.messages import ApprovalPanel, MessageContainer
 

@@ -2,8 +2,9 @@
 
 These tests verify that errors are handled gracefully with user-friendly messages.
 """
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
 
 from llm_do.ctx_runtime.cli import main, run
 

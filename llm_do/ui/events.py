@@ -10,10 +10,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
+    from pydantic_ai_blocking_approval import ApprovalRequest
     from rich.console import RenderableType
     from textual.widget import Widget
-
-    from pydantic_ai_blocking_approval import ApprovalRequest
 
 
 @dataclass

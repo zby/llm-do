@@ -18,7 +18,8 @@ def parse_set_override(spec: str) -> tuple[str, Any]:
         spec: Override specification in format KEY=VALUE
 
     Returns:
-        Tuple of (key_path, value) where key_path supports dot notation
+        Tuple of (key_path, value) where key_path supports dot notation and
+        bracketed literal keys (e.g., toolsets["llm_do.toolsets.shell.ShellToolset"]).
 
     Raises:
         ValueError: If spec format is invalid
@@ -28,6 +29,8 @@ def parse_set_override(spec: str) -> tuple[str, Any]:
         ('model', 'gpt-4')
         >>> parse_set_override("toolsets.shell.rules=[{\"pattern\":\"git\"}]")
         ('toolsets.shell.rules', [{'pattern': 'git'}])
+        >>> parse_set_override('toolsets[\"llm_do.toolsets.shell.ShellToolset\"].default.approval_required=false')
+        ('toolsets["llm_do.toolsets.shell.ShellToolset"].default.approval_required', False)
     """
     if '=' not in spec:
         raise ValueError(
@@ -96,15 +99,87 @@ def _parse_value(value_str: str) -> Any:
     return value_str
 
 
+def _parse_key_path(key_path: str) -> list[str]:
+    """Parse a key path with dot notation and bracketed literal keys."""
+    keys: list[str] = []
+    buf: list[str] = []
+    i = 0
+    last_was_bracket = False
+
+    while i < len(key_path):
+        ch = key_path[i]
+        if ch == ".":
+            if last_was_bracket and not buf:
+                last_was_bracket = False
+                i += 1
+                continue
+            keys.append("".join(buf))
+            buf = []
+            last_was_bracket = False
+            i += 1
+            continue
+
+        if ch == "[":
+            if buf:
+                keys.append("".join(buf))
+                buf = []
+            i += 1
+            if i >= len(key_path) or key_path[i] not in ("'", '"'):
+                raise ValueError(
+                    f"Invalid bracket syntax in key path {key_path!r}: expected quoted key"
+                )
+            quote = key_path[i]
+            i += 1
+            literal: list[str] = []
+            while i < len(key_path):
+                ch = key_path[i]
+                if ch == "\\":
+                    if i + 1 >= len(key_path):
+                        raise ValueError(
+                            f"Invalid escape in bracketed key path {key_path!r}"
+                        )
+                    literal.append(key_path[i + 1])
+                    i += 2
+                    continue
+                if ch == quote:
+                    i += 1
+                    break
+                literal.append(ch)
+                i += 1
+            else:
+                raise ValueError(
+                    f"Unterminated quoted key in key path {key_path!r}"
+                )
+            if i >= len(key_path) or key_path[i] != "]":
+                raise ValueError(
+                    f"Invalid bracket syntax in key path {key_path!r}: missing ']'"
+                )
+            i += 1
+            keys.append("".join(literal))
+            last_was_bracket = True
+            continue
+
+        buf.append(ch)
+        last_was_bracket = False
+        i += 1
+
+    if buf or not last_was_bracket:
+        keys.append("".join(buf))
+
+    return keys
+
+
 def apply_set_override(data: dict[str, Any], key_path: str, value: Any) -> None:
     """Apply a single --set override to a dictionary.
 
-    Uses dot notation to navigate nested fields. Creates intermediate
+    Uses dot notation to navigate nested fields. Supports bracketed
+    literal keys for entries that contain dots. Creates intermediate
     dictionaries as needed.
 
     Args:
         data: Dictionary to modify (modified in place)
-        key_path: Dot-separated path (e.g., 'toolsets.shell.rules')
+        key_path: Dot-separated path (e.g., 'toolsets.shell.rules') or
+            bracketed literal key (e.g., 'toolsets["llm_do.toolsets.shell.ShellToolset"]')
         value: Parsed value to set
 
     Raises:
@@ -121,7 +196,7 @@ def apply_set_override(data: dict[str, Any], key_path: str, value: Any) -> None:
         >>> data
         {'toolsets': {'shell': {'timeout': 30}}}
     """
-    keys = key_path.split('.')
+    keys = _parse_key_path(key_path)
     target = data
 
     # Navigate to the parent of the target field, creating dicts as needed

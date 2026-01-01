@@ -96,6 +96,10 @@ class TestApplySetOverride:
         ({"toolsets": {"shell": {"timeout": 30, "other": "keep"}}},
          "toolsets.shell.rules", [{"pattern": "git"}],
          {"toolsets": {"shell": {"timeout": 30, "other": "keep", "rules": [{"pattern": "git"}]}}}),
+        # Bracketed literal key for class-path toolsets
+        ({},
+         'toolsets["llm_do.toolsets.shell.ShellToolset"].default.approval_required', False,
+         {"toolsets": {"llm_do.toolsets.shell.ShellToolset": {"default": {"approval_required": False}}}}),
     ])
     def test_apply_nested_override(self, initial, key, value, expected):
         apply_set_override(initial, key, value)
@@ -188,6 +192,17 @@ class TestIntegration:
             set_overrides=['toolsets.shell.rules=[{"pattern": "git"}]']
         )
         assert result["toolsets"]["shell"]["rules"] == [{"pattern": "git"}]
+
+    def test_class_path_toolset_override(self):
+        """Test overriding class-path toolset configuration."""
+        data = {"name": "worker"}
+        result = apply_overrides(
+            data,
+            set_overrides=[
+                'toolsets["llm_do.toolsets.shell.ShellToolset"].default.approval_required=false'
+            ],
+        )
+        assert result["toolsets"]["llm_do.toolsets.shell.ShellToolset"]["default"]["approval_required"] is False
 
     def test_development_model_swap(self):
         """Test swapping model for local testing."""

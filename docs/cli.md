@@ -93,6 +93,11 @@ llm-do main.worker \
   --set toolsets.filesystem.write_approval=false \
   --set toolsets.shell.default.approval_required=false \
   "task"
+
+# Override class-path toolset config (use bracketed literal keys)
+llm-do main.worker \
+  --set 'toolsets["llm_do.toolsets.shell.ShellToolset"].default.approval_required=false' \
+  "task"
 ```
 
 **Type inference:**

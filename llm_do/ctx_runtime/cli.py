@@ -134,6 +134,28 @@ def _wrap_toolsets_with_approval(
     for toolset in toolsets:
         # Avoid double-wrapping toolsets that already have approval handling.
         if isinstance(toolset, ApprovalToolset):
+            inner = getattr(toolset, "_inner", None)
+            if isinstance(inner, WorkerInvocable) and inner.toolsets:
+                inner_callback = getattr(toolset, "_approval_callback", approval_callback)
+                wrapped_inner_toolsets = _wrap_toolsets_with_approval(
+                    inner.toolsets,
+                    inner_callback,
+                    return_permission_errors=return_permission_errors,
+                )
+                inner = WorkerInvocable(
+                    name=inner.name,
+                    instructions=inner.instructions,
+                    model=inner.model,
+                    toolsets=wrapped_inner_toolsets,
+                    builtin_tools=inner.builtin_tools,
+                    schema_in=inner.schema_in,
+                    schema_out=inner.schema_out,
+                )
+                toolset = ApprovalToolset(
+                    inner=inner,
+                    approval_callback=inner_callback,
+                    config=getattr(toolset, "config", None),
+                )
             approved_toolset: AbstractToolset[Any] = toolset
             if return_permission_errors:
                 approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
@@ -735,7 +757,11 @@ def main() -> int:
         dest="set_overrides",
         default=[],
         metavar="KEY=VALUE",
-        help="Override worker config (e.g., --set model=gpt-4, --set toolsets.shell.timeout=30)",
+        help=(
+            "Override worker config (e.g., --set model=gpt-4, "
+            "--set toolsets.shell.timeout=30, "
+            "--set 'toolsets[\"llm_do.toolsets.shell.ShellToolset\"].default.approval_required=false')"
+        ),
     )
 
     args = parser.parse_args()

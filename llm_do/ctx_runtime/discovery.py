@@ -14,7 +14,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, Iterable
 
 from pydantic_ai.toolsets import AbstractToolset
 
@@ -148,3 +148,43 @@ def load_workers_from_files(files: list[str | Path]) -> dict[str, WorkerInvocabl
             worker_paths[worker.name] = path
 
     return all_workers
+
+
+def load_toolsets_and_workers_from_files(
+    files: Iterable[str | Path],
+) -> tuple[dict[str, AbstractToolset[Any]], dict[str, WorkerInvocable]]:
+    """Load toolsets and workers from Python files with a single module pass."""
+    toolsets: dict[str, AbstractToolset[Any]] = {}
+    workers: dict[str, WorkerInvocable] = {}
+    worker_paths: dict[str, Path] = {}
+    loaded_paths: set[Path] = set()
+
+    for file_path in files:
+        path = Path(file_path)
+        if path.suffix != ".py":
+            continue
+        resolved = path.resolve()
+        if resolved in loaded_paths:
+            continue
+        loaded_paths.add(resolved)
+
+        module = load_module(resolved)
+        module_toolsets = discover_toolsets_from_module(module)
+        module_workers = discover_workers_from_module(module)
+
+        for name, toolset in module_toolsets.items():
+            if name in toolsets:
+                raise ValueError(f"Duplicate toolset name: {name}")
+            toolsets[name] = toolset
+
+        for worker in module_workers:
+            if worker.name in workers:
+                existing_path = worker_paths[worker.name]
+                raise ValueError(
+                    f"Duplicate worker name: {worker.name} "
+                    f"(from {existing_path} and {resolved})"
+                )
+            workers[worker.name] = worker
+            worker_paths[worker.name] = resolved
+
+    return toolsets, workers

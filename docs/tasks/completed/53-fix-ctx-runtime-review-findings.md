@@ -1,7 +1,7 @@
 # Fix: Ctx Runtime Review Findings
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] none
@@ -28,8 +28,8 @@ Fix the concrete correctness issues identified in `docs/notes/reviews/review-ctx
 ## Decision Record
 - Decision:
   - Preserve prior message history for the top-level worker only; keep nested worker calls stateless by default.
-  - Avoid double-importing Python files during `build_entry` (load each module once per run and then discover toolsets/workers from the same module object).
-  - Approval wrapping should preserve all `WorkerInvocable` fields and be cycle-safe (either detect and stop recursion, or disallow cycles with a clear error).
+  - Avoid double-importing Python files during `build_entry` by loading each module once per run, then discovering toolsets/workers from the same module object.
+  - Approval wrapping preserves all `WorkerInvocable` fields via `dataclasses.replace` and guards recursion with a visited-worker map.
 - Inputs:
   - Review findings in `docs/notes/reviews/review-ctx-runtime.md`.
   - Existing “top-level-only” intent in `llm_do/ctx_runtime/invocables.py:_should_use_message_history`.
@@ -38,7 +38,7 @@ Fix the concrete correctness issues identified in `docs/notes/reviews/review-ctx
   - Discovery: add caching to `load_module` keyed by resolved path; or add a new helper that loads modules once then runs both discover passes.
   - Approval wrapping: use `dataclasses.replace` for `WorkerInvocable` to preserve fields; add recursion guard (visited set by object identity) for worker cycles.
 - Outcome:
-  - TBD (implement and update).
+  - Implemented module single-load discovery, field-preserving approval wrapping, and cycle-safe recursion; added regression tests for each.
 - Follow-ups:
   - If per-worker `_approval_config` for shared Python toolsets is required, document intended semantics (and likely introduce per-worker toolset instantiation/factories).
 
@@ -46,18 +46,14 @@ Fix the concrete correctness issues identified in `docs/notes/reviews/review-ctx
 - [x] Add regression test: `message_history` is actually passed to the entry worker agent on turn 2 (chat flow).
 - [x] Fix ctx runtime message-history propagation for the top-level worker (without enabling history for nested worker calls).
 - [x] Add regression test: nested worker calls do not inherit caller message history.
-- [ ] Add regression test: `build_entry` executes each Python file only once (toolsets/workers discovered from same module instance).
-- [ ] Refactor discovery/build_entry to avoid double module execution (`load_toolsets_from_files` + `load_workers_from_files` duplication).
-- [ ] Add regression test: approval wrapping preserves `WorkerInvocable` fields like `model_settings`.
-- [ ] Refactor approval wrapping to preserve all `WorkerInvocable` fields (avoid hand-reconstruction).
-- [ ] Decide and implement cycle-safety for approval wrapping (guard recursion or validate worker graph).
+- [x] Add regression test: `build_entry` executes each Python file only once (toolsets/workers discovered from same module instance).
+- [x] Refactor discovery/build_entry to avoid double module execution (`load_toolsets_from_files` + `load_workers_from_files` duplication).
+- [x] Add regression test: approval wrapping preserves `WorkerInvocable` fields like `model_settings`.
+- [x] Refactor approval wrapping to preserve all `WorkerInvocable` fields (avoid hand-reconstruction).
+- [x] Decide and implement cycle-safety for approval wrapping (guard recursion or validate worker graph).
 
 ## Current State
-Message history now works as intended for chat:
-- Entry worker receives `message_history` on turn 2+.
-- Nested worker calls remain stateless (do not inherit the caller's conversation).
-
-Remaining work: Python discovery double-load + approval wrapping field preservation/cycle safety.
+All review findings addressed with regression coverage: message history fixed for entry worker only, Python discovery loads modules once per run, and approval wrapping preserves fields while guarding cyclic worker graphs.
 
 ## Notes
 - Keep scope to the ctx runtime; avoid UI or toolset changes unless needed for a regression test.

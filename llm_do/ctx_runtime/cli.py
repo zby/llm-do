@@ -25,6 +25,7 @@ import asyncio
 import io
 import os
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
@@ -52,8 +53,7 @@ from .input_utils import coerce_worker_input
 from .invocables import WorkerInvocable, ToolInvocable
 from .worker_file import load_worker_file
 from .discovery import (
-    load_toolsets_from_files,
-    load_workers_from_files,
+    load_toolsets_and_workers_from_files,
 )
 from ..toolset_loader import ToolsetBuildContext, build_toolsets
 from ..config_overrides import apply_overrides
@@ -112,6 +112,7 @@ def _wrap_toolsets_with_approval(
     toolsets: list[AbstractToolset[Any]],
     approval_callback: ApprovalCallback,
     return_permission_errors: bool = False,
+    _visited_workers: dict[int, WorkerInvocable] | None = None,
 ) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with ApprovalToolset for approval handling.
 
@@ -131,31 +132,36 @@ def _wrap_toolsets_with_approval(
         List of wrapped toolsets
     """
     wrapped: list[AbstractToolset[Any]] = []
+    if _visited_workers is None:
+        _visited_workers = {}
+
+    def wrap_worker(worker: WorkerInvocable, callback: ApprovalCallback) -> WorkerInvocable:
+        existing = _visited_workers.get(id(worker))
+        if existing is not None:
+            return existing
+        wrapped_worker = replace(worker, toolsets=[])
+        _visited_workers[id(worker)] = wrapped_worker
+        if worker.toolsets:
+            wrapped_worker.toolsets = _wrap_toolsets_with_approval(
+                worker.toolsets,
+                callback,
+                return_permission_errors=return_permission_errors,
+                _visited_workers=_visited_workers,
+            )
+        return wrapped_worker
     for toolset in toolsets:
         # Avoid double-wrapping toolsets that already have approval handling.
         if isinstance(toolset, ApprovalToolset):
             inner = getattr(toolset, "_inner", None)
-            if isinstance(inner, WorkerInvocable) and inner.toolsets:
+            if isinstance(inner, WorkerInvocable):
                 inner_callback = getattr(toolset, "_approval_callback", approval_callback)
-                wrapped_inner_toolsets = _wrap_toolsets_with_approval(
-                    inner.toolsets,
-                    inner_callback,
-                    return_permission_errors=return_permission_errors,
-                )
-                inner = WorkerInvocable(
-                    name=inner.name,
-                    instructions=inner.instructions,
-                    model=inner.model,
-                    toolsets=wrapped_inner_toolsets,
-                    builtin_tools=inner.builtin_tools,
-                    schema_in=inner.schema_in,
-                    schema_out=inner.schema_out,
-                )
-                toolset = ApprovalToolset(
-                    inner=inner,
-                    approval_callback=inner_callback,
-                    config=getattr(toolset, "config", None),
-                )
+                wrapped_inner = wrap_worker(inner, inner_callback)
+                if wrapped_inner is not inner:
+                    toolset = ApprovalToolset(
+                        inner=wrapped_inner,
+                        approval_callback=inner_callback,
+                        config=getattr(toolset, "config", None),
+                    )
             approved_toolset: AbstractToolset[Any] = toolset
             if return_permission_errors:
                 approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
@@ -163,20 +169,8 @@ def _wrap_toolsets_with_approval(
             continue
 
         # Recursively wrap toolsets inside WorkerInvocable
-        if isinstance(toolset, WorkerInvocable) and toolset.toolsets:
-            toolset = WorkerInvocable(
-                name=toolset.name,
-                instructions=toolset.instructions,
-                model=toolset.model,
-                toolsets=_wrap_toolsets_with_approval(
-                    toolset.toolsets,
-                    approval_callback,
-                    return_permission_errors=return_permission_errors,
-                ),
-                builtin_tools=toolset.builtin_tools,
-                schema_in=toolset.schema_in,
-                schema_out=toolset.schema_out,
-            )
+        if isinstance(toolset, WorkerInvocable):
+            toolset = wrap_worker(toolset, approval_callback)
 
         # Get any stored approval config from the toolset
         config = getattr(toolset, "_approval_config", None)
@@ -237,8 +231,8 @@ async def build_entry(
     Raises:
         ValueError: If entry not found, name conflict, or unknown toolset
     """
-    # Load Python toolsets
-    python_toolsets = load_toolsets_from_files(python_files)
+    # Load Python toolsets and workers in a single pass
+    python_toolsets, python_workers = load_toolsets_and_workers_from_files(python_files)
 
     # Build map of tool_name -> toolset for code entry pattern
     python_tool_map: dict[str, tuple[AbstractToolset[Any], str, str]] = {}
@@ -252,9 +246,6 @@ async def build_entry(
                     f"(from toolsets '{existing_toolset_name}' and '{toolset_name}')"
                 )
             python_tool_map[tool_name] = (toolset, tool_name, toolset_name)
-
-    # Load Python WorkerInvocable instances
-    python_workers = load_workers_from_files(python_files)
 
     if not worker_files and not python_tool_map and not python_workers:
         raise ValueError("At least one .worker or .py file with entries required")
@@ -413,22 +404,9 @@ async def run(
             return_permission_errors=return_permission_errors,
         )
         if isinstance(entry, WorkerInvocable):
-            entry = WorkerInvocable(
-                name=entry.name,
-                instructions=entry.instructions,
-                model=entry.model,
-                toolsets=wrapped_toolsets,
-                builtin_tools=entry.builtin_tools,
-                schema_in=entry.schema_in,
-                schema_out=entry.schema_out,
-            )
+            entry = replace(entry, toolsets=wrapped_toolsets)
         elif isinstance(entry, ToolInvocable):
-            entry = ToolInvocable(
-                toolset=entry.toolset,
-                tool_name=entry.tool_name,
-                toolsets=wrapped_toolsets,
-                model=entry.model,
-            )
+            entry = replace(entry, toolsets=wrapped_toolsets)
 
     # Create context from entry (entry.toolsets is already populated)
     ctx = WorkerRuntime.from_entry(

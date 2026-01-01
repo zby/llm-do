@@ -61,3 +61,34 @@ def collide(value: int) -> int:
     finally:
         for fname in files:
             os.unlink(fname)
+
+
+@pytest.mark.anyio
+async def test_build_entry_loads_python_modules_once(tmp_path: Path) -> None:
+    marker_path = tmp_path / "marker.txt"
+    module_path = tmp_path / "entry.py"
+    marker_literal = repr(str(marker_path))
+
+    module_path.write_text(
+        f"""\
+from llm_do.ctx_runtime import WorkerInvocable
+from pydantic_ai.toolsets import FunctionToolset
+
+_marker = {marker_literal}
+with open(_marker, "a", encoding="utf-8") as handle:
+    handle.write("x\\n")
+
+tools = FunctionToolset()
+
+@tools.tool
+def ping() -> str:
+    return "pong"
+
+main = WorkerInvocable(name="main", instructions="hi", toolsets=[tools])
+"""
+    )
+
+    await build_entry([], [str(module_path)], entry_name="main")
+
+    lines = marker_path.read_text(encoding="utf-8").splitlines()
+    assert lines == ["x"]

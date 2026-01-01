@@ -128,7 +128,7 @@ def example_dir_factory(tmp_path, monkeypatch):
 
 def _collect_example_files(example_dir: Path) -> tuple[list[str], list[str]]:
     worker_files = sorted(str(path) for path in example_dir.glob("*.worker"))
-    python_files = sorted(str(path) for path in example_dir.glob("*.py"))
+    python_files = sorted(str(path) for path in example_dir.glob("tools.py"))
     return worker_files, python_files
 
 

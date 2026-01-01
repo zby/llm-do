@@ -41,7 +41,7 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
     result = asyncio.run(
         run_example(
             pitchdeck_eval_example,
-            "",
+            "Process the pitch decks in input/ and write evaluations.",
             model="anthropic:claude-haiku-4-5",
             approval_callback=approve_all_callback,
         )

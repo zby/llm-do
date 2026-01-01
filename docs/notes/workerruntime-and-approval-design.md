@@ -1,13 +1,15 @@
 # WorkerRuntime and Approval Design
 
-This note consolidates design thinking around `WorkerRuntime` context injection
-and approval wrapping architecture.
+Design note covering `WorkerRuntime` context injection, approval wrapping, and
+dynamic workers.
 
 ---
 
-## 1. Context Injection for Tools
+## 1. Current State
 
-### How Runtime Flows to Tools
+### Context Injection
+
+Context injection is **implemented and working**:
 
 - The runtime context is `llm_do.ctx_runtime.WorkerRuntime`.
 - Tools receive a `RunContext[WorkerRuntime]` from pydantic-ai. The runtime is
@@ -17,8 +19,6 @@ and approval wrapping architecture.
 - Nested tool/worker calls use `ctx.deps.call(name, input)`.
 - Context access is opt-in by accepting `RunContext[WorkerRuntime]` as the first
   parameter.
-
-### Example
 
 ```python
 from pydantic_ai.tools import RunContext
@@ -32,11 +32,9 @@ async def analyze_config(ctx: RunContext[WorkerRuntime], raw: str) -> str:
     return await ctx.deps.call("config_parser", {"input": raw})
 ```
 
----
+### Approval Wrapping
 
-## 2. Approval Wrapping Architecture
-
-### Current State
+Approval wrapping is **implemented but has ergonomics issues**:
 
 - The CLI performs recursive wrapping in `llm_do/ctx_runtime/cli.py:_wrap_toolsets_with_approval`.
 - `build_entry()` resolves toolsets and returns a raw entry; `run()` wraps
@@ -51,24 +49,57 @@ async def analyze_config(ctx: RunContext[WorkerRuntime], raw: str) -> str:
 - Entry-level approval has been removed; approvals are handled only at the tool
   layer via `ApprovalToolset`.
 
-### Problem
+### Dynamic Workers
 
-Programmatic users (direct Python runs) must duplicate CLI logic to get the same
-approval behavior. This is noisy and error-prone.
+Dynamic workers are **not implemented**:
 
-### Design Goals
+- Workers are resolved at `build_entry()` time before any worker runs.
+- An LLM cannot create and invoke a new worker during execution.
+- Previously existed as `delegation` toolset with `worker_create`/`worker_call`
+  tools, but this was removed.
 
+---
+
+## 2. Requirements
+
+### Approval Wrapping
+
+**Problem**: Programmatic users (direct Python runs) must duplicate CLI logic to
+get the same approval behavior. This is noisy and error-prone.
+
+**Goals**:
 - **Ergonomics**: avoid explicit recursive wrapping in user scripts.
 - **Consistency**: match CLI semantics for approvals and error messaging.
 - **Separation**: keep approval decisions centralized (headless vs TUI, approve-all vs strict).
 - **Safety**: preserve default-deny semantics (unapproved tools must not run).
 - **Minimal churn**: avoid large refactors unless the payoff is clear.
 
+### Dynamic Workers
+
+**Problem**: Cannot create workers at runtime for bootstrapping or dynamic task
+decomposition.
+
+**Use Cases**:
+- **Bootstrapping**: LLM creates specialized workers on-the-fly for novel tasks
+- **Iterative refinement**: create → run → evaluate → refine loop
+- **Dynamic decomposition**: break complex tasks into purpose-built workers
+
+**Required Capabilities**:
+1. **`worker_create(name, instructions, ...)`** - Write a `.worker` file at runtime
+2. **`worker_call(worker, input, ...)`** - Invoke a dynamically created worker
+
+`worker_call` is needed because `ctx.deps.call(name, input)` only works for
+workers resolved at startup. Alternatives:
+- Dynamic re-resolution (complex, may have side effects)
+- Shell workaround: `llm-do new.worker "input"` (works but hacky)
+
 ---
 
-## 3. Architectural Options
+## 3. Proposed Changes
 
-### Option A: Expose a Public Helper
+### Approval Wrapping Options
+
+**Option A: Expose a Public Helper**
 
 Keep recursion, but hide it behind a small helper.
 
@@ -84,11 +115,11 @@ def wrap_entry_for_approval(
     ...
 ```
 
-**Pros**: Low risk, minimal change, makes direct Python usage shorter.
-**Cons**: Still conceptually a wrapper; does not reduce duplication across code paths.
-**When**: Immediate ergonomics without architectural changes.
+- **Pros**: Low risk, minimal change, makes direct Python usage shorter.
+- **Cons**: Still conceptually a wrapper; does not reduce duplication.
+- **When**: Immediate ergonomics without architectural changes.
 
-### Option B: Move Wrapping into `WorkerRuntime.from_entry(...)`
+**Option B: Move Wrapping into `WorkerRuntime.from_entry(...)`**
 
 `WorkerRuntime.from_entry` accepts approval configuration and wraps internally.
 
@@ -100,66 +131,39 @@ WorkerRuntime.from_entry(
 )
 ```
 
-**Pros**: Removes boilerplate, centralizes approval at the "run" boundary.
-**Cons**: Runtime becomes responsible for approval; requires careful ordering.
-**When**: Clean programmatic usage without changing toolset creation.
+- **Pros**: Removes boilerplate, centralizes approval at the "run" boundary.
+- **Cons**: Runtime becomes responsible for approval; requires careful ordering.
+- **When**: Clean programmatic usage without changing toolset creation.
 
-### Option C: Move Wrapping into `build_entry(...)`
+**Option C: Move Wrapping into `build_entry(...)`**
 
 Add approval options to `build_entry(...)` so it returns wrapped entries.
 
-```python
-entry = await build_entry(
-    worker_files, python_files, model, entry_name,
-    approval_controller=ApprovalController(mode="approve_all"),
-)
-```
+- **Pros**: Ensures every entry from loader is safe by default.
+- **Cons**: Approval config is runtime-dependent; leaks UI details into loader.
+- **When**: "Safe by default" entry objects that are ready to run.
 
-**Pros**: Ensures every entry from loader is safe by default.
-**Cons**: Approval config is runtime-dependent; leaks UI details into loader.
-**When**: "Safe by default" entry objects that are ready to run.
+**Option D: Lazy Toolset Specs**
 
-### Option D: Lazy Toolset Specs
+Keep a declarative spec and instantiate wrapped toolsets only when an approval
+controller is available.
 
-Keep a declarative spec for toolsets and instantiate wrapped toolsets only when
-an approval controller is available.
+- **Pros**: True "wrap at creation point", supports different modes cleanly.
+- **Cons**: Larger refactor affecting discovery, entry resolution, and tests.
+- **When**: Robust long-term architecture for multiple runtime modes.
 
-```python
-class ToolsetSpec:
-    def build(self, approval_controller, memory, callback) -> AbstractToolset:
-        toolset = self.factory(self.config)
-        return ApprovalToolset(inner=toolset, ...)
-```
-
-**Pros**: True "wrap at creation point", supports different modes cleanly.
-**Cons**: Larger refactor affecting discovery, entry resolution, and tests.
-**When**: Robust long-term architecture for multiple runtime modes.
-
-### Option E: Move Approval into WorkerRuntime Directly
+**Option E: Move Approval into WorkerRuntime Directly**
 
 WorkerRuntime becomes the sole approval gate; no wrapping layer.
 
-```python
-class WorkerRuntime:
-    def call_tool(...):
-        if toolset_has_needs_approval:
-            result = toolset.needs_approval(name, args, ctx)
-            if result.needs_approval: request_approval(...)
-        return toolset.call_tool(...)
-```
+- **Pros**: No wrapping at all; simpler mental model.
+- **Cons**: Deep change; more coupling between runtime and toolsets.
+- **When**: Eliminating `ApprovalToolset` as a dependency is acceptable.
 
-**Pros**: No wrapping at all; simpler mental model.
-**Cons**: Deep change; more coupling between runtime and toolsets.
-**When**: Eliminating `ApprovalToolset` as a dependency is acceptable.
-
----
-
-## 4. Recommended Approach (Option B Variant)
+### Recommended Approach for Approval (Option B Variant)
 
 Introduce a small approval policy object and move wrapping into runtime, while
 keeping CLI as the policy builder.
-
-### Implementation Steps
 
 1. **New approval policy dataclass** (runtime-level).
    - Fields: `approval_callback`, `return_permission_errors`, `memory`, `mode`.
@@ -179,51 +183,23 @@ keeping CLI as the policy builder.
    - Calls `WorkerRuntime.from_entry(..., approval_policy=...)`.
    - CLI no longer performs wrapping itself.
 
----
+### Dynamic Workers Implementation
 
-## 5. Dynamic Workers
+A new toolset (e.g., `dynamic_workers`) providing:
 
-### Problem
+- `worker_create(name, instructions, description, model?)` - creates `.worker` file
+- `worker_call(worker, input, attachments?)` - invokes the created worker
 
-Currently, workers are resolved at `build_entry()` time before any worker runs.
-This prevents runtime worker creation - an LLM cannot create and invoke a new
-worker during execution.
-
-### Use Cases
-
-- **Bootstrapping**: LLM creates specialized workers on-the-fly for novel tasks
-- **Iterative refinement**: create → run → evaluate → refine loop
-- **Dynamic decomposition**: break complex tasks into purpose-built workers
-
-### Required Capabilities
-
-1. **`worker_create(name, instructions, ...)`** - Write a `.worker` file at runtime
-2. **`worker_call(worker, input, ...)`** - Invoke a dynamically created worker
-
-`worker_call` is needed because `ctx.deps.call(name, input)` only works for
-workers that were resolved at startup. Alternatives:
-- Dynamic re-resolution (complex, may have side effects)
-- Shell workaround: `llm-do new.worker "input"` (works but hacky)
-
-### Interaction with Approval
-
-Dynamic workers need the same approval wrapping as static workers:
+**Interaction with Approval**:
 - `worker_create` itself may need approval (creating executable code)
 - Tools within the created worker need approval wrapping
-- If using `worker_call`, the runtime must wrap the new worker before invocation
-
-### Open Design Questions
-
-- Should created workers persist across runs or be ephemeral?
-- Where should generated workers be stored? (configurable output directory)
-- Should `worker_call` build a fresh `WorkerRuntime` or reuse the parent's config?
-- Can dynamic resolution eliminate the need for explicit `worker_call`?
+- `worker_call` must wrap the new worker before invocation
 
 See `docs/tasks/backlog/dynamic-workers.md` for implementation tracking.
 
 ---
 
-## 6. Open Questions
+## 4. Open Questions
 
 ### Context Injection
 - Do we want a small Protocol ("ToolContext") to type the minimal surface
@@ -238,20 +214,17 @@ See `docs/tasks/backlog/dynamic-workers.md` for implementation tracking.
 - Where should `ApprovalMemory` live: per-run policy instance, or global?
 - Is a future wrapper pipeline needed (logging/tracing), or would that be YAGNI?
 
+### Dynamic Workers
+- Should created workers persist across runs or be ephemeral?
+- Where should generated workers be stored? (configurable output directory)
+- Should `worker_call` build a fresh `WorkerRuntime` or reuse the parent's config?
+- Can dynamic resolution eliminate the need for explicit `worker_call`?
+
 ---
 
-## 7. Decision Factors
+## 5. Decision Factors
 
 - **Urgency**: Option A or B for near-term ergonomics.
 - **Scope tolerance**: Option D/E require non-trivial refactors.
 - **API clarity**: Option B offers a clean "one entry point" for runtime config.
 - **Architecture direction**: Option D is most future-proof but also most work.
-
-## Conclusion
-
-Context injection is handled by pydantic-ai via `RunContext[WorkerRuntime]`.
-Tools opt in by accepting the `RunContext` parameter, and use `ctx.deps` for
-nested calls without exposing runtime details to the model schema.
-
-For approval wrapping, Option B (move into `WorkerRuntime.from_entry`) with a
-shared helper offers the best balance of ergonomics and minimal churn.

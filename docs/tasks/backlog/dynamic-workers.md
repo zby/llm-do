@@ -26,6 +26,7 @@ Invoke a dynamically created worker.
 
 - Previously existed as `delegation` toolset (removed)
 - New toolset name: `dynamic_workers` or just `workers`
+- Design note: `docs/notes/dynamic-workers-runtime-design.md`
 - Consider: should created workers persist across runs or be ephemeral?
 - Consider: approval requirements for worker creation
 

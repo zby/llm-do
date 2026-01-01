@@ -1,7 +1,9 @@
 # WorkerRuntime and Approval Design
 
-Design note covering `WorkerRuntime` context injection, approval wrapping, and
-dynamic workers.
+Design note covering `WorkerRuntime` context injection and approval wrapping.
+
+Dynamic worker creation/invocation is split out into
+`docs/notes/dynamic-workers-runtime-design.md`.
 
 ---
 
@@ -45,18 +47,9 @@ Approval wrapping is **implemented but has ergonomics issues**:
 - The wrapper is `ApprovalToolset` from `pydantic_ai_blocking_approval`, which:
   - Calls `needs_approval()` when implemented (e.g., filesystem, shell).
   - Reads optional per-tool `_approval_config`.
-  - Uses a shared `ApprovalMemory` and an approval callback (headless or TUI).
+  - Uses an approval callback (headless or TUI), optionally wrapped with session caching.
 - Entry-level approval has been removed; approvals are handled only at the tool
   layer via `ApprovalToolset`.
-
-### Dynamic Workers
-
-Dynamic workers are **not implemented**:
-
-- Workers are resolved at `build_entry()` time before any worker runs.
-- An LLM cannot create and invoke a new worker during execution.
-- Previously existed as `delegation` toolset with `worker_create`/`worker_call`
-  tools, but this was removed.
 
 ---
 
@@ -74,28 +67,49 @@ get the same approval behavior. This is noisy and error-prone.
 - **Safety**: preserve default-deny semantics (unapproved tools must not run).
 - **Minimal churn**: avoid large refactors unless the payoff is clear.
 
-### Dynamic Workers
-
-**Problem**: Cannot create workers at runtime for bootstrapping or dynamic task
-decomposition.
-
-**Use Cases**:
-- **Bootstrapping**: LLM creates specialized workers on-the-fly for novel tasks
-- **Iterative refinement**: create → run → evaluate → refine loop
-- **Dynamic decomposition**: break complex tasks into purpose-built workers
-
-**Required Capabilities**:
-1. **`worker_create(name, instructions, ...)`** - Write a `.worker` file at runtime
-2. **`worker_call(worker, input, ...)`** - Invoke a dynamically created worker
-
-`worker_call` is needed because `ctx.deps.call(name, input)` only works for
-workers resolved at startup. Alternatives:
-- Dynamic re-resolution (complex, may have side effects)
-- Shell workaround: `llm-do new.worker "input"` (works but hacky)
-
 ---
 
 ## 3. Proposed Changes
+
+### Canonical Pipeline (Compiler Framing)
+
+The approval-wrapping debate is mostly about **phase boundaries**. Without a
+canonical “compile pipeline”, it’s easy for responsibilities to drift across
+CLI / runtime / loaders and the duplication problem reappears.
+
+Treat `llm-do` as a small compiler:
+
+- **Input**: `.worker` files, Python toolsets, CLI overrides, runtime policy
+  (model override, approval mode/callback, UI/event callbacks).
+- **Output**: an executable `WorkerInvocable | ToolInvocable` ready to run in a
+  `WorkerRuntime`.
+
+Introduce a minimal internal representation (`EntryIR`) and a pass pipeline:
+
+**`EntryIR` (minimal)**
+- Selected entry name + entry kind (worker/tool).
+- Parsed worker files (frontmatter + instructions) and their source paths.
+- Discovered Python toolsets/workers and their source paths.
+- Worker graph: worker → list of toolset refs (including worker refs).
+- Toolset configs, including per-reference `_approval_config` (see `docs/notes/per-worker-approval-config.md`).
+- Server-side tool configs.
+- Any diagnostics collected during compilation (missing refs, name conflicts, etc.).
+
+**Pass pipeline (suggested)**
+1. **Load**: parse `.worker`, load Python modules, discover toolsets/workers.
+2. **Resolve**: build the worker/tool graph and resolve toolset refs to objects.
+3. **Approval plan**: apply per-reference approval config semantics and decide
+   which toolsets need wrapping (policy is injected here).
+4. **Wrap**: produce the executable entry with `ApprovalToolset` applied (and any
+   other execution wrappers like “return PermissionError as tool result”).
+5. **Execute**: create `WorkerRuntime` and run the entry.
+
+**Why this helps**
+- CLI and programmatic usage call the same **compile** pass (no re-implementing
+  recursive wrapping logic).
+- Approval stays a pass over IR, not an ad-hoc behavior sprinkled across loaders.
+- Dynamic workers can reuse the same compile passes (create → compile → register → call).
+  See `docs/notes/dynamic-workers-runtime-design.md`.
 
 ### Approval Wrapping Options
 
@@ -106,12 +120,11 @@ Keep recursion, but hide it behind a small helper.
 ```python
 # llm_do/ctx_runtime/approval.py
 def wrap_entry_for_approval(
-    entry: ToolEntry | WorkerEntry,
+    entry: ToolInvocable | WorkerInvocable,
     *,
-    approve_all: bool,
-    approval_callback: ApprovalCallback | None = None,
-    memory: ApprovalMemory | None = None,
-) -> ToolEntry | WorkerEntry:
+    approval_callback: ApprovalCallback,
+    return_permission_errors: bool = False,
+) -> ToolInvocable | WorkerInvocable:
     ...
 ```
 
@@ -160,42 +173,55 @@ WorkerRuntime becomes the sole approval gate; no wrapping layer.
 - **Cons**: Deep change; more coupling between runtime and toolsets.
 - **When**: Eliminating `ApprovalToolset` as a dependency is acceptable.
 
-### Recommended Approach for Approval (Option B Variant)
+**Option F: Add an `EntryRunner` Boundary (SOLID)**
 
-Introduce a small approval policy object and move wrapping into runtime, while
-keeping CLI as the policy builder.
+Introduce a small “run boundary” API that owns approval wrapping, UI callbacks,
+and other execution-time policy, while keeping `WorkerRuntime` focused on
+dispatch/state.
 
-1. **New approval policy dataclass** (runtime-level).
-   - Fields: `approval_callback`, `return_permission_errors`, `memory`, `mode`.
+```python
+# llm_do/ctx_runtime/runner.py
+async def run_entry(
+    entry: ToolInvocable | WorkerInvocable,
+    prompt: str,
+    *,
+    model: str | None = None,
+    approval_policy: ApprovalPolicy | None = None,
+    on_event: EventCallback | None = None,
+    verbosity: int = 0,
+    message_history: list[Any] | None = None,
+) -> tuple[Any, WorkerRuntime]:
+    ...
+```
 
-2. **Shared helper for wrapping**.
-   - Move `_wrap_toolsets_with_approval()` to `llm_do/ctx_runtime/approval.py`.
-   - Expose `wrap_entry_for_approval(entry, policy) -> entry`.
-   - Always recurse into `WorkerInvocable.toolsets`.
-   - Skip re-wrapping if `ApprovalToolset` is already present.
+- **Pros**: Cleaner SRP/DIP; CLI + programmatic runs share one entry point; approval
+  can remain a pluggable strategy.
+- **Cons**: Adds a new public-ish API surface (but small).
+- **When**: We want a single “safe execution boundary” without pushing UI/policy into `WorkerRuntime`.
 
-3. **Runtime API change**.
-   - Add `approval_policy: ApprovalPolicy | None` to `WorkerRuntime.from_entry()`.
-   - If policy is provided, runtime wraps entry toolsets before any agent is built.
+### Recommended Approach for Approval (Compiler Pass)
 
-4. **CLI integration**.
-   - `run()` constructs `ApprovalPolicy` from flags/callbacks.
-   - Calls `WorkerRuntime.from_entry(..., approval_policy=...)`.
-   - CLI no longer performs wrapping itself.
+In the compiler framing, approval wrapping is a **pass**. The key is that CLI
+and programmatic runs share the *same compile pipeline*, rather than debating
+whether wrapping “belongs” to the loader, runtime, or CLI.
 
-### Dynamic Workers Implementation
+Concrete shape (minimal churn, SOLID-friendly):
 
-A new toolset (e.g., `dynamic_workers`) providing:
+1. **Introduce an approval policy object** (execution-time inputs).
+   - Fields: `approval_callback`, `return_permission_errors`, `cache`, `mode`.
 
-- `worker_create(name, instructions, description, model?)` - creates `.worker` file
-- `worker_call(worker, input, attachments?)` - invokes the created worker
+2. **Introduce a single compile function** (shared by CLI and programmatic runs).
+   - `compile_entry(...) -> WorkerInvocable | ToolInvocable` (optionally also returns `EntryIR` for diagnostics).
+   - Internally: `load → resolve → approval plan → wrap` using shared helpers.
 
-**Interaction with Approval**:
-- `worker_create` itself may need approval (creating executable code)
-- Tools within the created worker need approval wrapping
-- `worker_call` must wrap the new worker before invocation
+3. **Use a single run boundary** (Option F).
+   - `run_entry(...)` becomes: `entry = compile_entry(...); ctx = WorkerRuntime.from_entry(entry, ...); return await ctx.run(...)`.
+   - CLI calls `run_entry(...)` (no bespoke wrapping logic).
 
-See `docs/tasks/backlog/dynamic-workers.md` for implementation tracking.
+This keeps `WorkerRuntime` focused on execution/dispatch (SRP) and keeps approval
+as a composable policy (DIP). “Move wrapping into runtime” (Option B) is still
+possible, but it makes `WorkerRuntime` own policy concerns rather than treating
+them as compilation/execution inputs.
 
 ---
 
@@ -211,14 +237,8 @@ See `docs/tasks/backlog/dynamic-workers.md` for implementation tracking.
 - Do we support pre-wrapped toolsets, or is "runtime owns wrapping" a hard rule?
 - Should `ApprovalToolset` remain the mechanism, or move approval into
   `WorkerRuntime.call_tool()` directly?
-- Where should `ApprovalMemory` live: per-run policy instance, or global?
+- Where should the approval cache live: per-run policy instance, or global?
 - Is a future wrapper pipeline needed (logging/tracing), or would that be YAGNI?
-
-### Dynamic Workers
-- Should created workers persist across runs or be ephemeral?
-- Where should generated workers be stored? (configurable output directory)
-- Should `worker_call` build a fresh `WorkerRuntime` or reuse the parent's config?
-- Can dynamic resolution eliminate the need for explicit `worker_call`?
 
 ---
 

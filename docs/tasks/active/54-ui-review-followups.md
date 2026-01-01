@@ -10,7 +10,7 @@ ready for implementation
 Address the UI review findings by aligning streaming output and TUI rendering with headless output, and remove or replace dead UI code.
 
 ## Context
-- Relevant files/symbols: `llm_do/ui/events.py` (TextResponseEvent), `llm_do/ui/display.py` (HeadlessDisplayBackend, RichDisplayBackend), `llm_do/ui/widgets/messages.py` (ToolCallMessage, AssistantMessage, ApprovalMessage), `llm_do/ui/app.py` (LlmDoApp.CSS, approval flow)
+- Relevant files/symbols: `llm_do/ui/events.py` (TextResponseEvent), `llm_do/ui/display.py` (HeadlessDisplayBackend, RichDisplayBackend), `llm_do/ui/widgets/messages.py` (ToolCallMessage, AssistantMessage), `llm_do/ui/app.py` (LlmDoApp.CSS, approval flow)
 - Related tasks/notes/docs: `docs/notes/reviews/review-ui.md`, `docs/notes/tool-output-rendering-semantics.md`
 - How to verify / reproduce: run `llm-do` in TUI (`--tui`, `--chat`) and headless (`-vv`, `--json`) to compare streaming output and approval/tool rendering
 
@@ -26,11 +26,11 @@ Address the UI review findings by aligning streaming output and TUI rendering wi
 - [x] Make TUI tool-call formatting robust (safe JSON, truncation consistent with headless).
 - [x] Decide and implement markup handling for assistant/tool output (literal vs markup).
 - [x] Remove unused CSS (dead class blocks in `LlmDoApp.CSS`).
-- [ ] Remove or repurpose `ApprovalMessage` if approvals remain panel-only.
-- [ ] Update docs/tests as needed.
+- [x] Remove or repurpose `ApprovalMessage` if approvals remain panel-only.
+- [x] Update docs/tests as needed.
 
 ## Current State
-Streaming parity decisions recorded; tool formatting, literal rendering, and CSS cleanup implemented. `ApprovalMessage` cleanup remains open.
+All scoped UI review followups implemented; task ready to close or move to completed.
 
 ## Notes
 - Findings recorded in `docs/notes/reviews/review-ui.md`.

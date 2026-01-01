@@ -1,6 +1,5 @@
 """UI widgets for the Textual TUI."""
 from .messages import (
-    ApprovalMessage,
     AssistantMessage,
     BaseMessage,
     MessageContainer,
@@ -10,7 +9,6 @@ from .messages import (
 )
 
 __all__ = [
-    "ApprovalMessage",
     "AssistantMessage",
     "BaseMessage",
     "MessageContainer",

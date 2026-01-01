@@ -266,51 +266,6 @@ def _format_approval_request(
     return "\n".join(lines)
 
 
-class ApprovalMessage(BaseMessage):
-    """Widget for displaying approval requests."""
-
-    DEFAULT_CSS = """
-    ApprovalMessage {
-        background: $error-darken-3;
-        border: solid $error;
-    }
-
-    ApprovalMessage .title {
-        text-style: bold;
-        color: $error;
-    }
-
-    ApprovalMessage .options {
-        margin-top: 1;
-    }
-    """
-
-    def __init__(
-        self,
-        request: ApprovalRequest,
-        queue_index: int | None = None,
-        queue_total: int | None = None,
-        **kwargs: Any,
-    ) -> None:
-        self._request = request
-        self._queue_index = queue_index
-        self._queue_total = queue_total
-        content = _format_approval_request(request, queue_index, queue_total)
-        super().__init__(content, **kwargs)
-
-    def set_request(
-        self,
-        request: ApprovalRequest,
-        queue_index: int | None = None,
-        queue_total: int | None = None,
-    ) -> None:
-        """Update the displayed approval request."""
-        self._request = request
-        self._queue_index = queue_index
-        self._queue_total = queue_total
-        self.update(_format_approval_request(request, queue_index, queue_total))
-
-
 class ApprovalPanel(Static):
     """Pinned approval panel above the input box."""
 
@@ -422,19 +377,6 @@ class MessageContainer(ScrollableContainer):
         """Add an error message."""
         self._current_assistant = None  # End any streaming
         msg = ErrorMessage(message, error_type)
-        self.mount(msg)
-        self.scroll_end(animate=False)
-        return msg
-
-    def add_approval_request(
-        self,
-        request: ApprovalRequest,
-        queue_index: int | None = None,
-        queue_total: int | None = None,
-    ) -> ApprovalMessage:
-        """Add an approval request message."""
-        self._current_assistant = None
-        msg = ApprovalMessage(request, queue_index=queue_index, queue_total=queue_total)
         self.mount(msg)
         self.scroll_end(animate=False)
         return msg

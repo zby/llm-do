@@ -557,16 +557,5 @@ class ApprovalRequestEvent(UIEvent):
             "args": self.args,
         }
 
-    def create_widget(self) -> "Widget":
-        from pydantic_ai_blocking_approval import ApprovalRequest
-
-        from llm_do.ui.widgets.messages import ApprovalMessage
-
-        # Handle case where request is None by reconstructing from fields
-        if self.request is None:
-            self.request = ApprovalRequest(
-                tool_name=self.tool_name,
-                tool_args=self.args,
-                description=self.reason,
-            )
-        return ApprovalMessage(self.request)
+    def create_widget(self) -> "Widget | None":
+        return None

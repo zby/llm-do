@@ -105,8 +105,10 @@ Worker Events -> parse_event -> UIEvent queue -> TextualDisplayBackend -> LlmDoA
                                                             |
                                                             v
                                                     MessageContainer
-                                                        | | |
-                                             Assistant  ToolCall  Approval
+                                                        | |
+                                             Assistant  ToolCall
+                                                       |
+                                                  ApprovalPanel
 ```
 
 ### Widgets
@@ -116,7 +118,7 @@ Worker Events -> parse_event -> UIEvent queue -> TextualDisplayBackend -> LlmDoA
 - `ToolCallMessage`: Tool invocation display
 - `ToolResultMessage`: Tool result display
 - `StatusMessage`: Status updates
-- `ApprovalMessage`: Interactive approval requests
+- `ApprovalPanel`: Pinned approval requests panel
 
 ### Output Modes
 

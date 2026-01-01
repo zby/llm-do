@@ -1,7 +1,6 @@
 """Tests for display backends (headless, JSON, etc.)."""
 import io
 
-
 from llm_do.ui.display import HeadlessDisplayBackend, JsonDisplayBackend
 from llm_do.ui.events import (
     DeferredToolEvent,

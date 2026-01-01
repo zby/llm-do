@@ -22,7 +22,8 @@ class TestContextEventCallback:
     def test_child_context_inherits_on_event(self):
         """Test that child contexts inherit on_event callback."""
         events = []
-        callback = lambda e: events.append(e)
+        def callback(e):
+            return events.append(e)
         ctx = WorkerRuntime(
             toolsets=[],
             model="test-model",

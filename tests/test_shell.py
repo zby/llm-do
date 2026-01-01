@@ -1,7 +1,6 @@
 """Tests for shell command execution and pattern matching."""
 from __future__ import annotations
 
-
 import pytest
 
 from llm_do.shell import (

@@ -23,4 +23,4 @@ Record findings in `docs/notes/reviews/review-config-auth.md`.
 
 ## Last Run
 
-(not yet run)
+2026-01 (reviewed config overrides + model selection + OAuth; main gaps: model precedence docs mismatch, OAuth overrides not integrated)

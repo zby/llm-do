@@ -22,4 +22,4 @@ Record findings in `docs/notes/reviews/review-ui.md`.
 
 ## Last Run
 
-(not yet run)
+2026-01 (streaming + truncation + literal rendering look consistent; remaining: minor rendering responsibility duplication)

@@ -23,4 +23,4 @@ Record findings in `docs/notes/reviews/review-toolsets.md`.
 
 ## Last Run
 
-(not yet run)
+2026-01 (reviewed built-in toolsets + loader; main issue: shell whitelist matching is raw-prefix and can overmatch)

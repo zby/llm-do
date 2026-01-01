@@ -1,6 +1,6 @@
 # Pitch Deck Evaluation (Code Entry Point)
 
-This example demonstrates the **code entry point** pattern using `ctx_runtime` where Python code serves as the entry point instead of an LLM orchestrator.
+This example demonstrates the **code entry point** pattern using `runtime` where Python code serves as the entry point instead of an LLM orchestrator.
 
 ## The Pattern
 

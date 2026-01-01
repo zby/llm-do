@@ -1,4 +1,4 @@
-"""Code entry point for pitch deck evaluation using ctx_runtime.
+"""Code entry point for pitch deck evaluation using runtime.
 
 This example demonstrates the tool-entry-point pattern where Python code
 is the entry point instead of an LLM orchestrator. The main() function

@@ -4,15 +4,33 @@ from __future__ import annotations
 import inspect
 import json
 from collections.abc import Awaitable, Callable
-from typing import Any, Optional
+from dataclasses import dataclass, replace
+from typing import Any, Literal, Optional
 
 from pydantic_ai.toolsets import AbstractToolset
-from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
+from pydantic_ai_blocking_approval import (
+    ApprovalDecision,
+    ApprovalRequest,
+    ApprovalToolset,
+)
+
+from .invocables import ToolInvocable, WorkerInvocable
 
 ApprovalCallback = Callable[
     [ApprovalRequest],
     ApprovalDecision | Awaitable[ApprovalDecision],
 ]
+
+
+@dataclass(frozen=True)
+class ApprovalPolicy:
+    """Execution-time approval policy configuration."""
+
+    mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
+    approval_callback: ApprovalCallback | None = None
+    return_permission_errors: bool = False
+    cache: dict[Any, ApprovalDecision] | None = None
+    cache_key_fn: Callable[[ApprovalRequest], Any] | None = None
 
 
 class ApprovalDeniedResultToolset(AbstractToolset):
@@ -135,3 +153,124 @@ def make_tui_approval_callback(
         return decision
 
     return callback
+
+
+def resolve_approval_callback(policy: ApprovalPolicy) -> ApprovalCallback:
+    """Return the concrete approval callback for a policy."""
+    if policy.mode == "approve_all":
+        return make_headless_approval_callback(approve_all=True, reject_all=False)
+    if policy.mode == "reject_all":
+        return make_headless_approval_callback(approve_all=False, reject_all=True)
+    if policy.mode != "prompt":
+        raise ValueError(f"Unknown approval mode: {policy.mode}")
+
+    if policy.approval_callback is None:
+        return make_headless_approval_callback(approve_all=False, reject_all=False)
+
+    return make_tui_approval_callback(
+        policy.approval_callback,
+        approve_all=False,
+        reject_all=False,
+        cache=policy.cache,
+        cache_key_fn=policy.cache_key_fn or _default_cache_key,
+    )
+
+
+def _wrap_toolsets_with_approval(
+    toolsets: list[AbstractToolset[Any]],
+    approval_callback: ApprovalCallback,
+    return_permission_errors: bool = False,
+    _visited_workers: dict[int, WorkerInvocable] | None = None,
+) -> list[AbstractToolset[Any]]:
+    """Wrap toolsets with ApprovalToolset for approval handling.
+
+    ApprovalToolset auto-detects if the inner toolset has needs_approval()
+    and delegates to it. Otherwise it uses optional config and defaults to
+    "needs approval" (secure by default).
+
+    Recurses into nested WorkerInvocable.toolsets so tool calls inside delegated
+    workers are also gated.
+    """
+    wrapped: list[AbstractToolset[Any]] = []
+    if _visited_workers is None:
+        _visited_workers = {}
+
+    def wrap_worker(worker: WorkerInvocable, callback: ApprovalCallback) -> WorkerInvocable:
+        existing = _visited_workers.get(id(worker))
+        if existing is not None:
+            return existing
+        wrapped_worker = replace(worker, toolsets=[])
+        _visited_workers[id(worker)] = wrapped_worker
+        if worker.toolsets:
+            wrapped_worker.toolsets = _wrap_toolsets_with_approval(
+                worker.toolsets,
+                callback,
+                return_permission_errors=return_permission_errors,
+                _visited_workers=_visited_workers,
+            )
+        return wrapped_worker
+
+    for toolset in toolsets:
+        approved_toolset: AbstractToolset[Any]
+        # Avoid double-wrapping toolsets that already have approval handling.
+        if isinstance(toolset, ApprovalToolset):
+            inner = getattr(toolset, "_inner", None)
+            if isinstance(inner, WorkerInvocable):
+                inner_callback = getattr(toolset, "_approval_callback", approval_callback)
+                wrapped_inner = wrap_worker(inner, inner_callback)
+                if wrapped_inner is not inner:
+                    toolset = ApprovalToolset(
+                        inner=wrapped_inner,
+                        approval_callback=inner_callback,
+                        config=getattr(toolset, "config", None),
+                    )
+            approved_toolset = toolset
+            if return_permission_errors:
+                approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
+            wrapped.append(approved_toolset)
+            continue
+
+        # Recursively wrap toolsets inside WorkerInvocable
+        if isinstance(toolset, WorkerInvocable):
+            toolset = wrap_worker(toolset, approval_callback)
+
+        # Get any stored approval config from the toolset
+        config = getattr(toolset, "_approval_config", None)
+
+        # Wrap all toolsets with ApprovalToolset (secure by default)
+        # - Toolsets with needs_approval() method: ApprovalToolset delegates to it
+        # - Toolsets with _approval_config: uses config for per-tool pre-approval
+        # - Other toolsets: all tools require approval unless config pre-approves
+        approved_toolset = ApprovalToolset(
+            inner=toolset,
+            approval_callback=approval_callback,
+            config=config,
+        )
+        if return_permission_errors:
+            approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
+        wrapped.append(approved_toolset)
+
+    return wrapped
+
+
+def wrap_entry_for_approval(
+    entry: Any,
+    approval_policy: ApprovalPolicy,
+) -> Any:
+    """Return entry with toolsets wrapped for approval handling."""
+    toolsets = list(getattr(entry, "toolsets", []) or [])
+    if not toolsets:
+        return entry
+
+    callback = resolve_approval_callback(approval_policy)
+    wrapped_toolsets = _wrap_toolsets_with_approval(
+        toolsets,
+        callback,
+        return_permission_errors=approval_policy.return_permission_errors,
+    )
+
+    if isinstance(entry, WorkerInvocable):
+        return replace(entry, toolsets=wrapped_toolsets)
+    if isinstance(entry, ToolInvocable):
+        return replace(entry, toolsets=wrapped_toolsets)
+    return entry

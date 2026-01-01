@@ -6,6 +6,7 @@ This module provides a new runtime architecture that:
 - Loads tools from Python files and worker declarations
 - Provides the `llm-do` CLI entry point
 """
+from .approval_wrappers import ApprovalPolicy, wrap_entry_for_approval
 from .builtins import BUILTIN_TOOLSETS, get_builtin_toolset
 from .ctx import Invocable, ModelType, ToolsProxy, WorkerRuntime
 from .discovery import (
@@ -16,6 +17,7 @@ from .discovery import (
     load_workers_from_files,
 )
 from .invocables import ToolInvocable, WorkerInvocable
+from .runner import run_entry
 from .worker_file import WorkerFile, load_worker_file, parse_worker_file
 
 __all__ = [
@@ -24,6 +26,9 @@ __all__ = [
     "ToolsProxy",
     "Invocable",
     "ModelType",
+    "ApprovalPolicy",
+    "wrap_entry_for_approval",
+    "run_entry",
     # Entries
     "WorkerInvocable",
     "ToolInvocable",

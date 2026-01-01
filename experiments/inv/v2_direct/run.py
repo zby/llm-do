@@ -13,10 +13,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from pydantic_ai_blocking_approval import ApprovalToolset
-
-from llm_do.ctx_runtime import WorkerInvocable, WorkerRuntime
-from llm_do.ctx_runtime.approval_wrappers import make_headless_approval_callback
+from llm_do.ctx_runtime import ApprovalPolicy, WorkerInvocable, run_entry
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.display import HeadlessDisplayBackend
 from llm_do.ui.events import UIEvent
@@ -76,37 +73,6 @@ def build_workers() -> tuple[WorkerInvocable, WorkerInvocable]:
 # Runtime
 # =============================================================================
 
-def wrap_with_approval(
-    toolsets: list,
-    approve_all: bool,
-) -> list:
-    """Wrap toolsets with ApprovalToolset for tool-level approval."""
-    approval_callback = make_headless_approval_callback(
-        approve_all=approve_all,
-        reject_all=False,
-        deny_note="Set APPROVE_ALL=True to auto-approve.",
-    )
-
-    wrapped = []
-    for toolset in toolsets:
-        # Recursively wrap nested toolsets in WorkerInvocable
-        if isinstance(toolset, WorkerInvocable) and toolset.toolsets:
-            toolset = WorkerInvocable(
-                name=toolset.name,
-                instructions=toolset.instructions,
-                model=toolset.model,
-                toolsets=wrap_with_approval(toolset.toolsets, approve_all),
-                builtin_tools=toolset.builtin_tools,
-                schema_in=toolset.schema_in,
-                schema_out=toolset.schema_out,
-            )
-        wrapped.append(ApprovalToolset(
-            inner=toolset,
-            approval_callback=approval_callback,
-        ))
-    return wrapped
-
-
 async def run_evaluation() -> str:
     """Run the pitch deck evaluation workflow."""
     main, _ = build_workers()
@@ -117,29 +83,17 @@ async def run_evaluation() -> str:
     def on_event(event: UIEvent) -> None:
         backend.display(event)
 
-    # Wrap toolsets with approval
-    wrapped_toolsets = wrap_with_approval(main.toolsets, APPROVE_ALL)
-
-    # Create new main entry with wrapped toolsets
-    main = WorkerInvocable(
-        name=main.name,
-        instructions=main.instructions,
-        model=main.model,
-        toolsets=wrapped_toolsets,
-        builtin_tools=main.builtin_tools,
-        schema_in=main.schema_in,
-        schema_out=main.schema_out,
+    approval_policy = ApprovalPolicy(
+        mode="approve_all" if APPROVE_ALL else "prompt",
     )
-
-    # Create runtime and run
-    runtime = WorkerRuntime.from_entry(
-        main,
+    result, _ctx = await run_entry(
+        entry=main,
+        prompt=PROMPT,
         model=MODEL,
+        approval_policy=approval_policy,
         on_event=on_event if VERBOSITY > 0 else None,
         verbosity=VERBOSITY,
     )
-
-    result = await runtime.run(main, {"input": PROMPT})
     return result
 
 

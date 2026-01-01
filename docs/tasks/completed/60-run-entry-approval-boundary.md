@@ -1,7 +1,7 @@
 # Run Entry Approval Boundary
 
 ## Status
-ready for implementation
+ready for validation
 
 ## Prerequisites
 - [ ] none
@@ -38,16 +38,16 @@ Introduce a single `run_entry(...)` boundary that applies approval wrapping via 
 - Docs/examples: search `rg -n \"ctx_runtime\\.cli import run|build_entry\\(\" docs examples` and update any direct usage to `run_entry(...)`.
 
 ## Tasks
-- [ ] Define `ApprovalPolicy` (schema + mapping from CLI flags) and export it.
-- [ ] Add `wrap_entry_for_approval(...)` helper that mirrors current recursive wrapping behavior.
-- [ ] Add `run_entry(...)` as the single execution boundary and require explicit `ApprovalPolicy`.
-- [ ] Update CLI to call `run_entry(...)` (remove bespoke wrapping logic in `cli.run` and TUI/headless flows).
-- [ ] Update programmatic entry points/docs/examples to use `run_entry(...)` (see Call Sites to Update).
-- [ ] Add/update tests covering approvals and run boundary behavior.
+- [x] Define `ApprovalPolicy` (schema + mapping from CLI flags) and export it.
+- [x] Add `wrap_entry_for_approval(...)` helper that mirrors current recursive wrapping behavior.
+- [x] Add `run_entry(...)` as the single execution boundary and require explicit `ApprovalPolicy`.
+- [x] Update CLI to call `run_entry(...)` (remove bespoke wrapping logic in `cli.run` and TUI/headless flows).
+- [x] Update programmatic entry points/docs/examples to use `run_entry(...)` (see Call Sites to Update).
+- [x] Add/update tests covering approvals and run boundary behavior.
 - [ ] Run lint/typecheck/tests.
 
 ## Current State
-Design decisions locked; task created and ready for implementation.
+Implementation complete; ruff and mypy pass. Pytest still needs a full run (timed out during execution).
 
 ## Notes
 - Avoid pre-wrapped toolsets; keep wrapping explicit in the run boundary.

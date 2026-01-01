@@ -24,8 +24,11 @@ from typing import Any, Callable
 import pytest
 
 from llm_do.ctx_runtime import WorkerRuntime
-from llm_do.ctx_runtime.approval_wrappers import make_headless_approval_callback
-from llm_do.ctx_runtime.cli import _wrap_toolsets_with_approval, build_entry
+from llm_do.ctx_runtime.approval_wrappers import (
+    _wrap_toolsets_with_approval,
+    make_headless_approval_callback,
+)
+from llm_do.ctx_runtime.cli import build_entry
 
 # Mark all tests in this directory as live tests
 pytestmark = pytest.mark.live

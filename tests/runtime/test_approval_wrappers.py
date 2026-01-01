@@ -4,8 +4,10 @@ from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from llm_do.ctx_runtime.approval_wrappers import (
     ApprovalDeniedResultToolset,
+    ApprovalPolicy,
     make_headless_approval_callback,
     make_tui_approval_callback,
+    resolve_approval_callback,
 )
 
 
@@ -134,3 +136,14 @@ async def test_make_tui_approval_callback_reject_all_short_circuits():
     decision = await cb(ApprovalRequest(tool_name="t", tool_args={}, description="x"))
     assert decision.approved is False
     assert decision.note == "--reject-all"
+
+
+def test_resolve_approval_callback_prompt_denies_by_default():
+    cb = resolve_approval_callback(ApprovalPolicy(mode="prompt"))
+    decision = cb(ApprovalRequest(tool_name="t", tool_args={}, description="x"))
+    assert decision.approved is False
+
+
+def test_resolve_approval_callback_invalid_mode():
+    with pytest.raises(ValueError, match="Unknown approval mode"):
+        resolve_approval_callback(ApprovalPolicy(mode="nope"))

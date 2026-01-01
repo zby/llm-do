@@ -38,7 +38,8 @@ For live UI updates in TunaCode, reuse llm-do's event parsing layer:
 # tunacode/integrations/llm_do_bridge.py (concept)
 from typing import Awaitable, Callable
 
-from llm_do.ctx_runtime.cli import run as run_ctx_runtime
+from llm_do.ctx_runtime import ApprovalPolicy, run_entry
+from llm_do.ctx_runtime.cli import build_entry
 from llm_do.ui.events import UIEvent
 from llm_do.ui.parser import parse_event
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
@@ -65,14 +66,25 @@ class LlmDoBridge:
             self.on_event(ui_event)
 
     async def run(self, worker_name: str, task: str) -> str:
-        result, _ctx = await run_ctx_runtime(
-            files=self.files,
-            prompt=task,
+        worker_files = [f for f in self.files if f.endswith(".worker")]
+        python_files = [f for f in self.files if f.endswith(".py")]
+        entry = await build_entry(
+            worker_files,
+            python_files,
             model=self.model,
             entry_name=worker_name,
-            approve_all=self.approval_callback is None,
-            on_event=self._on_event if self.on_event else None,
+            set_overrides=None,
+        )
+        approval_policy = ApprovalPolicy(
+            mode="approve_all" if self.approval_callback is None else "prompt",
             approval_callback=self.approval_callback,
+        )
+        result, _ctx = await run_entry(
+            entry=entry,
+            prompt=task,
+            model=self.model,
+            approval_policy=approval_policy,
+            on_event=self._on_event if self.on_event else None,
         )
         return str(result)
 

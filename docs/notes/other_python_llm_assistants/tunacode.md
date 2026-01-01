@@ -171,11 +171,15 @@ def save_session(self) -> None:
 ```python
 async def call_llm_do_worker(worker_name: str, task: str) -> str:
     """Delegate to an llm-do worker via ctx_runtime."""
-    result, _ctx = await run_ctx_runtime(
-        files=["main.worker", "tools.py"],
-        prompt=task,
+    entry = await build_entry(
+        worker_files=["main.worker"],
+        python_files=["tools.py"],
         entry_name=worker_name,
-        approve_all=True,
+    )
+    result, _ctx = await run_entry(
+        entry=entry,
+        prompt=task,
+        approval_policy=ApprovalPolicy(mode="approve_all"),
     )
     return str(result)
 ```

@@ -25,9 +25,8 @@ import asyncio
 import io
 import os
 import sys
-from dataclasses import replace
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, Callable, Literal, cast
 
 from pydantic_ai.builtin_tools import (
     CodeExecutionTool,
@@ -36,12 +35,7 @@ from pydantic_ai.builtin_tools import (
     WebSearchTool,
 )
 from pydantic_ai.toolsets import AbstractToolset
-from pydantic_ai_blocking_approval import (
-    ApprovalCallback,
-    ApprovalDecision,
-    ApprovalRequest,
-    ApprovalToolset,
-)
+from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from ..toolset_loader import ToolsetBuildContext, build_toolsets
 from ..ui.display import (
@@ -51,19 +45,15 @@ from ..ui.display import (
     RichDisplayBackend,
     TextualDisplayBackend,
 )
-from ..ui.events import ErrorEvent, UIEvent, UserMessageEvent
+from ..ui.events import ErrorEvent, UIEvent
 from ..ui.parser import parse_approval_request
-from .approval_wrappers import (
-    ApprovalDeniedResultToolset,
-    make_headless_approval_callback,
-    make_tui_approval_callback,
-)
+from .approval_wrappers import ApprovalCallback, ApprovalPolicy
 from .ctx import EventCallback, Invocable, WorkerRuntime
 from .discovery import (
     load_toolsets_and_workers_from_files,
 )
-from .input_utils import coerce_worker_input
 from .invocables import ToolInvocable, WorkerInvocable
+from .runner import run_entry
 from .worker_file import load_worker_file
 
 ENV_MODEL_VAR = "LLM_DO_MODEL"
@@ -104,90 +94,6 @@ def _build_builtin_tools(configs: list[dict[str, Any]]) -> list[Any]:
             )
         tools.append(factory(config))
     return tools
-
-
-def _wrap_toolsets_with_approval(
-    toolsets: list[AbstractToolset[Any]],
-    approval_callback: ApprovalCallback,
-    return_permission_errors: bool = False,
-    _visited_workers: dict[int, WorkerInvocable] | None = None,
-) -> list[AbstractToolset[Any]]:
-    """Wrap toolsets with ApprovalToolset for approval handling.
-
-    ApprovalToolset auto-detects if the inner toolset has needs_approval()
-    and delegates to it. Otherwise it uses optional config and defaults to
-    "needs approval" (secure by default).
-
-    Recurses into nested WorkerInvocable.toolsets so tool calls inside delegated
-    workers are also gated.
-
-    Args:
-        toolsets: List of toolsets to wrap
-        approval_callback: Callback invoked when approval is needed
-        return_permission_errors: If True, return tool results on PermissionError
-
-    Returns:
-        List of wrapped toolsets
-    """
-    wrapped: list[AbstractToolset[Any]] = []
-    if _visited_workers is None:
-        _visited_workers = {}
-
-    def wrap_worker(worker: WorkerInvocable, callback: ApprovalCallback) -> WorkerInvocable:
-        existing = _visited_workers.get(id(worker))
-        if existing is not None:
-            return existing
-        wrapped_worker = replace(worker, toolsets=[])
-        _visited_workers[id(worker)] = wrapped_worker
-        if worker.toolsets:
-            wrapped_worker.toolsets = _wrap_toolsets_with_approval(
-                worker.toolsets,
-                callback,
-                return_permission_errors=return_permission_errors,
-                _visited_workers=_visited_workers,
-            )
-        return wrapped_worker
-    for toolset in toolsets:
-        approved_toolset: AbstractToolset[Any]
-        # Avoid double-wrapping toolsets that already have approval handling.
-        if isinstance(toolset, ApprovalToolset):
-            inner = getattr(toolset, "_inner", None)
-            if isinstance(inner, WorkerInvocable):
-                inner_callback = getattr(toolset, "_approval_callback", approval_callback)
-                wrapped_inner = wrap_worker(inner, inner_callback)
-                if wrapped_inner is not inner:
-                    toolset = ApprovalToolset(
-                        inner=wrapped_inner,
-                        approval_callback=inner_callback,
-                        config=getattr(toolset, "config", None),
-                    )
-            approved_toolset = toolset
-            if return_permission_errors:
-                approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
-            wrapped.append(approved_toolset)
-            continue
-
-        # Recursively wrap toolsets inside WorkerInvocable
-        if isinstance(toolset, WorkerInvocable):
-            toolset = wrap_worker(toolset, approval_callback)
-
-        # Get any stored approval config from the toolset
-        config = getattr(toolset, "_approval_config", None)
-
-        # Wrap all toolsets with ApprovalToolset (secure by default)
-        # - Toolsets with needs_approval() method: ApprovalToolset delegates to it
-        # - Toolsets with _approval_config: uses config for per-tool pre-approval
-        # - Other toolsets: all tools require approval unless config pre-approves
-        approved_toolset = ApprovalToolset(
-            inner=toolset,
-            approval_callback=approval_callback,
-            config=config,
-        )
-        if return_permission_errors:
-            approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
-        wrapped.append(approved_toolset)
-
-    return wrapped
 
 
 async def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
@@ -360,7 +266,7 @@ async def run(
     return_permission_errors: bool = False,
     message_history: list[Any] | None = None,
     set_overrides: list[str] | None = None,
-) -> tuple[str, WorkerRuntime]:
+) -> tuple[Any, WorkerRuntime]:
     """Load entries and run with the given prompt.
 
     Args:
@@ -391,44 +297,28 @@ async def run(
     resolved_entry_name = entry_name or "main"
     entry = await build_entry(worker_files, python_files, model, resolved_entry_name, set_overrides)
 
-    # Wrap toolsets with ApprovalToolset for tool-level approval
-    # This handles needs_approval() on toolsets like FileSystemToolset, ShellToolset
-    tool_approval_callback = approval_callback or make_headless_approval_callback(
-        approve_all=approve_all,
-        reject_all=reject_all,
-    )
-    if hasattr(entry, "toolsets") and entry.toolsets:
-        wrapped_toolsets = _wrap_toolsets_with_approval(
-            entry.toolsets,
-            tool_approval_callback,
-            return_permission_errors=return_permission_errors,
-        )
-        if isinstance(entry, WorkerInvocable):
-            entry = replace(entry, toolsets=wrapped_toolsets)
-        elif isinstance(entry, ToolInvocable):
-            entry = replace(entry, toolsets=wrapped_toolsets)
+    approval_mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
+    if approve_all:
+        approval_mode = "approve_all"
+    elif reject_all:
+        approval_mode = "reject_all"
 
-    # Create context from entry (entry.toolsets is already populated)
+    approval_policy = ApprovalPolicy(
+        mode=approval_mode,
+        approval_callback=approval_callback,
+        return_permission_errors=return_permission_errors,
+    )
+
     invocable_entry = cast(Invocable, entry)
-    ctx = WorkerRuntime.from_entry(
+    return await run_entry(
         invocable_entry,
+        prompt,
         model=model,
-        messages=list(message_history) if message_history else None,
+        approval_policy=approval_policy,
         on_event=on_event,
         verbosity=verbosity,
+        message_history=message_history,
     )
-
-    if isinstance(entry, WorkerInvocable):
-        input_data = coerce_worker_input(entry.schema_in, prompt)
-    else:
-        input_data = {"input": prompt}
-
-    if on_event is not None:
-        on_event(UserMessageEvent(worker=getattr(entry, "name", "worker"), content=prompt))
-
-    result = await ctx.run(invocable_entry, input_data)
-
-    return result, ctx
 
 
 async def _run_tui_mode(
@@ -505,12 +395,6 @@ async def _run_tui_mode(
         render_queue.put_nowait(approval_event)
         return await approval_queue.get()
 
-    tui_approval_callback = make_tui_approval_callback(
-        _prompt_approval_in_tui,
-        approve_all=approve_all,
-        reject_all=reject_all,
-    )
-
     async def run_turn(
         user_prompt: str,
         message_history: list[Any] | None,
@@ -532,7 +416,7 @@ async def _run_tui_mode(
                 reject_all=reject_all,
                 on_event=on_event,
                 verbosity=verbosity,
-                approval_callback=tui_approval_callback,
+                approval_callback=_prompt_approval_in_tui,
                 return_permission_errors=True,
                 message_history=message_history,
                 set_overrides=set_overrides,

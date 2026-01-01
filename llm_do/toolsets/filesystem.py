@@ -11,11 +11,12 @@ is at user's own risk.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
+from pydantic_ai.toolsets.abstract import SchemaValidatorProt
 from pydantic_ai_blocking_approval import (
     ApprovalConfig,
     ApprovalResult,
@@ -366,7 +367,7 @@ class FileSystemToolset(AbstractToolset[Any]):
                 parameters_json_schema=read_file_schema,
             ),
             max_retries=self._max_retries,
-            args_validator=TypeAdapter(dict[str, Any]).validator,
+            args_validator=cast(SchemaValidatorProt, TypeAdapter(dict[str, Any]).validator),
         )
 
         tools["write_file"] = ToolsetTool(
@@ -377,7 +378,7 @@ class FileSystemToolset(AbstractToolset[Any]):
                 parameters_json_schema=write_file_schema,
             ),
             max_retries=self._max_retries,
-            args_validator=TypeAdapter(dict[str, Any]).validator,
+            args_validator=cast(SchemaValidatorProt, TypeAdapter(dict[str, Any]).validator),
         )
 
         tools["list_files"] = ToolsetTool(
@@ -388,7 +389,7 @@ class FileSystemToolset(AbstractToolset[Any]):
                 parameters_json_schema=list_files_schema,
             ),
             max_retries=self._max_retries,
-            args_validator=TypeAdapter(dict[str, Any]).validator,
+            args_validator=cast(SchemaValidatorProt, TypeAdapter(dict[str, Any]).validator),
         )
 
         return tools
@@ -419,4 +420,3 @@ class FileSystemToolset(AbstractToolset[Any]):
 
         else:
             raise ValueError(f"Unknown tool: {name}")
-

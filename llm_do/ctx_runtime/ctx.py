@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Optional, Protocol
+from typing import Any, Awaitable, Callable, Optional, Protocol, cast
 
+from pydantic_ai.models import Model
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
@@ -22,7 +23,13 @@ from .input_utils import coerce_worker_input
 
 ModelType = str
 EventCallback = Callable[[UIEvent], None]
-_UNSET = object()
+
+
+class _UnsetType:
+    pass
+
+
+_UNSET = _UnsetType()
 
 
 class ToolsProxy:
@@ -34,7 +41,7 @@ class ToolsProxy:
     def __init__(self, ctx: "WorkerRuntime") -> None:
         self._ctx = ctx
 
-    def __getattr__(self, name: str) -> Callable[[Any], Awaitable[Any]]:
+    def __getattr__(self, name: str) -> Callable[..., Awaitable[Any]]:
         async def _call(**kwargs: Any) -> Any:
             return await self._ctx.call(name, kwargs)
 
@@ -186,7 +193,7 @@ class WorkerRuntime:
         *,
         config: RuntimeConfig | None = None,
         frame: CallFrame | None = None,
-        cli_model: ModelType | None | object = _UNSET,
+        cli_model: ModelType | None | _UnsetType = _UNSET,
         max_depth: int = 5,
         depth: int = 0,
         prompt: str = "",
@@ -203,11 +210,14 @@ class WorkerRuntime:
         else:
             if toolsets is None or model is None:
                 raise TypeError("WorkerRuntime requires 'toolsets' and 'model' when 'config'/'frame' are not provided")
+            resolved_cli_model: ModelType | None
             if cli_model is _UNSET:
-                cli_model = model
+                resolved_cli_model = model
+            else:
+                resolved_cli_model = cast(ModelType | None, cli_model)
             runtime_usage = usage or UsageCollector()
             self.config = RuntimeConfig(
-                cli_model=cli_model if cli_model is not _UNSET else None,
+                cli_model=resolved_cli_model,
                 max_depth=max_depth,
                 on_event=on_event,
                 verbosity=verbosity,
@@ -285,7 +295,7 @@ class WorkerRuntime:
         """Construct a RunContext for direct tool invocation."""
         return RunContext(
             deps=deps_ctx,
-            model=resolved_model,
+            model=cast(Model, resolved_model),
             usage=self._create_usage(),
             prompt=deps_ctx.prompt,
             messages=list(deps_ctx.messages),
@@ -383,7 +393,7 @@ class WorkerRuntime:
 
                 return result
 
-        available = []
+        available: list[str] = []
         for toolset in self.toolsets:
             tools = await toolset.get_tools(run_ctx)
             available.extend(tools.keys())

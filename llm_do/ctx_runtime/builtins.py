@@ -9,14 +9,18 @@ Built-in toolsets:
 """
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Any, Protocol
 
 from pydantic_ai.toolsets import AbstractToolset
 
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.toolsets.shell import ShellToolset
 
-BUILTIN_TOOLSETS: dict[str, Type[AbstractToolset[Any]]] = {
+
+class ToolsetFactory(Protocol):
+    def __call__(self, config: dict[str, Any]) -> AbstractToolset[Any]: ...
+
+BUILTIN_TOOLSETS: dict[str, ToolsetFactory] = {
     "shell": ShellToolset,
     "filesystem": FileSystemToolset,
 }

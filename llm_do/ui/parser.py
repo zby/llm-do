@@ -127,43 +127,43 @@ def parse_event(payload: dict[str, Any]) -> UIEvent:
         return StatusEvent(worker=worker)
 
     if isinstance(event, FunctionToolCallEvent):
-        part = event.part
+        tool_part = event.part
         return ToolCallEvent(
             worker=worker,
-            tool_name=getattr(part, "tool_name", "tool"),
-            tool_call_id=getattr(part, "tool_call_id", ""),
-            args=getattr(part, "args", {}),
-            args_json=part.args_as_json_str() if hasattr(part, "args_as_json_str") else "",
+            tool_name=getattr(tool_part, "tool_name", "tool"),
+            tool_call_id=getattr(tool_part, "tool_call_id", ""),
+            args=getattr(tool_part, "args", {}),
+            args_json=tool_part.args_as_json_str() if hasattr(tool_part, "args_as_json_str") else "",
         )
 
     if isinstance(event, FunctionToolResultEvent):
-        result = event.result
+        tool_result = event.result
         return ToolResultEvent(
             worker=worker,
-            tool_name=getattr(result, "tool_name", "tool"),
-            tool_call_id=getattr(result, "tool_call_id", ""),
-            content=result.content if hasattr(result, "content") else result,
-            is_error=getattr(result, "is_error", False),
+            tool_name=getattr(tool_result, "tool_name", "tool"),
+            tool_call_id=getattr(tool_result, "tool_call_id", ""),
+            content=tool_result.content if hasattr(tool_result, "content") else tool_result,
+            is_error=getattr(tool_result, "is_error", False),
         )
 
     if isinstance(event, BuiltinToolCallEvent):
-        part = event.part
+        builtin_part = event.part
         return ToolCallEvent(
             worker=worker,
-            tool_name=getattr(part, "tool_name", "tool"),
-            tool_call_id=getattr(part, "tool_call_id", ""),
-            args=getattr(part, "args", {}),
-            args_json=part.args_as_json_str() if hasattr(part, "args_as_json_str") else "",
+            tool_name=getattr(builtin_part, "tool_name", "tool"),
+            tool_call_id=getattr(builtin_part, "tool_call_id", ""),
+            args=getattr(builtin_part, "args", {}),
+            args_json=builtin_part.args_as_json_str() if hasattr(builtin_part, "args_as_json_str") else "",
         )
 
     if isinstance(event, BuiltinToolResultEvent):
-        result = event.result
+        builtin_result = event.result
         return ToolResultEvent(
             worker=worker,
-            tool_name=getattr(result, "tool_name", "tool"),
-            tool_call_id=getattr(result, "tool_call_id", ""),
-            content=result.content if hasattr(result, "content") else result,
-            is_error=getattr(result, "is_error", False),
+            tool_name=getattr(builtin_result, "tool_name", "tool"),
+            tool_call_id=getattr(builtin_result, "tool_call_id", ""),
+            content=builtin_result.content if hasattr(builtin_result, "content") else builtin_result,
+            is_error=getattr(builtin_result, "is_error", False),
         )
 
     if isinstance(event, FinalResultEvent):

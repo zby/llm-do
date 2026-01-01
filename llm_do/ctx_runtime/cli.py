@@ -27,7 +27,7 @@ import os
 import sys
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from pydantic_ai.builtin_tools import (
     CodeExecutionTool,
@@ -58,7 +58,7 @@ from .approval_wrappers import (
     make_headless_approval_callback,
     make_tui_approval_callback,
 )
-from .ctx import EventCallback, WorkerRuntime
+from .ctx import EventCallback, Invocable, WorkerRuntime
 from .discovery import (
     load_toolsets_and_workers_from_files,
 )
@@ -148,6 +148,7 @@ def _wrap_toolsets_with_approval(
             )
         return wrapped_worker
     for toolset in toolsets:
+        approved_toolset: AbstractToolset[Any]
         # Avoid double-wrapping toolsets that already have approval handling.
         if isinstance(toolset, ApprovalToolset):
             inner = getattr(toolset, "_inner", None)
@@ -160,7 +161,7 @@ def _wrap_toolsets_with_approval(
                         approval_callback=inner_callback,
                         config=getattr(toolset, "config", None),
                     )
-            approved_toolset: AbstractToolset[Any] = toolset
+            approved_toolset = toolset
             if return_permission_errors:
                 approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
             wrapped.append(approved_toolset)
@@ -177,7 +178,7 @@ def _wrap_toolsets_with_approval(
         # - Toolsets with needs_approval() method: ApprovalToolset delegates to it
         # - Toolsets with _approval_config: uses config for per-tool pre-approval
         # - Other toolsets: all tools require approval unless config pre-approves
-        approved_toolset: AbstractToolset[Any] = ApprovalToolset(
+        approved_toolset = ApprovalToolset(
             inner=toolset,
             approval_callback=approval_callback,
             config=config,
@@ -309,6 +310,7 @@ async def build_entry(
         resolved_toolsets = build_toolsets(worker_file.toolsets, toolset_context)
 
         # Apply model override only to entry worker (if override provided)
+        worker_model: str | None
         if model and name == entry_name:
             worker_model = model
         else:
@@ -407,8 +409,9 @@ async def run(
             entry = replace(entry, toolsets=wrapped_toolsets)
 
     # Create context from entry (entry.toolsets is already populated)
+    invocable_entry = cast(Invocable, entry)
     ctx = WorkerRuntime.from_entry(
-        entry,
+        invocable_entry,
         model=model,
         messages=list(message_history) if message_history else None,
         on_event=on_event,
@@ -423,7 +426,7 @@ async def run(
     if on_event is not None:
         on_event(UserMessageEvent(worker=getattr(entry, "name", "worker"), content=prompt))
 
-    result = await ctx.run(entry, input_data)
+    result = await ctx.run(invocable_entry, input_data)
 
     return result, ctx
 

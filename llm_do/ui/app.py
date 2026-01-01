@@ -282,12 +282,12 @@ class LlmDoApp(App[None]):
         user_input.disabled = False
         user_input.focus()
 
-    def action_quit(self) -> None:
+    async def action_quit(self) -> None:
         """Quit the app."""
         self._done = True
         self.exit()
 
-    def action_quit_if_idle(self) -> None:
+    async def action_quit_if_idle(self) -> None:
         """Quit the app if the input isn't active."""
         if not self._input_is_active():
             decision = self._exit_confirmation.request()
@@ -295,7 +295,7 @@ class LlmDoApp(App[None]):
                 messages = self.query_one("#messages", MessageContainer)
                 messages.add_status("Press 'q' again to exit.")
                 return
-            self.action_quit()
+            await self.action_quit()
 
     def action_submit_message(self) -> None:
         """Submit the current input if it is active."""

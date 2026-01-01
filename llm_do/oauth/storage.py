@@ -10,6 +10,15 @@ from typing import Dict, Literal, Optional, Protocol
 OAuthProvider = Literal["anthropic"]
 
 
+def _coerce_int(value: object) -> int:
+    if isinstance(value, (int, float, str)):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
+
 @dataclass
 class OAuthCredentials:
     """OAuth credentials for a provider."""
@@ -45,23 +54,21 @@ class OAuthCredentials:
 
     @classmethod
     def from_dict(cls, data: Dict[str, object]) -> "OAuthCredentials":
-        type_value = data.get("type")
         refresh_value = data.get("refresh")
         access_value = data.get("access")
         expires_value = data.get("expires")
-        try:
-            expires = int(expires_value) if expires_value is not None else 0
-        except (TypeError, ValueError):
-            expires = 0
+        enterprise_url_value = data.get("enterpriseUrl")
+        project_id_value = data.get("projectId")
+        email_value = data.get("email")
+        expires = _coerce_int(expires_value)
 
         return cls(
-            type=type_value if isinstance(type_value, str) else "oauth",
             refresh=refresh_value if isinstance(refresh_value, str) else "",
             access=access_value if isinstance(access_value, str) else "",
             expires=expires,
-            enterprise_url=data.get("enterpriseUrl") if isinstance(data.get("enterpriseUrl"), str) else None,
-            project_id=data.get("projectId") if isinstance(data.get("projectId"), str) else None,
-            email=data.get("email") if isinstance(data.get("email"), str) else None,
+            enterprise_url=enterprise_url_value if isinstance(enterprise_url_value, str) else None,
+            project_id=project_id_value if isinstance(project_id_value, str) else None,
+            email=email_value if isinstance(email_value, str) else None,
         )
 
 

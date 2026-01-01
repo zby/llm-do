@@ -17,11 +17,12 @@ isolation, run llm-do in a Docker container.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from pydantic import TypeAdapter
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
+from pydantic_ai.toolsets.abstract import SchemaValidatorProt
 from pydantic_ai_blocking_approval import (
     ApprovalConfig,
     ApprovalResult,
@@ -189,10 +190,10 @@ class ShellToolset(AbstractToolset[Any]):
                         "(|, >, <, ;, &, `, $()) are blocked."
                     ),
                     parameters_json_schema=shell_schema,
-                ),
-                max_retries=self._max_retries,
-                args_validator=TypeAdapter(dict[str, Any]).validator,
-            )
+            ),
+            max_retries=self._max_retries,
+            args_validator=cast(SchemaValidatorProt, TypeAdapter(dict[str, Any]).validator),
+        )
         }
 
     async def call_tool(
@@ -231,4 +232,3 @@ class ShellToolset(AbstractToolset[Any]):
                 exit_code=1,
                 truncated=False,
             )
-

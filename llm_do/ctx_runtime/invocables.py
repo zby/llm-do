@@ -10,7 +10,7 @@ import json
 import mimetypes
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterable, Optional, Sequence, Type
+from typing import TYPE_CHECKING, Any, AsyncIterable, Literal, Optional, Sequence, Type
 
 from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
@@ -149,12 +149,24 @@ class _DictValidator:
             return result.model_dump()
         return result
 
-    def validate_python(self, data: Any, **kwargs: Any) -> dict[str, Any]:
-        result = self._inner.validate_python(data, **kwargs)
+    def validate_python(
+        self,
+        input: Any,
+        *,
+        allow_partial: bool | Literal["off", "on", "trailing-strings"] = False,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        result = self._inner.validate_python(input, allow_partial=allow_partial, **kwargs)
         return self._to_dict(result)
 
-    def validate_json(self, data: str | bytes, **kwargs: Any) -> dict[str, Any]:
-        result = self._inner.validate_json(data, **kwargs)
+    def validate_json(
+        self,
+        input: str | bytes | bytearray,
+        *,
+        allow_partial: bool | Literal["off", "on", "trailing-strings"] = False,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        result = self._inner.validate_json(input, allow_partial=allow_partial, **kwargs)
         return self._to_dict(result)
 
     def validate_strings(self, data: Any, **kwargs: Any) -> dict[str, Any]:
@@ -277,13 +289,13 @@ class WorkerInvocable(AbstractToolset[Any]):
 
         for msg in messages:
             if isinstance(msg, ModelResponse):
-                for part in msg.parts:
-                    if isinstance(part, ToolCallPart):
-                        tool_calls[part.tool_call_id] = part
+                for response_part in msg.parts:
+                    if isinstance(response_part, ToolCallPart):
+                        tool_calls[response_part.tool_call_id] = response_part
             elif isinstance(msg, ModelRequest):
-                for part in msg.parts:
-                    if isinstance(part, ToolReturnPart):
-                        tool_returns[part.tool_call_id] = part
+                for request_part in msg.parts:
+                    if isinstance(request_part, ToolReturnPart):
+                        tool_returns[request_part.tool_call_id] = request_part
 
         # Emit events for each tool call/result pair
         for call_id, call_part in tool_calls.items():

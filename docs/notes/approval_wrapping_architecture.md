@@ -54,12 +54,12 @@ def wrap_entry_for_approval(
 
 ---
 
-### Option B: Move wrapping into `Context.from_entry(...)`
-**Idea**: `Context.from_entry` accepts approval configuration and wraps toolsets internally.
+### Option B: Move wrapping into `WorkerRuntime.from_entry(...)`
+**Idea**: `WorkerRuntime.from_entry` accepts approval configuration and wraps toolsets internally.
 
 **Sketch**
 ```python
-Context.from_entry(
+WorkerRuntime.from_entry(
     entry,
     model=...,
     approval_controller=ApprovalController(mode="approve_all"),
@@ -71,10 +71,10 @@ Context.from_entry(
 **Pros**
 - Removes approval boilerplate from almost all user code.
 - Keeps toolset creation logic unchanged.
-- Centralizes approval setup at the “run” boundary.
+- Centralizes approval setup at the "run" boundary.
 
 **Cons**
-- `Context` becomes responsible for both entry-level and tool-level approval.
+- `WorkerRuntime` becomes responsible for both entry-level and tool-level approval.
 - Some duplication with CLI `run(...)` unless refactored.
 - Requires careful ordering to avoid double-wrapping.
 
@@ -138,12 +138,12 @@ class WorkerEntrySpec:
 
 ---
 
-### Option E: Move approval into Context (remove ApprovalToolset)
-**Idea**: Context becomes the sole approval gate and calls `needs_approval()` directly.
+### Option E: Move approval into WorkerRuntime (remove ApprovalToolset)
+**Idea**: WorkerRuntime becomes the sole approval gate and calls `needs_approval()` directly.
 
 **Sketch**
 ```python
-class Context:
+class WorkerRuntime:
     def call_tool(...):
         if toolset_has_needs_approval:
             result = toolset.needs_approval(name, args, ctx)
@@ -156,7 +156,7 @@ class Context:
 - Potentially simpler mental model for users.
 
 **Cons**
-- Deep change to execution path; more coupling between Context and toolsets.
+- Deep change to execution path; more coupling between WorkerRuntime and toolsets.
 - Must preserve all existing approval behaviors and descriptions.
 - Loses separation provided by `ApprovalToolset`.
 
@@ -178,13 +178,13 @@ class Context:
 - **Architecture direction**: Option D is the most future-proof but also the most work.
 
 ## Open Questions
-- Do we want a single “one true” programmatic entry point (`Context.from_entry`) to own approval setup?
+- Do we want a single "one true" programmatic entry point (`WorkerRuntime.from_entry`) to own approval setup?
 - Is approval config considered runtime-only (suggesting Option B) or part of entry construction (Option C/D)?
 - Are we willing to refactor discovery/entry resolution to introduce specs and lazy build (Option D)?
-- Should we keep `ApprovalToolset` as the mechanism, or is there appetite to move approval into Context (Option E)?
+- Should we keep `ApprovalToolset` as the mechanism, or is there appetite to move approval into WorkerRuntime (Option E)?
 - How do we preserve CLI behavior (headless vs TUI) without duplicating logic?
 
 ## Suggested next steps
 - If we want quick wins, implement Option A with a `wrap_entry_for_approval(...)` helper and use it in `experiments/` plus docs.
-- If we want a clean user story, prototype Option B by adding approval parameters to `Context.from_entry` and moving CLI logic to a shared helper.
+- If we want a clean user story, prototype Option B by adding approval parameters to `WorkerRuntime.from_entry` and moving CLI logic to a shared helper.
 - If a larger refactor is acceptable, draft a spec-based loader (Option D) and identify migration path for tests and examples.

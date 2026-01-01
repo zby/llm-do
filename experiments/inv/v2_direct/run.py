@@ -2,8 +2,8 @@
 """v2_direct: Run pitch deck evaluation directly with Python (no llm-do CLI).
 
 Run with:
-    cd experiments/inv/v2_direct
-    python run.py
+    uv run experiments/inv/v2_direct/run.py
+    uv run -m experiments.inv.v2_direct.run
 
 This script demonstrates running llm-do workers directly from Python,
 with configuration constants for easy experimentation.
@@ -12,10 +12,6 @@ with configuration constants for easy experimentation.
 import asyncio
 import sys
 from pathlib import Path
-
-# Add project root to path for imports
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
 
 from pydantic_ai_blocking_approval import ApprovalToolset
 

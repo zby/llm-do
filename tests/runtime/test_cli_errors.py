@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from llm_do.ctx_runtime.cli import main, run
+from llm_do.ctx_runtime.cli import main
 
 
 class TestCLIErrorHandling:

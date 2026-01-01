@@ -1,14 +1,10 @@
 """Tests for display backends (headless, JSON, etc.)."""
 import io
-from unittest.mock import MagicMock
 
-import pytest
 
 from llm_do.ui.display import HeadlessDisplayBackend, JsonDisplayBackend
 from llm_do.ui.events import (
-    CompletionEvent,
     DeferredToolEvent,
-    ErrorEvent,
     InitialRequestEvent,
     StatusEvent,
     TextResponseEvent,

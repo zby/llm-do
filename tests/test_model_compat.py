@@ -6,7 +6,6 @@ from llm_do.model_compat import (
     InvalidCompatibleModelsError,
     ModelCompatibilityError,
     ModelConfigError,
-    ModelValidationResult,
     NoModelError,
     get_env_model,
     model_matches_pattern,

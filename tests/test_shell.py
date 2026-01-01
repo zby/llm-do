@@ -1,22 +1,16 @@
 """Tests for shell command execution and pattern matching."""
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 
 from llm_do.shell import (
-    BLOCKED_METACHARACTERS,
-    MAX_OUTPUT_BYTES,
     ShellBlockedError,
-    ShellError,
     check_metacharacters,
     execute_shell,
     match_shell_rules,
     parse_command,
 )
-from llm_do.shell.types import ShellResult
 
 
 class TestParseCommand:

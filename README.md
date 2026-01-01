@@ -187,6 +187,15 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 | [`code_analyzer/`](examples/code_analyzer/) | Shell commands with approval rules |
 | [`web_searcher/`](examples/web_searcher/) | Server-side tools (web search) |
 
+### Running Python Scripts Directly
+
+Some experiments include standalone Python entry points. Run them from the repo root so imports resolve:
+
+```bash
+uv run experiments/inv/v2_direct/run.py
+uv run -m experiments.inv.v2_direct.run
+```
+
 ## Documentation
 
 - **[`docs/concept.md`](docs/concept.md)** — Design philosophy

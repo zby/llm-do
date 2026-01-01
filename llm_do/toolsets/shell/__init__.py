@@ -20,9 +20,12 @@ from .execution import (
     match_shell_rules,
     parse_command,
 )
+from .toolset import ShellToolset
 from .types import ShellDefault, ShellResult, ShellRule
 
 __all__ = [
+    # Toolset
+    "ShellToolset",
     # Constants
     "BLOCKED_METACHARACTERS",
     "MAX_OUTPUT_BYTES",

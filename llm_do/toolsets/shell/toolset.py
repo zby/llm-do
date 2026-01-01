@@ -4,7 +4,7 @@ This module provides ShellToolset which:
 1. Exposes the `shell` tool to LLMs
 2. Implements whitelist-based approval via `needs_approval()` returning ApprovalResult
 3. Provides custom descriptions via `get_approval_description()`
-4. Delegates execution to llm_do.shell.execution
+4. Delegates execution to the execution module
 
 Whitelist model:
 - Commands must match a rule OR have a default to be allowed
@@ -29,14 +29,14 @@ from pydantic_ai_blocking_approval import (
     needs_approval_from_config,
 )
 
-from llm_do.shell.execution import (
+from .execution import (
     ShellBlockedError,
     check_metacharacters,
     execute_shell,
     match_shell_rules,
     parse_command,
 )
-from llm_do.shell.types import ShellResult
+from .types import ShellResult
 
 logger = logging.getLogger(__name__)
 

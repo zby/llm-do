@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from llm_do.shell import (
+from llm_do.toolsets.shell import (
     ShellBlockedError,
     check_metacharacters,
     execute_shell,

@@ -225,24 +225,27 @@ them as compilation/execution inputs.
 
 ---
 
-## 4. Open Questions
+## 4. Decisions (Locked so far)
 
-### Context Injection
-- Do we want a small Protocol ("ToolContext") to type the minimal surface
-  (just `call(...)`) instead of exposing the full `WorkerRuntime`?
-
-### Approval Architecture
-- Should runtime always require an approval policy (fail closed) or allow
-  `None` for raw toolsets (opt-out for tests and power users)?
-- Do we support pre-wrapped toolsets, or is "runtime owns wrapping" a hard rule?
-- Should `ApprovalToolset` remain the mechanism, or move approval into
-  `WorkerRuntime.call_tool()` directly?
-- Where should the approval cache live: per-run policy instance, or global?
-- Is a future wrapper pipeline needed (logging/tracing), or would that be YAGNI?
+- **Approval mechanism**: Keep `ApprovalToolset`; do not move approval into `WorkerRuntime.call_tool()`.
+- **Pre-wrapped toolsets**: Not supported for now; wrapping remains an explicit compile/run-time step.
+- **Approval policy**: Required for execution; disabling approvals is an explicit opt-in (e.g., `approve_all`).
+- **Approval cache**: Per-run only; no persistent/shared cache.
+- **Pre-approval configuration**: Use worker definition or CLI overrides, not cache persistence.
+- **Run boundary**: Introduce `run_entry(...)` to decouple UI/policy from `WorkerRuntime` and share CLI/programmatic flow.
+- **Wrapping location**: Keep a helper (e.g., `wrap_entry_for_approval`) and call it from `run_entry(...)` for minimal churn.
+- **Context injection**: Keep full `WorkerRuntime` in `RunContext` for now; revisit a narrower `ToolContext` only if needed.
 
 ---
 
-## 5. Decision Factors
+## 5. Open Questions
+
+### Approval Architecture
+- Wrapper pipeline: defer; treat as YAGNI unless a concrete use-case emerges.
+
+---
+
+## 6. Decision Factors
 
 - **Urgency**: Option A or B for near-term ergonomics.
 - **Scope tolerance**: Option D/E require non-trivial refactors.

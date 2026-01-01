@@ -27,7 +27,7 @@ TunaCode (UI layer)
 
 ### Context Runtime + Event Parsing
 
-Both projects use pydantic-ai. For integration, reuse the ctx_runtime helper used
+Both projects use pydantic-ai. For integration, reuse the runtime helper used
 by the CLI. It loads worker/tool files, wraps approvals, and runs the entry in a
 `Context`.
 
@@ -38,8 +38,8 @@ For live UI updates in TunaCode, reuse llm-do's event parsing layer:
 # tunacode/integrations/llm_do_bridge.py (concept)
 from typing import Awaitable, Callable
 
-from llm_do.ctx_runtime import ApprovalPolicy, run_entry
-from llm_do.ctx_runtime.cli import build_entry
+from llm_do.runtime import ApprovalPolicy, run_entry
+from llm_do.runtime.cli import build_entry
 from llm_do.ui.events import UIEvent
 from llm_do.ui.parser import parse_event
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest

@@ -1,6 +1,6 @@
 # UI Architecture
 
-The `llm_do/ui/` module provides the UI event pipeline for the ctx_runtime CLI. It separates worker execution from rendering and keeps output consistent across Textual, headless text, and JSON modes.
+The `llm_do/ui/` module provides the UI event pipeline for the runtime CLI. It separates worker execution from rendering and keeps output consistent across Textual, headless text, and JSON modes.
 
 ## Core Pipeline
 

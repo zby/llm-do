@@ -4,7 +4,7 @@ Periodic review of codebase alignment with SOLID principles.
 
 ## Scope
 
-- `llm_do/ctx_runtime/` - Core runtime
+- `llm_do/runtime/` - Core runtime
 - `llm_do/ui/` - UI system
 - `llm_do/toolsets/` - Toolset implementations
 - `llm_do/` - Config, auth, model compat

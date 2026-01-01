@@ -1,6 +1,6 @@
 # Worker Bootstrapping (Experimental)
 
-> **Status**: Experimental and not yet ported to ctx_runtime. The worker depends on a delegation toolset (`worker_create`/`worker_call`) that is not currently shipped. The rest of this document describes intended behavior once it is available.
+> **Status**: Experimental and not yet ported to runtime. The worker depends on a delegation toolset (`worker_create`/`worker_call`) that is not currently shipped. The rest of this document describes intended behavior once it is available.
 
 The `worker_bootstrapper` is a built-in meta-worker that creates other workers on-the-fly based on natural language task descriptions.
 

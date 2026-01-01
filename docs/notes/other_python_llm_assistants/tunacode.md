@@ -170,7 +170,7 @@ def save_session(self) -> None:
 
 ```python
 async def call_llm_do_worker(worker_name: str, task: str) -> str:
-    """Delegate to an llm-do worker via ctx_runtime."""
+    """Delegate to an llm-do worker via runtime."""
     entry = await build_entry(
         worker_files=["main.worker"],
         python_files=["tools.py"],

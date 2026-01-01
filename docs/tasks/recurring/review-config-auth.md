@@ -4,8 +4,8 @@ Periodic review of configuration and authentication modules.
 
 ## Scope
 
-- `llm_do/config_overrides.py` - CLI config overrides
-- `llm_do/model_compat.py` - Model selection and compatibility
+- `llm_do/config.py` - CLI config overrides
+- `llm_do/models.py` - Model selection and compatibility
 - `llm_do/oauth/` - OAuth implementation
 - `llm_do/oauth_cli.py` - OAuth CLI helper
 

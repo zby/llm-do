@@ -1,6 +1,6 @@
 # Architecture
 
-This document covers the internal architecture of llm-do: worker definitions, context runtime flow, and module organization.
+This document covers the internal architecture of llm-do: worker definitions, runtime flow, and module organization.
 
 For high-level concepts, see [`concept.md`](concept.md).
 
@@ -53,8 +53,8 @@ my-project/
 
 1. **Definition** - `.worker` file describes instructions, toolsets, model
 2. **Loading** - `worker_file.load_worker_file()` parses frontmatter and instructions
-3. **Resolution** - `ctx_runtime.cli.build_entry()` resolves toolsets and builds `Worker`/`ToolInvocable`
-4. **Run Boundary** - `ctx_runtime.run_entry()` applies `ApprovalPolicy` (`wrap_entry_for_approval`) and constructs `WorkerRuntime`
+3. **Resolution** - `cli.main.build_entry()` resolves toolsets and builds `Worker`/`ToolInvocable`
+4. **Run Boundary** - `runtime.run_entry()` applies `ApprovalPolicy` (`wrap_entry_for_approval`) and constructs `WorkerRuntime`
 5. **Execution** - `WorkerRuntime.run()` dispatches; `Worker` builds a PydanticAI `Agent` and runs it
 6. **Result** - Final output is returned (usage tracked in `WorkerRuntime`)
 
@@ -99,26 +99,25 @@ Python toolsets are discovered from `.py` files using `FunctionToolset` (or any 
 
 ```
 llm_do/
-├── ctx_runtime/
-│   ├── cli.py          # CLI wiring + entry resolution
+├── cli/                # CLI entry points
+│   ├── main.py         # llm-do CLI + entry resolution
+│   └── oauth.py        # llm-do-oauth helper
+├── runtime/            # Core runtime
 │   ├── runner.py       # run_entry execution boundary
-│   ├── approval_wrappers.py # ApprovalPolicy + ApprovalToolset wrapping helpers
-│   ├── ctx.py          # Worker runtime dispatcher and depth tracking
-│   ├── invocables.py   # Worker and ToolInvocable
+│   ├── approval.py     # ApprovalPolicy + wrapping helpers
+│   ├── context.py      # WorkerRuntime dispatcher and depth tracking
+│   ├── worker.py       # Worker and ToolInvocable
 │   ├── worker_file.py  # .worker parser
 │   ├── discovery.py    # Load toolsets/entries from .py files
+│   └── __init__.py
+├── toolsets/           # Toolset implementations and loading
+│   ├── loader.py       # Toolset class-path loader
 │   ├── builtins.py     # Built-in toolset registry
-│   └── __init__.py
-├── toolset_loader.py   # Toolset class-path loader
-├── toolsets/           # Built-in toolset implementations
 │   ├── filesystem.py
-│   ├── shell.py
-│   └── __init__.py
-├── shell/              # Shell execution helpers
+│   └── shell/          # Shell toolset package
 ├── ui/                 # UI events and display backends
-├── config_overrides.py # --set parsing and application
-├── model_compat.py     # Model selection and compatibility checks
-└── oauth_cli.py        # llm-do-oauth helper
+├── config.py           # --set parsing and application
+└── models.py           # Model selection and compatibility checks
 ```
 
 ---
@@ -132,7 +131,7 @@ llm-do CLI
 load_worker_file() + discovery.load_toolsets_and_workers_from_files()
     |
     v
-cli.build_entry() -> Worker or ToolInvocable
+cli.main.build_entry() -> Worker or ToolInvocable
     |
     v
 run_entry() = wrap_entry_for_approval() + WorkerRuntime.from_entry() + WorkerRuntime.run()
@@ -173,8 +172,8 @@ WorkerRuntime state (model, depth, usage, events) flows down the call tree.
 For direct Python runs (without the CLI), resolve an entry and run it via the same run boundary:
 
 ```python
-from llm_do.ctx_runtime import ApprovalPolicy, run_entry
-from llm_do.ctx_runtime.cli import build_entry
+from llm_do.runtime import ApprovalPolicy, run_entry
+from llm_do.cli.main import build_entry
 
 entry = await build_entry(
     worker_files=["main.worker"],

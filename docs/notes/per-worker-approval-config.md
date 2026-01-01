@@ -28,7 +28,7 @@ We should support **per-worker** `_approval_config` with **per-reference semanti
 Add a tiny delegating wrapper that carries `_approval_config` without mutating the shared instance:
 
 ```python
-# llm_do/toolset_loader.py (or a small helper module)
+# llm_do/toolsets/loader.py (or a small helper module)
 from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset

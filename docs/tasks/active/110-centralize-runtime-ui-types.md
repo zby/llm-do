@@ -7,14 +7,15 @@ information gathering
 - [ ] none
 
 ## Goal
-Centralize the *type surfaces* for both `ctx_runtime` and `ui` so it’s easy to find/import key contracts without collapsing everything into a single mega-module.
+Centralize the *type surfaces* for both `runtime` and `ui` so it’s easy to find/import key contracts without collapsing everything into a single mega-module.
 
 ## Context
 - Relevant files/symbols:
-  - `llm_do/ctx_runtime/ctx.py`: `Invocable`, `ModelType`, `EventCallback`, `WorkerRuntime`
-  - `llm_do/ctx_runtime/invocables.py`: `WorkerInvocable`, `ToolInvocable`, `WorkerInput`
-  - `llm_do/ctx_runtime/approval_wrappers.py`: `ApprovalPolicy`, `ApprovalCallback`
-  - `llm_do/ctx_runtime/__init__.py`: runtime public exports
+  - `llm_do/runtime/context.py`: `Invocable`, `ModelType`, `EventCallback`, `WorkerRuntime`
+  - `llm_do/runtime/worker.py`: `Worker`, `ToolInvocable`, `WorkerInput`
+  - `llm_do/runtime/approval.py`: `ApprovalPolicy`, `ApprovalCallback`
+  - `llm_do/runtime/__init__.py`: runtime public exports
+  - `llm_do/toolsets/loader.py`: `ToolsetBuildContext` (runtime-facing construction context)
   - `llm_do/ui/events.py`: `UIEvent` + event classes
   - `llm_do/ui/display.py`: `DisplayBackend` (depends on `UIEvent`)
   - `llm_do/ui/parser.py`: `parse_event()` (raw PydanticAI → `UIEvent`)
@@ -43,11 +44,11 @@ Centralize the *type surfaces* for both `ctx_runtime` and `ui` so it’s easy to
 
 ## Tasks
 
-### Runtime (`llm_do/ctx_runtime`)
+### Runtime (`llm_do/runtime`)
 - [ ] Inventory cross-module “contract” types that cause import churn (protocols, type aliases, callback types).
-- [ ] Add `llm_do/ctx_runtime/types.py` (or `contracts.py`) as the central import surface for runtime contracts.
-- [ ] Update internal imports to point at the contract module (minimize cross-imports between `ctx.py`, `invocables.py`, `approval_wrappers.py`).
-- [ ] Confirm exports remain coherent (`llm_do/ctx_runtime/__init__.py`, `llm_do/__init__.py`).
+- [ ] Add `llm_do/runtime/types.py` (or `contracts.py`) as the central import surface for runtime contracts.
+- [ ] Update internal imports to point at the contract module (minimize cross-imports between `context.py`, `worker.py`, `approval.py`).
+- [ ] Confirm exports remain coherent (`llm_do/runtime/__init__.py`, `llm_do/__init__.py`).
 
 ### UI (`llm_do/ui`)
 - [ ] Decide whether `llm_do/ui/__init__.py` remains the primary facade or if `llm_do/ui/types.py` is the preferred import surface.

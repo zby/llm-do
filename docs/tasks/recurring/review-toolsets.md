@@ -5,9 +5,9 @@ Periodic review of toolset implementations for bugs, inconsistencies, and improv
 ## Scope
 
 - `llm_do/toolsets/` - Filesystem, shell toolsets
-- `llm_do/toolset_loader.py` - Toolset loading and class-path resolution
+- `llm_do/toolsets/loader.py` - Toolset loading and class-path resolution
 - `llm_do/shell/` - Shell execution helpers
-- `llm_do/ctx_runtime/builtins.py` - Built-in toolset registry
+- `llm_do/runtime/builtins.py` - Built-in toolset registry
 
 ## Checklist
 

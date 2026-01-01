@@ -10,7 +10,7 @@ Review of SOLID alignment across the codebase sections.
   rest of the orchestration code. The constructor and helpers handle everything
   from selecting models to initializing a shared `list[RunUsage]` and tool
   proxies, suggesting a need to separate policy (approval/model selection) from
-  dispatch mechanics.【F:llm_do/ctx_runtime/ctx.py†L62-L213】
+  dispatch mechanics.【F:llm_do/runtime/ctx.py†L62-L213】
 - **UI system**: `LlmDoApp` owns UI composition, message rendering, approval
   batching, worker lifecycle management, and user input history within a single
   class. The accumulation of stateful responsibilities (queues, tasks, history
@@ -27,7 +27,7 @@ Review of SOLID alignment across the codebase sections.
   caching extracted into `approval_wrappers.py`. This separates prompting policy
   from tool execution, but approval decisions still span wrapper callbacks and
   toolset-specific `needs_approval` logic, leaving split responsibilities around
-  approval policy.【F:llm_do/ctx_runtime/approval_wrappers.py†L1-L138】【F:llm_do/filesystem_toolset.py†L50-L137】
+  approval policy.【F:llm_do/runtime/approval_wrappers.py†L1-L138】【F:llm_do/filesystem_toolset.py†L50-L137】
 - **Config/auth**: OAuth storage keeps credential modeling, persistence, and a
   module-level mutable backend in one place. Callers are forced to rely on global
   state (`_storage_backend`) instead of depending on an injected storage

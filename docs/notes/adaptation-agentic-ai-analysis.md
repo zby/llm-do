@@ -33,7 +33,7 @@ The runtime could:
 
 **Implementation sketch**:
 ```python
-# In ctx_runtime/ctx.py, wrap tool execution
+# In runtime/ctx.py, wrap tool execution
 async def execute_tool_with_logging(tool, args, context):
     try:
         result = await tool(**args)
@@ -186,7 +186,7 @@ The paper's framework maps to llm-do's neural/symbolic spectrum:
 Minimal invasive change. Log tool failures with context to enable later analysis.
 
 ```python
-# ctx_runtime addition
+# runtime addition
 class FailureLog:
     def log(self, worker: str, tool: str, args: dict, error: str, recovery: str):
         # Append to JSONL file

@@ -30,7 +30,11 @@ def test_web_research_orchestrator_full_workflow(
     - Multiple worker delegation (extractor, consolidator, reporter)
     - File writing (reports)
     """
+    # Clean output directory to ensure we detect newly written files
     reports_dir = Path("reports")
+    if reports_dir.exists():
+        for f in reports_dir.glob("*.md"):
+            f.unlink()
     reports_dir.mkdir(exist_ok=True)
 
     result = asyncio.run(

@@ -29,8 +29,11 @@ def test_whiteboard_orchestrator_processes_images(
     - No hang occurs due to async implementation
     - Result is properly returned and written
     """
-    # Ensure plans directory exists
+    # Clean output directory to ensure we detect newly written files
     plans_dir = Path("plans")
+    if plans_dir.exists():
+        for f in plans_dir.glob("*.md"):
+            f.unlink()
     plans_dir.mkdir(exist_ok=True)
 
     # The example should have input images

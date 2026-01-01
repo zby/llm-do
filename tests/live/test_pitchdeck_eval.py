@@ -36,6 +36,10 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
         pytest.skip("No PDF files in input/ directory")
 
     evaluations_dir = Path("evaluations")
+    # Clean output directory to ensure we detect newly written files
+    if evaluations_dir.exists():
+        for f in evaluations_dir.glob("*.md"):
+            f.unlink()
     evaluations_dir.mkdir(exist_ok=True)
 
     result = asyncio.run(

@@ -36,20 +36,12 @@ async def analyze_config(ctx: RunContext[WorkerRuntime], raw: str) -> str:
 
 ### Approval Wrapping
 
-Approval wrapping is **implemented but has ergonomics issues**:
+Approval wrapping is **implemented and centralized**:
 
-- The CLI performs recursive wrapping in `llm_do/ctx_runtime/cli.py:_wrap_toolsets_with_approval`.
-- `build_entry()` resolves toolsets and returns a raw entry; `run()` wraps
-  toolsets and then builds `WorkerRuntime`. Runtime itself does not wrap.
-- The recursion exists because `WorkerInvocable` is both a toolset and an owner
-  of its own `toolsets`. Wrapping only the top-level list protects calls to a
-  worker but not the internal tool calls inside that worker.
-- The wrapper is `ApprovalToolset` from `pydantic_ai_blocking_approval`, which:
-  - Calls `needs_approval()` when implemented (e.g., filesystem, shell).
-  - Reads optional per-tool `_approval_config`.
-  - Uses an approval callback (headless or TUI), optionally wrapped with session caching.
-- Entry-level approval has been removed; approvals are handled only at the tool
-  layer via `ApprovalToolset`.
+- `ApprovalPolicy` (`llm_do/ctx_runtime/approval_wrappers.py`) carries execution-time policy (mode, callback, per-run cache, error behavior).
+- `wrap_entry_for_approval(...)` (`llm_do/ctx_runtime/approval_wrappers.py`) recursively wraps toolsets with `ApprovalToolset` (including nested `WorkerInvocable.toolsets`).
+- `run_entry(...)` (`llm_do/ctx_runtime/runner.py`) is the single execution boundary: it applies approval wrapping, constructs `WorkerRuntime`, and runs the entry.
+- `cli.run(...)` is a thin wrapper: it calls `cli.build_entry(...)` and then `run_entry(...)`, mapping `--approve-all` / `--reject-all` into an `ApprovalPolicy`.
 
 ---
 
@@ -118,12 +110,10 @@ Introduce a minimal internal representation (`EntryIR`) and a pass pipeline:
 Keep recursion, but hide it behind a small helper.
 
 ```python
-# llm_do/ctx_runtime/approval.py
+# llm_do/ctx_runtime/approval_wrappers.py
 def wrap_entry_for_approval(
     entry: ToolInvocable | WorkerInvocable,
-    *,
-    approval_callback: ApprovalCallback,
-    return_permission_errors: bool = False,
+    approval_policy: ApprovalPolicy,
 ) -> ToolInvocable | WorkerInvocable:
     ...
 ```
@@ -186,7 +176,7 @@ async def run_entry(
     prompt: str,
     *,
     model: str | None = None,
-    approval_policy: ApprovalPolicy | None = None,
+    approval_policy: ApprovalPolicy,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     message_history: list[Any] | None = None,
@@ -208,14 +198,14 @@ whether wrapping “belongs” to the loader, runtime, or CLI.
 Concrete shape (minimal churn, SOLID-friendly):
 
 1. **Introduce an approval policy object** (execution-time inputs).
-   - Fields: `approval_callback`, `return_permission_errors`, `cache`, `mode`.
+   - Fields: `mode`, `approval_callback`, `return_permission_errors`, `cache`, `cache_key_fn`.
 
 2. **Introduce a single compile function** (shared by CLI and programmatic runs).
    - `compile_entry(...) -> WorkerInvocable | ToolInvocable` (optionally also returns `EntryIR` for diagnostics).
    - Internally: `load → resolve → approval plan → wrap` using shared helpers.
 
 3. **Use a single run boundary** (Option F).
-   - `run_entry(...)` becomes: `entry = compile_entry(...); ctx = WorkerRuntime.from_entry(entry, ...); return await ctx.run(...)`.
+   - `run_entry(...)` becomes: `entry = compile_entry(...); ctx = WorkerRuntime.from_entry(entry, ...); return await ctx.run(...)` (current code uses `build_entry(...)` + `run_entry(...)`).
    - CLI calls `run_entry(...)` (no bespoke wrapping logic).
 
 This keeps `WorkerRuntime` focused on execution/dispatch (SRP) and keeps approval

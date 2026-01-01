@@ -53,9 +53,9 @@ my-project/
 
 1. **Definition** - `.worker` file describes instructions, toolsets, model
 2. **Loading** - `worker_file.load_worker_file()` parses frontmatter and instructions
-3. **Resolution** - `ctx_runtime.build_entry()` resolves toolsets and builds `WorkerInvocable`/`ToolInvocable`
-4. **Runtime** - `WorkerRuntime.from_entry()` selects the effective model and assembles the runtime
-5. **Execution** - `WorkerInvocable` builds a PydanticAI `Agent` and runs it
+3. **Resolution** - `ctx_runtime.cli.build_entry()` resolves toolsets and builds `WorkerInvocable`/`ToolInvocable`
+4. **Run Boundary** - `ctx_runtime.run_entry()` applies `ApprovalPolicy` (`wrap_entry_for_approval`) and constructs `WorkerRuntime`
+5. **Execution** - `WorkerRuntime.run()` dispatches; `WorkerInvocable` builds a PydanticAI `Agent` and runs it
 6. **Result** - Final output is returned (usage tracked in `WorkerRuntime`)
 
 ### Key Capabilities
@@ -66,15 +66,21 @@ Workers delegate by declaring other worker names in `toolsets`:
 - Worker entries are exposed as tools
 - Nested calls are tracked in `WorkerRuntime.depth` (default max depth: 5)
 - Toolsets are not inherited; each worker declares its own
-- Workers start with a clean message history; chat history is not reused yet
+- Nested worker calls start with a clean message history; only the top-level run uses chat history
 
 **2. Tool Approval System**
 
 Toolsets are wrapped by `ApprovalToolset`:
 - Built-in toolsets implement `needs_approval()` for per-call decisions
 - TUI session approvals are cached in the approval callback wrapper (`remember="session"`)
+- Wrapping is applied at the run boundary (`run_entry()` → `wrap_entry_for_approval()`), configured via `ApprovalPolicy`
 - `--approve-all` bypasses prompts for automation
 - `--reject-all` denies approval-required tools without prompting
+
+Approval boundary:
+- Approvals gate tool calls initiated during a run (LLM tool calls or code calling `ctx.deps.call`).
+- The entry invocable itself is trusted when invoked from code; code-entry tools are not approval-gated.
+- If a programmatic entry should be gated, wrap that toolset with `ApprovalToolset` before running or route through a worker that calls it as a tool.
 
 **3. Built-in Toolsets**
 
@@ -94,7 +100,9 @@ Python toolsets are discovered from `.py` files using `FunctionToolset` (or any 
 ```
 llm_do/
 ├── ctx_runtime/
-│   ├── cli.py          # llm-do entry point
+│   ├── cli.py          # CLI wiring + entry resolution
+│   ├── runner.py       # run_entry execution boundary
+│   ├── approval_wrappers.py # ApprovalPolicy + ApprovalToolset wrapping helpers
 │   ├── ctx.py          # Worker runtime dispatcher and depth tracking
 │   ├── invocables.py   # WorkerInvocable and ToolInvocable
 │   ├── worker_file.py  # .worker parser
@@ -121,19 +129,13 @@ llm_do/
 llm-do CLI
     |
     v
-load_worker_file() + discovery.load_toolsets_from_files()
+load_worker_file() + discovery.load_toolsets_and_workers_from_files()
     |
     v
-build_entry() -> WorkerInvocable or ToolInvocable
+cli.build_entry() -> WorkerInvocable or ToolInvocable
     |
     v
-wrap toolsets with ApprovalToolset
-    |
-    v
-WorkerRuntime.from_entry()
-    |
-    v
-WorkerRuntime.run(entry, {"input": prompt})
+run_entry() = wrap_entry_for_approval() + WorkerRuntime.from_entry() + WorkerRuntime.run()
     |
     v
 WorkerInvocable builds Agent -> agent.run() or run_stream()

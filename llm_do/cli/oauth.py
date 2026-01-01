@@ -12,7 +12,7 @@ import asyncio
 import sys
 import webbrowser
 
-from .oauth import OAuthStorage, get_oauth_path, login_anthropic
+from ..oauth import OAuthStorage, get_oauth_path, login_anthropic
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:

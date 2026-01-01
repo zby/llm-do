@@ -14,7 +14,7 @@ from pydantic_ai_blocking_approval import (
 )
 
 from llm_do.ctx_runtime.cli import run
-from llm_do.ctx_runtime.invocables import WorkerInvocable
+from llm_do.ctx_runtime.invocables import Worker
 
 
 class _ProbeToolset(AbstractToolset[Any]):
@@ -74,8 +74,8 @@ async def test_tui_session_approval_cache_persists_across_runs(tmp_path) -> None
         calls.append(request)
         return ApprovalDecision(approved=True, remember="session")
 
-    async def patched_build(*_args: Any, **_kwargs: Any) -> WorkerInvocable:
-        return WorkerInvocable(
+    async def patched_build(*_args: Any, **_kwargs: Any) -> Worker:
+        return Worker(
             name="main",
             instructions="Test worker",
             model=TestModel(call_tools=["probe"], custom_output_text="done"),

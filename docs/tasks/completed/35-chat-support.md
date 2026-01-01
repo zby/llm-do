@@ -33,7 +33,7 @@ Add `message_history` parameter to the execution stack (new architecture).
 - [x] `llm_do/ctx_runtime/cli.py`: Plumb `message_history` into `run()` / TUI turn runner
 
 ```python
-# In invocables.py WorkerInvocable._run_with_event_stream():
+# In invocables.py Worker._run_with_event_stream():
 result = await agent.run(
     prompt,
     deps=ctx,

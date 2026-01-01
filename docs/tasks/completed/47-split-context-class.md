@@ -13,9 +13,9 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
 ## Context
 - Relevant files/symbols:
   - `llm_do/ctx_runtime/ctx.py`: `WorkerRuntime`, `RuntimeConfig`, `CallFrame`, `ToolsProxy`, `Invocable`
-  - `llm_do/ctx_runtime/invocables.py`: `WorkerInvocable`, `ToolInvocable` (concrete classes implementing `Invocable`)
+  - `llm_do/ctx_runtime/invocables.py`: `Worker`, `ToolInvocable` (concrete classes implementing `Invocable`)
   - `llm_do/ctx_runtime/cli.py`: context construction + approval toolset wrapping
-  - `llm_do/ctx_runtime/discovery.py`: imports/exports WorkerInvocable
+  - `llm_do/ctx_runtime/discovery.py`: imports/exports Worker
   - `llm_do/ctx_runtime/__init__.py`: public exports
   - Tests: `tests/runtime/test_context.py`, `tests/runtime/test_model_resolution.py`, `tests/runtime/test_events.py`
 - Related notes/docs:
@@ -52,7 +52,7 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
   - Doesn't communicate what the class actually does
 - Entry → Invocable rename: See Task 50 (`docs/tasks/completed/50-rename-entry-to-invocable.md`)
   - Done as prerequisite before this task
-  - Uses `Invocable` (protocol), `WorkerInvocable`, `ToolInvocable`, `invocables.py`
+  - Uses `Invocable` (protocol), `Worker`, `ToolInvocable`, `invocables.py`
 - Concurrency semantics:
   - `depth` is per-call-chain (local), not global
   - Spawning a child worker forks the `CallFrame` (child gets independent depth, messages)

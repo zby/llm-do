@@ -12,10 +12,10 @@ Rename Entry types to Invocable across the codebase. This clarifies that the abs
 ## Context
 - Relevant files/symbols:
   - `llm_do/ctx_runtime/ctx.py`: `Invocable` (protocol)
-  - `llm_do/ctx_runtime/invocables.py`: `WorkerInvocable`, `ToolInvocable` (classes)
-  - `llm_do/ctx_runtime/discovery.py`: imports/exports WorkerInvocable
+  - `llm_do/ctx_runtime/invocables.py`: `Worker`, `ToolInvocable` (classes)
+  - `llm_do/ctx_runtime/discovery.py`: imports/exports Worker
   - `llm_do/ctx_runtime/__init__.py`: public exports
-  - `llm_do/ctx_runtime/cli.py`: uses WorkerInvocable, ToolInvocable
+  - `llm_do/ctx_runtime/cli.py`: uses Worker, ToolInvocable
   - `llm_do/__init__.py`: public exports
   - `experiments/`: references runtime types (e.g. `experiments/inv/v2_direct/run.py`)
   - Docs: `docs/architecture.md`, `docs/cli.md`
@@ -30,7 +30,7 @@ Rename Entry types to Invocable across the codebase. This clarifies that the abs
 - Decision: Rename Entry types to Invocable
 - Naming mapping:
   - `CallableEntry` (protocol) → `Invocable`
-  - `WorkerEntry` (class) → `WorkerInvocable`
+  - `WorkerEntry` (class) → `Worker`
   - `ToolEntry` (class) → `ToolInvocable`
   - `entries.py` → `invocables.py`
   - `discover_entries_from_module()` → `discover_workers_from_module()`
@@ -45,7 +45,7 @@ Rename Entry types to Invocable across the codebase. This clarifies that the abs
 ## Tasks
 - [x] Rename `CallableEntry` → `Invocable` in `ctx.py`
 - [x] Rename `entries.py` → `invocables.py`
-- [x] Rename `WorkerEntry` → `WorkerInvocable` in `invocables.py`
+- [x] Rename `WorkerEntry` → `Worker` in `invocables.py`
 - [x] Rename `ToolEntry` → `ToolInvocable` in `invocables.py`
 - [x] Rename `discover_entries_from_module()` → `discover_workers_from_module()` and update call sites
 - [x] Rename `load_entries_from_files()` → `load_workers_from_files()` and update call sites

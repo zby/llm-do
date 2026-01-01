@@ -3,7 +3,7 @@
 This module provides functions to:
 - Load Python modules from file paths
 - Discover AbstractToolset instances (including FunctionToolset)
-- Discover WorkerInvocable instances
+- Discover Worker instances
 
 Discovery uses isinstance() checks to find toolset instances
 in module attributes.
@@ -18,7 +18,7 @@ from typing import Any, Iterable
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .invocables import WorkerInvocable
+from .invocables import Worker
 
 
 def load_module(path: str | Path) -> ModuleType:
@@ -68,8 +68,8 @@ def discover_toolsets_from_module(module: ModuleType) -> dict[str, AbstractTools
     return toolsets
 
 
-def discover_workers_from_module(module: ModuleType) -> list[WorkerInvocable]:
-    """Discover WorkerInvocable instances from a module.
+def discover_workers_from_module(module: ModuleType) -> list[Worker]:
+    """Discover Worker instances from a module.
 
     Args:
         module: Loaded Python module
@@ -77,12 +77,12 @@ def discover_workers_from_module(module: ModuleType) -> list[WorkerInvocable]:
     Returns:
         List of discovered workers
     """
-    workers: list[WorkerInvocable] = []
+    workers: list[Worker] = []
     for name in dir(module):
         if name.startswith("_"):
             continue
         obj = getattr(module, name)
-        if isinstance(obj, WorkerInvocable):
+        if isinstance(obj, Worker):
             workers.append(obj)
     return workers
 
@@ -117,8 +117,8 @@ def load_toolsets_from_files(files: list[str | Path]) -> dict[str, AbstractTools
     return all_toolsets
 
 
-def load_workers_from_files(files: list[str | Path]) -> dict[str, WorkerInvocable]:
-    """Load all WorkerInvocable instances from multiple Python files.
+def load_workers_from_files(files: list[str | Path]) -> dict[str, Worker]:
+    """Load all Worker instances from multiple Python files.
 
     Args:
         files: List of paths to Python files
@@ -126,7 +126,7 @@ def load_workers_from_files(files: list[str | Path]) -> dict[str, WorkerInvocabl
     Returns:
         Dict mapping worker names to instances
     """
-    all_workers: dict[str, WorkerInvocable] = {}
+    all_workers: dict[str, Worker] = {}
     worker_paths: dict[str, Path] = {}
 
     for file_path in files:
@@ -152,10 +152,10 @@ def load_workers_from_files(files: list[str | Path]) -> dict[str, WorkerInvocabl
 
 def load_toolsets_and_workers_from_files(
     files: Iterable[str | Path],
-) -> tuple[dict[str, AbstractToolset[Any]], dict[str, WorkerInvocable]]:
+) -> tuple[dict[str, AbstractToolset[Any]], dict[str, Worker]]:
     """Load toolsets and workers from Python files with a single module pass."""
     toolsets: dict[str, AbstractToolset[Any]] = {}
-    workers: dict[str, WorkerInvocable] = {}
+    workers: dict[str, Worker] = {}
     worker_paths: dict[str, Path] = {}
     loaded_paths: set[Path] = set()
 

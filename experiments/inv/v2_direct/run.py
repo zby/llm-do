@@ -13,7 +13,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from llm_do.ctx_runtime import ApprovalPolicy, WorkerInvocable, run_entry
+from llm_do.ctx_runtime import ApprovalPolicy, Worker, run_entry
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.display import HeadlessDisplayBackend
 from llm_do.ui.events import UIEvent
@@ -48,18 +48,18 @@ def load_instructions(name: str) -> str:
     return (HERE / "instructions" / f"{name}.md").read_text()
 
 
-def build_workers() -> tuple[WorkerInvocable, WorkerInvocable]:
+def build_workers() -> tuple[Worker, Worker]:
     """Build and return the worker entries."""
     filesystem = FileSystemToolset(config={})
 
-    pitch_evaluator = WorkerInvocable(
+    pitch_evaluator = Worker(
         name="pitch_evaluator",
         model=MODEL,
         instructions=load_instructions("pitch_evaluator"),
         toolsets=[],
     )
 
-    main = WorkerInvocable(
+    main = Worker(
         name="main",
         model=MODEL,
         instructions=load_instructions("main"),

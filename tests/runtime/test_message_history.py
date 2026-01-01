@@ -14,7 +14,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.ctx_runtime import WorkerInvocable, WorkerRuntime
+from llm_do.ctx_runtime import Worker, WorkerRuntime
 from llm_do.ui.events import UIEvent
 
 
@@ -47,7 +47,7 @@ async def test_entry_worker_receives_message_history_across_turns() -> None:
     """Entry worker (depth=0) should receive message_history on turn 2+."""
     events: list[UIEvent] = []
 
-    worker = WorkerInvocable(
+    worker = Worker(
         name="main",
         instructions="Count user prompts in message history.",
         model=_make_prompt_count_model(),
@@ -67,7 +67,7 @@ async def test_nested_worker_call_does_not_inherit_conversation_history() -> Non
     """Nested worker calls should not receive the caller's message history."""
     events: list[UIEvent] = []
 
-    sub_worker = WorkerInvocable(
+    sub_worker = Worker(
         name="sub",
         instructions="Count user prompts in message history.",
         model=_make_prompt_count_model(),

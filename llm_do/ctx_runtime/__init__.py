@@ -16,7 +16,7 @@ from .discovery import (
     load_toolsets_from_files,
     load_workers_from_files,
 )
-from .invocables import ToolInvocable, WorkerInvocable
+from .invocables import ToolInvocable, Worker
 from .runner import run_entry
 from .worker_file import WorkerFile, load_worker_file, parse_worker_file
 
@@ -30,7 +30,7 @@ __all__ = [
     "wrap_entry_for_approval",
     "run_entry",
     # Entries
-    "WorkerInvocable",
+    "Worker",
     "ToolInvocable",
     # Worker file
     "WorkerFile",

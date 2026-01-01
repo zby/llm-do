@@ -24,7 +24,7 @@ from pydantic_ai_blocking_approval import (
 )
 
 # Re-export from ctx_runtime for convenience
-from .ctx_runtime import ToolInvocable, WorkerInvocable, WorkerRuntime
+from .ctx_runtime import ToolInvocable, Worker, WorkerRuntime
 from .model_compat import (
     InvalidCompatibleModelsError,
     ModelCompatibilityError,
@@ -47,7 +47,7 @@ __all__ = [
     "NoModelError",
     # Runtime types
     "WorkerRuntime",
-    "WorkerInvocable",
+    "Worker",
     "ToolInvocable",
     # Version
     "__version__",

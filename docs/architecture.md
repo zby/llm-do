@@ -53,9 +53,9 @@ my-project/
 
 1. **Definition** - `.worker` file describes instructions, toolsets, model
 2. **Loading** - `worker_file.load_worker_file()` parses frontmatter and instructions
-3. **Resolution** - `ctx_runtime.cli.build_entry()` resolves toolsets and builds `WorkerInvocable`/`ToolInvocable`
+3. **Resolution** - `ctx_runtime.cli.build_entry()` resolves toolsets and builds `Worker`/`ToolInvocable`
 4. **Run Boundary** - `ctx_runtime.run_entry()` applies `ApprovalPolicy` (`wrap_entry_for_approval`) and constructs `WorkerRuntime`
-5. **Execution** - `WorkerRuntime.run()` dispatches; `WorkerInvocable` builds a PydanticAI `Agent` and runs it
+5. **Execution** - `WorkerRuntime.run()` dispatches; `Worker` builds a PydanticAI `Agent` and runs it
 6. **Result** - Final output is returned (usage tracked in `WorkerRuntime`)
 
 ### Key Capabilities
@@ -104,7 +104,7 @@ llm_do/
 │   ├── runner.py       # run_entry execution boundary
 │   ├── approval_wrappers.py # ApprovalPolicy + ApprovalToolset wrapping helpers
 │   ├── ctx.py          # Worker runtime dispatcher and depth tracking
-│   ├── invocables.py   # WorkerInvocable and ToolInvocable
+│   ├── invocables.py   # Worker and ToolInvocable
 │   ├── worker_file.py  # .worker parser
 │   ├── discovery.py    # Load toolsets/entries from .py files
 │   ├── builtins.py     # Built-in toolset registry
@@ -132,13 +132,13 @@ llm-do CLI
 load_worker_file() + discovery.load_toolsets_and_workers_from_files()
     |
     v
-cli.build_entry() -> WorkerInvocable or ToolInvocable
+cli.build_entry() -> Worker or ToolInvocable
     |
     v
 run_entry() = wrap_entry_for_approval() + WorkerRuntime.from_entry() + WorkerRuntime.run()
     |
     v
-WorkerInvocable builds Agent -> agent.run() or run_stream()
+Worker builds Agent -> agent.run() or run_stream()
     |
     v
 final output
@@ -152,7 +152,7 @@ Worker tool calls use the same dispatcher as code entry points:
 Worker A (depth=0)
     |
     v
-LLM calls tool "analyzer" (WorkerInvocable)
+LLM calls tool "analyzer" (Worker)
     |
     v
 Worker B (depth=1)

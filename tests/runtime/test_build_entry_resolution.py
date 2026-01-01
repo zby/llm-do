@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import WorkerInvocable
+from llm_do.ctx_runtime import Worker
 from llm_do.ctx_runtime.cli import build_entry
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
@@ -22,12 +22,12 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
     entry = await build_entry(worker_files, python_files, model="test-model")
-    assert isinstance(entry, WorkerInvocable)
+    assert isinstance(entry, Worker)
 
     extractor = next(
         toolset
         for toolset in entry.toolsets
-        if isinstance(toolset, WorkerInvocable) and toolset.name == "web_research_extractor"
+        if isinstance(toolset, Worker) and toolset.name == "web_research_extractor"
     )
     function_toolsets = [
         toolset for toolset in extractor.toolsets if isinstance(toolset, FunctionToolset)
@@ -70,7 +70,7 @@ async def test_build_entry_loads_python_modules_once(tmp_path: Path) -> None:
 
     module_path.write_text(
         f"""\
-from llm_do.ctx_runtime import WorkerInvocable
+from llm_do.ctx_runtime import Worker
 from pydantic_ai.toolsets import FunctionToolset
 
 _marker = {marker_literal}
@@ -83,7 +83,7 @@ tools = FunctionToolset()
 def ping() -> str:
     return "pong"
 
-main = WorkerInvocable(name="main", instructions="hi", toolsets=[tools])
+main = Worker(name="main", instructions="hi", toolsets=[tools])
 """
     )
 

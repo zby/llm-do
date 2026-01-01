@@ -161,13 +161,13 @@ class TestLoadWorkersFromFiles:
     """Tests for load_workers_from_files."""
 
     def test_duplicate_worker_name_in_file_raises(self):
-        """Test duplicate WorkerInvocable names in a single file."""
+        """Test duplicate Worker names in a single file."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
-from llm_do.ctx_runtime import WorkerInvocable
+from llm_do.ctx_runtime import Worker
 
-worker_one = WorkerInvocable(name="dup", instructions="first")
-worker_two = WorkerInvocable(name="dup", instructions="second")
+worker_one = Worker(name="dup", instructions="first")
+worker_two = Worker(name="dup", instructions="second")
 """)
             f.flush()
 
@@ -178,15 +178,15 @@ worker_two = WorkerInvocable(name="dup", instructions="second")
                 os.unlink(f.name)
 
     def test_duplicate_worker_name_across_files_raises(self):
-        """Test duplicate WorkerInvocable names across multiple files."""
+        """Test duplicate Worker names across multiple files."""
         files = []
         try:
             for label in ("one", "two"):
                 with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                     f.write(f"""\
-from llm_do.ctx_runtime import WorkerInvocable
+from llm_do.ctx_runtime import Worker
 
-worker_{label} = WorkerInvocable(name="dup", instructions="{label}")
+worker_{label} = Worker(name="dup", instructions="{label}")
 """)
                     files.append(f.name)
 

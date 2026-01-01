@@ -1,7 +1,7 @@
 """Invocable implementations for the context runtime.
 
 This module provides:
-- WorkerInvocable: An LLM-powered worker that IS an AbstractToolset
+- Worker: An LLM-powered worker that IS an AbstractToolset
 - ToolInvocable: Wrapper for tool-as-entrypoint usage
 """
 from __future__ import annotations
@@ -213,10 +213,10 @@ class ToolInvocable:
 
 
 @dataclass
-class WorkerInvocable(AbstractToolset[Any]):
+class Worker(AbstractToolset[Any]):
     """An LLM-powered worker that is also an AbstractToolset.
 
-    WorkerInvocable represents an agent that uses an LLM to process
+    Worker represents an agent that uses an LLM to process
     prompts and can call tools to accomplish tasks. As an AbstractToolset,
     it can be composed into other workers' toolsets.
 

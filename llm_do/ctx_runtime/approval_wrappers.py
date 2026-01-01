@@ -14,7 +14,7 @@ from pydantic_ai_blocking_approval import (
     ApprovalToolset,
 )
 
-from .invocables import ToolInvocable, WorkerInvocable
+from .invocables import ToolInvocable, Worker
 
 ApprovalCallback = Callable[
     [ApprovalRequest],
@@ -180,7 +180,7 @@ def _wrap_toolsets_with_approval(
     toolsets: list[AbstractToolset[Any]],
     approval_callback: ApprovalCallback,
     return_permission_errors: bool = False,
-    _visited_workers: dict[int, WorkerInvocable] | None = None,
+    _visited_workers: dict[int, Worker] | None = None,
 ) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with ApprovalToolset for approval handling.
 
@@ -188,14 +188,14 @@ def _wrap_toolsets_with_approval(
     and delegates to it. Otherwise it uses optional config and defaults to
     "needs approval" (secure by default).
 
-    Recurses into nested WorkerInvocable.toolsets so tool calls inside delegated
+    Recurses into nested Worker.toolsets so tool calls inside delegated
     workers are also gated.
     """
     wrapped: list[AbstractToolset[Any]] = []
     if _visited_workers is None:
         _visited_workers = {}
 
-    def wrap_worker(worker: WorkerInvocable, callback: ApprovalCallback) -> WorkerInvocable:
+    def wrap_worker(worker: Worker, callback: ApprovalCallback) -> Worker:
         existing = _visited_workers.get(id(worker))
         if existing is not None:
             return existing
@@ -215,7 +215,7 @@ def _wrap_toolsets_with_approval(
         # Avoid double-wrapping toolsets that already have approval handling.
         if isinstance(toolset, ApprovalToolset):
             inner = getattr(toolset, "_inner", None)
-            if isinstance(inner, WorkerInvocable):
+            if isinstance(inner, Worker):
                 inner_callback = getattr(toolset, "_approval_callback", approval_callback)
                 wrapped_inner = wrap_worker(inner, inner_callback)
                 if wrapped_inner is not inner:
@@ -230,8 +230,8 @@ def _wrap_toolsets_with_approval(
             wrapped.append(approved_toolset)
             continue
 
-        # Recursively wrap toolsets inside WorkerInvocable
-        if isinstance(toolset, WorkerInvocable):
+        # Recursively wrap toolsets inside Worker
+        if isinstance(toolset, Worker):
             toolset = wrap_worker(toolset, approval_callback)
 
         # Get any stored approval config from the toolset
@@ -273,7 +273,7 @@ def wrap_entry_for_approval(
         return_permission_errors=approval_policy.return_permission_errors,
     )
 
-    if isinstance(entry, WorkerInvocable):
+    if isinstance(entry, Worker):
         return replace(entry, toolsets=wrapped_toolsets)
     if isinstance(entry, ToolInvocable):
         return replace(entry, toolsets=wrapped_toolsets)

@@ -5,7 +5,7 @@ Review of ctx_runtime core (`llm_do/ctx_runtime/*`) for bugs, inconsistencies, a
 
 ## Findings
 - **Message history:** Top-level runs can pass `message_history` to the model; nested worker calls still start with a clean history (`_should_use_message_history`).
-- **Approval wrapping:** Wrapping is centralized in `llm_do/ctx_runtime/approval_wrappers.py` (`wrap_entry_for_approval(...)`) and applied at the `run_entry(...)` boundary; it preserves `WorkerInvocable` fields and is cycle-safe.
+- **Approval wrapping:** Wrapping is centralized in `llm_do/ctx_runtime/approval_wrappers.py` (`wrap_entry_for_approval(...)`) and applied at the `run_entry(...)` boundary; it preserves `Worker` fields and is cycle-safe.
 - **Python discovery module re-exec:** CLI discovery uses `load_toolsets_and_workers_from_files()` to avoid importing the same `.py` twice.
 - **Per-worker approval config mutates shared instances:** `_approval_config` is stored on existing toolset instances from `ToolsetBuildContext.available_toolsets` (notably Python toolset instances + worker stubs). If multiple workers reference the same Python toolset with different `_approval_config`, the last assignment wins globally.
 - **`ctx_runtime/builtins.py` looks superseded:** built-in alias handling lives in `llm_do/toolset_loader.py` (`BUILTIN_TOOLSET_ALIASES`), but `llm_do/ctx_runtime/builtins.py` still exists and is exported; this duplication makes it unclear which is canonical.

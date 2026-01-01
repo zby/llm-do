@@ -7,7 +7,7 @@ from ..ui.events import UserMessageEvent
 from .approval_wrappers import ApprovalPolicy, wrap_entry_for_approval
 from .ctx import EventCallback, Invocable, WorkerRuntime
 from .input_utils import coerce_worker_input
-from .invocables import WorkerInvocable
+from .invocables import Worker
 
 
 async def run_entry(
@@ -36,7 +36,7 @@ async def run_entry(
         verbosity=verbosity,
     )
 
-    if isinstance(invocable_entry, WorkerInvocable):
+    if isinstance(invocable_entry, Worker):
         input_data = coerce_worker_input(invocable_entry.schema_in, prompt)
     else:
         input_data = {"input": prompt}

@@ -47,7 +47,7 @@ Credentials are stored at `~/.llm-do/oauth.json`.
 - Default entry name is `main`.
 - Names can refer to:
   - Worker files (the `name` field in frontmatter)
-  - `WorkerInvocable` objects defined in Python files
+  - `Worker` objects defined in Python files
   - Function tools discovered from `FunctionToolset`
 - If the entry name is not found, the run fails with a list of available names.
 

@@ -16,7 +16,7 @@ Ctx runtime review flagged that `_approval_config` mutates shared toolset instan
 We should support **per-worker** `_approval_config` with **per-reference semantics**:
 
 - `_approval_config` under `toolsets.<ref>` applies only to that worker’s *reference* to the toolset/worker named `<ref>` (no cross-worker leakage).
-- Shared instances discovered from Python (and referenced `WorkerInvocable` stubs) remain **singletons**, but their approval config becomes **non-mutating metadata** applied via a wrapper.
+- Shared instances discovered from Python (and referenced `Worker` stubs) remain **singletons**, but their approval config becomes **non-mutating metadata** applied via a wrapper.
 
 **Precedence rules (intended semantics)**
 1. Toolset-level “blocked” decisions must win (cannot be bypassed by config).
@@ -76,4 +76,4 @@ if existing is not None:
     continue
 ```
 
-**Important:** wrapping a `WorkerInvocable` reference will hide it from `isinstance(..., WorkerInvocable)` checks, so approval wrapping must unwrap `ToolsetRef.inner` when recursing into worker toolsets (otherwise nested tool calls won’t be gated).
+**Important:** wrapping a `Worker` reference will hide it from `isinstance(..., Worker)` checks, so approval wrapping must unwrap `ToolsetRef.inner` when recursing into worker toolsets (otherwise nested tool calls won’t be gated).

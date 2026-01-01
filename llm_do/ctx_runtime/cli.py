@@ -52,7 +52,7 @@ from .ctx import EventCallback, Invocable, WorkerRuntime
 from .discovery import (
     load_toolsets_and_workers_from_files,
 )
-from .invocables import ToolInvocable, WorkerInvocable
+from .invocables import ToolInvocable, Worker
 from .runner import run_entry
 from .worker_file import load_worker_file
 
@@ -102,8 +102,8 @@ async def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
     if isinstance(toolset, FunctionToolset):
         return list(toolset.tools.keys())
     # For other toolsets, we'd need a RunContext - return empty for now
-    # WorkerInvocable returns itself as a single tool
-    if isinstance(toolset, WorkerInvocable):
+    # Worker returns itself as a single tool
+    if isinstance(toolset, Worker):
         return [toolset.name]
     return []
 
@@ -114,12 +114,12 @@ async def build_entry(
     model: str | None = None,
     entry_name: str = "main",
     set_overrides: list[str] | None = None,
-) -> ToolInvocable | WorkerInvocable:
+) -> ToolInvocable | Worker:
     """Build the entry point with all toolsets resolved.
 
     This function:
     1. Loads all Python toolsets and workers
-    2. Creates WorkerInvocable stubs for all .worker files (WorkerInvocable IS an AbstractToolset)
+    2. Creates Worker stubs for all .worker files (Worker IS an AbstractToolset)
     3. Resolves toolset references (workers can call other workers)
     4. Returns the entry (tool or worker) by name with toolsets populated
 
@@ -131,7 +131,7 @@ async def build_entry(
         set_overrides: Optional list of --set KEY=VALUE overrides
 
     Returns:
-        The ToolInvocable or WorkerInvocable to run, with toolsets attribute populated
+        The ToolInvocable or Worker to run, with toolsets attribute populated
 
     Raises:
         ValueError: If entry not found, name conflict, or unknown toolset
@@ -155,8 +155,8 @@ async def build_entry(
     if not worker_files and not python_tool_map and not python_workers:
         raise ValueError("At least one .worker or .py file with entries required")
 
-    # First pass: create stub WorkerInvocable instances (they ARE AbstractToolsets)
-    worker_entries: dict[str, WorkerInvocable] = {}
+    # First pass: create stub Worker instances (they ARE AbstractToolsets)
+    worker_entries: dict[str, Worker] = {}
     worker_paths: dict[str, str] = {}  # name -> path
 
     for worker_path in worker_files:
@@ -171,7 +171,7 @@ async def build_entry(
         if name in python_workers or name in python_tool_map:
             raise ValueError(f"Worker name '{name}' conflicts with Python entry")
 
-        stub = WorkerInvocable(
+        stub = Worker(
             name=name,
             instructions=worker_file.instructions,
             model=worker_file.model,
@@ -193,7 +193,7 @@ async def build_entry(
         raise ValueError(f"Entry '{entry_name}' not found. Available: {available}")
 
     # Second pass: build all workers with resolved toolsets
-    workers: dict[str, WorkerInvocable] = {}
+    workers: dict[str, Worker] = {}
 
     for name, worker_path in worker_paths.items():
         # Apply overrides only to entry worker
@@ -201,7 +201,7 @@ async def build_entry(
         worker_file = load_worker_file(worker_path, overrides=overrides)
 
         # Available toolsets: Python + other workers (not self)
-        # WorkerInvocable IS an AbstractToolset, so we can use it directly
+        # Worker IS an AbstractToolset, so we can use it directly
         available_workers = {k: v for k, v in worker_entries.items() if k != name}
         all_toolsets: dict[str, AbstractToolset[Any]] = {}
         all_toolsets.update(python_toolsets)

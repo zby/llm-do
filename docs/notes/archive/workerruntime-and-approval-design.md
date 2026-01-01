@@ -39,7 +39,7 @@ async def analyze_config(ctx: RunContext[WorkerRuntime], raw: str) -> str:
 Approval wrapping is **implemented and centralized**:
 
 - `ApprovalPolicy` (`llm_do/ctx_runtime/approval_wrappers.py`) carries execution-time policy (mode, callback, per-run cache, error behavior).
-- `wrap_entry_for_approval(...)` (`llm_do/ctx_runtime/approval_wrappers.py`) recursively wraps toolsets with `ApprovalToolset` (including nested `WorkerInvocable.toolsets`).
+- `wrap_entry_for_approval(...)` (`llm_do/ctx_runtime/approval_wrappers.py`) recursively wraps toolsets with `ApprovalToolset` (including nested `Worker.toolsets`).
 - `run_entry(...)` (`llm_do/ctx_runtime/runner.py`) is the single execution boundary: it applies approval wrapping, constructs `WorkerRuntime`, and runs the entry.
 - `cli.run(...)` is a thin wrapper: it calls `cli.build_entry(...)` and then `run_entry(...)`, mapping `--approve-all` / `--reject-all` into an `ApprovalPolicy`.
 
@@ -73,7 +73,7 @@ Treat `llm-do` as a small compiler:
 
 - **Input**: `.worker` files, Python toolsets, CLI overrides, runtime policy
   (model override, approval mode/callback, UI/event callbacks).
-- **Output**: an executable `WorkerInvocable | ToolInvocable` ready to run in a
+- **Output**: an executable `Worker | ToolInvocable` ready to run in a
   `WorkerRuntime`.
 
 Introduce a minimal internal representation (`EntryIR`) and a pass pipeline:
@@ -112,9 +112,9 @@ Keep recursion, but hide it behind a small helper.
 ```python
 # llm_do/ctx_runtime/approval_wrappers.py
 def wrap_entry_for_approval(
-    entry: ToolInvocable | WorkerInvocable,
+    entry: ToolInvocable | Worker,
     approval_policy: ApprovalPolicy,
-) -> ToolInvocable | WorkerInvocable:
+) -> ToolInvocable | Worker:
     ...
 ```
 
@@ -172,7 +172,7 @@ dispatch/state.
 ```python
 # llm_do/ctx_runtime/runner.py
 async def run_entry(
-    entry: ToolInvocable | WorkerInvocable,
+    entry: ToolInvocable | Worker,
     prompt: str,
     *,
     model: str | None = None,
@@ -201,7 +201,7 @@ Concrete shape (minimal churn, SOLID-friendly):
    - Fields: `mode`, `approval_callback`, `return_permission_errors`, `cache`, `cache_key_fn`.
 
 2. **Introduce a single compile function** (shared by CLI and programmatic runs).
-   - `compile_entry(...) -> WorkerInvocable | ToolInvocable` (optionally also returns `EntryIR` for diagnostics).
+   - `compile_entry(...) -> Worker | ToolInvocable` (optionally also returns `EntryIR` for diagnostics).
    - Internally: `load → resolve → approval plan → wrap` using shared helpers.
 
 3. **Use a single run boundary** (Option F).

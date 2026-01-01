@@ -11,10 +11,10 @@ Fix the concrete correctness issues identified in `docs/notes/reviews/review-ctx
 
 ## Context
 - Relevant files/symbols:
-  - `llm_do/ctx_runtime/invocables.py:WorkerInvocable.call` (spawns child ctx; chooses `message_history`)
+  - `llm_do/ctx_runtime/invocables.py:Worker.call` (spawns child ctx; chooses `message_history`)
   - `llm_do/ctx_runtime/ctx.py:CallFrame.fork` / `WorkerRuntime.spawn_child` (message history reset behavior)
   - `llm_do/ctx_runtime/cli.py:build_entry` (loads `.py` entries twice via discovery)
-  - `llm_do/ctx_runtime/cli.py:_wrap_toolsets_with_approval` (rebuilds `WorkerInvocable`; recurses)
+  - `llm_do/ctx_runtime/cli.py:_wrap_toolsets_with_approval` (rebuilds `Worker`; recurses)
   - `llm_do/ctx_runtime/discovery.py:load_module` (module naming + execution)
   - `llm_do/toolset_loader.py:build_toolsets` (mutates `_approval_config` on shared instances)
 - Related tasks/notes/docs:
@@ -29,14 +29,14 @@ Fix the concrete correctness issues identified in `docs/notes/reviews/review-ctx
 - Decision:
   - Preserve prior message history for the top-level worker only; keep nested worker calls stateless by default.
   - Avoid double-importing Python files during `build_entry` by loading each module once per run, then discovering toolsets/workers from the same module object.
-  - Approval wrapping preserves all `WorkerInvocable` fields via `dataclasses.replace` and guards recursion with a visited-worker map.
+  - Approval wrapping preserves all `Worker` fields via `dataclasses.replace` and guards recursion with a visited-worker map.
 - Inputs:
   - Review findings in `docs/notes/reviews/review-ctx-runtime.md`.
   - Existing “top-level-only” intent in `llm_do/ctx_runtime/invocables.py:_should_use_message_history`.
 - Options:
   - Message history: copy parent `messages` into the spawned child ctx when `_should_use_message_history(child_ctx)`; or change `CallFrame.fork()` to optionally inherit messages.
   - Discovery: add caching to `load_module` keyed by resolved path; or add a new helper that loads modules once then runs both discover passes.
-  - Approval wrapping: use `dataclasses.replace` for `WorkerInvocable` to preserve fields; add recursion guard (visited set by object identity) for worker cycles.
+  - Approval wrapping: use `dataclasses.replace` for `Worker` to preserve fields; add recursion guard (visited set by object identity) for worker cycles.
 - Outcome:
   - Implemented module single-load discovery, field-preserving approval wrapping, and cycle-safe recursion; added regression tests for each.
 - Follow-ups:
@@ -48,8 +48,8 @@ Fix the concrete correctness issues identified in `docs/notes/reviews/review-ctx
 - [x] Add regression test: nested worker calls do not inherit caller message history.
 - [x] Add regression test: `build_entry` executes each Python file only once (toolsets/workers discovered from same module instance).
 - [x] Refactor discovery/build_entry to avoid double module execution (`load_toolsets_from_files` + `load_workers_from_files` duplication).
-- [x] Add regression test: approval wrapping preserves `WorkerInvocable` fields like `model_settings`.
-- [x] Refactor approval wrapping to preserve all `WorkerInvocable` fields (avoid hand-reconstruction).
+- [x] Add regression test: approval wrapping preserves `Worker` fields like `model_settings`.
+- [x] Refactor approval wrapping to preserve all `Worker` fields (avoid hand-reconstruction).
 - [x] Decide and implement cycle-safety for approval wrapping (guard recursion or validate worker graph).
 
 ## Current State

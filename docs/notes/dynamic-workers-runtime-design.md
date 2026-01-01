@@ -76,12 +76,12 @@ in that same response. This makes `worker_call` a core UX tool, not optional.
 
 ### Proposed shape (SOLID / DIP)
 
-- **`WorkerRegistry`** (runtime-owned state): stores session-created `WorkerInvocable`s
+- **`WorkerRegistry`** (runtime-owned state): stores session-created `Worker`s
   and any metadata needed for persistence (path, created_by, etc.).
 - **`WorkerStore`** (optional, later): abstract persistence for generated workers
   (e.g., temp dir vs project-local dir) once we actually need multiple implementations.
 - **`dynamic_workers` toolset**: exposes:
-  - `worker_create(...)`: validate name, write `.worker`, load/build `WorkerInvocable`,
+  - `worker_create(...)`: validate name, write `.worker`, load/build `Worker`,
     wrap its toolsets for approval, then register it in `WorkerRegistry`.
   - `worker_call(worker=..., input=..., attachments=...)`: resolve worker from
     `WorkerRegistry` and run it immediately.

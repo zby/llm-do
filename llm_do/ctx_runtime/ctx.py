@@ -151,7 +151,7 @@ class WorkerRuntime:
         """Create a WorkerRuntime for running an entry.
 
         Args:
-            entry: The entry to run (WorkerInvocable or ToolInvocable)
+            entry: The entry to run (Worker or ToolInvocable)
             model: Model override (uses entry.model if not provided)
             max_depth: Maximum call depth
             messages: Optional message history for multi-turn conversations

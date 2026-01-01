@@ -16,6 +16,7 @@ Operational documents for tracking work in progress.
 | `active/` | Work in progress or planned next |
 | `backlog/` | Ideas worth tracking, not yet planned |
 | `completed/` | Finished work (can be purged periodically) |
+| `recurring/` | Periodic tasks (reviews, audits) that are run repeatedly |
 
 ## Usage
 
@@ -24,6 +25,7 @@ Operational documents for tracking work in progress.
 - **Starting work**: Create task in `active/`
 - **Resuming work**: Read task, continue from current state
 - **Finishing work**: Move to `completed/` or delete
+- **Recurring work**: Create in `recurring/` with recurring template; update "Last Run" after each run
 
 Completed tasks can be purged periodically - permanent decisions belong in AGENTS.md, code comments, or other documentation.
 
@@ -87,6 +89,33 @@ Where things stand right now. Update as work progresses.
 ## Notes
 - Short observations, gotchas, things tried
 - Reference external docs for longer explanations
+```
+
+## Recurring Task Template
+
+```markdown
+# Review: Area Name
+
+Brief description of what this review covers.
+
+## Scope
+
+- `path/to/module/` - Description
+- `path/to/file.py` - Description
+
+## Checklist
+
+- [ ] Check item 1
+- [ ] Check item 2
+- [ ] Check item 3
+
+## Output
+
+Record findings in `docs/notes/reviews/review-<area>.md`.
+
+## Last Run
+
+YYYY-MM (brief note about findings)
 ```
 
 ## Guidelines

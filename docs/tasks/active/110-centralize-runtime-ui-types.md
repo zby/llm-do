@@ -1,7 +1,7 @@
 # Centralize Runtime + UI Types
 
 ## Status
-information gathering
+in progress
 
 ## Prerequisites
 - [ ] none
@@ -11,7 +11,8 @@ Centralize the *type surfaces* for both `runtime` and `ui` so it’s easy to fin
 
 ## Context
 - Relevant files/symbols:
-  - `llm_do/runtime/context.py`: `Invocable`, `ModelType`, `EventCallback`, `WorkerRuntime`
+  - `llm_do/runtime/contracts.py`: `Invocable`, `ModelType`, `EventCallback`, `WorkerRuntimeProtocol`
+  - `llm_do/runtime/context.py`: `WorkerRuntime`
   - `llm_do/runtime/worker.py`: `Worker`, `ToolInvocable`, `WorkerInput`
   - `llm_do/runtime/approval.py`: `ApprovalPolicy`, `ApprovalCallback`
   - `llm_do/runtime/__init__.py`: runtime public exports
@@ -40,29 +41,75 @@ Centralize the *type surfaces* for both `runtime` and `ui` so it’s easy to fin
   2. Facade `types.py` (re-export canonical definitions): “one place to import”, low risk, preserves locality.
   3. `contracts/` package: separate interface contracts from implementations, more files, clean layering.
 - Outcome:
-  - Pending, but likely start with (2) and revisit (3) if the type surface continues to grow.
+  - Add `llm_do/runtime/contracts.py` as the canonical import surface for shared runtime contracts (type aliases + protocols), and type `Worker` against a protocol to avoid `context.py` ↔ `worker.py` cycles.
+
+## Inventory
+
+### Runtime Contract Types
+
+**Protocols (abstract interfaces):**
+- `Invocable` (`runtime/contracts.py`) - Protocol for dispatchable entries (workers, tools)
+- `WorkerRuntimeProtocol` (`runtime/contracts.py`) - Protocol for the runtime deps surface used by workers
+
+**Type Aliases:**
+- `ModelType` (`runtime/contracts.py`) - `str` alias for model identifiers
+- `EventCallback` (`runtime/contracts.py`) - `Callable[[UIEvent], None]` for UI event handling
+- `ApprovalCallback` (`approval.py:19`) - `Callable[[ApprovalRequest], ApprovalDecision | Awaitable[...]]`
+
+**Configuration Types:**
+- `ApprovalPolicy` (`approval.py:26`) - Execution-time approval configuration
+- `ToolsetBuildContext` (`toolsets/loader.py:31`) - Context for toolset construction
+
+**Implementation Types (NOT for types.py - keep in current modules):**
+- `Worker`, `ToolInvocable`, `WorkerInput` - Concrete entry implementations
+- `WorkerRuntime`, `RuntimeConfig`, `CallFrame` - Runtime internals
+- `UsageCollector`, `ToolsProxy` - Internal helpers
+
+### Import Churn Patterns Found
+
+1. **Circular dependency** between `context.py` ↔ `worker.py`:
+   - `worker.py` imported `ModelType`, `WorkerRuntime` via `TYPE_CHECKING` guard (fragile)
+   - Fix: move shared type aliases/protocols to `runtime/contracts.py` and type workers against `WorkerRuntimeProtocol`
+
+2. **Import scatter** in consumers:
+   - `cli/main.py` imports from 3 different runtime modules:
+     - `ApprovalCallback`, `ApprovalPolicy` from `runtime.approval`
+     - `EventCallback`, `Invocable` from `runtime.contracts`
+     - `WorkerRuntime` from `runtime.context`
+     - `ToolInvocable`, `Worker` from `runtime.worker`
+
+3. **Cross-module dependencies**:
+   - `approval.py` → `worker.py` (for `ToolInvocable`, `Worker`)
+   - `runner.py` → `context.py`, `approval.py`, `worker.py`
+
+### Missing Exports in `runtime/__init__.py`
+
+Currently exported: `Invocable`, `ModelType`, `ApprovalPolicy`, `WorkerRuntime`, `Worker`, `ToolInvocable`, etc.
+
+**Missing** (causing direct submodule imports):
+- `EventCallback` (from `runtime/contracts.py`)
+- `ApprovalCallback` (from `approval.py`)
+
+Fix: Add these to `runtime/__init__.py` and update consumers to use the facade.
 
 ## Tasks
 
 ### Runtime (`llm_do/runtime`)
-- [ ] Inventory cross-module “contract” types that cause import churn (protocols, type aliases, callback types).
-- [ ] Add `llm_do/runtime/types.py` (or `contracts.py`) as the central import surface for runtime contracts.
-- [ ] Update internal imports to point at the contract module (minimize cross-imports between `context.py`, `worker.py`, `approval.py`).
-- [ ] Confirm exports remain coherent (`llm_do/runtime/__init__.py`, `llm_do/__init__.py`).
+- [x] Inventory cross-module "contract" types that cause import churn (protocols, type aliases, callback types).
+- [x] Add `llm_do/runtime/contracts.py` and move shared aliases/protocols (`ModelType`, `EventCallback`, `Invocable`).
+- [x] Update `llm_do/runtime/worker.py` to depend on `WorkerRuntimeProtocol` (remove `TYPE_CHECKING` import cycle).
+- [x] Update downstream imports (`runtime/__init__.py`, `runtime/runner.py`, `cli/main.py`).
+- [ ] Decide whether to re-export `EventCallback`/`ApprovalCallback` from `runtime/__init__.py` (and update consumers to use the facade).
 
 ### UI (`llm_do/ui`)
-- [ ] Decide whether `llm_do/ui/__init__.py` remains the primary facade or if `llm_do/ui/types.py` is the preferred import surface.
-- [ ] Add `llm_do/ui/types.py` (if useful) to re-export `UIEvent`, event subclasses, and backend interface types.
-- [ ] (Optional) Split `llm_do/ui/events.py` into `llm_do/ui/events/` package modules (`base.py`, `tools.py`, `text.py`, etc.) and re-export from `events/__init__.py`.
-- [ ] Keep `llm_do/ui/parser.py` as the only module that inspects raw `pydantic_ai.*` event types (avoid leaking upstream event types into the rest of the UI).
+- [ ] Verify `ui/__init__.py` exports all needed types (likely already complete).
+- [ ] (Optional) Split `llm_do/ui/events.py` into `llm_do/ui/events/` package if it grows too large.
 
-### Docs + Hygiene
-- [ ] Update `docs/ui.md` and `docs/architecture.md` with the new “type map” / import surfaces.
+### Hygiene
 - [ ] Run lint/typecheck/tests (`ruff`, `mypy`, `pytest`).
 
 ## Current State
-Task created. No code changes yet.
+Runtime contracts split out to `llm_do/runtime/contracts.py`; `worker.py` no longer has a fragile `TYPE_CHECKING` import cycle with `context.py`.
 
 ## Notes
-- Start with facades/re-exports; only move definitions if import cycles or coupling become a real problem.
-- Keep changes behavior-preserving (pure refactor) unless a specific type boundary bug is discovered.
+- Keep changes behavior-preserving (pure refactor).

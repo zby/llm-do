@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Optional, Protocol, cast
+from typing import Any, Awaitable, Callable, Optional, cast
 
 from pydantic_ai.models import Model
 from pydantic_ai.tools import RunContext
@@ -18,11 +18,8 @@ from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
 from ..models import select_model
-from ..ui.events import UIEvent
+from .contracts import EventCallback, Invocable, ModelType, WorkerRuntimeProtocol
 from .input_utils import coerce_worker_input
-
-ModelType = str
-EventCallback = Callable[[UIEvent], None]
 
 
 class _UnsetType:
@@ -46,19 +43,6 @@ class ToolsProxy:
             return await self._ctx.call(name, kwargs)
 
         return _call
-
-
-class Invocable(Protocol):
-    """Protocol for objects that can be invoked via the WorkerRuntime dispatcher."""
-
-    name: str
-    kind: str
-    model: ModelType | None
-
-    async def call(
-        self, input_data: Any, ctx: "WorkerRuntime", run_ctx: RunContext["WorkerRuntime"]
-    ) -> Any: ...
-
 
 class UsageCollector:
     """Thread-safe sink for RunUsage objects."""
@@ -290,8 +274,8 @@ class WorkerRuntime:
         return self.config.usage.create()
 
     def _make_run_context(
-        self, tool_name: str, resolved_model: ModelType, deps_ctx: "WorkerRuntime"
-    ) -> RunContext["WorkerRuntime"]:
+        self, tool_name: str, resolved_model: ModelType, deps_ctx: WorkerRuntimeProtocol
+    ) -> RunContext[WorkerRuntimeProtocol]:
         """Construct a RunContext for direct tool invocation."""
         return RunContext(
             deps=deps_ctx,

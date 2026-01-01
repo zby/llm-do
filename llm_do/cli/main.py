@@ -38,7 +38,8 @@ from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from ..runtime.approval import ApprovalCallback, ApprovalPolicy
-from ..runtime.context import EventCallback, Invocable, WorkerRuntime
+from ..runtime.context import WorkerRuntime
+from ..runtime.contracts import EventCallback, Invocable
 from ..runtime.discovery import (
     load_toolsets_and_workers_from_files,
 )

@@ -10,7 +10,7 @@ import json
 import mimetypes
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterable, Literal, Optional, Sequence, Type
+from typing import Any, AsyncIterable, Literal, Optional, Sequence, Type
 
 from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
@@ -26,10 +26,8 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
-if TYPE_CHECKING:
-    from .context import ModelType, WorkerRuntime
-
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
+from .contracts import ModelType, WorkerRuntimeProtocol
 
 
 class WorkerInput(BaseModel):
@@ -110,7 +108,7 @@ def _build_user_prompt(input_data: Any) -> str | Sequence[UserContent]:
     return parts
 
 
-def _should_use_message_history(ctx: "WorkerRuntime") -> bool:
+def _should_use_message_history(ctx: WorkerRuntimeProtocol) -> bool:
     """Only use message history for the top-level worker run."""
     return ctx.depth <= 1
 
@@ -125,7 +123,7 @@ def _get_all_messages(result: Any) -> list[Any]:
     return []
 
 
-def _update_message_history(ctx: "WorkerRuntime", result: Any) -> None:
+def _update_message_history(ctx: WorkerRuntimeProtocol, result: Any) -> None:
     """Update message history in-place to keep shared references intact."""
     ctx.messages[:] = _get_all_messages(result)
 
@@ -195,8 +193,8 @@ class ToolInvocable:
     async def call(
         self,
         input_data: Any,
-        ctx: "WorkerRuntime",
-        run_ctx: RunContext["WorkerRuntime"],
+        ctx: WorkerRuntimeProtocol,
+        run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Call the tool via its toolset."""
         if isinstance(input_data, BaseModel):
@@ -264,7 +262,9 @@ class Worker(AbstractToolset[Any]):
         """Execute the worker when called as a tool."""
         return await self.call(tool_args, ctx.deps, ctx)
 
-    def _build_agent(self, resolved_model: ModelType, ctx: "WorkerRuntime") -> Agent["WorkerRuntime", Any]:
+    def _build_agent(
+        self, resolved_model: ModelType, ctx: WorkerRuntimeProtocol
+    ) -> Agent[WorkerRuntimeProtocol, Any]:
         """Build a PydanticAI agent with toolsets passed directly."""
         return Agent(
             model=resolved_model,
@@ -278,7 +278,7 @@ class Worker(AbstractToolset[Any]):
             end_strategy="exhaustive",
         )
 
-    def _emit_tool_events(self, messages: list[Any], ctx: "WorkerRuntime") -> None:
+    def _emit_tool_events(self, messages: list[Any], ctx: WorkerRuntimeProtocol) -> None:
         """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
         if ctx.on_event is None:
             return
@@ -328,8 +328,8 @@ class Worker(AbstractToolset[Any]):
     async def call(
         self,
         input_data: Any,
-        ctx: "WorkerRuntime",
-        run_ctx: RunContext["WorkerRuntime"],
+        ctx: WorkerRuntimeProtocol,
+        run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Execute the worker with the given input."""
         if self.schema_in is not None:
@@ -373,9 +373,9 @@ class Worker(AbstractToolset[Any]):
 
     async def _run_with_event_stream(
         self,
-        agent: Agent["WorkerRuntime", Any],
+        agent: Agent[WorkerRuntimeProtocol, Any],
         prompt: str | Sequence[UserContent],
-        ctx: "WorkerRuntime",
+        ctx: WorkerRuntimeProtocol,
         message_history: list[Any] | None,
     ) -> Any:
         """Run agent with event stream handler for non-streaming UI updates."""
@@ -386,7 +386,7 @@ class Worker(AbstractToolset[Any]):
         emitted_tool_events = False
 
         async def event_stream_handler(
-            _: RunContext["WorkerRuntime"],
+            _: RunContext[WorkerRuntimeProtocol],
             events: AsyncIterable[Any],
         ) -> None:
             nonlocal emitted_tool_events
@@ -414,9 +414,9 @@ class Worker(AbstractToolset[Any]):
 
     async def _run_streaming(
         self,
-        agent: Agent["WorkerRuntime", Any],
+        agent: Agent[WorkerRuntimeProtocol, Any],
         prompt: str | Sequence[UserContent],
-        ctx: "WorkerRuntime",
+        ctx: WorkerRuntimeProtocol,
         message_history: list[Any] | None,
     ) -> Any:
         """Run agent with streaming, emitting text deltas."""

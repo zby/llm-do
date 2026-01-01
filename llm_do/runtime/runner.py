@@ -5,7 +5,8 @@ from typing import Any, cast
 
 from ..ui.events import UserMessageEvent
 from .approval import ApprovalPolicy, wrap_entry_for_approval
-from .context import EventCallback, Invocable, WorkerRuntime
+from .context import WorkerRuntime
+from .contracts import EventCallback, Invocable
 from .input_utils import coerce_worker_input
 from .worker import Worker
 

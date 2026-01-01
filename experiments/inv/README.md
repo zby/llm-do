@@ -13,6 +13,12 @@ cd v1_cli
 llm-do workers.py --entry main --approve-all "Go"
 ```
 
+If `llm-do` is not installed, run via `uv` instead:
+
+```bash
+uv run llm-do experiments/inv/v1_cli/workers.py --entry main --approve-all "Go"
+```
+
 ### v2_direct - Direct Python execution
 
 Workers defined and executed entirely in Python, no CLI needed.
@@ -21,6 +27,12 @@ Configuration constants at the top of the script for easy experimentation.
 ```bash
 cd v2_direct
 python run.py
+```
+
+If the `llm_do` package is not installed, run via `uv` instead:
+
+```bash
+uv run -m experiments.inv.v2_direct.run
 ```
 
 Edit `run.py` to change:

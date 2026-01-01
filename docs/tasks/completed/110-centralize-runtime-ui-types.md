@@ -1,7 +1,7 @@
 # Centralize Runtime + UI Types
 
 ## Status
-in progress
+complete
 
 ## Prerequisites
 - [ ] none
@@ -99,17 +99,18 @@ Fix: Add these to `runtime/__init__.py` and update consumers to use the facade.
 - [x] Add `llm_do/runtime/contracts.py` and move shared aliases/protocols (`ModelType`, `EventCallback`, `Invocable`).
 - [x] Update `llm_do/runtime/worker.py` to depend on `WorkerRuntimeProtocol` (remove `TYPE_CHECKING` import cycle).
 - [x] Update downstream imports (`runtime/__init__.py`, `runtime/runner.py`, `cli/main.py`).
-- [ ] Decide whether to re-export `EventCallback`/`ApprovalCallback` from `runtime/__init__.py` (and update consumers to use the facade).
+- [x] Re-export `EventCallback`/`ApprovalCallback` from `runtime/__init__.py` and update `cli/main.py` to use facade imports.
 
 ### UI (`llm_do/ui`)
-- [ ] Verify `ui/__init__.py` exports all needed types (likely already complete).
-- [ ] (Optional) Split `llm_do/ui/events.py` into `llm_do/ui/events/` package if it grows too large.
+- [x] Verify `ui/__init__.py` exports all needed types (confirmed complete).
+- [x] Update `cli/main.py` to use `..ui` facade imports.
+- [ ] (Optional/Deferred) Split `llm_do/ui/events.py` into `llm_do/ui/events/` package if it grows too large.
 
 ### Hygiene
-- [ ] Run lint/typecheck/tests (`ruff`, `mypy`, `pytest`).
+- [x] Run lint/typecheck/tests (`ruff`, `mypy`, `pytest`) - all pass.
 
 ## Current State
-Runtime contracts split out to `llm_do/runtime/contracts.py`; `worker.py` no longer has a fragile `TYPE_CHECKING` import cycle with `context.py`.
+Complete. Runtime contracts in `llm_do/runtime/contracts.py`; all callback types exported from facades; `cli/main.py` uses clean facade imports for both `runtime` and `ui`.
 
 ## Notes
 - Keep changes behavior-preserving (pure refactor).

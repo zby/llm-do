@@ -8,9 +8,9 @@ This module provides a new runtime architecture that:
 """
 from llm_do.toolsets.builtins import BUILTIN_TOOLSETS, get_builtin_toolset
 
-from .approval import ApprovalPolicy, wrap_entry_for_approval
+from .approval import ApprovalCallback, ApprovalPolicy, wrap_entry_for_approval
 from .context import ToolsProxy, WorkerRuntime
-from .contracts import Invocable, ModelType
+from .contracts import EventCallback, Invocable, ModelType
 from .discovery import (
     discover_toolsets_from_module,
     discover_workers_from_module,
@@ -28,6 +28,8 @@ __all__ = [
     "ToolsProxy",
     "Invocable",
     "ModelType",
+    "EventCallback",
+    "ApprovalCallback",
     "ApprovalPolicy",
     "wrap_entry_for_approval",
     "run_entry",

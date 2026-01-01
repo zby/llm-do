@@ -23,13 +23,14 @@ from pydantic_ai_blocking_approval import (
     ApprovalToolset,
 )
 
-# Re-export from runtime for convenience
-from .runtime import ToolInvocable, Worker, WorkerRuntime
 from .models import (
     InvalidCompatibleModelsError,
     ModelCompatibilityError,
     NoModelError,
 )
+
+# Re-export from runtime for convenience
+from .runtime import ToolInvocable, Worker, WorkerRuntime
 
 __all__ = [
     # Approval handling

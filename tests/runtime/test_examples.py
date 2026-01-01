@@ -3,12 +3,12 @@ from pathlib import Path
 
 import pytest
 
+from llm_do.cli.main import build_entry
 from llm_do.runtime import (
     ToolInvocable,
     load_toolsets_from_files,
     load_worker_file,
 )
-from llm_do.cli.main import build_entry
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 

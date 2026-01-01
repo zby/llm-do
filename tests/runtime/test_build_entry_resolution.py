@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import Worker
 from llm_do.cli.main import build_entry
+from llm_do.runtime import Worker
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 

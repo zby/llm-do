@@ -1,7 +1,7 @@
 """Tests for worker file parsing."""
 import pytest
 
-from llm_do.ctx_runtime import parse_worker_file
+from llm_do.runtime import parse_worker_file
 
 
 class TestParseWorkerFile:

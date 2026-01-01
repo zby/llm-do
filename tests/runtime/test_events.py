@@ -1,4 +1,4 @@
-"""Tests for event emission in ctx_runtime.
+"""Tests for event emission in runtime.
 
 These tests verify that events are properly emitted during execution
 via the on_event callback mechanism.
@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import Worker, WorkerRuntime
+from llm_do.runtime import Worker, WorkerRuntime
 from llm_do.ui.events import (
     TextResponseEvent,
     ToolCallEvent,
@@ -306,7 +306,7 @@ class TestCLIEventIntegration:
     @pytest.mark.anyio
     async def test_run_with_on_event(self, tmp_path):
         """Test that run() accepts and uses on_event callback."""
-        from llm_do.ctx_runtime.cli import run
+        from llm_do.cli.main import run
 
         events: list[UIEvent] = []
 
@@ -318,7 +318,7 @@ Test worker
 """)
 
         # Patch the model to use TestModel
-        import llm_do.ctx_runtime.cli as cli_module
+        import llm_do.cli.main as cli_module
         original_build = cli_module.build_entry
 
         async def patched_build(*args, **kwargs):
@@ -346,7 +346,7 @@ Test worker
     @pytest.mark.anyio
     async def test_run_with_tools_emits_events(self, tmp_path):
         """Test that run() with tools emits ToolCallEvent/ToolResultEvent."""
-        from llm_do.ctx_runtime.cli import run
+        from llm_do.cli.main import run
 
         events: list[UIEvent] = []
 
@@ -360,7 +360,7 @@ Test worker
 """)
 
         # Patch to use TestModel that calls tools
-        import llm_do.ctx_runtime.cli as cli_module
+        import llm_do.cli.main as cli_module
         original_build = cli_module.build_entry
 
         async def patched_build(*args, **kwargs):

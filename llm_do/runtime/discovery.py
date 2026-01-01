@@ -18,7 +18,7 @@ from typing import Any, Iterable
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .invocables import Worker
+from .worker import Worker
 
 
 def load_module(path: str | Path) -> ModuleType:

@@ -1,4 +1,4 @@
-"""Tests for message history behavior in ctx_runtime."""
+"""Tests for message history behavior in runtime."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.ctx_runtime import Worker, WorkerRuntime
+from llm_do.runtime import Worker, WorkerRuntime
 from llm_do.ui.events import UIEvent
 
 

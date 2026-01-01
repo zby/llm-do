@@ -8,7 +8,7 @@ from pydantic import BaseModel, TypeAdapter
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
-from llm_do.ctx_runtime import WorkerRuntime
+from llm_do.runtime import WorkerRuntime
 
 
 class CaptureArgs(BaseModel):

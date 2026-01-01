@@ -1,13 +1,13 @@
-"""Execution boundary for ctx_runtime entries."""
+"""Execution boundary for runtime entries."""
 from __future__ import annotations
 
 from typing import Any, cast
 
 from ..ui.events import UserMessageEvent
-from .approval_wrappers import ApprovalPolicy, wrap_entry_for_approval
-from .ctx import EventCallback, Invocable, WorkerRuntime
+from .approval import ApprovalPolicy, wrap_entry_for_approval
+from .context import EventCallback, Invocable, WorkerRuntime
 from .input_utils import coerce_worker_input
-from .invocables import Worker
+from .worker import Worker
 
 
 async def run_entry(

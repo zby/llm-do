@@ -14,7 +14,7 @@ from pydantic_ai_blocking_approval import (
     ApprovalToolset,
 )
 
-from .invocables import ToolInvocable, Worker
+from .worker import ToolInvocable, Worker
 
 ApprovalCallback = Callable[
     [ApprovalRequest],

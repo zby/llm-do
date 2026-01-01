@@ -34,8 +34,8 @@ dependencies = [
 ]
 
 [project.scripts]
-llm-do = "llm_do.ctx_runtime.cli:main"
-llm-do-oauth = "llm_do.oauth_cli:main"
+llm-do = "llm_do.cli.main:main"
+llm-do-oauth = "llm_do.cli.oauth:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/llm-do"

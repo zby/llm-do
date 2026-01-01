@@ -27,7 +27,7 @@ from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
 if TYPE_CHECKING:
-    from .ctx import ModelType, WorkerRuntime
+    from .context import ModelType, WorkerRuntime
 
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
 

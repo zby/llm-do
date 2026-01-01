@@ -13,8 +13,8 @@ from pydantic_ai_blocking_approval import (
     ApprovalResult,
 )
 
-from llm_do.ctx_runtime.cli import run
-from llm_do.ctx_runtime.invocables import Worker
+from llm_do.cli.main import run
+from llm_do.runtime.worker import Worker
 
 
 class _ProbeToolset(AbstractToolset[Any]):
@@ -89,7 +89,7 @@ name: main
 Test worker
 """)
 
-    import llm_do.ctx_runtime.cli as cli_module
+    import llm_do.cli.main as cli_module
 
     original_build = cli_module.build_entry
     cli_module.build_entry = patched_build

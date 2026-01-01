@@ -55,7 +55,7 @@ def parse_worker_file(
     Raises:
         ValueError: If file format is invalid
     """
-    from ..config_overrides import apply_overrides
+    from ..config import apply_overrides
 
     pattern = r'^---\s*\n(.*?)\n---\s*\n(.*)$'
     match = re.match(pattern, content, re.DOTALL)

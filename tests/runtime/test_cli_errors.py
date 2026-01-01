@@ -1,4 +1,4 @@
-"""Tests for CLI error handling in ctx_runtime.
+"""Tests for CLI error handling.
 
 These tests verify that errors are handled gracefully with user-friendly messages.
 """
@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from llm_do.ctx_runtime.cli import main
+from llm_do.cli.main import main
 
 
 class TestCLIErrorHandling:
@@ -58,7 +58,7 @@ Test worker
 """)
 
         mock_ctx = AsyncMock()
-        with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
             with patch("sys.argv", ["llm-do", str(worker), "--reject-all", "hello"]):
@@ -105,7 +105,7 @@ Test worker
 """)
 
         # Mock run() to raise KeyboardInterrupt
-        with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = KeyboardInterrupt()
 
             with patch("sys.argv", ["llm-do", str(worker), "hello"]):
@@ -124,7 +124,7 @@ Test worker
 """)
 
         # Mock run() to raise PermissionError
-        with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = PermissionError("Tool 'write_file' requires approval")
 
             with patch("sys.argv", ["llm-do", str(worker), "hello"]):
@@ -158,7 +158,7 @@ Test worker
 """)
 
         # Mock run() to raise ModelHTTPError
-        with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = ModelHTTPError(
                 status_code=401,
                 model_name="test-model",
@@ -182,7 +182,7 @@ Test worker
 
         # Mock run() to return successfully
         mock_ctx = AsyncMock()
-        with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
             with patch("sys.argv", ["llm-do", str(worker), "hello"]):
@@ -201,7 +201,7 @@ Test worker
 """)
 
         mock_ctx = AsyncMock()
-        with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
             with patch("sys.argv", ["llm-do", str(worker), "-vv", "hello"]):
@@ -226,7 +226,7 @@ Test worker
 """)
 
         # Mock run() to raise ValueError
-        with patch("llm_do.ctx_runtime.cli.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = ValueError("Test error")
 
             with patch("sys.argv", ["llm-do", str(worker), "hello", "--debug"]):

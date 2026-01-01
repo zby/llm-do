@@ -17,7 +17,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
-from ..model_compat import select_model
+from ..models import select_model
 from ..ui.events import UIEvent
 from .input_utils import coerce_worker_input
 

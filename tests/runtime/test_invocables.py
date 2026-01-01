@@ -1,6 +1,6 @@
 """Tests for invocable helpers."""
 
-from llm_do.ctx_runtime.invocables import _build_user_prompt
+from llm_do.runtime.worker import _build_user_prompt
 
 
 def test_build_user_prompt_handles_empty_input() -> None:

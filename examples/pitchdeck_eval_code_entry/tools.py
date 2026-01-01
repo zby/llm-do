@@ -28,7 +28,7 @@ except ImportError:
     )
 
 # Import WorkerRuntime type for type hints
-from llm_do.ctx_runtime import WorkerRuntime
+from llm_do.runtime import WorkerRuntime
 
 tools = FunctionToolset()
 

@@ -1,10 +1,10 @@
 """llm-do: LLM-powered worker runtime.
 
-This package provides the context-centric runtime for LLM workers.
+This package provides the runtime for LLM workers.
 
 Main entry points:
 - llm-do CLI: Run workers from .worker and .py files
-- ctx_runtime module: Programmatic API for running workers
+- runtime module: Programmatic API for running workers
 
 Security model: llm-do is designed to run inside a Docker container.
 The container provides the security boundary. Running on bare metal
@@ -23,9 +23,9 @@ from pydantic_ai_blocking_approval import (
     ApprovalToolset,
 )
 
-# Re-export from ctx_runtime for convenience
-from .ctx_runtime import ToolInvocable, Worker, WorkerRuntime
-from .model_compat import (
+# Re-export from runtime for convenience
+from .runtime import ToolInvocable, Worker, WorkerRuntime
+from .models import (
     InvalidCompatibleModelsError,
     ModelCompatibilityError,
     NoModelError,

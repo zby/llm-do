@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.ctx_runtime import WorkerRuntime, load_toolsets_from_files
+from llm_do.runtime import WorkerRuntime, load_toolsets_from_files
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 

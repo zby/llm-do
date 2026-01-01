@@ -1,7 +1,7 @@
 """Tests for CLI configuration overrides (--set flag)."""
 import pytest
 
-from llm_do.config_overrides import (
+from llm_do.config import (
     apply_overrides,
     apply_set_override,
     parse_set_override,

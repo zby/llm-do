@@ -112,7 +112,7 @@ class TestStreamingModels:
         When streaming with verbosity=2, we should see streaming deltas
         and a final "complete" TextResponseEvent to mark completion.
         """
-        from llm_do.ctx_runtime import Worker, WorkerRuntime
+        from llm_do.runtime import Worker, WorkerRuntime
         from llm_do.ui.events import TextResponseEvent
 
         events = []

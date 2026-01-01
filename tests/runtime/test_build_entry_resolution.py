@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.ctx_runtime import Worker
-from llm_do.ctx_runtime.cli import build_entry
+from llm_do.runtime import Worker
+from llm_do.cli.main import build_entry
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
@@ -70,7 +70,7 @@ async def test_build_entry_loads_python_modules_once(tmp_path: Path) -> None:
 
     module_path.write_text(
         f"""\
-from llm_do.ctx_runtime import Worker
+from llm_do.runtime import Worker
 from pydantic_ai.toolsets import FunctionToolset
 
 _marker = {marker_literal}

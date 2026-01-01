@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from llm_do.ctx_runtime import (
+from llm_do.runtime import (
     discover_toolsets_from_module,
     load_module,
     load_toolsets_from_files,
@@ -164,7 +164,7 @@ class TestLoadWorkersFromFiles:
         """Test duplicate Worker names in a single file."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
-from llm_do.ctx_runtime import Worker
+from llm_do.runtime import Worker
 
 worker_one = Worker(name="dup", instructions="first")
 worker_two = Worker(name="dup", instructions="second")
@@ -184,7 +184,7 @@ worker_two = Worker(name="dup", instructions="second")
             for label in ("one", "two"):
                 with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                     f.write(f"""\
-from llm_do.ctx_runtime import Worker
+from llm_do.runtime import Worker
 
 worker_{label} = Worker(name="dup", instructions="{label}")
 """)

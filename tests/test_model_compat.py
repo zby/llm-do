@@ -1,7 +1,7 @@
 """Tests for model compatibility checking."""
 import pytest
 
-from llm_do.model_compat import (
+from llm_do.models import (
     LLM_DO_MODEL_ENV,
     InvalidCompatibleModelsError,
     ModelCompatibilityError,

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import BaseModel
 
-from llm_do.ctx_runtime import Worker, WorkerRuntime
+from llm_do.runtime import Worker, WorkerRuntime
 
 
 class TopicInput(BaseModel):

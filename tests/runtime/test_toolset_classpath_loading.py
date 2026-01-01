@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.ctx_runtime.cli import build_entry
+from llm_do.cli.main import build_entry
 from llm_do.toolsets.shell import ShellToolset
 
 

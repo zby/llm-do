@@ -14,6 +14,8 @@ from pydantic_ai_blocking_approval import (
     ApprovalToolset,
 )
 
+from llm_do.toolsets.loader import ToolsetRef
+
 from .worker import ToolInvocable, Worker
 
 ApprovalCallback = Callable[
@@ -230,12 +232,20 @@ def _wrap_toolsets_with_approval(
             wrapped.append(approved_toolset)
             continue
 
-        # Recursively wrap toolsets inside Worker
-        if isinstance(toolset, Worker):
-            toolset = wrap_worker(toolset, approval_callback)
+        # Unwrap ToolsetRef to check for Worker and get inner toolset
+        inner_toolset = toolset
+        toolset_approval_config = None
+        if isinstance(toolset, ToolsetRef):
+            toolset_approval_config = getattr(toolset, "_approval_config", None)
+            inner_toolset = toolset._inner
 
-        # Get any stored approval config from the toolset
-        config = getattr(toolset, "_approval_config", None)
+        # Recursively wrap toolsets inside Worker
+        if isinstance(inner_toolset, Worker):
+            inner_toolset = wrap_worker(inner_toolset, approval_callback)
+
+        # Get any stored approval config from the toolset (ToolsetRef or direct)
+        config = toolset_approval_config or getattr(inner_toolset, "_approval_config", None)
+        toolset = inner_toolset
 
         # Wrap all toolsets with ApprovalToolset (secure by default)
         # - Toolsets with needs_approval() method: ApprovalToolset delegates to it

@@ -110,6 +110,27 @@ class TestMatchShellRules:
         assert allowed is True  # In rules = allowed
         assert approval is True
 
+    def test_no_overmatch_similar_binary(self):
+        """Pattern 'git' should NOT match 'gitx' or 'git-foo'."""
+        rules = [{"pattern": "git", "approval_required": False}]
+        # gitx should not match git pattern
+        allowed, approval = match_shell_rules("gitx status", ["gitx", "status"], rules, None)
+        assert allowed is False  # Different binary, no match
+        # git-foo should not match git pattern
+        allowed, approval = match_shell_rules("git-foo status", ["git-foo", "status"], rules, None)
+        assert allowed is False  # Different binary, no match
+
+    def test_multi_token_pattern_exact_match(self):
+        """Pattern 'git commit' should match 'git commit -m msg' but not 'git status'."""
+        rules = [{"pattern": "git commit", "approval_required": False}]
+        # Should match
+        allowed, approval = match_shell_rules("git commit -m msg", ["git", "commit", "-m", "msg"], rules, None)
+        assert allowed is True
+        assert approval is False
+        # Should not match
+        allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None)
+        assert allowed is False  # 'git status' doesn't start with 'git commit'
+
 
 
 

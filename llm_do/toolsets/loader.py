@@ -9,6 +9,9 @@ Toolsets are instantiated via constructor signature introspection:
   is passed as a dict.
 - Otherwise, YAML keys are passed as keyword arguments when they match the
   toolset's `__init__` parameters.
+
+Per-worker approval config is handled via ToolsetRef wrappers that carry
+`_approval_config` without mutating shared toolset instances.
 """
 
 from __future__ import annotations
@@ -17,9 +20,70 @@ import importlib
 import inspect
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Optional
 
 from pydantic_ai.toolsets import AbstractToolset
+
+
+class ToolsetRef(AbstractToolset[Any]):
+    """A delegating wrapper that carries per-worker approval config.
+
+    This avoids mutating shared toolset instances when multiple workers
+    reference the same Python toolset with different `_approval_config`.
+    """
+
+    def __init__(
+        self,
+        inner: AbstractToolset[Any],
+        approval_config: dict[str, dict[str, Any]] | None,
+    ):
+        self._inner = inner
+        self._approval_config = approval_config
+
+    @property
+    def id(self) -> Optional[str]:
+        return getattr(self._inner, "id", None)
+
+    def __getattr__(self, name: str) -> Any:
+        # Delegate attribute access to inner toolset
+        return getattr(self._inner, name)
+
+    async def get_tools(self, ctx: Any) -> dict:
+        return await self._inner.get_tools(ctx)
+
+    async def call_tool(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+        tool: Any,
+    ) -> Any:
+        return await self._inner.call_tool(name, tool_args, ctx, tool)
+
+    def needs_approval(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+        config: Any = None,
+    ) -> Any:
+        inner_fn = getattr(self._inner, "needs_approval", None)
+        if callable(inner_fn):
+            return inner_fn(name, tool_args, ctx, config)
+        # No needs_approval on inner; approval layer will use _approval_config
+        return None
+
+    def get_approval_description(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+    ) -> str:
+        inner_fn = getattr(self._inner, "get_approval_description", None)
+        if callable(inner_fn):
+            return inner_fn(name, tool_args, ctx)
+        args_str = ", ".join(f"{k}={v!r}" for k, v in tool_args.items())
+        return f"{name}({args_str})"
 
 BUILTIN_TOOLSET_ALIASES: dict[str, str] = {
     "shell": "llm_do.toolsets.shell.ShellToolset",
@@ -139,14 +203,28 @@ def build_toolsets(
     toolsets_definition: Mapping[str, Mapping[str, Any]],
     context: ToolsetBuildContext,
 ) -> list[AbstractToolset[Any]]:
-    """Build all toolsets declared in a worker file."""
+    """Build all toolsets declared in a worker file.
+
+    For shared toolsets (from `available_toolsets`), per-worker `_approval_config`
+    is wrapped via ToolsetRef to avoid mutating shared instances. Other config
+    keys are rejected for shared refs since they can't configure a shared instance.
+    """
     toolsets: list[AbstractToolset[Any]] = []
     for toolset_ref, toolset_config in toolsets_definition.items():
         existing = context.available_toolsets.get(toolset_ref)
         if existing is not None:
-            if "_approval_config" in toolset_config:
-                setattr(existing, "_approval_config", toolset_config["_approval_config"])
-            toolsets.append(existing)
+            # Shared toolset: wrap with ToolsetRef if approval config is present
+            approval_cfg = toolset_config.get("_approval_config") if toolset_config else None
+            other_keys = set(toolset_config or {}) - {"_approval_config"}
+            if other_keys:
+                raise TypeError(
+                    f"Shared toolset {toolset_ref!r} cannot be configured via "
+                    f"worker YAML: {sorted(other_keys)}"
+                )
+            if approval_cfg:
+                toolsets.append(ToolsetRef(existing, approval_cfg))
+            else:
+                toolsets.append(existing)
             continue
 
         toolsets.append(

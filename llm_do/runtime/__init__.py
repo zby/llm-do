@@ -6,8 +6,6 @@ This module provides a new runtime architecture that:
 - Loads tools from Python files and worker declarations
 - Provides the `llm-do` CLI entry point
 """
-from llm_do.toolsets.builtins import BUILTIN_TOOLSETS, get_builtin_toolset
-
 from .approval import ApprovalCallback, ApprovalPolicy, wrap_entry_for_approval
 from .context import ToolsProxy, WorkerRuntime
 from .contracts import EventCallback, Invocable, ModelType
@@ -46,7 +44,4 @@ __all__ = [
     "discover_workers_from_module",
     "load_toolsets_from_files",
     "load_workers_from_files",
-    # Builtins
-    "BUILTIN_TOOLSETS",
-    "get_builtin_toolset",
 ]

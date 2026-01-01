@@ -75,6 +75,36 @@ def parse_command(command: str) -> List[str]:
         raise ShellBlockedError(f"Cannot parse command: {e}")
 
 
+def _pattern_matches_args(pattern: str, args: List[str]) -> bool:
+    """Check if parsed args match a shell pattern.
+
+    Pattern matching uses tokenized comparison to avoid overmatching:
+    - Pattern "git" matches ["git"], ["git", "status"], but NOT ["gitx"]
+    - Pattern "git status" matches ["git", "status"], ["git", "status", "-s"]
+
+    Args:
+        pattern: Shell pattern string (will be tokenized)
+        args: Parsed command arguments
+
+    Returns:
+        True if args start with the pattern tokens (exact token match)
+    """
+    if not pattern or not args:
+        return False
+
+    try:
+        pattern_tokens = shlex.split(pattern)
+    except ValueError:
+        # If pattern can't be parsed, fall back to prefix match on first arg
+        return args[0] == pattern or args[0].startswith(pattern + " ")
+
+    if len(args) < len(pattern_tokens):
+        return False
+
+    # Each pattern token must match exactly
+    return args[:len(pattern_tokens)] == pattern_tokens
+
+
 def match_shell_rules(
     command: str,
     args: List[str],
@@ -89,7 +119,7 @@ def match_shell_rules(
     - No rule and no default → BLOCKED
 
     Args:
-        command: Original command string
+        command: Original command string (unused, kept for API compatibility)
         args: Parsed command arguments
         rules: List of shell rule dicts with keys: pattern, approval_required
         default: Default behavior dict with key: approval_required (presence = allow unmatched)
@@ -99,9 +129,8 @@ def match_shell_rules(
     """
     for rule in rules:
         pattern = rule.get("pattern", "")
-        # Simple prefix match
-        if command.startswith(pattern) or command == pattern:
-            logger.debug(f"Command '{command}' matches rule pattern '{pattern}'")
+        if _pattern_matches_args(pattern, args):
+            logger.debug(f"Command args {args} match rule pattern '{pattern}'")
             # Rule matched → allowed with rule's approval setting
             return (True, rule.get("approval_required", True))
 

@@ -48,6 +48,7 @@ dev = [
     "pytest-cov",
     "black",
     "ruff",
+    "mypy",
 ]
 
 [tool.setuptools.packages.find]
@@ -78,3 +79,8 @@ line-length = 88
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_configs = true

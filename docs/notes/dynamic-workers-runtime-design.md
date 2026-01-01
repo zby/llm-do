@@ -5,7 +5,8 @@ Design note for runtime creation and invocation of workers (`worker_create` /
 
 Related:
 - `docs/tasks/backlog/dynamic-workers.md` (implementation tracking)
-- `docs/notes/workerruntime-and-approval-design.md` (approval execution boundary)
+- `docs/architecture.md` (run boundary + ApprovalPolicy)
+- `docs/notes/archive/workerruntime-and-approval-design.md` (approval execution boundary design record)
 - `docs/notes/per-worker-approval-config.md` (approval config semantics)
 
 ---
@@ -110,7 +111,7 @@ in that same response. This makes `worker_call` a core UX tool, not optional.
 
 The easiest way to keep CLI vs programmatic behavior consistent is to route
 dynamic-worker compilation/wrapping through the same “run boundary” described in
-`docs/notes/workerruntime-and-approval-design.md`.
+`docs/architecture.md` (design record: `docs/notes/archive/workerruntime-and-approval-design.md`).
 
 ## 4. Open Questions
 
@@ -120,4 +121,3 @@ dynamic-worker compilation/wrapping through the same “run boundary” describe
 - Do we also expose created workers as normal tools on later steps (DynamicToolset),
   while keeping `worker_call` for create+call-in-one-response?
 - Do we restrict `worker_call` to session-generated workers only?
-

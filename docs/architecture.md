@@ -165,3 +165,28 @@ result = await ctx.deps.call("analyzer", {"input": "..."})
 ```
 
 WorkerRuntime state (model, depth, usage, events) flows down the call tree.
+
+---
+
+## Programmatic Usage
+
+For direct Python runs (without the CLI), resolve an entry and run it via the same run boundary:
+
+```python
+from llm_do.ctx_runtime import ApprovalPolicy, run_entry
+from llm_do.ctx_runtime.cli import build_entry
+
+entry = await build_entry(
+    worker_files=["main.worker"],
+    python_files=["tools.py"],
+    entry_name="main",
+)
+
+result, _ctx = await run_entry(
+    entry=entry,
+    prompt="Hello",
+    approval_policy=ApprovalPolicy(mode="approve_all"),
+)
+```
+
+In non-interactive contexts, use `ApprovalPolicy(mode="approve_all")` (or provide an `approval_callback`) to avoid permission errors for approval-required tools.

@@ -11,12 +11,12 @@ Introduce a single `run_entry(...)` boundary that applies approval wrapping via 
 
 ## Context
 - Relevant files/symbols: `llm_do/ctx_runtime/cli.py`, `llm_do/ctx_runtime`, `ApprovalToolset`, `WorkerRuntime`
-- Related tasks/notes/docs: `docs/notes/workerruntime-and-approval-design.md`
+- Related tasks/notes/docs: `docs/notes/archive/workerruntime-and-approval-design.md`
 - How to verify / reproduce: `uv run ruff check .`, `uv run mypy llm_do`, `uv run pytest`
 
 ## Decision Record
 - Decision: Add `run_entry(...)` and `wrap_entry_for_approval(...)`; keep `ApprovalToolset`; require explicit `ApprovalPolicy`.
-- Inputs: `docs/notes/workerruntime-and-approval-design.md`
+- Inputs: `docs/notes/archive/workerruntime-and-approval-design.md`
 - Options: helper vs runtime vs compile pipeline; persistent cache vs per-run; ToolContext vs `WorkerRuntime`
 - Outcome: helper + `run_entry(...)`, per-run cache only, keep `WorkerRuntime` in `RunContext`, no pre-wrapped toolsets.
 - Follow-ups: Revisit ToolContext and wrapper pipeline only if a concrete use-case emerges.

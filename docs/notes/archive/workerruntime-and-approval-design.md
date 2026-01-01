@@ -241,3 +241,13 @@ them as compilation/execution inputs.
 - **Scope tolerance**: Option D/E require non-trivial refactors.
 - **API clarity**: Option B offers a clean "one entry point" for runtime config.
 - **Architecture direction**: Option D is most future-proof but also most work.
+
+---
+
+## Conclusion
+
+The approval execution boundary is implemented:
+
+- `ApprovalPolicy`, `wrap_entry_for_approval(...)`, and `run_entry(...)` live in `llm_do/ctx_runtime` and are used by the CLI.
+- For current behavior and programmatic usage, prefer `docs/architecture.md`.
+- The proposed `compile_entry(...)` / `EntryIR` pipeline remains deferred (YAGNI) until a concrete use-case emerges.

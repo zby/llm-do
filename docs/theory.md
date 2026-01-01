@@ -32,6 +32,19 @@ D(Output | Spec, Input) ≈ Σ Pr[Program | Spec] · D(Output | Program, Input)
 
 If you treat `Program` as deterministic, `D(Output | Program, Input)` collapses to a point mass; most of the variance comes from the mixture over programs.
 
+### Example: "Refactor for Readability"
+
+Ask an LLM coding assistant to refactor a function for readability. Different runs might:
+
+- Extract helper functions
+- Rename variables for clarity
+- Restructure control flow (loops → comprehensions)
+- Add comments explaining intent
+
+These aren't noisy variations of *one* strategy—they're different *interpretations* of "readability." Each run samples a different program from the space of valid refactoring approaches.
+
+Similarly, "add error handling" might yield try/catch blocks, input validation, Result types, or defensive returns. Same spec, qualitatively different implementations.
+
 We don't claim this is how LLMs actually work internally. But as a mental model for reasoning about complex, opaque distributions, it's useful: prompt engineering becomes about shaping a distribution over *behaviors*, not debugging a fixed program. This framing recurs throughout—in how we think about hardening, testing, and the boundaries between stochastic and deterministic code.
 
 ## Shaping the Distribution

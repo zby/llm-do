@@ -98,9 +98,9 @@ def _build_user_prompt(input_data: Any) -> str | Sequence[UserContent]:
     else:
         text = str(input_data)
 
-    # If no attachments, return plain string
+    # If no attachments, return plain string (avoid empty/whitespace prompt for providers that require a message)
     if not attachments:
-        return text
+        return text if text.strip() else "(no input)"
 
     # Build multimodal prompt with attachments
     parts: list[UserContent] = [text]

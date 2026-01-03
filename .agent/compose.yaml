@@ -1,0 +1,52 @@
+services:
+  agent:
+    build:
+      context: ..
+      dockerfile: .agent/Dockerfile
+    image: repo-agent-dev:ubuntu24
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace:rw
+      - uv-cache:/uv-cache
+      - uv-python:/uv-python
+      # Claude Code config directories (for subscription-based auth)
+      - ~/.claude:/tmp/home/.claude:rw
+      - ~/.claude.json:/tmp/home/.claude.json:rw
+      - ~/.local/share/claude:/tmp/home/.local/share/claude:rw
+      - ~/.local/state/claude:/tmp/home/.local/state/claude:rw
+      - ~/.cache/claude:/tmp/home/.cache/claude:rw
+      # Codex CLI config (optional but mounted by default)
+      - ~/.codex:/tmp/home/.codex:rw
+    environment:
+      HOME: /tmp/home
+
+      # Git safety:
+      # - allow fetch/pull over HTTPS (public repo)
+      # - make pushes fail (no SSH, no prompts)
+      GIT_TERMINAL_PROMPT: "0"
+      GIT_ASKPASS: /bin/false
+      GIT_SSH_COMMAND: /bin/false
+
+      # uv: store cache + downloaded Pythons in volumes (fast + repeatable)
+      UV_CACHE_DIR: /uv-cache
+      UV_PYTHON_INSTALL_DIR: /uv-python
+
+      # uv project venv location: default is `.venv`, configurable via UV_PROJECT_ENVIRONMENT
+      UV_PROJECT_ENVIRONMENT: /workspace/.venv
+
+    # Run as your host UID/GID so files created in the repo aren't owned by root
+    user: "${AGENT_UID}:${AGENT_GID}"
+
+    tty: true
+    stdin_open: true
+    init: true
+
+    # Basic hardening (optional but recommended)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  uv-cache:
+  uv-python:

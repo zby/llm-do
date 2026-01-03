@@ -1,0 +1,29 @@
+FROM ubuntu:24.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Core tools + Node.js for TypeScript development
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        vim \
+        less \
+        bash-completion \
+        tzdata \
+        nodejs \
+        npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Install AI coding agents
+RUN npm install -g @anthropic-ai/claude-code @openai/codex
+
+# Writable locations so the container can run as *your* host UID/GID
+RUN mkdir -p /tmp/home && chmod 777 /tmp/home
+
+WORKDIR /workspace
+CMD ["bash"]

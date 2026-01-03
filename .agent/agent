@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." >/dev/null 2>&1 && pwd)"
+
+export AGENT_UID="${AGENT_UID:-$(id -u)}"
+export AGENT_GID="${AGENT_GID:-$(id -g)}"
+
+cd "$REPO_ROOT"
+
+# Expand convenience aliases
+expand_alias() {
+    case "$1" in
+        claude-auto) echo "claude --dangerously-skip-permissions" ;;
+        codex-auto)  echo "codex --dangerously-bypass-approvals-and-sandbox" ;;
+        *)           echo "$1" ;;
+    esac
+}
+
+if [[ $# -eq 0 ]]; then
+    # Interactive shell with aliases
+    exec docker compose -f .agent/compose.yaml run --rm agent bash --rcfile <(cat <<'EOF'
+alias claude-auto='claude --dangerously-skip-permissions'
+alias codex-auto='codex --dangerously-bypass-approvals-and-sandbox'
+alias ll='ls -la'
+alias gs='git status'
+alias gd='git diff'
+EOF
+)
+else
+    # Run command, expanding first arg if it's an alias
+    cmd=$(expand_alias "$1")
+    shift
+    exec docker compose -f .agent/compose.yaml run --rm agent $cmd "$@"
+fi

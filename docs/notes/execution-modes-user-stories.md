@@ -35,6 +35,11 @@ Two general modes:
 - I want structured output (tables/JSON/CSV) so that I can compare across companies
 - I want provenance attached to each number so that I can defend conclusions
 
+**As a developer packaging workers...**
+- I want to run workers as importable Python packages so that distribution follows standard tooling
+- I want a single entrypoint that bundles worker config + code so that installs are reproducible
+- I want to pin dependencies per worker package so that runs are stable across environments
+
 ---
 
 ## Chat Mode User Stories
@@ -66,6 +71,11 @@ Two general modes:
 - I want to ask targeted questions and inspect sources so that I can validate claims
 - I want to track assumptions and caveats so that I can separate facts from hypotheses
 - I want a watchlist of companies/topics so that I can revisit them over time
+
+**As a developer sharing workers with a team...**
+- I want to distribute workers via a package index or git so that onboarding is fast
+- I want a clear versioning story so that colleagues can lock to known-good behavior
+- I want metadata (description, tools, entrypoints) so that discovery is easy
 
 ---
 
@@ -165,6 +175,14 @@ $ llm-do --headless analyst.worker "Summarize ACME Q2 results" --format json
 {"company": "...", "kpis": [{"name": "revenue", "value": "...", "source": "..."}]}
 ```
 Output needs to be machine-readable and include provenance for each field.
+
+### Scenario 11: Package-distributed worker entry
+```
+$ llm-do my_worker_pkg:main "Generate release notes"
+[Loaded worker from Python package entrypoint]
+```
+This flow mirrors `experiments/inv/v2_direct/`: a packaged entry that bundles
+worker configuration, instructions, and tool code.
 
 ---
 
@@ -327,6 +345,9 @@ Rapid iteration during development.
 
 4. **Structured output defaults** - Should certain workers declare a preferred
    output format (Markdown/JSON) to reduce ambiguity?
+
+5. **Distribution format** - Do we treat workers as packages with entrypoints
+   (e.g., `pkg:worker`), or support a bundled directory format (zip/tarball)?
 
 3. **Trust boundaries** - How deep does approval go in nested workers?
 

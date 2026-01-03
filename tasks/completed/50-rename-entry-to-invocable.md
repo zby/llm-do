@@ -4,7 +4,7 @@
 completed
 
 ## Prerequisites
-- [x] `docs/tasks/completed/49-approval-unification.md` (removes `requires_approval` field first)
+- [x] `tasks/completed/49-approval-unification.md` (removes `requires_approval` field first)
 
 ## Goal
 Rename Entry types to Invocable across the codebase. This clarifies that the abstraction represents "something you can invoke" (tool or worker), not an "entrypoint".
@@ -21,8 +21,8 @@ Rename Entry types to Invocable across the codebase. This clarifies that the abs
   - Docs: `docs/architecture.md`, `docs/cli.md`
   - Tests: various test files reference these types
 - Related tasks/notes/docs:
-  - `docs/tasks/active/47-split-context-class.md` (depends on this task)
-  - `docs/tasks/completed/49-approval-unification.md` (prerequisite)
+  - `tasks/active/47-split-context-class.md` (depends on this task)
+  - `tasks/completed/49-approval-unification.md` (prerequisite)
 - How to verify:
   - `uv run pytest`
 

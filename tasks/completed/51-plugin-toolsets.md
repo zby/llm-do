@@ -17,7 +17,7 @@ Move toolsets to `llm_do/toolsets/` directory and implement dynamic loading via 
   - `pydantic_ai_blocking_approval`: `ApprovalToolset`, `SupportsNeedsApproval`
 - Related tasks/notes/docs:
   - `docs/notes/archive/toolset_plugin_architecture.md` (full design doc)
-  - `docs/tasks/backlog/plugin-toolsets.md` (original backlog item)
+  - `tasks/backlog/plugin-toolsets.md` (original backlog item)
 - How to verify:
   - `uv run pytest`
   - Manual: workers using `shell` and `filesystem` toolsets still work

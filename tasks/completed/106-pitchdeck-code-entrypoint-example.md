@@ -90,5 +90,5 @@ The `call_tool_async` function was updated to extract attachments from dict inpu
 
 - Source example: `examples/pitchdeck_eval_hardened/`
 - New example: `examples/pitchdeck_eval_code_entry/`
-- Design: `docs/tasks/completed/tool-entry-point.md`
-- Context injection: `docs/tasks/completed/105-custom-tool-context.md`
+- Design: `tasks/completed/tool-entry-point.md`
+- Context injection: `tasks/completed/105-custom-tool-context.md`

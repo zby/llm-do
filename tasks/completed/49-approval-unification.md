@@ -16,8 +16,8 @@ Remove redundant `requires_approval` mechanism from Invocables and use `Approval
   - `llm_do/ctx_runtime/cli.py:418-435`: entry-level approval setup (`headless_approval`, `--approve-all`/`--reject-all` for entries)
   - `pydantic_ai_blocking_approval`: `ApprovalToolset`, `ApprovalDecision`, `ApprovalRequest`
 - Related tasks/notes/docs:
-  - `docs/tasks/active/47-split-context-class.md` (depends on this task)
-  - `docs/tasks/completed/46-approval-toolset-wrappers.md` (established 0.9.0 API)
+  - `tasks/active/47-split-context-class.md` (depends on this task)
+  - `tasks/completed/46-approval-toolset-wrappers.md` (established 0.9.0 API)
 - How to verify:
   - `uv run pytest`
   - Manual smoke: `llm-do --headless --approve-all` / `--reject-all` should work for nested invocations

@@ -19,8 +19,8 @@ Fix the concrete correctness issues identified in `docs/notes/reviews/review-ctx
   - `llm_do/toolset_loader.py:build_toolsets` (mutates `_approval_config` on shared instances)
 - Related tasks/notes/docs:
   - `docs/notes/reviews/review-ctx-runtime.md`
-  - `docs/tasks/completed/41-review-ctx-runtime.md`
-  - `docs/tasks/active/35-chat-support.md` (multi-turn message history intent)
+  - `tasks/completed/41-review-ctx-runtime.md`
+  - `tasks/active/35-chat-support.md` (multi-turn message history intent)
 - How to verify / reproduce:
   - Add regression tests and run `uv run pytest`.
   - (Bug repro) In `--tui --chat`, second-turn model behavior should differ when prior messages are provided; currently the top-level worker run does not receive prior history.

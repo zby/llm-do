@@ -152,7 +152,7 @@ LLM sees: _agent_summarizer(input="...")
 
 ### Phase 4: Cleanup & Documentation
 
-Sandbox removal is complete (see `docs/tasks/completed/15-remove-sandbox.md`). Remaining cleanup:
+Sandbox removal is complete (see `tasks/completed/15-remove-sandbox.md`). Remaining cleanup:
 
 - [x] Rename `llm_do/sandbox/` module to `llm_do/attachments/` (only contains attachment types now)
 - [x] Update any stale references to "sandbox" in comments/docstrings
@@ -224,4 +224,4 @@ Context flows down: depth, approval_controller, (future: cost_tracker)
 - Worker execution: `llm_do/runtime.py`
 - Types: `llm_do/types.py`
 - Attachments: `llm_do/attachments/` (renamed from sandbox/)
-- Sandbox removal (completed): `docs/tasks/completed/15-remove-sandbox.md`
+- Sandbox removal (completed): `tasks/completed/15-remove-sandbox.md`

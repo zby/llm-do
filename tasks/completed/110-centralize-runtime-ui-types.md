@@ -24,7 +24,7 @@ Centralize the *type surfaces* for both `runtime` and `ui` so it’s easy to fin
 - Related tasks/notes/docs:
   - `docs/ui.md`
   - `docs/architecture.md`
-  - `docs/tasks/backlog/ui-architecture-improvements.md` (broader follow-up area)
+  - `tasks/backlog/ui-architecture-improvements.md` (broader follow-up area)
 - How to verify:
   - `uv run ruff check .`
   - `uv run mypy llm_do`

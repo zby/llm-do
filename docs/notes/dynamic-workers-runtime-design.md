@@ -4,7 +4,7 @@ Design note for runtime creation and invocation of workers (`worker_create` /
 `worker_call`).
 
 Related:
-- `docs/tasks/backlog/dynamic-workers.md` (implementation tracking)
+- `tasks/backlog/dynamic-workers.md` (implementation tracking)
 - `docs/architecture.md` (run boundary + ApprovalPolicy)
 - `docs/notes/archive/workerruntime-and-approval-design.md` (approval execution boundary design record)
 - `docs/notes/per-worker-approval-config.md` (approval config semantics)

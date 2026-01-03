@@ -132,7 +132,7 @@ tools_list.append(Tool(call_llm_do_worker))
 
 ## Tracking
 
-Work tracking lives in `docs/tasks/backlog/tunacode-integration.md`.
+Work tracking lives in `tasks/backlog/tunacode-integration.md`.
 
 ## Usage Example
 

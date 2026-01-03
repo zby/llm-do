@@ -234,11 +234,11 @@ resolve_entry_tool("main")
 Tool registry, unified call path, and tool entrypoint runtime/CLI are implemented.
 Docs updated to reflect tool-first entry points and `--tool` flag.
 Example updates to showcase code entry points are still pending (see
-`docs/tasks/active/106-pitchdeck-code-entrypoint-example.md`).
+`tasks/active/106-pitchdeck-code-entrypoint-example.md`).
 
 ## References
 
-- Prior work: `docs/tasks/completed/workers-as-tools.md`
+- Prior work: `tasks/completed/workers-as-tools.md`
 - Design notes: `docs/notes/neuro-symbolic-tool-unification.md`
 - Current runtime: `llm_do/runtime.py`
 - Current types: `llm_do/types.py`

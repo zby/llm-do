@@ -340,7 +340,7 @@ Error: Worker 'helper' is not exported by library 'utils'
 
 ## 8. Implementation Plan
 
-Work tracking lives in `docs/tasks/backlog/library-system.md`.
+Work tracking lives in `tasks/backlog/library-system.md`.
 
 ### Phases (high level)
 1. Core types (LibraryConfig model, resolution helpers, exceptions)

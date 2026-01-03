@@ -81,5 +81,5 @@ Recent changes (commit b1297d5) added:
 ## References
 
 - Current AgentToolset: `llm_do/agent_toolset.py`
-- Remove workshop task: `docs/tasks/completed/60-remove-workshop.md`
-- Completed workers-as-tools: `docs/tasks/completed/workers-as-tools.md`
+- Remove workshop task: `tasks/completed/60-remove-workshop.md`
+- Completed workers-as-tools: `tasks/completed/workers-as-tools.md`

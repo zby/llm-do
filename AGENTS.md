@@ -63,13 +63,13 @@ Run relevant checks before submitting changes:
 ## Tasks & Notes Workflow (Ticketing System)
 
 **Always** read the relevant README before working with tasks or notes (create, edit, resume, move, or close):
-- `docs/tasks/README.md` for tasks
+- `tasks/README.md` for tasks
 - `docs/notes/README.md` for notes
 
 ### Tasks
-- Use `docs/tasks/active/` for in-progress work; follow the task template and keep "Current State" updated.
+- Use `tasks/active/` for in-progress work; follow the task template and keep "Current State" updated.
 - Keep tasks scoped to one coherent unit; track prerequisites and dependencies explicitly.
-- When finished, move the task to `docs/tasks/completed/` or delete it (completed tasks are not documentation).
+- When finished, move the task to `tasks/completed/` or delete it (completed tasks are not documentation).
 
 ### Notes
 - Use `docs/notes/` for explorations and reasoning that doesn’t belong in code or tasks; follow the note template.

@@ -4,7 +4,7 @@
 completed
 
 ## Prerequisites
-- [x] `docs/tasks/completed/47-split-context-class.md` (stabilize runtime boundary before UI split)
+- [x] `tasks/completed/47-split-context-class.md` (stabilize runtime boundary before UI split)
 
 ## Goal
 Extract `LlmDoApp` responsibilities into composable components so the TUI can be replaced or tested without altering core message rendering and worker orchestration.
@@ -16,7 +16,7 @@ Extract `LlmDoApp` responsibilities into composable components so the TUI can be
   - `llm_do/ctx_runtime/cli.py`: creates and runs the app
 - Related tasks/notes/docs:
   - `docs/notes/reviews/review-solid.md` (UI system finding)
-  - `docs/tasks/completed/47-split-context-class.md` (similar refactor for runtime)
+  - `tasks/completed/47-split-context-class.md` (similar refactor for runtime)
 - How to verify:
   - `uv run pytest`
   - Manual TUI smoke test

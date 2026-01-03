@@ -4,8 +4,8 @@
 completed
 
 ## Prerequisites
-- [x] `docs/tasks/completed/49-approval-unification.md` (removes `requires_approval` and `Context.approval`)
-- [x] `docs/tasks/completed/50-rename-entry-to-invocable.md` (renames types before structural split)
+- [x] `tasks/completed/49-approval-unification.md` (removes `requires_approval` and `Context.approval`)
+- [x] `tasks/completed/50-rename-entry-to-invocable.md` (renames types before structural split)
 
 ## Goal
 Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immutable) + `CallFrame` (per-worker, forked on spawn). This separates dispatch mechanics from per-call state, enables correct concurrent worker support, and uses clearer naming.
@@ -50,7 +50,7 @@ Rename `Context` to `WorkerRuntime` and split into `RuntimeConfig` (shared/immut
 - Why "Context" is problematic:
   - Overloaded term (React Context, Python contextvars, PydanticAI RunContext)
   - Doesn't communicate what the class actually does
-- Entry → Invocable rename: See Task 50 (`docs/tasks/completed/50-rename-entry-to-invocable.md`)
+- Entry → Invocable rename: See Task 50 (`tasks/completed/50-rename-entry-to-invocable.md`)
   - Done as prerequisite before this task
   - Uses `Invocable` (protocol), `Worker`, `ToolInvocable`, `invocables.py`
 - Concurrency semantics:
@@ -101,6 +101,6 @@ Implemented `WorkerRuntime` facade over `RuntimeConfig` + `CallFrame`, updated a
 - "Context" → "WorkerRuntime" rename improves clarity and avoids collision with overloaded "context" terminology.
 
 ### Approval Unification (PREREQUISITE — Task 49)
-See `docs/tasks/completed/49-approval-unification.md`.
+See `tasks/completed/49-approval-unification.md`.
 
 Task 49 removes `requires_approval` and `Context.approval` before this task runs, so this refactoring doesn't need to migrate approval logic.

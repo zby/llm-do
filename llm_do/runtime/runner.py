@@ -1,36 +1,33 @@
-"""Execution boundary for runtime entries."""
+"""Execution boundary for runtime invocables."""
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
+
+from pydantic_ai.messages import ModelMessage
 
 from ..ui.events import UserMessageEvent
-from .approval import RunApprovalPolicy, wrap_entry_for_approval
+from .approval import RunApprovalPolicy
 from .context import WorkerRuntime
 from .contracts import EventCallback, Invocable
-from .input_utils import coerce_worker_input
-from .worker import Worker
 
 
-async def run_entry(
-    entry: Invocable,
+async def run_invocable(
+    invocable: Invocable,
     prompt: str,
     *,
     model: str | None = None,
     approval_policy: RunApprovalPolicy,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
-    message_history: list[Any] | None = None,
+    message_history: list[ModelMessage] | None = None,
 ) -> tuple[Any, WorkerRuntime]:
-    """Run a resolved entry with the provided execution policy.
+    """Run an invocable with the provided execution policy.
 
     RunApprovalPolicy gates tool calls during execution (LLM tool calls or
-    programmatic ctx.deps.call), not the entry invocation itself.
+    programmatic ctx.deps.call), not the invocable invocation itself.
     """
-    wrapped_entry = wrap_entry_for_approval(entry, approval_policy)
-    invocable_entry = cast(Invocable, wrapped_entry)
-
-    ctx = WorkerRuntime.from_entry(
-        invocable_entry,
+    ctx: WorkerRuntime = WorkerRuntime.from_entry(
+        invocable,
         model=model,
         run_approval_policy=approval_policy,
         messages=list(message_history) if message_history else None,
@@ -38,14 +35,11 @@ async def run_entry(
         verbosity=verbosity,
     )
 
-    if isinstance(invocable_entry, Worker):
-        input_data = coerce_worker_input(invocable_entry.schema_in, prompt)
-    else:
-        input_data = {"input": prompt}
+    input_data: dict[str, str] = {"input": prompt}
 
     if on_event is not None:
-        on_event(UserMessageEvent(worker=getattr(invocable_entry, "name", "worker"), content=prompt))
+        on_event(UserMessageEvent(worker=invocable.name, content=prompt))
 
-    result = await ctx.run(invocable_entry, input_data)
+    result: Any = await ctx.run(invocable, input_data)
 
     return result, ctx

@@ -35,6 +35,7 @@ class WorkerFile:
     description: str | None
     instructions: str
     model: str | None = None
+    compatible_models: list[str] | None = None
     toolsets: dict[str, dict[str, Any]] = field(default_factory=dict)
     server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
 
@@ -97,11 +98,17 @@ def parse_worker_file(
     if server_side_tools and not isinstance(server_side_tools, list):
         raise ValueError("Invalid server_side_tools: expected YAML list")
 
+    # Parse compatible_models
+    compatible_models = frontmatter.get("compatible_models")
+    if compatible_models is not None and not isinstance(compatible_models, list):
+        raise ValueError("Invalid compatible_models: expected YAML list")
+
     return WorkerFile(
         name=name,
         description=frontmatter.get("description"),
         instructions=instructions.strip(),
         model=frontmatter.get("model"),
+        compatible_models=compatible_models,
         toolsets=toolsets,
         server_side_tools=server_side_tools,
     )

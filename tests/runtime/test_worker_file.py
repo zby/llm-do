@@ -252,3 +252,48 @@ Instructions.
         result = parse_worker_file(content)
 
         assert result.server_side_tools == []
+
+    def test_compatible_models(self):
+        """Test parsing compatible_models from worker file."""
+        content = """\
+---
+name: strict_worker
+model: anthropic:claude-sonnet-4-20250514
+compatible_models:
+  - anthropic:claude-sonnet-4-20250514
+  - anthropic:claude-opus-4-20250514
+  - openai:gpt-4o
+---
+Instructions.
+"""
+        result = parse_worker_file(content)
+
+        assert result.compatible_models == [
+            "anthropic:claude-sonnet-4-20250514",
+            "anthropic:claude-opus-4-20250514",
+            "openai:gpt-4o",
+        ]
+
+    def test_compatible_models_invalid_format_raises(self):
+        """Test that invalid compatible_models format raises ValueError."""
+        content = """\
+---
+name: main
+compatible_models: not-a-list
+---
+Instructions.
+"""
+        with pytest.raises(ValueError, match="expected YAML list"):
+            parse_worker_file(content)
+
+    def test_compatible_models_defaults_to_none(self):
+        """Test that compatible_models defaults to None."""
+        content = """\
+---
+name: basic
+---
+Instructions.
+"""
+        result = parse_worker_file(content)
+
+        assert result.compatible_models is None

@@ -27,7 +27,6 @@ from llm_do.runtime import WorkerRuntime
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
-    wrap_entry_for_approval,
 )
 
 # Mark all tests in this directory as live tests
@@ -150,7 +149,6 @@ async def run_example(
         mode="approve_all" if approval_callback is None else "prompt",
         approval_callback=approval_callback,
     )
-    entry = wrap_entry_for_approval(entry, approval_policy)
 
     ctx = WorkerRuntime.from_entry(entry, model=model, run_approval_policy=approval_policy)
     return await ctx.run(entry, input_data)

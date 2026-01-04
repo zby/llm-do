@@ -11,7 +11,6 @@ from .approval import (
     RunApprovalPolicy,
     WorkerApprovalPolicy,
     resolve_approval_callback,
-    wrap_entry_for_approval,
 )
 from .context import ToolsProxy, WorkerRuntime
 from .contracts import EventCallback, Invocable, ModelType
@@ -22,7 +21,7 @@ from .discovery import (
     load_toolsets_from_files,
     load_workers_from_files,
 )
-from .runner import run_entry
+from .runner import run_invocable
 from .worker import ToolInvocable, Worker
 from .worker_file import WorkerFile, load_worker_file, parse_worker_file
 
@@ -37,8 +36,7 @@ __all__ = [
     "RunApprovalPolicy",
     "WorkerApprovalPolicy",
     "resolve_approval_callback",
-    "wrap_entry_for_approval",
-    "run_entry",
+    "run_invocable",
     # Entries
     "Worker",
     "ToolInvocable",

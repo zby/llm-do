@@ -4,7 +4,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 
-from llm_do.runtime import ToolInvocable, run_entry
+from llm_do.runtime import ToolInvocable, run_invocable
 from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
 from llm_do.runtime.worker import Worker
 from llm_do.toolsets.filesystem import FileSystemToolset
@@ -79,29 +79,31 @@ def test_wrap_toolsets_handles_cycles() -> None:
 
 
 @pytest.mark.anyio
-async def test_run_entry_wraps_toolinvocable_toolsets() -> None:
+async def test_run_entry_does_not_wrap_toolinvocable_toolsets() -> None:
+    """ToolInvocable toolsets are not wrapped - only Worker toolsets are wrapped at call time."""
     toolset = FunctionToolset()
 
     @toolset.tool
     def echo(input: str) -> str:
         return input
 
-    entry = ToolInvocable(
+    invocable = ToolInvocable(
         toolset=toolset,
         tool_name="echo",
         toolsets=[toolset],
         model=TestModel(),
     )
 
-    result, ctx = await run_entry(
-        entry=entry,
+    result, ctx = await run_invocable(
+        invocable,
         prompt="hello",
         approval_policy=RunApprovalPolicy(mode="approve_all"),
     )
 
     assert result == "hello"
     assert ctx.toolsets
-    assert isinstance(ctx.toolsets[0], ApprovalToolset)
+    # ToolInvocable toolsets are NOT wrapped - wrapping only happens in Worker.call()
+    assert not isinstance(ctx.toolsets[0], ApprovalToolset)
 
 
 @pytest.mark.anyio
@@ -119,8 +121,8 @@ async def test_nested_worker_calls_are_approval_gated() -> None:
     )
 
     with pytest.raises(PermissionError):
-        await run_entry(
-            entry=parent,
+        await run_invocable(
+            parent,
             prompt="trigger",
             approval_policy=RunApprovalPolicy(mode="reject_all"),
         )
@@ -134,15 +136,15 @@ async def test_toolinvocable_entry_call_not_approval_gated() -> None:
     def echo(input: str) -> str:
         return input
 
-    entry = ToolInvocable(
+    invocable = ToolInvocable(
         toolset=toolset,
         tool_name="echo",
         toolsets=[toolset],
         model=TestModel(),
     )
 
-    result, _ctx = await run_entry(
-        entry=entry,
+    result, _ctx = await run_invocable(
+        invocable,
         prompt="hello",
         approval_policy=RunApprovalPolicy(mode="reject_all"),
     )

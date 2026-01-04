@@ -46,7 +46,7 @@ from ..runtime import (
     Worker,
     WorkerRuntime,
     load_worker_file,
-    run_entry,
+    run_invocable,
 )
 from ..runtime.discovery import load_toolsets_and_workers_from_files
 from ..toolsets.loader import (
@@ -238,6 +238,7 @@ async def build_entry(
         stub = worker_entries[name]
         stub.instructions = worker_file.instructions
         stub.model = worker_model
+        stub.compatible_models = worker_file.compatible_models
         stub.toolsets = resolved_toolsets
         stub.toolset_approval_configs = approval_configs
         stub.builtin_tools = builtin_tools
@@ -323,9 +324,9 @@ async def run(
         return_permission_errors=return_permission_errors,
     )
 
-    invocable_entry = cast(Invocable, entry)
-    return await run_entry(
-        invocable_entry,
+    invocable = cast(Invocable, entry)
+    return await run_invocable(
+        invocable,
         prompt,
         model=model,
         approval_policy=approval_policy,

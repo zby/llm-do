@@ -185,6 +185,7 @@ class ToolInvocable:
     kind: str = "tool"
     model: ModelType | None = None
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
+    toolset_approval_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
@@ -197,17 +198,39 @@ class ToolInvocable:
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Call the tool via its toolset."""
+        from .approval import wrap_toolsets_for_approval
+
         if isinstance(input_data, BaseModel):
             input_data = input_data.model_dump()
         elif not isinstance(input_data, dict):
             raise TypeError(f"Expected dict or BaseModel, got {type(input_data)}")
 
-        tools = await self.toolset.get_tools(run_ctx)
+        resolved_model = self.model if self.model is not None else ctx.model
+        wrapped_toolsets = wrap_toolsets_for_approval(
+            self.toolsets or [],
+            ctx.run_approval_policy,
+            self.toolset_approval_configs or None,
+        )
+        child_ctx = ctx.spawn_child(
+            toolsets=wrapped_toolsets,
+            model=resolved_model,
+        )
+        child_run_ctx = RunContext(
+            deps=child_ctx,
+            model=run_ctx.model,
+            usage=run_ctx.usage,
+            prompt=run_ctx.prompt,
+            tool_call_id=run_ctx.tool_call_id,
+            tool_name=run_ctx.tool_name,
+            retry=run_ctx.retry,
+        )
+
+        tools = await self.toolset.get_tools(child_run_ctx)
         tool = tools.get(self.tool_name)
         if tool is None:
             raise KeyError(f"Tool {self.tool_name} not found in toolset")
 
-        return await self.toolset.call_tool(self.tool_name, input_data, run_ctx, tool)
+        return await self.toolset.call_tool(self.tool_name, input_data, child_run_ctx, tool)
 
 
 @dataclass
@@ -225,6 +248,7 @@ class Worker(AbstractToolset[Any]):
     name: str
     instructions: str
     model: ModelType | None = None
+    compatible_models: list[str] | None = None
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
     toolset_approval_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
     builtin_tools: list[Any] = field(default_factory=list)  # PydanticAI builtin tools
@@ -338,8 +362,10 @@ class Worker(AbstractToolset[Any]):
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Execute the worker with the given input."""
-        from .approval import WorkerApprovalPolicy, resolve_approval_callback
+        from .approval import wrap_toolsets_for_approval
+        from .input_utils import coerce_worker_input
 
+        input_data = coerce_worker_input(self.schema_in, input_data)
         if self.schema_in is not None:
             input_data = self.schema_in.model_validate(input_data)
 
@@ -347,12 +373,17 @@ class Worker(AbstractToolset[Any]):
             raise RuntimeError(f"Max depth exceeded: {ctx.max_depth}")
 
         resolved_model = self.model if self.model is not None else ctx.model
-        worker_policy = WorkerApprovalPolicy(
-            approval_callback=resolve_approval_callback(ctx.run_approval_policy),
-            return_permission_errors=ctx.run_approval_policy.return_permission_errors,
-            approval_configs=self.toolset_approval_configs or None,
+        if self.compatible_models is not None and resolved_model not in self.compatible_models:
+            raise ValueError(
+                f"Model {resolved_model!r} is not compatible with worker {self.name!r}. "
+                f"Compatible models: {self.compatible_models}"
+            )
+
+        wrapped_toolsets = wrap_toolsets_for_approval(
+            self.toolsets or [],
+            ctx.run_approval_policy,
+            self.toolset_approval_configs or None,
         )
-        wrapped_toolsets = worker_policy.wrap_toolsets(self.toolsets or [])
         child_ctx = ctx.spawn_child(
             toolsets=wrapped_toolsets,
             model=resolved_model,

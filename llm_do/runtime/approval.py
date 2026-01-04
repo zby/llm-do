@@ -4,7 +4,7 @@ from __future__ import annotations
 import inspect
 import json
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any, Literal, Optional
 
 from pydantic_ai.toolsets import AbstractToolset
@@ -13,8 +13,6 @@ from pydantic_ai_blocking_approval import (
     ApprovalRequest,
     ApprovalToolset,
 )
-
-from .worker import ToolInvocable
 
 ApprovalCallback = Callable[
     [ApprovalRequest],
@@ -207,25 +205,21 @@ def resolve_approval_callback(policy: RunApprovalPolicy) -> ApprovalCallback:
     )
 
 
-def wrap_entry_for_approval(
-    entry: Any,
-    approval_policy: RunApprovalPolicy,
-) -> Any:
-    """Return entry with toolsets wrapped for approval handling.
+def wrap_toolsets_for_approval(
+    toolsets: list[AbstractToolset[Any]],
+    run_approval_policy: RunApprovalPolicy,
+    approval_configs: dict[str, dict[str, Any]] | None = None,
+) -> list[AbstractToolset[Any]]:
+    """Wrap toolsets with approval handling.
 
-    Worker entries are wrapped on call; only ToolInvocable entries are
-    wrapped here to ensure ctx.deps.call is approval-gated.
+    Called at Invocable.call() time (Worker or ToolInvocable) to ensure
+    LLM tool calls go through approval.
     """
-    if not isinstance(entry, ToolInvocable):
-        return entry
-
-    toolsets = list(getattr(entry, "toolsets", []) or [])
-    if not toolsets:
-        return entry
-
     worker_policy = WorkerApprovalPolicy(
-        approval_callback=resolve_approval_callback(approval_policy),
-        return_permission_errors=approval_policy.return_permission_errors,
+        approval_callback=resolve_approval_callback(run_approval_policy),
+        return_permission_errors=run_approval_policy.return_permission_errors,
+        approval_configs=approval_configs,
     )
-    wrapped_toolsets = worker_policy.wrap_toolsets(toolsets)
-    return replace(entry, toolsets=wrapped_toolsets)
+    return worker_policy.wrap_toolsets(toolsets)
+
+

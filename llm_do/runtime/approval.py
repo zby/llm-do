@@ -43,14 +43,22 @@ class WorkerApprovalPolicy:
     def wrap_toolsets(
         self,
         toolsets: list[AbstractToolset[Any]],
+        *,
+        approval_configs: list[dict[str, dict[str, Any]] | None] | None = None,
     ) -> list[AbstractToolset[Any]]:
         wrapped: list[AbstractToolset[Any]] = []
-        for toolset in toolsets:
+        if approval_configs is None:
+            approval_configs = [None] * len(toolsets)
+        elif len(approval_configs) != len(toolsets):
+            raise ValueError(
+                f"Approval config length {len(approval_configs)} does not match "
+                f"toolset length {len(toolsets)}"
+            )
+
+        for toolset, config in zip(toolsets, approval_configs):
             if isinstance(toolset, (ApprovalToolset, ApprovalDeniedResultToolset)):
                 # TODO: Consider supporting idempotent wrapping if pre-wrapped toolsets become necessary.
                 raise TypeError("Pre-wrapped ApprovalToolset instances are not supported")
-
-            config = getattr(toolset, "_approval_config", None)
             approved_toolset: AbstractToolset[Any] = ApprovalToolset(
                 inner=toolset,
                 approval_callback=self.approval_callback,

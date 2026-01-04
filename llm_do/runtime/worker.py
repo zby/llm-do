@@ -226,6 +226,7 @@ class Worker(AbstractToolset[Any]):
     instructions: str
     model: ModelType | None = None
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
+    toolset_approval_configs: list[dict[str, dict[str, Any]] | None] = field(default_factory=list)
     builtin_tools: list[Any] = field(default_factory=list)  # PydanticAI builtin tools
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[BaseModel]] = None
@@ -347,7 +348,16 @@ class Worker(AbstractToolset[Any]):
 
         resolved_model = self.model if self.model is not None else ctx.model
         worker_policy = resolve_worker_policy(ctx.run_approval_policy)
-        wrapped_toolsets = worker_policy.wrap_toolsets(self.toolsets or [])
+        approval_configs = self.toolset_approval_configs if self.toolset_approval_configs else None
+        if approval_configs is not None and len(approval_configs) != len(self.toolsets or []):
+            raise ValueError(
+                f"Worker {self.name!r} has {len(approval_configs)} approval configs "
+                f"for {len(self.toolsets or [])} toolsets"
+            )
+        wrapped_toolsets = worker_policy.wrap_toolsets(
+            self.toolsets or [],
+            approval_configs=approval_configs,
+        )
         child_ctx = ctx.spawn_child(
             toolsets=wrapped_toolsets,
             model=resolved_model,

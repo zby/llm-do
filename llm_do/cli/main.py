@@ -49,7 +49,11 @@ from ..runtime import (
     run_entry,
 )
 from ..runtime.discovery import load_toolsets_and_workers_from_files
-from ..toolsets.loader import ToolsetBuildContext, build_toolsets
+from ..toolsets.loader import (
+    ToolsetBuildContext,
+    build_toolsets,
+    extract_toolset_approval_configs,
+)
 from ..ui import (
     DisplayBackend,
     ErrorEvent,
@@ -219,6 +223,12 @@ async def build_entry(
             available_toolsets=all_toolsets,
         )
         resolved_toolsets = build_toolsets(worker_file.toolsets, toolset_context)
+        approval_configs = extract_toolset_approval_configs(worker_file.toolsets)
+        if approval_configs and len(approval_configs) != len(resolved_toolsets):
+            raise ValueError(
+                f"Toolset approval config mismatch for worker {name!r}: "
+                f"{len(approval_configs)} configs for {len(resolved_toolsets)} toolsets"
+            )
 
         # Apply model override only to entry worker (if override provided)
         worker_model: str | None
@@ -234,6 +244,7 @@ async def build_entry(
         stub.instructions = worker_file.instructions
         stub.model = worker_model
         stub.toolsets = resolved_toolsets
+        stub.toolset_approval_configs = approval_configs
         stub.builtin_tools = builtin_tools
 
         workers[name] = stub

@@ -224,11 +224,6 @@ async def build_entry(
         )
         resolved_toolsets = build_toolsets(worker_file.toolsets, toolset_context)
         approval_configs = extract_toolset_approval_configs(worker_file.toolsets)
-        if approval_configs and len(approval_configs) != len(resolved_toolsets):
-            raise ValueError(
-                f"Toolset approval config mismatch for worker {name!r}: "
-                f"{len(approval_configs)} configs for {len(resolved_toolsets)} toolsets"
-            )
 
         # Apply model override only to entry worker (if override provided)
         worker_model: str | None

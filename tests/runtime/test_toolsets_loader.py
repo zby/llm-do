@@ -1,7 +1,7 @@
 from llm_do.toolsets.loader import extract_toolset_approval_configs
 
 
-def test_extract_toolset_approval_configs_preserves_order() -> None:
+def test_extract_toolset_approval_configs_by_name() -> None:
     toolsets = {
         "shell": {"_approval_config": {"safe_tool": {"pre_approved": True}}},
         "filesystem": {},
@@ -10,8 +10,7 @@ def test_extract_toolset_approval_configs_preserves_order() -> None:
 
     configs = extract_toolset_approval_configs(toolsets)
 
-    assert configs == [
-        {"safe_tool": {"pre_approved": True}},
-        None,
-        {"blocked": {"blocked": True}},
-    ]
+    assert configs == {
+        "shell": {"safe_tool": {"pre_approved": True}},
+        "custom": {"blocked": {"blocked": True}},
+    }

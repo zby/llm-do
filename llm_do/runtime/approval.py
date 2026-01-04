@@ -39,26 +39,20 @@ class WorkerApprovalPolicy:
 
     approval_callback: ApprovalCallback
     return_permission_errors: bool = False
-    approval_configs: list[dict[str, dict[str, Any]] | None] | None = None
+    approval_configs: dict[str, dict[str, Any]] | None = None
 
     def wrap_toolsets(
         self,
         toolsets: list[AbstractToolset[Any]],
     ) -> list[AbstractToolset[Any]]:
         wrapped: list[AbstractToolset[Any]] = []
-        approval_configs = self.approval_configs
-        if approval_configs is None:
-            approval_configs = [None] * len(toolsets)
-        elif len(approval_configs) != len(toolsets):
-            raise ValueError(
-                f"Approval config length {len(approval_configs)} does not match "
-                f"toolset length {len(toolsets)}"
-            )
+        approval_configs = self.approval_configs or {}
 
-        for toolset, config in zip(toolsets, approval_configs):
+        for toolset in toolsets:
             if isinstance(toolset, (ApprovalToolset, ApprovalDeniedResultToolset)):
-                # TODO: Consider supporting idempotent wrapping if pre-wrapped toolsets become necessary.
                 raise TypeError("Pre-wrapped ApprovalToolset instances are not supported")
+            toolset_id = getattr(toolset, "id", None)
+            config = approval_configs.get(toolset_id) if toolset_id else None
             approved_toolset: AbstractToolset[Any] = ApprovalToolset(
                 inner=toolset,
                 approval_callback=self.approval_callback,

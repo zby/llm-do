@@ -226,7 +226,7 @@ class Worker(AbstractToolset[Any]):
     instructions: str
     model: ModelType | None = None
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
-    toolset_approval_configs: list[dict[str, dict[str, Any]] | None] = field(default_factory=list)
+    toolset_approval_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
     builtin_tools: list[Any] = field(default_factory=list)  # PydanticAI builtin tools
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[BaseModel]] = None
@@ -347,11 +347,10 @@ class Worker(AbstractToolset[Any]):
             raise RuntimeError(f"Max depth exceeded: {ctx.max_depth}")
 
         resolved_model = self.model if self.model is not None else ctx.model
-        approval_configs = self.toolset_approval_configs if self.toolset_approval_configs else None
         worker_policy = WorkerApprovalPolicy(
             approval_callback=resolve_approval_callback(ctx.run_approval_policy),
             return_permission_errors=ctx.run_approval_policy.return_permission_errors,
-            approval_configs=approval_configs,
+            approval_configs=self.toolset_approval_configs or None,
         )
         wrapped_toolsets = worker_policy.wrap_toolsets(self.toolsets or [])
         child_ctx = ctx.spawn_child(

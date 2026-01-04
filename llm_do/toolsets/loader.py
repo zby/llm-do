@@ -136,14 +136,14 @@ def create_toolset(
 
 def extract_toolset_approval_configs(
     toolsets_definition: Mapping[str, Mapping[str, Any]],
-) -> list[dict[str, dict[str, Any]] | None]:
-    """Extract per-toolset approval configs in definition order."""
-    configs: list[dict[str, dict[str, Any]] | None] = []
-    for _toolset_ref, toolset_config in toolsets_definition.items():
-        approval_config = None
+) -> dict[str, dict[str, Any]]:
+    """Extract per-toolset approval configs keyed by toolset reference."""
+    configs: dict[str, dict[str, Any]] = {}
+    for toolset_ref, toolset_config in toolsets_definition.items():
         if toolset_config:
             approval_config = toolset_config.get("_approval_config")
-        configs.append(approval_config)
+            if approval_config:
+                configs[toolset_ref] = approval_config
     return configs
 
 

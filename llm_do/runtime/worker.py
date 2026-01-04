@@ -36,15 +36,6 @@ class WorkerInput(BaseModel):
     attachments: list[str] = []
 
 
-def _format_prompt(input_data: Any) -> str:
-    """Format input data as a string prompt."""
-    if isinstance(input_data, BaseModel):
-        return input_data.model_dump_json(indent=2)
-    if isinstance(input_data, dict):
-        return json.dumps(input_data, indent=2)
-    return str(input_data)
-
-
 def _load_attachment(path: str) -> BinaryContent:
     """Load a file as BinaryContent for use in multimodal prompts.
 
@@ -182,7 +173,6 @@ class ToolInvocable:
 
     toolset: AbstractToolset[Any]
     tool_name: str
-    kind: str = "tool"
     model: ModelType | None = None
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
     toolset_approval_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -255,7 +245,6 @@ class Worker(AbstractToolset[Any]):
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[BaseModel]] = None
     schema_out: Optional[Type[BaseModel]] = None
-    kind: str = "worker"
 
     # AbstractToolset implementation
     @property

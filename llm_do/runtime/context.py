@@ -20,7 +20,6 @@ from pydantic_ai.usage import RunUsage
 from ..models import select_model
 from .approval import RunApprovalPolicy
 from .contracts import EventCallback, Invocable, ModelType, WorkerRuntimeProtocol
-from .input_utils import coerce_worker_input
 
 
 class _UnsetType:
@@ -349,13 +348,6 @@ class WorkerRuntime:
             tools = await toolset.get_tools(run_ctx)
             if name in tools:
                 tool = tools[name]
-                # Convert input_data to dict if needed
-                if not isinstance(input_data, dict):
-                    if getattr(toolset, "kind", None) == "worker":
-                        schema_in = getattr(toolset, "schema_in", None)
-                        input_data = coerce_worker_input(schema_in, input_data)
-                    else:
-                        input_data = {"input": input_data}
 
                 # Generate a unique call ID for event correlation
                 call_id = str(uuid.uuid4())[:8]

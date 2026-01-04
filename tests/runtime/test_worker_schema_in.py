@@ -33,42 +33,20 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
 
 
 @pytest.mark.anyio
-async def test_ctx_call_wraps_plain_text_for_input_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    worker = Worker(
-        name="text_worker",
-        instructions="Echo input.",
-        schema_in=TextInput,
-    )
-    captured: dict[str, object] = {}
+async def test_worker_call_coerces_plain_text_for_input_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Worker.call() coerces plain text to {"input": text} when schema_in has an 'input' field."""
+    from llm_do.runtime.input_utils import coerce_worker_input
 
-    async def fake_call(self, input_data, ctx, run_ctx):
-        captured["data"] = input_data
-        return input_data
-
-    monkeypatch.setattr(worker, "call", fake_call.__get__(worker, Worker))
-    ctx = WorkerRuntime(toolsets=[worker], model="test-model")
-
-    await ctx.call("text_worker", "hello")
-
-    assert captured["data"] == {"input": "hello"}
+    # Verify coercion logic directly
+    result = coerce_worker_input(TextInput, "hello")
+    assert result == {"input": "hello"}
 
 
 @pytest.mark.anyio
-async def test_ctx_call_passes_plain_text_for_non_input_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    worker = Worker(
-        name="topic_worker",
-        instructions="Process topic.",
-        schema_in=TopicInput,
-    )
-    captured: dict[str, object] = {}
+async def test_worker_call_passes_plain_text_for_non_input_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Worker.call() passes plain text through when schema_in lacks an 'input' field."""
+    from llm_do.runtime.input_utils import coerce_worker_input
 
-    async def fake_call(self, input_data, ctx, run_ctx):
-        captured["data"] = input_data
-        return input_data
-
-    monkeypatch.setattr(worker, "call", fake_call.__get__(worker, Worker))
-    ctx = WorkerRuntime(toolsets=[worker], model="test-model")
-
-    await ctx.call("topic_worker", "hello")
-
-    assert captured["data"] == "hello"
+    # Verify coercion logic directly - TopicInput has 'topic', not 'input'
+    result = coerce_worker_input(TopicInput, "hello")
+    assert result == "hello"

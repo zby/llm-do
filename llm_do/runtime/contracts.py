@@ -59,7 +59,6 @@ class WorkerRuntimeProtocol(Protocol):
 class Invocable(Protocol):
     """Protocol for entries that can be invoked via the runtime dispatcher."""
 
-    kind: str
     model: ModelType | None
     toolsets: list[AbstractToolset[Any]]
 

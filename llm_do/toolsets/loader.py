@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from pydantic_ai.toolsets import AbstractToolset
+from pydantic_ai_blocking_approval import needs_approval_from_config
 
 
 class ToolsetRef(AbstractToolset[Any]):
@@ -70,8 +71,8 @@ class ToolsetRef(AbstractToolset[Any]):
         inner_fn = getattr(self._inner, "needs_approval", None)
         if callable(inner_fn):
             return inner_fn(name, tool_args, ctx, config)
-        # No needs_approval on inner; approval layer will use _approval_config
-        return None
+        # Fall back to config-based approval when inner doesn't implement it.
+        return needs_approval_from_config(name, config)
 
     def get_approval_description(
         self,
@@ -235,4 +236,3 @@ def build_toolsets(
             )
         )
     return toolsets
-

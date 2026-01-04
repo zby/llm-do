@@ -51,6 +51,28 @@ Canonical templates live in `tasks/README.md`. Copy/paste from there when bootst
 - **Active Task Template** — Status, Prerequisites, Goal, Context, Decision Record, Tasks checklist, Current State, Notes.
 - **Recurring Template** — Scope listing paths/scripts reviewed, Checklist, Output pointer, Last Run log.
 
+## Task Review
+
+When asked to review a task, carefully analyze the task file and propose revisions for:
+
+- **Goal clarity** — Is the goal well-defined and achievable?
+- **Scope** — Should it be split, expanded, or narrowed?
+- **Architecture** — Better technical approach, cleaner design
+- **Missing steps** — Gaps in the Tasks checklist
+- **Prerequisites** — Unidentified dependencies or blockers
+- **Verification** — Is "How to verify" concrete and testable?
+- **Risk/edge cases** — Failure modes not yet considered
+
+**Resolve open questions:** Identify questions the task creator left unaddressed or assumptions that need validation. Research available sources (codebase, docs, web) to answer them rather than just flagging them.
+
+For each proposed change, provide:
+1. **What** — The specific change being proposed
+2. **Why** — Detailed rationale and justification
+3. **Trade-offs** — Any downsides or costs to consider
+4. **Priority** — Must-have vs nice-to-have
+
+Focus on substantive improvements. Challenge assumptions and identify gaps.
+
 ## Authoring Guidelines
 
 - Keep each task to a single coherent goal; split unrelated efforts.  

@@ -39,14 +39,14 @@ class WorkerApprovalPolicy:
 
     approval_callback: ApprovalCallback
     return_permission_errors: bool = False
+    approval_configs: list[dict[str, dict[str, Any]] | None] | None = None
 
     def wrap_toolsets(
         self,
         toolsets: list[AbstractToolset[Any]],
-        *,
-        approval_configs: list[dict[str, dict[str, Any]] | None] | None = None,
     ) -> list[AbstractToolset[Any]]:
         wrapped: list[AbstractToolset[Any]] = []
+        approval_configs = self.approval_configs
         if approval_configs is None:
             approval_configs = [None] * len(toolsets)
         elif len(approval_configs) != len(toolsets):
@@ -213,14 +213,6 @@ def resolve_approval_callback(policy: RunApprovalPolicy) -> ApprovalCallback:
     )
 
 
-def resolve_worker_policy(policy: RunApprovalPolicy) -> WorkerApprovalPolicy:
-    """Resolve a run policy into a worker-scoped policy."""
-    return WorkerApprovalPolicy(
-        approval_callback=resolve_approval_callback(policy),
-        return_permission_errors=policy.return_permission_errors,
-    )
-
-
 def wrap_entry_for_approval(
     entry: Any,
     approval_policy: RunApprovalPolicy,
@@ -237,6 +229,9 @@ def wrap_entry_for_approval(
     if not toolsets:
         return entry
 
-    worker_policy = resolve_worker_policy(approval_policy)
+    worker_policy = WorkerApprovalPolicy(
+        approval_callback=resolve_approval_callback(approval_policy),
+        return_permission_errors=approval_policy.return_permission_errors,
+    )
     wrapped_toolsets = worker_policy.wrap_toolsets(toolsets)
     return replace(entry, toolsets=wrapped_toolsets)

@@ -338,7 +338,7 @@ class Worker(AbstractToolset[Any]):
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Execute the worker with the given input."""
-        from .approval import resolve_worker_policy
+        from .approval import WorkerApprovalPolicy, resolve_approval_callback
 
         if self.schema_in is not None:
             input_data = self.schema_in.model_validate(input_data)
@@ -347,17 +347,13 @@ class Worker(AbstractToolset[Any]):
             raise RuntimeError(f"Max depth exceeded: {ctx.max_depth}")
 
         resolved_model = self.model if self.model is not None else ctx.model
-        worker_policy = resolve_worker_policy(ctx.run_approval_policy)
         approval_configs = self.toolset_approval_configs if self.toolset_approval_configs else None
-        if approval_configs is not None and len(approval_configs) != len(self.toolsets or []):
-            raise ValueError(
-                f"Worker {self.name!r} has {len(approval_configs)} approval configs "
-                f"for {len(self.toolsets or [])} toolsets"
-            )
-        wrapped_toolsets = worker_policy.wrap_toolsets(
-            self.toolsets or [],
+        worker_policy = WorkerApprovalPolicy(
+            approval_callback=resolve_approval_callback(ctx.run_approval_policy),
+            return_permission_errors=ctx.run_approval_policy.return_permission_errors,
             approval_configs=approval_configs,
         )
+        wrapped_toolsets = worker_policy.wrap_toolsets(self.toolsets or [])
         child_ctx = ctx.spawn_child(
             toolsets=wrapped_toolsets,
             model=resolved_model,

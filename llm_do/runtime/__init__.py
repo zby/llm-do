@@ -10,7 +10,7 @@ from .approval import (
     ApprovalCallback,
     RunApprovalPolicy,
     WorkerApprovalPolicy,
-    resolve_worker_policy,
+    resolve_approval_callback,
     wrap_entry_for_approval,
 )
 from .context import ToolsProxy, WorkerRuntime
@@ -36,7 +36,7 @@ __all__ = [
     "ApprovalCallback",
     "RunApprovalPolicy",
     "WorkerApprovalPolicy",
-    "resolve_worker_policy",
+    "resolve_approval_callback",
     "wrap_entry_for_approval",
     "run_entry",
     # Entries

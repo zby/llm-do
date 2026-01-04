@@ -73,7 +73,9 @@ Workers delegate by declaring other worker names in `toolsets`:
 Toolsets are wrapped by `ApprovalToolset`:
 - Built-in toolsets implement `needs_approval()` for per-call decisions
 - TUI session approvals are cached in the approval callback wrapper (`remember="session"`)
+- TODO: Session approvals are currently cached per resolved approval callback; unless `RunApprovalPolicy.cache` is provided, `remember="session"` does not persist across worker calls in the same run. Revisit if run-wide caching is desired.
 - Wrapping is applied at worker call time (`Worker.call` → `WorkerApprovalPolicy.wrap_toolsets()`), configured via `RunApprovalPolicy` + per-tool `.worker` config
+- TODO: Pre-wrapped `ApprovalToolset` instances are rejected in `WorkerApprovalPolicy.wrap_toolsets()`; consider whether idempotent wrapping should be supported.
 - `--approve-all` bypasses prompts for automation
 - `--reject-all` denies approval-required tools without prompting
 

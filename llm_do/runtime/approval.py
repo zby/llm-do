@@ -47,6 +47,7 @@ class WorkerApprovalPolicy:
         wrapped: list[AbstractToolset[Any]] = []
         for toolset in toolsets:
             if isinstance(toolset, (ApprovalToolset, ApprovalDeniedResultToolset)):
+                # TODO: Consider supporting idempotent wrapping if pre-wrapped toolsets become necessary.
                 raise TypeError("Pre-wrapped ApprovalToolset instances are not supported")
 
             config = getattr(toolset, "_approval_config", None)

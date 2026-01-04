@@ -17,6 +17,8 @@ services:
       - ~/.cache/claude:/tmp/home/.cache/claude:rw
       # Codex CLI config (optional but mounted by default)
       - ~/.codex:/tmp/home/.codex:rw
+      # Gemini CLI config (optional but mounted by default)
+      - ~/.gemini:/tmp/home/.gemini:rw
     environment:
       HOME: /tmp/home
 

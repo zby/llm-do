@@ -18,6 +18,7 @@ from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
 from ..models import select_model
+from .approval import RunApprovalPolicy
 from .contracts import EventCallback, Invocable, ModelType, WorkerRuntimeProtocol
 from .input_utils import coerce_worker_input
 
@@ -67,6 +68,7 @@ class RuntimeConfig:
     """Shared runtime configuration (no per-call-chain state)."""
 
     cli_model: ModelType | None
+    run_approval_policy: RunApprovalPolicy
     max_depth: int = 5
     on_event: EventCallback | None = None
     verbosity: int = 0
@@ -127,6 +129,7 @@ class WorkerRuntime:
         entry: "Invocable",
         model: ModelType | None = None,
         *,
+        run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
         messages: Optional[list[Any]] = None,
         on_event: Optional[EventCallback] = None,
@@ -159,6 +162,7 @@ class WorkerRuntime:
 
         config = RuntimeConfig(
             cli_model=model,
+            run_approval_policy=run_approval_policy or RunApprovalPolicy(mode="approve_all"),
             max_depth=max_depth,
             on_event=on_event,
             verbosity=verbosity,
@@ -178,6 +182,7 @@ class WorkerRuntime:
         config: RuntimeConfig | None = None,
         frame: CallFrame | None = None,
         cli_model: ModelType | None | _UnsetType = _UNSET,
+        run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
         depth: int = 0,
         prompt: str = "",
@@ -202,6 +207,7 @@ class WorkerRuntime:
             runtime_usage = usage or UsageCollector()
             self.config = RuntimeConfig(
                 cli_model=resolved_cli_model,
+                run_approval_policy=run_approval_policy or RunApprovalPolicy(mode="approve_all"),
                 max_depth=max_depth,
                 on_event=on_event,
                 verbosity=verbosity,
@@ -227,6 +233,10 @@ class WorkerRuntime:
     @property
     def cli_model(self) -> ModelType | None:
         return self.config.cli_model
+
+    @property
+    def run_approval_policy(self) -> RunApprovalPolicy:
+        return self.config.run_approval_policy
 
     @property
     def max_depth(self) -> int:

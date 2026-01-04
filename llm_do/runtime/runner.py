@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 from ..ui.events import UserMessageEvent
-from .approval import ApprovalPolicy, wrap_entry_for_approval
+from .approval import RunApprovalPolicy, wrap_entry_for_approval
 from .context import WorkerRuntime
 from .contracts import EventCallback, Invocable
 from .input_utils import coerce_worker_input
@@ -16,14 +16,14 @@ async def run_entry(
     prompt: str,
     *,
     model: str | None = None,
-    approval_policy: ApprovalPolicy,
+    approval_policy: RunApprovalPolicy,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     message_history: list[Any] | None = None,
 ) -> tuple[Any, WorkerRuntime]:
     """Run a resolved entry with the provided execution policy.
 
-    ApprovalPolicy gates tool calls during execution (LLM tool calls or
+    RunApprovalPolicy gates tool calls during execution (LLM tool calls or
     programmatic ctx.deps.call), not the entry invocation itself.
     """
     wrapped_entry = wrap_entry_for_approval(entry, approval_policy)
@@ -32,6 +32,7 @@ async def run_entry(
     ctx = WorkerRuntime.from_entry(
         invocable_entry,
         model=model,
+        run_approval_policy=approval_policy,
         messages=list(message_history) if message_history else None,
         on_event=on_event,
         verbosity=verbosity,

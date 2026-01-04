@@ -54,7 +54,7 @@ my-project/
 1. **Definition** - `.worker` file describes instructions, toolsets, model
 2. **Loading** - `worker_file.load_worker_file()` parses frontmatter and instructions
 3. **Resolution** - `cli.main.build_entry()` resolves toolsets and builds `Worker`/`ToolInvocable`
-4. **Run Boundary** - `runtime.run_entry()` applies `ApprovalPolicy` (`wrap_entry_for_approval`) and constructs `WorkerRuntime`
+4. **Run Boundary** - `runtime.run_entry()` constructs `WorkerRuntime` with `RunApprovalPolicy` and wraps ToolInvocable toolsets for approval gating
 5. **Execution** - `WorkerRuntime.run()` dispatches; `Worker` builds a PydanticAI `Agent` and runs it
 6. **Result** - Final output is returned (usage tracked in `WorkerRuntime`)
 
@@ -73,7 +73,7 @@ Workers delegate by declaring other worker names in `toolsets`:
 Toolsets are wrapped by `ApprovalToolset`:
 - Built-in toolsets implement `needs_approval()` for per-call decisions
 - TUI session approvals are cached in the approval callback wrapper (`remember="session"`)
-- Wrapping is applied at the run boundary (`run_entry()` → `wrap_entry_for_approval()`), configured via `ApprovalPolicy`
+- Wrapping is applied at worker call time (`Worker.call` → `WorkerApprovalPolicy.wrap_toolsets()`), configured via `RunApprovalPolicy` + per-tool `.worker` config
 - `--approve-all` bypasses prompts for automation
 - `--reject-all` denies approval-required tools without prompting
 
@@ -104,7 +104,7 @@ llm_do/
 │   └── oauth.py        # llm-do-oauth helper
 ├── runtime/            # Core runtime
 │   ├── runner.py       # run_entry execution boundary
-│   ├── approval.py     # ApprovalPolicy + wrapping helpers
+│   ├── approval.py     # RunApprovalPolicy + WorkerApprovalPolicy + wrapping helpers
 │   ├── context.py      # WorkerRuntime dispatcher and depth tracking
 │   ├── worker.py       # Worker and ToolInvocable
 │   ├── worker_file.py  # .worker parser
@@ -172,7 +172,7 @@ WorkerRuntime state (model, depth, usage, events) flows down the call tree.
 For direct Python runs (without the CLI), resolve an entry and run it via the same run boundary:
 
 ```python
-from llm_do.runtime import ApprovalPolicy, run_entry
+from llm_do.runtime import RunApprovalPolicy, run_entry
 from llm_do.cli.main import build_entry
 
 entry = await build_entry(
@@ -184,8 +184,8 @@ entry = await build_entry(
 result, _ctx = await run_entry(
     entry=entry,
     prompt="Hello",
-    approval_policy=ApprovalPolicy(mode="approve_all"),
+    approval_policy=RunApprovalPolicy(mode="approve_all"),
 )
 ```
 
-In non-interactive contexts, use `ApprovalPolicy(mode="approve_all")` (or provide an `approval_callback`) to avoid permission errors for approval-required tools.
+In non-interactive contexts, use `RunApprovalPolicy(mode="approve_all")` (or provide an `approval_callback`) to avoid permission errors for approval-required tools.

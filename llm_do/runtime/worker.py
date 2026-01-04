@@ -263,15 +263,20 @@ class Worker(AbstractToolset[Any]):
         return await self.call(tool_args, ctx.deps, ctx)
 
     def _build_agent(
-        self, resolved_model: ModelType, ctx: WorkerRuntimeProtocol
+        self,
+        resolved_model: ModelType,
+        ctx: WorkerRuntimeProtocol,
+        *,
+        toolsets: list[AbstractToolset[Any]] | None = None,
     ) -> Agent[WorkerRuntimeProtocol, Any]:
         """Build a PydanticAI agent with toolsets passed directly."""
+        agent_toolsets = toolsets if toolsets is not None else self.toolsets
         return Agent(
             model=resolved_model,
             instructions=self.instructions,
             output_type=self.schema_out or str,
             deps_type=type(ctx),
-            toolsets=self.toolsets if self.toolsets else None,
+            toolsets=agent_toolsets if agent_toolsets else None,
             builtin_tools=self.builtin_tools,  # Pass list (empty list is fine)
             # Use 'exhaustive' to ensure tool calls are executed even when
             # text output is present in the same response
@@ -332,6 +337,8 @@ class Worker(AbstractToolset[Any]):
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Execute the worker with the given input."""
+        from .approval import resolve_worker_policy
+
         if self.schema_in is not None:
             input_data = self.schema_in.model_validate(input_data)
 
@@ -339,12 +346,14 @@ class Worker(AbstractToolset[Any]):
             raise RuntimeError(f"Max depth exceeded: {ctx.max_depth}")
 
         resolved_model = self.model if self.model is not None else ctx.model
+        worker_policy = resolve_worker_policy(ctx.run_approval_policy)
+        wrapped_toolsets = worker_policy.wrap_toolsets(self.toolsets or [])
         child_ctx = ctx.spawn_child(
-            toolsets=self.toolsets,
+            toolsets=wrapped_toolsets,
             model=resolved_model,
         )
 
-        agent = self._build_agent(resolved_model, child_ctx)
+        agent = self._build_agent(resolved_model, child_ctx, toolsets=wrapped_toolsets)
         prompt = _build_user_prompt(input_data)
         message_history = (
             list(ctx.messages) if _should_use_message_history(child_ctx) and ctx.messages else None

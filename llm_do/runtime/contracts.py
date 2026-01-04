@@ -7,12 +7,15 @@ without requiring runtime modules to import each other.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Protocol, TypeAlias
+from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 
 from ..ui.events import UIEvent
+
+if TYPE_CHECKING:
+    from .approval import RunApprovalPolicy
 
 ModelType: TypeAlias = str
 EventCallback: TypeAlias = Callable[[UIEvent], None]
@@ -41,6 +44,9 @@ class WorkerRuntimeProtocol(Protocol):
 
     @property
     def verbosity(self) -> int: ...
+
+    @property
+    def run_approval_policy(self) -> "RunApprovalPolicy": ...
 
     def spawn_child(
         self,

@@ -110,6 +110,8 @@ class FileSystemToolset(AbstractToolset[Any]):
             ApprovalResult with status: pre_approved or needs_approval
         """
         base = needs_approval_from_config(name, config)
+        if base.is_blocked:
+            return base
         if base.is_pre_approved:
             return base
 

@@ -1,7 +1,7 @@
 # Simplify Invocable Wrapping
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] decide per-worker approval config source (per-tool config in .worker; merged with CLI run policy; no inheritance from parent)
@@ -19,7 +19,7 @@ Move approval wrapping to agent creation in Worker.call so that:
 
 ## Context
 - Relevant files/symbols:
-  - `llm_do/runtime/approval.py` (`_wrap_toolsets_with_approval`, `wrap_entry_for_approval`)
+  - `llm_do/runtime/approval.py` (`RunApprovalPolicy`, `WorkerApprovalPolicy`, `wrap_entry_for_approval`)
   - `llm_do/runtime/worker.py` (`Worker.toolsets`, `ToolInvocable`)
   - `llm_do/toolsets/loader.py` (`ToolsetRef`, toolset resolution)
   - `llm_do/cli/main.py` (toolset assembly for workers and entries)
@@ -53,23 +53,23 @@ Move approval wrapping to agent creation in Worker.call so that:
   - Define how `RunApprovalPolicy` is surfaced to `Worker.call` without mutating shared instances.
 
 ## Tasks
-- [ ] Trace current wrapping flow and document where nested wrapping happens (update for new non-recursive plan).
+- [x] Trace current wrapping flow and document where nested wrapping happens (update for new non-recursive plan).
 - [x] Define how `RunApprovalPolicy` is exposed to `Worker.call` (context vs binding).
-- [ ] Rename `ApprovalPolicy` to `RunApprovalPolicy` and introduce `WorkerApprovalPolicy`.
-- [ ] Add `RunApprovalPolicy` to `WorkerRuntime.config` + `WorkerRuntimeProtocol` and expose via runtime `ctx`.
-- [ ] Implement `resolve_worker_policy(run_policy)` helper and `WorkerApprovalPolicy.wrap_toolsets(...)`.
+- [x] Rename `ApprovalPolicy` to `RunApprovalPolicy` and introduce `WorkerApprovalPolicy`.
+- [x] Add `RunApprovalPolicy` to `WorkerRuntime.config` + `WorkerRuntimeProtocol` and expose via runtime `ctx`.
+- [x] Implement `resolve_worker_policy(run_policy)` helper and `WorkerApprovalPolicy.wrap_toolsets(...)`.
 - [x] Decide assembly hook in `Worker.call` (toolset wrapping + agent creation).
 - [x] Decide pre-wrapped toolset handling (tests/live helper vs supported API).
 - [x] Decide blocked vs pre_approved precedence (shell) and document expected semantics.
-- [ ] Plan migration steps for ToolsetRef and approval config handling (ensure per-worker `_approval_config` still works).
-- [ ] Implement run-level approval callback wiring (avoid mutating shared worker/toolset instances).
-- [ ] Implement toolset wrapping at agent creation in `Worker.call` (shallow wrap; each worker wraps itself).
-- [ ] Remove recursive wrapping in `approval.py` and update exports/usages accordingly.
-- [ ] Update tests: approval wrapping, nested worker approvals, ToolInvocable entry gating, cycles, repeat-run policy isolation.
-- [ ] Update docs (`docs/architecture.md`) to reflect new assembly flow.
+- [x] Plan migration steps for ToolsetRef and approval config handling (ensure per-worker `_approval_config` still works).
+- [x] Implement run-level approval callback wiring (avoid mutating shared worker/toolset instances).
+- [x] Implement toolset wrapping at agent creation in `Worker.call` (shallow wrap; each worker wraps itself).
+- [x] Remove recursive wrapping in `approval.py` and update exports/usages accordingly.
+- [x] Update tests: approval wrapping, nested worker approvals, ToolInvocable entry gating, cycles, repeat-run policy isolation.
+- [x] Update docs (`docs/architecture.md`) to reflect new assembly flow.
 
 ## Current State
-Decisions captured: `RunApprovalPolicy` (CLI mode/callback) + per-tool `.worker` config merge into `WorkerApprovalPolicy`; wrapping stays in Worker.call; no recursive worker wrapping; no pre-wrapped toolsets; blocked wins over pre_approved. Ready to implement renames, wiring, and tests.
+Run-level policy/worker policy wiring and shallow wrapping are in place; workers now build agents with approval-wrapped toolsets. Tests cover shallow wrapping, cycles, nested worker approvals, ToolInvocable entry gating, and per-run approval cache isolation. Docs reflect the new assembly flow.
 
 ## Risks / Edge Cases
 - Run-level approval policy can leak across runs if stored on shared instances.
@@ -89,3 +89,4 @@ Decisions captured: `RunApprovalPolicy` (CLI mode/callback) + per-tool `.worker`
   - `WorkerApprovalPolicy` does **not** pre-merge toolset configs; it passes per-tool `_approval_config` through to `ApprovalToolset`, which evaluates by tool name at call time.
   - `Worker.call` resolves a `WorkerApprovalPolicy` from `ctx.run_approval_policy` and wraps its own toolsets before spawning the child context (shallow wrapping, no recursion).
   - `run_entry` uses `RunApprovalPolicy` and only wraps toolsets for `ToolInvocable` entries to keep `ctx.deps.call` approval-gated; worker entries rely on `Worker.call`.
+ - Tests run: `.venv/bin/python -m pytest tests/runtime/test_approval_wrapping.py tests/runtime/test_approval_wrappers.py`

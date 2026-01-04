@@ -14,9 +14,7 @@ from pydantic_ai_blocking_approval import (
     ApprovalToolset,
 )
 
-from llm_do.toolsets.loader import ToolsetRef
-
-from .worker import ToolInvocable, Worker
+from .worker import ToolInvocable
 
 ApprovalCallback = Callable[
     [ApprovalRequest],
@@ -25,14 +23,42 @@ ApprovalCallback = Callable[
 
 
 @dataclass(frozen=True)
-class ApprovalPolicy:
-    """Execution-time approval policy configuration."""
+class RunApprovalPolicy:
+    """Execution-time approval policy configuration for a run."""
 
     mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
     approval_callback: ApprovalCallback | None = None
     return_permission_errors: bool = False
     cache: dict[Any, ApprovalDecision] | None = None
     cache_key_fn: Callable[[ApprovalRequest], Any] | None = None
+
+
+@dataclass(frozen=True)
+class WorkerApprovalPolicy:
+    """Resolved approval policy for a worker invocation."""
+
+    approval_callback: ApprovalCallback
+    return_permission_errors: bool = False
+
+    def wrap_toolsets(
+        self,
+        toolsets: list[AbstractToolset[Any]],
+    ) -> list[AbstractToolset[Any]]:
+        wrapped: list[AbstractToolset[Any]] = []
+        for toolset in toolsets:
+            if isinstance(toolset, (ApprovalToolset, ApprovalDeniedResultToolset)):
+                raise TypeError("Pre-wrapped ApprovalToolset instances are not supported")
+
+            config = getattr(toolset, "_approval_config", None)
+            approved_toolset: AbstractToolset[Any] = ApprovalToolset(
+                inner=toolset,
+                approval_callback=self.approval_callback,
+                config=config,
+            )
+            if self.return_permission_errors:
+                approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
+            wrapped.append(approved_toolset)
+        return wrapped
 
 
 class ApprovalDeniedResultToolset(AbstractToolset):
@@ -157,7 +183,7 @@ def make_tui_approval_callback(
     return callback
 
 
-def resolve_approval_callback(policy: ApprovalPolicy) -> ApprovalCallback:
+def resolve_approval_callback(policy: RunApprovalPolicy) -> ApprovalCallback:
     """Return the concrete approval callback for a policy."""
     if policy.mode == "approve_all":
         return make_headless_approval_callback(approve_all=True, reject_all=False)
@@ -178,113 +204,30 @@ def resolve_approval_callback(policy: ApprovalPolicy) -> ApprovalCallback:
     )
 
 
-def _wrap_toolsets_with_approval(
-    toolsets: list[AbstractToolset[Any]],
-    approval_callback: ApprovalCallback,
-    return_permission_errors: bool = False,
-    _visited_workers: dict[int, Worker] | None = None,
-) -> list[AbstractToolset[Any]]:
-    """Wrap toolsets with ApprovalToolset for approval handling.
-
-    ApprovalToolset auto-detects if the inner toolset has needs_approval()
-    and delegates to it. Otherwise it uses optional config and defaults to
-    "needs approval" (secure by default).
-
-    Recurses into nested Worker.toolsets so tool calls inside delegated
-    workers are also gated.
-    """
-    wrapped: list[AbstractToolset[Any]] = []
-    if _visited_workers is None:
-        _visited_workers = {}
-
-    def wrap_worker(worker: Worker, callback: ApprovalCallback) -> Worker:
-        existing = _visited_workers.get(id(worker))
-        if existing is not None:
-            return existing
-        wrapped_worker = replace(worker, toolsets=[])
-        _visited_workers[id(worker)] = wrapped_worker
-        if worker.toolsets:
-            wrapped_worker.toolsets = _wrap_toolsets_with_approval(
-                worker.toolsets,
-                callback,
-                return_permission_errors=return_permission_errors,
-                _visited_workers=_visited_workers,
-            )
-        return wrapped_worker
-
-    for toolset in toolsets:
-        approved_toolset: AbstractToolset[Any]
-        # Avoid double-wrapping toolsets that already have approval handling.
-        if isinstance(toolset, ApprovalToolset):
-            inner = getattr(toolset, "_inner", None)
-            if isinstance(inner, Worker):
-                inner_callback = getattr(toolset, "_approval_callback", approval_callback)
-                wrapped_inner = wrap_worker(inner, inner_callback)
-                if wrapped_inner is not inner:
-                    toolset = ApprovalToolset(
-                        inner=wrapped_inner,
-                        approval_callback=inner_callback,
-                        config=getattr(toolset, "config", None),
-                    )
-            approved_toolset = toolset
-            if return_permission_errors:
-                approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
-            wrapped.append(approved_toolset)
-            continue
-
-        # Unwrap ToolsetRef to check for Worker and get inner toolset
-        inner_toolset = toolset
-        toolset_approval_config = None
-        if isinstance(toolset, ToolsetRef):
-            toolset_approval_config = getattr(toolset, "_approval_config", None)
-            inner_toolset = toolset._inner
-
-        # Recursively wrap toolsets inside Worker
-        if isinstance(inner_toolset, Worker):
-            inner_toolset = wrap_worker(inner_toolset, approval_callback)
-
-        # Get any stored approval config from the toolset (ToolsetRef or direct)
-        config = toolset_approval_config or getattr(inner_toolset, "_approval_config", None)
-        toolset = inner_toolset
-
-        # Wrap all toolsets with ApprovalToolset (secure by default)
-        # - Toolsets with needs_approval() method: ApprovalToolset delegates to it
-        # - Toolsets with _approval_config: uses config for per-tool pre-approval
-        # - Other toolsets: all tools require approval unless config pre-approves
-        approved_toolset = ApprovalToolset(
-            inner=toolset,
-            approval_callback=approval_callback,
-            config=config,
-        )
-        if return_permission_errors:
-            approved_toolset = ApprovalDeniedResultToolset(approved_toolset)
-        wrapped.append(approved_toolset)
-
-    return wrapped
+def resolve_worker_policy(policy: RunApprovalPolicy) -> WorkerApprovalPolicy:
+    """Resolve a run policy into a worker-scoped policy."""
+    return WorkerApprovalPolicy(
+        approval_callback=resolve_approval_callback(policy),
+        return_permission_errors=policy.return_permission_errors,
+    )
 
 
 def wrap_entry_for_approval(
     entry: Any,
-    approval_policy: ApprovalPolicy,
+    approval_policy: RunApprovalPolicy,
 ) -> Any:
     """Return entry with toolsets wrapped for approval handling.
 
-    This wraps only the entry's toolsets; the entry invocation itself is trusted
-    and is not approval-gated for code-entry tools.
+    Worker entries are wrapped on call; only ToolInvocable entries are
+    wrapped here to ensure ctx.deps.call is approval-gated.
     """
+    if not isinstance(entry, ToolInvocable):
+        return entry
+
     toolsets = list(getattr(entry, "toolsets", []) or [])
     if not toolsets:
         return entry
 
-    callback = resolve_approval_callback(approval_policy)
-    wrapped_toolsets = _wrap_toolsets_with_approval(
-        toolsets,
-        callback,
-        return_permission_errors=approval_policy.return_permission_errors,
-    )
-
-    if isinstance(entry, Worker):
-        return replace(entry, toolsets=wrapped_toolsets)
-    if isinstance(entry, ToolInvocable):
-        return replace(entry, toolsets=wrapped_toolsets)
-    return entry
+    worker_policy = resolve_worker_policy(approval_policy)
+    wrapped_toolsets = worker_policy.wrap_toolsets(toolsets)
+    return replace(entry, toolsets=wrapped_toolsets)

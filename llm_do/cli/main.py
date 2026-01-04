@@ -39,9 +39,9 @@ from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from ..runtime import (
     ApprovalCallback,
-    ApprovalPolicy,
     EventCallback,
     Invocable,
+    RunApprovalPolicy,
     ToolInvocable,
     Worker,
     WorkerRuntime,
@@ -310,7 +310,7 @@ async def run(
     elif reject_all:
         approval_mode = "reject_all"
 
-    approval_policy = ApprovalPolicy(
+    approval_policy = RunApprovalPolicy(
         mode=approval_mode,
         approval_callback=approval_callback,
         cache=approval_cache,
@@ -642,7 +642,8 @@ def main() -> int:
         ),
     )
 
-    args = parser.parse_args()
+    parse_args = getattr(parser, "parse_intermixed_args", parser.parse_args)
+    args = parse_args()
 
     # Separate files from prompt in the files list (prompt might be mixed in)
     files = []

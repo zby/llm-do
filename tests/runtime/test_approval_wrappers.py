@@ -4,7 +4,7 @@ from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from llm_do.runtime.approval import (
     ApprovalDeniedResultToolset,
-    ApprovalPolicy,
+    RunApprovalPolicy,
     make_headless_approval_callback,
     make_tui_approval_callback,
     resolve_approval_callback,
@@ -118,6 +118,27 @@ async def test_make_tui_approval_callback_does_not_cache_one_off_approvals():
 
 
 @pytest.mark.anyio
+async def test_resolve_approval_callback_cache_isolated_between_runs():
+    calls: list[ApprovalRequest] = []
+
+    async def prompt_user(request: ApprovalRequest) -> ApprovalDecision:
+        calls.append(request)
+        return ApprovalDecision(approved=True, remember="session")
+
+    policy = RunApprovalPolicy(mode="prompt", approval_callback=prompt_user)
+    req = ApprovalRequest(tool_name="write_file", tool_args={"path": "a"}, description="first")
+
+    cb1 = resolve_approval_callback(policy)
+    await cb1(req)
+    await cb1(req)
+    assert len(calls) == 1
+
+    cb2 = resolve_approval_callback(policy)
+    await cb2(req)
+    assert len(calls) == 2
+
+
+@pytest.mark.anyio
 async def test_make_tui_approval_callback_approve_all_short_circuits():
     async def prompt_user(_request: ApprovalRequest) -> ApprovalDecision:
         raise AssertionError("prompt_user should not be called")
@@ -139,11 +160,11 @@ async def test_make_tui_approval_callback_reject_all_short_circuits():
 
 
 def test_resolve_approval_callback_prompt_denies_by_default():
-    cb = resolve_approval_callback(ApprovalPolicy(mode="prompt"))
+    cb = resolve_approval_callback(RunApprovalPolicy(mode="prompt"))
     decision = cb(ApprovalRequest(tool_name="t", tool_args={}, description="x"))
     assert decision.approved is False
 
 
 def test_resolve_approval_callback_invalid_mode():
     with pytest.raises(ValueError, match="Unknown approval mode"):
-        resolve_approval_callback(ApprovalPolicy(mode="nope"))
+        resolve_approval_callback(RunApprovalPolicy(mode="nope"))

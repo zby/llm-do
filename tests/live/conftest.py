@@ -17,7 +17,6 @@ Environment variables:
 
 import os
 import shutil
-from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -26,8 +25,9 @@ import pytest
 from llm_do.cli.main import build_entry
 from llm_do.runtime import WorkerRuntime
 from llm_do.runtime.approval import (
-    _wrap_toolsets_with_approval,
+    RunApprovalPolicy,
     make_headless_approval_callback,
+    wrap_entry_for_approval,
 )
 
 # Mark all tests in this directory as live tests
@@ -146,15 +146,13 @@ async def run_example(
     worker_files, python_files = _collect_example_files(example_dir)
     entry = await build_entry(worker_files, python_files, model=model, entry_name=entry_name)
 
-    if approval_callback is not None and getattr(entry, "toolsets", None):
-        wrapped_toolsets = _wrap_toolsets_with_approval(
-            entry.toolsets,
-            approval_callback,
-            return_permission_errors=False,
-        )
-        entry = replace(entry, toolsets=wrapped_toolsets)
+    approval_policy = RunApprovalPolicy(
+        mode="approve_all" if approval_callback is None else "prompt",
+        approval_callback=approval_callback,
+    )
+    entry = wrap_entry_for_approval(entry, approval_policy)
 
-    ctx = WorkerRuntime.from_entry(entry, model=model)
+    ctx = WorkerRuntime.from_entry(entry, model=model, run_approval_policy=approval_policy)
     return await ctx.run(entry, input_data)
 
 

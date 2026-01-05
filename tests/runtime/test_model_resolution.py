@@ -23,7 +23,7 @@ class CaptureToolset(AbstractToolset[Any]):
     def id(self) -> str | None:
         return "capture"
 
-    async def get_tools(self, ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
+    async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
         tool_def = ToolDefinition(
             name="capture",
             description="Capture run context model.",
@@ -42,11 +42,11 @@ class CaptureToolset(AbstractToolset[Any]):
         self,
         name: str,
         tool_args: dict[str, Any],
-        ctx: RunContext[Any],
+        run_ctx: RunContext[Any],
         tool: ToolsetTool[Any],
     ) -> Any:
-        self.seen_model = ctx.model
-        return ctx.model
+        self.seen_model = run_ctx.model
+        return run_ctx.model
 
 
 @dataclass
@@ -60,13 +60,13 @@ class DummyEntry:
     async def call(
         self,
         input_data: Any,
-        ctx: WorkerRuntime,
+        runtime: WorkerRuntime,
         run_ctx: RunContext[WorkerRuntime],
     ) -> Any:
         # Like Worker.call(), create a child context with our toolsets
-        resolved_model = self.model if self.model is not None else ctx.model
-        child_ctx = ctx.spawn_child(toolsets=self.toolsets, model=resolved_model)
-        return await child_ctx.call("capture", {"value": 1})
+        resolved_model = self.model if self.model is not None else runtime.model
+        child_runtime = runtime.spawn_child(toolsets=self.toolsets, model=resolved_model)
+        return await child_runtime.call("capture", {"value": 1})
 
 
 @pytest.mark.anyio

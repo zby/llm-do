@@ -70,6 +70,6 @@ class Invocable(Protocol):
     async def call(
         self,
         input_data: Any,
-        ctx: WorkerRuntimeProtocol,
+        runtime: WorkerRuntimeProtocol,
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any: ...

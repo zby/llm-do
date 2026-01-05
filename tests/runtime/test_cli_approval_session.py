@@ -39,7 +39,7 @@ class _ProbeToolset(AbstractToolset[Any]):
     ) -> str:
         return "probe tool"
 
-    async def get_tools(self, ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
+    async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
         schema = {"type": "object", "additionalProperties": True}
         tool_def = ToolDefinition(
             name="probe",
@@ -59,7 +59,7 @@ class _ProbeToolset(AbstractToolset[Any]):
         self,
         name: str,
         tool_args: dict[str, Any],
-        ctx: RunContext[Any],
+        run_ctx: RunContext[Any],
         tool: ToolsetTool[Any],
     ) -> Any:
         return "ok"

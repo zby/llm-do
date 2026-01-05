@@ -99,9 +99,9 @@ def _build_user_prompt(input_data: Any) -> str | Sequence[UserContent]:
     return parts
 
 
-def _should_use_message_history(ctx: WorkerRuntimeProtocol) -> bool:
+def _should_use_message_history(runtime: WorkerRuntimeProtocol) -> bool:
     """Only use message history for the top-level worker run."""
-    return ctx.depth <= 1
+    return runtime.depth <= 1
 
 
 def _get_all_messages(result: Any) -> list[Any]:
@@ -114,9 +114,9 @@ def _get_all_messages(result: Any) -> list[Any]:
     return []
 
 
-def _update_message_history(ctx: WorkerRuntimeProtocol, result: Any) -> None:
+def _update_message_history(runtime: WorkerRuntimeProtocol, result: Any) -> None:
     """Update message history in-place to keep shared references intact."""
-    ctx.messages[:] = _get_all_messages(result)
+    runtime.messages[:] = _get_all_messages(result)
 
 
 class _DictValidator:
@@ -181,7 +181,7 @@ class ToolInvocable:
     async def call(
         self,
         input_data: Any,
-        ctx: WorkerRuntimeProtocol,
+        runtime: WorkerRuntimeProtocol,
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Call the tool via its toolset."""
@@ -227,7 +227,7 @@ class Worker(AbstractToolset[Any]):
         """Return the worker name as its toolset id."""
         return self.name
 
-    async def get_tools(self, ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
+    async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
         """Return this worker as a callable tool."""
         description = self.instructions[:200] + "..." if len(self.instructions) > 200 else self.instructions
         input_schema = self.schema_in or WorkerInput
@@ -246,15 +246,15 @@ class Worker(AbstractToolset[Any]):
         )}
 
     async def call_tool(
-        self, name: str, tool_args: dict[str, Any], ctx: RunContext[Any], tool: ToolsetTool[Any]
+        self, name: str, tool_args: dict[str, Any], run_ctx: RunContext[Any], tool: ToolsetTool[Any]
     ) -> Any:
         """Execute the worker when called as a tool."""
-        return await self.call(tool_args, ctx.deps, ctx)
+        return await self.call(tool_args, run_ctx.deps, run_ctx)
 
     def _build_agent(
         self,
         resolved_model: ModelType,
-        ctx: WorkerRuntimeProtocol,
+        runtime: WorkerRuntimeProtocol,
         *,
         toolsets: list[AbstractToolset[Any]] | None = None,
     ) -> Agent[WorkerRuntimeProtocol, Any]:
@@ -264,7 +264,7 @@ class Worker(AbstractToolset[Any]):
             model=resolved_model,
             instructions=self.instructions,
             output_type=self.schema_out or str,
-            deps_type=type(ctx),
+            deps_type=type(runtime),
             toolsets=agent_toolsets if agent_toolsets else None,
             builtin_tools=self.builtin_tools,  # Pass list (empty list is fine)
             # Use 'exhaustive' to ensure tool calls are executed even when
@@ -272,9 +272,9 @@ class Worker(AbstractToolset[Any]):
             end_strategy="exhaustive",
         )
 
-    def _emit_tool_events(self, messages: list[Any], ctx: WorkerRuntimeProtocol) -> None:
+    def _emit_tool_events(self, messages: list[Any], runtime: WorkerRuntimeProtocol) -> None:
         """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
-        if ctx.on_event is None:
+        if runtime.on_event is None:
             return
 
         # Collect tool calls and their returns
@@ -303,7 +303,7 @@ class Worker(AbstractToolset[Any]):
             elif not isinstance(args, dict):
                 args = {}
 
-            ctx.on_event(ToolCallEvent(
+            runtime.on_event(ToolCallEvent(
                 worker=self.name,
                 tool_name=call_part.tool_name,
                 tool_call_id=call_id,
@@ -312,7 +312,7 @@ class Worker(AbstractToolset[Any]):
 
             return_part = tool_returns.get(call_id)
             if return_part:
-                ctx.on_event(ToolResultEvent(
+                runtime.on_event(ToolResultEvent(
                     worker=self.name,
                     tool_name=call_part.tool_name,
                     tool_call_id=call_id,
@@ -322,7 +322,7 @@ class Worker(AbstractToolset[Any]):
     async def call(
         self,
         input_data: Any,
-        ctx: WorkerRuntimeProtocol,
+        runtime: WorkerRuntimeProtocol,
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Execute the worker with the given input."""
@@ -333,10 +333,10 @@ class Worker(AbstractToolset[Any]):
         if self.schema_in is not None:
             input_data = self.schema_in.model_validate(input_data)
 
-        if ctx.depth >= ctx.max_depth:
-            raise RuntimeError(f"Max depth exceeded: {ctx.max_depth}")
+        if runtime.depth >= runtime.max_depth:
+            raise RuntimeError(f"Max depth exceeded: {runtime.max_depth}")
 
-        resolved_model = self.model if self.model is not None else ctx.model
+        resolved_model = self.model if self.model is not None else runtime.model
         if self.compatible_models is not None and resolved_model not in self.compatible_models:
             raise ValueError(
                 f"Model {resolved_model!r} is not compatible with worker {self.name!r}. "
@@ -345,37 +345,37 @@ class Worker(AbstractToolset[Any]):
 
         wrapped_toolsets = wrap_toolsets_for_approval(
             self.toolsets or [],
-            ctx.run_approval_policy,
+            runtime.run_approval_policy,
             self.toolset_approval_configs or None,
         )
-        child_ctx = ctx.spawn_child(
+        child_runtime = runtime.spawn_child(
             toolsets=wrapped_toolsets,
             model=resolved_model,
         )
 
-        agent = self._build_agent(resolved_model, child_ctx, toolsets=wrapped_toolsets)
+        agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
         prompt = _build_user_prompt(input_data)
         message_history = (
-            list(ctx.messages) if _should_use_message_history(child_ctx) and ctx.messages else None
+            list(runtime.messages) if _should_use_message_history(child_runtime) and runtime.messages else None
         )
 
-        if child_ctx.on_event is not None:
-            if child_ctx.verbosity >= 2:
-                output = await self._run_streaming(agent, prompt, child_ctx, message_history)
+        if child_runtime.on_event is not None:
+            if child_runtime.verbosity >= 2:
+                output = await self._run_streaming(agent, prompt, child_runtime, message_history)
             else:
-                output = await self._run_with_event_stream(agent, prompt, child_ctx, message_history)
-            if _should_use_message_history(child_ctx):
-                ctx.messages[:] = list(child_ctx.messages)
+                output = await self._run_with_event_stream(agent, prompt, child_runtime, message_history)
+            if _should_use_message_history(child_runtime):
+                runtime.messages[:] = list(child_runtime.messages)
         else:
             result = await agent.run(
                 prompt,
-                deps=child_ctx,
+                deps=child_runtime,
                 model_settings=self.model_settings,
                 message_history=message_history,
             )
-            if _should_use_message_history(child_ctx):
-                _update_message_history(child_ctx, result)
-                _update_message_history(ctx, result)
+            if _should_use_message_history(child_runtime):
+                _update_message_history(child_runtime, result)
+                _update_message_history(runtime, result)
             output = result.output
 
         return output
@@ -384,7 +384,7 @@ class Worker(AbstractToolset[Any]):
         self,
         agent: Agent[WorkerRuntimeProtocol, Any],
         prompt: str | Sequence[UserContent],
-        ctx: WorkerRuntimeProtocol,
+        runtime: WorkerRuntimeProtocol,
         message_history: list[Any] | None,
     ) -> Any:
         """Run agent with event stream handler for non-streaming UI updates."""
@@ -400,45 +400,45 @@ class Worker(AbstractToolset[Any]):
         ) -> None:
             nonlocal emitted_tool_events
             async for event in events:
-                if ctx.verbosity < 2 and isinstance(event, PartDeltaEvent):
+                if runtime.verbosity < 2 and isinstance(event, PartDeltaEvent):
                     continue
                 ui_event = parse_event({"worker": self.name, "event": event})
                 if isinstance(ui_event, (ToolCallEvent, ToolResultEvent)):
                     emitted_tool_events = True
-                if ctx.on_event is not None:
-                    ctx.on_event(ui_event)
+                if runtime.on_event is not None:
+                    runtime.on_event(ui_event)
 
         result = await agent.run(
             prompt,
-            deps=ctx,
+            deps=runtime,
             model_settings=self.model_settings,
             event_stream_handler=event_stream_handler,
             message_history=message_history,
         )
-        if ctx.on_event is not None and not emitted_tool_events:
-            self._emit_tool_events(result.new_messages(), ctx)
-        if _should_use_message_history(ctx):
-            _update_message_history(ctx, result)
+        if runtime.on_event is not None and not emitted_tool_events:
+            self._emit_tool_events(result.new_messages(), runtime)
+        if _should_use_message_history(runtime):
+            _update_message_history(runtime, result)
         return result.output
 
     async def _run_streaming(
         self,
         agent: Agent[WorkerRuntimeProtocol, Any],
         prompt: str | Sequence[UserContent],
-        ctx: WorkerRuntimeProtocol,
+        runtime: WorkerRuntimeProtocol,
         message_history: list[Any] | None,
     ) -> Any:
         """Run agent with streaming, emitting text deltas."""
         async with agent.run_stream(
             prompt,
-            deps=ctx,
+            deps=runtime,
             model_settings=self.model_settings,
             message_history=message_history,
         ) as stream:
             # Stream text deltas
             async for chunk in stream.stream_text(delta=True):
-                if ctx.on_event:
-                    ctx.on_event(TextResponseEvent(
+                if runtime.on_event:
+                    runtime.on_event(TextResponseEvent(
                         worker=self.name,
                         content=chunk,
                         is_delta=True,
@@ -448,8 +448,8 @@ class Worker(AbstractToolset[Any]):
             # Get the final output
             output = await stream.get_output()
 
-            if ctx.on_event:
-                ctx.on_event(TextResponseEvent(
+            if runtime.on_event:
+                runtime.on_event(TextResponseEvent(
                     worker=self.name,
                     content=output,
                     is_complete=True,
@@ -457,8 +457,8 @@ class Worker(AbstractToolset[Any]):
                 ))
 
             # Emit tool events (must be inside context manager)
-            self._emit_tool_events(stream.new_messages(), ctx)
-            if _should_use_message_history(ctx):
-                _update_message_history(ctx, stream)
+            self._emit_tool_events(stream.new_messages(), runtime)
+            if _should_use_message_history(runtime):
+                _update_message_history(runtime, stream)
 
         return output

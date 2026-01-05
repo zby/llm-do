@@ -22,13 +22,6 @@ from .approval import RunApprovalPolicy
 from .contracts import EventCallback, Invocable, ModelType, WorkerRuntimeProtocol
 
 
-class _UnsetType:
-    pass
-
-
-_UNSET = _UnsetType()
-
-
 class ToolsProxy:
     """Dynamic proxy to call tools by attribute name.
 
@@ -180,7 +173,7 @@ class WorkerRuntime:
         *,
         config: RuntimeConfig | None = None,
         frame: CallFrame | None = None,
-        cli_model: ModelType | None | _UnsetType = _UNSET,
+        cli_model: ModelType | None = None,
         run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
         depth: int = 0,
@@ -198,14 +191,9 @@ class WorkerRuntime:
         else:
             if toolsets is None or model is None:
                 raise TypeError("WorkerRuntime requires 'toolsets' and 'model' when 'config'/'frame' are not provided")
-            resolved_cli_model: ModelType | None
-            if cli_model is _UNSET:
-                resolved_cli_model = model
-            else:
-                resolved_cli_model = cast(ModelType | None, cli_model)
             runtime_usage = usage or UsageCollector()
             self.config = RuntimeConfig(
-                cli_model=resolved_cli_model,
+                cli_model=cli_model,
                 run_approval_policy=run_approval_policy or RunApprovalPolicy(mode="approve_all"),
                 max_depth=max_depth,
                 on_event=on_event,

@@ -8,6 +8,8 @@ from pydantic_ai_blocking_approval import ApprovalRequest
 from textual.containers import ScrollableContainer
 from textual.widgets import Static
 
+from llm_do.ui.events import ToolCallEvent, ToolResultEvent
+
 if TYPE_CHECKING:
     from llm_do.ui.events import UIEvent
 
@@ -19,18 +21,6 @@ def _truncate_text(text: str, max_len: int) -> str:
     if len(text) <= max_len:
         return text
     return text[:max_len] + _TRUNCATION_INDICATOR
-
-
-def _tool_call_max_args_display() -> int:
-    from llm_do.ui.events import ToolCallEvent
-
-    return ToolCallEvent.MAX_ARGS_DISPLAY
-
-
-def _tool_result_max_display() -> int:
-    from llm_do.ui.events import ToolResultEvent
-
-    return ToolResultEvent.MAX_RESULT_DISPLAY
 
 
 class BaseMessage(Static):
@@ -121,7 +111,7 @@ class ToolCallMessage(BaseMessage):
                 args_str = json.dumps(args, indent=2, default=str)
             else:
                 args_str = str(args)
-            args_str = _truncate_text(args_str, _tool_call_max_args_display())
+            args_str = _truncate_text(args_str, ToolCallEvent.MAX_ARGS_DISPLAY)
             lines.append(f"Args: {args_str}")
 
         return "\n".join(lines)
@@ -160,7 +150,7 @@ class ToolResultMessage(BaseMessage):
         lines = [label]
 
         # Handle both string results and objects with .content attribute
-        max_len = _tool_result_max_display()
+        max_len = ToolResultEvent.MAX_RESULT_DISPLAY
         if isinstance(self._result, str):
             content = self._result
             if len(content) > max_len:

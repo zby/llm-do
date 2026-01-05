@@ -288,14 +288,16 @@ class LlmDoApp(App[None]):
         self.exit()
 
     async def action_quit_if_idle(self) -> None:
-        """Quit the app if the input isn't active."""
-        if not self._input_is_active():
-            decision = self._exit_confirmation.request()
-            if decision == ExitDecision.PROMPT:
-                messages = self.query_one("#messages", MessageContainer)
-                messages.add_status("Press 'q' again to exit.")
-                return
-            await self.action_quit()
+        """Quit the app if the input isn't active.
+
+        Note: check_action() already prevents this from being called when input is active.
+        """
+        decision = self._exit_confirmation.request()
+        if decision == ExitDecision.PROMPT:
+            messages = self.query_one("#messages", MessageContainer)
+            messages.add_status("Press 'q' again to exit.")
+            return
+        await self.action_quit()
 
     def action_submit_message(self) -> None:
         """Submit the current input if it is active."""

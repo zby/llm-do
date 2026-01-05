@@ -273,6 +273,7 @@ async def run(
     return_permission_errors: bool = False,
     message_history: list[Any] | None = None,
     set_overrides: list[str] | None = None,
+    entry: Invocable | None = None,
 ) -> tuple[Any, WorkerRuntime]:
     """Load entries and run with the given prompt.
 
@@ -290,6 +291,7 @@ async def run(
         return_permission_errors: If True, return tool results on PermissionError
         message_history: Optional prior messages for multi-turn conversations
         set_overrides: Optional list of --set KEY=VALUE overrides
+        entry: Optional pre-built entry (skips build_entry if provided)
 
     Returns:
         Tuple of (result, context)
@@ -301,9 +303,10 @@ async def run(
     worker_files = [f for f in files if f.endswith(".worker")]
     python_files = [f for f in files if f.endswith(".py")]
 
-    # Build entry point
-    resolved_entry_name = entry_name or "main"
-    entry = await build_entry(worker_files, python_files, model, resolved_entry_name, set_overrides)
+    # Build entry point (skip if pre-built entry provided)
+    if entry is None:
+        resolved_entry_name = entry_name or "main"
+        entry = await build_entry(worker_files, python_files, model, resolved_entry_name, set_overrides)
 
     approval_mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
     if approve_all:

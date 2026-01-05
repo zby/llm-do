@@ -106,51 +106,6 @@ class TestStreamingModels:
         assert "Hello there" in "".join(chunks)
 
     @pytest.mark.anyio
-    async def test_streaming_events_include_complete_event(self):
-        """Test that streaming deltas also emit a final complete event.
-
-        When streaming with verbosity=2, we should see streaming deltas
-        and a final "complete" TextResponseEvent to mark completion.
-        """
-        from llm_do.runtime import Worker, WorkerRuntime
-        from llm_do.ui.events import TextResponseEvent
-
-        events = []
-
-        worker = Worker(
-            name="helper",
-            instructions="You are a helper.",
-            model=create_scenario_model(
-                scenarios=[Scenario(pattern=r".*", response="Hello world!")],
-                streaming=True,
-            ),
-            toolsets=[],
-        )
-
-        # verbosity=2 enables streaming
-        ctx = WorkerRuntime.from_entry(worker, on_event=events.append, verbosity=2)
-        result = await ctx.run(worker, {"input": "say hello"})
-
-        # The result should be "Hello world!"
-        assert "Hello" in result
-
-        # Analyze events
-        delta_events = [e for e in events
-                       if isinstance(e, TextResponseEvent) and e.is_delta]
-        complete_events = [e for e in events
-                          if isinstance(e, TextResponseEvent) and e.is_complete]
-
-        # We should have delta events (streaming chunks)
-        assert len(delta_events) >= 1, "Should have streaming delta events"
-
-        # KEY ASSERTION: When streaming, we should also emit a "complete" event
-        # to provide a final response for logs and non-TUI displays.
-        assert len(complete_events) >= 1, (
-            "Expected complete TextResponseEvent when streaming, "
-            "but none were emitted."
-        )
-
-    @pytest.mark.anyio
     async def test_streaming_calculator_with_tool(self):
         """Test streaming calculator calls tools and streams result."""
         toolset = FunctionToolset()

@@ -304,93 +304,61 @@ class TestCLIEventIntegration:
     """Tests for CLI event integration with display backends."""
 
     @pytest.mark.anyio
-    async def test_run_with_on_event(self, tmp_path):
+    async def test_run_with_on_event(self):
         """Test that run() accepts and uses on_event callback."""
         from llm_do.cli.main import run
 
         events: list[UIEvent] = []
 
-        worker_path = tmp_path / "test.worker"
-        worker_path.write_text("""---
-name: main
----
-Test worker
-""")
+        worker = Worker(
+            name="main",
+            instructions="Test worker",
+            model=TestModel(custom_output_text="Hello!"),
+            toolsets=[],
+        )
 
-        # Patch the model to use TestModel
-        import llm_do.cli.main as cli_module
-        original_build = cli_module.build_entry
-
-        async def patched_build(*args, **kwargs):
-            return Worker(
-                name="main",
-                instructions="Test worker",
-                model=TestModel(custom_output_text="Hello!"),
-                toolsets=[],
-            )
-
-        cli_module.build_entry = patched_build
-        try:
-            result, ctx = await run(
-                files=[str(worker_path)],
-                prompt="Hi there",
-                on_event=lambda e: events.append(e),
-                verbosity=1,
-            )
-        finally:
-            cli_module.build_entry = original_build
+        result, ctx = await run(
+            files=[],
+            prompt="Hi there",
+            on_event=lambda e: events.append(e),
+            verbosity=1,
+            entry=worker,
+        )
 
         assert result is not None
         assert ctx.on_event is not None
 
     @pytest.mark.anyio
-    async def test_run_with_tools_emits_events(self, tmp_path):
+    async def test_run_with_tools_emits_events(self):
         """Test that run() with tools emits ToolCallEvent/ToolResultEvent."""
         from llm_do.cli.main import run
 
         events: list[UIEvent] = []
 
-        worker_path = tmp_path / "test.worker"
-        worker_path.write_text("""---
-name: main
-toolsets:
-  - calc_tools
----
-Test worker
-""")
+        toolset = FunctionToolset()
 
-        # Patch to use TestModel that calls tools
-        import llm_do.cli.main as cli_module
-        original_build = cli_module.build_entry
+        @toolset.tool
+        def add(a: int, b: int) -> int:
+            return a + b
 
-        async def patched_build(*args, **kwargs):
-            toolset = FunctionToolset()
+        worker = Worker(
+            name="main",
+            instructions="Test worker",
+            model=TestModel(
+                call_tools=["add"],
+                custom_output_text="The sum is 7.",
+            ),
+            toolsets=[toolset],
+        )
 
-            @toolset.tool
-            def add(a: int, b: int) -> int:
-                return a + b
-
-            return Worker(
-                name="main",
-                instructions="Test worker",
-                model=TestModel(
-                    call_tools=["add"],
-                    custom_output_text="The sum is 7.",
-                ),
-                toolsets=[toolset],
-            )
-
-        cli_module.build_entry = patched_build
-        try:
-            result, ctx = await run(
-                files=[str(worker_path)],
-                prompt="Add 3 and 4",
-                on_event=lambda e: events.append(e),
-                verbosity=1,
-                approve_all=True,  # Auto-approve tools for testing
-            )
-        finally:
-            cli_module.build_entry = original_build
+        result, ctx = await run(
+            files=[],
+            prompt="Add 3 and 4",
+            on_event=lambda e: events.append(e),
+            verbosity=1,
+            approve_all=True,
+            entry=worker,
+        )
 
         # Should have tool events
         tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]

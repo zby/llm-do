@@ -14,6 +14,7 @@ from typing import Any, AsyncIterable, Literal, Optional, Sequence, Type
 
 from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_ai import Agent
+from pydantic_ai.models import Model
 from pydantic_ai.messages import (
     BinaryContent,
     ModelRequest,
@@ -26,6 +27,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
+from ..models import ModelCompatibilityError, get_model_string, validate_model_compatibility
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
 from .context import CallFrame, RuntimeConfig, WorkerRuntime
 from .contracts import ModelType, WorkerRuntimeProtocol
@@ -221,7 +223,7 @@ class Worker(AbstractToolset[Any]):
 
     name: str
     instructions: str
-    model: ModelType | None = None
+    model: str | Model | None = None  # String identifier or Model object
     compatible_models: list[str] | None = None
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
     toolset_approval_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -263,7 +265,7 @@ class Worker(AbstractToolset[Any]):
 
     def _build_agent(
         self,
-        resolved_model: ModelType,
+        resolved_model: str | Model,
         runtime: WorkerRuntimeProtocol,
         *,
         toolsets: list[AbstractToolset[Any]] | None = None,
@@ -357,11 +359,13 @@ class Worker(AbstractToolset[Any]):
 
         # Resolve model: worker model > state model (inherited from parent)
         resolved_model = self.model if self.model is not None else state.model
-        if self.compatible_models is not None and resolved_model not in self.compatible_models:
-            raise ValueError(
-                f"Model {resolved_model!r} is not compatible with worker {self.name!r}. "
-                f"Compatible models: {self.compatible_models}"
+        if self.compatible_models is not None:
+            model_str = get_model_string(resolved_model)
+            result = validate_model_compatibility(
+                model_str, self.compatible_models, worker_name=self.name
             )
+            if not result.valid:
+                raise ModelCompatibilityError(result.message)
 
         # Wrap toolsets for approval using global policy
         wrapped_toolsets = wrap_toolsets_for_approval(

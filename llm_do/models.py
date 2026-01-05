@@ -3,6 +3,7 @@
 This module provides utilities for:
 1. Validating model compatibility against worker's compatible_models patterns
 2. Resolving the effective model from multiple sources with proper precedence
+3. Converting Model objects to their canonical string form
 
 Pattern syntax for compatible_models:
 - "*" matches any model
@@ -20,7 +21,10 @@ from __future__ import annotations
 import fnmatch
 import os
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional, Union
+
+if TYPE_CHECKING:
+    from pydantic_ai.models import Model
 
 # Environment variable for default model
 LLM_DO_MODEL_ENV = "LLM_DO_MODEL"
@@ -44,6 +48,38 @@ class InvalidCompatibleModelsError(ValueError):
 class ModelConfigError(ValueError):
     """Raised when model configuration is invalid (e.g., both model and compatible_models set)."""
     pass
+
+
+def get_model_string(model: Union[str, "Model"]) -> str:
+    """Get the canonical string representation of a model.
+
+    For string models, returns the string as-is.
+    For Model objects, constructs "provider:model_name" from the object.
+
+    The provider is derived from the model's module name:
+    - pydantic_ai.models.anthropic -> "anthropic"
+    - pydantic_ai.models.openai -> "openai"
+    - pydantic_ai.models.test -> "test"
+
+    Examples:
+        >>> get_model_string("anthropic:claude-haiku-4-5")
+        'anthropic:claude-haiku-4-5'
+        >>> get_model_string(TestModel())  # doctest: +SKIP
+        'test:test'
+        >>> get_model_string(AnthropicModel("claude-haiku-4-5"))  # doctest: +SKIP
+        'anthropic:claude-haiku-4-5'
+
+    Args:
+        model: Either a string model identifier or a PydanticAI Model object
+
+    Returns:
+        The canonical model string in "provider:model_name" format
+    """
+    if isinstance(model, str):
+        return model
+    # Model object - derive provider from module name
+    provider = type(model).__module__.split(".")[-1]
+    return f"{provider}:{model.model_name}"
 
 
 @dataclass

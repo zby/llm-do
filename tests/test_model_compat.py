@@ -8,6 +8,7 @@ from llm_do.models import (
     ModelConfigError,
     NoModelError,
     get_env_model,
+    get_model_string,
     model_matches_pattern,
     select_model,
     validate_model_compatibility,
@@ -293,3 +294,63 @@ class TestResolutionPrecedence:
                 cli_model="openai:gpt-4o",  # Not gpt-4o-mini
                 compatible_models=compatible,
             )
+
+
+class TestGetModelString:
+    """Tests for get_model_string function that extracts canonical model strings."""
+
+    def test_string_model_returned_as_is(self):
+        """String models are returned unchanged."""
+        assert get_model_string("anthropic:claude-haiku-4-5") == "anthropic:claude-haiku-4-5"
+        assert get_model_string("openai:gpt-4o") == "openai:gpt-4o"
+        assert get_model_string("test") == "test"
+
+    def test_test_model(self):
+        """TestModel produces 'test:test'."""
+        from pydantic_ai.models.test import TestModel
+
+        model = TestModel()
+        assert get_model_string(model) == "test:test"
+
+    def test_test_model_with_config(self):
+        """Configured TestModel still produces 'test:test'."""
+        from pydantic_ai.models.test import TestModel
+
+        model = TestModel(custom_output_text="Hello!", call_tools=["foo"])
+        assert get_model_string(model) == "test:test"
+
+    def test_anthropic_model(self):
+        """AnthropicModel produces 'anthropic:model_name'."""
+        from pydantic_ai import Agent
+
+        # Create model via Agent to avoid needing API key at model construction
+        agent = Agent("anthropic:claude-haiku-4-5")
+        model = agent.model
+        assert get_model_string(model) == "anthropic:claude-haiku-4-5"
+
+    def test_anthropic_model_different_variant(self):
+        """Different Anthropic model variants work correctly."""
+        from pydantic_ai import Agent
+
+        agent = Agent("anthropic:claude-sonnet-4")
+        model = agent.model
+        assert get_model_string(model) == "anthropic:claude-sonnet-4"
+
+    def test_model_string_works_with_validation(self):
+        """get_model_string output works with validate_model_compatibility."""
+        from pydantic_ai.models.test import TestModel
+
+        model = TestModel()
+        model_str = get_model_string(model)
+
+        # Should match "test:*" pattern
+        result = validate_model_compatibility(model_str, ["test:*"])
+        assert result.valid
+
+        # Should match "*" pattern
+        result = validate_model_compatibility(model_str, ["*"])
+        assert result.valid
+
+        # Should not match "anthropic:*"
+        result = validate_model_compatibility(model_str, ["anthropic:*"])
+        assert not result.valid

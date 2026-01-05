@@ -173,9 +173,6 @@ class ToolInvocable:
 
     toolset: AbstractToolset[Any]
     tool_name: str
-    model: ModelType | None = None
-    toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
-    toolset_approval_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
@@ -188,39 +185,17 @@ class ToolInvocable:
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Call the tool via its toolset."""
-        from .approval import wrap_toolsets_for_approval
-
         if isinstance(input_data, BaseModel):
             input_data = input_data.model_dump()
         elif not isinstance(input_data, dict):
             raise TypeError(f"Expected dict or BaseModel, got {type(input_data)}")
 
-        resolved_model = self.model if self.model is not None else ctx.model
-        wrapped_toolsets = wrap_toolsets_for_approval(
-            self.toolsets or [],
-            ctx.run_approval_policy,
-            self.toolset_approval_configs or None,
-        )
-        child_ctx = ctx.spawn_child(
-            toolsets=wrapped_toolsets,
-            model=resolved_model,
-        )
-        child_run_ctx = RunContext(
-            deps=child_ctx,
-            model=run_ctx.model,
-            usage=run_ctx.usage,
-            prompt=run_ctx.prompt,
-            tool_call_id=run_ctx.tool_call_id,
-            tool_name=run_ctx.tool_name,
-            retry=run_ctx.retry,
-        )
-
-        tools = await self.toolset.get_tools(child_run_ctx)
+        tools = await self.toolset.get_tools(run_ctx)
         tool = tools.get(self.tool_name)
         if tool is None:
             raise KeyError(f"Tool {self.tool_name} not found in toolset")
 
-        return await self.toolset.call_tool(self.tool_name, input_data, child_run_ctx, tool)
+        return await self.toolset.call_tool(self.tool_name, input_data, run_ctx, tool)
 
 
 @dataclass

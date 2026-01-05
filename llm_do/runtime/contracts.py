@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 from pydantic_ai.tools import RunContext
-from pydantic_ai.toolsets import AbstractToolset
+from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
 
 from ..ui.events import UIEvent
 
@@ -57,10 +57,12 @@ class WorkerRuntimeProtocol(Protocol):
 
 
 class Invocable(Protocol):
-    """Protocol for entries that can be invoked via the runtime dispatcher."""
+    """Protocol for entries that can be invoked via the runtime dispatcher.
 
-    model: ModelType | None
-    toolsets: list[AbstractToolset[Any]]
+    Worker and ToolInvocable both implement this protocol.
+    Worker has additional attributes (model, toolsets, compatible_models)
+    that are accessed via getattr with defaults in the runtime.
+    """
 
     @property
     def name(self) -> str: ...

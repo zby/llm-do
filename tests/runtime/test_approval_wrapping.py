@@ -10,6 +10,9 @@ from llm_do.runtime.worker import Worker
 from llm_do.toolsets.filesystem import FileSystemToolset
 
 
+# TestModel is used in test_nested_worker_calls_are_approval_gated
+
+
 def _approve_all(_request):
     return ApprovalDecision(approved=True)
 
@@ -79,8 +82,8 @@ def test_wrap_toolsets_handles_cycles() -> None:
 
 
 @pytest.mark.anyio
-async def test_run_entry_does_not_wrap_toolinvocable_toolsets() -> None:
-    """ToolInvocable toolsets are not wrapped - only Worker toolsets are wrapped at call time."""
+async def test_toolinvocable_has_no_toolsets() -> None:
+    """ToolInvocable has no toolsets - it just calls a single tool directly."""
     toolset = FunctionToolset()
 
     @toolset.tool
@@ -90,20 +93,18 @@ async def test_run_entry_does_not_wrap_toolinvocable_toolsets() -> None:
     invocable = ToolInvocable(
         toolset=toolset,
         tool_name="echo",
-        toolsets=[toolset],
-        model=TestModel(),
     )
 
     result, ctx = await run_invocable(
         invocable,
         prompt="hello",
+        model="test",  # Runtime needs a model even if ToolInvocable doesn't use it
         approval_policy=RunApprovalPolicy(mode="approve_all"),
     )
 
     assert result == "hello"
-    assert ctx.toolsets
-    # ToolInvocable toolsets are NOT wrapped - wrapping only happens in Worker.call()
-    assert not isinstance(ctx.toolsets[0], ApprovalToolset)
+    # ToolInvocable has no toolsets - the context starts empty
+    assert ctx.toolsets == []
 
 
 @pytest.mark.anyio
@@ -130,6 +131,7 @@ async def test_nested_worker_calls_are_approval_gated() -> None:
 
 @pytest.mark.anyio
 async def test_toolinvocable_entry_call_not_approval_gated() -> None:
+    """ToolInvocable entry call is not gated - it calls the tool directly."""
     toolset = FunctionToolset()
 
     @toolset.tool
@@ -139,13 +141,14 @@ async def test_toolinvocable_entry_call_not_approval_gated() -> None:
     invocable = ToolInvocable(
         toolset=toolset,
         tool_name="echo",
-        toolsets=[toolset],
-        model=TestModel(),
     )
 
+    # Even with reject_all, ToolInvocable succeeds because
+    # it's a direct tool call, not an LLM-invoked tool call
     result, _ctx = await run_invocable(
         invocable,
         prompt="hello",
+        model="test",  # Runtime needs a model even if ToolInvocable doesn't use it
         approval_policy=RunApprovalPolicy(mode="reject_all"),
     )
 

@@ -251,17 +251,11 @@ async def build_entry(
     elif entry_type == "python_worker":
         return python_workers[entry_name]
     else:  # python_tool
-        # Build list of all available toolsets for code entry points
-        all_toolsets_list: list[AbstractToolset[Any]] = []
-        all_toolsets_list.extend(worker_entries.values())
-        all_toolsets_list.extend(python_toolsets.values())
-
         # Create ToolInvocable for the code entry point
         toolset, tool_name, _toolset_name = python_tool_map[entry_name]
         return ToolInvocable(
             toolset=toolset,
             tool_name=tool_name,
-            toolsets=all_toolsets_list,
         )
 
 

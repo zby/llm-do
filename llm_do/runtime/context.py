@@ -101,15 +101,37 @@ class RuntimeConfig:
     message_log: MessageAccumulator = field(default_factory=MessageAccumulator)
 
 
-@dataclass(slots=True)
-class CallFrame:
-    """Per-branch/per-worker call state (forked on spawn)."""
+@dataclass(frozen=True, slots=True)
+class CallConfig:
+    """Immutable call configuration - set at fork time, never changed."""
 
-    toolsets: list[AbstractToolset[Any]]
+    toolsets: tuple[AbstractToolset[Any], ...]
     model: ModelType
     depth: int = 0
+
+
+@dataclass(slots=True)
+class CallFrame:
+    """Per-worker call state with immutable config and mutable conversation state."""
+
+    config: CallConfig
+
+    # Mutable fields (required for runtime behavior)
     prompt: str = ""
     messages: list[Any] = field(default_factory=list)
+
+    # Convenience accessors for backward compatibility
+    @property
+    def toolsets(self) -> tuple[AbstractToolset[Any], ...]:
+        return self.config.toolsets
+
+    @property
+    def model(self) -> ModelType:
+        return self.config.model
+
+    @property
+    def depth(self) -> int:
+        return self.config.depth
 
     def fork(
         self,
@@ -117,13 +139,13 @@ class CallFrame:
         *,
         model: ModelType | None = None,
     ) -> "CallFrame":
-        return CallFrame(
-            toolsets=self.toolsets if toolsets is None else toolsets,
-            model=self.model if model is None else model,
-            depth=self.depth + 1,
-            prompt=self.prompt,
-            messages=[],
+        """Create child frame with incremented depth and fresh messages."""
+        new_config = CallConfig(
+            toolsets=tuple(toolsets) if toolsets is not None else self.config.toolsets,
+            model=model if model is not None else self.config.model,
+            depth=self.config.depth + 1,
         )
+        return CallFrame(config=new_config)
 
     def clone_same_depth(
         self,
@@ -131,13 +153,13 @@ class CallFrame:
         *,
         model: ModelType | None = None,
     ) -> "CallFrame":
-        return CallFrame(
-            toolsets=self.toolsets if toolsets is None else toolsets,
-            model=self.model if model is None else model,
-            depth=self.depth,
-            prompt=self.prompt,
-            messages=self.messages,
+        """Create copy without changing depth (shares messages reference)."""
+        new_config = CallConfig(
+            toolsets=tuple(toolsets) if toolsets is not None else self.config.toolsets,
+            model=model if model is not None else self.config.model,
+            depth=self.config.depth,
         )
+        return CallFrame(config=new_config, prompt=self.prompt, messages=self.messages)
 
 
 class WorkerRuntime:
@@ -193,9 +215,12 @@ class WorkerRuntime:
             on_event=on_event,
             verbosity=verbosity,
         )
-        frame = CallFrame(
-            toolsets=toolsets,
+        call_config = CallConfig(
+            toolsets=tuple(toolsets),
             model=resolved_model,
+        )
+        frame = CallFrame(
+            config=call_config,
             messages=messages if messages is not None else [],
         )
         return cls(config=config, frame=frame)
@@ -234,17 +259,20 @@ class WorkerRuntime:
                 verbosity=verbosity,
                 usage=runtime_usage,
             )
-            self.frame = CallFrame(
-                toolsets=toolsets,
+            call_config = CallConfig(
+                toolsets=tuple(toolsets),
                 model=model,
                 depth=depth,
+            )
+            self.frame = CallFrame(
+                config=call_config,
                 prompt=prompt,
                 messages=messages if messages is not None else [],
             )
         self.tools = ToolsProxy(self)
 
     @property
-    def toolsets(self) -> list[AbstractToolset[Any]]:
+    def toolsets(self) -> tuple[AbstractToolset[Any], ...]:
         return self.frame.toolsets
 
     @property

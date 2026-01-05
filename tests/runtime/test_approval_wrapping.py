@@ -104,7 +104,7 @@ async def test_toolinvocable_has_no_toolsets() -> None:
 
     assert result == "hello"
     # ToolInvocable has no toolsets - the context starts empty
-    assert ctx.toolsets == []
+    assert ctx.toolsets == ()
 
 
 @pytest.mark.anyio

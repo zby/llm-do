@@ -1,7 +1,7 @@
 # Immutable CallConfig
 
 ## Status
-backlog
+completed
 
 ## Prerequisites
 - [x] Two-Object API task completed
@@ -112,7 +112,7 @@ The mutation pattern `state.messages[:] = ...` is required for multi-turn conver
 
 ## Tasks
 
-- [ ] Add `CallConfig` frozen dataclass to `context.py`:
+- [x] Add `CallConfig` frozen dataclass to `context.py`:
   ```python
   @dataclass(frozen=True, slots=True)
   class CallConfig:
@@ -121,7 +121,7 @@ The mutation pattern `state.messages[:] = ...` is required for multi-turn conver
       depth: int = 0
   ```
 
-- [ ] Update `CallFrame` to contain `CallConfig`:
+- [x] Update `CallFrame` to contain `CallConfig`:
   ```python
   @dataclass(slots=True)
   class CallFrame:
@@ -137,17 +137,17 @@ The mutation pattern `state.messages[:] = ...` is required for multi-turn conver
       def depth(self) -> int: return self.config.depth
   ```
 
-- [ ] Update `fork()` to create new `CallConfig`
+- [x] Update `fork()` to create new `CallConfig`
 
-- [ ] Update `clone_same_depth()` similarly
+- [x] Update `clone_same_depth()` similarly
 
-- [ ] Update `WorkerRuntime.__init__` to create `CallConfig` and wrap in `CallFrame`
+- [x] Update `WorkerRuntime.__init__` to create `CallConfig` and wrap in `CallFrame`
 
-- [ ] Update `WorkerRuntime.from_entry()` similarly
+- [x] Update `WorkerRuntime.from_entry()` similarly
 
-- [ ] Search for any code accessing `frame.toolsets` etc. (should work via properties)
+- [x] Search for any code accessing `frame.toolsets` etc. (should work via properties)
 
-- [ ] Run tests to verify backward compatibility
+- [x] Run tests to verify backward compatibility
 
 ## Verification
 

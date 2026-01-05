@@ -4,202 +4,163 @@
 backlog
 
 ## Prerequisites
-- [ ] Two-Object API task completed (`tasks/backlog/two-object-api.md`)
-- [ ] Extract MessageAccumulator task completed (`tasks/backlog/extract-message-accumulator.md`)
+- [x] Two-Object API task completed
+- [x] Extract MessageAccumulator task completed
 
 ## Goal
-Make `CallFrame` (consider renaming to `CallState`) a frozen dataclass with functional update methods, enabling clear data flow and thread-safety by construction.
+Separate CallFrame into immutable configuration and mutable state, making the boundaries explicit.
 
-**Before:**
-```python
-@dataclass(slots=True)
-class CallFrame:
-    toolsets: list[AbstractToolset[Any]]
-    model: ModelType
-    depth: int = 0
-    prompt: str = ""
+**Important constraint discovered in Phase 2:**
+Messages MUST stay in CallFrame for correct worker isolation:
+- Each worker has its own `messages` list
+- Parent workers don't see child workers' internal messages
+- Only tool call/result is visible to parent
+- Multi-turn conversations accumulate at entry level (depth ≤ 1)
 
-    def fork(self, toolsets=None, *, model=None) -> CallFrame:
-        return CallFrame(
-            toolsets=self.toolsets if toolsets is None else toolsets,
-            model=self.model if model is None else model,
-            depth=self.depth + 1,
-            prompt=self.prompt,
-        )
-```
+## Proposed Design
 
-**After:**
+Split CallFrame into two parts:
+
 ```python
 @dataclass(frozen=True, slots=True)
-class CallState:
-    toolsets: tuple[AbstractToolset[Any], ...]  # immutable tuple
+class CallConfig:
+    """Immutable call configuration - set at fork time, never changed."""
+    toolsets: tuple[AbstractToolset[Any], ...]
     model: ModelType
     depth: int = 0
+
+
+@dataclass(slots=True)
+class CallFrame:
+    """Per-worker call state with immutable config and mutable conversation state."""
+    config: CallConfig
+
+    # Mutable fields (required for runtime behavior)
     prompt: str = ""
+    messages: list[Any] = field(default_factory=list)
 
-    def with_incremented_depth(self) -> CallState:
-        return replace(self, depth=self.depth + 1)
+    # Convenience accessors
+    @property
+    def toolsets(self) -> tuple[AbstractToolset[Any], ...]:
+        return self.config.toolsets
 
-    def with_depth(self, depth: int) -> CallState:
-        return replace(self, depth=depth)
+    @property
+    def model(self) -> ModelType:
+        return self.config.model
 
-    def with_toolsets(self, toolsets: Sequence[AbstractToolset[Any]]) -> CallState:
-        return replace(self, toolsets=tuple(toolsets))
-
-    def with_model(self, model: ModelType) -> CallState:
-        return replace(self, model=model)
-
-    def with_prompt(self, prompt: str) -> CallState:
-        return replace(self, prompt=prompt)
+    @property
+    def depth(self) -> int:
+        return self.config.depth
 
     def fork(
         self,
         toolsets: Sequence[AbstractToolset[Any]] | None = None,
         *,
         model: ModelType | None = None,
-    ) -> CallState:
-        """Create a child state with incremented depth."""
-        return CallState(
-            toolsets=tuple(toolsets) if toolsets is not None else self.toolsets,
-            model=model if model is not None else self.model,
-            depth=self.depth + 1,
-            prompt=self.prompt,
+    ) -> CallFrame:
+        """Create child frame with incremented depth and fresh messages."""
+        new_config = CallConfig(
+            toolsets=tuple(toolsets) if toolsets is not None else self.config.toolsets,
+            model=model if model is not None else self.config.model,
+            depth=self.config.depth + 1,
         )
+        return CallFrame(config=new_config)
 ```
 
 ## Rationale
 
-With messages moved to `RuntimeConfig` (Phase 2), `CallFrame` no longer has shared mutable state. Making it frozen provides:
+### Why this design?
 
-1. **Clear data flow** - no hidden mutation, easy to trace state changes
-2. **Thread-safety by construction** - frozen dataclasses are inherently safe
-3. **Easy testing** - can compare before/after states directly
-4. **Functional style** - `with_*` methods return new instances
+1. **Explicit immutability boundary** - `CallConfig` is frozen, enforced by Python
+2. **Clear semantics**:
+   - `CallConfig` = "what this worker is" (toolsets, model, depth)
+   - `CallFrame` mutable fields = "conversation state" (messages, prompt)
+3. **Type safety** - can't accidentally mutate config fields
+4. **Testability** - can compare `CallConfig` instances directly
+
+### Why messages must stay mutable
+
+Verified behavior (see Phase 2 verification):
+```
+Parent Worker (depth 1):
+  messages = [UserPrompt, ToolCall(child), ToolResult, Response]
+                         ↑ only sees this, not child's internal messages
+
+Child Worker (depth 2):
+  messages = [UserPrompt, Response]  ← isolated, discarded after return
+```
+
+The mutation pattern `state.messages[:] = ...` is required for multi-turn conversations.
+
+### Alternative: Keep flat structure
+
+If the nested structure feels too complex, we could just:
+- Change `toolsets: list` → `toolsets: tuple`
+- Document which fields are immutable
+- Rely on convention rather than enforcement
 
 ## Context
 
 - Relevant files:
-  - `llm_do/runtime/context.py` - `CallFrame` definition, `WorkerRuntime`
-  - `llm_do/runtime/worker.py` - uses `state.fork()` in `Worker.call()`
-  - `llm_do/runtime/contracts.py` - may need protocol updates
+  - `llm_do/runtime/context.py` - `CallFrame` definition
+  - `llm_do/runtime/worker.py` - uses `state.fork()`, `state.messages`
+  - `llm_do/runtime/contracts.py` - may need updates
 
-- Current `CallFrame` methods:
+- Current mutation points:
   ```python
-  def fork(self, toolsets=None, *, model=None) -> CallFrame:
-      """Create child frame with depth+1."""
+  # These stay (mutable state):
+  state.messages[:] = list(child_state.messages)
+  runtime.messages[:] = _get_all_messages(result)
+  self.frame.prompt = value
 
-  def clone_same_depth(self, toolsets=None, *, model=None) -> CallFrame:
-      """Create copy without changing depth."""
-  ```
-
-- Current mutation points (should be eliminated after Phase 2):
-  ```python
-  self.frame.prompt = value  # via WorkerRuntime.prompt setter
+  # These would be eliminated (now in frozen CallConfig):
+  # (none currently - toolsets/model/depth aren't mutated)
   ```
 
 ## Tasks
 
-- [ ] Rename `CallFrame` to `CallState` (optional but recommended for clarity):
-  - Update class name in `context.py`
-  - Update all references in `context.py`, `worker.py`, `contracts.py`
-  - Update type hints throughout
+### Option A: Nested CallConfig (recommended)
 
-- [ ] Change `toolsets` from `list` to `tuple`:
-  ```python
-  toolsets: tuple[AbstractToolset[Any], ...]
-  ```
-
-- [ ] Make dataclass frozen:
+- [ ] Add `CallConfig` frozen dataclass:
   ```python
   @dataclass(frozen=True, slots=True)
-  class CallState:
-      ...
+  class CallConfig:
+      toolsets: tuple[AbstractToolset[Any], ...]
+      model: ModelType
+      depth: int = 0
   ```
 
-- [ ] Add `with_*` methods for functional updates:
+- [ ] Update `CallFrame` to contain `CallConfig`:
   ```python
-  from dataclasses import replace
+  @dataclass(slots=True)
+  class CallFrame:
+      config: CallConfig
+      prompt: str = ""
+      messages: list[Any] = field(default_factory=list)
 
-  def with_depth(self, depth: int) -> CallState:
-      return replace(self, depth=depth)
-
-  def with_incremented_depth(self) -> CallState:
-      return replace(self, depth=self.depth + 1)
-
-  def with_toolsets(self, toolsets: Sequence[AbstractToolset[Any]]) -> CallState:
-      return replace(self, toolsets=tuple(toolsets))
-
-  def with_model(self, model: ModelType) -> CallState:
-      return replace(self, model=model)
-
-  def with_prompt(self, prompt: str) -> CallState:
-      return replace(self, prompt=prompt)
+      @property
+      def toolsets(self) -> tuple[...]: return self.config.toolsets
+      @property
+      def model(self) -> ModelType: return self.config.model
+      @property
+      def depth(self) -> int: return self.config.depth
   ```
 
-- [ ] Update `fork()` method to use immutable patterns:
-  ```python
-  def fork(
-      self,
-      toolsets: Sequence[AbstractToolset[Any]] | None = None,
-      *,
-      model: ModelType | None = None,
-  ) -> CallState:
-      return CallState(
-          toolsets=tuple(toolsets) if toolsets is not None else self.toolsets,
-          model=model if model is not None else self.model,
-          depth=self.depth + 1,
-          prompt=self.prompt,
-      )
-  ```
+- [ ] Update `fork()` to create new `CallConfig`
 
-- [ ] Update or remove `clone_same_depth()`:
-  - Option A: Keep as convenience method using `replace()`
-  - Option B: Remove, callers use `with_*` methods directly
-  ```python
-  def clone_same_depth(
-      self,
-      toolsets: Sequence[AbstractToolset[Any]] | None = None,
-      *,
-      model: ModelType | None = None,
-  ) -> CallState:
-      return CallState(
-          toolsets=tuple(toolsets) if toolsets is not None else self.toolsets,
-          model=model if model is not None else self.model,
-          depth=self.depth,  # same depth
-          prompt=self.prompt,
-      )
-  ```
+- [ ] Update `clone_same_depth()` similarly
 
-- [ ] Update `WorkerRuntime.prompt` setter:
-  - Current: `self.frame.prompt = value` (mutation)
-  - After: Must replace the frame
-  ```python
-  @prompt.setter
-  def prompt(self, value: str) -> None:
-      self.frame = self.frame.with_prompt(value)
-  ```
-  - This requires `WorkerRuntime.frame` to NOT be a frozen field
-  - Or: Remove the setter, require explicit state threading
-
-- [ ] Update `WorkerRuntime.__init__` to convert list toolsets to tuple:
-  ```python
-  frame = CallState(
-      toolsets=tuple(toolsets),
-      ...
-  )
-  ```
+- [ ] Update `WorkerRuntime.__init__` to create `CallConfig`
 
 - [ ] Update `WorkerRuntime.from_entry()` similarly
 
-- [ ] Update `Worker.call()` to work with immutable state:
-  - Current: `child_runtime = runtime.spawn_child(...)`
-  - Should work unchanged if `spawn_child` returns new `WorkerRuntime` with forked state
+- [ ] Update any code accessing `frame.toolsets` etc. (should work via properties)
 
-- [ ] Search for any remaining mutation patterns:
-  ```bash
-  grep -r "\.frame\." llm_do/runtime/
-  grep -r "frame\." llm_do/runtime/ | grep "="
-  ```
+### Option B: Simple tuple change (simpler)
+
+- [ ] Change `toolsets: list` → `toolsets: tuple`
+- [ ] Update `fork()` to convert to tuple
+- [ ] Document which fields are immutable (convention-based)
 
 ## Verification
 
@@ -208,45 +169,63 @@ uv run pytest tests/runtime/ -v
 uv run pytest tests/ -v
 ```
 
-Verify immutability:
+Verify immutability (Option A):
 ```python
+frame = CallFrame(config=CallConfig(toolsets=(), model="test", depth=0))
+
 # This should raise FrozenInstanceError
-state = CallState(toolsets=(), model="test", depth=0, prompt="")
-state.depth = 1  # Should fail
+frame.config.depth = 1  # ✗ fails
 
 # This should work
-new_state = state.with_depth(1)
-assert new_state.depth == 1
-assert state.depth == 0  # original unchanged
+assert frame.depth == 0
+assert frame.config.depth == 0
+
+# Mutable state still works
+frame.messages.append(msg)  # ✓ works
+frame.prompt = "new"        # ✓ works
+```
+
+Verify messages still work:
+```python
+ctx = WorkerRuntime.from_entry(worker)
+await ctx.run(worker, {"input": "turn 1"})
+await ctx.run(worker, {"input": "turn 2"})
+assert len(ctx.messages) > 2  # accumulated
 ```
 
 ## Risks / Edge Cases
 
-- **prompt setter**: `WorkerRuntime.prompt = value` currently mutates frame. Need to decide:
-  - Option A: Replace frame reference (WorkerRuntime.frame becomes mutable attribute)
-  - Option B: Remove setter, require explicit state management
-  - Option C: Keep prompt in RuntimeConfig (it's set once per run anyway)
+- **API change**: Code accessing `frame.toolsets` directly works (via property)
+- **Code accessing `frame.config`**: New API, callers need update
+- **Backward compatibility**: `toolsets` changes from list to tuple
+- **Complexity**: Nested structure adds indirection
 
-- **Toolset tuple conversion**: Ensure all callers pass sequences, not generators
+## Decision Needed
 
-- **Performance**: `replace()` creates new objects - should be negligible but verify
+**Option A (CallConfig)** provides:
+- Enforced immutability
+- Clearer separation of concerns
+- Slightly more complex structure
 
-- **Backward compatibility**: Any code directly accessing `frame.toolsets` and expecting a list will break
+**Option B (just tuple)** provides:
+- Simpler structure
+- Convention-based immutability
+- Less code change
+
+Recommend **Option A** for explicit immutability guarantees, but **Option B** is acceptable if simplicity is preferred.
 
 ## Notes
 
 - This is Phase 3 of a 3-phase refactoring:
-  - Phase 1: Two-Object API
-  - Phase 2: Extract MessageAccumulator
-  - Phase 3: Immutable CallState (this task)
+  - Phase 1: Two-Object API ✓
+  - Phase 2: Extract MessageAccumulator ✓ (diagnostic sink)
+  - Phase 3: Immutable CallConfig (this task)
 
-- Consider also renaming `RuntimeConfig` to `RunConfig` for consistency:
-  - `RunConfig` - "the run" (global, immutable, shared)
-  - `CallState` - "the call" (per-worker, now also immutable)
+- Full CallFrame immutability is NOT possible due to message isolation requirements
+- The `MessageAccumulator` captures all messages for diagnostics, but workers read from `CallFrame.messages` for conversation context
 
-- After this phase, the only mutable containers in the runtime are:
+- After this phase, mutable containers in runtime:
   - `UsageCollector` - intentionally mutable, thread-safe
   - `MessageAccumulator` - intentionally mutable, thread-safe
-  - `WorkerRuntime.frame` reference - may need to be reassignable for prompt setter
-
-- The functional `with_*` pattern is idiomatic Python for immutable updates (see `dataclasses.replace`, `typing.NamedTuple`, etc.)
+  - `CallFrame.messages` - required for correct isolation
+  - `CallFrame.prompt` - set once per run

@@ -269,15 +269,6 @@ class WorkerRuntime:
     def usage(self) -> list[RunUsage]:
         return self.config.usage.all()
 
-    def _resolve_model(self, entry: Invocable) -> ModelType:
-        """Resolve model: entry's model if specified, otherwise context's default."""
-        return select_model(
-            worker_model=getattr(entry, "model", None),
-            cli_model=self.config.cli_model,
-            compatible_models=getattr(entry, "compatible_models", None),
-            worker_name=getattr(entry, "name", "worker"),
-        )
-
     def _create_usage(self) -> RunUsage:
         """Create a new RunUsage and add it to the shared usage sink."""
         return self.config.usage.create()
@@ -386,11 +377,11 @@ class WorkerRuntime:
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
     async def _execute(self, entry: Invocable, input_data: Any) -> Any:
-        """Execute an entry."""
-        # Prepare a context with resolved model and toolsets at the same depth.
-        child_toolsets = list(getattr(entry, "toolsets", []) or [])
-        resolved_model = self._resolve_model(entry)
-        child_ctx = self.clone_same_depth(toolsets=child_toolsets, model=resolved_model)
-        run_ctx = self._make_run_context(entry.name, resolved_model, child_ctx)
+        """Execute an entry.
 
-        return await entry.call(input_data, child_ctx, run_ctx)
+        The entry's call() method is responsible for creating any child context
+        it needs. Worker.call() creates a child with wrapped toolsets and
+        incremented depth. ToolInvocable.call() uses the run_ctx directly.
+        """
+        run_ctx = self._make_run_context(entry.name, self.model, self)
+        return await entry.call(input_data, self, run_ctx)

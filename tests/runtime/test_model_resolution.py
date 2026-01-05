@@ -51,10 +51,11 @@ class CaptureToolset(AbstractToolset[Any]):
 
 @dataclass
 class DummyEntry:
+    """Mock entry that creates a child context with its toolsets, like Worker does."""
+
     name: str
     toolsets: list[AbstractToolset[Any]]
     model: Optional[str] = None
-    kind: str = "worker"
 
     async def call(
         self,
@@ -62,25 +63,31 @@ class DummyEntry:
         ctx: WorkerRuntime,
         run_ctx: RunContext[WorkerRuntime],
     ) -> Any:
-        return await ctx.call("capture", {"value": 1})
+        # Like Worker.call(), create a child context with our toolsets
+        resolved_model = self.model if self.model is not None else ctx.model
+        child_ctx = ctx.spawn_child(toolsets=self.toolsets, model=resolved_model)
+        return await child_ctx.call("capture", {"value": 1})
 
 
 @pytest.mark.anyio
-async def test_worker_uses_cli_model_for_tool_calls() -> None:
+async def test_worker_uses_context_model_for_tool_calls() -> None:
+    """Entry without model uses context's model for tool calls."""
     toolset = CaptureToolset()
     entry = DummyEntry(name="child", toolsets=[toolset])
-    ctx = WorkerRuntime(toolsets=[], model="parent-model", cli_model="cli-model")
+    # In production, ctx.model is already resolved (by from_entry using cli_model)
+    ctx = WorkerRuntime(toolsets=[], model="resolved-model")
 
     await ctx._execute(entry, {"input": "hi"})
 
-    assert toolset.seen_model == "cli-model"
+    assert toolset.seen_model == "resolved-model"
 
 
 @pytest.mark.anyio
-async def test_worker_model_overrides_cli_model_for_tool_calls() -> None:
+async def test_worker_model_overrides_context_model_for_tool_calls() -> None:
+    """Entry with explicit model overrides context's model."""
     toolset = CaptureToolset()
     entry = DummyEntry(name="child", toolsets=[toolset], model="worker-model")
-    ctx = WorkerRuntime(toolsets=[], model="parent-model", cli_model="cli-model")
+    ctx = WorkerRuntime(toolsets=[], model="context-model")
 
     await ctx._execute(entry, {"input": "hi"})
 

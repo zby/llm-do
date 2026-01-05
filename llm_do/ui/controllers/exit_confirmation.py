@@ -7,7 +7,6 @@ from enum import Enum
 
 
 class ExitDecision(str, Enum):
-    IGNORE = "ignore"
     PROMPT = "prompt"
     EXIT = "exit"
 

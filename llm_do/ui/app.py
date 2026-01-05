@@ -369,10 +369,6 @@ class LlmDoApp(App[None]):
 
         task.add_done_callback(_on_done)
 
-    def signal_done(self) -> None:
-        """Signal that the worker is done."""
-        self._done = True
-
     def _history_previous(self) -> bool:
         """Move to the previous history entry if possible."""
         user_input = self.query_one("#user-input", TextArea)

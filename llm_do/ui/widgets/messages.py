@@ -27,6 +27,12 @@ def _tool_call_max_args_display() -> int:
     return ToolCallEvent.MAX_ARGS_DISPLAY
 
 
+def _tool_result_max_display() -> int:
+    from llm_do.ui.events import ToolResultEvent
+
+    return ToolResultEvent.MAX_RESULT_DISPLAY
+
+
 class BaseMessage(Static):
     """Base class for all message widgets."""
 
@@ -154,21 +160,22 @@ class ToolResultMessage(BaseMessage):
         lines = [label]
 
         # Handle both string results and objects with .content attribute
+        max_len = _tool_result_max_display()
         if isinstance(self._result, str):
             content = self._result
-            if len(content) > 500:
-                content = content[:500] + _TRUNCATION_INDICATOR
+            if len(content) > max_len:
+                content = content[:max_len] + _TRUNCATION_INDICATOR
             lines.append(content)
         elif hasattr(self._result, "content"):
             content = self._result.content
             if isinstance(content, str):
                 # Truncate long results
-                if len(content) > 500:
-                    content = content[:500] + _TRUNCATION_INDICATOR
+                if len(content) > max_len:
+                    content = content[:max_len] + _TRUNCATION_INDICATOR
                 lines.append(content)
             else:
                 content_str = json.dumps(content, indent=2, default=str)
-                lines.append(_truncate_text(content_str, 500))
+                lines.append(_truncate_text(content_str, max_len))
 
         return "\n".join(lines)
 

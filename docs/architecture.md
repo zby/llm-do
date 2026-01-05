@@ -36,7 +36,9 @@ When a worker runs, it operates within two scopes:
 - Current prompt, message history, nesting depth
 - Like a request context - isolated per worker call
 
-This separation means child workers share the parent's approval policy and usage tracking, but have their own isolated conversation history.
+This separation means:
+- **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
+- **Per-worker, no inheritance**: Message history, toolsets, per-tool approval rules
 
 ---
 
@@ -63,7 +65,7 @@ Worker builds PydanticAI Agent → runs
 
 Key points:
 - Child workers get fresh message history (parent only sees tool call/result)
-- All workers share the same approval policy and usage collector
+- Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
 
 ---

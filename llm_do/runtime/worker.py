@@ -39,11 +39,12 @@ class WorkerInput(BaseModel):
     attachments: list[str] = Field(default_factory=list)
 
 
-def _load_attachment(path: str) -> BinaryContent:
+def _load_attachment(path: str, base_path: Path | None = None) -> BinaryContent:
     """Load a file as BinaryContent for use in multimodal prompts.
 
     Args:
         path: Path to the file (relative or absolute)
+        base_path: Base directory for resolving relative paths
 
     Returns:
         BinaryContent with file data and detected media type
@@ -52,6 +53,8 @@ def _load_attachment(path: str) -> BinaryContent:
         FileNotFoundError: If the file doesn't exist
     """
     file_path = Path(path)
+    if not file_path.is_absolute() and base_path is not None:
+        file_path = base_path / file_path
     if not file_path.exists():
         raise FileNotFoundError(f"Attachment not found: {path}")
 
@@ -65,7 +68,9 @@ def _load_attachment(path: str) -> BinaryContent:
     return BinaryContent(data=data, media_type=media_type)
 
 
-def _build_user_prompt(input_data: Any) -> str | Sequence[UserContent]:
+def _build_user_prompt(
+    input_data: Any, base_path: Path | None = None
+) -> str | Sequence[UserContent]:
     """Build user prompt from input data, handling attachments.
 
     If input_data contains attachments, returns a sequence of UserContent
@@ -74,6 +79,7 @@ def _build_user_prompt(input_data: Any) -> str | Sequence[UserContent]:
     Args:
         input_data: Dict with 'input' and optional 'attachments' keys,
                    or a plain string/BaseModel
+        base_path: Base directory for resolving relative attachment paths
 
     Returns:
         String prompt or sequence of UserContent parts
@@ -97,7 +103,7 @@ def _build_user_prompt(input_data: Any) -> str | Sequence[UserContent]:
     # Build multimodal prompt with attachments
     parts: list[UserContent] = [text]
     for attachment_path in attachments:
-        parts.append(_load_attachment(attachment_path))
+        parts.append(_load_attachment(attachment_path, base_path))
 
     return parts
 
@@ -231,6 +237,7 @@ class Worker(AbstractToolset[Any]):
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[BaseModel]] = None
     schema_out: Optional[Type[BaseModel]] = None
+    base_path: Optional[Path] = None  # Base directory for resolving relative attachment paths
 
     # AbstractToolset implementation
     @property
@@ -379,7 +386,7 @@ class Worker(AbstractToolset[Any]):
         child_runtime = WorkerRuntime(config=config, frame=child_state)
 
         agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
-        prompt = _build_user_prompt(input_data)
+        prompt = _build_user_prompt(input_data, self.base_path)
         message_history = (
             list(state.messages) if _should_use_message_history(child_runtime) and state.messages else None
         )

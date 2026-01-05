@@ -19,6 +19,9 @@ def load_instructions(name: str) -> str:
 
 
 # Instantiate builtin toolsets
+# NOTE: base_path must be configured separately on FileSystemToolset and on
+# workers that receive attachments. This duplication is not ideal - a cleaner
+# solution would unify path resolution at the runtime level.
 filesystem = FileSystemToolset(config={"base_path": str(HERE)})
 
 # Define workers - order matters for references
@@ -27,6 +30,7 @@ pitch_evaluator = Worker(
     model="anthropic:claude-haiku-4-5",
     instructions=load_instructions("pitch_evaluator"),
     toolsets=[],
+    base_path=HERE,  # For resolving attachment paths
 )
 
 main = Worker(

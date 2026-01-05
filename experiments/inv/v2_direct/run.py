@@ -49,6 +49,9 @@ def load_instructions(name: str) -> str:
 
 def build_workers() -> tuple[Worker, Worker]:
     """Build and return the worker entries."""
+    # NOTE: base_path must be configured separately on FileSystemToolset and on
+    # workers that receive attachments. This duplication is not ideal - a cleaner
+    # solution would unify path resolution at the runtime level.
     filesystem = FileSystemToolset(config={"base_path": str(HERE)})
 
     pitch_evaluator = Worker(
@@ -56,6 +59,7 @@ def build_workers() -> tuple[Worker, Worker]:
         model=MODEL,
         instructions=load_instructions("pitch_evaluator"),
         toolsets=[],
+        base_path=HERE,  # For resolving attachment paths
     )
 
     main = Worker(

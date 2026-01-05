@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterable, Literal, Optional, Sequence, Type
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
     BinaryContent,
@@ -33,7 +33,7 @@ from .contracts import ModelType, WorkerRuntimeProtocol
 class WorkerInput(BaseModel):
     """Input schema for workers."""
     input: str
-    attachments: list[str] = []
+    attachments: list[str] = Field(default_factory=list)
 
 
 def _load_attachment(path: str) -> BinaryContent:

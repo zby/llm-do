@@ -13,10 +13,9 @@ import asyncio
 import sys
 from pathlib import Path
 
-from llm_do.runtime import ApprovalPolicy, Worker, run_invocable
+from llm_do.runtime import RunApprovalPolicy, Worker, run_invocable
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.display import HeadlessDisplayBackend
-from llm_do.ui.events import UIEvent
 
 # =============================================================================
 # CONFIGURATION - Edit these constants to experiment
@@ -50,7 +49,7 @@ def load_instructions(name: str) -> str:
 
 def build_workers() -> tuple[Worker, Worker]:
     """Build and return the worker entries."""
-    filesystem = FileSystemToolset(config={})
+    filesystem = FileSystemToolset(config={"base_path": str(HERE)})
 
     pitch_evaluator = Worker(
         name="pitch_evaluator",
@@ -80,10 +79,7 @@ async def run_evaluation() -> str:
     # Set up display backend for progress output
     backend = HeadlessDisplayBackend(stream=sys.stderr, verbosity=VERBOSITY)
 
-    def on_event(event: UIEvent) -> None:
-        backend.display(event)
-
-    approval_policy = ApprovalPolicy(
+    approval_policy = RunApprovalPolicy(
         mode="approve_all" if APPROVE_ALL else "prompt",
     )
     result, _ctx = await run_invocable(
@@ -91,7 +87,7 @@ async def run_evaluation() -> str:
         prompt=PROMPT,
         model=MODEL,
         approval_policy=approval_policy,
-        on_event=on_event if VERBOSITY > 0 else None,
+        on_event=backend.display if VERBOSITY > 0 else None,
         verbosity=VERBOSITY,
     )
     return result

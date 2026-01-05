@@ -19,7 +19,7 @@ def load_instructions(name: str) -> str:
 
 
 # Instantiate builtin toolsets
-filesystem = FileSystemToolset(config={})
+filesystem = FileSystemToolset(config={"base_path": str(HERE)})
 
 # Define workers - order matters for references
 pitch_evaluator = Worker(

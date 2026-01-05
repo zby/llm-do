@@ -59,12 +59,16 @@ class FileSystemToolset(AbstractToolset[Any]):
 
         Args:
             config: Configuration dict. Supports:
+                - base_path: Base directory for relative paths (default: CWD)
                 - read_approval: Whether reads require approval (default: False)
                 - write_approval: Whether writes require approval (default: True)
             id: Optional toolset ID for durable execution
             max_retries: Maximum number of retries for tool calls (default: 1)
         """
         self._config = config
+        self._base_path: Path | None = None
+        if "base_path" in config:
+            self._base_path = Path(config["base_path"]).expanduser().resolve()
         self._read_approval = config.get("read_approval", False)
         self._write_approval = config.get("write_approval", True)
         self._toolset_id = id
@@ -81,7 +85,7 @@ class FileSystemToolset(AbstractToolset[Any]):
         return self._config
 
     def _resolve_path(self, path: str) -> Path:
-        """Resolve a path (relative to CWD or absolute).
+        """Resolve a path (relative to base_path/CWD or absolute).
 
         Args:
             path: Path string (can be relative or absolute)
@@ -89,7 +93,12 @@ class FileSystemToolset(AbstractToolset[Any]):
         Returns:
             Resolved absolute Path
         """
-        return Path(path).expanduser().resolve()
+        p = Path(path).expanduser()
+        if p.is_absolute():
+            return p.resolve()
+        if self._base_path is not None:
+            return (self._base_path / p).resolve()
+        return p.resolve()
 
     def needs_approval(
         self,

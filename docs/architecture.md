@@ -107,7 +107,8 @@ llm_do/
 ├── runtime/            # Core runtime
 │   ├── runner.py       # run_entry execution boundary
 │   ├── approval.py     # RunApprovalPolicy + WorkerApprovalPolicy + wrapping helpers
-│   ├── context.py      # WorkerRuntime dispatcher and depth tracking
+│   ├── context.py      # RuntimeConfig, CallConfig, CallFrame, WorkerRuntime
+│   ├── contracts.py    # Protocols (Invocable, WorkerRuntimeProtocol)
 │   ├── worker.py       # Worker and ToolInvocable
 │   ├── worker_file.py  # .worker parser
 │   ├── discovery.py    # Load toolsets/entries from .py files
@@ -121,6 +122,31 @@ llm_do/
 ├── config.py           # --set parsing and application
 └── models.py           # Model selection and compatibility checks
 ```
+
+### Runtime State Model
+
+The runtime separates global configuration from per-worker state:
+
+```
+RuntimeConfig (frozen, shared)      CallConfig (frozen, per-worker)
+├── cli_model                       ├── toolsets (tuple)
+├── run_approval_policy             ├── model (resolved)
+├── max_depth                       └── depth
+├── on_event
+├── verbosity                       CallFrame (mutable state)
+├── usage (UsageCollector)          ├── config: CallConfig
+└── message_log (MessageAccumulator)├── prompt
+                                    └── messages (list)
+         └──────────────┬───────────────┘
+                        │
+                WorkerRuntime (facade)
+```
+
+**Key design decisions:**
+- `CallConfig` is frozen - immutable call configuration (toolsets, model, depth)
+- `CallFrame.messages` stays mutable for worker isolation (parent doesn't see child's internal messages)
+- `MessageAccumulator` is a diagnostic sink capturing all messages for testing/logging
+- Workers access state via `Invocable.call(input_data, config, state, run_ctx)`
 
 ---
 

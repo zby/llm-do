@@ -1,6 +1,19 @@
 # Runtime Scopes: Global vs Worker
 
-## Problem Statement
+**Status: IMPLEMENTED** (see commits a145973, 5bcb770, 95cf388)
+
+## Summary
+
+This analysis led to a 3-phase refactoring:
+1. **Phase 1**: Two-object API - `Invocable.call(input, config, state, run_ctx)`
+2. **Phase 2**: MessageAccumulator - diagnostic sink for all messages (NOT for conversation context)
+3. **Phase 3**: Frozen CallConfig - immutable configuration nested in CallFrame
+
+**Key insight from implementation:** Messages must stay in CallFrame (not move to global scope) because worker isolation requires each worker to have its own messages list. Parent workers only see tool call/result, not child's internal conversation.
+
+---
+
+## Original Problem Statement
 
 The runtime has two distinct scopes that are currently mixed in the API:
 
@@ -9,21 +22,38 @@ The runtime has two distinct scopes that are currently mixed in the API:
 
 The current `WorkerRuntime` facade obscures this distinction, making it harder to reason about what's shared vs. what's isolated.
 
-## Current Implementation
+## Final Implementation
 
 ```
-RuntimeConfig (frozen)          CallFrame (mutable, forked)
-├── cli_model                   ├── toolsets
-├── run_approval_policy         ├── model (resolved)
-├── max_depth                   ├── depth
-├── on_event                    ├── prompt
-├── verbosity                   └── messages
-└── usage (UsageCollector)
-
-         └──────────┬──────────┘
-                    │
-            WorkerRuntime (facade)
+RuntimeConfig (frozen, shared)       CallConfig (frozen, per-worker)
+├── cli_model                        ├── toolsets (tuple)
+├── run_approval_policy              ├── model (resolved)
+├── max_depth                        └── depth
+├── on_event
+├── verbosity                        CallFrame (mutable state)
+├── usage (UsageCollector)           ├── config: CallConfig
+└── message_log (MessageAccumulator) ├── prompt
+                                     └── messages (list)
+         └───────────────┬───────────────┘
+                         │
+                 WorkerRuntime (facade)
 ```
+
+**Invocable.call() signature:**
+```python
+async def call(
+    self,
+    input_data: Any,
+    config: RuntimeConfig,     # global scope (immutable, shared)
+    state: CallFrame,          # per-call scope (has frozen CallConfig + mutable messages)
+    run_ctx: RunContext[WorkerRuntimeProtocol],
+) -> Any: ...
+```
+
+**Worker isolation (verified):**
+- Parent workers only see tool call/result in their messages
+- Child worker's internal messages stay isolated
+- Multi-turn accumulation works correctly at entry level (depth ≤ 1)
 
 ## Tensions
 
@@ -391,9 +421,9 @@ Messages aren't really per-call state - they're a shared accumulator for the who
 
 ---
 
-## Recommended Refactoring Sequence
+## Refactoring Sequence (COMPLETED)
 
-### Phase 1: Two-Object API (Option A)
+### Phase 1: Two-Object API ✓
 
 Split config/state at the Invocable boundary while keeping `WorkerRuntime` as deps type for tools:
 
@@ -415,9 +445,11 @@ class Invocable(Protocol):
 
 **Scope:** ~5 files, ~50-100 lines
 
-### Phase 2: Extract MessageAccumulator
+### Phase 2: MessageAccumulator ✓ (revised scope)
 
-Move messages from `CallState` to `RunConfig`:
+**Original plan:** Move messages from CallFrame to RuntimeConfig.
+
+**Actual implementation:** Messages stay in CallFrame for correct worker isolation. MessageAccumulator added as a **diagnostic sink** for testing/logging (similar to UsageCollector).
 
 ```python
 @dataclass(frozen=True)

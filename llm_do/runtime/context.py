@@ -55,6 +55,39 @@ class UsageCollector:
             return list(self._usages)
 
 
+class MessageAccumulator:
+    """Thread-safe sink for capturing messages across all workers.
+
+    Used for testing and logging. Workers do NOT read from this
+    for their conversation context - that stays in CallFrame.messages.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._messages: list[tuple[str, int, Any]] = []  # (worker_name, depth, message)
+
+    def append(self, worker_name: str, depth: int, message: Any) -> None:
+        """Record a message from a worker."""
+        with self._lock:
+            self._messages.append((worker_name, depth, message))
+
+    def extend(self, worker_name: str, depth: int, messages: list[Any]) -> None:
+        """Record multiple messages from a worker."""
+        with self._lock:
+            for msg in messages:
+                self._messages.append((worker_name, depth, msg))
+
+    def all(self) -> list[tuple[str, int, Any]]:
+        """Return all recorded messages."""
+        with self._lock:
+            return list(self._messages)
+
+    def for_worker(self, worker_name: str) -> list[Any]:
+        """Return messages for a specific worker."""
+        with self._lock:
+            return [msg for name, _, msg in self._messages if name == worker_name]
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeConfig:
     """Shared runtime configuration (no per-call-chain state)."""
@@ -65,6 +98,7 @@ class RuntimeConfig:
     on_event: EventCallback | None = None
     verbosity: int = 0
     usage: UsageCollector = field(default_factory=UsageCollector)
+    message_log: MessageAccumulator = field(default_factory=MessageAccumulator)
 
 
 @dataclass(slots=True)
@@ -256,6 +290,11 @@ class WorkerRuntime:
     @property
     def usage(self) -> list[RunUsage]:
         return self.config.usage.all()
+
+    @property
+    def message_log(self) -> list[tuple[str, int, Any]]:
+        """Return all messages captured across all workers (for testing/logging)."""
+        return self.config.message_log.all()
 
     def _create_usage(self) -> RunUsage:
         """Create a new RunUsage and add it to the shared usage sink."""

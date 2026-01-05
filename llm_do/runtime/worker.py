@@ -394,6 +394,8 @@ class Worker(AbstractToolset[Any]):
                 model_settings=self.model_settings,
                 message_history=message_history,
             )
+            # Log messages to diagnostic accumulator
+            config.message_log.extend(self.name, child_state.depth, _get_all_messages(result))
             if _should_use_message_history(child_runtime):
                 _update_message_history(child_runtime, result)
                 state.messages[:] = _get_all_messages(result)
@@ -436,6 +438,9 @@ class Worker(AbstractToolset[Any]):
             event_stream_handler=event_stream_handler,
             message_history=message_history,
         )
+        # Log messages to diagnostic accumulator (runtime is WorkerRuntime with config)
+        if hasattr(runtime, "config"):
+            runtime.config.message_log.extend(self.name, runtime.depth, _get_all_messages(result))
         if runtime.on_event is not None and not emitted_tool_events:
             self._emit_tool_events(result.new_messages(), runtime)
         if _should_use_message_history(runtime):
@@ -477,6 +482,9 @@ class Worker(AbstractToolset[Any]):
                     is_delta=False,
                 ))
 
+            # Log messages to diagnostic accumulator (runtime is WorkerRuntime with config)
+            if hasattr(runtime, "config"):
+                runtime.config.message_log.extend(self.name, runtime.depth, _get_all_messages(stream))
             # Emit tool events (must be inside context manager)
             self._emit_tool_events(stream.new_messages(), runtime)
             if _should_use_message_history(runtime):

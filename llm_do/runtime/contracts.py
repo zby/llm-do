@@ -16,6 +16,7 @@ from ..ui.events import UIEvent
 
 if TYPE_CHECKING:
     from .approval import RunApprovalPolicy
+    from .context import CallFrame, RuntimeConfig
 
 ModelType: TypeAlias = str
 EventCallback: TypeAlias = Callable[[UIEvent], None]
@@ -62,6 +63,11 @@ class Invocable(Protocol):
     Worker and ToolInvocable both implement this protocol.
     Worker has additional attributes (model, toolsets, compatible_models)
     that are accessed via getattr with defaults in the runtime.
+
+    The call() signature separates concerns:
+    - config: Global scope (immutable, shared across all workers)
+    - state: Per-call scope (mutable, forked per-worker)
+    - run_ctx: PydanticAI RunContext with WorkerRuntime as deps (for tools)
     """
 
     @property
@@ -70,6 +76,7 @@ class Invocable(Protocol):
     async def call(
         self,
         input_data: Any,
-        runtime: WorkerRuntimeProtocol,
+        config: "RuntimeConfig",
+        state: "CallFrame",
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any: ...

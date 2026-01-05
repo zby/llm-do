@@ -370,6 +370,8 @@ class WorkerRuntime:
         The entry's call() method is responsible for creating any child context
         it needs. Worker.call() creates a child with wrapped toolsets and
         incremented depth. ToolInvocable.call() uses the run_ctx directly.
+
+        Uses two-object API: passes config (global) and frame (per-call) separately.
         """
         run_ctx = self._make_run_context(entry.name, self.model, self)
-        return await entry.call(input_data, self, run_ctx)
+        return await entry.call(input_data, self.config, self.frame, run_ctx)

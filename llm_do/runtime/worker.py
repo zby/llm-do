@@ -27,6 +27,7 @@ from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
+from .context import CallFrame, RuntimeConfig, WorkerRuntime
 from .contracts import ModelType, WorkerRuntimeProtocol
 
 
@@ -181,10 +182,18 @@ class ToolInvocable:
     async def call(
         self,
         input_data: Any,
-        runtime: WorkerRuntimeProtocol,
+        config: RuntimeConfig,
+        state: CallFrame,
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
-        """Call the tool via its toolset."""
+        """Call the tool via its toolset.
+
+        Args:
+            input_data: Tool input (dict or BaseModel)
+            config: Global runtime configuration (unused by ToolInvocable)
+            state: Per-call state (unused by ToolInvocable)
+            run_ctx: PydanticAI RunContext for tool execution
+        """
         if isinstance(input_data, BaseModel):
             input_data = input_data.model_dump()
         elif not isinstance(input_data, dict):
@@ -249,7 +258,8 @@ class Worker(AbstractToolset[Any]):
         self, name: str, tool_args: dict[str, Any], run_ctx: RunContext[Any], tool: ToolsetTool[Any]
     ) -> Any:
         """Execute the worker when called as a tool."""
-        return await self.call(tool_args, run_ctx.deps, run_ctx)
+        # run_ctx.deps is WorkerRuntime; extract config and frame for two-object API
+        return await self.call(tool_args, run_ctx.deps.config, run_ctx.deps.frame, run_ctx)
 
     def _build_agent(
         self,
@@ -322,10 +332,18 @@ class Worker(AbstractToolset[Any]):
     async def call(
         self,
         input_data: Any,
-        runtime: WorkerRuntimeProtocol,
+        config: RuntimeConfig,
+        state: CallFrame,
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
-        """Execute the worker with the given input."""
+        """Execute the worker with the given input.
+
+        Args:
+            input_data: Worker input (dict, string, or BaseModel)
+            config: Global runtime configuration (immutable, shared)
+            state: Per-call state (mutable, forked)
+            run_ctx: PydanticAI RunContext (deps is the parent WorkerRuntime)
+        """
         from .approval import wrap_toolsets_for_approval
         from .input_utils import coerce_worker_input
 
@@ -333,39 +351,42 @@ class Worker(AbstractToolset[Any]):
         if self.schema_in is not None:
             input_data = self.schema_in.model_validate(input_data)
 
-        if runtime.depth >= runtime.max_depth:
-            raise RuntimeError(f"Max depth exceeded: {runtime.max_depth}")
+        # Check depth limit using global config and per-call state
+        if state.depth >= config.max_depth:
+            raise RuntimeError(f"Max depth exceeded: {config.max_depth}")
 
-        resolved_model = self.model if self.model is not None else runtime.model
+        # Resolve model: worker model > state model (inherited from parent)
+        resolved_model = self.model if self.model is not None else state.model
         if self.compatible_models is not None and resolved_model not in self.compatible_models:
             raise ValueError(
                 f"Model {resolved_model!r} is not compatible with worker {self.name!r}. "
                 f"Compatible models: {self.compatible_models}"
             )
 
+        # Wrap toolsets for approval using global policy
         wrapped_toolsets = wrap_toolsets_for_approval(
             self.toolsets or [],
-            runtime.run_approval_policy,
+            config.run_approval_policy,
             self.toolset_approval_configs or None,
         )
-        child_runtime = runtime.spawn_child(
-            toolsets=wrapped_toolsets,
-            model=resolved_model,
-        )
+
+        # Fork per-call state and build child runtime for PydanticAI deps
+        child_state = state.fork(toolsets=wrapped_toolsets, model=resolved_model)
+        child_runtime = WorkerRuntime(config=config, frame=child_state)
 
         agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
         prompt = _build_user_prompt(input_data)
         message_history = (
-            list(runtime.messages) if _should_use_message_history(child_runtime) and runtime.messages else None
+            list(state.messages) if _should_use_message_history(child_runtime) and state.messages else None
         )
 
-        if child_runtime.on_event is not None:
-            if child_runtime.verbosity >= 2:
+        if config.on_event is not None:
+            if config.verbosity >= 2:
                 output = await self._run_streaming(agent, prompt, child_runtime, message_history)
             else:
                 output = await self._run_with_event_stream(agent, prompt, child_runtime, message_history)
             if _should_use_message_history(child_runtime):
-                runtime.messages[:] = list(child_runtime.messages)
+                state.messages[:] = list(child_state.messages)
         else:
             result = await agent.run(
                 prompt,
@@ -375,7 +396,7 @@ class Worker(AbstractToolset[Any]):
             )
             if _should_use_message_history(child_runtime):
                 _update_message_history(child_runtime, result)
-                _update_message_history(runtime, result)
+                state.messages[:] = _get_all_messages(result)
             output = result.output
 
         return output

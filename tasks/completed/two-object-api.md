@@ -1,7 +1,7 @@
 # Two-Object API for Invocable.call()
 
 ## Status
-backlog
+completed
 
 ## Goal
 Split the `Invocable.call()` signature to receive global config and per-call state as separate objects, making the scope distinction explicit at the API boundary.
@@ -62,7 +62,7 @@ The current `WorkerRuntime` facade obscures this distinction. When you access `r
 
 ## Tasks
 
-- [ ] Update `Invocable` protocol in `contracts.py`:
+- [x] Update `Invocable` protocol in `contracts.py`:
   ```python
   class Invocable(Protocol):
       async def call(
@@ -74,18 +74,18 @@ The current `WorkerRuntime` facade obscures this distinction. When you access `r
       ) -> Any: ...
   ```
 
-- [ ] Update `Worker.call()` in `worker.py`:
+- [x] Update `Worker.call()` in `worker.py`:
   - Change signature to receive `config` and `state` separately
   - Create child state via `state.fork()`
   - Build `WorkerRuntime(config=config, frame=child_state)` for agent deps
   - Access global config directly: `config.run_approval_policy`, `config.max_depth`, etc.
   - Access per-call state directly: `state.depth`, `state.model`, etc.
 
-- [ ] Update `ToolInvocable.call()` in `worker.py`:
+- [x] Update `ToolInvocable.call()` in `worker.py`:
   - Change signature to receive `config` and `state` separately
   - Minimal changes - just use the toolset from state
 
-- [ ] Update `WorkerRuntime._execute()` in `context.py`:
+- [x] Update `WorkerRuntime._execute()` in `context.py`:
   - Pass `self.config` and `self.frame` separately to `entry.call()`
   ```python
   async def _execute(self, entry: Invocable, input_data: Any) -> Any:
@@ -93,11 +93,11 @@ The current `WorkerRuntime` facade obscures this distinction. When you access `r
       return await entry.call(input_data, self.config, self.frame, run_ctx)
   ```
 
-- [ ] Update any direct callers of `entry.call()` (search for `.call(` in runtime code)
+- [x] Update any direct callers of `entry.call()` (search for `.call(` in runtime code)
 
-- [ ] Update tests that mock or call `Invocable.call()` directly
+- [x] Update tests that mock or call `Invocable.call()` directly
 
-- [ ] Verify tools still work via `run_ctx.deps.call()` pattern
+- [x] Verify tools still work via `run_ctx.deps.call()` pattern
 
 ## Verification
 

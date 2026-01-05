@@ -9,6 +9,7 @@ from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
 from llm_do.runtime import WorkerRuntime
+from llm_do.runtime.context import CallFrame, RuntimeConfig
 
 
 class CaptureArgs(BaseModel):
@@ -60,12 +61,14 @@ class DummyEntry:
     async def call(
         self,
         input_data: Any,
-        runtime: WorkerRuntime,
+        config: RuntimeConfig,
+        state: CallFrame,
         run_ctx: RunContext[WorkerRuntime],
     ) -> Any:
-        # Like Worker.call(), create a child context with our toolsets
-        resolved_model = self.model if self.model is not None else runtime.model
-        child_runtime = runtime.spawn_child(toolsets=self.toolsets, model=resolved_model)
+        # Like Worker.call(), fork state and create a child context with our toolsets
+        resolved_model = self.model if self.model is not None else state.model
+        child_state = state.fork(toolsets=self.toolsets, model=resolved_model)
+        child_runtime = WorkerRuntime(config=config, frame=child_state)
         return await child_runtime.call("capture", {"value": 1})
 
 
@@ -149,7 +152,7 @@ async def test_worker_incompatible_model_raises() -> None:
     )
 
     with pytest.raises(ValueError, match="not compatible with worker"):
-        await worker.call({"input": "hi"}, ctx, run_ctx)
+        await worker.call({"input": "hi"}, ctx.config, ctx.frame, run_ctx)
 
 
 @pytest.mark.anyio
@@ -174,5 +177,5 @@ async def test_worker_no_compatible_models_allows_any() -> None:
     )
 
     # Should not raise
-    result = await worker.call({"input": "hi"}, ctx, run_ctx)
+    result = await worker.call({"input": "hi"}, ctx.config, ctx.frame, run_ctx)
     assert result is not None

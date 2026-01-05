@@ -1,15 +1,21 @@
 # Simplifying v2_direct run.py
 
-## Context
-`experiments/inv/v2_direct/run.py` demonstrates running workers directly via Python, but it carries a lot of boilerplate (sys.path hack, instruction loading, worker assembly, approval wrapping, UI wiring, context run). The goal is to identify ways to make this script much simpler and to offer multiple ways to run the library (CLI, config-driven, Python API, embedding).
+## Status
 
-## Current Pain Points
-- **170 lines** for what should be "run a worker with some config"
-- Manual `sys.path` injection (lines 17-18)
-- Explicit instruction file loading (lines 52-54)
-- 35-line recursive approval wrapper (lines 82-116)
-- Manual UI event wiring (lines 124-127)
-- Low-level Context setup with redundant WorkerEntry reconstruction (lines 134-153)
+**Partially addressed** — Core pain points (recursive approval wrapping, manual UI wiring) solved via `run_invocable()`. Higher-level conveniences (`quick_run()`, `Runner`) remain unimplemented.
+
+**Prerequisite**: [llm-do-project-mode-and-imports.md](llm-do-project-mode-and-imports.md) — `quick_run()` requires standardized project layout conventions to auto-discover workers.
+
+## Context
+`experiments/inv/v2_direct/run.py` demonstrates running workers directly via Python. Originally 170 lines, now ~114 lines after `run_invocable()` was added. The remaining proposals (`quick_run()`, `Runner`) would further reduce boilerplate for projects following standard layouts.
+
+## Original Pain Points (mostly solved)
+- ~~**170 lines** for what should be "run a worker with some config"~~ → now ~114 lines
+- ~~Manual `sys.path` injection~~ → no longer needed
+- Explicit instruction file loading → still manual
+- ~~35-line recursive approval wrapper~~ → handled by `run_invocable()`
+- ~~Manual UI event wiring~~ → simplified via `HeadlessDisplayBackend`
+- ~~Low-level Context setup~~ → `run_invocable()` handles this
 
 ## Target: 12-Line Script
 

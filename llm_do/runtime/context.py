@@ -147,20 +147,6 @@ class CallFrame:
         )
         return CallFrame(config=new_config)
 
-    def clone_same_depth(
-        self,
-        toolsets: Optional[list[AbstractToolset[Any]]] = None,
-        *,
-        model: ModelType | None = None,
-    ) -> "CallFrame":
-        """Create copy without changing depth (shares messages reference)."""
-        new_config = CallConfig(
-            toolsets=tuple(toolsets) if toolsets is not None else self.config.toolsets,
-            model=model if model is not None else self.config.model,
-            depth=self.config.depth,
-        )
-        return CallFrame(config=new_config, prompt=self.prompt, messages=self.messages)
-
 
 class WorkerRuntime:
     """Dispatches tool calls and manages worker runtime state.
@@ -353,18 +339,6 @@ class WorkerRuntime:
         return WorkerRuntime(
             config=self.config,
             frame=self.frame.fork(toolsets, model=model),
-        )
-
-    def clone_same_depth(
-        self,
-        toolsets: Optional[list[AbstractToolset[Any]]] = None,
-        *,
-        model: ModelType | None = None,
-    ) -> "WorkerRuntime":
-        """Create a runtime copy without changing depth (shares CallFrame messages)."""
-        return WorkerRuntime(
-            config=self.config,
-            frame=self.frame.clone_same_depth(toolsets, model=model),
         )
 
     async def run(self, entry: Invocable, input_data: Any) -> Any:

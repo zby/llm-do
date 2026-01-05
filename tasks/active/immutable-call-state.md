@@ -1,4 +1,4 @@
-# Immutable CallState (CallFrame)
+# Immutable CallConfig
 
 ## Status
 backlog
@@ -8,7 +8,7 @@ backlog
 - [x] Extract MessageAccumulator task completed
 
 ## Goal
-Separate CallFrame into immutable configuration and mutable state, making the boundaries explicit.
+Separate CallFrame into immutable configuration (`CallConfig`) and mutable state, making the boundaries explicit and enforced.
 
 **Important constraint discovered in Phase 2:**
 Messages MUST stay in CallFrame for correct worker isolation:
@@ -17,7 +17,7 @@ Messages MUST stay in CallFrame for correct worker isolation:
 - Only tool call/result is visible to parent
 - Multi-turn conversations accumulate at entry level (depth ≤ 1)
 
-## Proposed Design
+## Design
 
 Split CallFrame into two parts:
 
@@ -39,7 +39,7 @@ class CallFrame:
     prompt: str = ""
     messages: list[Any] = field(default_factory=list)
 
-    # Convenience accessors
+    # Convenience accessors for backward compatibility
     @property
     def toolsets(self) -> tuple[AbstractToolset[Any], ...]:
         return self.config.toolsets
@@ -92,13 +92,6 @@ Child Worker (depth 2):
 
 The mutation pattern `state.messages[:] = ...` is required for multi-turn conversations.
 
-### Alternative: Keep flat structure
-
-If the nested structure feels too complex, we could just:
-- Change `toolsets: list` → `toolsets: tuple`
-- Document which fields are immutable
-- Rely on convention rather than enforcement
-
 ## Context
 
 - Relevant files:
@@ -119,9 +112,7 @@ If the nested structure feels too complex, we could just:
 
 ## Tasks
 
-### Option A: Nested CallConfig (recommended)
-
-- [ ] Add `CallConfig` frozen dataclass:
+- [ ] Add `CallConfig` frozen dataclass to `context.py`:
   ```python
   @dataclass(frozen=True, slots=True)
   class CallConfig:
@@ -150,17 +141,13 @@ If the nested structure feels too complex, we could just:
 
 - [ ] Update `clone_same_depth()` similarly
 
-- [ ] Update `WorkerRuntime.__init__` to create `CallConfig`
+- [ ] Update `WorkerRuntime.__init__` to create `CallConfig` and wrap in `CallFrame`
 
 - [ ] Update `WorkerRuntime.from_entry()` similarly
 
-- [ ] Update any code accessing `frame.toolsets` etc. (should work via properties)
+- [ ] Search for any code accessing `frame.toolsets` etc. (should work via properties)
 
-### Option B: Simple tuple change (simpler)
-
-- [ ] Change `toolsets: list` → `toolsets: tuple`
-- [ ] Update `fork()` to convert to tuple
-- [ ] Document which fields are immutable (convention-based)
+- [ ] Run tests to verify backward compatibility
 
 ## Verification
 
@@ -169,7 +156,7 @@ uv run pytest tests/runtime/ -v
 uv run pytest tests/ -v
 ```
 
-Verify immutability (Option A):
+Verify immutability:
 ```python
 frame = CallFrame(config=CallConfig(toolsets=(), model="test", depth=0))
 
@@ -199,20 +186,6 @@ assert len(ctx.messages) > 2  # accumulated
 - **Code accessing `frame.config`**: New API, callers need update
 - **Backward compatibility**: `toolsets` changes from list to tuple
 - **Complexity**: Nested structure adds indirection
-
-## Decision Needed
-
-**Option A (CallConfig)** provides:
-- Enforced immutability
-- Clearer separation of concerns
-- Slightly more complex structure
-
-**Option B (just tuple)** provides:
-- Simpler structure
-- Convention-based immutability
-- Less code change
-
-Recommend **Option A** for explicit immutability guarantees, but **Option B** is acceptable if simplicity is preferred.
 
 ## Notes
 

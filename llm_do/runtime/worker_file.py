@@ -20,12 +20,11 @@ Toolset names can reference:
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+import frontmatter
 
 
 @dataclass
@@ -38,6 +37,91 @@ class WorkerFile:
     compatible_models: list[str] | None = None
     toolsets: dict[str, dict[str, Any]] = field(default_factory=dict)
     server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
+
+
+def _extract_frontmatter_and_instructions(content: str) -> tuple[dict[str, Any], str]:
+    """Extract YAML frontmatter and instructions from worker file content.
+
+    Returns:
+        Tuple of (frontmatter dict, instructions string)
+
+    Raises:
+        ValueError: If file format is invalid
+    """
+    post = frontmatter.loads(content)
+
+    # python-frontmatter returns empty dict for missing/invalid frontmatter
+    if not post.metadata:
+        raise ValueError("Invalid worker file format: missing frontmatter")
+
+    return dict(post.metadata), post.content.strip()
+
+
+def _parse_toolsets(toolsets_raw: Any) -> dict[str, dict[str, Any]]:
+    """Parse and validate the toolsets section.
+
+    Args:
+        toolsets_raw: Raw toolsets value from frontmatter
+
+    Returns:
+        Normalized toolsets dict mapping names to config dicts
+
+    Raises:
+        ValueError: If toolsets format is invalid
+    """
+    if not toolsets_raw:
+        return {}
+
+    if not isinstance(toolsets_raw, dict):
+        raise ValueError("Invalid toolsets: expected YAML mapping")
+
+    toolsets: dict[str, dict[str, Any]] = {}
+    for toolset_name, toolset_config in toolsets_raw.items():
+        if toolset_config is None:
+            toolset_config = {}
+        if not isinstance(toolset_config, dict):
+            raise ValueError(f"Invalid config for toolset '{toolset_name}': expected YAML mapping")
+        toolsets[toolset_name] = toolset_config
+
+    return toolsets
+
+
+def _parse_server_side_tools(raw: Any) -> list[dict[str, Any]]:
+    """Parse and validate the server_side_tools section.
+
+    Args:
+        raw: Raw server_side_tools value from frontmatter
+
+    Returns:
+        List of server-side tool configurations
+
+    Raises:
+        ValueError: If format is invalid
+    """
+    if not raw:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("Invalid server_side_tools: expected YAML list")
+    return raw
+
+
+def _parse_compatible_models(raw: Any) -> list[str] | None:
+    """Parse and validate the compatible_models section.
+
+    Args:
+        raw: Raw compatible_models value from frontmatter
+
+    Returns:
+        List of compatible model patterns, or None if not specified
+
+    Raises:
+        ValueError: If format is invalid
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        raise ValueError("Invalid compatible_models: expected YAML list")
+    return raw
 
 
 def parse_worker_file(
@@ -58,17 +142,7 @@ def parse_worker_file(
     """
     from ..config import apply_overrides
 
-    pattern = r'^---\s*\n(.*?)\n---\s*\n(.*)$'
-    match = re.match(pattern, content, re.DOTALL)
-
-    if not match:
-        raise ValueError("Invalid worker file format: missing frontmatter")
-
-    frontmatter_str, instructions = match.groups()
-    frontmatter = yaml.safe_load(frontmatter_str)
-
-    if not isinstance(frontmatter, dict):
-        raise ValueError("Invalid frontmatter: expected YAML mapping")
+    frontmatter, instructions = _extract_frontmatter_and_instructions(content)
 
     # Apply CLI overrides to frontmatter
     if overrides:
@@ -78,39 +152,14 @@ def parse_worker_file(
     if not name:
         raise ValueError("Worker file must have a 'name' field")
 
-    # Parse toolsets section
-    toolsets_raw = frontmatter.get("toolsets", {})
-    toolsets: dict[str, dict[str, Any]] = {}
-
-    if toolsets_raw:
-        if not isinstance(toolsets_raw, dict):
-            raise ValueError("Invalid toolsets: expected YAML mapping")
-
-        for toolset_name, toolset_config in toolsets_raw.items():
-            if toolset_config is None:
-                toolset_config = {}
-            if not isinstance(toolset_config, dict):
-                raise ValueError(f"Invalid config for toolset '{toolset_name}': expected YAML mapping")
-            toolsets[toolset_name] = toolset_config
-
-    # Parse server_side_tools section (pass through to PydanticAI)
-    server_side_tools = frontmatter.get("server_side_tools", [])
-    if server_side_tools and not isinstance(server_side_tools, list):
-        raise ValueError("Invalid server_side_tools: expected YAML list")
-
-    # Parse compatible_models
-    compatible_models = frontmatter.get("compatible_models")
-    if compatible_models is not None and not isinstance(compatible_models, list):
-        raise ValueError("Invalid compatible_models: expected YAML list")
-
     return WorkerFile(
         name=name,
         description=frontmatter.get("description"),
-        instructions=instructions.strip(),
+        instructions=instructions,
         model=frontmatter.get("model"),
-        compatible_models=compatible_models,
-        toolsets=toolsets,
-        server_side_tools=server_side_tools,
+        compatible_models=_parse_compatible_models(frontmatter.get("compatible_models")),
+        toolsets=_parse_toolsets(frontmatter.get("toolsets")),
+        server_side_tools=_parse_server_side_tools(frontmatter.get("server_side_tools")),
     )
 
 

@@ -117,7 +117,7 @@ Instructions.
             parse_worker_file(content)
 
     def test_invalid_frontmatter_raises(self):
-        """Test that invalid frontmatter raises ValueError."""
+        """Test that invalid frontmatter (list instead of mapping) raises ValueError."""
         content = """\
 ---
 - this
@@ -126,7 +126,8 @@ Instructions.
 ---
 Instructions.
 """
-        with pytest.raises(ValueError, match="expected YAML mapping"):
+        # python-frontmatter treats non-dict frontmatter as missing
+        with pytest.raises(ValueError, match="missing frontmatter"):
             parse_worker_file(content)
 
     def test_invalid_toolsets_raises(self):

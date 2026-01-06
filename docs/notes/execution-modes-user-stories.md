@@ -11,6 +11,21 @@ Two general modes:
 1. **Chat (default)** - interactive TUI with multi-turn conversations
 2. **Headless** - explicit flag, single-turn, for scripting/automation
 
+### Execution mode inventory (including near-term options)
+
+- **CLI chat (default)**: `llm-do` launches the TUI with approvals prompted per tool.
+- **CLI headless**: `llm-do --headless "prompt"` or `--run` executes a single turn, honors `--approve-all`, and returns machine-readable output.
+- **Python script embedding** (from `experiments/inv/v2_direct/run.py`): call `run_invocable` with `Worker` objects inside a Python script to ship or experiment with workers without the CLI. Works with `HeadlessDisplayBackend`, `RunApprovalPolicy`, and configurable verbosity/paths.
+- **Git/relative file workers (proposed)**: discover workers relative to the current repo root or a configured search path so teams can sync workers alongside code. Support `llm-do ./workers/researcher.worker` and absolute paths for CI.
+- **Remote worker registry (moderate effort)**: allow a `--from-url`/`--from-index` flag to fetch signed worker bundles from an internal index. Useful for distribution across teams without pip-installing code.
+- **Task file execution (moderate effort)**: accept a YAML/JSON run spec (worker + prompt + args + attachments) for batch or scheduled jobs.
+- **Multi-worker orchestration (existing via tool calls)**: workers can call sub-workers today; we can add a convenience mode to spawn a worker graph from a manifest while keeping approvals scoped per tool.
+
+#### Resolved (execution modes)
+
+- Removed the package entrypoint mode in favor of running workers as Python scripts (`run_invocable`), keeping distribution aligned with plain Python instead of inventing a worker-specific bundle format.
+- Treat workers like Python functions and package the full program as a Python package (with package data for prompts/config) rather than inventing a bespoke worker file distribution format.
+
 ---
 
 ## Headless Mode User Stories
@@ -20,6 +35,8 @@ Two general modes:
 - I want predictable approval behavior (approve-all/reject-all) so that scripts run unattended
 - I want JSON output so that I can parse results programmatically
 - I want to pipe input and capture output so that I integrate with shell workflows
+- I want to pass parameters/attachments as CLI args (paths stay relative to the repo/workdir) so that CI jobs are deterministic
+- I want an escape hatch to import and execute the worker directly in Python (using `run_invocable`) so that distribution via scripts or packages is possible without the CLI
 
 **As a developer testing workers...**
 - I want to quickly run a worker with a prompt so that I can verify it works
@@ -36,9 +53,12 @@ Two general modes:
 - I want provenance attached to each number so that I can defend conclusions
 
 **As a developer packaging workers...**
-- I want to run workers as importable Python packages so that distribution follows standard tooling
-- I want a single entrypoint that bundles worker config + code so that installs are reproducible
+- I want to treat a worker like a Python function so that shipping the "full program" means bundling several workers (and tools) together
+- I want to package workers as Python packages with package data (inlined prompts/config) so that distribution uses standard tooling instead of a bespoke worker bundle format
+- I want a single entrypoint per package (e.g., `python -m my_pkg.run` or invoking a bundled `main` script) so installs are reproducible while keeping inlined prompts close to code
 - I want to pin dependencies per worker package so that runs are stable across environments
+- I want to support both relative and absolute paths to worker scripts/packages so that local development and CI use the same commands
+- I want to publish workers to an internal index (or include them as Python modules) so teams can `pip install` and run them with or without the CLI
 
 ---
 
@@ -76,6 +96,15 @@ Two general modes:
 - I want to distribute workers via a package index or git so that onboarding is fast
 - I want a clear versioning story so that colleagues can lock to known-good behavior
 - I want metadata (description, tools, entrypoints) so that discovery is easy
+- I want discovery to work in both directions: the CLI should find workers on disk (relative to repo roots) and workers should be callable from Python so that scripting and chat share the same artifacts
+- I want to pass run-time parameters (e.g., report date, bucket name) through to workers consistently whether called from CLI, task files, or Python so that automation stays portable
+
+## Worker discovery & distribution stories (cross-cutting)
+
+- As a developer embedding workers in scripts, I want to keep them colocated with code so that relative paths resolve correctly when executed locally or in CI.
+- As a maintainer of a worker registry, I want workers to declare absolute-safe defaults (base paths, allowed tools) so that remote installs remain sandboxed.
+- As a teammate consuming a shared worker, I want a single invocation (e.g., `python -m my_pkg.run`) to set up approval defaults and base paths so that I do not need to learn bespoke flags per mode.
+- As a CI engineer, I want a manifest format (moderate effort) that lists worker path, prompt, attachments, and env vars so that jobs can call the same worker with different inputs without editing code.
 
 ---
 
@@ -150,6 +179,8 @@ Who approves the shell command?
 - Option A: Bubble to user always (safe but noisy)
 - Option B: Trust chain - if orchestrator is trusted, its delegates inherit trust
 - Option C: Configurable per-worker trust boundaries
+
+Current stance: keep the two-layer model. Global flags (`--approve-all`, `--headless`) apply to the session, while each worker/tool keeps its own approval policy. Sub-workers do not inherit approvals from parents; they follow their own configured policies.
 
 ### Scenario 8: Headless mode, read-only tools only
 ```

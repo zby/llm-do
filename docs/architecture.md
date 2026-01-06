@@ -146,7 +146,7 @@ Via `ctx.deps`, tools can access:
 
 | Property | Description |
 |----------|-------------|
-| `call(name, input)` | Invoke a worker or tool by name |
+| `call(name, input_data)` | Invoke a worker or tool by name |
 | `tools.<name>(**kwargs)` | Attribute-style tool invocation |
 | `depth` | Current nesting depth |
 | `max_depth` | Maximum allowed depth (default: 5) |

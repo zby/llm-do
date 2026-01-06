@@ -103,7 +103,7 @@ Two general modes:
 
 - As a developer embedding workers in scripts, I want to keep them colocated with code so that relative paths resolve correctly when executed locally or in CI.
 - As a maintainer of a worker registry, I want workers to declare absolute-safe defaults (base paths, allowed tools) so that remote installs remain sandboxed.
-- As a teammate consuming a shared worker, I want a single invocation (`llm-do pkg:entrypoint ...` or `python -m my_pkg.run`) to set up approval defaults and base paths so that I do not need to learn bespoke flags per mode.
+- As a teammate consuming a shared worker, I want a single invocation (e.g., `python -m my_pkg.run`) to set up approval defaults and base paths so that I do not need to learn bespoke flags per mode.
 - As a CI engineer, I want a manifest format (moderate effort) that lists worker path, prompt, attachments, and env vars so that jobs can call the same worker with different inputs without editing code.
 
 ---

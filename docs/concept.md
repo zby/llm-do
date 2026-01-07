@@ -193,5 +193,6 @@ llm-do can be a component *within* durable workflow systems, but doesn't replace
 
 **Further reading:**
 - [theory.md](theory.md) — Probabilistic programs framing: distribution boundaries, hardening/softening, the harness pattern
-- [architecture.md](architecture.md) — Implementation details: worker definitions, toolsets, approvals, runtime API
+- [architecture.md](architecture.md) — Internal structure: runtime scopes, execution flow, approval mechanics
+- [reference.md](reference.md) — API reference: calling workers from Python, writing toolsets, worker file format
 - [examples/](../examples/) — Working examples showing the hardening progression

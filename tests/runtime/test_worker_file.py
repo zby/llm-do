@@ -1,7 +1,7 @@
 """Tests for worker file parsing."""
 import pytest
 
-from llm_do.runtime import parse_worker_file
+from llm_do.runtime import WorkerDefinition, WorkerFileParser, parse_worker_file
 
 
 class TestParseWorkerFile:
@@ -298,3 +298,45 @@ Instructions.
         result = parse_worker_file(content)
 
         assert result.compatible_models is None
+
+
+class TestWorkerFileParser:
+    """Tests for WorkerFileParser class."""
+
+    def test_parser_parse_returns_worker_definition(self):
+        """Test that parser.parse() returns a WorkerDefinition."""
+        parser = WorkerFileParser()
+        content = """\
+---
+name: test_worker
+model: anthropic:claude-haiku-4-5
+---
+Instructions here.
+"""
+        result = parser.parse(content)
+
+        assert isinstance(result, WorkerDefinition)
+        assert result.name == "test_worker"
+        assert result.model == "anthropic:claude-haiku-4-5"
+
+    def test_parser_instance_reusable(self):
+        """Test that a parser instance can be reused for multiple files."""
+        parser = WorkerFileParser()
+
+        content1 = """\
+---
+name: worker1
+---
+First worker.
+"""
+        content2 = """\
+---
+name: worker2
+---
+Second worker.
+"""
+        result1 = parser.parse(content1)
+        result2 = parser.parse(content2)
+
+        assert result1.name == "worker1"
+        assert result2.name == "worker2"

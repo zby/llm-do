@@ -19,7 +19,7 @@ llm_do/runtime/contracts.py: ModelType, EventCallback, WorkerRuntimeProtocol, In
 llm_do/runtime/approval.py: ApprovalCallback, RunApprovalPolicy, WorkerApprovalPolicy, ApprovalDeniedResultToolset
 llm_do/runtime/context.py: _UnsetType, ToolsProxy, UsageCollector, RuntimeConfig, CallFrame, WorkerRuntime
 llm_do/runtime/worker.py: WorkerInput, _DictValidator, ToolInvocable, Worker
-llm_do/runtime/worker_file.py: WorkerFile
+llm_do/runtime/worker_file.py: WorkerDefinition, WorkerFileParser
 llm_do/ui/events.py: UIEvent, InitialRequestEvent, StatusEvent, UserMessageEvent, TextResponseEvent, ToolCallEvent, ToolResultEvent, DeferredToolEvent, CompletionEvent, ErrorEvent, ApprovalRequestEvent
 llm_do/ui/display.py: DisplayBackend, RichDisplayBackend, HeadlessDisplayBackend, JsonDisplayBackend, TextualDisplayBackend
 llm_do/ui/controllers/worker_runner.py: RunTurnFn, WorkerRunner

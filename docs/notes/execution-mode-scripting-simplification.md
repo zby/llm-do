@@ -38,7 +38,7 @@
 5. **Example shrink target**
    - Replace `experiments/inv/v2_direct/run.py` with a ~12–15 line sample using `quick_run`/`Runner` to demonstrate the pattern and keep docs/tests aligned with the API.
 
-> **Note:** `Runner` here is a proposed helper surface, not an existing class. The intent is to wrap `run_invocable` (or possibly alias to `WorkerRunner`) with default display/approval wiring so repeated calls from Python stay aligned with headless CLI defaults.
+> **Note:** `Runner` here is a proposed helper surface, not an existing class. The intent is to wrap `run_invocable` (or possibly alias to `WorkerRuntime`) with default display/approval wiring so repeated calls from Python stay aligned with headless CLI defaults.
 
 ### How this supports the user stories
 - **Headless automation**: Minimal script surface plus optional directory-scanning helpers give predictable approvals, relative-path stability, and structured outputs for CI or batch jobs.

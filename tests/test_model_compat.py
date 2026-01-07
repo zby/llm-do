@@ -319,19 +319,21 @@ class TestGetModelString:
         model = TestModel(custom_output_text="Hello!", call_tools=["foo"])
         assert get_model_string(model) == "test:test"
 
-    def test_anthropic_model(self):
+    def test_anthropic_model(self, monkeypatch):
         """AnthropicModel produces 'anthropic:model_name'."""
         from pydantic_ai import Agent
 
-        # Create model via Agent to avoid needing API key at model construction
+        # Set fake key if not present - we're only testing model string, not making calls
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-testing")
         agent = Agent("anthropic:claude-haiku-4-5")
         model = agent.model
         assert get_model_string(model) == "anthropic:claude-haiku-4-5"
 
-    def test_anthropic_model_different_variant(self):
+    def test_anthropic_model_different_variant(self, monkeypatch):
         """Different Anthropic model variants work correctly."""
         from pydantic_ai import Agent
 
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-testing")
         agent = Agent("anthropic:claude-sonnet-4")
         model = agent.model
         assert get_model_string(model) == "anthropic:claude-sonnet-4"

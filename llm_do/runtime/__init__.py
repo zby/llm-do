@@ -23,7 +23,13 @@ from .discovery import (
 )
 from .runner import run_invocable
 from .worker import ToolInvocable, Worker
-from .worker_file import WorkerFile, load_worker_file, parse_worker_file
+from .worker_file import (
+    WorkerDefinition,
+    WorkerFile,  # Backward compatibility alias
+    WorkerFileParser,
+    load_worker_file,
+    parse_worker_file,
+)
 
 __all__ = [
     # Runtime
@@ -41,7 +47,9 @@ __all__ = [
     "Worker",
     "ToolInvocable",
     # Worker file
-    "WorkerFile",
+    "WorkerDefinition",
+    "WorkerFile",  # Backward compatibility alias
+    "WorkerFileParser",
     "parse_worker_file",
     "load_worker_file",
     # Discovery

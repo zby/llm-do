@@ -28,8 +28,13 @@ import frontmatter
 
 
 @dataclass
-class WorkerFile:
-    """Parsed worker file."""
+class WorkerDefinition:
+    """Parsed worker definition from a .worker file.
+
+    This is the declarative specification extracted from a .worker file,
+    containing unresolved toolset references (as strings) that will be
+    resolved to actual AbstractToolset instances when building a Worker.
+    """
     name: str
     description: str | None
     instructions: str
@@ -37,6 +42,10 @@ class WorkerFile:
     compatible_models: list[str] | None = None
     toolsets: dict[str, dict[str, Any]] = field(default_factory=dict)
     server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
+
+
+# Backward compatibility alias
+WorkerFile = WorkerDefinition
 
 
 def _extract_frontmatter_and_instructions(content: str) -> tuple[dict[str, Any], str]:
@@ -124,57 +133,107 @@ def _parse_compatible_models(raw: Any) -> list[str] | None:
     return raw
 
 
+class WorkerFileParser:
+    """Parser for .worker files.
+
+    Parses YAML frontmatter + Markdown instructions format into WorkerDefinition.
+    """
+
+    def parse(
+        self,
+        content: str,
+        overrides: list[str] | None = None,
+    ) -> WorkerDefinition:
+        """Parse worker file content.
+
+        Args:
+            content: Raw file content
+            overrides: Optional list of --set KEY=VALUE overrides to apply
+
+        Returns:
+            Parsed WorkerDefinition
+
+        Raises:
+            ValueError: If file format is invalid
+        """
+        from ..config import apply_overrides
+
+        fm, instructions = _extract_frontmatter_and_instructions(content)
+
+        # Apply CLI overrides to frontmatter
+        if overrides:
+            fm = apply_overrides(fm, overrides)
+
+        name = fm.get("name")
+        if not name:
+            raise ValueError("Worker file must have a 'name' field")
+
+        return WorkerDefinition(
+            name=name,
+            description=fm.get("description"),
+            instructions=instructions,
+            model=fm.get("model"),
+            compatible_models=_parse_compatible_models(fm.get("compatible_models")),
+            toolsets=_parse_toolsets(fm.get("toolsets")),
+            server_side_tools=_parse_server_side_tools(fm.get("server_side_tools")),
+        )
+
+    def load(
+        self,
+        path: str | Path,
+        overrides: list[str] | None = None,
+    ) -> WorkerDefinition:
+        """Load and parse a worker file from disk.
+
+        Args:
+            path: Path to worker file
+            overrides: Optional list of --set KEY=VALUE overrides to apply
+
+        Returns:
+            Parsed WorkerDefinition
+        """
+        content = Path(path).read_text(encoding="utf-8")
+        return self.parse(content, overrides=overrides)
+
+
+# Default parser instance
+_default_parser = WorkerFileParser()
+
+
 def parse_worker_file(
     content: str,
     overrides: list[str] | None = None,
-) -> WorkerFile:
+) -> WorkerDefinition:
     """Parse a worker file with YAML frontmatter and markdown instructions.
+
+    This is a convenience function that uses the default WorkerFileParser.
 
     Args:
         content: Raw file content
         overrides: Optional list of --set KEY=VALUE overrides to apply
 
     Returns:
-        Parsed WorkerFile
+        Parsed WorkerDefinition
 
     Raises:
         ValueError: If file format is invalid
     """
-    from ..config import apply_overrides
-
-    frontmatter, instructions = _extract_frontmatter_and_instructions(content)
-
-    # Apply CLI overrides to frontmatter
-    if overrides:
-        frontmatter = apply_overrides(frontmatter, overrides)
-
-    name = frontmatter.get("name")
-    if not name:
-        raise ValueError("Worker file must have a 'name' field")
-
-    return WorkerFile(
-        name=name,
-        description=frontmatter.get("description"),
-        instructions=instructions,
-        model=frontmatter.get("model"),
-        compatible_models=_parse_compatible_models(frontmatter.get("compatible_models")),
-        toolsets=_parse_toolsets(frontmatter.get("toolsets")),
-        server_side_tools=_parse_server_side_tools(frontmatter.get("server_side_tools")),
-    )
+    return _default_parser.parse(content, overrides=overrides)
 
 
 def load_worker_file(
     path: str | Path,
     overrides: list[str] | None = None,
-) -> WorkerFile:
+) -> WorkerDefinition:
     """Load and parse a worker file from disk.
+
+    This is a convenience function that uses the default WorkerFileParser.
 
     Args:
         path: Path to worker file
         overrides: Optional list of --set KEY=VALUE overrides to apply
 
     Returns:
-        Parsed WorkerFile
+        Parsed WorkerDefinition
     """
-    content = Path(path).read_text(encoding="utf-8")
-    return parse_worker_file(content, overrides=overrides)
+    return _default_parser.load(path, overrides=overrides)

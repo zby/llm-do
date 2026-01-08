@@ -91,3 +91,34 @@ main = Worker(name="main", instructions="hi", toolsets=[tools])
 
     lines = marker_path.read_text(encoding="utf-8").splitlines()
     assert lines == ["x"]
+
+
+@pytest.mark.anyio
+async def test_build_entry_resolves_schema_in_ref(tmp_path: Path) -> None:
+    schema_path = tmp_path / "schemas.py"
+    schema_path.write_text(
+        """\
+from pydantic import BaseModel
+
+
+class NoteInput(BaseModel):
+    input: str
+""",
+        encoding="utf-8",
+    )
+    worker_path = tmp_path / "main.worker"
+    worker_path.write_text(
+        """\
+---
+name: main
+schema_in_ref: schemas.py:NoteInput
+---
+Instructions.
+""",
+        encoding="utf-8",
+    )
+
+    entry = await build_entry([str(worker_path)], [], entry_name="main")
+    assert isinstance(entry, Worker)
+    assert entry.schema_in is not None
+    assert entry.schema_in.__name__ == "NoteInput"

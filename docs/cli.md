@@ -71,6 +71,32 @@ Toolset names resolve to:
 - Python toolsets discovered from passed `.py` files (by variable name)
 - Other worker entries from passed `.worker` files (by `name`)
 
+## Worker Input Schemas
+
+Worker frontmatter can declare a Pydantic input schema for tool calls:
+
+```yaml
+---
+name: main
+schema_in_ref: schemas.py:PitchInput
+---
+```
+
+Supported forms:
+- `module.Class`
+- `path.py:Class` (relative to the worker file)
+
+If `schema_in_ref` is omitted, the default schema is `WorkerInput`:
+
+```python
+class WorkerInput(BaseModel):
+    input: str
+    attachments: list[str] = Field(default_factory=list)
+```
+
+Use `schema_in_ref` to guide tool-call structure (and optionally constrain
+`attachments` with regex/enum rules). Attachments must remain a list of paths.
+
 ## Model Selection
 
 Model resolution uses this precedence for the entry worker:

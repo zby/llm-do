@@ -46,6 +46,7 @@ Instructions here.
 ---
 name: main
 model: anthropic:claude-haiku-4-5
+schema_in_ref: schemas.py:TopicInput
 toolsets:
   shell:
     rules:
@@ -58,6 +59,7 @@ You are a helpful assistant.
         result = parse_worker_file(content)
 
         assert result.name == "main"
+        assert result.schema_in_ref == "schemas.py:TopicInput"
         assert "shell" in result.toolsets
         assert "calc_tools" in result.toolsets
         assert result.toolsets["shell"]["rules"][0]["pattern"] == "^ls"
@@ -285,6 +287,19 @@ compatible_models: not-a-list
 Instructions.
 """
         with pytest.raises(ValueError, match="expected YAML list"):
+            parse_worker_file(content)
+
+    def test_schema_in_ref_invalid_format_raises(self):
+        """Test that invalid schema_in_ref format raises ValueError."""
+        content = """\
+---
+name: main
+schema_in_ref:
+  - not-a-string
+---
+Instructions.
+"""
+        with pytest.raises(ValueError, match="schema_in_ref"):
             parse_worker_file(content)
 
     def test_compatible_models_defaults_to_none(self):

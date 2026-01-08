@@ -12,6 +12,7 @@ A **worker** is an executable prompt artifact: a `.worker` file that defines how
 ---
 name: main
 model: anthropic:claude-haiku-4-5
+schema_in_ref: schemas.py:PitchInput
 toolsets:
   shell: {}
   filesystem: {}
@@ -21,6 +22,7 @@ Instructions for the worker...
 ```
 
 Workers can call other workers as tools, forming a call tree. Each worker declares its own toolsets - they're not inherited.
+Workers can also declare a typed input schema via `schema_in_ref`; if omitted, the default schema is `WorkerInput`.
 
 ---
 

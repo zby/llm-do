@@ -49,6 +49,7 @@ from ..runtime import (
     run_invocable,
 )
 from ..runtime.discovery import load_toolsets_and_workers_from_files
+from ..runtime.schema_refs import resolve_schema_ref
 from ..toolsets.loader import (
     ToolsetBuildContext,
     build_toolsets,
@@ -239,6 +240,11 @@ async def build_entry(
         stub.instructions = worker_file.instructions
         stub.model = worker_model
         stub.compatible_models = worker_file.compatible_models
+        if worker_file.schema_in_ref:
+            stub.schema_in = resolve_schema_ref(
+                worker_file.schema_in_ref,
+                base_path=Path(worker_path).resolve().parent,
+            )
         stub.toolsets = resolved_toolsets
         stub.toolset_approval_configs = approval_configs
         stub.builtin_tools = builtin_tools

@@ -40,12 +40,9 @@ class WorkerDefinition:
     instructions: str
     model: str | None = None
     compatible_models: list[str] | None = None
+    schema_in_ref: str | None = None
     toolsets: dict[str, dict[str, Any]] = field(default_factory=dict)
     server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
-
-
-# Backward compatibility alias
-WorkerFile = WorkerDefinition
 
 
 def _extract_frontmatter_and_instructions(content: str) -> tuple[dict[str, Any], str]:
@@ -133,6 +130,17 @@ def _parse_compatible_models(raw: Any) -> list[str] | None:
     return raw
 
 
+def _parse_schema_ref(raw: Any) -> str | None:
+    """Parse and validate a schema reference."""
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise ValueError("Invalid schema_in_ref: expected string")
+    if not raw.strip():
+        raise ValueError("Invalid schema_in_ref: must not be empty")
+    return raw
+
+
 class WorkerFileParser:
     """Parser for .worker files.
 
@@ -174,6 +182,7 @@ class WorkerFileParser:
             instructions=instructions,
             model=fm.get("model"),
             compatible_models=_parse_compatible_models(fm.get("compatible_models")),
+            schema_in_ref=_parse_schema_ref(fm.get("schema_in_ref")),
             toolsets=_parse_toolsets(fm.get("toolsets")),
             server_side_tools=_parse_server_side_tools(fm.get("server_side_tools")),
         )

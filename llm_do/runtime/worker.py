@@ -33,8 +33,9 @@ from ..models import (
     validate_model_compatibility,
 )
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
-from .context import CallFrame, RuntimeConfig
+from .call import CallFrame
 from .contracts import WorkerRuntimeProtocol
+from .shared import RuntimeConfig
 
 
 class WorkerInput(BaseModel):

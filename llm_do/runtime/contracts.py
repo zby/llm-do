@@ -9,15 +9,16 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
+from pydantic_ai.models import Model  # Used in ModelType
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
-from pydantic_ai.models import Model  # Used in ModelType
 
 from ..ui.events import UIEvent
 
 if TYPE_CHECKING:
     from .approval import ApprovalCallback, RunApprovalPolicy
-    from .context import CallFrame, RuntimeConfig
+    from .call import CallFrame
+    from .shared import RuntimeConfig
 
 ModelType: TypeAlias = str | Model
 EventCallback: TypeAlias = Callable[[UIEvent], None]

@@ -6,8 +6,9 @@ from typing import Any
 from pydantic_ai.messages import ModelMessage
 
 from .approval import RunApprovalPolicy
-from .context import Runtime, WorkerRuntime
 from .contracts import EventCallback, Invocable
+from .deps import WorkerRuntime
+from .shared import Runtime
 
 
 async def run_invocable(

@@ -12,7 +12,8 @@ from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from llm_do.models import validate_model_compatibility
 from llm_do.runtime import WorkerRuntime
 from llm_do.runtime.approval import RunApprovalPolicy
-from llm_do.runtime.context import CallFrame, RuntimeConfig
+from llm_do.runtime.call import CallFrame
+from llm_do.runtime.shared import RuntimeConfig
 from llm_do.runtime.worker import Worker
 
 

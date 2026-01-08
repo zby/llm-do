@@ -46,6 +46,11 @@ This separation means:
 - **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
 - **Per-worker, no inheritance**: Message history, toolsets, per-tool approval rules
 
+Implementation layout mirrors the scopes:
+- `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
+- `llm_do/runtime/call.py`: `CallConfig`, `CallFrame`
+- `llm_do/runtime/deps.py`: `WorkerRuntime`, `ToolsProxy`
+
 ---
 
 ## Execution Flow

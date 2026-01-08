@@ -12,8 +12,8 @@ from .approval import (
     WorkerApprovalPolicy,
     resolve_approval_callback,
 )
-from .context import Runtime, ToolsProxy, WorkerRuntime
 from .contracts import EventCallback, Invocable, ModelType
+from .deps import ToolsProxy, WorkerRuntime
 from .discovery import (
     discover_toolsets_from_module,
     discover_workers_from_module,
@@ -22,6 +22,7 @@ from .discovery import (
     load_workers_from_files,
 )
 from .runner import run_invocable
+from .shared import Runtime
 from .worker import ToolInvocable, Worker
 from .worker_file import (
     WorkerDefinition,

@@ -64,6 +64,7 @@ async def main():
 `Runtime.run_invocable()`:
 - Creates a fresh `WorkerRuntime` and `CallFrame` per run
 - Reuses runtime-scoped state (usage, approval cache, message log)
+- Runtime state is process-scoped (in-memory only, not persisted beyond the process)
 - Returns both the result and the runtime context
 
 **Parameters:**

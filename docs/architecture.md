@@ -30,9 +30,9 @@ Workers can also declare a typed input schema via `schema_in_ref`; if omitted, t
 
 When a worker runs, it operates within two scopes owned by a **Runtime**:
 
-**Runtime** (shared across runs in a session):
+**Runtime** (process-scoped, shared across runs in a session):
 - Owns a `RuntimeConfig` plus mutable runtime state (usage, message log, approval callback cache)
-- Created once per CLI/TUI session or embedding, reused across runs
+- Created once per CLI/TUI session or embedding, reused across runs in-process (not persisted beyond the process)
 
 **RuntimeConfig** (immutable policy/config):
 - Approval policy, event callbacks, max depth, verbosity

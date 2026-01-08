@@ -6,11 +6,13 @@ with an eye toward design quality and avoiding wrapper types that add little beh
 
 ## Findings
 ### Design observations
-- Model typing drift: `ModelType` is `str`, but runtime casts it to a concrete PydanticAI `Model` when building `RunContext`, so the static type doesn’t match runtime behavior (`llm_do/runtime/contracts.py`, `llm_do/runtime/deps.py`).
+- Model typing drift: `ModelType` permits `str | Model`, but runtime still casts to a concrete PydanticAI `Model` when building `RunContext`, so the type system can’t tell whether resolution already happened (`llm_do/runtime/contracts.py`, `llm_do/runtime/deps.py`).
 - Wrapper layering: toolsets can be wrapped by `ToolInvocable` → `ToolsetRef` → `ApprovalDeniedResultToolset`/`ApprovalToolset`, which adds indirection and can obscure type checks and debugging (`llm_do/runtime/worker.py`, `llm_do/toolsets/loader.py`, `llm_do/runtime/approval.py`).
-- Mutable default: `WorkerInput.attachments` uses a mutable default list; consider `Field(default_factory=list)` to avoid shared state (`llm_do/runtime/worker.py`).
 - Unused/loosely wired types: `ShellRule`/`ShellDefault` are defined but config matching uses raw dicts; either parse configs into these models or remove them (`llm_do/toolsets/shell/types.py`, `llm_do/toolsets/shell/execution.py`).
 - `OAuthModelOverrides` is declared but not referenced elsewhere; wire it into the runtime or remove to keep the type surface tight (`llm_do/oauth/__init__.py`).
+
+### Resolved since last review
+- `WorkerInput.attachments` already uses `Field(default_factory=list)`, so there is no shared mutable default in `llm_do/runtime/worker.py`.
 
 ### Type catalog
 ```
@@ -40,7 +42,7 @@ llm_do/oauth/__init__.py: OAuthModelOverrides
 ```
 
 ## Open Questions
-- Should `ModelType` include concrete PydanticAI model objects (OAuth-wrapped), or should conversion happen earlier to keep it string-only?
+- Should `ModelType` stay as `str | Model`, or should model resolution happen earlier so `RunContext` always sees a concrete `Model` without casts?
 - Do we want to reduce wrapper layers around toolsets (e.g., a binding struct or explicit unwrap helper), or keep current indirection?
 - Are `ShellRule`/`ShellDefault` meant to be enforced/validated, or can they be removed?
 - Is `OAuthModelOverrides` intended to be wired into the CLI/runtime soon, or should it be removed for now?

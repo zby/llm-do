@@ -11,14 +11,15 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
+from pydantic_ai.models import Model  # Used in ModelType
 
 from ..ui.events import UIEvent
 
 if TYPE_CHECKING:
-    from .approval import RunApprovalPolicy
+    from .approval import ApprovalCallback, RunApprovalPolicy
     from .context import CallFrame, RuntimeConfig
 
-ModelType: TypeAlias = str
+ModelType: TypeAlias = str | Model
 EventCallback: TypeAlias = Callable[[UIEvent], None]
 
 
@@ -48,6 +49,14 @@ class WorkerRuntimeProtocol(Protocol):
 
     @property
     def run_approval_policy(self) -> "RunApprovalPolicy": ...
+
+    @property
+    def approval_callback(self) -> "ApprovalCallback": ...
+
+    @property
+    def frame(self) -> "CallFrame": ...
+
+    def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None: ...
 
     def spawn_child(
         self,

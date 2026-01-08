@@ -5,11 +5,15 @@ from typing import Any, Optional
 
 import pytest
 from pydantic import BaseModel, TypeAdapter
+from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
+from llm_do.models import validate_model_compatibility
 from llm_do.runtime import WorkerRuntime
+from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.context import CallFrame, RuntimeConfig
+from llm_do.runtime.worker import Worker
 
 
 class CaptureArgs(BaseModel):
@@ -67,8 +71,7 @@ class DummyEntry:
     ) -> Any:
         # Like Worker.call(), fork state and create a child context with our toolsets
         resolved_model = self.model if self.model is not None else state.model
-        child_state = state.fork(toolsets=self.toolsets, model=resolved_model)
-        child_runtime = WorkerRuntime(config=config, frame=child_state)
+        child_runtime = run_ctx.deps.spawn_child(toolsets=self.toolsets, model=resolved_model)
         return await child_runtime.call("capture", {"value": 1})
 
 
@@ -98,11 +101,6 @@ async def test_worker_model_overrides_context_model_for_tool_calls() -> None:
 
 
 # --- compatible_models tests ---
-
-from llm_do.runtime.approval import RunApprovalPolicy
-from llm_do.runtime.worker import Worker
-
-
 @pytest.mark.anyio
 async def test_worker_compatible_models_allows_matching_model() -> None:
     """Worker runs successfully when model is in compatible_models."""
@@ -240,28 +238,12 @@ async def test_worker_wildcard_star_allows_inherited_model() -> None:
 @pytest.mark.anyio
 async def test_worker_provider_wildcard_allows_matching_provider() -> None:
     """Worker with compatible_models=['anthropic:*'] allows anthropic models."""
-    worker = Worker(
-        name="anthropic-only",
-        instructions="Anthropic models only.",
-        model="anthropic:claude-sonnet-4",  # Matches pattern
-        compatible_models=["anthropic:*"],
+    result = validate_model_compatibility(
+        "anthropic:claude-sonnet-4",
+        ["anthropic:*"],
+        worker_name="anthropic-only",
     )
-    ctx = WorkerRuntime(
-        toolsets=[],
-        model="test",
-        run_approval_policy=RunApprovalPolicy(mode="approve_all"),
-    )
-    run_ctx = RunContext(
-        deps=ctx,
-        model=None,
-        usage=None,
-        prompt="test",
-    )
-
-    # Should not raise - 'anthropic:*' matches 'anthropic:claude-sonnet-4'
-    # Note: This will fail at runtime because anthropic:claude-sonnet-4 isn't
-    # a test model, but validation passes. We only test validation here.
-    # For a full integration test, we'd need to mock the model.
+    assert result.valid is True
 
 
 @pytest.mark.anyio
@@ -339,10 +321,6 @@ async def test_worker_multiple_patterns_rejects_non_matching() -> None:
 # --- Model object tests (TestModel) with compatible_models ---
 # These tests verify that Model objects (not strings) work correctly with
 # compatible_models by extracting model_name for validation.
-
-from pydantic_ai.models.test import TestModel
-
-
 @pytest.mark.anyio
 async def test_model_object_validated_against_compatible_models() -> None:
     """Model object's full model string is validated against compatible_models patterns."""

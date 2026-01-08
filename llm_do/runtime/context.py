@@ -1,9 +1,10 @@
 """Worker runtime dispatcher for tools and workers.
 
 This module provides the core runtime types used by llm-do:
+- Runtime: non-entry-bound execution environment (config + state)
 - RuntimeConfig: shared (structurally immutable) runtime configuration
 - CallFrame: per-branch/per-worker mutable call state
-- WorkerRuntime: facade over config+frame, used as PydanticAI deps
+- WorkerRuntime: facade over runtime+frame, used as PydanticAI deps
 """
 
 from __future__ import annotations
@@ -18,7 +19,8 @@ from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
 from ..models import select_model
-from .approval import RunApprovalPolicy
+from ..ui.events import UserMessageEvent
+from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .contracts import EventCallback, Invocable, ModelType, WorkerRuntimeProtocol
 
 
@@ -97,8 +99,98 @@ class RuntimeConfig:
     max_depth: int = 5
     on_event: EventCallback | None = None
     verbosity: int = 0
-    usage: UsageCollector = field(default_factory=UsageCollector)
-    message_log: MessageAccumulator = field(default_factory=MessageAccumulator)
+
+
+class Runtime:
+    """Non-entry-bound execution environment shared across runs."""
+
+    def __init__(
+        self,
+        *,
+        cli_model: ModelType | None = None,
+        run_approval_policy: RunApprovalPolicy | None = None,
+        max_depth: int = 5,
+        on_event: EventCallback | None = None,
+        verbosity: int = 0,
+    ) -> None:
+        policy = run_approval_policy or RunApprovalPolicy(mode="approve_all")
+        self._config = RuntimeConfig(
+            cli_model=cli_model,
+            run_approval_policy=policy,
+            max_depth=max_depth,
+            on_event=on_event,
+            verbosity=verbosity,
+        )
+        self._usage = UsageCollector()
+        self._message_log = MessageAccumulator()
+        self._approval_callback = resolve_approval_callback(policy)
+
+    @property
+    def config(self) -> RuntimeConfig:
+        return self._config
+
+    @property
+    def approval_callback(self) -> ApprovalCallback:
+        return self._approval_callback
+
+    @property
+    def usage(self) -> list[RunUsage]:
+        return self._usage.all()
+
+    @property
+    def message_log(self) -> list[tuple[str, int, Any]]:
+        return self._message_log.all()
+
+    def _create_usage(self) -> RunUsage:
+        """Create a new RunUsage and add it to the shared usage sink."""
+        return self._usage.create()
+
+    def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
+        """Record messages for diagnostic logging."""
+        self._message_log.extend(worker_name, depth, messages)
+
+    def _build_entry_frame(
+        self,
+        entry: Invocable,
+        *,
+        model: ModelType | None = None,
+        message_history: Optional[list[Any]] = None,
+    ) -> "CallFrame":
+        entry_name = getattr(entry, "name", str(entry))
+        resolved_model = select_model(
+            worker_model=getattr(entry, "model", None),
+            cli_model=model if model is not None else self._config.cli_model,
+            compatible_models=getattr(entry, "compatible_models", None),
+            worker_name=entry_name,
+        )
+        toolsets = list(getattr(entry, "toolsets", []) or [])
+        call_config = CallConfig(
+            toolsets=tuple(toolsets),
+            model=resolved_model,
+        )
+        return CallFrame(
+            config=call_config,
+            messages=list(message_history) if message_history else [],
+        )
+
+    async def run_invocable(
+        self,
+        invocable: Invocable,
+        prompt: str,
+        *,
+        model: ModelType | None = None,
+        message_history: list[Any] | None = None,
+    ) -> tuple[Any, "WorkerRuntime"]:
+        """Run an invocable with this runtime."""
+        frame = self._build_entry_frame(invocable, model=model, message_history=message_history)
+        ctx = WorkerRuntime(runtime=self, frame=frame)
+        input_data: dict[str, str] = {"input": prompt}
+
+        if self._config.on_event is not None:
+            self._config.on_event(UserMessageEvent(worker=invocable.name, content=prompt))
+
+        result = await ctx.run(invocable, input_data)
+        return result, ctx
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,7 +245,7 @@ class WorkerRuntime:
 
     WorkerRuntime is the central orchestrator for executing tools and workers.
     It holds:
-    - shared config (RuntimeConfig): model resolution inputs, events, usage sink
+    - runtime (Runtime): shared config and runtime-scoped state
     - per-branch state (CallFrame): depth, prompt/messages, toolsets, effective model
     """
 
@@ -182,41 +274,22 @@ class WorkerRuntime:
         Returns:
             WorkerRuntime configured for the entry
         """
-        # Resolve model using model_compat module
-        entry_name = getattr(entry, "name", str(entry))
-        resolved_model = select_model(
-            worker_model=getattr(entry, "model", None),
+        runtime = Runtime(
             cli_model=model,
-            compatible_models=getattr(entry, "compatible_models", None),
-            worker_name=entry_name,
-        )
-
-        # Get toolsets from entry
-        toolsets = list(getattr(entry, "toolsets", []) or [])
-
-        config = RuntimeConfig(
-            cli_model=model,
-            run_approval_policy=run_approval_policy or RunApprovalPolicy(mode="approve_all"),
+            run_approval_policy=run_approval_policy,
             max_depth=max_depth,
             on_event=on_event,
             verbosity=verbosity,
         )
-        call_config = CallConfig(
-            toolsets=tuple(toolsets),
-            model=resolved_model,
-        )
-        frame = CallFrame(
-            config=call_config,
-            messages=messages if messages is not None else [],
-        )
-        return cls(config=config, frame=frame)
+        frame = runtime._build_entry_frame(entry, model=model, message_history=messages)
+        return cls(runtime=runtime, frame=frame)
 
     def __init__(
         self,
         toolsets: list[AbstractToolset[Any]] | None = None,
         model: ModelType | None = None,
         *,
-        config: RuntimeConfig | None = None,
+        runtime: Runtime | None = None,
         frame: CallFrame | None = None,
         cli_model: ModelType | None = None,
         run_approval_policy: RunApprovalPolicy | None = None,
@@ -226,24 +299,21 @@ class WorkerRuntime:
         messages: Optional[list[Any]] = None,
         on_event: Optional[EventCallback] = None,
         verbosity: int = 0,
-        usage: UsageCollector | None = None,
     ) -> None:
-        if config is not None or frame is not None:
-            if config is None or frame is None:
-                raise TypeError("WorkerRuntime requires both 'config' and 'frame' when either is provided")
-            self.config = config
+        if runtime is not None or frame is not None:
+            if runtime is None or frame is None:
+                raise TypeError("WorkerRuntime requires both 'runtime' and 'frame' when either is provided")
+            self.runtime = runtime
             self.frame = frame
         else:
             if toolsets is None or model is None:
-                raise TypeError("WorkerRuntime requires 'toolsets' and 'model' when 'config'/'frame' are not provided")
-            runtime_usage = usage or UsageCollector()
-            self.config = RuntimeConfig(
+                raise TypeError("WorkerRuntime requires 'toolsets' and 'model' when 'runtime'/'frame' are not provided")
+            self.runtime = Runtime(
                 cli_model=cli_model,
                 run_approval_policy=run_approval_policy or RunApprovalPolicy(mode="approve_all"),
                 max_depth=max_depth,
                 on_event=on_event,
                 verbosity=verbosity,
-                usage=runtime_usage,
             )
             call_config = CallConfig(
                 toolsets=tuple(toolsets),
@@ -258,6 +328,14 @@ class WorkerRuntime:
         self.tools = ToolsProxy(self)
 
     @property
+    def config(self) -> RuntimeConfig:
+        return self.runtime.config
+
+    @property
+    def approval_callback(self) -> ApprovalCallback:
+        return self.runtime.approval_callback
+
+    @property
     def toolsets(self) -> tuple[AbstractToolset[Any], ...]:
         return self.frame.toolsets
 
@@ -267,15 +345,15 @@ class WorkerRuntime:
 
     @property
     def cli_model(self) -> ModelType | None:
-        return self.config.cli_model
+        return self.runtime.config.cli_model
 
     @property
     def run_approval_policy(self) -> RunApprovalPolicy:
-        return self.config.run_approval_policy
+        return self.runtime.config.run_approval_policy
 
     @property
     def max_depth(self) -> int:
-        return self.config.max_depth
+        return self.runtime.config.max_depth
 
     @property
     def depth(self) -> int:
@@ -295,24 +373,28 @@ class WorkerRuntime:
 
     @property
     def on_event(self) -> EventCallback | None:
-        return self.config.on_event
+        return self.runtime.config.on_event
 
     @property
     def verbosity(self) -> int:
-        return self.config.verbosity
+        return self.runtime.config.verbosity
 
     @property
     def usage(self) -> list[RunUsage]:
-        return self.config.usage.all()
+        return self.runtime.usage
 
     @property
     def message_log(self) -> list[tuple[str, int, Any]]:
         """Return all messages captured across all workers (for testing/logging)."""
-        return self.config.message_log.all()
+        return self.runtime.message_log
+
+    def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
+        """Record messages for diagnostic logging."""
+        self.runtime.log_messages(worker_name, depth, messages)
 
     def _create_usage(self) -> RunUsage:
         """Create a new RunUsage and add it to the shared usage sink."""
-        return self.config.usage.create()
+        return self.runtime._create_usage()
 
     def _make_run_context(
         self, tool_name: str, resolved_model: ModelType, deps_ctx: WorkerRuntimeProtocol
@@ -337,7 +419,7 @@ class WorkerRuntime:
     ) -> "WorkerRuntime":
         """Spawn a child worker runtime with a forked CallFrame (depth+1)."""
         return WorkerRuntime(
-            config=self.config,
+            runtime=self.runtime,
             frame=self.frame.fork(toolsets, model=model),
         )
 

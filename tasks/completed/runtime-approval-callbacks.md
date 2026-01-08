@@ -1,10 +1,10 @@
 # Runtime-Scoped Approval Callbacks
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
-- [ ] none
+- [x] none
 
 ## Goal
 Introduce a non-entry-bound runtime that owns approval callback creation, encapsulates runtime-wide policy, and can run any entry while reusing a global `RuntimeConfig`.
@@ -43,19 +43,19 @@ Introduce a non-entry-bound runtime that owns approval callback creation, encaps
   - Consider future structure for accumulator trees if needed
 
 ## Tasks
-- [ ] Define `Runtime` constructor parameters and public methods
-- [ ] Implement `Runtime` to own `RuntimeConfig` and construct `WorkerRuntime` + `CallFrame` per run
-- [ ] Move `usage`/`message_log` off `RuntimeConfig` into `Runtime` (or `RuntimeState`)
-- [ ] Update `WorkerRuntime` to hold `Runtime` instead of `RuntimeConfig`
-- [ ] Resolve approval callback during `Runtime` creation and reuse per run
-- [ ] Update `run_invocable` (and/or add new entrypoint) to use `Runtime`
-- [ ] Update CLI to use `Runtime` for approval policy + UI formatting
-- [ ] Update `experiments/inv/v2_direct/run.py` to use `Runtime`
-- [ ] Update docs (`docs/reference.md`, `docs/architecture.md`; optional `README.md`) with the new runtime model
-- [ ] Add or update tests for approval callback behavior and caching
+- [x] Define `Runtime` constructor parameters and public methods
+- [x] Implement `Runtime` to own `RuntimeConfig` and construct `WorkerRuntime` + `CallFrame` per run
+- [x] Move `usage`/`message_log` off `RuntimeConfig` into `Runtime` (or `RuntimeState`)
+- [x] Update `WorkerRuntime` to hold `Runtime` instead of `RuntimeConfig`
+- [x] Resolve approval callback during `Runtime` creation and reuse per run
+- [x] Update `run_invocable` (and/or add new entrypoint) to use `Runtime`
+- [x] Update CLI to use `Runtime` for approval policy + UI formatting
+- [x] Update `experiments/inv/v2_direct/run.py` to use `Runtime`
+- [x] Update docs (`docs/reference.md`, `docs/architecture.md`; optional `README.md`) with the new runtime model
+- [x] Add or update tests for approval callback behavior and caching
 
 ## Current State
-Decisions captured; ready to implement `Runtime` and migrate call sites.
+Runtime implemented, call sites and docs updated, tests adjusted; ruff/mypy/pytest run clean.
 
 ## Notes
 - Runtime should remain entry-agnostic but may provide a session helper for entry-bound runs if needed.

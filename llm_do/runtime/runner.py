@@ -5,9 +5,8 @@ from typing import Any
 
 from pydantic_ai.messages import ModelMessage
 
-from ..ui.events import UserMessageEvent
 from .approval import RunApprovalPolicy
-from .context import WorkerRuntime
+from .context import Runtime, WorkerRuntime
 from .contracts import EventCallback, Invocable
 
 
@@ -26,20 +25,14 @@ async def run_invocable(
     RunApprovalPolicy gates tool calls during execution (LLM tool calls or
     programmatic ctx.deps.call), not the invocable invocation itself.
     """
-    ctx: WorkerRuntime = WorkerRuntime.from_entry(
-        invocable,
-        model=model,
+    runtime = Runtime(
+        cli_model=model,
         run_approval_policy=approval_policy,
-        messages=list(message_history) if message_history else None,
         on_event=on_event,
         verbosity=verbosity,
     )
-
-    input_data: dict[str, str] = {"input": prompt}
-
-    if on_event is not None:
-        on_event(UserMessageEvent(worker=invocable.name, content=prompt))
-
-    result: Any = await ctx.run(invocable, input_data)
-
-    return result, ctx
+    return await runtime.run_invocable(
+        invocable,
+        prompt,
+        message_history=list(message_history) if message_history else None,
+    )

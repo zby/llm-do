@@ -1,7 +1,7 @@
-"""WorkerRuntime-centric runtime for llm-do.
+"""Runtime-centric execution API for llm-do.
 
-This module provides a new runtime architecture that:
-- Uses WorkerRuntime as the central dispatcher
+This module provides a runtime architecture that:
+- Uses Runtime as the shared execution environment
 - Supports toolsets (AbstractToolset, FunctionToolset)
 - Loads tools from Python files and worker declarations
 - Provides the `llm-do` CLI entry point
@@ -12,7 +12,7 @@ from .approval import (
     WorkerApprovalPolicy,
     resolve_approval_callback,
 )
-from .context import ToolsProxy, WorkerRuntime
+from .context import Runtime, ToolsProxy, WorkerRuntime
 from .contracts import EventCallback, Invocable, ModelType
 from .discovery import (
     discover_toolsets_from_module,
@@ -32,6 +32,7 @@ from .worker_file import (
 
 __all__ = [
     # Runtime
+    "Runtime",
     "WorkerRuntime",
     "ToolsProxy",
     "Invocable",

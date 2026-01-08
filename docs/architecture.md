@@ -26,15 +26,19 @@ Workers can also declare a typed input schema via `schema_in_ref`; if omitted, t
 
 ---
 
-## Runtime: Two Scopes
+## Runtime: Shared + Per-Call
 
-When a worker runs, it operates within two scopes:
+When a worker runs, it operates within two scopes owned by a **Runtime**:
 
-**RuntimeConfig** (shared across all workers in a run):
-- Approval policy, usage tracking, event callbacks
+**Runtime** (shared across runs in a session):
+- Owns a `RuntimeConfig` plus mutable runtime state (usage, message log, approval callback cache)
+- Created once per CLI/TUI session or embedding, reused across runs
+
+**RuntimeConfig** (immutable policy/config):
+- Approval policy, event callbacks, max depth, verbosity
 - Like a web server's global config
 
-**CallFrame** (per-worker):
+**CallFrame** (per-worker, per-call):
 - Current prompt, message history, nesting depth
 - Like a request context - isolated per worker call
 
@@ -53,13 +57,13 @@ CLI or Python
 Load .worker file → resolve toolsets
     │
     ▼
-run_entry() creates RuntimeConfig + CallFrame
+Runtime.run_invocable() creates CallFrame
     │
     ▼
 Worker builds PydanticAI Agent → runs
     │
     ├── Tool call to another worker?
-    │       → new CallFrame (depth+1), same RuntimeConfig
+    │       → new CallFrame (depth+1), same Runtime
     │       → child runs, returns result
     │
     └── Final output
@@ -87,4 +91,3 @@ Tools requiring approval are wrapped by `ApprovalToolset`:
 - **shell**: command execution with whitelist-based approval
 
 Python toolsets are discovered from `.py` files. Toolsets can be referenced by alias or full class path.
-

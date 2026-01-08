@@ -202,11 +202,11 @@ def get_env_model() -> Optional[str]:
 
 def select_model(
     *,
-    worker_model: Optional[str],
-    cli_model: Optional[str] = None,
+    worker_model: Optional[Union[str, "Model"]],
+    cli_model: Optional[Union[str, "Model"]] = None,
     compatible_models: Optional[List[str]],
     worker_name: str = "worker",
-) -> str:
+) -> Union[str, "Model"]:
     """Select and validate the effective model for a worker.
 
     Resolution order (highest to lowest priority):
@@ -224,7 +224,7 @@ def select_model(
         worker_name: Name of the worker (for error messages)
 
     Returns:
-        The selected model identifier
+        The selected model identifier or Model object
 
     Raises:
         ModelConfigError: If worker has both model and compatible_models set

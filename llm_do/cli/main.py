@@ -42,11 +42,11 @@ from ..runtime import (
     EventCallback,
     Invocable,
     RunApprovalPolicy,
+    Runtime,
     ToolInvocable,
     Worker,
     WorkerRuntime,
     load_worker_file,
-    run_invocable,
 )
 from ..runtime.discovery import load_toolsets_and_workers_from_files
 from ..runtime.schema_refs import resolve_schema_ref
@@ -280,6 +280,7 @@ async def run(
     message_history: list[Any] | None = None,
     set_overrides: list[str] | None = None,
     entry: Invocable | None = None,
+    runtime: Runtime | None = None,
 ) -> tuple[Any, WorkerRuntime]:
     """Load entries and run with the given prompt.
 
@@ -298,6 +299,7 @@ async def run(
         message_history: Optional prior messages for multi-turn conversations
         set_overrides: Optional list of --set KEY=VALUE overrides
         entry: Optional pre-built entry (skips build_entry if provided)
+        runtime: Optional pre-built runtime (skips approval/UI wiring if provided)
 
     Returns:
         Tuple of (result, context)
@@ -314,27 +316,42 @@ async def run(
         resolved_entry_name = entry_name or "main"
         entry = await build_entry(worker_files, python_files, model, resolved_entry_name, set_overrides)
 
-    approval_mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
-    if approve_all:
-        approval_mode = "approve_all"
-    elif reject_all:
-        approval_mode = "reject_all"
-
-    approval_policy = RunApprovalPolicy(
-        mode=approval_mode,
-        approval_callback=approval_callback,
-        cache=approval_cache,
-        return_permission_errors=return_permission_errors,
-    )
-
     invocable = cast(Invocable, entry)
-    return await run_invocable(
+    if runtime is None:
+        approval_mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
+        if approve_all:
+            approval_mode = "approve_all"
+        elif reject_all:
+            approval_mode = "reject_all"
+
+        approval_policy = RunApprovalPolicy(
+            mode=approval_mode,
+            approval_callback=approval_callback,
+            cache=approval_cache,
+            return_permission_errors=return_permission_errors,
+        )
+        runtime = Runtime(
+            cli_model=model,
+            run_approval_policy=approval_policy,
+            on_event=on_event,
+            verbosity=verbosity,
+        )
+    else:
+        if (
+            approve_all
+            or reject_all
+            or approval_callback is not None
+            or approval_cache is not None
+            or return_permission_errors
+            or on_event is not None
+            or verbosity != 0
+        ):
+            raise ValueError("runtime provided; do not pass approval/UI overrides")
+
+    return await runtime.run_invocable(
         invocable,
         prompt,
         model=model,
-        approval_policy=approval_policy,
-        on_event=on_event,
-        verbosity=verbosity,
         message_history=message_history,
     )
 
@@ -364,8 +381,6 @@ async def _run_tui_mode(
     render_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     tui_event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
-    # Shared across turns for remember="session" approvals.
-    approval_cache: dict[Any, ApprovalDecision] = {}
 
     # Create output buffer to capture events for post-TUI display
     output_buffer = io.StringIO()
@@ -415,6 +430,24 @@ async def _run_tui_mode(
         render_queue.put_nowait(approval_event)
         return await approval_queue.get()
 
+    approval_mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
+    if approve_all:
+        approval_mode = "approve_all"
+    elif reject_all:
+        approval_mode = "reject_all"
+
+    approval_policy = RunApprovalPolicy(
+        mode=approval_mode,
+        approval_callback=_prompt_approval_in_tui,
+        return_permission_errors=True,
+    )
+    runtime = Runtime(
+        cli_model=model,
+        run_approval_policy=approval_policy,
+        on_event=on_event,
+        verbosity=verbosity,
+    )
+
     async def run_turn(
         user_prompt: str,
         message_history: list[Any] | None,
@@ -432,15 +465,9 @@ async def _run_tui_mode(
                 prompt=user_prompt,
                 model=model,
                 entry_name=entry_name,
-                approve_all=approve_all,
-                reject_all=reject_all,
-                on_event=on_event,
-                verbosity=verbosity,
-                approval_callback=_prompt_approval_in_tui,
-                approval_cache=approval_cache,
-                return_permission_errors=True,
                 message_history=message_history,
                 set_overrides=set_overrides,
+                runtime=runtime,
             )
             worker_result[:] = [result]
             return list(ctx.messages)

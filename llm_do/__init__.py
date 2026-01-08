@@ -30,7 +30,7 @@ from .models import (
 )
 
 # Re-export from runtime for convenience
-from .runtime import ToolInvocable, Worker, WorkerRuntime
+from .runtime import Runtime, ToolInvocable, Worker, WorkerRuntime
 
 __all__ = [
     # Approval handling
@@ -48,6 +48,7 @@ __all__ = [
     "NoModelError",
     # Runtime types
     "WorkerRuntime",
+    "Runtime",
     "Worker",
     "ToolInvocable",
     # Version

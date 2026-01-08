@@ -9,7 +9,6 @@ from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
 from llm_do.runtime.worker import Worker
 from llm_do.toolsets.filesystem import FileSystemToolset
 
-
 # TestModel is used in test_nested_worker_calls_are_approval_gated
 
 

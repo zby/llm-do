@@ -35,35 +35,36 @@ via a custom schema if needed.
 ## Calling Workers from Python
 
 Python code can invoke workers in two contexts:
-1. **From orchestrator scripts** — using `run_invocable()` to start a run
+1. **From orchestrator scripts** — using `Runtime.run_invocable()` to start a run
 2. **From within tools** — using `ctx.deps.call()` during an active run
 
 ### From Orchestrator Scripts
 
-Use `run_invocable()` to call a worker from Python code:
+Use `Runtime` to create a shared execution environment and run entries:
 
 ```python
 from llm_do.runtime import (
-    run_invocable,
-    load_worker_file,
+    Runtime,
     RunApprovalPolicy,
+    load_worker_file,
 )
 
 async def main():
     worker = load_worker_file("analyzer.worker")
+    runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
 
-    result, ctx = await run_invocable(
+    result, ctx = await runtime.run_invocable(
         worker,
         prompt="Analyze this data",
-        approval_policy=RunApprovalPolicy.APPROVE_ALL,
     )
 
     print(result)
 ```
 
-The `run_invocable()` function:
-- Creates a fresh `WorkerRuntime` for the run
-- Returns both the result and the runtime context (for accessing usage stats, messages, etc.)
+`Runtime.run_invocable()`:
+- Creates a fresh `WorkerRuntime` and `CallFrame` per run
+- Reuses runtime-scoped state (usage, approval cache, message log)
+- Returns both the result and the runtime context
 
 **Parameters:**
 
@@ -72,9 +73,9 @@ The `run_invocable()` function:
 | `invocable` | Worker or tool to run |
 | `prompt` | Input prompt string |
 | `model` | Override the worker's default model |
-| `approval_policy` | `APPROVE_ALL`, `REJECT_ALL`, or `PROMPT` |
-| `on_event` | Callback for runtime events |
 | `message_history` | Pre-seed conversation history |
+
+`run_invocable()` remains as a one-shot convenience wrapper when you don't need a reusable runtime.
 
 ### From Within Tools
 

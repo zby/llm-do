@@ -207,7 +207,9 @@ def resolve_approval_callback(policy: RunApprovalPolicy) -> ApprovalCallback:
 
 def wrap_toolsets_for_approval(
     toolsets: list[AbstractToolset[Any]],
-    run_approval_policy: RunApprovalPolicy,
+    approval_callback: ApprovalCallback,
+    *,
+    return_permission_errors: bool = False,
     approval_configs: dict[str, dict[str, Any]] | None = None,
 ) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with approval handling.
@@ -216,10 +218,9 @@ def wrap_toolsets_for_approval(
     LLM tool calls go through approval.
     """
     worker_policy = WorkerApprovalPolicy(
-        approval_callback=resolve_approval_callback(run_approval_policy),
-        return_permission_errors=run_approval_policy.return_permission_errors,
+        approval_callback=approval_callback,
+        return_permission_errors=return_permission_errors,
         approval_configs=approval_configs,
     )
     return worker_policy.wrap_toolsets(toolsets)
-
 

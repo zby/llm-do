@@ -14,7 +14,6 @@ from typing import Any, AsyncIterable, Literal, Optional, Sequence, Type
 
 from pydantic import BaseModel, Field, TypeAdapter
 from pydantic_ai import Agent
-from pydantic_ai.models import Model
 from pydantic_ai.messages import (
     BinaryContent,
     ModelRequest,
@@ -23,14 +22,19 @@ from pydantic_ai.messages import (
     ToolReturnPart,
     UserContent,
 )
+from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
-from ..models import ModelCompatibilityError, get_model_string, validate_model_compatibility
+from ..models import (
+    ModelCompatibilityError,
+    get_model_string,
+    validate_model_compatibility,
+)
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
-from .context import CallFrame, RuntimeConfig, WorkerRuntime
-from .contracts import ModelType, WorkerRuntimeProtocol
+from .context import CallFrame, RuntimeConfig
+from .contracts import WorkerRuntimeProtocol
 
 
 class WorkerInput(BaseModel):
@@ -368,22 +372,23 @@ class Worker(AbstractToolset[Any]):
         resolved_model = self.model if self.model is not None else state.model
         if self.compatible_models is not None:
             model_str = get_model_string(resolved_model)
-            result = validate_model_compatibility(
+            compat_result = validate_model_compatibility(
                 model_str, self.compatible_models, worker_name=self.name
             )
-            if not result.valid:
-                raise ModelCompatibilityError(result.message)
+            if not compat_result.valid:
+                raise ModelCompatibilityError(compat_result.message)
 
-        # Wrap toolsets for approval using global policy
+        # Wrap toolsets for approval using runtime-scoped callback
         wrapped_toolsets = wrap_toolsets_for_approval(
             self.toolsets or [],
-            config.run_approval_policy,
-            self.toolset_approval_configs or None,
+            run_ctx.deps.approval_callback,
+            return_permission_errors=run_ctx.deps.run_approval_policy.return_permission_errors,
+            approval_configs=self.toolset_approval_configs or None,
         )
 
         # Fork per-call state and build child runtime for PydanticAI deps
-        child_state = state.fork(toolsets=wrapped_toolsets, model=resolved_model)
-        child_runtime = WorkerRuntime(config=config, frame=child_state)
+        child_runtime = run_ctx.deps.spawn_child(toolsets=wrapped_toolsets, model=resolved_model)
+        child_state = child_runtime.frame
 
         agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
         prompt = _build_user_prompt(input_data, self.base_path)
@@ -406,7 +411,7 @@ class Worker(AbstractToolset[Any]):
                 message_history=message_history,
             )
             # Log messages to diagnostic accumulator
-            config.message_log.extend(self.name, child_state.depth, _get_all_messages(result))
+            child_runtime.log_messages(self.name, child_state.depth, _get_all_messages(result))
             if _should_use_message_history(child_runtime):
                 _update_message_history(child_runtime, result)
                 state.messages[:] = _get_all_messages(result)
@@ -449,9 +454,7 @@ class Worker(AbstractToolset[Any]):
             event_stream_handler=event_stream_handler,
             message_history=message_history,
         )
-        # Log messages to diagnostic accumulator (runtime is WorkerRuntime with config)
-        if hasattr(runtime, "config"):
-            runtime.config.message_log.extend(self.name, runtime.depth, _get_all_messages(result))
+        runtime.log_messages(self.name, runtime.depth, _get_all_messages(result))
         if runtime.on_event is not None and not emitted_tool_events:
             self._emit_tool_events(result.new_messages(), runtime)
         if _should_use_message_history(runtime):
@@ -493,9 +496,7 @@ class Worker(AbstractToolset[Any]):
                     is_delta=False,
                 ))
 
-            # Log messages to diagnostic accumulator (runtime is WorkerRuntime with config)
-            if hasattr(runtime, "config"):
-                runtime.config.message_log.extend(self.name, runtime.depth, _get_all_messages(stream))
+            runtime.log_messages(self.name, runtime.depth, _get_all_messages(stream))
             # Emit tool events (must be inside context manager)
             self._emit_tool_events(stream.new_messages(), runtime)
             if _should_use_message_history(runtime):

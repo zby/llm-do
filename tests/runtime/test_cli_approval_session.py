@@ -14,6 +14,7 @@ from pydantic_ai_blocking_approval import (
 )
 
 from llm_do.cli.main import run
+from llm_do.runtime import RunApprovalPolicy, Runtime
 from llm_do.runtime.worker import Worker
 
 
@@ -93,19 +94,22 @@ Test worker
 
     original_build = cli_module.build_entry
     cli_module.build_entry = patched_build
-    approval_cache: dict[Any, ApprovalDecision] = {}
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(
+            mode="prompt",
+            approval_callback=approval_callback,
+        )
+    )
     try:
         await run(
             files=[str(worker_path)],
             prompt="First turn",
-            approval_callback=approval_callback,
-            approval_cache=approval_cache,
+            runtime=runtime,
         )
         await run(
             files=[str(worker_path)],
             prompt="Second turn",
-            approval_callback=approval_callback,
-            approval_cache=approval_cache,
+            runtime=runtime,
         )
     finally:
         cli_module.build_entry = original_build

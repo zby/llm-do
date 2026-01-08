@@ -13,7 +13,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from llm_do.runtime import RunApprovalPolicy, Worker, run_invocable
+from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.display import HeadlessDisplayBackend
 
@@ -86,14 +86,13 @@ async def run_evaluation() -> str:
     approval_policy = RunApprovalPolicy(
         mode="approve_all" if APPROVE_ALL else "prompt",
     )
-    result, _ctx = await run_invocable(
-        main,
-        prompt=PROMPT,
-        model=MODEL,
-        approval_policy=approval_policy,
+    runtime = Runtime(
+        cli_model=MODEL,
+        run_approval_policy=approval_policy,
         on_event=backend.display if VERBOSITY > 0 else None,
         verbosity=VERBOSITY,
     )
+    result, _ctx = await runtime.run_invocable(main, PROMPT)
     return result
 
 

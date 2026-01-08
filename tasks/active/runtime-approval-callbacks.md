@@ -21,7 +21,7 @@ Introduce a non-entry-bound runtime that owns approval callback creation, encaps
   - Approval callback creation happens in CLI code, making non-CLI usage feel second-class.
   - Global run policy (`RuntimeConfig`) exists, but we lack a single runtime surface to own it and expose a consistent API.
   - A non-entry `Runtime` makes it explicit that workers are run within a shared execution environment rather than “like pure functions.”
-- Inputs: CLI currently builds approval callback/policy; runtime already owns run policy fields; need shared session caching for approvals; `RuntimeConfig` is already the global run-scoped object; `WorkerRuntime` owns `RuntimeConfig` + `CallFrame`
+- Inputs: CLI currently builds approval callback/policy; runtime already owns run policy fields; need shared session caching for approvals; `RuntimeConfig` remains the immutable policy container; `WorkerRuntime` should own `Runtime` + `CallFrame` (not config)
 - Options:
   - Keep policy-only in runtime and resolve per run
   - Resolve callback once at runtime creation and reuse
@@ -29,20 +29,29 @@ Introduce a non-entry-bound runtime that owns approval callback creation, encaps
 - Outcome:
   - Name: `Runtime` (conveys global execution environment; mirrors CLI semantics)
   - Relationship: `Runtime` owns `RuntimeConfig`, constructs `CallFrame` per run, and uses a fresh `WorkerRuntime` per entry call (avoids shared mutable frames and preserves per-entry message history)
+  - Config/state split: `RuntimeConfig` stays deeply immutable; runtime-scoped mutable state (usage, message log, approval callback cache) lives on `Runtime`
+  - Runtime wiring: `WorkerRuntime` holds a `Runtime` reference instead of `RuntimeConfig` (can still expose `.config` as a property)
   - Approval lifecycle: resolve approval callback once at `Runtime` creation; cache is runtime-scoped (enables session-level caching and avoids re-wrapping)
   - Model: store `cli_model` on `Runtime` and pass it to model selection on each run (consistent CLI override, no per-call wiring)
   - UI: `Runtime` owns output formatting/event handling configuration (centralizes headless/CLI-like formatting, reduces embedding boilerplate)
+  - Accumulator API: keep it simple for now with `runtime.usage` and `runtime.message_log`; `message_log` is a list of `(worker_id, messages)` tuples (no tree yet)
+  - Runtime API proposal:
+    - `Runtime.__init__(*, cli_model=None, run_approval_policy, max_depth=5, on_event=None, verbosity=0)`
+    - `Runtime.run_invocable(invocable, prompt, *, model=None, message_history=None) -> (result, worker_runtime)`
+    - `Runtime.usage` / `Runtime.message_log` accessors
 - Follow-ups:
-  - Decide how `Runtime` exposes `RuntimeConfig` and global accumulators (`usage`, `message_log`)
+  - Consider future structure for accumulator trees if needed
 
 ## Tasks
 - [ ] Define `Runtime` constructor parameters and public methods
 - [ ] Implement `Runtime` to own `RuntimeConfig` and construct `WorkerRuntime` + `CallFrame` per run
+- [ ] Move `usage`/`message_log` off `RuntimeConfig` into `Runtime` (or `RuntimeState`)
+- [ ] Update `WorkerRuntime` to hold `Runtime` instead of `RuntimeConfig`
 - [ ] Resolve approval callback during `Runtime` creation and reuse per run
 - [ ] Update `run_invocable` (and/or add new entrypoint) to use `Runtime`
 - [ ] Update CLI to use `Runtime` for approval policy + UI formatting
 - [ ] Update `experiments/inv/v2_direct/run.py` to use `Runtime`
-- [ ] Update docs (`docs/reference.md`, `docs/architecture.md`) with the new runtime model
+- [ ] Update docs (`docs/reference.md`, `docs/architecture.md`; optional `README.md`) with the new runtime model
 - [ ] Add or update tests for approval callback behavior and caching
 
 ## Current State

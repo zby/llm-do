@@ -1,6 +1,56 @@
 # LLM Day 2026 Warsaw - Presentation Proposal
 
-## Title
+---
+
+## CFP Submission Materials
+
+### Title Options (undecided)
+
+- "Harden the Joints: A Unified Interface for LLM and Code"
+- "One Interface: Unifying LLM and Code for Reliable Systems"
+- "The Unified Function Space: Where LLM Meets Code"
+- "Same Call, Different Engine: Unifying Stochastic and Deterministic"
+
+### Elevator Pitch (300 chars)
+
+> LLM composition fails at the joints—contracts get violated, pipelines break. llm-do unifies LLM and code under one interface, letting you progressively harden boundaries into reliable code while keeping flexibility where you need it.
+
+### Description
+
+> This talk introduces a model for building reliable systems on stochastic foundations. We treat LLMs as stochastic computers: they don't produce outputs, they sample from distributions. The boundaries between components are where variance collapses or expands—and crucially, where you can intervene.
+>
+> Using llm-do, we show how a unified calling convention enables fluid refactoring between LLM and code. The same call site works whether the implementation is a prompt or a function. This makes hardening cheap: as patterns stabilize, extract them to code. Keep flexibility where requirements are fuzzy; make the joints reliable.
+>
+> We'll walk through concrete examples showing the progression from all-LLM prototype to production-ready system with hardened boundaries—and demonstrate how the same patterns let you soften components back to LLM when requirements change.
+>
+> Attendees will leave with a coherent mental model for LLM system reliability and practical patterns for taking applications from prototype to production.
+
+### Notes (for reviewers only)
+
+> **Speaker background:**
+> I have over 20 years of experience as a software developer. I'm approaching LLM applications not as an AI specialist but as an engineer who's seen this pattern before: new technology arrives, teams build fragile systems, and eventually the field rediscovers that composition, contracts, and boundaries matter. This talk applies hard-won software engineering principles to LLM systems.
+>
+> **Why this talk:**
+> This isn't a framework pitch. The conceptual model (stochastic computers, boundary hardening) stands independent of llm-do—the tool just makes the patterns concrete. The insight that composition boundaries are the failure points comes from decades of building distributed systems and watching integration points fail. LLM systems have the same disease; they need the same cure.
+>
+> **Talk maturity:**
+> The presentation structure is complete. llm-do is open source with working examples demonstrating the hardening progression.
+>
+> **Technical requirements:**
+> Standard presentation setup (HDMI/USB-C, slides). Live demo optional—can be pre-recorded or replaced with annotated code walkthrough if preferred.
+>
+> **Audience fit:**
+> Aimed at developers building LLM applications who've hit the prototype-to-production gap. The concepts are language-agnostic but examples are in Python—basic Python familiarity required. No framework-specific knowledge required.
+
+### Bio
+
+> Zbigniew Lukasiak has been building software since the dot-com era. He's worked across startups, large corporations, and academia—including the University of London, where he helped build PhilPapers, a comprehensive index of philosophy research used by academics worldwide.
+>
+> Having witnessed the birth of the web, he sees the same energy in LLMs today—and the same patterns of fragile early systems that eventually need engineering discipline. He's the author of llm-do, an open-source framework for building reliable LLM applications through progressive hardening.
+
+---
+
+## Original Title
 
 **"Stochastic Computers: Building Reliable Systems on Unreliable Foundations"**
 

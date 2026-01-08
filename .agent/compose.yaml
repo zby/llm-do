@@ -41,13 +41,24 @@ services:
 
     tty: true
     stdin_open: true
-    init: true
+    # init: true  # Not needed - tini is baked into the image via ENTRYPOINT
 
     # Basic hardening (optional but recommended)
-    security_opt:
-      - no-new-privileges:true
+    # security_opt:
+    #   - no-new-privileges:true  # Disabled - prevents tini from executing
     cap_drop:
-      - ALL
+      - NET_RAW
+      - MKNOD
+      - AUDIT_WRITE
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - FSETID
+      - SETGID
+      - SETUID
+      - SETPCAP
+      - NET_BIND_SERVICE
+      - SYS_CHROOT
 
 volumes:
   uv-cache:

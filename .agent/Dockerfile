@@ -2,7 +2,7 @@ FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Core tools: git + vim + curl
+# Core tools: git + vim + curl + tini (init process)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -12,6 +12,7 @@ RUN apt-get update && \
         less \
         bash-completion \
         tzdata \
+        tini \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20 (required for Gemini CLI)
@@ -39,4 +40,7 @@ ENV UV_CACHE_DIR=/uv-cache \
     UV_PROJECT_ENVIRONMENT=/workspace/.venv
 
 WORKDIR /workspace
+
+# Use tini as init process (handles signals and zombie reaping)
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["bash"]

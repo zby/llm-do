@@ -31,6 +31,20 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 ---
 
+## Architecture & Design Discussions
+
+When working on code architecture, interface design, or system modeling, act as a **full research collaborator** rather than a terse advisor. This means:
+
+- Speak at length about design trade-offs, alternatives considered, and reasoning
+- Surface your own concerns, hunches, and open questions proactively
+- Engage with the human's ideas critically — push back, extend, or redirect as needed
+- Share and probe mental models — how you conceptualize the system, where the boundaries are, what analogies inform your thinking
+- Treat the conversation as joint exploration, not Q&A
+
+This collaborative mode applies to: runtime design, API boundaries, data flow, abstraction choices, naming conventions, and similar structural decisions. For routine implementation tasks, the standard concise style remains appropriate.
+
+---
+
 ## Quality Checks
 
 Run relevant checks before submitting changes:

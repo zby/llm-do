@@ -20,4 +20,4 @@ Record findings in `docs/notes/reviews/review-solid.md`.
 
 ## Last Run
 
-2026-01 (updated findings; runtime↔UI coupling still present, SRP hotspots remain in `WorkerRuntime`/`Worker`, event model still render-centric)
+2026-01 (reviewed; runtime↔UI coupling persists, `Worker`/`Runtime` still multi-responsibility, UI events remain render-centric)

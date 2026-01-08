@@ -4,6 +4,34 @@ API and usage reference for llm-do. For concepts, see [concept.md](concept.md). 
 
 ---
 
+## Worker Input Schemas
+
+Worker files can declare a Pydantic input schema so worker calls (and tool-call
+planning) use a structured contract:
+
+```yaml
+---
+name: evaluator
+schema_in_ref: schemas.py:PitchInput
+---
+```
+
+Supported forms:
+- `module.Class`
+- `path.py:Class` (relative to the worker file)
+
+If omitted, workers use the default `WorkerInput` schema:
+
+```python
+class WorkerInput(BaseModel):
+    input: str
+    attachments: list[str] = Field(default_factory=list)
+```
+
+This schema shapes tool-call arguments and validates inputs before the worker runs.
+Attachments are still a list of file paths; you can express stricter constraints
+via a custom schema if needed.
+
 ## Calling Workers from Python
 
 Python code can invoke workers in two contexts:

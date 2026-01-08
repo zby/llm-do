@@ -199,8 +199,9 @@ uv run -m experiments.inv.v2_direct.run
 ## Documentation
 
 - **[`docs/concept.md`](docs/concept.md)** — Design philosophy
+- **[`docs/reference.md`](docs/reference.md)** — API reference: calling workers from Python, writing toolsets
+- **[`docs/architecture.md`](docs/architecture.md)** — Internal structure: runtime scopes, execution flow
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference
-- **[`docs/architecture.md`](docs/architecture.md)** — Internal design and worker delegation
 - **[`docs/notes/`](docs/notes/)** — Working design notes and explorations
 
 ## Status

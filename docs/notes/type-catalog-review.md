@@ -6,7 +6,7 @@ with an eye toward design quality and avoiding wrapper types that add little beh
 
 ## Findings
 ### Design observations
-- Model typing drift: `ModelType` is `str`, but runtime casts it to a concrete PydanticAI `Model` when building `RunContext`, so the static type doesn’t match runtime behavior (`llm_do/runtime/contracts.py`, `llm_do/runtime/context.py`).
+- Model typing drift: `ModelType` is `str`, but runtime casts it to a concrete PydanticAI `Model` when building `RunContext`, so the static type doesn’t match runtime behavior (`llm_do/runtime/contracts.py`, `llm_do/runtime/deps.py`).
 - Wrapper layering: toolsets can be wrapped by `ToolInvocable` → `ToolsetRef` → `ApprovalDeniedResultToolset`/`ApprovalToolset`, which adds indirection and can obscure type checks and debugging (`llm_do/runtime/worker.py`, `llm_do/toolsets/loader.py`, `llm_do/runtime/approval.py`).
 - Mutable default: `WorkerInput.attachments` uses a mutable default list; consider `Field(default_factory=list)` to avoid shared state (`llm_do/runtime/worker.py`).
 - Unused/loosely wired types: `ShellRule`/`ShellDefault` are defined but config matching uses raw dicts; either parse configs into these models or remove them (`llm_do/toolsets/shell/types.py`, `llm_do/toolsets/shell/execution.py`).
@@ -17,7 +17,9 @@ with an eye toward design quality and avoiding wrapper types that add little beh
 llm_do/models.py: ModelCompatibilityError, NoModelError, InvalidCompatibleModelsError, ModelConfigError, ModelValidationResult
 llm_do/runtime/contracts.py: ModelType, EventCallback, WorkerRuntimeProtocol, Invocable
 llm_do/runtime/approval.py: ApprovalCallback, RunApprovalPolicy, WorkerApprovalPolicy, ApprovalDeniedResultToolset
-llm_do/runtime/context.py: _UnsetType, ToolsProxy, UsageCollector, RuntimeConfig, CallFrame, WorkerRuntime
+llm_do/runtime/shared.py: UsageCollector, MessageAccumulator, RuntimeConfig, Runtime
+llm_do/runtime/call.py: CallConfig, CallFrame
+llm_do/runtime/deps.py: ToolsProxy, WorkerRuntime
 llm_do/runtime/worker.py: WorkerInput, _DictValidator, ToolInvocable, Worker
 llm_do/runtime/worker_file.py: WorkerDefinition, WorkerFileParser
 llm_do/ui/events.py: UIEvent, InitialRequestEvent, StatusEvent, UserMessageEvent, TextResponseEvent, ToolCallEvent, ToolResultEvent, DeferredToolEvent, CompletionEvent, ErrorEvent, ApprovalRequestEvent

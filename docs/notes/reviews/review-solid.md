@@ -8,7 +8,7 @@ toolsets (`llm_do/toolsets`), and the UI event/rendering stack (`llm_do/ui`).
 - **Single Responsibility pressure in runtime**: `WorkerRuntime` owns model
   resolution, tool discovery/dispatch, usage aggregation, message-history state,
   and UI event emission for code-entry tool calls, giving it multiple reasons to
-  change. (`llm_do/runtime/context.py`)
+  change. (`llm_do/runtime/deps.py`)
 - **Single Responsibility pressure in workers**: `Worker` mixes prompt/attachment
   building, agent construction, streaming/non-streaming execution paths, UI event
   parsing/emission, and message-history updates. (`llm_do/runtime/worker.py`,
@@ -16,7 +16,7 @@ toolsets (`llm_do/toolsets`), and the UI event/rendering stack (`llm_do/ui`).
 - **Dependency Inversion leak (runtime → UI)**: runtime contracts and execution
   paths depend on `UIEvent` types and emit them directly, tying core runtime
   logic to UI concepts and Rich/Textual rendering. (`llm_do/runtime/contracts.py`,
-  `llm_do/runtime/runner.py`, `llm_do/runtime/context.py`, `llm_do/runtime/worker.py`,
+  `llm_do/runtime/runner.py`, `llm_do/runtime/deps.py`, `llm_do/runtime/worker.py`,
   `llm_do/ui/events.py`)
 - **Open/Closed tradeoff in event model**: `UIEvent` owns rendering for Rich,
   text, JSON, and Textual widgets; adding a new rendering target requires editing
@@ -25,7 +25,7 @@ toolsets (`llm_do/toolsets`), and the UI event/rendering stack (`llm_do/ui`).
 - **Interface Segregation / Liskov smell in tool dispatch**: `WorkerRuntime.call()`
   special-cases workers via `kind` strings and `schema_in`, indicating the
   dispatcher needs capabilities not expressed by `AbstractToolset` and that not
-  all toolsets are treated uniformly. (`llm_do/runtime/context.py`,
+  all toolsets are treated uniformly. (`llm_do/runtime/deps.py`,
   `llm_do/runtime/input_utils.py`, `llm_do/runtime/worker.py`)
 - **Positive moves**: UI state is decomposed into small controllers (approval
   queue, input history, worker runner), and toolset configuration avoids mutating

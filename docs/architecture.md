@@ -14,8 +14,8 @@ name: main
 model: anthropic:claude-haiku-4-5
 schema_in_ref: schemas.py:PitchInput
 toolsets:
-  shell: {}
-  filesystem: {}
+  shell_readonly: {}
+  filesystem_rw: {}
   analyzer: {}      # another worker
 ---
 Instructions for the worker...
@@ -92,7 +92,9 @@ Tools requiring approval are wrapped by `ApprovalToolset`:
 
 ## Built-in Toolsets
 
-- **filesystem**: `read_file`, `write_file`, `list_files`
-- **shell**: command execution with whitelist-based approval
+- **filesystem_rw**: `read_file`, `write_file`, `list_files`
+- **filesystem_ro**: `read_file`, `list_files`
+- **shell_readonly**: read-only shell commands (whitelist)
+- **shell_file_ops**: `ls` (pre-approved) + `mv` (approval required)
 
-Python toolsets are discovered from `.py` files. Toolsets can be referenced by alias or full class path.
+Python toolsets are discovered from `.py` files. Workers reference toolsets by name only.

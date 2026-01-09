@@ -14,6 +14,8 @@ from pydantic_ai_blocking_approval import (
     ApprovalToolset,
 )
 
+from ..toolsets.approval import get_toolset_approval_config
+
 ApprovalCallback = Callable[
     [ApprovalRequest],
     ApprovalDecision | Awaitable[ApprovalDecision],
@@ -37,20 +39,17 @@ class WorkerApprovalPolicy:
 
     approval_callback: ApprovalCallback
     return_permission_errors: bool = False
-    approval_configs: dict[str, dict[str, Any]] | None = None
 
     def wrap_toolsets(
         self,
         toolsets: list[AbstractToolset[Any]],
     ) -> list[AbstractToolset[Any]]:
         wrapped: list[AbstractToolset[Any]] = []
-        approval_configs = self.approval_configs or {}
 
         for toolset in toolsets:
             if isinstance(toolset, (ApprovalToolset, ApprovalDeniedResultToolset)):
                 raise TypeError("Pre-wrapped ApprovalToolset instances are not supported")
-            toolset_id = getattr(toolset, "id", None)
-            config = approval_configs.get(toolset_id) if toolset_id else None
+            config = get_toolset_approval_config(toolset)
             approved_toolset: AbstractToolset[Any] = ApprovalToolset(
                 inner=toolset,
                 approval_callback=self.approval_callback,
@@ -210,7 +209,6 @@ def wrap_toolsets_for_approval(
     approval_callback: ApprovalCallback,
     *,
     return_permission_errors: bool = False,
-    approval_configs: dict[str, dict[str, Any]] | None = None,
 ) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with approval handling.
 
@@ -220,7 +218,5 @@ def wrap_toolsets_for_approval(
     worker_policy = WorkerApprovalPolicy(
         approval_callback=approval_callback,
         return_permission_errors=return_permission_errors,
-        approval_configs=approval_configs,
     )
     return worker_policy.wrap_toolsets(toolsets)
-

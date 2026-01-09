@@ -80,7 +80,7 @@ async def test_file_organizer_example_builds():
     """Test file_organizer: hardening pattern with semantic/mechanical separation."""
     worker_file = load_worker_file(EXAMPLES_DIR / "file_organizer" / "main.worker")
     assert "file_tools" in worker_file.toolsets
-    assert "shell" in worker_file.toolsets
+    assert "shell_file_ops" in worker_file.toolsets
 
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "file_organizer" / "tools.py"])
     assert "file_tools" in toolsets
@@ -92,4 +92,4 @@ async def test_file_organizer_example_builds():
         entry_model_override="test-model",
     )
     worker = registry.get("main")
-    assert len(worker.toolsets) == 2  # file_tools + shell
+    assert len(worker.toolsets) == 2  # file_tools + shell_file_ops

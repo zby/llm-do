@@ -431,3 +431,34 @@ class FileSystemToolset(AbstractToolset[Any]):
 
         else:
             raise ValueError(f"Unknown tool: {name}")
+
+
+class ReadOnlyFileSystemToolset(FileSystemToolset):
+    """Read-only filesystem toolset (read/list only)."""
+
+    def needs_approval(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+        config: ApprovalConfig | None = None,
+    ) -> ApprovalResult:
+        if name == "write_file":
+            return ApprovalResult.blocked("write_file is disabled for read-only filesystem")
+        return super().needs_approval(name, tool_args, ctx, config)
+
+    async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool[Any]]:
+        tools = await super().get_tools(ctx)
+        tools.pop("write_file", None)
+        return tools
+
+    async def call_tool(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+        tool: ToolsetTool[Any],
+    ) -> Any:
+        if name == "write_file":
+            raise PermissionError("write_file is disabled for read-only filesystem")
+        return await super().call_tool(name, tool_args, ctx, tool)

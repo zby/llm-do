@@ -7,15 +7,15 @@ Worker files use YAML frontmatter followed by markdown instructions:
 name: main
 model: anthropic:claude-haiku-4-5
 toolsets:
-  shell: {}
+  shell_readonly: {}
   calc_tools: {}
 ---
 Instructions for the worker...
 ```
 
-The `toolsets` section maps toolset names to their configuration.
+The `toolsets` section maps toolset names to empty config dicts.
 Toolset names can reference:
-- Built-in toolsets (e.g., "shell", "filesystem")
+- Built-in toolsets (e.g., "shell_readonly", "filesystem_rw")
 - Toolsets discovered from Python files passed to CLI
 """
 from __future__ import annotations
@@ -70,7 +70,7 @@ def _parse_toolsets(toolsets_raw: Any) -> dict[str, dict[str, Any]]:
         toolsets_raw: Raw toolsets value from frontmatter
 
     Returns:
-        Normalized toolsets dict mapping names to config dicts
+        Normalized toolsets dict mapping names to empty config dicts
 
     Raises:
         ValueError: If toolsets format is invalid
@@ -87,6 +87,11 @@ def _parse_toolsets(toolsets_raw: Any) -> dict[str, dict[str, Any]]:
             toolset_config = {}
         if not isinstance(toolset_config, dict):
             raise ValueError(f"Invalid config for toolset '{toolset_name}': expected YAML mapping")
+        if toolset_config:
+            raise ValueError(
+                f"Toolset '{toolset_name}' cannot be configured in worker YAML; "
+                "define a Python toolset instance instead"
+            )
         toolsets[toolset_name] = toolset_config
 
     return toolsets

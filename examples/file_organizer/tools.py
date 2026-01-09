@@ -59,3 +59,8 @@ def sanitize_filename(name: str) -> str:
     if ext:
         return f"{base}.{ext}"
     return base
+
+
+file_tools.__llm_do_approval_config__ = {
+    "sanitize_filename": {"pre_approved": True},
+}

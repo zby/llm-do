@@ -1,6 +1,6 @@
 """Data processor tools using FunctionToolset.
 
-These tools are wrapped by ApprovalToolset at runtime. The example worker
+These tools are wrapped by ApprovalToolset at runtime. The toolset definition
 pre-approves the pure functions and leaves send_notification gated.
 """
 
@@ -38,3 +38,8 @@ def send_notification(message: str, channel: str = "default") -> str:
     """Send a notification message (stub)."""
     return f"Notification sent to {channel}: {message}"
 
+
+data_tools.__llm_do_approval_config__ = {
+    "format_output": {"pre_approved": True},
+    "calculate_stats": {"pre_approved": True},
+}

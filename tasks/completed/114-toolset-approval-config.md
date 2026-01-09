@@ -1,7 +1,7 @@
 # Toolset Approval Config on Registry Instances
 
 ## Status
-ready for implementation
+ready for completion
 
 ## Prerequisites
 - [ ] none
@@ -42,18 +42,18 @@ Move approval policy to toolset instances (registry-level) and remove per-worker
   - Optionally add `@llm_do_tool` helper decorator to set per-tool approval config on FunctionToolset.
 
 ## Tasks
-- [ ] Add built-in toolset entries for `filesystem_rw`/`filesystem_ro` and shell profiles with approval config attributes.
-- [ ] Change registry build to use built-in instances + discovered Python toolsets (instances only).
-- [ ] Remove per-worker `_approval_config` extraction and `Worker.toolset_approval_configs`.
-- [ ] Update approval wrapping to read `__llm_do_approval_config__` from toolset instances.
-- [ ] Enforce `.worker` toolset references as names only (reject config mappings).
-- [ ] Add a read-only filesystem toolset class; set `base_path` from CWD; expose only read/list for RO.
-- [ ] Update docs/examples to the new toolset config model.
-- [ ] Update tests for toolset loading/approvals changes.
-- [ ] Update docs/examples/tests to match the new toolset model (CWD base path, `filesystem_rw`/`filesystem_ro`).
+- [x] Add built-in toolset entries for `filesystem_rw`/`filesystem_ro` and shell profiles with approval config attributes.
+- [x] Change registry build to use built-in instances + discovered Python toolsets (instances only).
+- [x] Remove per-worker `_approval_config` extraction and `Worker.toolset_approval_configs`.
+- [x] Update approval wrapping to read `__llm_do_approval_config__` from toolset instances.
+- [x] Enforce `.worker` toolset references as names only (reject config mappings).
+- [x] Add a read-only filesystem toolset class; set `base_path` from CWD; expose only read/list for RO.
+- [x] Update docs/examples to the new toolset config model.
+- [x] Update tests for toolset loading/approvals changes.
+- [x] Update docs/examples/tests to match the new toolset model (CWD base path, `filesystem_rw`/`filesystem_ro`).
 
 ## Current State
-Design decisions captured in `docs/notes/toolset_definitions_and_approvals.md`. No code changes yet.
+Implementation complete: built-in toolset registry + read-only filesystem toolset, approval config attribute support, name-only toolset references in worker YAML, examples/docs/tests updated. Pending task wrap-up and archive note.
 
 ## Notes
 - If toolsets do not implement `needs_approval`, `ApprovalToolset` must receive per-tool config dict.

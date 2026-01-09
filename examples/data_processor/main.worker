@@ -2,14 +2,7 @@
 name: main
 model: anthropic:claude-haiku-4-5
 toolsets:
-  data_tools:
-    _approval_config:
-      # Safe, deterministic helpers: pre-approve to avoid prompting.
-      format_output:
-        pre_approved: true
-      calculate_stats:
-        pre_approved: true
-      # send_notification is intentionally NOT pre-approved.
+  data_tools: {}
 ---
 You are a data processor.
 
@@ -21,4 +14,3 @@ Available tools:
 - send_notification(message, channel="default")  # only if user asks to send one
 
 Only call send_notification when the user explicitly requests it.
-

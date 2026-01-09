@@ -3,16 +3,8 @@ name: main
 description: Organize messy filenames into consistent formats
 model: anthropic:claude-haiku-4-5
 toolsets:
-  file_tools:
-    _approval_config:
-      sanitize_filename:
-        pre_approved: true  # Pure function, no side effects
-  shell:
-    rules:
-    - pattern: ls
-      approval_required: false
-    - pattern: mv
-      approval_required: true  # Renaming files requires approval
+  file_tools: {}
+  shell_file_ops: {}
 ---
 You organize files by renaming them to clean, consistent formats.
 

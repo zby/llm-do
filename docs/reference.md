@@ -186,14 +186,14 @@ The simplest way to create tools. Define functions with the `@tools.tool` decora
 ```python
 from pydantic_ai.toolsets import FunctionToolset
 
-tools = FunctionToolset()
+calc_tools = FunctionToolset()
 
-@tools.tool
+@calc_tools.tool
 def calculate(expression: str) -> float:
     """Evaluate a mathematical expression."""
     return eval(expression)  # simplified example
 
-@tools.tool
+@calc_tools.tool
 async def fetch_data(url: str) -> str:
     """Fetch data from a URL."""
     async with httpx.AsyncClient() as client:
@@ -208,7 +208,7 @@ Save as `tools.py` and reference in your worker:
 name: calculator
 model: anthropic:claude-haiku-4-5
 toolsets:
-  tools.py: {}
+  calc_tools: {}
 ---
 You are a helpful calculator...
 ```
@@ -298,38 +298,48 @@ class MyToolset(AbstractToolset[Any]):
 
 ### Toolset Configuration
 
-Toolsets receive configuration from the worker YAML:
+Toolset configuration lives with the toolset instance in Python. Worker YAML
+only references toolset names, so you define any config when instantiating
+the toolset in a `.py` file:
+
+```python
+from pydantic_ai.toolsets import FunctionToolset
+from llm_do.toolsets import FileSystemToolset
+
+calc_tools = FunctionToolset()
+filesystem_rw = FileSystemToolset(config={"base_path": "./data", "write_approval": True})
+```
+
+Then reference the toolset names in your worker:
 
 ```yaml
 toolsets:
-  filesystem:
-    base_path: ./data
-    write_approval: true
-  my_package.tools.MyToolset:
-    custom_setting: value
+  calc_tools: {}
+  filesystem_rw: {}
 ```
 
-Configuration is passed to the toolset constructor:
-- If the constructor accepts `config: dict`, the entire config dict is passed
-- Otherwise, config keys are passed as keyword arguments
+If you need to pre-approve specific tools, attach an approval config dict:
 
-**Injected Dependencies:**
+```python
+calc_tools.__llm_do_approval_config__ = {
+    "add": {"pre_approved": True},
+    "multiply": {"pre_approved": True},
+}
+```
 
-Toolsets can receive these automatically-injected parameters:
+**Dependencies:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `cwd` | `Path` | Current working directory |
-| `worker_name` | `str` | Name of the calling worker |
-| `worker_path` | `Path \| None` | Path to the worker file |
-| `worker_dir` | `Path \| None` | Directory containing the worker |
+Toolset instances are created in Python, so pass any dependencies directly when
+instantiating them (e.g., base paths, worker metadata, or sandbox handles).
 
 ### Built-in Toolsets
 
-| Alias | Class | Tools |
-|-------|-------|-------|
-| `filesystem` | `FileSystemToolset` | `read_file`, `write_file`, `list_files` |
-| `shell` | `ShellToolset` | Command execution with approval |
+| Name | Class | Tools |
+|------|-------|-------|
+| `filesystem_rw` | `FileSystemToolset` | `read_file`, `write_file`, `list_files` |
+| `filesystem_ro` | `ReadOnlyFileSystemToolset` | `read_file`, `list_files` |
+| `shell_readonly` | `ShellToolset` | Read-only shell commands (whitelist) |
+| `shell_file_ops` | `ShellToolset` | `ls` (pre-approved) + `mv` (approval required) |
 
 ---
 
@@ -342,10 +352,9 @@ Workers are defined in `.worker` files with YAML frontmatter:
 name: my_worker
 model: anthropic:claude-haiku-4-5
 toolsets:
-  filesystem: {}
-  shell:
-    allowed_commands: [ls, cat, grep]
-  tools.py: {}
+  filesystem_rw: {}
+  shell_readonly: {}
+  calc_tools: {}
 ---
 System prompt goes here...
 
@@ -358,7 +367,7 @@ You have access to filesystem and shell tools.
 |-------|----------|-------------|
 | `name` | Yes | Worker identifier (used for `ctx.deps.call()`) |
 | `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`) |
-| `toolsets` | No | Map of toolset references to their configs |
+| `toolsets` | No | Map of toolset references to `{}` |
 
 **Model Format:**
 
@@ -370,9 +379,8 @@ Models use the format `provider:model-name`:
 **Toolset References:**
 
 Toolsets can be specified as:
-- Built-in alias: `filesystem`, `shell`
-- Python file path: `tools.py`, `./lib/helpers.py`
-- Fully-qualified class: `my_package.toolsets.CustomToolset`
+- Built-in toolset name (e.g., `filesystem_rw`, `shell_readonly`)
+- Toolset instance name from a Python file passed to the CLI
 
 ---
 

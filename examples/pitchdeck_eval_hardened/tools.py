@@ -42,3 +42,8 @@ def list_pitchdecks(path: str = "input") -> list[dict]:
             "output_path": f"evaluations/{slug}.md",
         })
     return result
+
+
+pitchdeck_tools.__llm_do_approval_config__ = {
+    "list_pitchdecks": {"pre_approved": True},
+}

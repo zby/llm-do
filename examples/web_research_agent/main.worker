@@ -6,7 +6,7 @@ toolsets:
   web_research_extractor: {}
   web_research_consolidator: {}
   web_research_reporter: {}
-  filesystem: {}
+  filesystem_rw: {}
   web_research_tools: {}
 ---
 

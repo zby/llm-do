@@ -465,8 +465,8 @@ def main() -> int:
         metavar="KEY=VALUE",
         help=(
             "Override worker config (e.g., --set model=gpt-4, "
-            "--set toolsets.shell.timeout=30, "
-            "--set 'toolsets[\"llm_do.toolsets.shell.ShellToolset\"].default.approval_required=false')"
+            "--set description='Fast run', "
+            "--set 'server_side_tools=[{\"tool_type\":\"web_search\"}]')"
         ),
     )
 

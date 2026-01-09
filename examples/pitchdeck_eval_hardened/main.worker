@@ -3,7 +3,7 @@ name: main
 description: Coordinate evaluations for every deck stored in the input directory.
 toolsets:
   pitch_evaluator: {}
-  filesystem: {}
+  filesystem_rw: {}
   pitchdeck_tools: {}
 ---
 

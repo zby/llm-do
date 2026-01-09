@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from pydantic_ai.builtin_tools import (
     CodeExecutionTool,
@@ -13,11 +13,8 @@ from pydantic_ai.builtin_tools import (
 )
 from pydantic_ai.toolsets import AbstractToolset
 
-from ..toolsets.loader import (
-    ToolsetBuildContext,
-    build_toolsets,
-    extract_toolset_approval_configs,
-)
+from ..toolsets.builtins import build_builtin_toolsets
+from ..toolsets.loader import ToolsetBuildContext, build_toolsets
 from .contracts import Invocable, ModelType
 from .discovery import load_toolsets_and_workers_from_files
 from .schema_refs import resolve_schema_ref
@@ -74,6 +71,18 @@ def _build_builtin_tools(configs: list[dict[str, Any]]) -> list[Any]:
     return tools
 
 
+def _merge_toolsets(
+    *sources: Mapping[str, AbstractToolset[Any]],
+) -> dict[str, AbstractToolset[Any]]:
+    merged: dict[str, AbstractToolset[Any]] = {}
+    for source in sources:
+        for name, toolset in source.items():
+            if name in merged and merged[name] is not toolset:
+                raise ValueError(f"Duplicate toolset name: {name}")
+            merged[name] = toolset
+    return merged
+
+
 async def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
     """Get tool names from a toolset without needing a RunContext."""
     from pydantic_ai.toolsets import FunctionToolset
@@ -97,6 +106,8 @@ async def build_invocable_registry(
     """Build a registry with toolsets resolved and entries ready to run."""
     # Load Python toolsets and workers in a single pass
     python_toolsets, python_workers = load_toolsets_and_workers_from_files(python_files)
+    builtin_toolsets = build_builtin_toolsets(Path.cwd())
+    toolset_catalog_base = _merge_toolsets(builtin_toolsets, python_toolsets)
 
     # Build map of tool_name -> toolset for code entry pattern
     python_tool_map: dict[str, tuple[AbstractToolset[Any], str, str]] = {}
@@ -159,12 +170,10 @@ async def build_invocable_registry(
         overrides = set_overrides if name == entry_name else None
         worker_file = load_worker_file(worker_path, overrides=overrides)
 
-        # Available toolsets: Python + other workers (not self)
+        # Available toolsets: built-ins + Python + other workers (not self)
         # Worker IS an AbstractToolset, so we can use it directly
         available_workers = {k: v for k, v in worker_entries.items() if k != name}
-        all_toolsets: dict[str, AbstractToolset[Any]] = {}
-        all_toolsets.update(python_toolsets)
-        all_toolsets.update(available_workers)
+        all_toolsets = _merge_toolsets(toolset_catalog_base, available_workers)
 
         # Resolve toolsets: worker refs + python toolsets + (built-in aliases or class paths)
         toolset_context = ToolsetBuildContext(
@@ -173,8 +182,6 @@ async def build_invocable_registry(
             available_toolsets=all_toolsets,
         )
         resolved_toolsets = build_toolsets(worker_file.toolsets, toolset_context)
-        approval_configs = extract_toolset_approval_configs(worker_file.toolsets)
-
         # Apply model override only to entry worker (if override provided)
         worker_model: ModelType | None
         if entry_model_override and name == entry_name:
@@ -195,7 +202,6 @@ async def build_invocable_registry(
                 base_path=Path(worker_path).resolve().parent,
             )
         stub.toolsets = resolved_toolsets
-        stub.toolset_approval_configs = approval_configs
         stub.builtin_tools = builtin_tools
 
         workers[name] = stub

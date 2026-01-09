@@ -237,7 +237,6 @@ class Worker(AbstractToolset[Any]):
     model: str | Model | None = None  # String identifier or Model object
     compatible_models: list[str] | None = None
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
-    toolset_approval_configs: dict[str, dict[str, Any]] = field(default_factory=dict)
     builtin_tools: list[Any] = field(default_factory=list)  # PydanticAI builtin tools
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[BaseModel]] = None
@@ -384,7 +383,6 @@ class Worker(AbstractToolset[Any]):
             self.toolsets or [],
             run_ctx.deps.approval_callback,
             return_permission_errors=run_ctx.deps.run_approval_policy.return_permission_errors,
-            approval_configs=self.toolset_approval_configs or None,
         )
 
         # Fork per-call state and build child runtime for PydanticAI deps

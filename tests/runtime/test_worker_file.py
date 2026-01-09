@@ -48,10 +48,7 @@ name: main
 model: anthropic:claude-haiku-4-5
 schema_in_ref: schemas.py:TopicInput
 toolsets:
-  shell:
-    rules:
-      - pattern: "^ls"
-        allow: true
+  shell_readonly: {}
   calc_tools: {}
 ---
 You are a helpful assistant.
@@ -60,9 +57,8 @@ You are a helpful assistant.
 
         assert result.name == "main"
         assert result.schema_in_ref == "schemas.py:TopicInput"
-        assert "shell" in result.toolsets
+        assert "shell_readonly" in result.toolsets
         assert "calc_tools" in result.toolsets
-        assert result.toolsets["shell"]["rules"][0]["pattern"] == "^ls"
         assert result.toolsets["calc_tools"] == {}
 
     def test_worker_file_with_null_toolset_config(self):
@@ -138,8 +134,8 @@ Instructions.
 ---
 name: main
 toolsets:
-  - shell
-  - filesystem
+  - shell_readonly
+  - filesystem_rw
 ---
 Instructions.
 """
@@ -152,11 +148,27 @@ Instructions.
 ---
 name: main
 toolsets:
-  shell: not_a_dict
+  shell_readonly: not_a_dict
 ---
 Instructions.
 """
         with pytest.raises(ValueError, match="expected YAML mapping"):
+            parse_worker_file(content)
+
+    def test_toolset_config_not_allowed(self):
+        """Test that non-empty toolset config raises ValueError."""
+        content = """\
+---
+name: main
+toolsets:
+  shell_readonly:
+    rules:
+      - pattern: ls
+        approval_required: false
+---
+Instructions.
+"""
+        with pytest.raises(ValueError, match="cannot be configured"):
             parse_worker_file(content)
 
     def test_no_model(self):

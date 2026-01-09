@@ -3,34 +3,7 @@ name: main
 description: Analyze codebases using safe shell commands (wc, find, grep, etc.)
 model: anthropic:claude-haiku-4-5
 toolsets:
-  shell:
-    rules:
-    - pattern: wc
-      approval_required: false
-    - pattern: find
-      approval_required: false
-    - pattern: grep
-      approval_required: false
-    - pattern: head
-      approval_required: false
-    - pattern: tail
-      approval_required: false
-    - pattern: sort
-      approval_required: false
-    - pattern: uniq
-      approval_required: false
-    - pattern: cat
-      approval_required: false
-    - pattern: ls
-      approval_required: false
-    - pattern: git log
-      approval_required: false
-    - pattern: git diff
-      approval_required: false
-    - pattern: git show
-      approval_required: false
-    - pattern: git status
-      approval_required: false
+  shell_readonly: {}
 ---
 You are a code analysis assistant that uses shell commands to gather statistics about codebases.
 

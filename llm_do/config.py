@@ -19,7 +19,7 @@ def parse_set_override(spec: str) -> tuple[str, Any]:
 
     Returns:
         Tuple of (key_path, value) where key_path supports dot notation and
-        bracketed literal keys (e.g., toolsets["llm_do.toolsets.shell.ShellToolset"]).
+        bracketed literal keys (e.g., data["key.with.dots"]).
 
     Raises:
         ValueError: If spec format is invalid
@@ -27,10 +27,8 @@ def parse_set_override(spec: str) -> tuple[str, Any]:
     Examples:
         >>> parse_set_override("model=gpt-4")
         ('model', 'gpt-4')
-        >>> parse_set_override("toolsets.shell.rules=[{\"pattern\":\"git\"}]")
-        ('toolsets.shell.rules', [{'pattern': 'git'}])
-        >>> parse_set_override('toolsets[\"llm_do.toolsets.shell.ShellToolset\"].default.approval_required=false')
-        ('toolsets["llm_do.toolsets.shell.ShellToolset"].default.approval_required', False)
+        >>> parse_set_override("server_side_tools=[{\"tool_type\":\"web_search\"}]")
+        ('server_side_tools', [{'tool_type': 'web_search'}])
     """
     if '=' not in spec:
         raise ValueError(
@@ -178,8 +176,8 @@ def apply_set_override(data: dict[str, Any], key_path: str, value: Any) -> None:
 
     Args:
         data: Dictionary to modify (modified in place)
-        key_path: Dot-separated path (e.g., 'toolsets.shell.rules') or
-            bracketed literal key (e.g., 'toolsets["llm_do.toolsets.shell.ShellToolset"]')
+        key_path: Dot-separated path (e.g., 'server_side_tools.0.tool_type') or
+            bracketed literal key (e.g., 'data["key.with.dots"]')
         value: Parsed value to set
 
     Raises:
@@ -192,9 +190,9 @@ def apply_set_override(data: dict[str, Any], key_path: str, value: Any) -> None:
         {'model': 'new'}
 
         >>> data = {}
-        >>> apply_set_override(data, "toolsets.shell.timeout", 30)
+        >>> apply_set_override(data, "server_side_tools", [{"tool_type": "web_search"}])
         >>> data
-        {'toolsets': {'shell': {'timeout': 30}}}
+        {'server_side_tools': [{'tool_type': 'web_search'}]}
     """
     keys = _parse_key_path(key_path)
     target = data
@@ -230,11 +228,11 @@ def apply_overrides(data: dict[str, Any], set_overrides: list[str]) -> dict[str,
 
     Example:
         >>> data = {"model": "old", "name": "test"}
-        >>> result = apply_overrides(data, ["model=new", "toolsets.shell.timeout=30"])
+        >>> result = apply_overrides(data, ["model=new", "server_side_tools=[{\"tool_type\":\"web_search\"}]"])
         >>> result["model"]
         'new'
-        >>> result["toolsets"]["shell"]["timeout"]
-        30
+        >>> result["server_side_tools"][0]["tool_type"]
+        'web_search'
     """
     if not set_overrides:
         return data

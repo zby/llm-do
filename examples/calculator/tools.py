@@ -58,3 +58,11 @@ def multiply(a: float, b: float) -> float:
         b: Second number
     """
     return a * b
+
+
+calc_tools.__llm_do_approval_config__ = {
+    "factorial": {"pre_approved": True},
+    "fibonacci": {"pre_approved": True},
+    "add": {"pre_approved": True},
+    "multiply": {"pre_approved": True},
+}

@@ -26,15 +26,39 @@ echo "input message" | llm-do main.worker
 
 ## OAuth
 
-Use the OAuth helper to authenticate with Anthropic subscriptions:
+Use the OAuth helper to authenticate with provider subscriptions:
 
 ```bash
+# Anthropic (Claude Pro/Max subscriptions)
 llm-do-oauth login --provider anthropic
-llm-do-oauth logout --provider anthropic
 llm-do-oauth status --provider anthropic
+
+# Google Gemini CLI (uses Gemini Code Assist quota)
+llm-do-oauth login --provider google-gemini-cli
+llm-do-oauth status --provider google-gemini-cli
+
+# Google Antigravity (uses Antigravity quota with Claude/Gemini 3 access)
+llm-do-oauth login --provider google-antigravity
+llm-do-oauth status --provider google-antigravity
+
+# Logout from any provider
+llm-do-oauth logout --provider <provider>
 ```
 
+**Provider notes:**
+- **anthropic**: Uses your Claude Pro/Max subscription. Requires pasting an authorization code.
+- **google-gemini-cli**: Uses Google Gemini Code Assist quota. Opens browser and auto-captures callback.
+- **google-antigravity**: Uses Google Antigravity quota (includes Claude and Gemini 3 models). Opens browser and auto-captures callback.
+
 Credentials are stored at `~/.llm-do/oauth.json`.
+
+### OpenAI
+
+OpenAI does not use OAuth. Set your API key via environment variable:
+
+```bash
+export OPENAI_API_KEY=sk-...
+```
 
 ## Arguments
 

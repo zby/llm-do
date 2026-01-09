@@ -1,9 +1,9 @@
 """OAuth CLI for managing credentials.
 
 Usage:
-    llm-do-oauth login [--provider anthropic] [--open-browser]
-    llm-do-oauth logout [--provider anthropic]
-    llm-do-oauth status [--provider anthropic]
+    llm-do-oauth login [--provider anthropic|google-gemini-cli|google-antigravity] [--open-browser]
+    llm-do-oauth logout [--provider anthropic|google-gemini-cli|google-antigravity]
+    llm-do-oauth status [--provider anthropic|google-gemini-cli|google-antigravity]
 """
 from __future__ import annotations
 
@@ -11,8 +11,13 @@ import argparse
 import asyncio
 import sys
 import webbrowser
+from typing import get_args
 
-from ..oauth import OAuthStorage, get_oauth_path, login_anthropic
+from ..oauth import OAuthProvider, OAuthStorage, get_oauth_path, login_anthropic, login_google
+from ..oauth.google import GoogleProvider
+
+ALL_PROVIDERS = list(get_args(OAuthProvider))
+GOOGLE_PROVIDERS = list(get_args(GoogleProvider))
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
@@ -27,7 +32,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     login_parser.add_argument(
         "--provider",
         default="anthropic",
-        choices=["anthropic"],
+        choices=ALL_PROVIDERS,
         help="OAuth provider to use (default: anthropic)",
     )
     login_parser.add_argument(
@@ -41,7 +46,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     logout_parser.add_argument(
         "--provider",
         default="anthropic",
-        choices=["anthropic"],
+        choices=ALL_PROVIDERS,
         help="OAuth provider to clear (default: anthropic)",
     )
 
@@ -49,7 +54,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     status_parser.add_argument(
         "--provider",
         default="anthropic",
-        choices=["anthropic"],
+        choices=ALL_PROVIDERS,
         help="OAuth provider to check (default: anthropic)",
     )
 
@@ -62,32 +67,51 @@ async def run_oauth_cli(argv: list[str]) -> int:
     storage = OAuthStorage()
 
     if args.command == "login":
-        if args.provider != "anthropic":
-            print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
-            return 2
-
         def on_auth_url(url: str) -> None:
             print("Open this URL in your browser to authorize:")
             print(url)
             if args.open_browser:
                 webbrowser.open(url)
 
-        async def on_prompt_code() -> str:
-            return input("Paste the authorization code (format: code#state): ").strip()
+        if args.provider == "anthropic":
+            async def on_prompt_code() -> str:
+                return input("Paste the authorization code (format: code#state): ").strip()
 
-        try:
-            await login_anthropic(on_auth_url, on_prompt_code, storage=storage)
-        except Exception as exc:
-            print(f"OAuth login failed: {exc}", file=sys.stderr)
-            return 1
+            try:
+                await login_anthropic(on_auth_url, on_prompt_code, storage=storage)
+            except Exception as exc:
+                print(f"OAuth login failed: {exc}", file=sys.stderr)
+                return 1
+
+        elif args.provider in GOOGLE_PROVIDERS:
+            async def on_prompt_code_google() -> str:
+                return input("Paste the authorization code (or full callback URL): ").strip()
+
+            try:
+                # Open browser automatically for Google OAuth
+                if args.open_browser:
+                    webbrowser.open_new = webbrowser.open
+
+                google_provider: GoogleProvider = args.provider  # type: ignore[assignment]
+                await login_google(
+                    google_provider,
+                    on_auth_url,
+                    on_prompt_code=on_prompt_code_google,
+                    storage=storage,
+                    use_callback_server=True,
+                )
+            except Exception as exc:
+                print(f"OAuth login failed: {exc}", file=sys.stderr)
+                return 1
+
+        else:
+            print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
+            return 2
 
         print(f"Saved OAuth credentials to {get_oauth_path()}")
         return 0
 
     if args.command == "logout":
-        if args.provider != "anthropic":
-            print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
-            return 2
         if not storage.has_credentials(args.provider):
             print(f"No OAuth credentials found for {args.provider}")
             return 0
@@ -96,9 +120,6 @@ async def run_oauth_cli(argv: list[str]) -> int:
         return 0
 
     if args.command == "status":
-        if args.provider != "anthropic":
-            print(f"Unsupported OAuth provider: {args.provider}", file=sys.stderr)
-            return 2
         credentials = storage.load_credentials(args.provider)
         if not credentials:
             status = "not logged in"
@@ -106,6 +127,10 @@ async def run_oauth_cli(argv: list[str]) -> int:
             status = "expired"
         else:
             status = "logged in"
+            if credentials.email:
+                status += f" ({credentials.email})"
+            if credentials.project_id:
+                status += f" [project: {credentials.project_id}]"
         print(f"{args.provider}: {status}")
         return 0
 

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Literal, Optional, Protocol
 
-OAuthProvider = Literal["anthropic"]
+OAuthProvider = Literal["anthropic", "google-gemini-cli", "google-antigravity"]
 
 
 def _coerce_int(value: object) -> int:

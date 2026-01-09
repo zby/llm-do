@@ -369,6 +369,9 @@ You have access to filesystem and shell tools.
 |-------|----------|-------------|
 | `name` | Yes | Worker identifier (used for `ctx.deps.call()`) |
 | `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`) |
+| `compatible_models` | No | List of acceptable model patterns (mutually exclusive with `model`) |
+| `schema_in_ref` | No | Input schema reference (see [Worker Input Schemas](#worker-input-schemas)) |
+| `server_side_tools` | No | Server-side tool configs (e.g., web search) |
 | `toolsets` | No | List of toolset names |
 
 **Model Format:**
@@ -383,6 +386,20 @@ Models use the format `provider:model-name`:
 Toolsets can be specified as:
 - Built-in toolset name (e.g., `filesystem_project`, `shell_readonly`)
 - Toolset instance name from a Python file passed to the CLI
+
+**Compatible Models:**
+
+Use `compatible_models` when you want the worker to accept a CLI/env model that
+matches a pattern, rather than hardcoding `model`. Patterns use glob matching:
+
+```yaml
+compatible_models:
+  - "*"                       # allow any model
+  - "anthropic:*"             # any Anthropic model
+  - "anthropic:claude-haiku-*"  # any Claude Haiku variant
+```
+
+`model` and `compatible_models` are mutually exclusive.
 
 ---
 

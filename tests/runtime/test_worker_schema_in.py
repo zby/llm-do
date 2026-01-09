@@ -33,6 +33,22 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
 
 
 @pytest.mark.anyio
+async def test_worker_tool_description_prefers_description() -> None:
+    worker = Worker(
+        name="desc_worker",
+        instructions="Instructions fallback.",
+        description="Short tool summary.",
+    )
+    ctx = WorkerRuntime(toolsets=[], model="test-model")
+    run_ctx = ctx._make_run_context(worker.name, "test-model", ctx)
+
+    tools = await worker.get_tools(run_ctx)
+    tool_def = tools[worker.name].tool_def
+
+    assert tool_def.description == "Short tool summary."
+
+
+@pytest.mark.anyio
 async def test_worker_call_coerces_plain_text_for_input_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     """Worker.call() coerces plain text to {"input": text} when schema_in has an 'input' field."""
     from llm_do.runtime.input_utils import coerce_worker_input

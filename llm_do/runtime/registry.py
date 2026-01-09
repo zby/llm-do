@@ -150,6 +150,7 @@ async def build_invocable_registry(
         stub = Worker(
             name=name,
             instructions=worker_file.instructions,
+            description=worker_file.description,
             model=worker_file.model,
             toolsets=[],
         )
@@ -190,6 +191,7 @@ async def build_invocable_registry(
 
         stub = worker_entries[name]
         stub.instructions = worker_file.instructions
+        stub.description = worker_file.description
         stub.model = worker_model
         stub.compatible_models = worker_file.compatible_models
         if worker_file.schema_in_ref:

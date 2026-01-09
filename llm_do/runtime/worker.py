@@ -234,6 +234,7 @@ class Worker(AbstractToolset[Any]):
 
     name: str
     instructions: str
+    description: str | None = None
     model: str | Model | None = None  # String identifier or Model object
     compatible_models: list[str] | None = None
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
@@ -251,7 +252,12 @@ class Worker(AbstractToolset[Any]):
 
     async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
         """Return this worker as a callable tool."""
-        description = self.instructions[:200] + "..." if len(self.instructions) > 200 else self.instructions
+        description_source = self.description or self.instructions
+        description = (
+            description_source[:200] + "..."
+            if len(description_source) > 200
+            else description_source
+        )
         input_schema = self.schema_in or WorkerInput
 
         tool_def = ToolDefinition(

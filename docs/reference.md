@@ -235,6 +235,7 @@ For more control over tool behavior, approval logic, and configuration, extend `
 from typing import Any
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
+from pydantic_ai_blocking_approval import ApprovalResult
 
 class MyToolset(AbstractToolset[Any]):
     """Custom toolset with configuration and approval logic."""
@@ -368,6 +369,7 @@ You have access to filesystem and shell tools.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `name` | Yes | Worker identifier (used for `ctx.deps.call()`) |
+| `description` | No | Tool description when the worker is exposed as a tool (falls back to `instructions`) |
 | `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`) |
 | `compatible_models` | No | List of acceptable model patterns (mutually exclusive with `model`) |
 | `schema_in_ref` | No | Input schema reference (see [Worker Input Schemas](#worker-input-schemas)) |
@@ -386,6 +388,7 @@ Models use the format `provider:model-name`:
 Toolsets can be specified as:
 - Built-in toolset name (e.g., `filesystem_project`, `shell_readonly`)
 - Toolset instance name from a Python file passed to the CLI
+- Other worker names from `.worker` files (workers act as toolsets)
 
 **Compatible Models:**
 
@@ -400,6 +403,23 @@ compatible_models:
 ```
 
 `model` and `compatible_models` are mutually exclusive.
+
+**Server-Side Tools:**
+
+Use `server_side_tools` to enable provider-hosted tools:
+
+```yaml
+server_side_tools:
+  - tool_type: web_search
+    max_uses: 3
+    allowed_domains: ["example.com"]
+```
+
+Supported tool types:
+- `web_search` (options: `max_uses`, `blocked_domains`, `allowed_domains`)
+- `web_fetch`
+- `code_execution`
+- `image_generation`
 
 ---
 

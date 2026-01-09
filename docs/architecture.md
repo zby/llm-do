@@ -55,6 +55,9 @@ Implementation layout mirrors the scopes:
 
 ## Execution Flow
 
+`InvocableRegistry` is the symbol table for a run: it maps entry names to invocables
+(workers and tool-backed entries) after resolution.
+
 ```
 CLI or Python
     │

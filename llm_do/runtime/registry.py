@@ -1,4 +1,8 @@
-"""Invocable registry and builder utilities."""
+"""Invocable registry and builder utilities.
+
+The registry acts as a symbol table for entry names: resolved workers and
+tool-backed invocables are bound to names so the runtime can look them up.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,7 +28,7 @@ from .worker_file import load_worker_file
 
 @dataclass(frozen=True, slots=True)
 class InvocableRegistry:
-    """Symbol table for resolved invocables."""
+    """Symbol table mapping entry names to resolved invocables."""
 
     entries: dict[str, Invocable]
 
@@ -103,7 +107,7 @@ async def build_invocable_registry(
     entry_model_override: ModelType | None = None,
     set_overrides: list[str] | None = None,
 ) -> InvocableRegistry:
-    """Build a registry with toolsets resolved and entries ready to run."""
+    """Build the invocable symbol table with toolsets resolved and entries ready."""
     # Load Python toolsets and workers in a single pass
     python_toolsets, python_workers = load_toolsets_and_workers_from_files(python_files)
 

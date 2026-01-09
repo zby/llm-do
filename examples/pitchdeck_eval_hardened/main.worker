@@ -2,9 +2,9 @@
 name: main
 description: Coordinate evaluations for every deck stored in the input directory.
 toolsets:
-  pitch_evaluator: {}
-  filesystem_rw: {}
-  pitchdeck_tools: {}
+  - pitch_evaluator
+  - filesystem_project
+  - pitchdeck_tools
 ---
 
 You orchestrate pitch-deck evaluations. Use the tools provided to process

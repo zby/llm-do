@@ -3,7 +3,7 @@ name: main
 description: Analyze codebases using safe shell commands (wc, find, grep, etc.)
 model: anthropic:claude-haiku-4-5
 toolsets:
-  shell_readonly: {}
+  - shell_readonly
 ---
 You are a code analysis assistant that uses shell commands to gather statistics about codebases.
 

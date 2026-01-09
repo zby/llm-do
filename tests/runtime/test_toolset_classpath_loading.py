@@ -15,7 +15,7 @@ async def test_build_entry_rejects_unregistered_toolsets(tmp_path: Path) -> None
 ---
 name: main
 toolsets:
-  llm_do.toolsets.shell.ShellToolset: {}
+  - unknown_toolset
 ---
 Hello
 """

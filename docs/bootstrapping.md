@@ -123,14 +123,8 @@ The bootstrapper has these built-in permissions:
 | Create workers | ⚠️ Requires approval |
 | Call workers | ⚠️ Requires approval |
 
-**Project-local workers:** To save generated workers in your project instead of `/tmp`:
-
-```bash
-llm-do llm_do/workers/worker_bootstrapper.worker --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 \
-  --set toolsets.delegation.worker_create.output_dir=./workers \
-  --set toolsets.delegation.worker_call.workers_dir=./workers \
-  "Analyze the PDFs in input/ and write 100-word summaries to output/"
-```
+**Project-local workers:** Configure the bootstrapper toolset in Python
+(worker YAML toolsets are list-only and do not accept per-toolset config).
 
 ## Supported File Types
 

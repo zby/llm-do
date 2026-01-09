@@ -2,7 +2,7 @@
 name: web_research_reporter
 description: Produce Markdown and JSON outputs from consolidated research findings.
 model: anthropic:claude-sonnet-4-20250514
-toolsets: {}
+toolsets: []
 ---
 
 You turn consolidated findings into a readable report. Return JSON only with

@@ -7,15 +7,15 @@ Worker files use YAML frontmatter followed by markdown instructions:
 name: main
 model: anthropic:claude-haiku-4-5
 toolsets:
-  shell_readonly: {}
-  calc_tools: {}
+  - shell_readonly
+  - calc_tools
 ---
 Instructions for the worker...
 ```
 
-The `toolsets` section maps toolset names to empty config dicts.
+The `toolsets` section is a list of toolset names.
 Toolset names can reference:
-- Built-in toolsets (e.g., "shell_readonly", "filesystem_rw")
+- Built-in toolsets (e.g., "shell_readonly", "filesystem_project")
 - Toolsets discovered from Python files passed to CLI
 """
 from __future__ import annotations
@@ -41,7 +41,7 @@ class WorkerDefinition:
     model: str | None = None
     compatible_models: list[str] | None = None
     schema_in_ref: str | None = None
-    toolsets: dict[str, dict[str, Any]] = field(default_factory=dict)
+    toolsets: list[str] = field(default_factory=list)
     server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
 
 
@@ -63,36 +63,33 @@ def _extract_frontmatter_and_instructions(content: str) -> tuple[dict[str, Any],
     return dict(post.metadata), post.content.strip()
 
 
-def _parse_toolsets(toolsets_raw: Any) -> dict[str, dict[str, Any]]:
+def _parse_toolsets(toolsets_raw: Any) -> list[str]:
     """Parse and validate the toolsets section.
 
     Args:
         toolsets_raw: Raw toolsets value from frontmatter
 
     Returns:
-        Normalized toolsets dict mapping names to empty config dicts
+        List of toolset names
 
     Raises:
         ValueError: If toolsets format is invalid
     """
-    if not toolsets_raw:
-        return {}
+    if toolsets_raw is None:
+        return []
 
-    if not isinstance(toolsets_raw, dict):
-        raise ValueError("Invalid toolsets: expected YAML mapping")
+    if not isinstance(toolsets_raw, list):
+        raise ValueError("Invalid toolsets: expected YAML list")
 
-    toolsets: dict[str, dict[str, Any]] = {}
-    for toolset_name, toolset_config in toolsets_raw.items():
-        if toolset_config is None:
-            toolset_config = {}
-        if not isinstance(toolset_config, dict):
-            raise ValueError(f"Invalid config for toolset '{toolset_name}': expected YAML mapping")
-        if toolset_config:
-            raise ValueError(
-                f"Toolset '{toolset_name}' cannot be configured in worker YAML; "
-                "define a Python toolset instance instead"
-            )
-        toolsets[toolset_name] = toolset_config
+    toolsets: list[str] = []
+    seen: set[str] = set()
+    for item in toolsets_raw:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError("Invalid toolset entry: expected non-empty string")
+        if item in seen:
+            raise ValueError(f"Duplicate toolset entry: {item}")
+        seen.add(item)
+        toolsets.append(item)
 
     return toolsets
 

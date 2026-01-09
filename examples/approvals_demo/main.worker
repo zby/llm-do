@@ -3,7 +3,7 @@ name: main
 description: Save a timestamped note to a log file
 model: anthropic:claude-haiku-4-5
 toolsets:
-  filesystem_rw: {}
+  - filesystem_project
 ---
 You maintain a running log of notes in the `notes` directory.
 

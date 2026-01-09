@@ -3,7 +3,7 @@ name: web_research_extractor
 description: Fetch a URL and extract structured insights aligned to the topic.
 model: anthropic:claude-sonnet-4-20250514
 toolsets:
-  web_research_tools: {}
+  - web_research_tools
 ---
 
 You are a focused extractor for a single URL. Return structured JSON only.

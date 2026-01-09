@@ -31,22 +31,29 @@ _SHELL_FILE_OPS_RULES = [
 ]
 
 
-def build_builtin_toolsets(cwd: Path) -> dict[str, AbstractToolset[Any]]:
-    """Return built-in toolsets keyed by their registry names."""
-    base_path = cwd.resolve()
-    fs_config: dict[str, Any] = {
-        "base_path": str(base_path),
+def _filesystem_config(base_path: Path) -> dict[str, Any]:
+    return {
+        "base_path": str(base_path.resolve()),
         "read_approval": False,
         "write_approval": True,
     }
+
+
+def build_builtin_toolsets(
+    cwd: Path,
+    project_root: Path | None,
+) -> dict[str, AbstractToolset[Any]]:
+    """Return built-in toolsets keyed by their registry names."""
+    cwd_path = cwd.resolve()
+    project_path = (project_root or cwd_path).resolve()
     return {
-        "filesystem_rw": FileSystemToolset(config=fs_config),
-        "filesystem_ro": ReadOnlyFileSystemToolset(
-            config={
-                "base_path": str(base_path),
-                "read_approval": False,
-                "write_approval": True,
-            }
+        "filesystem_cwd": FileSystemToolset(config=_filesystem_config(cwd_path)),
+        "filesystem_cwd_ro": ReadOnlyFileSystemToolset(
+            config=_filesystem_config(cwd_path),
+        ),
+        "filesystem_project": FileSystemToolset(config=_filesystem_config(project_path)),
+        "filesystem_project_ro": ReadOnlyFileSystemToolset(
+            config=_filesystem_config(project_path),
         ),
         "shell_readonly": ShellToolset(config={"rules": list(_SHELL_READONLY_RULES)}),
         "shell_file_ops": ShellToolset(config={"rules": list(_SHELL_FILE_OPS_RULES)}),

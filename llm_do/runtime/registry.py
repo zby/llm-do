@@ -106,8 +106,6 @@ async def build_invocable_registry(
     """Build a registry with toolsets resolved and entries ready to run."""
     # Load Python toolsets and workers in a single pass
     python_toolsets, python_workers = load_toolsets_and_workers_from_files(python_files)
-    builtin_toolsets = build_builtin_toolsets(Path.cwd())
-    toolset_catalog_base = _merge_toolsets(builtin_toolsets, python_toolsets)
 
     # Build map of tool_name -> toolset for code entry pattern
     python_tool_map: dict[str, tuple[AbstractToolset[Any], str, str]] = {}
@@ -173,7 +171,9 @@ async def build_invocable_registry(
         # Available toolsets: built-ins + Python + other workers (not self)
         # Worker IS an AbstractToolset, so we can use it directly
         available_workers = {k: v for k, v in worker_entries.items() if k != name}
-        all_toolsets = _merge_toolsets(toolset_catalog_base, available_workers)
+        worker_root = Path(worker_path).resolve().parent
+        builtin_toolsets = build_builtin_toolsets(Path.cwd(), worker_root)
+        all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, available_workers)
 
         # Resolve toolsets: worker refs + python toolsets + (built-in aliases or class paths)
         toolset_context = ToolsetBuildContext(

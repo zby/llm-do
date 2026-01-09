@@ -3,8 +3,8 @@ name: main
 description: Organize messy filenames into consistent formats
 model: anthropic:claude-haiku-4-5
 toolsets:
-  file_tools: {}
-  shell_file_ops: {}
+  - file_tools
+  - shell_file_ops
 ---
 You organize files by renaming them to clean, consistent formats.
 

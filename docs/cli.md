@@ -67,21 +67,21 @@ export OPENAI_API_KEY=sk-...
 
 ## Worker File Toolsets
 
-Worker frontmatter maps toolset names to `{}` (config is defined in Python):
+Worker frontmatter declares toolsets as a list of names (config is defined in Python):
 
 ```yaml
 ---
 name: main
 toolsets:
-  shell_readonly: {}
-  filesystem_rw: {}
-  calc_tools: {}  # Python toolset name
-  analyzer: {}    # Another worker name
+  - shell_readonly
+  - filesystem_project
+  - calc_tools   # Python toolset name
+  - analyzer     # Another worker name
 ---
 ```
 
 Toolset names resolve to:
-- Built-ins: `shell_readonly`, `shell_file_ops`, `filesystem_rw`, `filesystem_ro`
+- Built-ins: `shell_readonly`, `shell_file_ops`, `filesystem_cwd`, `filesystem_project` (+ `_ro` variants)
 - Python toolsets discovered from passed `.py` files (by variable name)
 - Other worker entries from passed `.worker` files (by `name`)
 

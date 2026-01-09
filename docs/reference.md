@@ -208,7 +208,7 @@ Save as `tools.py` and reference in your worker:
 name: calculator
 model: anthropic:claude-haiku-4-5
 toolsets:
-  calc_tools: {}
+  - calc_tools
 ---
 You are a helpful calculator...
 ```
@@ -221,7 +221,7 @@ To call other workers/tools from your tool, accept `RunContext[WorkerRuntime]`:
 from pydantic_ai.tools import RunContext
 from llm_do.runtime import WorkerRuntime
 
-@tools.tool
+@calc_tools.tool
 async def analyze(ctx: RunContext[WorkerRuntime], text: str) -> str:
     """Analyze text using another worker."""
     return await ctx.deps.call("sentiment_analyzer", {"input": text})
@@ -307,15 +307,15 @@ from pydantic_ai.toolsets import FunctionToolset
 from llm_do.toolsets import FileSystemToolset
 
 calc_tools = FunctionToolset()
-filesystem_rw = FileSystemToolset(config={"base_path": "./data", "write_approval": True})
+filesystem_data = FileSystemToolset(config={"base_path": "./data", "write_approval": True})
 ```
 
 Then reference the toolset names in your worker:
 
 ```yaml
 toolsets:
-  calc_tools: {}
-  filesystem_rw: {}
+  - calc_tools
+  - filesystem_data
 ```
 
 If you need to pre-approve specific tools, attach an approval config dict:
@@ -336,8 +336,10 @@ instantiating them (e.g., base paths, worker metadata, or sandbox handles).
 
 | Name | Class | Tools |
 |------|-------|-------|
-| `filesystem_rw` | `FileSystemToolset` | `read_file`, `write_file`, `list_files` |
-| `filesystem_ro` | `ReadOnlyFileSystemToolset` | `read_file`, `list_files` |
+| `filesystem_cwd` | `FileSystemToolset` | `read_file`, `write_file`, `list_files` (base: CWD) |
+| `filesystem_cwd_ro` | `ReadOnlyFileSystemToolset` | `read_file`, `list_files` (base: CWD) |
+| `filesystem_project` | `FileSystemToolset` | `read_file`, `write_file`, `list_files` (base: worker dir) |
+| `filesystem_project_ro` | `ReadOnlyFileSystemToolset` | `read_file`, `list_files` (base: worker dir) |
 | `shell_readonly` | `ShellToolset` | Read-only shell commands (whitelist) |
 | `shell_file_ops` | `ShellToolset` | `ls` (pre-approved) + `mv` (approval required) |
 
@@ -352,9 +354,9 @@ Workers are defined in `.worker` files with YAML frontmatter:
 name: my_worker
 model: anthropic:claude-haiku-4-5
 toolsets:
-  filesystem_rw: {}
-  shell_readonly: {}
-  calc_tools: {}
+  - filesystem_project
+  - shell_readonly
+  - calc_tools
 ---
 System prompt goes here...
 
@@ -367,7 +369,7 @@ You have access to filesystem and shell tools.
 |-------|----------|-------------|
 | `name` | Yes | Worker identifier (used for `ctx.deps.call()`) |
 | `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`) |
-| `toolsets` | No | Map of toolset references to `{}` |
+| `toolsets` | No | List of toolset names |
 
 **Model Format:**
 
@@ -379,7 +381,7 @@ Models use the format `provider:model-name`:
 **Toolset References:**
 
 Toolsets can be specified as:
-- Built-in toolset name (e.g., `filesystem_rw`, `shell_readonly`)
+- Built-in toolset name (e.g., `filesystem_project`, `shell_readonly`)
 - Toolset instance name from a Python file passed to the CLI
 
 ---

@@ -22,7 +22,7 @@ These are the instructions.
         assert result.model == "anthropic:claude-haiku-4-5"
         assert result.instructions == "These are the instructions."
         assert result.description is None
-        assert result.toolsets == {}
+        assert result.toolsets == []
 
     def test_worker_file_with_description(self):
         """Test parsing a worker file with description."""
@@ -48,8 +48,8 @@ name: main
 model: anthropic:claude-haiku-4-5
 schema_in_ref: schemas.py:TopicInput
 toolsets:
-  shell_readonly: {}
-  calc_tools: {}
+  - shell_readonly
+  - calc_tools
 ---
 You are a helpful assistant.
 """
@@ -59,23 +59,21 @@ You are a helpful assistant.
         assert result.schema_in_ref == "schemas.py:TopicInput"
         assert "shell_readonly" in result.toolsets
         assert "calc_tools" in result.toolsets
-        assert result.toolsets["calc_tools"] == {}
 
-    def test_worker_file_with_null_toolset_config(self):
-        """Test parsing a worker file where toolset config is null/empty."""
+    def test_worker_file_with_toolsets_list(self):
+        """Test parsing a worker file with toolsets list."""
         content = """\
 ---
 name: main
 model: anthropic:claude-haiku-4-5
 toolsets:
-  my_tools:
+  - my_tools
 ---
 Instructions.
 """
         result = parse_worker_file(content)
 
         assert "my_tools" in result.toolsets
-        assert result.toolsets["my_tools"] == {}
 
     def test_worker_file_multiline_instructions(self):
         """Test parsing a worker file with multiline instructions."""
@@ -134,41 +132,38 @@ Instructions.
 ---
 name: main
 toolsets:
+  shell_readonly: {}
+---
+Instructions.
+"""
+        with pytest.raises(ValueError, match="expected YAML list"):
+            parse_worker_file(content)
+
+    def test_invalid_toolset_entry_raises(self):
+        """Test that invalid toolset entries raise ValueError."""
+        content = """\
+---
+name: main
+toolsets:
+  - 123
+---
+Instructions.
+"""
+        with pytest.raises(ValueError, match="expected non-empty string"):
+            parse_worker_file(content)
+
+    def test_duplicate_toolset_entry_raises(self):
+        """Test that duplicate toolset entries raise ValueError."""
+        content = """\
+---
+name: main
+toolsets:
   - shell_readonly
-  - filesystem_rw
+  - shell_readonly
 ---
 Instructions.
 """
-        with pytest.raises(ValueError, match="expected YAML mapping"):
-            parse_worker_file(content)
-
-    def test_invalid_toolset_config_raises(self):
-        """Test that invalid toolset config raises ValueError."""
-        content = """\
----
-name: main
-toolsets:
-  shell_readonly: not_a_dict
----
-Instructions.
-"""
-        with pytest.raises(ValueError, match="expected YAML mapping"):
-            parse_worker_file(content)
-
-    def test_toolset_config_not_allowed(self):
-        """Test that non-empty toolset config raises ValueError."""
-        content = """\
----
-name: main
-toolsets:
-  shell_readonly:
-    rules:
-      - pattern: ls
-        approval_required: false
----
-Instructions.
-"""
-        with pytest.raises(ValueError, match="cannot be configured"):
+        with pytest.raises(ValueError, match="Duplicate toolset entry"):
             parse_worker_file(content)
 
     def test_no_model(self):

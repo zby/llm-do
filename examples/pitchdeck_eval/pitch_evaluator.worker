@@ -2,7 +2,7 @@
 name: pitch_evaluator
 description: Analyze a PDF pitch deck and return a markdown evaluation report.
 model: anthropic:claude-haiku-4-5
-toolsets: {}
+toolsets: []
 ---
 
 You are a pitch deck evaluation specialist. You will receive a pitch deck PDF

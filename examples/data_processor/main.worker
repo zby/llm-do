@@ -2,7 +2,7 @@
 name: main
 model: anthropic:claude-haiku-4-5
 toolsets:
-  data_tools: {}
+  - data_tools
 ---
 You are a data processor.
 

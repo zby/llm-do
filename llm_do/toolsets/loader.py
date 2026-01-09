@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from pydantic_ai.toolsets import AbstractToolset
 
@@ -22,21 +22,16 @@ class ToolsetBuildContext:
 
 
 def build_toolsets(
-    toolsets_definition: Mapping[str, Mapping[str, Any]],
+    toolsets_definition: Sequence[str],
     context: ToolsetBuildContext,
 ) -> list[AbstractToolset[Any]]:
     """Resolve toolset instances declared in a worker file.
 
     Toolsets are registered as instances (built-ins, Python toolsets, workers).
-    Worker YAML may only reference toolset names; config is not allowed here.
+    Worker YAML may only reference toolset names.
     """
     toolsets: list[AbstractToolset[Any]] = []
-    for toolset_name, toolset_config in toolsets_definition.items():
-        if toolset_config:
-            raise TypeError(
-                f"Toolset {toolset_name!r} cannot be configured in worker YAML. "
-                "Define a Python toolset instance with the desired config instead."
-            )
+    for toolset_name in toolsets_definition:
         toolset = context.available_toolsets.get(toolset_name)
         if toolset is None:
             available = sorted(context.available_toolsets.keys())

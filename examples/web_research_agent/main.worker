@@ -3,11 +3,11 @@ name: main
 description: Orchestrate live web research, extraction, consolidation, and reporting.
 model: anthropic:claude-sonnet-4-20250514
 toolsets:
-  web_research_extractor: {}
-  web_research_consolidator: {}
-  web_research_reporter: {}
-  filesystem_rw: {}
-  web_research_tools: {}
+  - web_research_extractor
+  - web_research_consolidator
+  - web_research_reporter
+  - filesystem_project
+  - web_research_tools
 ---
 
 You orchestrate a live web research pipeline and write both Markdown and JSON

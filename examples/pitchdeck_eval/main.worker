@@ -3,8 +3,8 @@ name: main
 description: Coordinate evaluations for every deck stored in the input directory.
 model: anthropic:claude-haiku-4-5
 toolsets:
-  pitch_evaluator: {}
-  filesystem_rw: {}
+  - pitch_evaluator
+  - filesystem_project
 ---
 
 You orchestrate pitch-deck evaluations. Pitch decks are stored as PDF files in

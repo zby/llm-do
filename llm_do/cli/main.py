@@ -16,7 +16,7 @@ Entry point resolution:
 Toolsets:
     - Worker files reference toolsets by name in the toolsets: section
     - Python files export AbstractToolset instances (including FunctionToolset)
-    - Built-in toolsets: shell, filesystem
+    - Built-in toolsets: shell_readonly, shell_file_ops, filesystem_cwd, filesystem_project
 """
 from __future__ import annotations
 

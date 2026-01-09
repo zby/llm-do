@@ -26,35 +26,18 @@ import io
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Literal, cast
+from typing import Any, Literal
 
-from pydantic_ai.builtin_tools import (
-    CodeExecutionTool,
-    ImageGenerationTool,
-    WebFetchTool,
-    WebSearchTool,
-)
-from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from ..runtime import (
     ApprovalCallback,
     EventCallback,
-    Invocable,
     RunApprovalPolicy,
     Runtime,
-    ToolInvocable,
-    Worker,
     WorkerRuntime,
-    load_worker_file,
 )
-from ..runtime.discovery import load_toolsets_and_workers_from_files
-from ..runtime.schema_refs import resolve_schema_ref
-from ..toolsets.loader import (
-    ToolsetBuildContext,
-    build_toolsets,
-    extract_toolset_approval_configs,
-)
+from ..runtime.registry import InvocableRegistry, build_invocable_registry
 from ..ui import (
     DisplayBackend,
     ErrorEvent,
@@ -67,202 +50,6 @@ from ..ui import (
 )
 
 ENV_MODEL_VAR = "LLM_DO_MODEL"
-
-
-# Registry of server-side tool factories
-_BUILTIN_TOOL_FACTORIES: dict[str, Callable[[dict[str, Any]], Any]] = {
-    "web_search": lambda cfg: WebSearchTool(
-        max_uses=cfg.get("max_uses"),
-        blocked_domains=cfg.get("blocked_domains"),
-        allowed_domains=cfg.get("allowed_domains"),
-    ),
-    "web_fetch": lambda cfg: WebFetchTool(),
-    "code_execution": lambda cfg: CodeExecutionTool(),
-    "image_generation": lambda cfg: ImageGenerationTool(),
-}
-
-
-def _build_builtin_tools(configs: list[dict[str, Any]]) -> list[Any]:
-    """Convert server_side_tools config to PydanticAI builtin_tools.
-
-    Args:
-        configs: List of tool config dicts from worker file (raw YAML)
-
-    Returns:
-        List of PydanticAI builtin tool instances
-    """
-    tools: list[Any] = []
-    for config in configs:
-        tool_type = config.get("tool_type")
-        if not tool_type:
-            raise ValueError("server_side_tools entry must have 'tool_type'")
-        factory = _BUILTIN_TOOL_FACTORIES.get(tool_type)
-        if not factory:
-            raise ValueError(
-                f"Unknown tool_type: {tool_type}. "
-                f"Supported: {', '.join(_BUILTIN_TOOL_FACTORIES.keys())}"
-            )
-        tools.append(factory(config))
-    return tools
-
-
-async def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
-    """Get tool names from a toolset without needing a RunContext."""
-    from pydantic_ai.toolsets import FunctionToolset
-    if isinstance(toolset, FunctionToolset):
-        return list(toolset.tools.keys())
-    # For other toolsets, we'd need a RunContext - return empty for now
-    # Worker returns itself as a single tool
-    if isinstance(toolset, Worker):
-        return [toolset.name]
-    return []
-
-
-async def build_entry(
-    worker_files: list[str],
-    python_files: list[str],
-    model: str | None = None,
-    entry_name: str = "main",
-    set_overrides: list[str] | None = None,
-) -> ToolInvocable | Worker:
-    """Build the entry point with all toolsets resolved.
-
-    This function:
-    1. Loads all Python toolsets and workers
-    2. Creates Worker stubs for all .worker files (Worker IS an AbstractToolset)
-    3. Resolves toolset references (workers can call other workers)
-    4. Returns the entry (tool or worker) by name with toolsets populated
-
-    Args:
-        worker_files: List of .worker file paths
-        python_files: List of Python file paths containing toolsets
-        model: Optional model override for the entry worker
-        entry_name: Name of the entry (default: "main")
-        set_overrides: Optional list of --set KEY=VALUE overrides
-
-    Returns:
-        The ToolInvocable or Worker to run, with toolsets attribute populated
-
-    Raises:
-        ValueError: If entry not found, name conflict, or unknown toolset
-    """
-    # Load Python toolsets and workers in a single pass
-    python_toolsets, python_workers = load_toolsets_and_workers_from_files(python_files)
-
-    # Build map of tool_name -> toolset for code entry pattern
-    python_tool_map: dict[str, tuple[AbstractToolset[Any], str, str]] = {}
-    for toolset_name, toolset in python_toolsets.items():
-        tool_names = await _get_tool_names(toolset)
-        for tool_name in tool_names:
-            if tool_name in python_tool_map:
-                _, _, existing_toolset_name = python_tool_map[tool_name]
-                raise ValueError(
-                    f"Duplicate tool name: {tool_name} "
-                    f"(from toolsets '{existing_toolset_name}' and '{toolset_name}')"
-                )
-            python_tool_map[tool_name] = (toolset, tool_name, toolset_name)
-
-    if not worker_files and not python_tool_map and not python_workers:
-        raise ValueError("At least one .worker or .py file with entries required")
-
-    # First pass: create stub Worker instances (they ARE AbstractToolsets)
-    worker_entries: dict[str, Worker] = {}
-    worker_paths: dict[str, str] = {}  # name -> path
-
-    for worker_path in worker_files:
-        worker_file = load_worker_file(worker_path)
-        name = worker_file.name
-
-        # Check for duplicate worker names
-        if name in worker_entries:
-            raise ValueError(f"Duplicate worker name: {name}")
-
-        # Check for conflict with Python entries
-        if name in python_workers or name in python_tool_map:
-            raise ValueError(f"Worker name '{name}' conflicts with Python entry")
-
-        stub = Worker(
-            name=name,
-            instructions=worker_file.instructions,
-            model=worker_file.model,
-            toolsets=[],
-        )
-        worker_entries[name] = stub
-        worker_paths[name] = worker_path
-
-    # Determine entry type: worker file, Python worker, or Python tool
-    entry_type: str
-    if entry_name in worker_entries:
-        entry_type = "worker_file"
-    elif entry_name in python_workers:
-        entry_type = "python_worker"
-    elif entry_name in python_tool_map:
-        entry_type = "python_tool"
-    else:
-        available = list(worker_entries.keys()) + list(python_workers.keys()) + list(python_tool_map.keys())
-        raise ValueError(f"Entry '{entry_name}' not found. Available: {available}")
-
-    # Second pass: build all workers with resolved toolsets
-    workers: dict[str, Worker] = {}
-
-    for name, worker_path in worker_paths.items():
-        # Apply overrides only to entry worker
-        overrides = set_overrides if name == entry_name else None
-        worker_file = load_worker_file(worker_path, overrides=overrides)
-
-        # Available toolsets: Python + other workers (not self)
-        # Worker IS an AbstractToolset, so we can use it directly
-        available_workers = {k: v for k, v in worker_entries.items() if k != name}
-        all_toolsets: dict[str, AbstractToolset[Any]] = {}
-        all_toolsets.update(python_toolsets)
-        all_toolsets.update(available_workers)
-
-        # Resolve toolsets: worker refs + python toolsets + (built-in aliases or class paths)
-        toolset_context = ToolsetBuildContext(
-            worker_name=name,
-            worker_path=Path(worker_path).resolve(),
-            available_toolsets=all_toolsets,
-        )
-        resolved_toolsets = build_toolsets(worker_file.toolsets, toolset_context)
-        approval_configs = extract_toolset_approval_configs(worker_file.toolsets)
-
-        # Apply model override only to entry worker (if override provided)
-        worker_model: str | None
-        if model and name == entry_name:
-            worker_model = model
-        else:
-            worker_model = worker_file.model
-
-        # Build builtin tools from server_side_tools config
-        builtin_tools = _build_builtin_tools(worker_file.server_side_tools)
-
-        stub = worker_entries[name]
-        stub.instructions = worker_file.instructions
-        stub.model = worker_model
-        stub.compatible_models = worker_file.compatible_models
-        if worker_file.schema_in_ref:
-            stub.schema_in = resolve_schema_ref(
-                worker_file.schema_in_ref,
-                base_path=Path(worker_path).resolve().parent,
-            )
-        stub.toolsets = resolved_toolsets
-        stub.toolset_approval_configs = approval_configs
-        stub.builtin_tools = builtin_tools
-
-        workers[name] = stub
-
-    # Return entry
-    if entry_type == "worker_file":
-        return workers[entry_name]
-    elif entry_type == "python_worker":
-        return python_workers[entry_name]
-    else:  # python_tool
-        # Create ToolInvocable for the code entry point
-        toolset, tool_name, _toolset_name = python_tool_map[entry_name]
-        return ToolInvocable(
-            toolset=toolset,
-            tool_name=tool_name,
-        )
 
 
 async def run(
@@ -279,7 +66,7 @@ async def run(
     return_permission_errors: bool = False,
     message_history: list[Any] | None = None,
     set_overrides: list[str] | None = None,
-    entry: Invocable | None = None,
+    registry: InvocableRegistry | None = None,
     runtime: Runtime | None = None,
 ) -> tuple[Any, WorkerRuntime]:
     """Load entries and run with the given prompt.
@@ -298,7 +85,7 @@ async def run(
         return_permission_errors: If True, return tool results on PermissionError
         message_history: Optional prior messages for multi-turn conversations
         set_overrides: Optional list of --set KEY=VALUE overrides
-        entry: Optional pre-built entry (skips build_entry if provided)
+        registry: Optional pre-built registry (skips registry build if provided)
         runtime: Optional pre-built runtime (skips approval/UI wiring if provided)
 
     Returns:
@@ -307,16 +94,19 @@ async def run(
     if approve_all and reject_all:
         raise ValueError("Cannot set both approve_all and reject_all")
 
-    # Separate worker files and Python files
-    worker_files = [f for f in files if f.endswith(".worker")]
-    python_files = [f for f in files if f.endswith(".py")]
+    resolved_entry_name = entry_name or "main"
 
-    # Build entry point (skip if pre-built entry provided)
-    if entry is None:
-        resolved_entry_name = entry_name or "main"
-        entry = await build_entry(worker_files, python_files, model, resolved_entry_name, set_overrides)
-
-    invocable = cast(Invocable, entry)
+    if registry is None:
+        # Separate worker files and Python files
+        worker_files = [f for f in files if f.endswith(".worker")]
+        python_files = [f for f in files if f.endswith(".py")]
+        registry = await build_invocable_registry(
+            worker_files,
+            python_files,
+            entry_name=resolved_entry_name,
+            entry_model_override=model,
+            set_overrides=set_overrides,
+        )
     if runtime is None:
         approval_mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
         if approve_all:
@@ -348,8 +138,9 @@ async def run(
         ):
             raise ValueError("runtime provided; do not pass approval/UI overrides")
 
-    return await runtime.run_invocable(
-        invocable,
+    return await runtime.run_entry(
+        registry,
+        resolved_entry_name,
         prompt,
         model=model,
         message_history=message_history,

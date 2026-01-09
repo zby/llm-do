@@ -35,7 +35,7 @@ via a custom schema if needed.
 ## Calling Workers from Python
 
 Python code can invoke workers in two contexts:
-1. **From orchestrator scripts** — using `Runtime.run_invocable()` to start a run
+1. **From orchestrator scripts** — using `Runtime.run_entry()` to start a run
 2. **From within tools** — using `ctx.deps.call()` during an active run
 
 ### From Orchestrator Scripts
@@ -46,22 +46,23 @@ Use `Runtime` to create a shared execution environment and run entries:
 from llm_do.runtime import (
     Runtime,
     RunApprovalPolicy,
-    load_worker_file,
+    build_invocable_registry,
 )
 
 async def main():
-    worker = load_worker_file("analyzer.worker")
+    registry = await build_invocable_registry(["analyzer.worker"], [])
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
 
-    result, ctx = await runtime.run_invocable(
-        worker,
+    result, ctx = await runtime.run_entry(
+        registry,
+        entry_name="analyzer",
         prompt="Analyze this data",
     )
 
     print(result)
 ```
 
-`Runtime.run_invocable()`:
+`Runtime.run_entry()`:
 - Creates a fresh `WorkerRuntime` and `CallFrame` per run
 - Reuses runtime-scoped state (usage, approval cache, message log)
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
@@ -71,12 +72,13 @@ async def main():
 
 | Parameter | Description |
 |-----------|-------------|
-| `invocable` | Worker or tool to run |
+| `registry` | `InvocableRegistry` containing all available entries |
+| `entry_name` | Entry point name to run |
 | `prompt` | Input prompt string |
 | `model` | Override the worker's default model |
 | `message_history` | Pre-seed conversation history |
 
-`run_invocable()` remains as a one-shot convenience wrapper when you don't need a reusable runtime.
+`run_invocable()` remains as a lower-level API if you already have an invocable object.
 
 ### From Within Tools
 

@@ -9,11 +9,10 @@ This script demonstrates running llm-do workers directly from Python,
 with configuration constants for easy experimentation.
 """
 
-import asyncio
 import sys
 from pathlib import Path
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import InvocableRegistry, RunApprovalPolicy, Runtime, Worker
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.display import HeadlessDisplayBackend
 
@@ -27,7 +26,9 @@ MODEL = "anthropic:claude-haiku-4-5"
 # MODEL = "anthropic:claude-sonnet-4-20250514"
 
 # Approval settings
-APPROVE_ALL = True  # Set to False to require manual approval for tools
+APPROVAL_POLICY = RunApprovalPolicy(
+    mode="approve_all",  # For headless safety, use "reject_all" to deny tool approvals.
+)
 
 # Verbosity: 0=quiet, 1=show tool calls, 2=stream responses
 VERBOSITY = 1
@@ -76,32 +77,35 @@ def build_workers() -> tuple[Worker, Worker]:
 # Runtime
 # =============================================================================
 
-async def run_evaluation() -> str:
+def run_evaluation() -> str:
     """Run the pitch deck evaluation workflow."""
-    main, _ = build_workers()
+    main, pitch_evaluator = build_workers()
+    registry = InvocableRegistry(
+        entries={
+            "main": main,
+            "pitch_evaluator": pitch_evaluator,
+        }
+    )
 
     # Set up display backend for progress output
     backend = HeadlessDisplayBackend(stream=sys.stderr, verbosity=VERBOSITY)
 
-    approval_policy = RunApprovalPolicy(
-        mode="approve_all" if APPROVE_ALL else "prompt",
-    )
     runtime = Runtime(
         cli_model=MODEL,
-        run_approval_policy=approval_policy,
+        run_approval_policy=APPROVAL_POLICY,
         on_event=backend.display if VERBOSITY > 0 else None,
         verbosity=VERBOSITY,
     )
-    result, _ctx = await runtime.run_invocable(main, PROMPT)
+    result, _ctx = runtime.run_entry_sync(registry, "main", PROMPT)
     return result
 
 
 def main():
     """Main entry point."""
-    print(f"Running with MODEL={MODEL}, APPROVE_ALL={APPROVE_ALL}, VERBOSITY={VERBOSITY}")
+    print(f"Running with MODEL={MODEL}, APPROVAL_MODE={APPROVAL_POLICY.mode}, VERBOSITY={VERBOSITY}")
     print("-" * 60)
 
-    result = asyncio.run(run_evaluation())
+    result = run_evaluation()
 
     print("-" * 60)
     print("RESULT:")

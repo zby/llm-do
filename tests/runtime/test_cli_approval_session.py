@@ -14,7 +14,7 @@ from pydantic_ai_blocking_approval import (
 )
 
 from llm_do.cli.main import run
-from llm_do.runtime import RunApprovalPolicy, Runtime
+from llm_do.runtime import InvocableRegistry, RunApprovalPolicy, Runtime
 from llm_do.runtime.worker import Worker
 
 
@@ -67,7 +67,7 @@ class _ProbeToolset(AbstractToolset[Any]):
 
 
 @pytest.mark.anyio
-async def test_tui_session_approval_cache_persists_across_runs(tmp_path) -> None:
+async def test_tui_session_approval_cache_persists_across_runs() -> None:
     calls: list[ApprovalRequest] = []
     toolset = _ProbeToolset()
 
@@ -75,43 +75,31 @@ async def test_tui_session_approval_cache_persists_across_runs(tmp_path) -> None
         calls.append(request)
         return ApprovalDecision(approved=True, remember="session")
 
-    async def patched_build(*_args: Any, **_kwargs: Any) -> Worker:
-        return Worker(
+    registry = InvocableRegistry(entries={
+        "main": Worker(
             name="main",
             instructions="Test worker",
             model=TestModel(call_tools=["probe"], custom_output_text="done"),
             toolsets=[toolset],
         )
-
-    worker_path = tmp_path / "test.worker"
-    worker_path.write_text("""---
-name: main
----
-Test worker
-""")
-
-    import llm_do.cli.main as cli_module
-
-    original_build = cli_module.build_entry
-    cli_module.build_entry = patched_build
+    })
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(
             mode="prompt",
             approval_callback=approval_callback,
         )
     )
-    try:
-        await run(
-            files=[str(worker_path)],
-            prompt="First turn",
-            runtime=runtime,
-        )
-        await run(
-            files=[str(worker_path)],
-            prompt="Second turn",
-            runtime=runtime,
-        )
-    finally:
-        cli_module.build_entry = original_build
+    await run(
+        files=[],
+        prompt="First turn",
+        runtime=runtime,
+        registry=registry,
+    )
+    await run(
+        files=[],
+        prompt="Second turn",
+        runtime=runtime,
+        registry=registry,
+    )
 
     assert len(calls) == 1

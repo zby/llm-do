@@ -5,8 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.cli.main import build_entry
-from llm_do.runtime import Worker
+from llm_do.runtime import Worker, build_invocable_registry
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
@@ -21,7 +20,13 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     ]
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
-    entry = await build_entry(worker_files, python_files, model="test-model")
+    registry = await build_invocable_registry(
+        worker_files,
+        python_files,
+        entry_name="main",
+        entry_model_override="test-model",
+    )
+    entry = registry.get("main")
     assert isinstance(entry, Worker)
 
     extractor = next(
@@ -56,7 +61,7 @@ def collide(value: int) -> int:
                 files.append(f.name)
 
         with pytest.raises(ValueError, match="Duplicate tool name"):
-            await build_entry([], files, entry_name="collide")
+            await build_invocable_registry([], files, entry_name="collide")
     finally:
         for fname in files:
             os.unlink(fname)
@@ -87,7 +92,7 @@ main = Worker(name="main", instructions="hi", toolsets=[tools])
 """
     )
 
-    await build_entry([], [str(module_path)], entry_name="main")
+    await build_invocable_registry([], [str(module_path)], entry_name="main")
 
     lines = marker_path.read_text(encoding="utf-8").splitlines()
     assert lines == ["x"]
@@ -118,7 +123,8 @@ Instructions.
         encoding="utf-8",
     )
 
-    entry = await build_entry([str(worker_path)], [], entry_name="main")
+    registry = await build_invocable_registry([str(worker_path)], [], entry_name="main")
+    entry = registry.get("main")
     assert isinstance(entry, Worker)
     assert entry.schema_in is not None
     assert entry.schema_in.__name__ == "NoteInput"

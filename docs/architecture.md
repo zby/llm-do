@@ -59,10 +59,10 @@ Implementation layout mirrors the scopes:
 CLI or Python
     │
     ▼
-Load .worker file → resolve toolsets
+Build InvocableRegistry → resolve toolsets
     │
     ▼
-Runtime.run_invocable() creates CallFrame
+Runtime.run_entry() creates CallFrame
     │
     ▼
 Worker builds PydanticAI Agent → runs

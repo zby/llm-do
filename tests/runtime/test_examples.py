@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.cli.main import build_entry
 from llm_do.runtime import (
     ToolInvocable,
+    build_invocable_registry,
     load_toolsets_from_files,
     load_worker_file,
 )
@@ -21,36 +21,41 @@ async def test_single_worker_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "calculator" / "tools.py"])
     assert "calc_tools" in toolsets
 
-    worker = await build_entry(
+    registry = await build_invocable_registry(
         [str(EXAMPLES_DIR / "calculator" / "main.worker")],
         [str(EXAMPLES_DIR / "calculator" / "tools.py")],
-        model="test-model",
+        entry_name="main",
+        entry_model_override="test-model",
     )
+    worker = registry.get("main")
     assert len(worker.toolsets) == 1
 
 
 @pytest.mark.anyio
 async def test_delegation_example_builds():
-    worker = await build_entry(
+    registry = await build_invocable_registry(
         [
             str(EXAMPLES_DIR / "pitchdeck_eval" / "main.worker"),
             str(EXAMPLES_DIR / "pitchdeck_eval" / "pitch_evaluator.worker"),
         ],
         [],
-        model="test-model",
+        entry_name="main",
+        entry_model_override="test-model",
     )
+    worker = registry.get("main")
     toolset_names = [getattr(ts, "name", None) for ts in worker.toolsets]
     assert "pitch_evaluator" in toolset_names
 
 
 @pytest.mark.anyio
 async def test_code_entry_example_builds():
-    entry = await build_entry(
+    registry = await build_invocable_registry(
         [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")],
         [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "tools.py")],
-        model="test-model",
         entry_name="main",
+        entry_model_override="test-model",
     )
+    entry = registry.get("main")
     assert isinstance(entry, ToolInvocable)
 
 
@@ -60,11 +65,13 @@ async def test_server_side_tools_example_builds():
     assert len(worker_file.server_side_tools) == 1
     assert worker_file.server_side_tools[0]["tool_type"] == "web_search"
 
-    worker = await build_entry(
+    registry = await build_invocable_registry(
         [str(EXAMPLES_DIR / "web_searcher" / "main.worker")],
         [],
-        model="test-model",
+        entry_name="main",
+        entry_model_override="test-model",
     )
+    worker = registry.get("main")
     assert len(worker.builtin_tools) == 1
 
 
@@ -78,9 +85,11 @@ async def test_file_organizer_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "file_organizer" / "tools.py"])
     assert "file_tools" in toolsets
 
-    worker = await build_entry(
+    registry = await build_invocable_registry(
         [str(EXAMPLES_DIR / "file_organizer" / "main.worker")],
         [str(EXAMPLES_DIR / "file_organizer" / "tools.py")],
-        model="test-model",
+        entry_name="main",
+        entry_model_override="test-model",
     )
+    worker = registry.get("main")
     assert len(worker.toolsets) == 2  # file_tools + shell

@@ -1,6 +1,7 @@
 """Shared runtime scope (config + run-scoped state)."""
 from __future__ import annotations
 
+import asyncio
 import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -15,6 +16,7 @@ from .contracts import EventCallback, Invocable, ModelType
 
 if TYPE_CHECKING:
     from .deps import WorkerRuntime
+    from .registry import InvocableRegistry
 
 
 class UsageCollector:
@@ -171,3 +173,66 @@ class Runtime:
 
         result = await ctx.run(invocable, input_data)
         return result, ctx
+
+    async def run_entry(
+        self,
+        registry: "InvocableRegistry",
+        entry_name: str,
+        prompt: str,
+        *,
+        model: ModelType | None = None,
+        message_history: list[Any] | None = None,
+    ) -> tuple[Any, WorkerRuntime]:
+        """Run a registry entry by name with this runtime."""
+        invocable = registry.get(entry_name)
+        return await self.run_invocable(
+            invocable,
+            prompt,
+            model=model,
+            message_history=message_history,
+        )
+
+    def run(
+        self,
+        invocable: Invocable,
+        prompt: str,
+        *,
+        model: ModelType | None = None,
+        message_history: list[Any] | None = None,
+    ) -> tuple[Any, "WorkerRuntime"]:
+        """Run an invocable synchronously using asyncio.run()."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            raise RuntimeError(
+                "Runtime.run() cannot be called from a running event loop; "
+                "use Runtime.run_invocable() instead."
+            )
+
+        return asyncio.run(
+            self.run_invocable(
+                invocable,
+                prompt,
+                model=model,
+                message_history=message_history,
+            )
+        )
+
+    def run_entry_sync(
+        self,
+        registry: "InvocableRegistry",
+        entry_name: str,
+        prompt: str,
+        *,
+        model: ModelType | None = None,
+        message_history: list[Any] | None = None,
+    ) -> tuple[Any, "WorkerRuntime"]:
+        """Run a registry entry synchronously using asyncio.run()."""
+        return self.run(
+            registry.get(entry_name),
+            prompt,
+            model=model,
+            message_history=message_history,
+        )

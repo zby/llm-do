@@ -13,7 +13,13 @@ import sys
 import webbrowser
 from typing import get_args
 
-from ..oauth import OAuthProvider, OAuthStorage, get_oauth_path, login_anthropic, login_google
+from ..oauth import (
+    OAuthProvider,
+    OAuthStorage,
+    get_oauth_path,
+    login_anthropic,
+    login_google,
+)
 from ..oauth.google import GoogleProvider
 
 ALL_PROVIDERS = list(get_args(OAuthProvider))

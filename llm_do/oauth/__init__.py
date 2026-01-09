@@ -1,17 +1,11 @@
 """OAuth helpers for llm-do."""
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
 from .anthropic import login_anthropic, refresh_anthropic_token
-from .google import (
-    GoogleProvider,
-    login_google,
-    refresh_google_token,
-)
 from .storage import (
     OAuthCredentials,
     OAuthProvider,
@@ -47,11 +41,6 @@ def _ensure_storage(storage: Optional[OAuthStorage]) -> OAuthStorage:
     return storage or OAuthStorage()
 
 
-def _is_google_provider(provider: OAuthProvider) -> bool:
-    """Check if provider is a Google provider."""
-    return provider in ("google-gemini-cli", "google-antigravity")
-
-
 async def refresh_token(provider: OAuthProvider, storage: Optional[OAuthStorage] = None) -> str:
     """Refresh OAuth token for a provider and return the new access token."""
     oauth_storage = _ensure_storage(storage)
@@ -61,12 +50,6 @@ async def refresh_token(provider: OAuthProvider, storage: Optional[OAuthStorage]
 
     if provider == "anthropic":
         new_credentials = await refresh_anthropic_token(credentials.refresh)
-    elif _is_google_provider(provider):
-        # Cast to GoogleProvider for type safety
-        google_provider: GoogleProvider = provider  # type: ignore[assignment]
-        new_credentials = await refresh_google_token(
-            google_provider, credentials.refresh, storage=oauth_storage
-        )
     else:
         raise RuntimeError(f"Unknown OAuth provider: {provider}")
 
@@ -75,11 +58,7 @@ async def refresh_token(provider: OAuthProvider, storage: Optional[OAuthStorage]
 
 
 async def get_oauth_api_key(provider: OAuthProvider, storage: Optional[OAuthStorage] = None) -> Optional[str]:
-    """Return an API token for a provider, refreshing if expired.
-
-    For Google providers, returns JSON with token and projectId.
-    For Anthropic, returns the access token directly.
-    """
+    """Return an API token for a provider, refreshing if expired."""
     oauth_storage = _ensure_storage(storage)
     credentials = oauth_storage.load_credentials(provider)
     if not credentials:
@@ -97,36 +76,14 @@ async def get_oauth_api_key(provider: OAuthProvider, storage: Optional[OAuthStor
             oauth_storage.remove_credentials(provider)
             return None
 
-    # Google providers return JSON with token and projectId
-    if _is_google_provider(provider):
-        return json.dumps({
-            "token": credentials.access,
-            "projectId": credentials.project_id,
-        })
-
     return credentials.access
 
 
 def get_oauth_provider_for_model_provider(model_provider: str) -> Optional[OAuthProvider]:
-    """Return OAuth provider name for a model provider.
-
-    Note: For Google, this returns 'google-gemini-cli' by default.
-    Use get_google_oauth_provider() for explicit selection.
-    """
+    """Return OAuth provider name for a model provider."""
     if model_provider == "anthropic":
         return "anthropic"
-    if model_provider == "google":
-        return "google-gemini-cli"
     return None
-
-
-def get_google_oauth_provider(prefer_antigravity: bool = False) -> GoogleProvider:
-    """Return the preferred Google OAuth provider.
-
-    Args:
-        prefer_antigravity: If True, prefer google-antigravity over google-gemini-cli
-    """
-    return "google-antigravity" if prefer_antigravity else "google-gemini-cli"
 
 
 def _build_anthropic_oauth_model(model_name: str, token: str) -> Any:
@@ -180,19 +137,15 @@ __all__ = [
     "ANTHROPIC_OAUTH_BETA_FEATURES",
     "ANTHROPIC_OAUTH_DANGEROUS_HEADER",
     "ANTHROPIC_OAUTH_SYSTEM_PROMPT",
-    "GoogleProvider",
     "OAuthCredentials",
     "OAuthProvider",
     "OAuthStorage",
     "OAuthStorageBackend",
-    "get_google_oauth_provider",
     "get_oauth_api_key",
     "get_oauth_path",
     "get_oauth_provider_for_model_provider",
     "login_anthropic",
-    "login_google",
     "refresh_anthropic_token",
-    "refresh_google_token",
     "refresh_token",
     "resolve_oauth_overrides",
 ]

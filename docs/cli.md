@@ -33,22 +33,12 @@ Use the OAuth helper to authenticate with provider subscriptions:
 llm-do-oauth login --provider anthropic
 llm-do-oauth status --provider anthropic
 
-# Google Gemini CLI (uses Gemini Code Assist quota)
-llm-do-oauth login --provider google-gemini-cli
-llm-do-oauth status --provider google-gemini-cli
-
-# Google Antigravity (uses Antigravity quota with Claude/Gemini 3 access)
-llm-do-oauth login --provider google-antigravity
-llm-do-oauth status --provider google-antigravity
-
-# Logout from any provider
-llm-do-oauth logout --provider <provider>
+# Logout
+llm-do-oauth logout --provider anthropic
 ```
 
 **Provider notes:**
 - **anthropic**: Uses your Claude Pro/Max subscription. Requires pasting an authorization code.
-- **google-gemini-cli**: Uses Google Gemini Code Assist quota. Opens browser and auto-captures callback.
-- **google-antigravity**: Uses Google Antigravity quota (includes Claude and Gemini 3 models). Opens browser and auto-captures callback.
 
 Credentials are stored at `~/.llm-do/oauth.json`.
 
@@ -77,21 +67,21 @@ export OPENAI_API_KEY=sk-...
 
 ## Worker File Toolsets
 
-Worker frontmatter maps toolset names to configuration:
+Worker frontmatter maps toolset names to `{}` (config is defined in Python):
 
 ```yaml
 ---
 name: main
 toolsets:
-  shell: {}
-  filesystem: {}
+  shell_readonly: {}
+  filesystem_rw: {}
   calc_tools: {}  # Python toolset name
   analyzer: {}    # Another worker name
 ---
 ```
 
 Toolset names resolve to:
-- Built-ins: `shell`, `filesystem`
+- Built-ins: `shell_readonly`, `shell_file_ops`, `filesystem_rw`, `filesystem_ro`
 - Python toolsets discovered from passed `.py` files (by variable name)
 - Other worker entries from passed `.worker` files (by `name`)
 
@@ -138,17 +128,17 @@ Delegated workers use their own `model` fields. If unset, they inherit the entry
 # Override model
 llm-do main.worker --set model=anthropic:claude-haiku-4-5 "hello"
 
-# Override toolset config
-llm-do main.worker \
-  --set toolsets.filesystem.write_approval=false \
-  --set toolsets.shell.default.approval_required=false \
-  "task"
+# Override description
+llm-do main.worker --set description="Fast run" "task"
 
-# Override class-path toolset config (use bracketed literal keys)
+# Override server-side tools
 llm-do main.worker \
-  --set 'toolsets["llm_do.toolsets.shell.ShellToolset"].default.approval_required=false' \
+  --set 'server_side_tools=[{"tool_type":"web_search","max_uses":2}]' \
   "task"
 ```
+
+Toolset configuration lives in Python toolset instances, not worker YAML, so
+`--set` does not support toolset configuration overrides.
 
 **Type inference:**
 - JSON: `--set server_side_tools='[{"tool_type":"web_search"}]'`

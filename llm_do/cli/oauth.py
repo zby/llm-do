@@ -1,9 +1,9 @@
 """OAuth CLI for managing credentials.
 
 Usage:
-    llm-do-oauth login [--provider anthropic|google-gemini-cli|google-antigravity] [--open-browser]
-    llm-do-oauth logout [--provider anthropic|google-gemini-cli|google-antigravity]
-    llm-do-oauth status [--provider anthropic|google-gemini-cli|google-antigravity]
+    llm-do-oauth login [--provider anthropic] [--open-browser]
+    llm-do-oauth logout [--provider anthropic]
+    llm-do-oauth status [--provider anthropic]
 """
 from __future__ import annotations
 
@@ -18,12 +18,9 @@ from ..oauth import (
     OAuthStorage,
     get_oauth_path,
     login_anthropic,
-    login_google,
 )
-from ..oauth.google import GoogleProvider
 
 ALL_PROVIDERS = list(get_args(OAuthProvider))
-GOOGLE_PROVIDERS = list(get_args(GoogleProvider))
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
@@ -85,27 +82,6 @@ async def run_oauth_cli(argv: list[str]) -> int:
 
             try:
                 await login_anthropic(on_auth_url, on_prompt_code, storage=storage)
-            except Exception as exc:
-                print(f"OAuth login failed: {exc}", file=sys.stderr)
-                return 1
-
-        elif args.provider in GOOGLE_PROVIDERS:
-            async def on_prompt_code_google() -> str:
-                return input("Paste the authorization code (or full callback URL): ").strip()
-
-            try:
-                # Open browser automatically for Google OAuth
-                if args.open_browser:
-                    webbrowser.open_new = webbrowser.open
-
-                google_provider: GoogleProvider = args.provider  # type: ignore[assignment]
-                await login_google(
-                    google_provider,
-                    on_auth_url,
-                    on_prompt_code=on_prompt_code_google,
-                    storage=storage,
-                    use_callback_server=True,
-                )
             except Exception as exc:
                 print(f"OAuth login failed: {exc}", file=sys.stderr)
                 return 1

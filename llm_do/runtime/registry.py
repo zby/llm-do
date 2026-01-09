@@ -108,17 +108,13 @@ async def build_invocable_registry(
     python_toolsets, python_workers = load_toolsets_and_workers_from_files(python_files)
 
     # Build map of tool_name -> toolset for code entry pattern
-    python_tool_map: dict[str, tuple[AbstractToolset[Any], str, str]] = {}
+    # Note: duplicate tool names are detected by pydantic-ai at runtime
+    python_tool_map: dict[str, tuple[AbstractToolset[Any], str]] = {}
     for toolset_name, toolset in python_toolsets.items():
         tool_names = await _get_tool_names(toolset)
         for tool_name in tool_names:
-            if tool_name in python_tool_map:
-                _, _, existing_toolset_name = python_tool_map[tool_name]
-                raise ValueError(
-                    f"Duplicate tool name: {tool_name} "
-                    f"(from toolsets '{existing_toolset_name}' and '{toolset_name}')"
-                )
-            python_tool_map[tool_name] = (toolset, tool_name, toolset_name)
+            if tool_name not in python_tool_map:
+                python_tool_map[tool_name] = (toolset, tool_name)
 
     if not worker_files and not python_tool_map and not python_workers:
         raise ValueError("At least one .worker or .py file with entries required")
@@ -130,7 +126,7 @@ async def build_invocable_registry(
             raise ValueError(f"Duplicate entry name: {name}")
         entries[name] = worker
 
-    for tool_name, (toolset, tool_entry_name, _toolset_name) in python_tool_map.items():
+    for tool_name, (toolset, tool_entry_name) in python_tool_map.items():
         if tool_name in entries:
             continue
         entries[tool_name] = ToolInvocable(toolset=toolset, tool_name=tool_entry_name)

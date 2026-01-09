@@ -15,7 +15,7 @@ UserError: FileSystemToolset defines a tool whose name conflicts with existing t
 
 See: `.venv/.../pydantic_ai/toolsets/combined.py:70-74`
 
-Note: llm-do also has partial duplicate detection in `registry.py:117-120` for Python toolsets, but this is redundant with pydantic-ai's check.
+Note: llm-do previously had partial duplicate detection in `registry.py` for Python toolsets, but this was removed as redundant with pydantic-ai's check.
 
 ## Use Cases
 - Two filesystem toolsets with different `base_path` configs (e.g., one for source, one for docs)

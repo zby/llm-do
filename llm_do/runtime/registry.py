@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, cast
 
 from pydantic_ai.builtin_tools import (
     CodeExecutionTool,
@@ -19,6 +19,7 @@ from pydantic_ai.toolsets import AbstractToolset
 
 from ..toolsets.builtins import build_builtin_toolsets
 from ..toolsets.loader import ToolsetBuildContext, build_toolsets
+from .args import WorkerArgs
 from .contracts import Invocable, ModelType
 from .discovery import load_toolsets_and_workers_from_files
 from .schema_refs import resolve_schema_ref
@@ -197,10 +198,15 @@ async def build_invocable_registry(
         stub.model = worker_model
         stub.compatible_models = worker_file.compatible_models
         if worker_file.schema_in_ref:
-            stub.schema_in = resolve_schema_ref(
+            resolved_schema = resolve_schema_ref(
                 worker_file.schema_in_ref,
                 base_path=Path(worker_path).resolve().parent,
             )
+            if not issubclass(resolved_schema, WorkerArgs):
+                raise TypeError(
+                    "schema_in_ref must resolve to a WorkerArgs subclass"
+                )
+            stub.schema_in = cast(type[WorkerArgs], resolved_schema)
         stub.toolsets = resolved_toolsets
         stub.builtin_tools = builtin_tools
 

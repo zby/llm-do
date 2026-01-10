@@ -1,10 +1,10 @@
 # Runtime Input Unification
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
-- [ ] design decision needed (canonical input object + args model contract)
+- [x] design decision needed (canonical input object + args model contract)
 
 ## Goal
 Define and implement a single canonical runtime input model so worker prompt
@@ -30,17 +30,17 @@ construction and tool-facing prompt access cannot drift.
 - Follow-ups: Coordinate with `tasks/active/213-attachment-approval-gating.md` for attachment handling via approvals.
 
 ## Tasks
-- [ ] Document current prompt/input flow and failure modes (ctx.prompt drift)
+- [x] Document current prompt/input flow and failure modes (ctx.prompt drift)
 - [x] Decide canonical input object + tool-facing prompt semantics
 - [x] Decide strict args model contract (`WorkerArgs` + `prompt_spec()`)
-- [ ] Specify API changes (WorkerArgs base class, PromptSpec type, RunContext.prompt behavior)
-- [ ] Update worker input handling to require args models (no implicit coercion)
-- [ ] Document soft policy: tools should use args only; `ctx.deps` is for worker delegation (docs + code comments)
-- [ ] Implement + update tests/docs/examples
+- [x] Specify API changes (WorkerArgs base class, PromptSpec type, RunContext.prompt behavior)
+- [x] Update worker input handling to require args models (no implicit coercion)
+- [x] Document soft policy: tools should use args only; `ctx.deps` is for worker delegation (docs + code comments)
+- [x] Implement + update tests/docs/examples
 
 ## Current State
-Decision made: canonical args model base class with `prompt_spec()`; strict worker call inputs.
-Implementation plan is defined; no code changes applied yet.
+Implemented WorkerArgs/PromptSpec and strict input handling; updated runtime prompt derivation, docs, examples, and tests.
+All checks pass (`ruff`, `mypy`, `pytest`).
 
 ## Notes
 - Today `input_data` (structured) and `ctx.prompt` (string) can diverge, and

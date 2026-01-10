@@ -14,7 +14,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import Worker
+from llm_do.runtime import Worker, WorkerInput
 from llm_do.ui.events import UIEvent
 from tests.runtime.helpers import build_entry_context, build_runtime_context
 
@@ -56,10 +56,10 @@ async def test_entry_worker_receives_message_history_across_turns() -> None:
     )
     ctx = build_entry_context(worker, on_event=events.append, verbosity=1)
 
-    out1 = await ctx.run(worker, {"input": "turn 1"})
+    out1 = await ctx.run(worker, WorkerInput(input="turn 1"))
     assert out1 == "user_prompts=1"
 
-    out2 = await ctx.run(worker, {"input": "turn 2"})
+    out2 = await ctx.run(worker, WorkerInput(input="turn 2"))
     assert out2 == "user_prompts=2"
 
 
@@ -91,5 +91,5 @@ async def test_nested_worker_call_does_not_inherit_conversation_history() -> Non
         verbosity=1,
     )
 
-    result = await caller_ctx.call("sub", {"input": "nested call"})
+    result = await caller_ctx.call("sub", WorkerInput(input="nested call"))
     assert result == "user_prompts=1"

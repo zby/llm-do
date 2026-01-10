@@ -100,16 +100,26 @@ Supported forms:
 - `module.Class`
 - `path.py:Class` (relative to the worker file)
 
-If `schema_in_ref` is omitted, the default schema is `WorkerInput`:
+Schemas must subclass `WorkerArgs` and implement `prompt_spec()`. If `schema_in_ref` is omitted, the default schema is `WorkerInput`:
 
 ```python
-class WorkerInput(BaseModel):
+from pydantic import Field
+
+from llm_do.runtime import PromptSpec, WorkerArgs
+
+class WorkerInput(WorkerArgs):
     input: str
     attachments: list[str] = Field(default_factory=list)
+
+    def prompt_spec(self) -> PromptSpec:
+        return PromptSpec(text=self.input, attachments=tuple(self.attachments))
 ```
 
 Use `schema_in_ref` to guide tool-call structure (and optionally constrain
 `attachments` with regex/enum rules). Attachments must remain a list of paths.
+
+`prompt_spec().text` is used to build the LLM prompt (and `RunContext.prompt`
+for logging/UI only). Tools should use their typed args, not prompt text.
 
 ## Model Selection
 

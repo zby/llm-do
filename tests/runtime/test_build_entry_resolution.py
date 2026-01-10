@@ -77,11 +77,14 @@ async def test_build_entry_resolves_schema_in_ref(tmp_path: Path) -> None:
     schema_path = tmp_path / "schemas.py"
     schema_path.write_text(
         """\
-from pydantic import BaseModel
+from llm_do.runtime import PromptSpec, WorkerArgs
 
 
-class NoteInput(BaseModel):
+class NoteInput(WorkerArgs):
     input: str
+
+    def prompt_spec(self) -> PromptSpec:
+        return PromptSpec(text=self.input)
 """,
         encoding="utf-8",
     )

@@ -28,7 +28,7 @@ except ImportError:
     )
 
 # Import WorkerRuntime type for type hints
-from llm_do.runtime import WorkerRuntime
+from llm_do.runtime import WorkerInput, WorkerRuntime
 
 tools = FunctionToolset()
 
@@ -83,7 +83,10 @@ async def main(run_ctx: RunContext[WorkerRuntime], input: str) -> str:
         # Call LLM worker for analysis via run_ctx.deps (the WorkerRuntime)
         report = await run_ctx.deps.call(
             "pitch_evaluator",
-            {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]}
+            WorkerInput(
+                input="Evaluate this pitch deck.",
+                attachments=[deck["file"]],
+            ),
         )
 
         # Write result (deterministic)

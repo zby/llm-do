@@ -40,6 +40,9 @@ class WorkerRuntimeProtocol(Protocol):
     @property
     def prompt(self) -> str: ...
 
+    @prompt.setter
+    def prompt(self, value: str) -> None: ...
+
     @property
     def messages(self) -> list[Any]: ...
 

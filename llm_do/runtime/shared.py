@@ -161,20 +161,33 @@ class Runtime:
     async def run_invocable(
         self,
         invocable: Invocable,
-        prompt: str,
+        input_data: Any,
         *,
         model: ModelType | None = None,
         message_history: list[Any] | None = None,
     ) -> tuple[Any, WorkerRuntime]:
         """Run an invocable with this runtime."""
+        from .args import WorkerArgs, ensure_worker_args
         from .deps import WorkerRuntime
+        from .worker import Worker
 
         frame = self._build_entry_frame(invocable, model=model, message_history=message_history)
         ctx = WorkerRuntime(runtime=self, frame=frame)
-        input_data: dict[str, str] = {"input": prompt}
+        prompt_text: str | None = None
 
-        if self._config.on_event is not None:
-            self._config.on_event(UserMessageEvent(worker=invocable.name, content=prompt))
+        if isinstance(invocable, Worker):
+            input_args = ensure_worker_args(invocable.schema_in, input_data)
+            prompt_text = input_args.prompt_spec().text
+            input_data = input_args
+        elif isinstance(input_data, WorkerArgs):
+            prompt_text = input_data.prompt_spec().text
+        elif isinstance(input_data, dict) and "input" in input_data:
+            prompt_text = str(input_data["input"])
+
+        if self._config.on_event is not None and prompt_text is not None:
+            self._config.on_event(
+                UserMessageEvent(worker=invocable.name, content=prompt_text)
+            )
 
         result = await ctx.run(invocable, input_data)
         return result, ctx
@@ -183,7 +196,7 @@ class Runtime:
         self,
         registry: "InvocableRegistry",
         entry_name: str,
-        prompt: str,
+        input_data: Any,
         *,
         model: ModelType | None = None,
         message_history: list[Any] | None = None,
@@ -192,7 +205,7 @@ class Runtime:
         invocable = registry.get(entry_name)
         return await self.run_invocable(
             invocable,
-            prompt,
+            input_data,
             model=model,
             message_history=message_history,
         )
@@ -200,7 +213,7 @@ class Runtime:
     def run(
         self,
         invocable: Invocable,
-        prompt: str,
+        input_data: Any,
         *,
         model: ModelType | None = None,
         message_history: list[Any] | None = None,
@@ -219,7 +232,7 @@ class Runtime:
         return asyncio.run(
             self.run_invocable(
                 invocable,
-                prompt,
+                input_data,
                 model=model,
                 message_history=message_history,
             )
@@ -229,7 +242,7 @@ class Runtime:
         self,
         registry: "InvocableRegistry",
         entry_name: str,
-        prompt: str,
+        input_data: Any,
         *,
         model: ModelType | None = None,
         message_history: list[Any] | None = None,
@@ -237,7 +250,7 @@ class Runtime:
         """Run a registry entry synchronously using asyncio.run()."""
         return self.run(
             registry.get(entry_name),
-            prompt,
+            input_data,
             model=model,
             message_history=message_history,
         )

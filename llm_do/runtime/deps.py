@@ -10,6 +10,7 @@ from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
 from .approval import ApprovalCallback, RunApprovalPolicy
+from .args import WorkerArgs, ensure_worker_args
 from .call import CallFrame
 from .contracts import EventCallback, Invocable, ModelType, WorkerRuntimeProtocol
 from .shared import Runtime, RuntimeConfig
@@ -122,7 +123,11 @@ class WorkerRuntime:
     def _make_run_context(
         self, tool_name: str, resolved_model: ModelType, deps_ctx: WorkerRuntimeProtocol
     ) -> RunContext[WorkerRuntimeProtocol]:
-        """Construct a RunContext for direct tool invocation."""
+        """Construct a RunContext for direct tool invocation.
+
+        RunContext.prompt is derived from WorkerArgs for logging/UI only.
+        Tools should use their args, not prompt text.
+        """
         return RunContext(
             deps=deps_ctx,
             model=cast(Model, resolved_model),
@@ -145,29 +150,30 @@ class WorkerRuntime:
         args = input_data
         if isinstance(args, BaseModel):
             args = args.model_dump()
-
-        from .input_utils import coerce_worker_input
         from .worker import Worker
-
-        if isinstance(toolset, Worker):
-            args = coerce_worker_input(toolset.schema_in, args)
 
         validator = tool.args_validator
         if isinstance(args, (str, bytes, bytearray)):
             json_input = args if args else "{}"
-            return validator.validate_json(
+            validated = validator.validate_json(
                 json_input,
                 allow_partial="off",
                 context=run_ctx.validation_context,
             )
+            if isinstance(toolset, Worker):
+                return ensure_worker_args(toolset.schema_in, validated)
+            return validated
 
         if args is None:
             args = {}
-        return validator.validate_python(
+        validated = validator.validate_python(
             args,
             allow_partial="off",
             context=run_ctx.validation_context,
         )
+        if isinstance(toolset, Worker):
+            return ensure_worker_args(toolset.schema_in, validated)
+        return validated
 
     def spawn_child(
         self,
@@ -183,11 +189,16 @@ class WorkerRuntime:
 
     async def run(self, entry: Invocable, input_data: Any) -> Any:
         """Run an entry directly."""
-        # Extract prompt from input_data for RunContext
-        if isinstance(input_data, dict) and "input" in input_data:
+        from .worker import Worker
+
+        if isinstance(entry, Worker):
+            if not isinstance(input_data, WorkerArgs):
+                raise TypeError(
+                    f"Worker inputs must be WorkerArgs; got {type(input_data)}"
+                )
+            self.prompt = input_data.prompt_spec().text
+        elif isinstance(input_data, dict) and "input" in input_data:
             self.prompt = str(input_data["input"])
-        elif isinstance(input_data, str):
-            self.prompt = input_data
         return await self._execute(entry, input_data)
 
     async def call(self, name: str, input_data: Any) -> Any:
@@ -195,6 +206,9 @@ class WorkerRuntime:
 
         This enables programmatic tool invocation from code entry points:
             result = await ctx.deps.call("pitch_evaluator", {"input": "..."})
+
+        Soft policy: tools should use their args, and only use ctx.deps
+        for worker/tool delegation.
         """
         import uuid
 

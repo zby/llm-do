@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterable, Literal, Optional, Sequence, Type
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
     BinaryContent,
@@ -38,15 +38,10 @@ from ..models import (
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
 from .approval import ApprovalCallback
+from .args import PromptSpec, WorkerArgs, WorkerInput, ensure_worker_args
 from .call import CallFrame
 from .contracts import WorkerRuntimeProtocol
 from .shared import RuntimeConfig
-
-
-class WorkerInput(BaseModel):
-    """Input schema for workers."""
-    input: str
-    attachments: list[str] = Field(default_factory=list)
 
 
 def _load_attachment(path: str, base_path: Path | None = None) -> BinaryContent:
@@ -79,39 +74,18 @@ def _load_attachment(path: str, base_path: Path | None = None) -> BinaryContent:
 
 
 def _build_user_prompt(
-    input_data: Any, base_path: Path | None = None
+    prompt_spec: PromptSpec, base_path: Path | None = None
 ) -> str | Sequence[UserContent]:
-    """Build user prompt from input data, handling attachments.
-
-    If input_data contains attachments, returns a sequence of UserContent
-    parts (text + binary content). Otherwise returns a plain string.
-
-    Args:
-        input_data: Dict with 'input' and optional 'attachments' keys,
-                   or a plain string/BaseModel
-        base_path: Base directory for resolving relative attachment paths
-
-    Returns:
-        String prompt or sequence of UserContent parts
-    """
-    # Extract text and attachments
-    attachments: list[str] = []
-
-    if isinstance(input_data, dict):
-        text = str(input_data.get("input", input_data))
-        attachments = input_data.get("attachments", [])
-    elif isinstance(input_data, BaseModel):
-        text = getattr(input_data, "input", str(input_data))
-        attachments = getattr(input_data, "attachments", [])
-    else:
-        text = str(input_data)
+    """Build user prompt from a prompt spec, handling attachments."""
+    text = prompt_spec.text
+    attachments = list(prompt_spec.attachments)
 
     # If no attachments, return plain string (avoid empty/whitespace prompt for providers that require a message)
     if not attachments:
         return text if text.strip() else "(no input)"
 
     # Build multimodal prompt with attachments
-    parts: list[UserContent] = [text]
+    parts: list[UserContent] = [text if text.strip() else "(no input)"]
     for attachment_path in attachments:
         parts.append(_load_attachment(attachment_path, base_path))
 
@@ -308,12 +282,14 @@ class Worker(AbstractToolset[Any]):
     toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
     builtin_tools: list[Any] = field(default_factory=list)  # PydanticAI builtin tools
     model_settings: Optional[ModelSettings] = None
-    schema_in: Optional[Type[BaseModel]] = None
+    schema_in: Optional[Type[WorkerArgs]] = None
     schema_out: Optional[Type[BaseModel]] = None
     base_path: Optional[Path] = None  # Base directory for resolving relative attachment paths
     bulk_approve_toolsets: bool = False
 
     def __post_init__(self) -> None:
+        if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
+            raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
         config = get_toolset_approval_config(self)
         if config is None:
             set_toolset_approval_config(self, {self.name: {"pre_approved": True}})
@@ -357,7 +333,6 @@ class Worker(AbstractToolset[Any]):
             run_ctx.deps.config,
             run_ctx.deps.frame,
             run_ctx,
-            validate_input=False,
         )
 
     def _build_agent(
@@ -442,7 +417,7 @@ class Worker(AbstractToolset[Any]):
         """Execute the worker with the given input.
 
         Args:
-            input_data: Worker input (dict, string, or BaseModel)
+            input_data: Worker input args (WorkerArgs or dict)
             config: Global runtime configuration (immutable, shared)
             state: Per-call state (mutable, forked)
             run_ctx: PydanticAI RunContext (deps is the parent WorkerRuntime)
@@ -452,7 +427,6 @@ class Worker(AbstractToolset[Any]):
             config,
             state,
             run_ctx,
-            validate_input=True,
         )
 
     async def _call_internal(
@@ -461,16 +435,12 @@ class Worker(AbstractToolset[Any]):
         config: RuntimeConfig,
         state: CallFrame,
         run_ctx: RunContext[WorkerRuntimeProtocol],
-        *,
-        validate_input: bool,
     ) -> Any:
-        """Shared worker execution path with optional schema validation."""
+        """Shared worker execution path."""
         from .approval import wrap_toolsets_for_approval
-        from .input_utils import coerce_worker_input
 
-        input_data = coerce_worker_input(self.schema_in, input_data)
-        if validate_input and self.schema_in is not None:
-            input_data = self.schema_in.model_validate(input_data)
+        input_args = ensure_worker_args(self.schema_in, input_data)
+        prompt_spec = input_args.prompt_spec()
 
         # Check depth limit using global config and per-call state
         if state.depth >= config.max_depth:
@@ -498,10 +468,11 @@ class Worker(AbstractToolset[Any]):
 
         # Fork per-call state and build child runtime for PydanticAI deps
         child_runtime = run_ctx.deps.spawn_child(toolsets=wrapped_toolsets, model=resolved_model)
+        child_runtime.prompt = prompt_spec.text
         child_state = child_runtime.frame
 
         agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
-        prompt = _build_user_prompt(input_data, self.base_path)
+        prompt = _build_user_prompt(prompt_spec, self.base_path)
         message_history = (
             list(state.messages) if _should_use_message_history(child_runtime) and state.messages else None
         )

@@ -12,6 +12,7 @@ from .approval import (
     WorkerApprovalPolicy,
     resolve_approval_callback,
 )
+from .args import PromptSpec, WorkerArgs, WorkerInput
 from .contracts import EventCallback, Invocable, ModelType
 from .deps import ToolsProxy, WorkerRuntime
 from .discovery import (
@@ -45,6 +46,9 @@ __all__ = [
     "resolve_approval_callback",
     "InvocableRegistry",
     "build_invocable_registry",
+    "PromptSpec",
+    "WorkerArgs",
+    "WorkerInput",
     # Entries
     "Worker",
     "ToolInvocable",

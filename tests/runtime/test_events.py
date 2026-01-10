@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import InvocableRegistry, Worker
+from llm_do.runtime import InvocableRegistry, Worker, WorkerInput
 from llm_do.ui.events import (
     TextResponseEvent,
     ToolCallEvent,
@@ -112,7 +112,7 @@ class TestWorkerToolEvents:
             on_event=lambda e: events.append(e),
         )
 
-        await ctx.run(worker, {"input": "Add 3 and 4"})
+        await ctx.run(worker, WorkerInput(input="Add 3 and 4"))
 
         # Should have ToolCallEvent and ToolResultEvent
         tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
@@ -161,7 +161,7 @@ class TestWorkerToolEvents:
             on_event=lambda e: events.append(e),
         )
 
-        await ctx.run(worker, {"input": "Calculate"})
+        await ctx.run(worker, WorkerInput(input="Calculate"))
 
         tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
         tool_results = [e for e in events if isinstance(e, ToolResultEvent)]
@@ -198,7 +198,7 @@ class TestWorkerToolEvents:
             on_event=lambda e: events.append(e),
         )
 
-        await ctx.run(worker, {"input": "Greet Alice"})
+        await ctx.run(worker, WorkerInput(input="Greet Alice"))
 
         tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
         tool_results = [e for e in events if isinstance(e, ToolResultEvent)]
@@ -234,7 +234,7 @@ class TestWorkerToolEvents:
         assert ctx.on_event is None
 
         # Should not crash
-        result = await ctx.run(worker, {"input": "Hello"})
+        result = await ctx.run(worker, WorkerInput(input="Hello"))
         assert result is not None
 
 
@@ -259,7 +259,7 @@ class TestWorkerStreamingEvents:
             verbosity=2,  # Enable streaming
         )
 
-        await ctx.run(worker, {"input": "Hi"})
+        await ctx.run(worker, WorkerInput(input="Hi"))
 
         text_events = [e for e in events if isinstance(e, TextResponseEvent)]
 
@@ -292,7 +292,7 @@ class TestWorkerStreamingEvents:
             verbosity=1,  # Not streaming level
         )
 
-        await ctx.run(worker, {"input": "Hi"})
+        await ctx.run(worker, WorkerInput(input="Hi"))
 
         # Should NOT have streaming text events (deltas)
         text_events = [e for e in events if isinstance(e, TextResponseEvent) and e.is_delta]

@@ -1,17 +1,23 @@
 import pytest
-from pydantic import BaseModel
 
-from llm_do.runtime import Worker
+from llm_do.runtime import PromptSpec, Worker, WorkerArgs
+from llm_do.runtime.args import ensure_worker_args
 from tests.runtime.helpers import build_runtime_context
 
 
-class TopicInput(BaseModel):
+class TopicInput(WorkerArgs):
     topic: str
     limit: int = 3
 
+    def prompt_spec(self) -> PromptSpec:
+        return PromptSpec(text=f"topic={self.topic}\nlimit={self.limit}")
 
-class TextInput(BaseModel):
+
+class TextInput(WorkerArgs):
     input: str
+
+    def prompt_spec(self) -> PromptSpec:
+        return PromptSpec(text=self.input)
 
 
 @pytest.mark.anyio
@@ -50,20 +56,14 @@ async def test_worker_tool_description_prefers_description() -> None:
 
 
 @pytest.mark.anyio
-async def test_worker_call_coerces_plain_text_for_input_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Worker.call() coerces plain text to {"input": text} when schema_in has an 'input' field."""
-    from llm_do.runtime.input_utils import coerce_worker_input
-
-    # Verify coercion logic directly
-    result = coerce_worker_input(TextInput, "hello")
-    assert result == {"input": "hello"}
+async def test_worker_args_validation_requires_dict() -> None:
+    """Worker args require a structured payload."""
+    with pytest.raises(TypeError, match="Worker inputs must be dict"):
+        ensure_worker_args(TextInput, "hello")
 
 
 @pytest.mark.anyio
-async def test_worker_call_passes_plain_text_for_non_input_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Worker.call() passes plain text through when schema_in lacks an 'input' field."""
-    from llm_do.runtime.input_utils import coerce_worker_input
-
-    # Verify coercion logic directly - TopicInput has 'topic', not 'input'
-    result = coerce_worker_input(TopicInput, "hello")
-    assert result == "hello"
+async def test_worker_args_validation_accepts_dict() -> None:
+    """Worker args validation returns the expected WorkerArgs instance."""
+    result = ensure_worker_args(TextInput, {"input": "hello"})
+    assert isinstance(result, TextInput)

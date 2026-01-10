@@ -22,7 +22,7 @@ Instructions for the worker...
 ```
 
 Workers can call other workers as tools, forming a call tree. Each worker declares its own toolsets - they're not inherited.
-Workers can also declare a typed input schema via `schema_in_ref`; if omitted, the default schema is `WorkerInput`.
+Workers can also declare a typed input schema via `schema_in_ref`; schemas must subclass `WorkerArgs` and implement `prompt_spec()`. If omitted, the default schema is `WorkerInput`.
 
 ---
 

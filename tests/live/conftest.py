@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 import pytest
 
-from llm_do.runtime import build_invocable_registry
+from llm_do.runtime import WorkerInput, build_invocable_registry
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
@@ -167,6 +167,8 @@ async def run_example(
         on_event=on_event,
         verbosity=verbosity,
     )
+    if isinstance(input_data, str):
+        input_data = WorkerInput(input=input_data)
     return await ctx.run(entry, input_data)
 
 

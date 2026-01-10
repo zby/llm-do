@@ -131,7 +131,7 @@ async def run(
 
     Args:
         files: List of .py and .worker files
-        prompt: User prompt
+        prompt: User prompt text
         model: Optional model override
         entry_name: Optional entry point name (default: "main")
         max_depth: Optional maximum worker call depth
@@ -206,7 +206,7 @@ async def run(
     return await runtime.run_entry(
         registry,
         resolved_entry_name,
-        prompt,
+        {"input": prompt},
         model=model,
         message_history=message_history,
     )

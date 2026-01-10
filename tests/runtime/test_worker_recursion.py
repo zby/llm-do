@@ -1,7 +1,7 @@
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from llm_do.runtime import Runtime
+from llm_do.runtime import Runtime, WorkerInput
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.registry import build_invocable_registry
 from llm_do.runtime.worker import Worker
@@ -43,4 +43,4 @@ async def test_max_depth_blocks_self_recursion() -> None:
     )
 
     with pytest.raises(RuntimeError, match="Max depth exceeded: 2"):
-        await runtime.run_invocable(worker, "go")
+        await runtime.run_invocable(worker, WorkerInput(input="go"))

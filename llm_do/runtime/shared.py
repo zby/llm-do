@@ -75,7 +75,8 @@ class RuntimeConfig:
     """Shared runtime configuration (no per-call-chain state)."""
 
     cli_model: ModelType | None
-    run_approval_policy: RunApprovalPolicy
+    approval_callback: ApprovalCallback
+    return_permission_errors: bool = False
     max_depth: int = 5
     on_event: EventCallback | None = None
     message_log_callback: MessageLogCallback | None = None
@@ -96,9 +97,11 @@ class Runtime:
         verbosity: int = 0,
     ) -> None:
         policy = run_approval_policy or RunApprovalPolicy(mode="approve_all")
+        approval_callback = resolve_approval_callback(policy)
         self._config = RuntimeConfig(
             cli_model=cli_model,
-            run_approval_policy=policy,
+            approval_callback=approval_callback,
+            return_permission_errors=policy.return_permission_errors,
             max_depth=max_depth,
             on_event=on_event,
             message_log_callback=message_log_callback,
@@ -106,7 +109,6 @@ class Runtime:
         )
         self._usage = UsageCollector()
         self._message_log = MessageAccumulator()
-        self._approval_callback = resolve_approval_callback(policy)
 
     @property
     def config(self) -> RuntimeConfig:
@@ -114,7 +116,7 @@ class Runtime:
 
     @property
     def approval_callback(self) -> ApprovalCallback:
-        return self._approval_callback
+        return self._config.approval_callback
 
     @property
     def usage(self) -> list[RunUsage]:

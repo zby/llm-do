@@ -16,7 +16,7 @@ from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtoco
 from ..ui.events import UIEvent
 
 if TYPE_CHECKING:
-    from .approval import ApprovalCallback, RunApprovalPolicy
+    from .approval import ApprovalCallback
     from .call import CallFrame
     from .shared import RuntimeConfig
 
@@ -53,7 +53,7 @@ class WorkerRuntimeProtocol(Protocol):
     def verbosity(self) -> int: ...
 
     @property
-    def run_approval_policy(self) -> "RunApprovalPolicy": ...
+    def return_permission_errors(self) -> bool: ...
 
     @property
     def approval_callback(self) -> "ApprovalCallback": ...

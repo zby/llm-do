@@ -463,7 +463,7 @@ class Worker(AbstractToolset[Any]):
         wrapped_toolsets = wrap_toolsets_for_approval(
             self.toolsets or [],
             approval_callback,
-            return_permission_errors=run_ctx.deps.run_approval_policy.return_permission_errors,
+            return_permission_errors=run_ctx.deps.return_permission_errors,
         )
 
         # Fork per-call state and build child runtime for PydanticAI deps

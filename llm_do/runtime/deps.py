@@ -9,7 +9,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
-from .approval import ApprovalCallback, RunApprovalPolicy
+from .approval import ApprovalCallback
 from .args import WorkerArgs, ensure_worker_args
 from .call import CallFrame
 from .contracts import EventCallback, Invocable, ModelType, WorkerRuntimeProtocol
@@ -72,8 +72,8 @@ class WorkerRuntime:
         return self.runtime.config.cli_model
 
     @property
-    def run_approval_policy(self) -> RunApprovalPolicy:
-        return self.runtime.config.run_approval_policy
+    def return_permission_errors(self) -> bool:
+        return self.runtime.config.return_permission_errors
 
     @property
     def max_depth(self) -> int:

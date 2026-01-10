@@ -390,6 +390,23 @@ Toolsets can be specified as:
 - Toolset instance name from a Python file passed to the CLI
 - Other worker names from `.worker` files (workers act as toolsets)
 
+**Recursive Workers:**
+
+Workers can opt into recursion by listing themselves in `toolsets`:
+
+```yaml
+---
+name: explainer
+model: anthropic:claude-haiku-4-5
+toolsets:
+  - explainer
+---
+Explain the topic, and call yourself for missing prerequisites.
+```
+
+Recursion is bounded by `max_depth` (default: 5). Use `--max-depth` in the CLI
+or `Runtime(max_depth=...)` in Python to adjust it.
+
 **Compatible Models:**
 
 Use `compatible_models` when you want the worker to accept a CLI/env model that
@@ -438,6 +455,9 @@ llm-do tools.py worker.worker --entry main "prompt"
 # Approval modes
 llm-do worker.worker --approve-all "prompt"
 llm-do worker.worker --reject-all "prompt"
+
+# Limit recursion depth
+llm-do worker.worker --max-depth 3 "prompt"
 
 # Override model
 llm-do worker.worker --model openai:gpt-4o "prompt"

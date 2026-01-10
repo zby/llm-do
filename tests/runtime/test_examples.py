@@ -93,3 +93,23 @@ async def test_file_organizer_example_builds():
     )
     worker = registry.get("main")
     assert len(worker.toolsets) == 2  # file_tools + shell_file_ops
+
+
+@pytest.mark.anyio
+async def test_recursive_summarizer_example_builds():
+    worker_file = load_worker_file(EXAMPLES_DIR / "recursive_summarizer" / "main.worker")
+    assert "filesystem_project" in worker_file.toolsets
+    assert "summarizer" in worker_file.toolsets
+
+    registry = await build_invocable_registry(
+        [
+            str(EXAMPLES_DIR / "recursive_summarizer" / "main.worker"),
+            str(EXAMPLES_DIR / "recursive_summarizer" / "summarizer.worker"),
+        ],
+        [],
+        entry_name="main",
+        entry_model_override="test-model",
+    )
+    worker = registry.get("main")
+    toolset_names = [getattr(ts, "name", None) for ts in worker.toolsets]
+    assert "summarizer" in toolset_names

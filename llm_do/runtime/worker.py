@@ -6,6 +6,7 @@ This module provides:
 """
 from __future__ import annotations
 
+import inspect
 import json
 import mimetypes
 from dataclasses import dataclass, field
@@ -26,13 +27,16 @@ from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
+from pydantic_ai_blocking_approval import ApprovalDecision
 
 from ..models import (
     ModelCompatibilityError,
     get_model_string,
     validate_model_compatibility,
 )
+from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
+from .approval import ApprovalCallback
 from .call import CallFrame
 from .contracts import WorkerRuntimeProtocol
 from .shared import RuntimeConfig
@@ -131,6 +135,26 @@ def _get_all_messages(result: Any) -> list[Any]:
 def _update_message_history(runtime: WorkerRuntimeProtocol, result: Any) -> None:
     """Update message history in-place to keep shared references intact."""
     runtime.messages[:] = _get_all_messages(result)
+
+
+def _scoped_approval_callback(approval_callback: ApprovalCallback) -> ApprovalCallback:
+    """Return a callback that bulk-approves after the first approval."""
+    cached: ApprovalDecision | None = None
+
+    async def callback(request) -> ApprovalDecision:
+        nonlocal cached
+        if cached is not None and cached.approved:
+            return cached
+        decision = approval_callback(request)
+        if inspect.isawaitable(decision):
+            decision = await decision
+        if not isinstance(decision, ApprovalDecision):
+            raise TypeError("approval_callback must return ApprovalDecision")
+        if decision.approved:
+            cached = decision
+        return decision
+
+    return callback
 
 
 class _DictValidator:
@@ -243,6 +267,12 @@ class Worker(AbstractToolset[Any]):
     schema_in: Optional[Type[BaseModel]] = None
     schema_out: Optional[Type[BaseModel]] = None
     base_path: Optional[Path] = None  # Base directory for resolving relative attachment paths
+    bulk_approve_toolsets: bool = False
+
+    def __post_init__(self) -> None:
+        config = get_toolset_approval_config(self)
+        if config is None:
+            set_toolset_approval_config(self, {self.name: {"pre_approved": True}})
 
     # AbstractToolset implementation
     @property
@@ -385,9 +415,12 @@ class Worker(AbstractToolset[Any]):
                 raise ModelCompatibilityError(compat_result.message)
 
         # Wrap toolsets for approval using runtime-scoped callback
+        approval_callback = run_ctx.deps.approval_callback
+        if self.bulk_approve_toolsets:
+            approval_callback = _scoped_approval_callback(approval_callback)
         wrapped_toolsets = wrap_toolsets_for_approval(
             self.toolsets or [],
-            run_ctx.deps.approval_callback,
+            approval_callback,
             return_permission_errors=run_ctx.deps.run_approval_policy.return_permission_errors,
         )
 

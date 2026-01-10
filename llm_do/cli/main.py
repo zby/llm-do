@@ -57,6 +57,7 @@ async def run(
     prompt: str,
     model: str | None = None,
     entry_name: str | None = None,
+    max_depth: int | None = None,
     approve_all: bool = False,
     reject_all: bool = False,
     on_event: EventCallback | None = None,
@@ -76,6 +77,7 @@ async def run(
         prompt: User prompt
         model: Optional model override
         entry_name: Optional entry point name (default: "main")
+        max_depth: Optional maximum worker call depth
         approve_all: If True, auto-approve all tool calls
         reject_all: If True, auto-reject all tool calls that require approval
         on_event: Optional callback for UI events (tool calls, streaming text)
@@ -123,6 +125,7 @@ async def run(
         runtime = Runtime(
             cli_model=model,
             run_approval_policy=approval_policy,
+            max_depth=max_depth if max_depth is not None else 5,
             on_event=on_event,
             verbosity=verbosity,
         )
@@ -133,6 +136,7 @@ async def run(
             or approval_callback is not None
             or approval_cache is not None
             or return_permission_errors
+            or max_depth is not None
             or on_event is not None
             or verbosity != 0
         ):
@@ -152,6 +156,7 @@ async def _run_tui_mode(
     prompt: str,
     model: str | None = None,
     entry_name: str | None = None,
+    max_depth: int | None = None,
     approve_all: bool = False,
     reject_all: bool = False,
     verbosity: int = 0,
@@ -235,6 +240,7 @@ async def _run_tui_mode(
     runtime = Runtime(
         cli_model=model,
         run_approval_policy=approval_policy,
+        max_depth=max_depth if max_depth is not None else 5,
         on_event=on_event,
         verbosity=verbosity,
     )
@@ -343,6 +349,7 @@ async def _run_headless_mode(
     prompt: str,
     model: str | None,
     entry_name: str | None,
+    max_depth: int | None,
     approve_all: bool,
     reject_all: bool,
     verbosity: int,
@@ -383,6 +390,7 @@ async def _run_headless_mode(
             prompt=prompt,
             model=model,
             entry_name=entry_name,
+            max_depth=max_depth,
             approve_all=approve_all,
             reject_all=reject_all,
             on_event=on_event,
@@ -431,6 +439,12 @@ def main() -> int:
         action="count",
         default=0,
         help="Show progress (-v for tool calls, -vv for streaming)",
+    )
+    parser.add_argument(
+        "--max-depth",
+        type=int,
+        default=None,
+        help="Maximum worker call depth (default: 5)",
     )
     parser.add_argument(
         "--json",
@@ -532,6 +546,7 @@ def main() -> int:
             prompt=prompt,
             model=args.model,
             entry_name=args.entry,
+            max_depth=args.max_depth,
             approve_all=args.approve_all,
             reject_all=args.reject_all,
             verbosity=tui_verbosity,
@@ -561,6 +576,7 @@ def main() -> int:
             prompt=prompt,
             model=args.model,
             entry_name=args.entry,
+            max_depth=args.max_depth,
             approve_all=args.approve_all,
             reject_all=args.reject_all,
             verbosity=args.verbose,

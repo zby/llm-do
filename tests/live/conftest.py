@@ -139,6 +139,9 @@ async def run_example(
     entry_name: str = "main",
     model: str | None = None,
     approval_callback: Callable[[Any], Any] | None = None,
+    max_depth: int | None = None,
+    on_event: Callable[[Any], Any] | None = None,
+    verbosity: int = 0,
 ) -> Any:
     """Build and run an example entry with approvals wired."""
     worker_files, python_files = _collect_example_files(example_dir)
@@ -155,7 +158,14 @@ async def run_example(
         approval_callback=approval_callback,
     )
 
-    ctx = WorkerRuntime.from_entry(entry, model=model, run_approval_policy=approval_policy)
+    ctx = WorkerRuntime.from_entry(
+        entry,
+        model=model,
+        run_approval_policy=approval_policy,
+        max_depth=max_depth if max_depth is not None else 5,
+        on_event=on_event,
+        verbosity=verbosity,
+    )
     return await ctx.run(entry, input_data)
 
 
@@ -199,3 +209,9 @@ def web_research_agent_example(example_dir_factory):
 def whiteboard_planner_example(example_dir_factory):
     """Example directory for whiteboard_planner."""
     return example_dir_factory("whiteboard_planner")
+
+
+@pytest.fixture
+def recursive_summarizer_example(example_dir_factory):
+    """Example directory for recursive_summarizer."""
+    return example_dir_factory("recursive_summarizer")

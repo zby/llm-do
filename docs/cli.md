@@ -156,6 +156,14 @@ Approvals apply only to LLM-invoked actions; user-invoked top-level entries are 
 
 Without either flag, approvals are interactive only in TUI mode. In headless or JSON mode, any tool that requires approval will fail with a permission error.
 
+## Depth Limits
+
+Use `--max-depth` to cap worker nesting depth (default: 5):
+
+```bash
+llm-do main.worker --max-depth 3 "prompt"
+```
+
 ## Output Modes
 
 | Mode | Flag | Notes |

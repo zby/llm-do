@@ -7,6 +7,7 @@ from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 from llm_do.runtime import ToolInvocable, run_invocable
 from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
 from llm_do.runtime.worker import Worker
+from llm_do.toolsets.approval import set_toolset_approval_config
 from llm_do.toolsets.filesystem import FileSystemToolset
 
 # TestModel is used in test_nested_worker_calls_are_approval_gated
@@ -107,12 +108,36 @@ async def test_toolinvocable_has_no_toolsets() -> None:
 
 
 @pytest.mark.anyio
-async def test_nested_worker_calls_are_approval_gated() -> None:
+async def test_nested_worker_calls_bypass_approval_by_default() -> None:
     child = Worker(
         name="child",
         instructions="Child worker",
         model=TestModel(custom_output_text="child"),
     )
+    parent = Worker(
+        name="parent",
+        instructions="Parent worker",
+        model=TestModel(call_tools=["child"]),
+        toolsets=[child],
+    )
+
+    result, _ctx = await run_invocable(
+        parent,
+        prompt="trigger",
+        approval_policy=RunApprovalPolicy(mode="reject_all"),
+    )
+
+    assert result is not None
+
+
+@pytest.mark.anyio
+async def test_nested_worker_calls_can_require_approval() -> None:
+    child = Worker(
+        name="child",
+        instructions="Child worker",
+        model=TestModel(custom_output_text="child"),
+    )
+    set_toolset_approval_config(child, {child.name: {"pre_approved": False}})
     parent = Worker(
         name="parent",
         instructions="Parent worker",
@@ -152,3 +177,41 @@ async def test_toolinvocable_entry_call_not_approval_gated() -> None:
     )
 
     assert result == "hello"
+
+
+@pytest.mark.anyio
+async def test_bulk_approval_scopes_child_tool_calls() -> None:
+    toolset = FunctionToolset()
+
+    @toolset.tool
+    def tool_a(input: str) -> str:
+        return f"a:{input}"
+
+    @toolset.tool
+    def tool_b(input: str) -> str:
+        return f"b:{input}"
+
+    approvals = []
+
+    def approval_callback(request):
+        approvals.append(request)
+        return ApprovalDecision(approved=True)
+
+    worker = Worker(
+        name="bulk-worker",
+        instructions="Call tool_a then tool_b.",
+        model=TestModel(call_tools=["tool_a", "tool_b"]),
+        toolsets=[toolset],
+        bulk_approve_toolsets=True,
+    )
+
+    await run_invocable(
+        worker,
+        prompt="go",
+        approval_policy=RunApprovalPolicy(
+            mode="prompt",
+            approval_callback=approval_callback,
+        ),
+    )
+
+    assert len(approvals) == 1

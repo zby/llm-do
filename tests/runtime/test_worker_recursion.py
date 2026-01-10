@@ -1,0 +1,46 @@
+import pytest
+from pydantic_ai.models.test import TestModel
+
+from llm_do.runtime import Runtime
+from llm_do.runtime.approval import RunApprovalPolicy
+from llm_do.runtime.registry import build_invocable_registry
+from llm_do.runtime.worker import Worker
+
+
+@pytest.mark.anyio
+async def test_registry_allows_self_toolset_reference(tmp_path) -> None:
+    worker_path = tmp_path / "recursive.worker"
+    worker_path.write_text(
+        """---
+name: recursive
+model: test
+toolsets:
+  - recursive
+---
+Call yourself.
+"""
+    )
+
+    registry = await build_invocable_registry([str(worker_path)], [], entry_name="recursive")
+    entry = registry.get("recursive")
+
+    assert isinstance(entry, Worker)
+    assert entry.toolsets
+    assert entry.toolsets[0] is entry
+
+
+@pytest.mark.anyio
+async def test_max_depth_blocks_self_recursion() -> None:
+    worker = Worker(
+        name="loop",
+        instructions="Loop until depth is exceeded.",
+        model=TestModel(call_tools=["loop"]),
+    )
+    worker.toolsets = [worker]
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(mode="approve_all"),
+        max_depth=2,
+    )
+
+    with pytest.raises(RuntimeError, match="Max depth exceeded: 2"):
+        await runtime.run_invocable(worker, "go")

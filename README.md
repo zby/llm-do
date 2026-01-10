@@ -167,7 +167,7 @@ llm-do orchestrator.worker tools.py --entry orchestrator "input"
 llm-do main.worker --set model=anthropic:claude-sonnet-4 "input"
 ```
 
-Common flags: `--headless`, `--tui`, `--chat`, `--json`, `-v/-vv`, `--set`, `--approve-all`, `--model`. See [`docs/cli.md`](docs/cli.md) for details.
+Common flags: `--headless`, `--tui`, `--chat`, `--json`, `-v/-vv`, `--set`, `--approve-all`, `--max-depth`, `--model`. See [`docs/cli.md`](docs/cli.md) for details.
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
 

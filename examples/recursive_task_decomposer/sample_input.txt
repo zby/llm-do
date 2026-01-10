@@ -1,0 +1,3 @@
+TASK: Plan a 2-day onboarding workshop for new backend engineers
+CONTEXT: Remote team, 15 attendees, limited to 4 hours per day, include a hands-on lab
+MAX_DEPTH: 2

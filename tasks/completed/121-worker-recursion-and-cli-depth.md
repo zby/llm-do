@@ -1,7 +1,7 @@
 # Worker Recursion and CLI Max Depth
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] design decision needed: self-recursion exposure (default vs explicit toolset)
@@ -40,15 +40,15 @@ Enable intentional recursive workers (including self recursion) and expose confi
 - Follow-ups: update tests that currently assume nested worker calls are approval gated; plan for bulk approvals with scoped approval callbacks and defer full DeferredTools support.
 
 ## Tasks
-- [ ] Enable self-recursive toolset resolution (remove or adjust self filter).
-- [ ] Add CLI `--max-depth` (or equivalent) wired to RuntimeConfig.
-- [ ] Implement capability-based approval defaults for Worker tool calls.
-- [ ] Add worker-level bulk approval option by scoping approval callback in `Worker.call()` (single approval gates child toolsets).
-- [ ] Add/update tests for self recursion and depth enforcement.
-- [ ] Update docs/examples to show recursive worker pattern.
+- [x] Enable self-recursive toolset resolution (remove or adjust self filter).
+- [x] Add CLI `--max-depth` (or equivalent) wired to RuntimeConfig.
+- [x] Implement capability-based approval defaults for Worker tool calls.
+- [x] Add worker-level bulk approval option by scoping approval callback in `Worker.call()` (single approval gates child toolsets).
+- [x] Add/update tests for self recursion and depth enforcement.
+- [x] Update docs/examples to show recursive worker pattern.
 
 ## Current State
-Self recursion is blocked during toolset resolution; nested worker calls are approval gated by default; max_depth is configurable in Runtime but not exposed in CLI. Decisions settled on explicit self toolset + capability-based approvals.
+Self recursion is enabled via explicit toolset listing, worker calls default to pre-approved, bulk approvals can be scoped per worker call, and CLI exposes max depth. Tests and docs updated.
 
 ## Notes
 - Naming collisions are acceptable for now; revisit if auto-including self or aliasing.

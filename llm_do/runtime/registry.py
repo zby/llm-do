@@ -169,9 +169,9 @@ async def build_invocable_registry(
         overrides = set_overrides if name == entry_name else None
         worker_file = load_worker_file(worker_path, overrides=overrides)
 
-        # Available toolsets: built-ins + Python + other workers (not self)
+        # Available toolsets: built-ins + Python + workers (including self if referenced)
         # Worker IS an AbstractToolset, so we can use it directly
-        available_workers = {k: v for k, v in worker_entries.items() if k != name}
+        available_workers = dict(worker_entries)
         worker_root = Path(worker_path).resolve().parent
         builtin_toolsets = build_builtin_toolsets(Path.cwd(), worker_root)
         all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, available_workers)

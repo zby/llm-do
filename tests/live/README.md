@@ -14,6 +14,7 @@ pytest tests/live/ -v
 # Run tests for a specific example
 pytest tests/live/test_greeter.py -v
 pytest tests/live/test_calculator.py -v
+pytest tests/live/test_recursive_summarizer.py -vv -s  # show split/merge trace
 
 # Run with extra output for debugging
 pytest tests/live/ -v -s
@@ -38,6 +39,7 @@ pytest tests/live/ -v -s
 | `test_pitchdeck_eval.py` | pitchdeck_eval | Attachments, vision, worker delegation |
 | `test_web_research_agent.py` | web_research_agent | Multi-worker orchestration, web tools |
 | `test_whiteboard_planner.py` | whiteboard_planner | Vision, nested worker calls |
+| `test_recursive_summarizer.py` | recursive_summarizer | Self-recursive worker, depth control |
 
 ## Skip Conditions
 

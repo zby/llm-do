@@ -24,7 +24,11 @@ from .contracts import Invocable, ModelType
 from .discovery import load_toolsets_and_workers_from_files
 from .schema_refs import resolve_schema_ref
 from .worker import ToolInvocable, Worker
-from .worker_file import load_worker_file
+from .worker_file import (
+    WorkerDefinition,
+    build_worker_definition,
+    load_worker_file_parts,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,13 +138,18 @@ def build_invocable_registry(
             continue
         entries[tool_name] = ToolInvocable(toolset=toolset, tool_name=tool_entry_name)
 
-    # First pass: create stub Worker instances (they ARE AbstractToolsets)
+    # First pass: load worker definitions and create stub Worker instances
     worker_entries: dict[str, Worker] = {}
-    worker_paths: dict[str, str] = {}  # name -> path
+    worker_paths: dict[str, Path] = {}
+    worker_defs: dict[str, WorkerDefinition] = {}
 
-    for worker_path in worker_files:
-        worker_file = load_worker_file(worker_path)
-        name = worker_file.name
+    for worker_file_path in worker_files:
+        resolved_path = Path(worker_file_path).resolve()
+        frontmatter, instructions = load_worker_file_parts(resolved_path)
+        name_value = frontmatter.get("name")
+        if not isinstance(name_value, str) or not name_value:
+            raise ValueError("Worker file must have a 'name' field")
+        name = name_value
 
         # Check for duplicate worker names
         if name in worker_entries:
@@ -150,57 +159,64 @@ def build_invocable_registry(
         if name in entries:
             raise ValueError(f"Worker name '{name}' conflicts with Python entry")
 
+        overrides = set_overrides if name == entry_name else None
+        worker_def = build_worker_definition(frontmatter, instructions, overrides=overrides)
+        if overrides and worker_def.name != name:
+            raise ValueError(
+                f"Cannot override worker name for '{name}' via --set; "
+                "update the worker file or pass --entry to select a different worker."
+            )
+
         stub = Worker(
             name=name,
-            instructions=worker_file.instructions,
-            description=worker_file.description,
-            model=worker_file.model,
+            instructions=worker_def.instructions,
+            description=worker_def.description,
+            model=worker_def.model,
             toolsets=[],
         )
         worker_entries[name] = stub
-        worker_paths[name] = worker_path
+        worker_paths[name] = resolved_path
+        worker_defs[name] = worker_def
 
     # Second pass: build all workers with resolved toolsets
     workers: dict[str, Worker] = {}
 
-    for name, worker_path in worker_paths.items():
-        # Apply overrides only to entry worker
-        overrides = set_overrides if name == entry_name else None
-        worker_file = load_worker_file(worker_path, overrides=overrides)
+    for name, worker_def in worker_defs.items():
+        worker_path = worker_paths[name]
 
         # Available toolsets: built-ins + Python + workers (including self if referenced)
         # Worker IS an AbstractToolset, so we can use it directly
         available_workers = dict(worker_entries)
-        worker_root = Path(worker_path).resolve().parent
+        worker_root = worker_path.parent
         builtin_toolsets = build_builtin_toolsets(Path.cwd(), worker_root)
         all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, available_workers)
 
         # Resolve toolsets: worker refs + python toolsets + (built-in aliases or class paths)
         toolset_context = ToolsetBuildContext(
             worker_name=name,
-            worker_path=Path(worker_path).resolve(),
+            worker_path=worker_path,
             available_toolsets=all_toolsets,
         )
-        resolved_toolsets = build_toolsets(worker_file.toolsets, toolset_context)
+        resolved_toolsets = build_toolsets(worker_def.toolsets, toolset_context)
         # Apply model override only to entry worker (if override provided)
         worker_model: ModelType | None
         if entry_model_override and name == entry_name:
             worker_model = entry_model_override
         else:
-            worker_model = worker_file.model
+            worker_model = worker_def.model
 
         # Build builtin tools from server_side_tools config
-        builtin_tools = _build_builtin_tools(worker_file.server_side_tools)
+        builtin_tools = _build_builtin_tools(worker_def.server_side_tools)
 
         stub = worker_entries[name]
-        stub.instructions = worker_file.instructions
-        stub.description = worker_file.description
+        stub.instructions = worker_def.instructions
+        stub.description = worker_def.description
         stub.model = worker_model
-        stub.compatible_models = worker_file.compatible_models
-        if worker_file.schema_in_ref:
+        stub.compatible_models = worker_def.compatible_models
+        if worker_def.schema_in_ref:
             resolved_schema = resolve_schema_ref(
-                worker_file.schema_in_ref,
-                base_path=Path(worker_path).resolve().parent,
+                worker_def.schema_in_ref,
+                base_path=worker_root,
             )
             if not issubclass(resolved_schema, WorkerArgs):
                 raise TypeError(

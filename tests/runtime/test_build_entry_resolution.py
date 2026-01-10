@@ -105,3 +105,20 @@ Instructions.
     assert isinstance(entry, Worker)
     assert entry.schema_in is not None
     assert entry.schema_in.__name__ == "NoteInput"
+
+
+@pytest.mark.anyio
+async def test_build_entry_rejects_name_override(tmp_path: Path) -> None:
+    worker_path = tmp_path / "main.worker"
+    worker_path.write_text(
+        "---\nname: main\n---\nHello\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Cannot override worker name"):
+        build_invocable_registry(
+            [str(worker_path)],
+            [],
+            entry_name="main",
+            set_overrides=["name=override"],
+        )

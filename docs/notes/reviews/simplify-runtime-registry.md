@@ -59,20 +59,7 @@ Judgment call: if you plan to support toolset introspection that truly needs asy
 
 Inconsistency prevented: no direct bug, but removes misleading async APIs that imply I/O where none exists.
 
-### 4) Rebuilding built-in toolsets per worker (duplicated derived values)
-`build_builtin_toolsets()` is called for every worker, even when multiple workers share the same root path:
-```python
-worker_root = Path(worker_path).resolve().parent
-builtin_toolsets = build_builtin_toolsets(Path.cwd(), worker_root)
-```
-Proposed simplification:
-- Cache built-in toolsets by `worker_root` (and/or `cwd`) and reuse within the registry build.
-
-Judgment call: only safe if built-in toolsets are stateless or intended to be shared. If they carry per-worker mutable state, keep per-worker instances.
-
-Inconsistency prevented: no, but reduces redundant work and keeps identical toolsets from diverging accidentally if mutated.
-
-### 5) Repeated path resolution (duplicated derived values)
+### 4) Repeated path resolution (duplicated derived values)
 Within the worker loop, `Path(worker_path).resolve()` is called multiple times (worker root, schema resolution base path, toolset context).
 
 Proposed simplification:
@@ -85,7 +72,6 @@ Inconsistency prevented: no, but reduces repeated computation and clarifies data
 ## Open Questions
 - Should Python workers be referenceable by module attribute name, or strictly by `worker.name`?
 - Is it acceptable to remove async from registry building to simplify the API, or do we expect async toolset introspection soon?
-- Are built-in toolsets safe to reuse across workers with the same root path, or do they carry per-run state that must be isolated?
 
 ## Conclusion
-(Left open; depends on decisions above.)
+Decision so far: skip caching built-in toolsets to keep registry construction simple. Other items remain open.

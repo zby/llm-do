@@ -63,6 +63,41 @@ def _extract_frontmatter_and_instructions(content: str) -> tuple[dict[str, Any],
     return dict(post.metadata), post.content.strip()
 
 
+def build_worker_definition(
+    frontmatter: dict[str, Any],
+    instructions: str,
+    *,
+    overrides: list[str] | None = None,
+) -> "WorkerDefinition":
+    """Build a WorkerDefinition from frontmatter and instructions."""
+    from ..config import apply_overrides
+
+    fm = frontmatter
+    if overrides:
+        fm = apply_overrides(fm, overrides)
+
+    name = fm.get("name")
+    if not name:
+        raise ValueError("Worker file must have a 'name' field")
+
+    return WorkerDefinition(
+        name=name,
+        description=fm.get("description"),
+        instructions=instructions,
+        model=fm.get("model"),
+        compatible_models=_parse_compatible_models(fm.get("compatible_models")),
+        schema_in_ref=_parse_schema_ref(fm.get("schema_in_ref")),
+        toolsets=_parse_toolsets(fm.get("toolsets")),
+        server_side_tools=_parse_server_side_tools(fm.get("server_side_tools")),
+    )
+
+
+def load_worker_file_parts(path: str | Path) -> tuple[dict[str, Any], str]:
+    """Load a worker file and return raw frontmatter and instructions."""
+    content = Path(path).read_text(encoding="utf-8")
+    return _extract_frontmatter_and_instructions(content)
+
+
 def _parse_toolsets(toolsets_raw: Any) -> list[str]:
     """Parse and validate the toolsets section.
 
@@ -166,28 +201,8 @@ class WorkerFileParser:
         Raises:
             ValueError: If file format is invalid
         """
-        from ..config import apply_overrides
-
         fm, instructions = _extract_frontmatter_and_instructions(content)
-
-        # Apply CLI overrides to frontmatter
-        if overrides:
-            fm = apply_overrides(fm, overrides)
-
-        name = fm.get("name")
-        if not name:
-            raise ValueError("Worker file must have a 'name' field")
-
-        return WorkerDefinition(
-            name=name,
-            description=fm.get("description"),
-            instructions=instructions,
-            model=fm.get("model"),
-            compatible_models=_parse_compatible_models(fm.get("compatible_models")),
-            schema_in_ref=_parse_schema_ref(fm.get("schema_in_ref")),
-            toolsets=_parse_toolsets(fm.get("toolsets")),
-            server_side_tools=_parse_server_side_tools(fm.get("server_side_tools")),
-        )
+        return build_worker_definition(fm, instructions, overrides=overrides)
 
     def load(
         self,

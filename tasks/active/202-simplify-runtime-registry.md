@@ -50,12 +50,12 @@ Prioritize changes that:
 - Make it impossible (not just unlikely) for certain bugs to occur
 
 ## Tasks
-- [ ] Read registry.py and identify its local imports
-- [ ] Analyze with the simplification prompt above
-- [ ] Write review report to `docs/notes/reviews/simplify-runtime-registry.md`
+- [x] Read registry.py and identify its local imports
+- [x] Analyze with the simplification prompt above
+- [x] Write review report to `docs/notes/reviews/simplify-runtime-registry.md`
 
 ## Current State
-Not started.
+Review written in `docs/notes/reviews/simplify-runtime-registry.md`.
 
 ## Notes
 - Registry manages toolset and worker discovery; simplifications improve the mental model of how tools are registered and resolved

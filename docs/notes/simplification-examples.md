@@ -2,6 +2,47 @@
 
 Examples of manual code simplifications to use as reference for constructing prompts that propose similar improvements.
 
+---
+
+## Simplification Proposal Prompt
+
+Use this prompt to ask an LLM to analyze code and propose simplifications:
+
+```
+Analyze this codebase for simplification opportunities. Look for patterns like:
+
+1. **Redundant validation** - Checks that are already handled by a dependency or framework. If a library you depend on already validates something, your duplicate check adds complexity without value.
+
+2. **Unused flexibility** - Data structures that support configuration or options that are never actually used. Examples:
+   - Dict values that are always empty `{}`
+   - Optional parameters that always receive the same value
+   - Generic types that are always instantiated the same way
+   Consider whether the flexibility will ever be needed, or if it should be pushed to a different layer.
+
+3. **Redundant parameters** - Function parameters that pass values already accessible via other parameters. If you pass `obj` and also `obj.x`, the second parameter is redundant and creates maintenance risk (they could get out of sync).
+
+4. **Duplicated derived values** - The same computed/formatted value appearing in multiple places. Examples:
+   - Format strings like `f"[{worker}:{depth}]"` repeated across methods
+   - Computed properties recalculated instead of stored
+   These should be centralized into a single property or method. This prevents inconsistency bugs.
+
+5. **Over-specified interfaces** - Passing multiple primitive values when a single object would do, especially when those values are always used together or derived from the same source.
+
+For each opportunity found:
+- Explain what pattern it matches
+- Show the current code
+- Propose the simplified version
+- Note any judgment calls required (e.g., "this removes flexibility that might be needed")
+- Flag if the simplification would have prevented any existing inconsistencies
+
+Prioritize changes that:
+- Remove code rather than add it
+- Reduce the number of places where a concept is defined
+- Make it impossible (not just unlikely) for certain bugs to occur
+```
+
+---
+
 ## 1. Remove Redundant Duplicate Check (487c463)
 
 **Commit:** `487c463` - "Remove redundant duplicate tool name check from registry"

@@ -9,6 +9,7 @@ from __future__ import annotations
 import inspect
 import json
 import mimetypes
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterable, Literal, Optional, Sequence, Type
@@ -155,6 +156,49 @@ def _scoped_approval_callback(approval_callback: ApprovalCallback) -> ApprovalCa
         return decision
 
     return callback
+
+
+class _MessageLogList(list):
+    """List that logs new messages as they are appended."""
+
+    def __init__(self, runtime: WorkerRuntimeProtocol, worker_name: str, depth: int) -> None:
+        super().__init__()
+        self._runtime = runtime
+        self._worker_name = worker_name
+        self._depth = depth
+        self._logged_count = 0
+
+    def _log_new_messages(self, start: int) -> None:
+        for message in list(self)[start:]:
+            self._runtime.log_messages(self._worker_name, self._depth, [message])
+        self._logged_count = len(self)
+
+    def append(self, item: Any) -> None:  # type: ignore[override]
+        super().append(item)
+        self._log_new_messages(self._logged_count)
+
+    def extend(self, items: list[Any]) -> None:  # type: ignore[override]
+        start = len(self)
+        super().extend(items)
+        if len(self) > start:
+            self._log_new_messages(start)
+
+
+@contextmanager
+def _capture_message_log(
+    runtime: WorkerRuntimeProtocol, *, worker_name: str, depth: int
+) -> Any:
+    """Capture and log messages as they are appended for this run."""
+    from pydantic_ai._agent_graph import capture_run_messages, get_captured_run_messages
+
+    with capture_run_messages():
+        try:
+            run_messages = get_captured_run_messages()
+        except LookupError:
+            yield
+            return
+        run_messages.messages = _MessageLogList(runtime, worker_name, depth)
+        yield
 
 
 class _DictValidator:
@@ -462,26 +506,47 @@ class Worker(AbstractToolset[Any]):
             list(state.messages) if _should_use_message_history(child_runtime) and state.messages else None
         )
 
-        if config.on_event is not None:
-            if config.verbosity >= 2:
-                output = await self._run_streaming(agent, prompt, child_runtime, message_history)
+        use_incremental_log = config.message_log_callback is not None
+        log_context = (
+            _capture_message_log(child_runtime, worker_name=self.name, depth=child_state.depth)
+            if use_incremental_log
+            else nullcontext()
+        )
+
+        with log_context:
+            if config.on_event is not None:
+                if config.verbosity >= 2:
+                    output = await self._run_streaming(
+                        agent,
+                        prompt,
+                        child_runtime,
+                        message_history,
+                        log_messages=not use_incremental_log,
+                    )
+                else:
+                    output = await self._run_with_event_stream(
+                        agent,
+                        prompt,
+                        child_runtime,
+                        message_history,
+                        log_messages=not use_incremental_log,
+                    )
+                if _should_use_message_history(child_runtime):
+                    state.messages[:] = list(child_state.messages)
             else:
-                output = await self._run_with_event_stream(agent, prompt, child_runtime, message_history)
-            if _should_use_message_history(child_runtime):
-                state.messages[:] = list(child_state.messages)
-        else:
-            result = await agent.run(
-                prompt,
-                deps=child_runtime,
-                model_settings=self.model_settings,
-                message_history=message_history,
-            )
-            # Log messages to diagnostic accumulator
-            child_runtime.log_messages(self.name, child_state.depth, _get_all_messages(result))
-            if _should_use_message_history(child_runtime):
-                _update_message_history(child_runtime, result)
-                state.messages[:] = _get_all_messages(result)
-            output = result.output
+                result = await agent.run(
+                    prompt,
+                    deps=child_runtime,
+                    model_settings=self.model_settings,
+                    message_history=message_history,
+                )
+                # Log messages to diagnostic accumulator
+                if not use_incremental_log:
+                    child_runtime.log_messages(self.name, child_state.depth, _get_all_messages(result))
+                if _should_use_message_history(child_runtime):
+                    _update_message_history(child_runtime, result)
+                    state.messages[:] = _get_all_messages(result)
+                output = result.output
 
         return output
 
@@ -491,6 +556,8 @@ class Worker(AbstractToolset[Any]):
         prompt: str | Sequence[UserContent],
         runtime: WorkerRuntimeProtocol,
         message_history: list[Any] | None,
+        *,
+        log_messages: bool = True,
     ) -> Any:
         """Run agent with event stream handler for non-streaming UI updates."""
         from pydantic_ai.messages import PartDeltaEvent
@@ -520,7 +587,8 @@ class Worker(AbstractToolset[Any]):
             event_stream_handler=event_stream_handler,
             message_history=message_history,
         )
-        runtime.log_messages(self.name, runtime.depth, _get_all_messages(result))
+        if log_messages:
+            runtime.log_messages(self.name, runtime.depth, _get_all_messages(result))
         if runtime.on_event is not None and not emitted_tool_events:
             self._emit_tool_events(result.new_messages(), runtime)
         if _should_use_message_history(runtime):
@@ -533,6 +601,8 @@ class Worker(AbstractToolset[Any]):
         prompt: str | Sequence[UserContent],
         runtime: WorkerRuntimeProtocol,
         message_history: list[Any] | None,
+        *,
+        log_messages: bool = True,
     ) -> Any:
         """Run agent with streaming, emitting text deltas."""
         async with agent.run_stream(
@@ -574,7 +644,8 @@ class Worker(AbstractToolset[Any]):
                         is_delta=False,
                     ))
 
-            runtime.log_messages(self.name, runtime.depth, _get_all_messages(stream))
+            if log_messages:
+                runtime.log_messages(self.name, runtime.depth, _get_all_messages(stream))
             # Emit tool events (must be inside context manager)
             self._emit_tool_events(stream.new_messages(), runtime)
             if _should_use_message_history(runtime):

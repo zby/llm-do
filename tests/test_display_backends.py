@@ -115,7 +115,7 @@ class TestHeadlessDisplayBackend:
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
 
-        long_content = "x" * 300
+        long_content = "x" * 500
         event = ToolCallEvent(
             worker="main",
             tool_name="write_file",
@@ -127,7 +127,7 @@ class TestHeadlessDisplayBackend:
 
         output = stream.getvalue()
         assert "..." in output
-        # Should not contain the full 300 chars
+        # Should not contain the full 500 chars (limit is 400)
         assert long_content not in output
 
     def test_truncates_long_tool_results(self):

@@ -281,7 +281,7 @@ class ToolCallEvent(UIEvent):
     args: dict[str, Any] = field(default_factory=dict)
     args_json: str = ""
 
-    MAX_ARGS_DISPLAY: ClassVar[int] = 200
+    MAX_ARGS_DISPLAY: ClassVar[int] = 400
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
@@ -319,7 +319,8 @@ class ToolCallEvent(UIEvent):
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ToolCallMessage
 
-        return ToolCallMessage(self.tool_name, self.args)
+        # Pass both args and args_json so widget can use same logic as render_rich
+        return ToolCallMessage(self.tool_name, self.args, self.args_json)
 
     @staticmethod
     def _truncate(text: str, max_len: int) -> str:

@@ -84,9 +84,12 @@ class ToolCallMessage(BaseMessage):
     }
     """
 
-    def __init__(self, tool_name: str, tool_call: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, tool_name: str, tool_call: Any, args_json: str = "", **kwargs: Any
+    ) -> None:
         self._tool_name = tool_name
         self._tool_call = tool_call
+        self._args_json = args_json
 
         # Format the tool call for display
         content = self._format_tool_call()
@@ -105,9 +108,12 @@ class ToolCallMessage(BaseMessage):
         else:
             args = None
 
-        if args is not None:
+        # Use same logic as render_rich: prefer args_json, fallback to args
+        if args or self._args_json:
             # TODO: support semantic tool renderers (see docs/notes/tool-output-rendering-semantics.md).
-            if isinstance(args, dict):
+            if self._args_json:
+                args_str = self._args_json
+            elif isinstance(args, dict):
                 args_str = json.dumps(args, indent=2, default=str)
             else:
                 args_str = str(args)

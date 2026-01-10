@@ -1,5 +1,7 @@
 # Recursive Problem Patterns for LLM Workers
 
+> **TL;DR**: See [recursive-patterns-summary.md](recursive-patterns-summary.md) for a condensed version with one representative example.
+
 This document catalogs problems that benefit from recursive LLM worker architectures,
 with concrete sketches of how to implement each using llm-do workers.
 

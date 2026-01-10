@@ -1,7 +1,7 @@
 # Simplify runtime/worker.py
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] none
@@ -50,12 +50,12 @@ Prioritize changes that:
 - Make it impossible (not just unlikely) for certain bugs to occur
 
 ## Tasks
-- [ ] Read worker.py and identify its local imports
-- [ ] Analyze with the simplification prompt above
-- [ ] Write review report to `docs/notes/reviews/simplify-runtime-worker.md`
+- [x] Read worker.py and identify its local imports
+- [x] Analyze with the simplification prompt above
+- [x] Write review report to `docs/notes/reviews/simplify-runtime-worker.md`
 
 ## Current State
-Not started.
+Review report written in `docs/notes/reviews/simplify-runtime-worker.md`; ready to move to completed.
 
 ## Notes
 - Worker defines worker execution logic; simplifications reduce complexity in how workers are called and managed

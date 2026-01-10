@@ -86,9 +86,23 @@ def _get_all_messages(result: Any) -> list[Any]:
     return list(result.all_messages())
 
 
-def _update_message_history(runtime: WorkerRuntimeProtocol, result: Any) -> None:
-    """Update message history in-place to keep shared references intact."""
-    runtime.messages[:] = _get_all_messages(result)
+def _finalize_messages(
+    worker_name: str,
+    runtime: WorkerRuntimeProtocol,
+    state: CallFrame | None,
+    result: Any,
+    *,
+    log_messages: bool = True,
+) -> list[Any]:
+    """Log and sync message history using a single message snapshot."""
+    messages = _get_all_messages(result)
+    if log_messages:
+        runtime.log_messages(worker_name, runtime.depth, messages)
+    if _should_use_message_history(runtime):
+        runtime.messages[:] = messages
+        if state is not None:
+            state.messages[:] = messages
+    return messages
 
 
 def _scoped_approval_callback(approval_callback: ApprovalCallback) -> ApprovalCallback:
@@ -513,12 +527,13 @@ class Worker(AbstractToolset[Any]):
                     model_settings=self.model_settings,
                     message_history=message_history,
                 )
-                # Log messages to diagnostic accumulator
-                if not use_incremental_log:
-                    child_runtime.log_messages(self.name, child_state.depth, _get_all_messages(result))
-                if _should_use_message_history(child_runtime):
-                    _update_message_history(child_runtime, result)
-                    state.messages[:] = _get_all_messages(result)
+                _finalize_messages(
+                    self.name,
+                    child_runtime,
+                    state,
+                    result,
+                    log_messages=not use_incremental_log,
+                )
                 output = result.output
 
         return output
@@ -560,12 +575,15 @@ class Worker(AbstractToolset[Any]):
             event_stream_handler=event_stream_handler,
             message_history=message_history,
         )
-        if log_messages:
-            runtime.log_messages(self.name, runtime.depth, _get_all_messages(result))
+        _finalize_messages(
+            self.name,
+            runtime,
+            None,
+            result,
+            log_messages=log_messages,
+        )
         if runtime.on_event is not None and not emitted_tool_events:
             self._emit_tool_events(result.new_messages(), runtime)
-        if _should_use_message_history(runtime):
-            _update_message_history(runtime, result)
         return result.output
 
     async def _run_streaming(
@@ -617,11 +635,14 @@ class Worker(AbstractToolset[Any]):
                         is_delta=False,
                     ))
 
-            if log_messages:
-                runtime.log_messages(self.name, runtime.depth, _get_all_messages(stream))
+            _finalize_messages(
+                self.name,
+                runtime,
+                None,
+                stream,
+                log_messages=log_messages,
+            )
             # Emit tool events (must be inside context manager)
             self._emit_tool_events(stream.new_messages(), runtime)
-            if _should_use_message_history(runtime):
-                _update_message_history(runtime, stream)
 
         return output

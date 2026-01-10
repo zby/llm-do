@@ -45,7 +45,6 @@ from ..ui import (
     ErrorEvent,
     HeadlessDisplayBackend,
     JsonDisplayBackend,
-    RichDisplayBackend,
     TextualDisplayBackend,
     UIEvent,
     parse_approval_request,
@@ -54,8 +53,36 @@ from ..ui import (
 ENV_MODEL_VAR = "LLM_DO_MODEL"
 
 
+def _ensure_stdout_textual_driver() -> None:
+    """Configure Textual to write TUI output to stdout on Linux."""
+    if sys.platform.startswith("win"):
+        return
+    if os.environ.get("TEXTUAL_DRIVER"):
+        return
+    if "StdoutLinuxDriver" in globals():
+        return
+
+    os.environ["TEXTUAL_DRIVER"] = "llm_do.cli.main:StdoutLinuxDriver"
+
+    from textual.drivers.linux_driver import LinuxDriver
+
+    class StdoutLinuxDriver(LinuxDriver):
+        def __init__(
+            self,
+            app: Any,
+            *,
+            debug: bool = False,
+            mouse: bool = True,
+            size: tuple[int, int] | None = None,
+        ) -> None:
+            super().__init__(app, debug=debug, mouse=mouse, size=size)
+            self._file = sys.__stdout__
+
+    globals()["StdoutLinuxDriver"] = StdoutLinuxDriver
+
+
 def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], None]:
-    """Stream raw model messages as JSONL for diagnostics."""
+    """Stream raw model request/response messages as JSONL."""
     counter = itertools.count()
 
     def callback(worker: str, depth: int, messages: list[Any]) -> None:
@@ -76,7 +103,7 @@ def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], N
                 "depth": depth,
                 "message": message,
             }
-            stream.write(json.dumps(record, ensure_ascii=True) + "\n")
+            stream.write(json.dumps(record, ensure_ascii=True, indent=2) + "\n")
         stream.flush()
 
     return callback
@@ -204,6 +231,7 @@ async def _run_tui_mode(
     Returns:
         Exit code (0 for success, 1 for error)
     """
+    _ensure_stdout_textual_driver()
     from ..ui.app import LlmDoApp
 
     app: LlmDoApp | None = None
@@ -213,9 +241,9 @@ async def _run_tui_mode(
     tui_event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
 
-    log_backend: RichDisplayBackend | None = None
-    if log_verbosity > 0:
-        log_backend = RichDisplayBackend(sys.stderr, force_terminal=True, verbosity=log_verbosity)
+    log_backend: HeadlessDisplayBackend | None = None
+    if 0 < log_verbosity < 3:
+        log_backend = HeadlessDisplayBackend(sys.stderr, verbosity=log_verbosity)
     tui_backend = TextualDisplayBackend(tui_event_queue)
 
     # Container for result and exit code
@@ -474,7 +502,10 @@ def main() -> int:
         "-v", "--verbose",
         action="count",
         default=0,
-        help="Show progress (-v for tool calls, -vv for streaming, -vvv for message log JSONL)",
+        help=(
+            "Show progress (-v for tool calls, -vv for streaming, "
+            "-vvv for full LLM message log JSONL only)"
+        ),
     )
     parser.add_argument(
         "--max-depth",
@@ -597,7 +628,7 @@ def main() -> int:
 
     if args.json:
         backend = JsonDisplayBackend(stream=sys.stderr)
-    elif args.verbose > 0:
+    elif 0 < args.verbose < 3:
         backend = HeadlessDisplayBackend(stream=sys.stderr, verbosity=args.verbose)
 
     # Import error types for handling

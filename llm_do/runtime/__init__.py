@@ -22,7 +22,6 @@ from .discovery import (
     load_workers_from_files,
 )
 from .registry import InvocableRegistry, build_invocable_registry
-from .runner import run_invocable
 from .shared import Runtime
 from .worker import ToolInvocable, Worker
 from .worker_file import (
@@ -44,7 +43,6 @@ __all__ = [
     "RunApprovalPolicy",
     "WorkerApprovalPolicy",
     "resolve_approval_callback",
-    "run_invocable",
     "InvocableRegistry",
     "build_invocable_registry",
     # Entries

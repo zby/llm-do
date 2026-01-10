@@ -7,13 +7,14 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import InvocableRegistry, Worker, WorkerRuntime
+from llm_do.runtime import InvocableRegistry, Worker
 from llm_do.ui.events import (
     TextResponseEvent,
     ToolCallEvent,
     ToolResultEvent,
     UIEvent,
 )
+from tests.runtime.helpers import build_entry_context, build_runtime_context
 
 
 class TestContextEventCallback:
@@ -24,8 +25,7 @@ class TestContextEventCallback:
         events = []
         def callback(e):
             return events.append(e)
-        ctx = WorkerRuntime(
-            toolsets=[],
+        ctx = build_runtime_context(
             model="test-model",
             on_event=callback,
         )
@@ -34,8 +34,7 @@ class TestContextEventCallback:
 
     def test_child_context_inherits_verbosity(self):
         """Test that child contexts inherit verbosity."""
-        ctx = WorkerRuntime(
-            toolsets=[],
+        ctx = build_runtime_context(
             model="test-model",
             verbosity=2,
         )
@@ -55,7 +54,7 @@ class TestContextEventCallback:
             """Greet someone."""
             return f"Hello, {name}!"
 
-        ctx = WorkerRuntime(
+        ctx = build_runtime_context(
             toolsets=[toolset],
             model="test-model",
             on_event=lambda e: events.append(e),
@@ -108,7 +107,7 @@ class TestWorkerToolEvents:
             toolsets=[toolset],
         )
 
-        ctx = WorkerRuntime.from_entry(
+        ctx = build_entry_context(
             worker,
             on_event=lambda e: events.append(e),
         )
@@ -157,7 +156,7 @@ class TestWorkerToolEvents:
             toolsets=[toolset],
         )
 
-        ctx = WorkerRuntime.from_entry(
+        ctx = build_entry_context(
             worker,
             on_event=lambda e: events.append(e),
         )
@@ -194,7 +193,7 @@ class TestWorkerToolEvents:
             toolsets=[toolset],
         )
 
-        ctx = WorkerRuntime.from_entry(
+        ctx = build_entry_context(
             worker,
             on_event=lambda e: events.append(e),
         )
@@ -231,7 +230,7 @@ class TestWorkerToolEvents:
         )
 
         # No on_event callback
-        ctx = WorkerRuntime.from_entry(worker)
+        ctx = build_entry_context(worker)
         assert ctx.on_event is None
 
         # Should not crash
@@ -254,7 +253,7 @@ class TestWorkerStreamingEvents:
             toolsets=[],
         )
 
-        ctx = WorkerRuntime.from_entry(
+        ctx = build_entry_context(
             worker,
             on_event=lambda e: events.append(e),
             verbosity=2,  # Enable streaming
@@ -287,7 +286,7 @@ class TestWorkerStreamingEvents:
             toolsets=[],
         )
 
-        ctx = WorkerRuntime.from_entry(
+        ctx = build_entry_context(
             worker,
             on_event=lambda e: events.append(e),
             verbosity=1,  # Not streaming level

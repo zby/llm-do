@@ -4,7 +4,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 
-from llm_do.runtime import ToolInvocable, run_invocable
+from llm_do.runtime import Runtime, ToolInvocable
 from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
 from llm_do.runtime.worker import Worker
 from llm_do.toolsets.approval import set_toolset_approval_config
@@ -95,11 +95,11 @@ async def test_toolinvocable_has_no_toolsets() -> None:
         tool_name="echo",
     )
 
-    result, ctx = await run_invocable(
+    runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
+    result, ctx = await runtime.run_invocable(
         invocable,
-        prompt="hello",
+        "hello",
         model="test",  # Runtime needs a model even if ToolInvocable doesn't use it
-        approval_policy=RunApprovalPolicy(mode="approve_all"),
     )
 
     assert result == "hello"
@@ -121,11 +121,8 @@ async def test_nested_worker_calls_bypass_approval_by_default() -> None:
         toolsets=[child],
     )
 
-    result, _ctx = await run_invocable(
-        parent,
-        prompt="trigger",
-        approval_policy=RunApprovalPolicy(mode="reject_all"),
-    )
+    runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
+    result, _ctx = await runtime.run_invocable(parent, "trigger")
 
     assert result is not None
 
@@ -146,11 +143,8 @@ async def test_nested_worker_calls_can_require_approval() -> None:
     )
 
     with pytest.raises(PermissionError):
-        await run_invocable(
-            parent,
-            prompt="trigger",
-            approval_policy=RunApprovalPolicy(mode="reject_all"),
-        )
+        runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
+        await runtime.run_invocable(parent, "trigger")
 
 
 @pytest.mark.anyio
@@ -169,11 +163,11 @@ async def test_toolinvocable_entry_call_not_approval_gated() -> None:
 
     # Even with reject_all, ToolInvocable succeeds because
     # it's a direct tool call, not an LLM-invoked tool call
-    result, _ctx = await run_invocable(
+    runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
+    result, _ctx = await runtime.run_invocable(
         invocable,
-        prompt="hello",
+        "hello",
         model="test",  # Runtime needs a model even if ToolInvocable doesn't use it
-        approval_policy=RunApprovalPolicy(mode="reject_all"),
     )
 
     assert result == "hello"
@@ -205,13 +199,12 @@ async def test_bulk_approval_scopes_child_tool_calls() -> None:
         bulk_approve_toolsets=True,
     )
 
-    await run_invocable(
-        worker,
-        prompt="go",
-        approval_policy=RunApprovalPolicy(
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(
             mode="prompt",
             approval_callback=approval_callback,
-        ),
+        )
     )
+    await runtime.run_invocable(worker, "go")
 
     assert len(approvals) == 1

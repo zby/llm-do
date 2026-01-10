@@ -5,6 +5,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
 from llm_do.runtime import Worker, WorkerRuntime
+from tests.runtime.helpers import build_entry_context, build_runtime_context
 
 
 class TestContext:
@@ -19,14 +20,14 @@ class TestContext:
         def multiply(a: int, b: int) -> int:
             return a * b
 
-        ctx = WorkerRuntime(toolsets=[toolset], model="test-model")
+        ctx = build_runtime_context(toolsets=[toolset], model="test-model")
         result = await ctx.call("multiply", {"a": 3, "b": 4})
         assert result == 12
 
     @pytest.mark.anyio
     async def test_context_tool_not_found(self):
         """Test that calling unknown tool raises KeyError."""
-        ctx = WorkerRuntime(toolsets=[], model="test-model")
+        ctx = build_runtime_context(toolsets=[], model="test-model")
         with pytest.raises(KeyError, match="Tool 'nonexistent' not found"):
             await ctx.call("nonexistent", {"x": 1})
 
@@ -39,7 +40,7 @@ class TestContext:
         def greet(name: str) -> str:
             return f"Hello, {name}!"
 
-        ctx = WorkerRuntime(toolsets=[toolset], model="test-model")
+        ctx = build_runtime_context(toolsets=[toolset], model="test-model")
         result = await ctx.tools.greet(name="World")
         assert result == "Hello, World!"
 
@@ -69,7 +70,7 @@ class TestContext:
             model=TestModel(call_tools=["call_probe"], custom_output_text="done"),
             toolsets=[toolset],
         )
-        ctx = WorkerRuntime.from_entry(worker)
+        ctx = build_entry_context(worker)
         await ctx.run(worker, {"input": "go"})
 
         assert seen["call_probe"] == {"before": 1, "probe": 1, "after": 1}

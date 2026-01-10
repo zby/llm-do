@@ -15,6 +15,7 @@ from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.call import CallFrame
 from llm_do.runtime.shared import RuntimeConfig
 from llm_do.runtime.worker import Worker
+from tests.runtime.helpers import build_runtime_context
 
 
 class CaptureArgs(BaseModel):
@@ -81,8 +82,8 @@ async def test_worker_uses_context_model_for_tool_calls() -> None:
     """Entry without model uses context's model for tool calls."""
     toolset = CaptureToolset()
     entry = DummyEntry(name="child", toolsets=[toolset])
-    # In production, ctx.model is already resolved (by from_entry using cli_model)
-    ctx = WorkerRuntime(toolsets=[], model="resolved-model")
+    # In production, ctx.model is already resolved via Runtime entry setup.
+    ctx = build_runtime_context(toolsets=[], model="resolved-model")
 
     await ctx._execute(entry, {"input": "hi"})
 
@@ -94,7 +95,7 @@ async def test_worker_model_overrides_context_model_for_tool_calls() -> None:
     """Entry with explicit model overrides context's model."""
     toolset = CaptureToolset()
     entry = DummyEntry(name="child", toolsets=[toolset], model="worker-model")
-    ctx = WorkerRuntime(toolsets=[], model="context-model")
+    ctx = build_runtime_context(toolsets=[], model="context-model")
 
     await ctx._execute(entry, {"input": "hi"})
 
@@ -111,7 +112,7 @@ async def test_worker_compatible_models_allows_matching_model() -> None:
         model="test",  # Use "test" string - PydanticAI converts to TestModel
         compatible_models=["test", "other-model"],
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="test",
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -136,7 +137,7 @@ async def test_worker_incompatible_model_raises() -> None:
         instructions="Be strict.",
         compatible_models=["model-a", "model-b"],
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="incompatible-model",
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -161,7 +162,7 @@ async def test_worker_no_compatible_models_allows_any() -> None:
         model="test",  # Use "test" string - PydanticAI converts to TestModel
         compatible_models=None,  # No restriction
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="any-model",
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -193,7 +194,7 @@ async def test_worker_wildcard_star_allows_any_model() -> None:
         model="test",  # Worker's own model (matches '*')
         compatible_models=["*"],
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="test",
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -219,7 +220,7 @@ async def test_worker_wildcard_star_allows_inherited_model() -> None:
         # No model set - will inherit from context
         compatible_models=["*"],
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="test",  # This model will be inherited and validated
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -255,7 +256,7 @@ async def test_worker_provider_wildcard_rejects_other_provider() -> None:
         instructions="Anthropic models only.",
         compatible_models=["anthropic:*"],
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="openai:gpt-4",  # Inherited model doesn't match pattern
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -279,7 +280,7 @@ async def test_worker_model_family_wildcard_rejects_non_matching() -> None:
         instructions="Claude models only.",
         compatible_models=["anthropic:claude-*"],
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="anthropic:other-model",  # Doesn't match claude-*
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -303,7 +304,7 @@ async def test_worker_multiple_patterns_rejects_non_matching() -> None:
         instructions="Multiple providers allowed.",
         compatible_models=["anthropic:*", "openai:*"],
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="google:gemini-pro",  # Doesn't match any pattern
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -331,7 +332,7 @@ async def test_model_object_validated_against_compatible_models() -> None:
         model=TestModel(custom_output_text="Hello!"),  # produces "test:test"
         compatible_models=["test:test"],  # Should match TestModel's full string
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="test",
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -357,7 +358,7 @@ async def test_model_object_rejected_by_incompatible_pattern() -> None:
         model=TestModel(),  # produces "test:test", not "anthropic:*"
         compatible_models=["anthropic:*"],
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="test",
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -383,7 +384,7 @@ async def test_model_object_with_provider_wildcard() -> None:
         model=TestModel(custom_output_text="OK"),  # produces "test:test"
         compatible_models=["test:*"],  # Provider wildcard matches "test:test"
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="test",
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -409,7 +410,7 @@ async def test_model_object_with_global_wildcard() -> None:
         model=TestModel(custom_output_text="OK"),  # produces "test:test"
         compatible_models=["*"],  # Global wildcard accepts any model
     )
-    ctx = WorkerRuntime(
+    ctx = build_runtime_context(
         toolsets=[],
         model="test",
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),

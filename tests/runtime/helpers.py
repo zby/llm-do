@@ -1,0 +1,67 @@
+"""Helpers for building WorkerRuntime contexts in tests."""
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic_ai.toolsets import AbstractToolset
+
+from llm_do.runtime import Runtime, WorkerRuntime
+from llm_do.runtime.approval import RunApprovalPolicy
+from llm_do.runtime.call import CallConfig, CallFrame
+from llm_do.runtime.contracts import EventCallback, Invocable, ModelType
+
+
+def build_runtime_context(
+    *,
+    toolsets: list[AbstractToolset[Any]] | None = None,
+    model: ModelType = "test-model",
+    depth: int = 0,
+    prompt: str = "",
+    messages: list[Any] | None = None,
+    run_approval_policy: RunApprovalPolicy | None = None,
+    max_depth: int = 5,
+    on_event: EventCallback | None = None,
+    verbosity: int = 0,
+) -> WorkerRuntime:
+    runtime = Runtime(
+        run_approval_policy=run_approval_policy,
+        max_depth=max_depth,
+        on_event=on_event,
+        verbosity=verbosity,
+    )
+    call_config = CallConfig(
+        toolsets=tuple(toolsets or []),
+        model=model,
+        depth=depth,
+    )
+    frame = CallFrame(
+        config=call_config,
+        prompt=prompt,
+        messages=list(messages) if messages else [],
+    )
+    return WorkerRuntime(runtime=runtime, frame=frame)
+
+
+def build_entry_context(
+    entry: Invocable,
+    *,
+    model: ModelType | None = None,
+    run_approval_policy: RunApprovalPolicy | None = None,
+    max_depth: int = 5,
+    on_event: EventCallback | None = None,
+    verbosity: int = 0,
+    message_history: list[Any] | None = None,
+) -> WorkerRuntime:
+    runtime = Runtime(
+        cli_model=model,
+        run_approval_policy=run_approval_policy,
+        max_depth=max_depth,
+        on_event=on_event,
+        verbosity=verbosity,
+    )
+    frame = runtime._build_entry_frame(
+        entry,
+        model=model,
+        message_history=message_history,
+    )
+    return WorkerRuntime(runtime=runtime, frame=frame)

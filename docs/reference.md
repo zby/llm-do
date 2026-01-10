@@ -78,7 +78,7 @@ async def main():
 | `model` | Override the worker's default model |
 | `message_history` | Pre-seed conversation history |
 
-`run_invocable()` remains as a lower-level API if you already have an invocable object.
+Use `Runtime.run_invocable()` if you already have an invocable object.
 
 ### From Within Tools
 

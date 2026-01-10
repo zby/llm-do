@@ -1,7 +1,8 @@
 import pytest
 from pydantic import BaseModel
 
-from llm_do.runtime import Worker, WorkerRuntime
+from llm_do.runtime import Worker
+from tests.runtime.helpers import build_runtime_context
 
 
 class TopicInput(BaseModel):
@@ -20,7 +21,7 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
         instructions="Extract topic details.",
         schema_in=TopicInput,
     )
-    ctx = WorkerRuntime(toolsets=[], model="test-model")
+    ctx = build_runtime_context(toolsets=[], model="test-model")
     run_ctx = ctx._make_run_context(worker.name, "test-model", ctx)
 
     tools = await worker.get_tools(run_ctx)
@@ -39,7 +40,7 @@ async def test_worker_tool_description_prefers_description() -> None:
         instructions="Instructions fallback.",
         description="Short tool summary.",
     )
-    ctx = WorkerRuntime(toolsets=[], model="test-model")
+    ctx = build_runtime_context(toolsets=[], model="test-model")
     run_ctx = ctx._make_run_context(worker.name, "test-model", ctx)
 
     tools = await worker.get_tools(run_ctx)

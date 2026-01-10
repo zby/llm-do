@@ -1,7 +1,7 @@
 # Simplify runtime/runner.py
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] none
@@ -50,12 +50,12 @@ Prioritize changes that:
 - Make it impossible (not just unlikely) for certain bugs to occur
 
 ## Tasks
-- [ ] Read runner.py and identify its local imports
-- [ ] Analyze with the simplification prompt above
-- [ ] Write review report to `docs/notes/reviews/simplify-runtime-runner.md`
+- [x] Read runner.py and identify its local imports
+- [x] Analyze with the simplification prompt above
+- [x] Write review report to `docs/notes/reviews/simplify-runtime-runner.md`
 
 ## Current State
-Not started.
+Review note written in `docs/notes/reviews/simplify-runtime-runner.md`.
 
 ## Notes
 - Runner is the core execution engine; simplifications here ripple through all worker executions

@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import WorkerRuntime, load_toolsets_from_files
+from llm_do.runtime import load_toolsets_from_files
+from tests.runtime.helpers import build_runtime_context
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
@@ -24,7 +25,7 @@ class TestCalculatorTools:
     @pytest.fixture
     def ctx(self, calc_toolset):
         """Create context with calculator toolset."""
-        return WorkerRuntime(toolsets=[calc_toolset], model="test-model")
+        return build_runtime_context(toolsets=[calc_toolset], model="test-model")
 
     @pytest.mark.anyio
     async def test_add(self, ctx):
@@ -66,7 +67,7 @@ class TestPitchdeckStabilizedTools:
     @pytest.fixture
     def ctx(self, pitchdeck_toolset):
         """Create context with pitchdeck toolset."""
-        return WorkerRuntime(toolsets=[pitchdeck_toolset], model="test-model")
+        return build_runtime_context(toolsets=[pitchdeck_toolset], model="test-model")
 
     @pytest.mark.anyio
     async def test_list_pitchdecks(self, ctx, tmp_path):

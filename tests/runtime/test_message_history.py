@@ -14,8 +14,9 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import Worker, WorkerRuntime
+from llm_do.runtime import Worker
 from llm_do.ui.events import UIEvent
+from tests.runtime.helpers import build_entry_context, build_runtime_context
 
 
 def _count_user_prompts(messages: list[ModelMessage]) -> int:
@@ -53,7 +54,7 @@ async def test_entry_worker_receives_message_history_across_turns() -> None:
         model=_make_prompt_count_model(),
         toolsets=[],
     )
-    ctx = WorkerRuntime.from_entry(worker, on_event=events.append, verbosity=1)
+    ctx = build_entry_context(worker, on_event=events.append, verbosity=1)
 
     out1 = await ctx.run(worker, {"input": "turn 1"})
     assert out1 == "user_prompts=1"
@@ -81,7 +82,7 @@ async def test_nested_worker_call_does_not_inherit_conversation_history() -> Non
     ]
 
     # Simulate a caller worker context (depth=1).
-    caller_ctx = WorkerRuntime(
+    caller_ctx = build_runtime_context(
         toolsets=[sub_worker],
         model="test-model",
         depth=1,

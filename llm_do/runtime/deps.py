@@ -10,7 +10,7 @@ from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
 from .approval import ApprovalCallback, RunApprovalPolicy
-from .call import CallConfig, CallFrame
+from .call import CallFrame
 from .contracts import EventCallback, Invocable, ModelType, WorkerRuntimeProtocol
 from .shared import Runtime, RuntimeConfig
 
@@ -40,82 +40,14 @@ class WorkerRuntime:
     - per-branch state (CallFrame): depth, prompt/messages, toolsets, effective model
     """
 
-    @classmethod
-    def from_entry(
-        cls,
-        entry: "Invocable",
-        model: ModelType | None = None,
-        *,
-        run_approval_policy: RunApprovalPolicy | None = None,
-        max_depth: int = 5,
-        messages: Optional[list[Any]] = None,
-        on_event: Optional[EventCallback] = None,
-        verbosity: int = 0,
-    ) -> "WorkerRuntime":
-        """Create a WorkerRuntime for running an entry.
-
-        Args:
-            entry: The entry to run (Worker or ToolInvocable)
-            model: Model override (uses entry.model if not provided)
-            max_depth: Maximum call depth
-            messages: Optional message history for multi-turn conversations
-            on_event: Optional callback for UI events (tool calls, streaming text)
-            verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
-
-        Returns:
-            WorkerRuntime configured for the entry
-        """
-        runtime = Runtime(
-            cli_model=model,
-            run_approval_policy=run_approval_policy,
-            max_depth=max_depth,
-            on_event=on_event,
-            verbosity=verbosity,
-        )
-        frame = runtime._build_entry_frame(entry, model=model, message_history=messages)
-        return cls(runtime=runtime, frame=frame)
-
     def __init__(
         self,
-        toolsets: list[AbstractToolset[Any]] | None = None,
-        model: ModelType | None = None,
         *,
-        runtime: Runtime | None = None,
-        frame: CallFrame | None = None,
-        cli_model: ModelType | None = None,
-        run_approval_policy: RunApprovalPolicy | None = None,
-        max_depth: int = 5,
-        depth: int = 0,
-        prompt: str = "",
-        messages: Optional[list[Any]] = None,
-        on_event: Optional[EventCallback] = None,
-        verbosity: int = 0,
+        runtime: Runtime,
+        frame: CallFrame,
     ) -> None:
-        if runtime is not None or frame is not None:
-            if runtime is None or frame is None:
-                raise TypeError("WorkerRuntime requires both 'runtime' and 'frame' when either is provided")
-            self.runtime = runtime
-            self.frame = frame
-        else:
-            if toolsets is None or model is None:
-                raise TypeError("WorkerRuntime requires 'toolsets' and 'model' when 'runtime'/'frame' are not provided")
-            self.runtime = Runtime(
-                cli_model=cli_model,
-                run_approval_policy=run_approval_policy or RunApprovalPolicy(mode="approve_all"),
-                max_depth=max_depth,
-                on_event=on_event,
-                verbosity=verbosity,
-            )
-            call_config = CallConfig(
-                toolsets=tuple(toolsets),
-                model=model,
-                depth=depth,
-            )
-            self.frame = CallFrame(
-                config=call_config,
-                prompt=prompt,
-                messages=messages if messages is not None else [],
-            )
+        self.runtime = runtime
+        self.frame = frame
         self.tools = ToolsProxy(self)
 
     @property

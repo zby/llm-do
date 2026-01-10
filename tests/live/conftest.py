@@ -22,11 +22,12 @@ from typing import Any, Callable
 
 import pytest
 
-from llm_do.runtime import WorkerRuntime, build_invocable_registry
+from llm_do.runtime import build_invocable_registry
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
 )
+from tests.runtime.helpers import build_entry_context
 
 # Mark all tests in this directory as live tests
 pytestmark = pytest.mark.live
@@ -158,7 +159,7 @@ async def run_example(
         approval_callback=approval_callback,
     )
 
-    ctx = WorkerRuntime.from_entry(
+    ctx = build_entry_context(
         entry,
         model=model,
         run_approval_policy=approval_policy,

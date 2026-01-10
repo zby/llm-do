@@ -85,11 +85,19 @@ class ToolCallMessage(BaseMessage):
     """
 
     def __init__(
-        self, tool_name: str, tool_call: Any, args_json: str = "", **kwargs: Any
+        self,
+        tool_name: str,
+        tool_call: Any,
+        args_json: str = "",
+        worker: str = "",
+        depth: int = 0,
+        **kwargs: Any,
     ) -> None:
         self._tool_name = tool_name
         self._tool_call = tool_call
         self._args_json = args_json
+        self._worker = worker
+        self._depth = depth
 
         # Format the tool call for display
         content = self._format_tool_call()
@@ -97,7 +105,10 @@ class ToolCallMessage(BaseMessage):
 
     def _format_tool_call(self) -> str:
         """Format tool call for display."""
-        lines = [f"Tool: {self._tool_name}"]
+        if self._worker:
+            lines = [f"[{self._worker}:{self._depth}] Tool: {self._tool_name}"]
+        else:
+            lines = [f"Tool: {self._tool_name}"]
 
         # Handle both dict args and objects with .args attribute
         args: Any | None

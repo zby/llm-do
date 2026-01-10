@@ -89,7 +89,7 @@ class TestHeadlessDisplayBackend:
         backend.display(event)
 
         output = stream.getvalue()
-        assert "[main] Tool call: read_file" in output
+        assert "[main:0] Tool call: read_file" in output
         assert "path" in output
         assert "/tmp/test.txt" in output
 

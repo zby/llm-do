@@ -294,6 +294,7 @@ class WorkerRuntime:
                             tool_name=name,
                             tool_call_id=call_id,
                             args=validated_args,
+                            depth=self.depth,
                         )
                     )
 

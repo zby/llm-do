@@ -52,6 +52,7 @@ def parse_event(payload: dict[str, Any]) -> UIEvent:
     )
 
     worker = payload.get("worker", "worker")
+    depth = payload.get("depth", 0)
 
     # Initial request preview
     if "initial_request" in payload:
@@ -134,6 +135,7 @@ def parse_event(payload: dict[str, Any]) -> UIEvent:
             tool_call_id=getattr(tool_part, "tool_call_id", ""),
             args=getattr(tool_part, "args", {}),
             args_json=tool_part.args_as_json_str() if hasattr(tool_part, "args_as_json_str") else "",
+            depth=depth,
         )
 
     if isinstance(event, (FunctionToolResultEvent, BuiltinToolResultEvent)):

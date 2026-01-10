@@ -337,7 +337,9 @@ class Worker(AbstractToolset[Any]):
             end_strategy="exhaustive",
         )
 
-    def _emit_tool_events(self, messages: list[Any], runtime: WorkerRuntimeProtocol) -> None:
+    def _emit_tool_events(
+        self, messages: list[Any], runtime: WorkerRuntimeProtocol
+    ) -> None:
         """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
         if runtime.on_event is None:
             return
@@ -373,6 +375,7 @@ class Worker(AbstractToolset[Any]):
                 tool_name=call_part.tool_name,
                 tool_call_id=call_id,
                 args=args,
+                depth=runtime.depth,
             ))
 
             return_part = tool_returns.get(call_id)
@@ -503,7 +506,7 @@ class Worker(AbstractToolset[Any]):
             async for event in events:
                 if runtime.verbosity < 2 and isinstance(event, PartDeltaEvent):
                     continue
-                ui_event = parse_event({"worker": self.name, "event": event})
+                ui_event = parse_event({"worker": self.name, "event": event, "depth": runtime.depth})
                 if isinstance(ui_event, (ToolCallEvent, ToolResultEvent)):
                     emitted_tool_events = True
                 if runtime.on_event is not None:

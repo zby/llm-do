@@ -45,19 +45,29 @@ class AssistantMessage(BaseMessage):
     }
     """
 
-    def __init__(self, content: str = "", **kwargs: Any) -> None:
-        super().__init__(content, markup=False, **kwargs)
+    def __init__(
+        self, content: str = "", worker: str = "", depth: int = 0, **kwargs: Any
+    ) -> None:
         self._content = content
+        self._worker = worker
+        self._depth = depth
+        super().__init__(self._format_content(), markup=False, **kwargs)
+
+    def _format_content(self) -> str:
+        """Format content with worker:depth header."""
+        if self._worker:
+            return f"[{self._worker}:{self._depth}] Response:\n{self._content}"
+        return self._content
 
     def append_text(self, text: str) -> None:
         """Append streaming text to this message."""
         self._content += text
-        self.update(self._content)
+        self.update(self._format_content())
 
     def set_text(self, text: str) -> None:
         """Set the full text content of this message."""
         self._content = text
-        self.update(self._content)
+        self.update(self._format_content())
 
 
 class UserMessage(BaseMessage):
@@ -326,9 +336,11 @@ class MessageContainer(ScrollableContainer):
         super().__init__(**kwargs)
         self._current_assistant: AssistantMessage | None = None
 
-    def start_assistant_message(self, content: str = "") -> AssistantMessage:
+    def start_assistant_message(
+        self, content: str = "", worker: str = "", depth: int = 0
+    ) -> AssistantMessage:
         """Start a new assistant message for streaming."""
-        self._current_assistant = AssistantMessage(content)
+        self._current_assistant = AssistantMessage(content, worker, depth)
         self.mount(self._current_assistant)
         self.scroll_end(animate=False)
         return self._current_assistant
@@ -340,10 +352,12 @@ class MessageContainer(ScrollableContainer):
         self._current_assistant.append_text(text)
         self.scroll_end(animate=False)
 
-    def finalize_assistant(self, content: str) -> AssistantMessage:
+    def finalize_assistant(
+        self, content: str, worker: str = "", depth: int = 0
+    ) -> AssistantMessage:
         """Finalize the assistant message with the full content."""
         if self._current_assistant is None:
-            self._current_assistant = self.start_assistant_message()
+            self._current_assistant = self.start_assistant_message("", worker, depth)
         self._current_assistant.set_text(content)
         self.scroll_end(animate=False)
         return self._current_assistant
@@ -414,11 +428,11 @@ class MessageContainer(ScrollableContainer):
             if event.is_delta:
                 self.append_to_assistant(event.content)
             elif event.is_complete:
-                self.finalize_assistant(event.content)
+                self.finalize_assistant(event.content, event.worker, event.depth)
             else:
                 # Start of streaming (is_complete=False, is_delta=False)
                 placeholder = event.content or "Generating response..."
-                self.start_assistant_message(placeholder)
+                self.start_assistant_message(placeholder, event.worker, event.depth)
             return
 
         # Interrupt streaming for tool/approval/error events

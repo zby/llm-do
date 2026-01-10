@@ -22,12 +22,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import io
+import itertools
+import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
+from pydantic_ai.messages import ModelMessagesTypeAdapter
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from ..runtime import (
@@ -50,6 +52,34 @@ from ..ui import (
 )
 
 ENV_MODEL_VAR = "LLM_DO_MODEL"
+
+
+def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], None]:
+    """Stream raw model messages as JSONL for diagnostics."""
+    counter = itertools.count()
+
+    def callback(worker: str, depth: int, messages: list[Any]) -> None:
+        try:
+            serialized = ModelMessagesTypeAdapter.dump_python(messages, mode="json")
+        except Exception:
+            serialized = []
+            for msg in messages:
+                try:
+                    serialized.append(ModelMessagesTypeAdapter.dump_python([msg], mode="json")[0])
+                except Exception:
+                    serialized.append({"repr": repr(msg)})
+
+        for message in serialized:
+            record = {
+                "seq": next(counter),
+                "worker": worker,
+                "depth": depth,
+                "message": message,
+            }
+            stream.write(json.dumps(record, ensure_ascii=True) + "\n")
+        stream.flush()
+
+    return callback
 
 
 async def run(
@@ -122,11 +152,15 @@ async def run(
             cache=approval_cache,
             return_permission_errors=return_permission_errors,
         )
+        message_log_callback = None
+        if verbosity >= 3:
+            message_log_callback = _make_message_log_callback(sys.stderr)
         runtime = Runtime(
             cli_model=model,
             run_approval_policy=approval_policy,
             max_depth=max_depth if max_depth is not None else 5,
             on_event=on_event,
+            message_log_callback=message_log_callback,
             verbosity=verbosity,
         )
     else:
@@ -160,6 +194,7 @@ async def _run_tui_mode(
     approve_all: bool = False,
     reject_all: bool = False,
     verbosity: int = 0,
+    log_verbosity: int = 0,
     chat: bool = False,
     debug: bool = False,
     set_overrides: list[str] | None = None,
@@ -178,9 +213,9 @@ async def _run_tui_mode(
     tui_event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
 
-    # Create output buffer to capture events for post-TUI display
-    output_buffer = io.StringIO()
-    log_backend = RichDisplayBackend(output_buffer, force_terminal=True, verbosity=verbosity)
+    log_backend: RichDisplayBackend | None = None
+    if log_verbosity > 0:
+        log_backend = RichDisplayBackend(sys.stderr, force_terminal=True, verbosity=log_verbosity)
     tui_backend = TextualDisplayBackend(tui_event_queue)
 
     # Container for result and exit code
@@ -203,7 +238,9 @@ async def _run_tui_mode(
 
     async def render_loop() -> None:
         """Render UI events through the configured backends."""
-        backends = (tui_backend, log_backend)
+        backends: list[DisplayBackend] = [tui_backend]
+        if log_backend is not None:
+            backends.append(log_backend)
         for backend in backends:
             await backend.start()
         try:
@@ -237,11 +274,15 @@ async def _run_tui_mode(
         approval_callback=_prompt_approval_in_tui,
         return_permission_errors=True,
     )
+    message_log_callback = None
+    if log_verbosity >= 3:
+        message_log_callback = _make_message_log_callback(sys.stderr)
     runtime = Runtime(
         cli_model=model,
         run_approval_policy=approval_policy,
         max_depth=max_depth if max_depth is not None else 5,
         on_event=on_event,
+        message_log_callback=message_log_callback,
         verbosity=verbosity,
     )
 
@@ -331,13 +372,8 @@ async def _run_tui_mode(
     if not render_task.done():
         await render_task
 
-    # Print captured output to stderr (session log)
-    captured_output = output_buffer.getvalue()
-    if captured_output:
-        print(captured_output, file=sys.stderr)
-
     # Print final result to stdout
-    if worker_result and verbosity < 2:
+    if worker_result:
         result = worker_result[0]
         print(result)
 
@@ -438,7 +474,7 @@ def main() -> int:
         "-v", "--verbose",
         action="count",
         default=0,
-        help="Show progress (-v for tool calls, -vv for streaming)",
+        help="Show progress (-v for tool calls, -vv for streaming, -vvv for message log JSONL)",
     )
     parser.add_argument(
         "--max-depth",
@@ -550,6 +586,7 @@ def main() -> int:
             approve_all=args.approve_all,
             reject_all=args.reject_all,
             verbosity=tui_verbosity,
+            log_verbosity=args.verbose,
             chat=args.chat,
             debug=args.debug,
             set_overrides=args.set_overrides or None,
@@ -584,9 +621,7 @@ def main() -> int:
             set_overrides=args.set_overrides or None,
         ))
 
-        # Don't print result when streaming (verbosity >= 2) since it was already streamed
-        if args.verbose < 2:
-            print(result)
+        print(result)
         return 0
 
     except FileNotFoundError as e:

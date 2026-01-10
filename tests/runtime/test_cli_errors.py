@@ -88,6 +88,26 @@ Test worker
         assert exit_code == 0
         assert mock_run.call_args.kwargs["max_depth"] == 7
 
+    def test_verbose_flag_passed_to_run(self, tmp_path):
+        """Test that -vvv is accepted and passed through to run()."""
+        worker = tmp_path / "test.worker"
+        worker.write_text("""---
+name: main
+---
+Test worker
+""")
+
+        mock_ctx = AsyncMock()
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = ("Success!", mock_ctx)
+
+            with patch("sys.argv", ["llm-do", str(worker), "-vvv", "hello"]):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                    exit_code = main()
+
+        assert exit_code == 0
+        assert mock_run.call_args.kwargs["verbosity"] == 3
+
     def test_invalid_worker_file_error(self, tmp_path):
         """Test that invalid worker file shows helpful error."""
         # Create an invalid worker file (missing frontmatter)
@@ -211,8 +231,8 @@ Test worker
 
         assert exit_code == 0
 
-    def test_streaming_suppresses_stdout(self, tmp_path, capsys):
-        """Test that streaming mode does not print the final result."""
+    def test_streaming_prints_stdout(self, tmp_path, capsys):
+        """Test that streaming mode still prints the final result."""
         worker = tmp_path / "test.worker"
         worker.write_text("""---
 name: main
@@ -230,7 +250,7 @@ Test worker
 
         captured = capsys.readouterr()
         assert exit_code == 0
-        assert captured.out.strip() == ""
+        assert captured.out.strip() == "Success!"
 
 
 class TestCLIDebugFlag:

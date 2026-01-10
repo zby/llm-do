@@ -12,7 +12,7 @@ from ..models import select_model
 from ..ui.events import UserMessageEvent
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .call import CallConfig, CallFrame
-from .contracts import EventCallback, Invocable, ModelType
+from .contracts import EventCallback, Invocable, MessageLogCallback, ModelType
 
 if TYPE_CHECKING:
     from .deps import WorkerRuntime
@@ -78,6 +78,7 @@ class RuntimeConfig:
     run_approval_policy: RunApprovalPolicy
     max_depth: int = 5
     on_event: EventCallback | None = None
+    message_log_callback: MessageLogCallback | None = None
     verbosity: int = 0
 
 
@@ -91,6 +92,7 @@ class Runtime:
         run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
         on_event: EventCallback | None = None,
+        message_log_callback: MessageLogCallback | None = None,
         verbosity: int = 0,
     ) -> None:
         policy = run_approval_policy or RunApprovalPolicy(mode="approve_all")
@@ -99,6 +101,7 @@ class Runtime:
             run_approval_policy=policy,
             max_depth=max_depth,
             on_event=on_event,
+            message_log_callback=message_log_callback,
             verbosity=verbosity,
         )
         self._usage = UsageCollector()
@@ -128,6 +131,8 @@ class Runtime:
     def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
         """Record messages for diagnostic logging."""
         self._message_log.extend(worker_name, depth, messages)
+        if self._config.message_log_callback is not None:
+            self._config.message_log_callback(worker_name, depth, messages)
 
     def _build_entry_frame(
         self,

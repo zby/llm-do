@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 ModelType: TypeAlias = str | Model
 EventCallback: TypeAlias = Callable[[UIEvent], None]
+MessageLogCallback: TypeAlias = Callable[[str, int, list[Any]], None]
 
 
 class WorkerRuntimeProtocol(Protocol):

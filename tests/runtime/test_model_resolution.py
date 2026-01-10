@@ -9,7 +9,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
-from llm_do.models import validate_model_compatibility
+from llm_do.models import ModelConfigError, validate_model_compatibility
 from llm_do.runtime import WorkerInput, WorkerRuntime
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.call import CallFrame
@@ -105,11 +105,10 @@ async def test_worker_model_overrides_context_model_for_tool_calls() -> None:
 # --- compatible_models tests ---
 @pytest.mark.anyio
 async def test_worker_compatible_models_allows_matching_model() -> None:
-    """Worker runs successfully when model is in compatible_models."""
+    """Worker runs successfully when inherited model is in compatible_models."""
     worker = Worker(
         name="strict",
         instructions="Be strict.",
-        model="test",  # Use "test" string - PydanticAI converts to TestModel
         compatible_models=["test", "other-model"],
     )
     ctx = build_runtime_context(
@@ -154,17 +153,41 @@ async def test_worker_incompatible_model_raises() -> None:
 
 
 @pytest.mark.anyio
+async def test_worker_model_and_compatible_models_raises() -> None:
+    """Worker with model and compatible_models set is invalid."""
+    worker = Worker(
+        name="strict",
+        instructions="Be strict.",
+        model="test",
+        compatible_models=["test"],
+    )
+    ctx = build_runtime_context(
+        toolsets=[],
+        model="test",
+        run_approval_policy=RunApprovalPolicy(mode="approve_all"),
+    )
+    run_ctx = RunContext(
+        deps=ctx,
+        model=None,
+        usage=None,
+        prompt="test",
+    )
+
+    with pytest.raises(ModelConfigError, match="cannot have both"):
+        await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+
+
+@pytest.mark.anyio
 async def test_worker_no_compatible_models_allows_any() -> None:
     """Worker allows any model when compatible_models is None."""
     worker = Worker(
         name="flexible",
         instructions="Be flexible.",
-        model="test",  # Use "test" string - PydanticAI converts to TestModel
         compatible_models=None,  # No restriction
     )
     ctx = build_runtime_context(
         toolsets=[],
-        model="any-model",
+        model="test",
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
     )
     run_ctx = RunContext(
@@ -191,7 +214,6 @@ async def test_worker_wildcard_star_allows_any_model() -> None:
     worker = Worker(
         name="any-model-worker",
         instructions="Accept any model.",
-        model="test",  # Worker's own model (matches '*')
         compatible_models=["*"],
     )
     ctx = build_runtime_context(
@@ -329,12 +351,11 @@ async def test_model_object_validated_against_compatible_models() -> None:
     worker = Worker(
         name="test-only",
         instructions="Test model only.",
-        model=TestModel(custom_output_text="Hello!"),  # produces "test:test"
         compatible_models=["test:test"],  # Should match TestModel's full string
     )
     ctx = build_runtime_context(
         toolsets=[],
-        model="test",
+        model=TestModel(custom_output_text="Hello!"),  # produces "test:test"
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
     )
     run_ctx = RunContext(
@@ -355,12 +376,11 @@ async def test_model_object_rejected_by_incompatible_pattern() -> None:
     worker = Worker(
         name="anthropic-only",
         instructions="Anthropic models only.",
-        model=TestModel(),  # produces "test:test", not "anthropic:*"
         compatible_models=["anthropic:*"],
     )
     ctx = build_runtime_context(
         toolsets=[],
-        model="test",
+        model=TestModel(),  # produces "test:test", not "anthropic:*"
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
     )
     run_ctx = RunContext(
@@ -381,12 +401,11 @@ async def test_model_object_with_provider_wildcard() -> None:
     worker = Worker(
         name="test-provider",
         instructions="Test provider models allowed.",
-        model=TestModel(custom_output_text="OK"),  # produces "test:test"
         compatible_models=["test:*"],  # Provider wildcard matches "test:test"
     )
     ctx = build_runtime_context(
         toolsets=[],
-        model="test",
+        model=TestModel(custom_output_text="OK"),  # produces "test:test"
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
     )
     run_ctx = RunContext(
@@ -407,12 +426,11 @@ async def test_model_object_with_global_wildcard() -> None:
     worker = Worker(
         name="any-model",
         instructions="Any model allowed.",
-        model=TestModel(custom_output_text="OK"),  # produces "test:test"
         compatible_models=["*"],  # Global wildcard accepts any model
     )
     ctx = build_runtime_context(
         toolsets=[],
-        model="test",
+        model=TestModel(custom_output_text="OK"),  # produces "test:test"
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
     )
     run_ctx = RunContext(

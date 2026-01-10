@@ -181,17 +181,17 @@ def _validate_and_return(
 ) -> Any:
     """Validate a model against compatibility patterns and return it.
 
-    Only validates string model identifiers; Model objects are used as-is.
+    Validates both string identifiers and Model objects (via get_model_string).
 
     Raises:
         ModelCompatibilityError: If the model doesn't match compatible_models
     """
-    if isinstance(model, str):
-        result = validate_model_compatibility(
-            model, compatible_models, worker_name=worker_name
-        )
-        if not result.valid:
-            raise ModelCompatibilityError(result.message)
+    model_str = get_model_string(model)
+    result = validate_model_compatibility(
+        model_str, compatible_models, worker_name=worker_name
+    )
+    if not result.valid:
+        raise ModelCompatibilityError(result.message)
     return model
 
 
@@ -214,7 +214,7 @@ def select_model(
     2. CLI --model flag - user override
     3. LLM_DO_MODEL env var - user's global default
 
-    The CLI/env model is validated against compatible_models.
+    The CLI/env model is validated against compatible_models (string or Model).
     Worker cannot have both model and compatible_models set.
 
     Args:

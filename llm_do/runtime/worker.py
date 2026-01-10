@@ -29,11 +29,7 @@ from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai_blocking_approval import ApprovalDecision
 
-from ..models import (
-    ModelCompatibilityError,
-    get_model_string,
-    validate_model_compatibility,
-)
+from ..models import select_model
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..toolsets.attachments import AttachmentToolset
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
@@ -430,14 +426,12 @@ class Worker(AbstractToolset[Any]):
             raise RuntimeError(f"Max depth exceeded: {config.max_depth}")
 
         # Resolve model: worker model > state model (inherited from parent)
-        resolved_model = self.model if self.model is not None else state.model
-        if self.compatible_models is not None:
-            model_str = get_model_string(resolved_model)
-            compat_result = validate_model_compatibility(
-                model_str, self.compatible_models, worker_name=self.name
-            )
-            if not compat_result.valid:
-                raise ModelCompatibilityError(compat_result.message)
+        resolved_model = select_model(
+            worker_model=self.model,
+            cli_model=state.model,
+            compatible_models=self.compatible_models,
+            worker_name=self.name,
+        )
 
         # Wrap toolsets for approval using runtime-scoped callback
         approval_callback = run_ctx.deps.approval_callback

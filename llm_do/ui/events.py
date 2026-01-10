@@ -367,7 +367,7 @@ class ToolResultEvent(UIEvent):
         style = "red" if self.is_error else "blue"
         label = "Tool error" if self.is_error else "Tool result"
         header = (
-            Text(f"\n[{self.worker}] ", style=f"bold {style}")
+            Text(f"\n{self.worker_tag} ", style=f"bold {style}")
             + Text(f"{label}: ")
             + Text(self.tool_name, style=style)
         )
@@ -379,7 +379,7 @@ class ToolResultEvent(UIEvent):
 
     def render_text(self, verbosity: int = 0) -> str:
         label = "Tool error" if self.is_error else "Tool result"
-        lines = [f"\n[{self.worker}] {label}: {self.tool_name}"]
+        lines = [f"\n{self.worker_tag} {label}: {self.tool_name}"]
         content_display = self._truncate_content(self._content_as_str())
         lines.extend(f"  {line}" for line in content_display.split("\n"))
         return "\n".join(lines)
@@ -397,7 +397,9 @@ class ToolResultEvent(UIEvent):
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ToolResultMessage
 
-        return ToolResultMessage(self.tool_name, self._content_as_str(), self.is_error)
+        return ToolResultMessage(
+            self.tool_name, self._content_as_str(), self.is_error, self.worker_tag
+        )
 
     def _truncate_content(self, text: str) -> str:
         """Truncate content by both length and line count."""

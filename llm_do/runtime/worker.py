@@ -382,6 +382,7 @@ class Worker(AbstractToolset[Any]):
             if return_part:
                 runtime.on_event(ToolResultEvent(
                     worker=self.name,
+                    depth=runtime.depth,
                     tool_name=call_part.tool_name,
                     tool_call_id=call_id,
                     content=return_part.content,
@@ -545,6 +546,7 @@ class Worker(AbstractToolset[Any]):
                 if runtime.on_event:
                     runtime.on_event(TextResponseEvent(
                         worker=self.name,
+                        depth=runtime.depth,
                         content=chunk,
                         is_delta=True,
                         is_complete=False,  # Not complete - this is a streaming delta
@@ -556,6 +558,7 @@ class Worker(AbstractToolset[Any]):
             if runtime.on_event:
                 runtime.on_event(TextResponseEvent(
                     worker=self.name,
+                    depth=runtime.depth,
                     content=output,
                     is_complete=True,
                     is_delta=False,

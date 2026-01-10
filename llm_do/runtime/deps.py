@@ -306,6 +306,7 @@ class WorkerRuntime:
                     self.on_event(
                         ToolResultEvent(
                             worker="code_entry",
+                            depth=self.depth,
                             tool_name=name,
                             tool_call_id=call_id,
                             content=result,

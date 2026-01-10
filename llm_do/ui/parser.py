@@ -105,7 +105,7 @@ def parse_event(payload: dict[str, Any]) -> UIEvent:
 
     if isinstance(event, PartStartEvent):
         if isinstance(event.part, TextPart):
-            return TextResponseEvent(worker=worker, is_complete=False)
+            return TextResponseEvent(worker=worker, depth=depth, is_complete=False)
         # Tool call start is handled by FunctionToolCallEvent
         return StatusEvent(worker=worker)
 
@@ -114,7 +114,12 @@ def parse_event(payload: dict[str, Any]) -> UIEvent:
         delta = _extract_delta_content(event)
         # Only emit TextResponseEvent for non-empty text deltas
         if delta:
-            return TextResponseEvent(worker=worker, content=delta, is_delta=True)
+            return TextResponseEvent(
+                worker=worker,
+                depth=depth,
+                content=delta,
+                is_delta=True,
+            )
         # Non-text deltas (e.g., tool call parts) are ignored
         return StatusEvent(worker=worker)
 
@@ -122,6 +127,7 @@ def parse_event(payload: dict[str, Any]) -> UIEvent:
         if isinstance(event.part, TextPart):
             return TextResponseEvent(
                 worker=worker,
+                depth=depth,
                 content=event.part.content,
                 is_complete=True,
             )
@@ -142,6 +148,7 @@ def parse_event(payload: dict[str, Any]) -> UIEvent:
         tool_result = event.result
         return ToolResultEvent(
             worker=worker,
+            depth=depth,
             tool_name=getattr(tool_result, "tool_name", "tool"),
             tool_call_id=getattr(tool_result, "tool_call_id", ""),
             content=tool_result.content if hasattr(tool_result, "content") else tool_result,

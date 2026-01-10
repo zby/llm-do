@@ -57,7 +57,7 @@ class TestHeadlessDisplayBackend:
         backend.display(event)
 
         output = stream.getvalue()
-        assert "[assistant] Response:" in output
+        assert "[assistant:0] Response:" in output
         assert "Hello, this is the response." in output
 
     def test_streaming_delta_does_not_append_newline(self):
@@ -107,7 +107,7 @@ class TestHeadlessDisplayBackend:
         backend.display(event)
 
         output = stream.getvalue()
-        assert "[main] Tool result: read_file" in output
+        assert "[main:0] Tool result: read_file" in output
         assert "File contents here" in output
 
     def test_truncates_long_tool_args(self):

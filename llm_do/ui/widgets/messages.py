@@ -155,10 +155,18 @@ class ToolResultMessage(BaseMessage):
     }
     """
 
-    def __init__(self, tool_name: str, result: Any, is_error: bool = False, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        tool_name: str,
+        result: Any,
+        is_error: bool = False,
+        worker_tag: str = "",
+        **kwargs: Any,
+    ) -> None:
         self._tool_name = tool_name
         self._result = result
         self._is_error = is_error
+        self._worker_tag = worker_tag
 
         content = self._format_result()
         super().__init__(content, markup=False, **kwargs)
@@ -168,10 +176,13 @@ class ToolResultMessage(BaseMessage):
     def _format_result(self) -> str:
         """Format tool result for display."""
         if self._is_error:
-            label = f"Error: {self._tool_name}"
+            label = "Tool error"
         else:
-            label = f"Result: {self._tool_name}"
-        lines = [label]
+            label = "Tool result"
+        if self._worker_tag:
+            lines = [f"{self._worker_tag} {label}: {self._tool_name}"]
+        else:
+            lines = [f"{label}: {self._tool_name}"]
 
         # Handle both string results and objects with .content attribute
         max_len = ToolResultEvent.MAX_RESULT_DISPLAY

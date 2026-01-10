@@ -542,27 +542,37 @@ class Worker(AbstractToolset[Any]):
             message_history=message_history,
         ) as stream:
             # Stream text deltas
-            async for chunk in stream.stream_text(delta=True):
-                if runtime.on_event:
+            output: Any
+            if self.schema_out is None or self.schema_out is str:
+                async for chunk in stream.stream_text(delta=True):
+                    if runtime.on_event:
+                        runtime.on_event(TextResponseEvent(
+                            worker=self.name,
+                            depth=runtime.depth,
+                            content=chunk,
+                            is_delta=True,
+                            is_complete=False,  # Not complete - this is a streaming delta
+                        ))
+                # Avoid double completion; validate without re-marking completed.
+                output = await stream.validate_response_output(stream.response)
+                if runtime.on_event and isinstance(output, str):
                     runtime.on_event(TextResponseEvent(
                         worker=self.name,
                         depth=runtime.depth,
-                        content=chunk,
-                        is_delta=True,
-                        is_complete=False,  # Not complete - this is a streaming delta
+                        content=output,
+                        is_complete=True,
+                        is_delta=False,
                     ))
-
-            # Get the final output
-            output = await stream.get_output()
-
-            if runtime.on_event:
-                runtime.on_event(TextResponseEvent(
-                    worker=self.name,
-                    depth=runtime.depth,
-                    content=output,
-                    is_complete=True,
-                    is_delta=False,
-                ))
+            else:
+                output = await stream.get_output()
+                if runtime.on_event and isinstance(output, str):
+                    runtime.on_event(TextResponseEvent(
+                        worker=self.name,
+                        depth=runtime.depth,
+                        content=output,
+                        is_complete=True,
+                        is_delta=False,
+                    ))
 
             runtime.log_messages(self.name, runtime.depth, _get_all_messages(stream))
             # Emit tool events (must be inside context manager)

@@ -230,16 +230,12 @@ class ToolInvocable:
     async def call(
         self,
         input_data: Any,
-        config: RuntimeConfig,
-        state: CallFrame,
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Call the tool via its toolset.
 
         Args:
             input_data: Tool input (dict or BaseModel)
-            config: Global runtime configuration (unused by ToolInvocable)
-            state: Per-call state (unused by ToolInvocable)
             run_ctx: PydanticAI RunContext for tool execution
         """
         if isinstance(input_data, BaseModel):
@@ -320,7 +316,6 @@ class Worker(AbstractToolset[Any]):
         self, name: str, tool_args: dict[str, Any], run_ctx: RunContext[Any], tool: ToolsetTool[Any]
     ) -> Any:
         """Execute the worker when called as a tool."""
-        # run_ctx.deps is WorkerRuntime; extract config and frame for two-object API
         return await self._call_internal(
             tool_args,
             run_ctx.deps.config,
@@ -403,22 +398,18 @@ class Worker(AbstractToolset[Any]):
     async def call(
         self,
         input_data: Any,
-        config: RuntimeConfig,
-        state: CallFrame,
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Execute the worker with the given input.
 
         Args:
             input_data: Worker input args (WorkerArgs or dict)
-            config: Global runtime configuration (immutable, shared)
-            state: Per-call state (mutable, forked)
             run_ctx: PydanticAI RunContext (deps is the parent WorkerRuntime)
         """
         return await self._call_internal(
             input_data,
-            config,
-            state,
+            run_ctx.deps.config,
+            run_ctx.deps.frame,
             run_ctx,
         )
 

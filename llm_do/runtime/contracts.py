@@ -29,6 +29,9 @@ class WorkerRuntimeProtocol(Protocol):
     """Structural type for the runtime object used as PydanticAI deps."""
 
     @property
+    def config(self) -> "RuntimeConfig": ...
+
+    @property
     def depth(self) -> int: ...
 
     @property
@@ -78,10 +81,7 @@ class Invocable(Protocol):
     Worker has additional attributes (model, toolsets, compatible_models)
     that are accessed via getattr with defaults in the runtime.
 
-    The call() signature separates concerns:
-    - config: Global scope (immutable, shared across all workers)
-    - state: Per-call scope (mutable, forked per-worker)
-    - run_ctx: PydanticAI RunContext with WorkerRuntime as deps (for tools)
+    Config and state are accessed via run_ctx.deps (single source of truth).
     """
 
     @property
@@ -90,7 +90,5 @@ class Invocable(Protocol):
     async def call(
         self,
         input_data: Any,
-        config: "RuntimeConfig",
-        state: "CallFrame",
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any: ...

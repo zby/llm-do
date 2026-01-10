@@ -12,8 +12,6 @@ from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from llm_do.models import ModelConfigError, validate_model_compatibility
 from llm_do.runtime import WorkerInput, WorkerRuntime
 from llm_do.runtime.approval import RunApprovalPolicy
-from llm_do.runtime.call import CallFrame
-from llm_do.runtime.shared import RuntimeConfig
 from llm_do.runtime.worker import Worker
 from tests.runtime.helpers import build_runtime_context
 
@@ -67,11 +65,10 @@ class DummyEntry:
     async def call(
         self,
         input_data: Any,
-        config: RuntimeConfig,
-        state: CallFrame,
         run_ctx: RunContext[WorkerRuntime],
     ) -> Any:
         # Like Worker.call(), fork state and create a child context with our toolsets
+        state = run_ctx.deps.frame
         resolved_model = self.model if self.model is not None else state.model
         child_runtime = run_ctx.deps.spawn_child(toolsets=self.toolsets, model=resolved_model)
         return await child_runtime.call("capture", {"value": 1})
@@ -124,7 +121,7 @@ async def test_worker_compatible_models_allows_matching_model() -> None:
     )
 
     # Should not raise - "test" is in compatible_models
-    result = await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+    result = await worker.call(WorkerInput(input="hi"), run_ctx)
     assert result is not None
 
 
@@ -149,7 +146,7 @@ async def test_worker_incompatible_model_raises() -> None:
     )
 
     with pytest.raises(ValueError, match="not compatible with worker"):
-        await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+        await worker.call(WorkerInput(input="hi"), run_ctx)
 
 
 @pytest.mark.anyio
@@ -174,7 +171,7 @@ async def test_worker_model_and_compatible_models_raises() -> None:
     )
 
     with pytest.raises(ModelConfigError, match="cannot have both"):
-        await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+        await worker.call(WorkerInput(input="hi"), run_ctx)
 
 
 @pytest.mark.anyio
@@ -198,7 +195,7 @@ async def test_worker_no_compatible_models_allows_any() -> None:
     )
 
     # Should not raise
-    result = await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+    result = await worker.call(WorkerInput(input="hi"), run_ctx)
     assert result is not None
 
 
@@ -229,7 +226,7 @@ async def test_worker_wildcard_star_allows_any_model() -> None:
     )
 
     # Should not raise - '*' matches "test"
-    result = await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+    result = await worker.call(WorkerInput(input="hi"), run_ctx)
     assert result is not None
 
 
@@ -255,7 +252,7 @@ async def test_worker_wildcard_star_allows_inherited_model() -> None:
     )
 
     # Should not raise - '*' matches inherited "test" model
-    result = await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+    result = await worker.call(WorkerInput(input="hi"), run_ctx)
     assert result is not None
 
 
@@ -291,7 +288,7 @@ async def test_worker_provider_wildcard_rejects_other_provider() -> None:
     )
 
     with pytest.raises(ValueError, match="not compatible with worker"):
-        await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+        await worker.call(WorkerInput(input="hi"), run_ctx)
 
 
 @pytest.mark.anyio
@@ -315,7 +312,7 @@ async def test_worker_model_family_wildcard_rejects_non_matching() -> None:
     )
 
     with pytest.raises(ValueError, match="not compatible with worker"):
-        await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+        await worker.call(WorkerInput(input="hi"), run_ctx)
 
 
 @pytest.mark.anyio
@@ -339,7 +336,7 @@ async def test_worker_multiple_patterns_rejects_non_matching() -> None:
     )
 
     with pytest.raises(ValueError, match="not compatible with worker"):
-        await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+        await worker.call(WorkerInput(input="hi"), run_ctx)
 
 
 # --- Model object tests (TestModel) with compatible_models ---
@@ -366,7 +363,7 @@ async def test_model_object_validated_against_compatible_models() -> None:
     )
 
     # Should not raise - TestModel.model_name = "test" matches pattern
-    result = await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+    result = await worker.call(WorkerInput(input="hi"), run_ctx)
     assert result is not None
 
 
@@ -392,7 +389,7 @@ async def test_model_object_rejected_by_incompatible_pattern() -> None:
 
     # Should raise - TestModel.model_name = "test" doesn't match "anthropic:*"
     with pytest.raises(ValueError, match="not compatible with worker"):
-        await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+        await worker.call(WorkerInput(input="hi"), run_ctx)
 
 
 @pytest.mark.anyio
@@ -416,7 +413,7 @@ async def test_model_object_with_provider_wildcard() -> None:
     )
 
     # Should not raise - 'test:*' matches "test:test"
-    result = await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+    result = await worker.call(WorkerInput(input="hi"), run_ctx)
     assert result is not None
 
 
@@ -441,5 +438,5 @@ async def test_model_object_with_global_wildcard() -> None:
     )
 
     # Should not raise - '*' matches any model_name including "test"
-    result = await worker.call(WorkerInput(input="hi"), ctx.config, ctx.frame, run_ctx)
+    result = await worker.call(WorkerInput(input="hi"), run_ctx)
     assert result is not None

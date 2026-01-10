@@ -81,13 +81,13 @@ def _should_use_message_history(runtime: WorkerRuntimeProtocol) -> bool:
 
 
 def _get_all_messages(result: Any) -> list[Any]:
-    """Return all messages from a run result or stream object."""
-    all_messages = getattr(result, "all_messages", None)
-    if callable(all_messages):
-        return list(all_messages())
-    if all_messages is not None:
-        return list(all_messages)
-    return []
+    """Return all messages from a run result or stream object.
+
+    PydanticAI exposes all_messages() as a method (not a property) on both
+    RunResult and StreamedRunResult with the same signature.
+    See: https://ai.pydantic.dev/api/result/
+    """
+    return list(result.all_messages())
 
 
 def _update_message_history(runtime: WorkerRuntimeProtocol, result: Any) -> None:

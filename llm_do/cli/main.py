@@ -159,7 +159,7 @@ async def run(
         # Separate worker files and Python files
         worker_files = [f for f in files if f.endswith(".worker")]
         python_files = [f for f in files if f.endswith(".py")]
-        registry = await build_invocable_registry(
+        registry = build_invocable_registry(
             worker_files,
             python_files,
             entry_name=resolved_entry_name,

@@ -58,7 +58,7 @@ from llm_do.runtime import (
 )
 
 async def main():
-    registry = await build_invocable_registry(["analyzer.worker"], [])
+    registry = build_invocable_registry(["analyzer.worker"], [])
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
 
     result, ctx = await runtime.run_entry(

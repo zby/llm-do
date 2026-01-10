@@ -88,7 +88,7 @@ def _merge_toolsets(
     return merged
 
 
-async def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
+def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
     """Get tool names from a toolset without needing a RunContext."""
     from pydantic_ai.toolsets import FunctionToolset
     if isinstance(toolset, FunctionToolset):
@@ -100,7 +100,7 @@ async def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
     return []
 
 
-async def build_invocable_registry(
+def build_invocable_registry(
     worker_files: list[str],
     python_files: list[str],
     *,
@@ -116,7 +116,7 @@ async def build_invocable_registry(
     # Note: duplicate tool names are detected by pydantic-ai at runtime
     python_tool_map: dict[str, tuple[AbstractToolset[Any], str]] = {}
     for toolset_name, toolset in python_toolsets.items():
-        tool_names = await _get_tool_names(toolset)
+        tool_names = _get_tool_names(toolset)
         for tool_name in tool_names:
             if tool_name not in python_tool_map:
                 python_tool_map[tool_name] = (toolset, tool_name)

@@ -18,7 +18,7 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     ]
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
-    registry = await build_invocable_registry(
+    registry = build_invocable_registry(
         worker_files,
         python_files,
         entry_name="main",
@@ -66,7 +66,7 @@ main = Worker(name="main", instructions="hi", toolsets=[tools])
 """
     )
 
-    await build_invocable_registry([], [str(module_path)], entry_name="main")
+    build_invocable_registry([], [str(module_path)], entry_name="main")
 
     lines = marker_path.read_text(encoding="utf-8").splitlines()
     assert lines == ["x"]
@@ -100,7 +100,7 @@ Instructions.
         encoding="utf-8",
     )
 
-    registry = await build_invocable_registry([str(worker_path)], [], entry_name="main")
+    registry = build_invocable_registry([str(worker_path)], [], entry_name="main")
     entry = registry.get("main")
     assert isinstance(entry, Worker)
     assert entry.schema_in is not None

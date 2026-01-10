@@ -22,7 +22,7 @@ Hello
     )
 
     with pytest.raises(ValueError, match="Unknown toolset"):
-        await build_invocable_registry(
+        build_invocable_registry(
             [str(worker)],
             [],
             entry_name="main",

@@ -21,7 +21,7 @@ Call yourself.
 """
     )
 
-    registry = await build_invocable_registry([str(worker_path)], [], entry_name="recursive")
+    registry = build_invocable_registry([str(worker_path)], [], entry_name="recursive")
     entry = registry.get("recursive")
 
     assert isinstance(entry, Worker)

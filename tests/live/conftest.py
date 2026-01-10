@@ -146,7 +146,7 @@ async def run_example(
 ) -> Any:
     """Build and run an example entry with approvals wired."""
     worker_files, python_files = _collect_example_files(example_dir)
-    registry = await build_invocable_registry(
+    registry = build_invocable_registry(
         worker_files,
         python_files,
         entry_name=entry_name,

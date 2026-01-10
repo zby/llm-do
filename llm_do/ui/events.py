@@ -24,6 +24,12 @@ class UIEvent(ABC):
     """
 
     worker: str = ""
+    depth: int = 0
+
+    @property
+    def worker_tag(self) -> str:
+        """Format worker and depth as a tag like [worker:depth]."""
+        return f"[{self.worker}:{self.depth}]"
 
     @abstractmethod
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
@@ -234,7 +240,8 @@ class TextResponseEvent(UIEvent):
         # Complete responses
         if self.is_complete:
             header = (
-                Text(f"\n[{self.worker}] ", style="bold green") + Text("Response:")
+                Text(f"\n{self.worker_tag} ", style="bold green")
+                + Text("Response:")
             )
             content = Text("\n".join(f"  {line}" for line in self.content.split("\n")))
             return Group(header, content)
@@ -242,7 +249,7 @@ class TextResponseEvent(UIEvent):
         # Start of streaming (verbosity >= 1)
         if verbosity >= 1:
             return (
-                Text(f"[{self.worker}] ", style="dim")
+                Text(f"{self.worker_tag} ", style="dim")
                 + Text("Generating response...", style="dim")
             )
         return None
@@ -251,11 +258,11 @@ class TextResponseEvent(UIEvent):
         if self.is_delta:
             return self.content if verbosity >= 2 else None
         if self.is_complete:
-            lines = [f"\n[{self.worker}] Response:"]
+            lines = [f"\n{self.worker_tag} Response:"]
             lines.extend(f"  {line}" for line in self.content.split("\n"))
             return "\n".join(lines)
         if verbosity >= 1:
-            return f"[{self.worker}] Generating response..."
+            return f"{self.worker_tag} Generating response..."
         return None
 
     def render_json(self) -> dict[str, Any]:
@@ -263,6 +270,7 @@ class TextResponseEvent(UIEvent):
             "type": "text_response",
             "worker": self.worker,
             "content": self.content,
+            "depth": self.depth,
             "is_complete": self.is_complete,
             "is_delta": self.is_delta,
         }
@@ -280,7 +288,6 @@ class ToolCallEvent(UIEvent):
     tool_call_id: str = ""
     args: dict[str, Any] = field(default_factory=dict)
     args_json: str = ""
-    depth: int = 0
 
     MAX_ARGS_DISPLAY: ClassVar[int] = 400
 
@@ -289,7 +296,7 @@ class ToolCallEvent(UIEvent):
         from rich.text import Text
 
         header = (
-            Text(f"\n[{self.worker}:{self.depth}] ", style="bold yellow")
+            Text(f"\n{self.worker_tag} ", style="bold yellow")
             + Text("Tool call: ")
             + Text(self.tool_name, style="yellow")
         )
@@ -301,7 +308,7 @@ class ToolCallEvent(UIEvent):
         return Group(*parts)
 
     def render_text(self, verbosity: int = 0) -> str:
-        lines = [f"\n[{self.worker}:{self.depth}] Tool call: {self.tool_name}"]
+        lines = [f"\n{self.worker_tag} Tool call: {self.tool_name}"]
         if self.args or self.args_json:
             args_str = self.args_json or str(self.args)
             args_display = self._truncate(args_str, self.MAX_ARGS_DISPLAY)
@@ -322,7 +329,7 @@ class ToolCallEvent(UIEvent):
 
         # Pass both args and args_json so widget can use same logic as render_rich
         return ToolCallMessage(
-            self.tool_name, self.args, self.args_json, self.worker, self.depth
+            self.tool_name, self.args, self.args_json, self.worker_tag
         )
 
     @staticmethod

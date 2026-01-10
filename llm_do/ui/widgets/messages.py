@@ -46,17 +46,16 @@ class AssistantMessage(BaseMessage):
     """
 
     def __init__(
-        self, content: str = "", worker: str = "", depth: int = 0, **kwargs: Any
+        self, content: str = "", worker_tag: str = "", **kwargs: Any
     ) -> None:
         self._content = content
-        self._worker = worker
-        self._depth = depth
+        self._worker_tag = worker_tag
         super().__init__(self._format_content(), markup=False, **kwargs)
 
     def _format_content(self) -> str:
         """Format content with worker:depth header."""
-        if self._worker:
-            return f"[{self._worker}:{self._depth}] Response:\n{self._content}"
+        if self._worker_tag:
+            return f"{self._worker_tag} Response:\n{self._content}"
         return self._content
 
     def append_text(self, text: str) -> None:
@@ -99,15 +98,13 @@ class ToolCallMessage(BaseMessage):
         tool_name: str,
         tool_call: Any,
         args_json: str = "",
-        worker: str = "",
-        depth: int = 0,
+        worker_tag: str = "",
         **kwargs: Any,
     ) -> None:
         self._tool_name = tool_name
         self._tool_call = tool_call
         self._args_json = args_json
-        self._worker = worker
-        self._depth = depth
+        self._worker_tag = worker_tag
 
         # Format the tool call for display
         content = self._format_tool_call()
@@ -115,8 +112,8 @@ class ToolCallMessage(BaseMessage):
 
     def _format_tool_call(self) -> str:
         """Format tool call for display."""
-        if self._worker:
-            lines = [f"[{self._worker}:{self._depth}] Tool: {self._tool_name}"]
+        if self._worker_tag:
+            lines = [f"{self._worker_tag} Tool: {self._tool_name}"]
         else:
             lines = [f"Tool: {self._tool_name}"]
 
@@ -337,10 +334,10 @@ class MessageContainer(ScrollableContainer):
         self._current_assistant: AssistantMessage | None = None
 
     def start_assistant_message(
-        self, content: str = "", worker: str = "", depth: int = 0
+        self, content: str = "", worker_tag: str = ""
     ) -> AssistantMessage:
         """Start a new assistant message for streaming."""
-        self._current_assistant = AssistantMessage(content, worker, depth)
+        self._current_assistant = AssistantMessage(content, worker_tag)
         self.mount(self._current_assistant)
         self.scroll_end(animate=False)
         return self._current_assistant
@@ -353,11 +350,11 @@ class MessageContainer(ScrollableContainer):
         self.scroll_end(animate=False)
 
     def finalize_assistant(
-        self, content: str, worker: str = "", depth: int = 0
+        self, content: str, worker_tag: str = ""
     ) -> AssistantMessage:
         """Finalize the assistant message with the full content."""
         if self._current_assistant is None:
-            self._current_assistant = self.start_assistant_message("", worker, depth)
+            self._current_assistant = self.start_assistant_message("", worker_tag)
         self._current_assistant.set_text(content)
         self.scroll_end(animate=False)
         return self._current_assistant
@@ -428,11 +425,11 @@ class MessageContainer(ScrollableContainer):
             if event.is_delta:
                 self.append_to_assistant(event.content)
             elif event.is_complete:
-                self.finalize_assistant(event.content, event.worker, event.depth)
+                self.finalize_assistant(event.content, event.worker_tag)
             else:
                 # Start of streaming (is_complete=False, is_delta=False)
                 placeholder = event.content or "Generating response..."
-                self.start_assistant_message(placeholder, event.worker, event.depth)
+                self.start_assistant_message(placeholder, event.worker_tag)
             return
 
         # Interrupt streaming for tool/approval/error events

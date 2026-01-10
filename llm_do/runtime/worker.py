@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import inspect
 import json
-import mimetypes
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterable, Literal, Optional, Sequence, Type
+from typing import Any, AsyncIterable, Literal, Optional, Sequence, Type, cast
 
 from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
@@ -36,58 +35,42 @@ from ..models import (
     validate_model_compatibility,
 )
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
+from ..toolsets.attachments import AttachmentToolset
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
 from .approval import ApprovalCallback
-from .args import PromptSpec, WorkerArgs, WorkerInput, ensure_worker_args
+from .args import WorkerArgs, WorkerInput, ensure_worker_args
 from .call import CallFrame
 from .contracts import WorkerRuntimeProtocol
 from .shared import RuntimeConfig
 
 
-def _load_attachment(path: str, base_path: Path | None = None) -> BinaryContent:
-    """Load a file as BinaryContent for use in multimodal prompts.
+def _resolve_attachment_path(path: str, base_path: Path | None = None) -> Path:
+    """Resolve an attachment path to an absolute, normalized path.
 
     Args:
         path: Path to the file (relative or absolute)
         base_path: Base directory for resolving relative paths
 
     Returns:
-        BinaryContent with file data and detected media type
-
-    Raises:
-        FileNotFoundError: If the file doesn't exist
+        Absolute, normalized Path for the attachment
     """
-    file_path = Path(path)
+    file_path = Path(path).expanduser()
     if not file_path.is_absolute() and base_path is not None:
-        file_path = base_path / file_path
-    if not file_path.exists():
-        raise FileNotFoundError(f"Attachment not found: {path}")
-
-    # Detect media type from extension
-    media_type, _ = mimetypes.guess_type(str(file_path))
-    if media_type is None:
-        # Default to octet-stream for unknown types
-        media_type = "application/octet-stream"
-
-    data = file_path.read_bytes()
-    return BinaryContent(data=data, media_type=media_type)
+        file_path = base_path.expanduser() / file_path
+    return file_path.resolve()
 
 
 def _build_user_prompt(
-    prompt_spec: PromptSpec, base_path: Path | None = None
+    text: str, attachments: Sequence[BinaryContent]
 ) -> str | Sequence[UserContent]:
-    """Build user prompt from a prompt spec, handling attachments."""
-    text = prompt_spec.text
-    attachments = list(prompt_spec.attachments)
-
+    """Build a user prompt from text and resolved attachments."""
     # If no attachments, return plain string (avoid empty/whitespace prompt for providers that require a message)
     if not attachments:
         return text if text.strip() else "(no input)"
 
     # Build multimodal prompt with attachments
     parts: list[UserContent] = [text if text.strip() else "(no input)"]
-    for attachment_path in attachments:
-        parts.append(_load_attachment(attachment_path, base_path))
+    parts.extend(attachments)
 
     return parts
 
@@ -466,13 +449,38 @@ class Worker(AbstractToolset[Any]):
             return_permission_errors=run_ctx.deps.return_permission_errors,
         )
 
+        attachment_parts: list[BinaryContent] = []
+        if prompt_spec.attachments:
+            attachment_toolsets = wrap_toolsets_for_approval(
+                [AttachmentToolset()],
+                run_ctx.deps.approval_callback,
+                return_permission_errors=False,
+            )
+            attachment_runtime = cast(
+                Any,
+                run_ctx.deps.spawn_child(
+                    toolsets=attachment_toolsets,
+                    model=resolved_model,
+                ),
+            )
+            attachment_runtime.prompt = prompt_spec.text
+            for attachment_path in prompt_spec.attachments:
+                resolved_path = _resolve_attachment_path(attachment_path, self.base_path)
+                attachment = await attachment_runtime.call(
+                    "read_attachment",
+                    {"path": str(resolved_path)},
+                )
+                if not isinstance(attachment, BinaryContent):
+                    raise TypeError("Attachment tool must return BinaryContent")
+                attachment_parts.append(attachment)
+
         # Fork per-call state and build child runtime for PydanticAI deps
         child_runtime = run_ctx.deps.spawn_child(toolsets=wrapped_toolsets, model=resolved_model)
         child_runtime.prompt = prompt_spec.text
         child_state = child_runtime.frame
 
         agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
-        prompt = _build_user_prompt(prompt_spec, self.base_path)
+        prompt = _build_user_prompt(prompt_spec.text, attachment_parts)
         message_history = (
             list(state.messages) if _should_use_message_history(child_runtime) and state.messages else None
         )

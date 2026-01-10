@@ -1,6 +1,6 @@
 """File organization tools - deterministic filename sanitization.
 
-This demonstrates the "hardening" pattern: the LLM decides what files should
+This demonstrates the "stabilizing" pattern: the LLM decides what files should
 be called (semantic decision), but the actual character sanitization is
 handled by deterministic Python code (no LLM variability).
 """

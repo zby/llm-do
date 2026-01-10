@@ -7,11 +7,11 @@
 
 ## Goal
 
-Demonstrate the tool-entry-point pattern by converting `pitchdeck_eval_hardened` to use a Python `main()` function as entry point instead of an LLM orchestrator.
+Demonstrate the tool-entry-point pattern by converting `pitchdeck_eval_stabilized` to use a Python `main()` function as entry point instead of an LLM orchestrator.
 
 ## Background
 
-**Current state** (`examples/pitchdeck_eval_hardened`):
+**Current state** (`examples/pitchdeck_eval_stabilized`):
 ```
 main.worker (LLM orchestrator)
     ├── calls list_pitchdecks() tool
@@ -37,18 +37,18 @@ pitch_evaluator.worker (unchanged - LLM analysis)
 
 ## Why This Example
 
-1. **Real hardening benefit**: Removes token waste on trivial orchestration
+1. **Real stabilizing benefit**: Removes token waste on trivial orchestration
 2. **Demonstrates the pattern**: Deterministic entry → LLM workers for reasoning
-3. **Incremental**: Already has `list_pitchdecks` hardened, this completes it
+3. **Incremental**: Already has `list_pitchdecks` stabilized, this completes it
 4. **Testable**: Can verify same outputs with less LLM cost
 
 ## Tasks
 
 - [x] Create new example directory `examples/pitchdeck_eval_code_entry/`
-- [x] Copy `pitch_evaluator.worker` from hardened example (unchanged)
+- [x] Copy `pitch_evaluator.worker` from stabilized example (unchanged)
 - [x] Copy `PROCEDURE.md` (unchanged)
 - [x] Create `tools.py` with:
-  - [x] `list_pitchdecks()` (copy from hardened)
+  - [x] `list_pitchdecks()` (copy from stabilized)
   - [x] `main(ctx, input: str)` with `@tool_context` decorator
 - [x] Implement `main()` function
 - [x] Update example README explaining the pattern
@@ -84,11 +84,11 @@ The `call_tool_async` function was updated to extract attachments from dict inpu
 
 - Keep `pitch_evaluator.worker` unchanged - LLM analysis is valuable there
 - The pattern: code for mechanical ops, LLM for reasoning
-- This is "full hardening" - only LLM calls are for actual analysis
+- This is "full stabilizing" - only LLM calls are for actual analysis
 
 ## References
 
-- Source example: `examples/pitchdeck_eval_hardened/`
+- Source example: `examples/pitchdeck_eval_stabilized/`
 - New example: `examples/pitchdeck_eval_code_entry/`
 - Design: `tasks/completed/tool-entry-point.md`
 - Context injection: `tasks/completed/105-custom-tool-context.md`

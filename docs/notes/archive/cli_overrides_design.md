@@ -8,7 +8,7 @@ Add `--set` and `--override` flags to the CLI to allow runtime overrides of work
 
 1. **Quick experimentation**: Try different models without editing files
 2. **Scripting**: Parameterize worker behavior in CI/CD
-3. **Security hardening**: Force strict mode or limit sandboxes per invocation
+3. **Security stabilizing**: Force strict mode or limit sandboxes per invocation
 4. **Development**: Temporarily enable/disable tools or change sandbox paths
 
 ## User Interface

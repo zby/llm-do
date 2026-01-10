@@ -28,7 +28,7 @@ That’s basically llm-do’s whole philosophy:
 * It’s an **imperative orchestration harness** where *your code owns control flow* (loops, branches, retries), rather than a fixed graph DSL. ([GitHub][2])
 * Work is split into small **workers** (YAML front matter + instruction body), and **workers can call other workers** (delegation). ([GitHub][2])
 * Workers and tools live in a **unified function space**—LLM steps and deterministic Python checks can interleave freely. ([GitHub][2])
-* It explicitly supports **progressive hardening**: start flexible (prompt-y), then extract stable parts into deterministic code/tests. ([GitHub][2])
+* It explicitly supports **progressive stabilizing**: start flexible (prompt-y), then extract stable parts into deterministic code/tests. ([GitHub][2])
 
 That maps almost 1:1 to the paper’s formal model:
 
@@ -148,7 +148,7 @@ If your system tends to ramble or regress, cap sequential first and lean more on
 
 ---
 
-## “Progressive hardening” is the bridge between the survey and real reliability
+## “Progressive stabilizing” is the bridge between the survey and real reliability
 
 A lot of Long CoT papers rely on “feedback” from reward models or learned verifiers.
 
@@ -159,7 +159,7 @@ In llm-do you can often do better with **hard checks**:
 * If it’s formatting: validate schema.
 * If it’s factual: require citations and cross-check.
 
-Then, once you see repeat patterns in failures, you harden those into deterministic tools—exactly what llm-do recommends. ([GitHub][2])
+Then, once you see repeat patterns in failures, you stabilize those into deterministic tools—exactly what llm-do recommends. ([GitHub][2])
 
 That turns reflection from “self-critique vibes” into **measurable control**.
 
@@ -205,4 +205,4 @@ That’s what the survey formalizes, and llm-do’s worker+tool orchestration is
 If you tell me what you’re building in llm-do (coding agent? research agent? document generator? something else), I’ll map this into a specific worker tree + budget strategy tailored to that use case.
 
 [1]: https://arxiv.org/pdf/2503.09567 "Towards Reasoning Era: A Survey of Long Chain-of-Thought for Reasoning Large Language Models"
-[2]: https://github.com/zby/llm-do "GitHub - zby/llm-do: Spec-driven automation with LLM and progressive hardening"
+[2]: https://github.com/zby/llm-do "GitHub - zby/llm-do: Spec-driven automation with LLM and progressive stabilizing"

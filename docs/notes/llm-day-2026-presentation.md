@@ -6,22 +6,22 @@
 
 ### Title Options (undecided)
 
-- "Harden the Joints: A Unified Interface for LLM and Code"
+- "Stabilize the Joints: A Unified Interface for LLM and Code"
 - "One Interface: Unifying LLM and Code for Reliable Systems"
 - "The Unified Function Space: Where LLM Meets Code"
 - "Same Call, Different Engine: Unifying Stochastic and Deterministic"
 
 ### Elevator Pitch (300 chars)
 
-> LLM composition fails at the joints—contracts get violated, pipelines break. llm-do unifies LLM and code under one interface, letting you progressively harden boundaries into reliable code while keeping flexibility where you need it.
+> LLM composition fails at the joints—contracts get violated, pipelines break. llm-do unifies LLM and code under one interface, letting you progressively stabilize boundaries into reliable code while keeping flexibility where you need it.
 
 ### Description
 
 > This talk introduces a model for building reliable systems on stochastic foundations. We treat LLMs as stochastic computers: they don't produce outputs, they sample from distributions. The boundaries between components are where variance collapses or expands—and crucially, where you can intervene.
 >
-> Using llm-do, we show how a unified calling convention enables fluid refactoring between LLM and code. The same call site works whether the implementation is a prompt or a function. This makes hardening cheap: as patterns stabilize, extract them to code. Keep flexibility where requirements are fuzzy; make the joints reliable.
+> Using llm-do, we show how a unified calling convention enables fluid refactoring between LLM and code. The same call site works whether the implementation is a prompt or a function. This makes stabilizing cheap: as patterns stabilize, extract them to code. Keep flexibility where requirements are fuzzy; make the joints reliable.
 >
-> We'll walk through concrete examples showing the progression from all-LLM prototype to production-ready system with hardened boundaries—and demonstrate how the same patterns let you soften components back to LLM when requirements change.
+> We'll walk through concrete examples showing the progression from all-LLM prototype to production-ready system with stabilized boundaries—and demonstrate how the same patterns let you soften components back to LLM when requirements change.
 >
 > Attendees will leave with a coherent mental model for LLM system reliability and practical patterns for taking applications from prototype to production.
 
@@ -31,10 +31,10 @@
 > I have over 20 years of experience as a software developer. I'm approaching LLM applications not as an AI specialist but as an engineer who's seen this pattern before: new technology arrives, teams build fragile systems, and eventually the field rediscovers that composition, contracts, and boundaries matter. This talk applies hard-won software engineering principles to LLM systems.
 >
 > **Why this talk:**
-> This isn't a framework pitch. The conceptual model (stochastic computers, boundary hardening) stands independent of llm-do—the tool just makes the patterns concrete. The insight that composition boundaries are the failure points comes from decades of building distributed systems and watching integration points fail. LLM systems have the same disease; they need the same cure.
+> This isn't a framework pitch. The conceptual model (stochastic computers, boundary stabilizing) stands independent of llm-do—the tool just makes the patterns concrete. The insight that composition boundaries are the failure points comes from decades of building distributed systems and watching integration points fail. LLM systems have the same disease; they need the same cure.
 >
 > **Talk maturity:**
-> The presentation structure is complete. llm-do is open source with working examples demonstrating the hardening progression.
+> The presentation structure is complete. llm-do is open source with working examples demonstrating the stabilizing progression.
 >
 > **Technical requirements:**
 > Standard presentation setup (HDMI/USB-C, slides). Live demo optional—can be pre-recorded or replaced with annotated code walkthrough if preferred.
@@ -46,7 +46,7 @@
 
 > Zbigniew Lukasiak has been building software since the dot-com era. He's worked across startups, large corporations, and academia—including the University of London, where he helped build PhilPapers, a comprehensive index of philosophy research used by academics worldwide.
 >
-> Having witnessed the birth of the web, he sees the same energy in LLMs today—and the same patterns of fragile early systems that eventually need engineering discipline. He's the author of llm-do, an open-source framework for building reliable LLM applications through progressive hardening.
+> Having witnessed the birth of the web, he sees the same energy in LLMs today—and the same patterns of fragile early systems that eventually need engineering discipline. He's the author of llm-do, an open-source framework for building reliable LLM applications through progressive stabilizing.
 
 ---
 
@@ -137,7 +137,7 @@ Show the single code snippet (3 lines):
 # Today: LLM handles classification
 result = await ctx.call("ticket_classifier", ticket_text)
 
-# Tomorrow: hardened to Python (same call site)
+# Tomorrow: stabilized to Python (same call site)
 result = await ctx.call("ticket_classifier", ticket_text)
 ```
 
@@ -145,10 +145,10 @@ result = await ctx.call("ticket_classifier", ticket_text)
 
 **So what:** "Same call site, different implementation. Refactoring is cheap."
 
-**Slide 7: Diagram 3 — "The Hardening Slider"**
+**Slide 7: Diagram 3 — "The Stabilizing Slider"**
 
 ```
-Soften                                    Harden
+Soften                                    Stabilize
    ↓                                         ↓
 ┌─────────────────────────────────────────────┐
 │  Stochastic ◄─────────────────► Deterministic │
@@ -159,22 +159,22 @@ Soften                                    Harden
     via spec"                     patterns to code"
 ```
 
-- Harden when patterns stabilize
+- Stabilize when patterns stabilize
 - Soften when you need flexibility
 - Move in both directions as requirements evolve
 
-**So what:** "Start stochastic where you need flexibility. Harden as patterns emerge. The unified interface makes this movement natural."
+**So what:** "Start stochastic where you need flexibility. Stabilize as patterns emerge. The unified interface makes this movement natural."
 
-**Slide 8: "What Changes When You Harden"**
+**Slide 8: "What Changes When You Stabilize"**
 
-| Aspect | Stochastic | Hardened |
+| Aspect | Stochastic | Stabilized |
 |--------|------------|----------|
 | Testing | Sample N times, check invariants | Assert equality |
 | Approvals | Needed per call | Trusted (it's your code) |
 | Performance | API calls, seconds | Microseconds |
 | Auditability | Opaque reasoning | Full trace |
 
-**So what:** "Every piece you harden becomes traditionally testable. Progressive hardening = progressive confidence."
+**So what:** "Every piece you stabilize becomes traditionally testable. Progressive stabilizing = progressive confidence."
 
 **Slide 9: "The Harness Pattern"**
 
@@ -185,9 +185,9 @@ Soften                                    Harden
 
 **Slide 10: Live Example** *(if time/format allows)*
 
-Quick demo: file_organizer or pitchdeck_eval showing the hardening progression:
+Quick demo: file_organizer or pitchdeck_eval showing the stabilizing progression:
 - `pitchdeck_eval` — All LLM
-- `pitchdeck_eval_hardened` — Extracted `list_pitchdecks()` to Python
+- `pitchdeck_eval_stabilized` — Extracted `list_pitchdecks()` to Python
 - `pitchdeck_eval_code_entry` — Python orchestration, LLM only for analysis
 
 ---
@@ -199,7 +199,7 @@ Quick demo: file_organizer or pitchdeck_eval showing the hardening progression:
 1. Model LLMs as stochastic computers (not fuzzy deterministic ones)
 2. Make distribution boundaries explicit (that's where you can refactor)
 3. Use a unified calling convention (so refactoring is cheap)
-4. Harden progressively (start flexible, extract determinism as patterns emerge)
+4. Stabilize progressively (start flexible, extract determinism as patterns emerge)
 
 **Slide 12: "One Slide Summary"**
 
@@ -210,7 +210,7 @@ Quick demo: file_organizer or pitchdeck_eval showing the hardening progression:
 - GitHub: [link]
 - theory.md: formal treatment of stochastic computation
 - concept.md: applied design guide
-- examples/: hardening progression demos
+- examples/: stabilizing progression demos
 
 ---
 
@@ -229,7 +229,7 @@ Quick demo: file_organizer or pitchdeck_eval showing the hardening progression:
 |---|---------|----------------|
 | 1 | Spec → Distribution | Static, simple |
 | 2 | Distribution Boundaries | Progressive (3 steps) |
-| 3 | Harden/Soften Slider | Static with annotations |
+| 3 | Stabilize/Soften Slider | Static with annotations |
 
 ### "So What?" Callouts
 
@@ -238,7 +238,7 @@ Quick demo: file_organizer or pitchdeck_eval showing the hardening progression:
 | Stochastic computers | Tests are invariants + sampling, not equality |
 | Boundaries | Refactoring points where you can intervene |
 | Unified calling | Same call site, different implementation |
-| Hardening | Progressive confidence, more testable surface |
+| Stabilizing | Progressive confidence, more testable surface |
 
 ---
 
@@ -259,7 +259,7 @@ Quick demo: file_organizer or pitchdeck_eval showing the hardening progression:
 1. **Stochasticity is intrinsic** — not a bug to fix, a property to work with
 2. **Boundaries matter** — they're where variance enters/collapses, and where you refactor
 3. **Unified calling enables movement** — same interface for stochastic and deterministic means cheap refactoring
-4. **Progressive hardening** — start flexible, extract determinism as patterns emerge, move both directions
+4. **Progressive stabilizing** — start flexible, extract determinism as patterns emerge, move both directions
 
 ## What Makes This Different
 

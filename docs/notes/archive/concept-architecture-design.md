@@ -41,7 +41,7 @@ Proposed components and responsibilities:
 
 - **Tracing and Debugging**
   - Structured logs for calls, approvals, errors, and retries.
-  - Optional artifact capture (inputs, outputs, prompts) to drive future hardening.
+  - Optional artifact capture (inputs, outputs, prompts) to drive future stabilizing.
 
 Execution flow sketch:
 

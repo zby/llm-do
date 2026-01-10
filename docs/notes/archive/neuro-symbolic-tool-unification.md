@@ -224,7 +224,7 @@ The `type` field signals implementation:
 - `function`: Call Python function
 - `agent`: Run LLM agent loop with this prompt
 
-## Progressive Hardening
+## Progressive Stabilizing
 
 The unified model enables natural evolution:
 
@@ -241,7 +241,7 @@ v3: Pure tool (all symbolic)
     Only used when patterns are stable
 ```
 
-This is the "neural → symbolic" compilation path. The system learns which parts need flexibility and which can be hardened.
+This is the "neural → symbolic" compilation path. The system learns which parts need flexibility and which can be stabilized.
 
 ## What Changes
 

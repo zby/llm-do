@@ -408,7 +408,7 @@ without enumerating files, while retaining:
 - deterministic execution
 - explicit security boundaries
 - auditable artifacts
-- progressive hardening workflow
+- progressive stabilizing workflow
 
 ---
 

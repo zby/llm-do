@@ -1,6 +1,6 @@
 """Custom tools for pitch deck evaluation workflow.
 
-This demonstrates "hardening" - extracting deterministic logic from LLM
+This demonstrates "stabilizing" - extracting deterministic logic from LLM
 instructions into Python tools. The list_pitchdecks function handles
 file discovery and slug generation, which are purely mechanical operations
 that don't benefit from LLM reasoning.

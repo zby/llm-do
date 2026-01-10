@@ -566,7 +566,7 @@ command_parts = re.split(r"(?:&&|\|\||;|\|)", args.command)
 # Checks each part independently
 ```
 
-#### Environment Hardening
+#### Environment Stabilizing
 
 ```python
 env = {
@@ -583,7 +583,7 @@ env = {
 
 - **Dangerous command detection** - Split on `&&`, `||`, `;`, `|` and check each part
 - **Standalone vs with-args** - `python` alone is dangerous, `python script.py` is OK
-- **Environment hardening** - Prevent interactive prompts
+- **Environment stabilizing** - Prevent interactive prompts
 - **Process tree termination** - Kill entire process group on timeout
 
 ---
@@ -682,7 +682,7 @@ class MiddlewareAction(StrEnum):
 |---------|--------|---------|
 | Opacity-based CSS | `app.tcss` | Professional look |
 | Blinking indicators | `BlinkingMessage` | Visual feedback |
-| Environment hardening | `bash.py` | Prevent interactive prompts |
+| Environment stabilizing | `bash.py` | Prevent interactive prompts |
 
 ### Medium Priority
 

@@ -86,7 +86,7 @@ llm-do orchestrator "Process the input files"
 
 2. **Autonomous worker creation** (`worker_create`) — Workers propose specialized sub-workers when needed. This is same-language metaprogramming: the LLM that executes workers also writes them. Created definitions are saved to disk for review.
 
-3. **Progressive hardening** — Refine created workers over time: edit prompts, add schemas, lock allowlists, extract logic to Python. Orchestrators delegate to vetted workers instead of fragile inline instructions.
+3. **Progressive stabilizing** — Refine created workers over time: edit prompts, add schemas, lock allowlists, extract logic to Python. Orchestrators delegate to vetted workers instead of fragile inline instructions.
 
 **What this enables**:
 - **Composability**: Recursive calls feel like function calls, not orchestration glue
@@ -127,9 +127,9 @@ The `worker_create` tool, subject to approval:
 - Created workers start with minimal permissions (principle of least privilege)
 - Saved definition is immediately executable and refinable
 
-## Progressive Hardening
+## Progressive Stabilizing
 
-Workers start flexible, then harden as patterns stabilize:
+Workers start flexible, then stabilize as patterns stabilize:
 
 1. **Autonomous creation** — Worker creates sub-worker, user approves saved definition
 2. **Testing** — Run tasks, observe behavior
@@ -156,7 +156,7 @@ Workers start flexible, then harden as patterns stabilize:
 
 5. **Recursive composability** — Workers calling workers should feel like function calls
 
-6. **Progressive hardening** — Start with prompts for flexibility, extract deterministic logic to Python as patterns stabilize
+6. **Progressive stabilizing** — Start with prompts for flexibility, extract deterministic logic to Python as patterns stabilize
 
 ## Architecture Overview
 

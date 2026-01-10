@@ -72,7 +72,7 @@ After each run, optionally prompt user: "How did this go?" Store outcome with ta
 3. Proposes prompt modifications
 4. User approves changes
 
-This is "hardening" in llm-do terminology—but data-driven rather than intuition-driven.
+This is "stabilizing" in llm-do terminology—but data-driven rather than intuition-driven.
 
 ### 3. Tool Selection Adaptation
 
@@ -224,7 +224,7 @@ Meta-worker that reads failure logs and proposes instruction improvements.
 
 The paper reinforces llm-do's bidirectional refactoring principle with data-driven triggers:
 
-**Hardening signals** (neural → symbolic):
+**Stabilizing signals** (neural → symbolic):
 - Tool consistently fails with certain input patterns → add validation in Python
 - LLM always calls tools in same sequence → extract to Python orchestration
 - Output structure is always identical → add stricter schema

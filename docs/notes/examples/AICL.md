@@ -1,6 +1,6 @@
 According to a document from **2025-11-18** (the AICL paper), the core thing to implement is a **two-loop harness** where the LLM only updates a **semantic state + proposed semantic action**, and **deterministic code** (1) probes that state for gaps/contradictions, (2) executes the action safely, and (3) applies a **relaxation ladder** when progress stalls. 
 
-Below is a concrete implementation plan for adding this capability to **llm-do** in a way that matches llm-do’s own framing: *distribution boundaries*, *harness-not-graph*, and *progressive hardening*.
+Below is a concrete implementation plan for adding this capability to **llm-do** in a way that matches llm-do’s own framing: *distribution boundaries*, *harness-not-graph*, and *progressive stabilizing*.
 
 ---
 
@@ -151,7 +151,7 @@ AICL’s loop and components are described in the paper as:
 This is essentially AICL Algorithm 1: probe → planner update → execute → ladder if no progress.
 
 **Important: keep it “harness-y”**
-In llm-do terms, this runner should be “just Python control flow” that calls workers/tools through the unified call interface, so we preserve *harness not graph* and *call sites stay the same when implementations harden*.
+In llm-do terms, this runner should be “just Python control flow” that calls workers/tools through the unified call interface, so we preserve *harness not graph* and *call sites stay the same when implementations stabilize*.
 
 ---
 
@@ -184,9 +184,9 @@ This enforces AICL’s “separation of reasoning and execution.”
 
 ---
 
-### Phase E — Pilot on an existing llm-do example and harden it
+### Phase E — Pilot on an existing llm-do example and stabilize it
 
-Pick one of llm-do’s canonical “progressive hardening” example chains (the pitchdeck progression is already documented).
+Pick one of llm-do’s canonical “progressive stabilizing” example chains (the pitchdeck progression is already documented).
 
 **Pilot deliverables**
 

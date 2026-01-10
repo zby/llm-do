@@ -58,7 +58,7 @@ Once the example stabilizes, extract generic parts into something like:
 * `txn.py` (transaction log interface; backends: JSONL, sqlite, external)
 * `debate.py` (debate controller / escalation policy)
 
-This is the “progressive hardening” idea applied to coordination itself: start as a concrete app; then harden reusable patterns into code. ([GitHub][3])
+This is the “progressive stabilizing” idea applied to coordination itself: start as a concrete app; then stabilize reusable patterns into code. ([GitHub][3])
 
 ---
 

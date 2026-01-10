@@ -1,6 +1,6 @@
 # File Organizer Example
 
-Demonstrates the **hardening pattern**: the LLM makes semantic decisions while deterministic Python handles mechanical cleanup.
+Demonstrates the **stabilizing pattern**: the LLM makes semantic decisions while deterministic Python handles mechanical cleanup.
 
 ## What It Does
 
@@ -36,6 +36,6 @@ llm-do main.worker tools.py "Organize the files"  # Run organizer
 ## Files
 
 - `main.worker` — Worker prompt and tool configuration
-- `tools.py` — `sanitize_filename()` function (the hardened part)
+- `tools.py` — `sanitize_filename()` function (the stabilized part)
 - `reset.sh` — Recreates sample files for repeatable demos
 - `messy_files/` — Working directory (gitignored)

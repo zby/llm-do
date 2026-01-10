@@ -16,7 +16,7 @@ Most agent frameworks are **graph DSLs**—you define nodes and edges, an engine
 | **Durability** | Often built-in checkpointing/replay | None—restart on failure (or integrate external engine) |
 | **Visualization** | Graph editors, visual debugging | Code is the source of truth |
 
-> For the full design rationale—including hardening prompts into code (and softening code back to prompts), security posture, and related research—see [`docs/concept.md`](docs/concept.md).
+> For the full design rationale—including stabilizing prompts into code (and softening code back to prompts), security posture, and related research—see [`docs/concept.md`](docs/concept.md).
 
 This is the **Unix philosophy for agents**: workers are files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
 
@@ -28,7 +28,7 @@ This is the **Unix philosophy for agents**: workers are files, dangerous operati
 
 **Guardrails by construction.** Tool approvals gate dangerous operations; tool schemas and toolset policies enforce constraints in code, not prompt instructions.
 
-**Progressive hardening.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code. Or go the other direction—soften rigid code into prompts when edge cases multiply.
+**Progressive stabilizing.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code. Or go the other direction—soften rigid code into prompts when edge cases multiply.
 
 ## Quick Start
 
@@ -102,7 +102,7 @@ my-project/
 └── formatter.worker      # Another focused worker
 ```
 
-**With hardened operations** — extract reliable logic to Python:
+**With stabilized operations** — extract reliable logic to Python:
 ```
 my-project/
 ├── orchestrator.worker
@@ -112,7 +112,7 @@ my-project/
 └── output/
 ```
 
-This progression reflects progressive hardening: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability. See the pitchdeck examples for a concrete progression: [`pitchdeck_eval`](examples/pitchdeck_eval/) (all LLM) → [`pitchdeck_eval_hardened`](examples/pitchdeck_eval_hardened/) (extracted tools) → [`pitchdeck_eval_code_entry`](examples/pitchdeck_eval_code_entry/) (Python orchestration).
+This progression reflects progressive stabilizing: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability. See the pitchdeck examples for a concrete progression: [`pitchdeck_eval`](examples/pitchdeck_eval/) (all LLM) → [`pitchdeck_eval_stabilized`](examples/pitchdeck_eval_stabilized/) (extracted tools) → [`pitchdeck_eval_code_entry`](examples/pitchdeck_eval_code_entry/) (Python orchestration).
 
 ## Custom Tools
 
@@ -179,11 +179,11 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 |---------|--------------|
 | [`greeter/`](examples/greeter/) | Minimal project structure |
 | [`pitchdeck_eval/`](examples/pitchdeck_eval/) | Multi-worker orchestration for pitch decks |
-| [`pitchdeck_eval_hardened/`](examples/pitchdeck_eval_hardened/) | Progressive hardening: extracted Python tools |
-| [`pitchdeck_eval_code_entry/`](examples/pitchdeck_eval_code_entry/) | Full hardening: Python orchestration, tool entry point |
+| [`pitchdeck_eval_stabilized/`](examples/pitchdeck_eval_stabilized/) | Progressive stabilizing: extracted Python tools |
+| [`pitchdeck_eval_code_entry/`](examples/pitchdeck_eval_code_entry/) | Full stabilizing: Python orchestration, tool entry point |
 | [`calculator/`](examples/calculator/) | Custom Python tools |
 | [`approvals_demo/`](examples/approvals_demo/) | Write approval for file operations |
-| [`file_organizer/`](examples/file_organizer/) | Hardening pattern: LLM semantic decisions + Python cleanup |
+| [`file_organizer/`](examples/file_organizer/) | Stabilizing pattern: LLM semantic decisions + Python cleanup |
 | [`code_analyzer/`](examples/code_analyzer/) | Shell commands with approval rules |
 | [`web_searcher/`](examples/web_searcher/) | Server-side tools (web search) |
 
@@ -214,7 +214,7 @@ uv run -m experiments.inv.v2_direct.run
 
 ## Tradeoffs
 
-llm-do excels at normal-code control flow and progressive hardening. It's not a durable workflow engine—no built-in checkpointing or replay. For that, use llm-do as a component within Temporal, Prefect, or similar.
+llm-do excels at normal-code control flow and progressive stabilizing. It's not a durable workflow engine—no built-in checkpointing or replay. For that, use llm-do as a component within Temporal, Prefect, or similar.
 
 ## Security
 

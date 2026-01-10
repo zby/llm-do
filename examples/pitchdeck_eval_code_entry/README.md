@@ -106,9 +106,9 @@ pitchdeck_eval_code_entry/
 └── evaluations/           # Reports written here
 ```
 
-## The Hardening Spectrum
+## The Stabilizing Spectrum
 
-This example represents "full hardening" - only LLM calls are for actual analysis:
+This example represents "full stabilizing" - only LLM calls are for actual analysis:
 
 ```
 Original                 LLM-Orchestrated         Code Entry Point

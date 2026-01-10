@@ -77,7 +77,7 @@ async def test_server_side_tools_example_builds():
 
 @pytest.mark.anyio
 async def test_file_organizer_example_builds():
-    """Test file_organizer: hardening pattern with semantic/mechanical separation."""
+    """Test file_organizer: stabilizing pattern with semantic/mechanical separation."""
     worker_file = load_worker_file(EXAMPLES_DIR / "file_organizer" / "main.worker")
     assert "file_tools" in worker_file.toolsets
     assert "shell_file_ops" in worker_file.toolsets

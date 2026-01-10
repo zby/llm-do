@@ -45,7 +45,7 @@ These aren't noisy variations of *one* strategy—they're different *interpretat
 
 Similarly, "add error handling" might yield try/catch blocks, input validation, Result types, or defensive returns. Same spec, qualitatively different implementations.
 
-We don't claim this is how LLMs actually work internally. But as a mental model for reasoning about complex, opaque distributions, it's useful: prompt engineering becomes about shaping a distribution over *behaviors*, not debugging a fixed program. This framing recurs throughout—in how we think about hardening, testing, and the boundaries between stochastic and deterministic code.
+We don't claim this is how LLMs actually work internally. But as a mental model for reasoning about complex, opaque distributions, it's useful: prompt engineering becomes about shaping a distribution over *behaviors*, not debugging a fixed program. This framing recurs throughout—in how we think about stabilizing, testing, and the boundaries between stochastic and deterministic code.
 
 ## Shaping the Distribution
 
@@ -80,20 +80,20 @@ These boundaries are natural **checkpoints**. The deterministic code doesn't car
 
 But boundaries aren't fixed. As systems evolve, logic moves across them.
 
-## Hardening and Softening
+## Stabilizing and Softening
 
 Components exist on a spectrum from stochastic to deterministic. Logic can move in both directions.
 
-**Hardening**: Replace a stochastic component with a deterministic one. Sample from the distribution and freeze the result into code, configuration, or a decision that no longer varies.
+**Stabilizing**: Replace a stochastic component with a deterministic one. Sample from the distribution and freeze the result into code, configuration, or a decision that no longer varies.
 
 **Softening**: Replace a deterministic component with a stochastic one. Describe new functionality in natural language; the LLM figures out how to do it.
 
 ```
-Stochastic (flexible, handles ambiguity)  -- harden -->  Deterministic (reliable, testable, cheap)
+Stochastic (flexible, handles ambiguity)  -- stabilize -->  Deterministic (reliable, testable, cheap)
 Stochastic (flexible, handles ambiguity)  <-- soften --  Deterministic (reliable, testable, cheap)
 ```
 
-### One-shot hardening
+### One-shot stabilizing
 
 LLMs can act as compilers: spec in, code out. Each run samples from the distribution, producing a different but (hopefully) valid implementation.
 
@@ -103,15 +103,15 @@ spec → LLM → code → executor → result
        samples from distribution
 ```
 
-This is hardening in one step. But unlike traditional compilation, regeneration gives you a *different sample*, not the same code—a consequence of the program sampling model.
+This is stabilizing in one step. But unlike traditional compilation, regeneration gives you a *different sample*, not the same code—a consequence of the program sampling model.
 
 **Versioning implication**: Both spec and generated code should be versioned. Keep only the spec, and reproducing what you deployed is practically impossible.[^repro] Keep only the code, and you lose the intent that generated it.
 
 [^repro]: Theoretical reproducibility requires pinning model version, decoding parameters, RNG seeds, and more. In practice, this is rarely done.
 
-### Progressive hardening
+### Progressive stabilizing
 
-Rather than generating code in one shot, you can harden incrementally. As you observe the LLM's behavior across many runs, you learn which "programs" it tends to sample—and can extract the consistent patterns into deterministic code.
+Rather than generating code in one shot, you can stabilize incrementally. As you observe the LLM's behavior across many runs, you learn which "programs" it tends to sample—and can extract the consistent patterns into deterministic code.
 
 1. Start with a stochastic component (a worker/agent)
 2. Run it, observe patterns in its behavior
@@ -126,7 +126,7 @@ The common path for softening is **extension**: you need new capability, describ
 
 The rarer path is **replacement**: rigid code is drowning in edge cases, so you swap it for an LLM call that handles linguistic variation.
 
-Real systems need both directions. A component might start as an LLM call (quick to add), harden to code as patterns emerge (reliable and fast), then grow new capabilities via softening. The system breathes.
+Real systems need both directions. A component might start as an LLM call (quick to add), stabilize to code as patterns emerge (reliable and fast), then grow new capabilities via softening. The system breathes.
 
 ## The Harness Pattern
 
@@ -143,7 +143,7 @@ This motivates the harness pattern:
 # Today: LLM handles classification
 result = await ctx.call("ticket_classifier", ticket_text)
 
-# Tomorrow: hardened to Python (same call site)
+# Tomorrow: stabilized to Python (same call site)
 result = await ctx.call("ticket_classifier", ticket_text)
 ```
 
@@ -151,7 +151,7 @@ The calling convention is unified. The implementation moved. The rest of the sys
 
 ### What the harness enables
 
-- **Progressive hardening**: Start flexible, extract determinism as patterns emerge
+- **Progressive stabilizing**: Start flexible, extract determinism as patterns emerge
 - **Easy extension**: Add new capability by writing a spec and registering it
 - **Composition**: Stochastic and deterministic components interleave freely
 - **Testing strategies**: Swap implementations for testing
@@ -164,7 +164,7 @@ Same interface doesn't mean same semantics. The caller may still need to know wh
 
 Stochastic components require different approaches.
 
-**Testing**: Run the same input N times. Check that the distribution of outputs meets expectations—statistical hypothesis testing, not assertion equality. (Caching and model updates can break i.i.d. assumptions.) Every piece you harden becomes traditionally testable—one of the strongest arguments for progressive hardening.
+**Testing**: Run the same input N times. Check that the distribution of outputs meets expectations—statistical hypothesis testing, not assertion equality. (Caching and model updates can break i.i.d. assumptions.) Every piece you stabilize becomes traditionally testable—one of the strongest arguments for progressive stabilizing.
 
 **Debugging**: When a prompt "fails," you're not tracing execution—you're reshaping a distribution. The failure might not reproduce. Changes have non-local effects. There's no stack trace. This is why prompt engineering is empirical.
 
@@ -186,7 +186,7 @@ Treating agentic systems as probabilistic programs suggests:
 
 6. **Design for statistical failure**—expect retries and graceful degradation
 
-7. **Harden progressively, soften tactically**—start stochastic for flexibility, extract determinism as patterns emerge, add capabilities via specs
+7. **Stabilize progressively, soften tactically**—start stochastic for flexibility, extract determinism as patterns emerge, add capabilities via specs
 
 ---
 

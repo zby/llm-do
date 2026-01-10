@@ -3,7 +3,7 @@
 ## Context
 We want a "softening" path that lets Python code become a worker with minimal friction,
 possibly enabling a python-only project layout (even a single file). This should also
-enable a future "hardening" path where prompts and config live in code.
+enable a future "stabilizing" path where prompts and config live in code.
 
 This is a brainstorming document with multiple design variants and tradeoffs.
 
@@ -57,7 +57,7 @@ This is a brainstorming document with multiple design variants and tradeoffs.
 - Pros: simple discovery; flexible.
 - Cons: still needs a stable schema for config + prompt.
 
-### H) Auto-Generated .worker (Hardening Path)
+### H) Auto-Generated .worker (Stabilizing Path)
 - API: `@worker_prompt(..., export=True)` generates a `.worker` file.
 - Pros: bridges python-only to standard format; clean diffs.
 - Cons: file generation is another step; needs tooling.
@@ -77,7 +77,7 @@ Open question: Should the wrapper template be fixed, configurable, or disabled?
 - Use function signature to infer input schema (pydantic or simple json).
 - Use return type hints for output schema (optional).
 - For "softening", allow untyped returns (string/any).
-- For "hardening", require typed output or schema decorators.
+- For "stabilizing", require typed output or schema decorators.
 
 ## Model / Toolset Configuration
 
@@ -104,7 +104,7 @@ Options:
 ## Migration / Refactoring Flow
 
 - Softening: convert a `.worker` prompt into a decorated python function.
-- Hardening: convert a decorated function into a `.worker` file (or vice versa).
+- Stabilizing: convert a decorated function into a `.worker` file (or vice versa).
 - A single CLI tool could convert between formats.
 
 ## Risks / Tradeoffs

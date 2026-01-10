@@ -37,7 +37,7 @@ This paper provides empirical validation for llm-do's design philosophy.
 | Validation of all agent outputs | Approval system—tool calls gated with syscall-like approvals; pattern-based rules |
 | Plan extensively before implementation | Workers as focused units—decomposition into composable, well-scoped workers |
 | Agents work well for straightforward tasks | Worker design—each worker has clear instructions, tools, and boundaries |
-| Maintaining software quality standards | Progressive hardening—extract stable LLM patterns into deterministic, testable Python code |
+| Maintaining software quality standards | Progressive stabilizing—extract stable LLM patterns into deterministic, testable Python code |
 
 ### Core Insight Validation
 
@@ -45,7 +45,7 @@ The paper's central finding—**"Professional developers exercise deliberate con
 
 1. **Visible distribution boundaries** - The system explicitly marks where you cross from deterministic (tools) to stochastic (LLM workers), so developers know when trust is required
 
-2. **Bidirectional refactoring** - As patterns stabilize, harden them to code; as edge cases multiply, soften back to prompts. This matches the paper's observation that developers "leverage their expertise to ensure quality"
+2. **Bidirectional refactoring** - As patterns stabilize, stabilize them to code; as edge cases multiply, soften back to prompts. This matches the paper's observation that developers "leverage their expertise to ensure quality"
 
 3. **Bounded recursion** - Depth limits prevent runaway delegation, supporting the observed developer need for predictable behavior
 
@@ -54,5 +54,5 @@ The paper's central finding—**"Professional developers exercise deliberate con
 This paper supports positioning llm-do as aligned with professional practice:
 
 - The approval system directly addresses the "validation of outputs" finding
-- Progressive hardening is the systematic approach to what developers do informally (gradually trusting and extracting patterns)
-- The "Unix philosophy for agents" matches how experienced developers actually want to work—with control, oversight, and the ability to harden patterns over time
+- Progressive stabilizing is the systematic approach to what developers do informally (gradually trusting and extracting patterns)
+- The "Unix philosophy for agents" matches how experienced developers actually want to work—with control, oversight, and the ability to stabilize patterns over time

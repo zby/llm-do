@@ -14,7 +14,7 @@ llm-do is a response: treat prompts as callable units, let control flow live in 
 
 ## Theoretical Foundation
 
-LLMs are stochastic computers: specs map to distributions over behaviors, not deterministic outputs. Calls cross distribution boundaries between stochastic and deterministic execution. Reliability comes from shaping distributions and hardening boundaries where it matters.
+LLMs are stochastic computers: specs map to distributions over behaviors, not deterministic outputs. Calls cross distribution boundaries between stochastic and deterministic execution. Reliability comes from shaping distributions and stabilizing boundaries where it matters.
 
 See [LLM-Based Agentic Systems as Probabilistic Programs](theory.md) for the full treatment.
 
@@ -68,7 +68,7 @@ Most agent frameworks are graph DSLs—nodes, edges, an engine. llm-do is an **i
 # Today: LLM handles classification
 result = await ctx.call("ticket_classifier", ticket_text)
 
-# Tomorrow: hardened to Python (same call site)
+# Tomorrow: stabilized to Python (same call site)
 result = await ctx.call("ticket_classifier", ticket_text)
 ```
 
@@ -96,18 +96,18 @@ Pattern-based rules auto-approve safe operations; risky actions require consent.
 
 **Approvals reduce risk, not eliminate it.** Prompt injection can trick LLMs into misusing approved tools. Treat approvals as one defense layer, not a security boundary. For real isolation, use containers.
 
-## Hardening and Softening Workflow
+## Stabilizing and Softening Workflow
 
 The unified interface enables refactoring in both directions.
 
-### Hardening workflow
+### Stabilizing workflow
 
 1. **Start stochastic** — Worker handles the task with LLM judgment
 2. **Observe patterns** — Run tasks, watch what the LLM consistently does
 3. **Extract to code** — Stable patterns become Python functions
 4. **Keep stochastic edges** — Worker handles remaining ambiguous cases
 
-**What changes when you harden:**
+**What changes when you stabilize:**
 - Approvals: fewer needed (deterministic code is trusted)
 - Tool surface: shrinks to what actually needs LLM judgment
 - Testing: more surface area for traditional unit tests
@@ -116,7 +116,7 @@ The unified interface enables refactoring in both directions.
 
 **Canonical example** — The pitchdeck progression:
 - [`pitchdeck_eval`](../examples/pitchdeck_eval/) — All LLM: orchestrator decides everything
-- [`pitchdeck_eval_hardened`](../examples/pitchdeck_eval_hardened/) — Extracted `list_pitchdecks()` to Python
+- [`pitchdeck_eval_stabilized`](../examples/pitchdeck_eval_stabilized/) — Extracted `list_pitchdecks()` to Python
 - [`pitchdeck_eval_code_entry`](../examples/pitchdeck_eval_code_entry/) — Python orchestration, LLM only for analysis
 
 ### Softening workflow
@@ -148,12 +148,12 @@ Think "deterministic pipeline that uses LLM where judgment is needed."
 
 ## Versioning and Reproducibility
 
-When you harden (one-shot or progressive), you create artifacts that should be versioned:
+When you stabilize (one-shot or progressive), you create artifacts that should be versioned:
 - Worker specs (the intent)
-- Generated/hardened code (the frozen sample)
+- Generated/stabilized code (the frozen sample)
 - Model + decoding params when reproducibility matters
 
-Don't rely on "re-generate later" as a build step—regeneration gives you a different sample. Treat worker specs and hardened artifacts as deployable inputs.
+Don't rely on "re-generate later" as a build step—regeneration gives you a different sample. Treat worker specs and stabilized artifacts as deployable inputs.
 
 ## Testing Stance
 
@@ -161,7 +161,7 @@ Don't rely on "re-generate later" as a build step—regeneration gives you a dif
 
 **Deterministic components**: Normal unit tests. Assert equality.
 
-**Hardening increases testable surface**: Every piece you extract to Python becomes traditionally testable. This is a strong practical argument for progressive hardening.
+**Stabilizing increases testable surface**: Every piece you extract to Python becomes traditionally testable. This is a strong practical argument for progressive stabilizing.
 
 See [architecture.md](architecture.md) for harness logging and approval mechanics.
 
@@ -169,7 +169,7 @@ See [architecture.md](architecture.md) for harness logging and approval mechanic
 
 **llm-do is a good fit when you want:**
 - Normal-code control flow (branching, loops, retries)
-- Fast prototyping that can be progressively hardened
+- Fast prototyping that can be progressively stabilized
 - Tight scoping and tool-level auditability
 - Flexibility to refactor between LLM and code
 
@@ -185,14 +185,14 @@ llm-do can be a component *within* durable workflow systems, but doesn't replace
 1. **Workers as functions** — Focused, composable units
 2. **Unified function space** — Workers and tools call each other freely
 3. **Honest abstraction** — Same calling convention, visible boundaries
-4. **Bidirectional refactoring** — Harden as patterns stabilize; soften to add capabilities
+4. **Bidirectional refactoring** — Stabilize as patterns stabilize; soften to add capabilities
 5. **Guardrails by construction** — Schema validation and approval enforcement in code
 6. **Bounded recursion** — Depth limits prevent runaway recursion
 
 ---
 
 **Further reading:**
-- [theory.md](theory.md) — Probabilistic programs framing: distribution boundaries, hardening/softening, the harness pattern
+- [theory.md](theory.md) — Probabilistic programs framing: distribution boundaries, stabilizing/softening, the harness pattern
 - [architecture.md](architecture.md) — Internal structure: runtime scopes, execution flow, approval mechanics
 - [reference.md](reference.md) — API reference: calling workers from Python, writing toolsets, worker file format
-- [examples/](../examples/) — Working examples showing the hardening progression
+- [examples/](../examples/) — Working examples showing the stabilizing progression

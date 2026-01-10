@@ -54,13 +54,13 @@ class TestCalculatorTools:
         assert await ctx.call("fibonacci", {"n": 10}) == 55
 
 
-class TestPitchdeckHardenedTools:
-    """Unit tests for pitchdeck_eval_hardened tools."""
+class TestPitchdeckStabilizedTools:
+    """Unit tests for pitchdeck_eval_stabilized tools."""
 
     @pytest.fixture
     def pitchdeck_toolset(self):
         """Load pitchdeck toolset."""
-        toolsets = load_toolsets_from_files([EXAMPLES_DIR / "pitchdeck_eval_hardened" / "tools.py"])
+        toolsets = load_toolsets_from_files([EXAMPLES_DIR / "pitchdeck_eval_stabilized" / "tools.py"])
         return toolsets["pitchdeck_tools"]
 
     @pytest.fixture

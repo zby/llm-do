@@ -126,7 +126,7 @@ Each project excels in different areas. Here's what to borrow from each:
 | Pattern | TunaCode | Mistral Vibe | Recommendation |
 |---------|----------|--------------|----------------|
 | **Dangerous patterns** | Regex patterns for fork bombs | Three-tier filtering | Use Vibe's approach (more sophisticated) |
-| **Environment hardening** | Basic | `CI=true`, `PAGER=cat`, etc. | Use Vibe's approach |
+| **Environment stabilizing** | Basic | `CI=true`, `PAGER=cat`, etc. | Use Vibe's approach |
 | **Command splitting** | Simple | Splits on `&&`, `\|\|`, `;`, `\|` | Use Vibe's approach |
 
 ### Unique to Each (Not Both)
@@ -149,7 +149,7 @@ From both projects - easy, high-value:
 - Token/cost tracking (TunaCode pattern) via `StatusEvent`/`CompletionEvent`
 - Opacity-based CSS (Mistral Vibe pattern) in `llm_do/ui/app.py`
 - Output truncation head+tail (TunaCode pattern) in `ToolResultMessage`
-- Environment hardening (Mistral Vibe pattern) in shell toolset
+- Environment stabilizing (Mistral Vibe pattern) in shell toolset
 - Blinking indicators (Mistral Vibe pattern) in tool call/result widgets
 
 ### Phase 2: TUI Improvements (3-5 days)

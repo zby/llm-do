@@ -126,8 +126,6 @@ async def build_invocable_registry(
     entries: dict[str, Invocable] = {}
 
     for name, worker in python_workers.items():
-        if name in entries:
-            raise ValueError(f"Duplicate entry name: {name}")
         entries[name] = worker
 
     for tool_name, (toolset, tool_entry_name) in python_tool_map.items():

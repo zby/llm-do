@@ -308,7 +308,13 @@ class Worker(AbstractToolset[Any]):
     ) -> Any:
         """Execute the worker when called as a tool."""
         # run_ctx.deps is WorkerRuntime; extract config and frame for two-object API
-        return await self.call(tool_args, run_ctx.deps.config, run_ctx.deps.frame, run_ctx)
+        return await self._call_internal(
+            tool_args,
+            run_ctx.deps.config,
+            run_ctx.deps.frame,
+            run_ctx,
+            validate_input=False,
+        )
 
     def _build_agent(
         self,
@@ -393,11 +399,29 @@ class Worker(AbstractToolset[Any]):
             state: Per-call state (mutable, forked)
             run_ctx: PydanticAI RunContext (deps is the parent WorkerRuntime)
         """
+        return await self._call_internal(
+            input_data,
+            config,
+            state,
+            run_ctx,
+            validate_input=True,
+        )
+
+    async def _call_internal(
+        self,
+        input_data: Any,
+        config: RuntimeConfig,
+        state: CallFrame,
+        run_ctx: RunContext[WorkerRuntimeProtocol],
+        *,
+        validate_input: bool,
+    ) -> Any:
+        """Shared worker execution path with optional schema validation."""
         from .approval import wrap_toolsets_for_approval
         from .input_utils import coerce_worker_input
 
         input_data = coerce_worker_input(self.schema_in, input_data)
-        if self.schema_in is not None:
+        if validate_input and self.schema_in is not None:
             input_data = self.schema_in.model_validate(input_data)
 
         # Check depth limit using global config and per-call state

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Awaitable, Callable, Optional, cast
 
+from pydantic import BaseModel
 from pydantic_ai.models import Model
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
@@ -201,6 +202,41 @@ class WorkerRuntime:
             tool_name=tool_name,
         )
 
+    def _validate_tool_args(
+        self,
+        toolset: AbstractToolset[Any],
+        tool: Any,
+        input_data: Any,
+        run_ctx: RunContext[WorkerRuntimeProtocol],
+    ) -> Any:
+        """Validate tool args for direct calls to match PydanticAI behavior."""
+        args = input_data
+        if isinstance(args, BaseModel):
+            args = args.model_dump()
+
+        from .input_utils import coerce_worker_input
+        from .worker import Worker
+
+        if isinstance(toolset, Worker):
+            args = coerce_worker_input(toolset.schema_in, args)
+
+        validator = tool.args_validator
+        if isinstance(args, (str, bytes, bytearray)):
+            json_input = args if args else "{}"
+            return validator.validate_json(
+                json_input,
+                allow_partial="off",
+                context=run_ctx.validation_context,
+            )
+
+        if args is None:
+            args = {}
+        return validator.validate_python(
+            args,
+            allow_partial="off",
+            context=run_ctx.validation_context,
+        )
+
     def spawn_child(
         self,
         toolsets: Optional[list[AbstractToolset[Any]]] = None,
@@ -240,6 +276,12 @@ class WorkerRuntime:
             tools = await toolset.get_tools(run_ctx)
             if name in tools:
                 tool = tools[name]
+                validated_args = self._validate_tool_args(
+                    toolset,
+                    tool,
+                    input_data,
+                    run_ctx,
+                )
 
                 # Generate a unique call ID for event correlation
                 call_id = str(uuid.uuid4())[:8]
@@ -251,12 +293,12 @@ class WorkerRuntime:
                             worker="code_entry",
                             tool_name=name,
                             tool_call_id=call_id,
-                            args=input_data,
+                            args=validated_args,
                         )
                     )
 
                 # Execute the tool
-                result = await toolset.call_tool(name, input_data, run_ctx, tool)
+                result = await toolset.call_tool(name, validated_args, run_ctx, tool)
 
                 # Emit ToolResultEvent after execution
                 if self.on_event is not None:

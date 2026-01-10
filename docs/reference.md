@@ -430,6 +430,8 @@ compatible_models:
   - "anthropic:claude-haiku-*"  # any Claude Haiku variant
 ```
 
+Compatibility checks apply to string model IDs and `Model` objects (Python API).
+
 `model` and `compatible_models` are mutually exclusive.
 
 **Server-Side Tools:**

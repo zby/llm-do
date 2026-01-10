@@ -155,3 +155,62 @@ self._emit_tool_events(stream.new_messages(), runtime)
 - Conceptual overhead: suggests `depth` might differ from `runtime.depth`
 
 **Pattern:** Don't pass derived/accessible values as separate parameters when the source object is already being passed. Access the value from the object inside the function instead.
+
+## 4. Centralize Format String to Prevent Inconsistencies (2985504 → c6dc0cd)
+
+**Commits:**
+- `2985504` - "Add depth indicator to TUI Response widgets" (bug fix)
+- `c6dc0cd` - "Refactor worker_tag formatting to single location" (refactoring)
+
+**The bug:**
+- `ToolCallEvent` formatted its header as `[worker:depth]`
+- `TextResponseEvent` formatted its header as `[worker]` (missing depth!)
+- Inconsistent display across event types
+
+**The fix (2985504):**
+Added `worker` and `depth` parameters throughout the widget chain, duplicating the format logic:
+
+```python
+# In AssistantMessage
+def _format_content(self) -> str:
+    if self._worker:
+        return f"[{self._worker}:{self._depth}] Response:\n{self._content}"
+    return self._content
+
+# In ToolCallMessage
+def _format_tool_call(self) -> str:
+    if self._worker:
+        lines = [f"[{self._worker}:{self._depth}] Tool: {self._tool_name}"]
+```
+
+**The refactoring (c6dc0cd):**
+Created a single `worker_tag` property on the base `UIEvent` class:
+
+```python
+@dataclass
+class UIEvent(ABC):
+    worker: str = ""
+    depth: int = 0
+
+    @property
+    def worker_tag(self) -> str:
+        """Format worker and depth as a tag like [worker:depth]."""
+        return f"[{self.worker}:{self.depth}]"
+```
+
+Then all render methods and widgets just use `self.worker_tag` or accept `worker_tag: str`:
+
+```python
+# In events.py - all render methods use the property
+def render_text(self, verbosity: int = 0) -> str:
+    lines = [f"\n{self.worker_tag} Tool call: {self.tool_name}"]
+
+# In widgets - accept pre-formatted string
+def __init__(self, content: str = "", worker_tag: str = "", **kwargs: Any) -> None:
+    self._worker_tag = worker_tag
+```
+
+**Key insight:**
+If the refactoring had been done initially, the bug couldn't have existed - there would be only one place defining the `[worker:depth]` format. The inconsistency arose from having multiple places compute the same formatted string.
+
+**Pattern:** Centralize derived/computed values (especially formatted strings) into a single property or method. When the same format appears in multiple places, it's a refactoring opportunity that also prevents inconsistency bugs.

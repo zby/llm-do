@@ -31,6 +31,12 @@ class ShellRule(BaseModel):
         default=True,
         description="Whether this command requires user approval"
     )
+    approval_required_if_args: list[str] | None = Field(
+        default=None,
+        description=(
+            "Require approval if any of these args appear in the parsed command."
+        ),
+    )
 
 
 class ShellDefault(BaseModel):

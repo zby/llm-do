@@ -11,7 +11,11 @@ from .shell import ShellToolset
 
 _SHELL_READONLY_RULES = [
     {"pattern": "wc", "approval_required": False},
-    {"pattern": "find", "approval_required": False},
+    {
+        "pattern": "find",
+        "approval_required": False,
+        "approval_required_if_args": ["-exec", "-execdir", "-delete"],
+    },
     {"pattern": "grep", "approval_required": False},
     {"pattern": "head", "approval_required": False},
     {"pattern": "tail", "approval_required": False},

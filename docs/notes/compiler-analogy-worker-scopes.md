@@ -19,11 +19,13 @@ shared mental model for scoping, tool resolution, and recursion.
 | CallFrame.messages | Stack locals | Fresh per call; not inherited; only explicit inputs flow. |
 | Runtime/RuntimeConfig | Process globals + constants | Shared usage, approvals, callbacks, max depth. |
 | ApprovalToolset | Syscall/capability gate | Effectful calls require permission at the LLM boundary. |
+| Project manifest (CLI) | Build config / linker invocation | Declares sources, entry symbol, and runtime flags for a run. |
 
 ### Compile/link/run mental model
 
 ```
 Sources (.worker + .py)
+    <- Manifest selects files + entry + runtime config
     -> EntryRegistry (symbol table)
     -> resolve toolset refs (link)
     -> run: CallFrame stack frames

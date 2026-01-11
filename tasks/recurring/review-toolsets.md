@@ -6,8 +6,8 @@ Periodic review of toolset implementations for bugs, inconsistencies, and improv
 
 - `llm_do/toolsets/` - Filesystem, shell toolsets
 - `llm_do/toolsets/loader.py` - Toolset loading and class-path resolution
-- `llm_do/shell/` - Shell execution helpers
-- `llm_do/runtime/builtins.py` - Built-in toolset registry
+- `llm_do/toolsets/shell/` - Shell execution helpers
+- `llm_do/toolsets/builtins.py` - Built-in toolset registry
 
 ## Checklist
 
@@ -23,4 +23,4 @@ Record findings in `docs/notes/reviews/review-toolsets.md`.
 
 ## Last Run
 
-2026-01 (reviewed built-in toolsets + loader; main issue: shell whitelist matching is raw-prefix and can overmatch)
+2026-01 (shell_readonly pre-approves find; tool arg validation is lax)

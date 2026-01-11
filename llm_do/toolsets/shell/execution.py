@@ -105,6 +105,20 @@ def _pattern_matches_args(pattern: str, args: List[str]) -> bool:
     return args[:len(pattern_tokens)] == pattern_tokens
 
 
+def _rule_requires_approval(rule: dict, args: List[str]) -> bool:
+    """Determine approval requirement for a matched rule."""
+    approval_required = rule.get("approval_required", True)
+    required_if_args = rule.get("approval_required_if_args")
+    if required_if_args:
+        if isinstance(required_if_args, (list, tuple, set)):
+            flags = [str(item) for item in required_if_args]
+        else:
+            flags = [str(required_if_args)]
+        if any(flag in args for flag in flags):
+            return True
+    return approval_required
+
+
 def match_shell_rules(
     command: str,
     args: List[str],
@@ -121,7 +135,8 @@ def match_shell_rules(
     Args:
         command: Original command string (unused, kept for API compatibility)
         args: Parsed command arguments
-        rules: List of shell rule dicts with keys: pattern, approval_required
+        rules: List of shell rule dicts with keys: pattern, approval_required,
+            approval_required_if_args (optional)
         default: Default behavior dict with key: approval_required (presence = allow unmatched)
 
     Returns:
@@ -132,7 +147,7 @@ def match_shell_rules(
         if _pattern_matches_args(pattern, args):
             logger.debug(f"Command args {args} match rule pattern '{pattern}'")
             # Rule matched → allowed with rule's approval setting
-            return (True, rule.get("approval_required", True))
+            return (True, _rule_requires_approval(rule, args))
 
     # No rule matched - check for default
     if default is not None:

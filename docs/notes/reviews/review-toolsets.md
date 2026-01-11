@@ -8,38 +8,31 @@ Review of toolsets for bugs, inconsistencies, and overengineering.
   `ToolsetTool`, execution is via `call_tool()`, and approval policy is expressed
   via `needs_approval()` + `get_approval_description()`. (`llm_do/toolsets/filesystem.py`,
   `llm_do/toolsets/shell/toolset.py`)
-- Shell toolset approval is “whitelist + optional default”: unmatched commands
-  are blocked unless `default` exists, and metacharacter checks are applied for
-  consistent UX. Execution uses `subprocess.run(..., shell=False)` for safety.
-  (`llm_do/toolsets/shell/toolset.py`, `llm_do/toolsets/shell/execution.py`)
-- Shell rule matching is currently a raw string prefix match (`command.startswith(pattern)`),
-  which can overmatch binaries (e.g., a pattern `git` matches `gitx ...`) and
-  ignores the already-parsed `args` parameter. This makes whitelisting less
-  precise than intended. (`llm_do/toolsets/shell/execution.py`)
-- Toolset config is mostly unvalidated: the shell toolset defines `ShellRule` /
-  `ShellDefault` models but does not use them to validate YAML config, so malformed
-  configs may fail at runtime. (`llm_do/toolsets/shell/types.py`)
-- `ToolsetBuildContext` supports injected deps (`cwd`, `worker_name`, etc.), but
-  for toolsets that accept a `config` parameter, the loader passes only `config`,
-  so other `__init__` params like `id`/`max_retries` aren’t configurable from
-  worker YAML unless the toolset reads them from `config`. (`llm_do/toolsets/loader.py`,
-  `llm_do/toolsets/filesystem.py`, `llm_do/toolsets/shell/toolset.py`)
-- Possible duplication: `llm_do/toolsets/builtins.py` exists but the CLI appears
-  to use `llm_do/toolsets/loader.py` + class-path aliases; the builtins registry
-  may be dead weight. (`llm_do/toolsets/builtins.py`, `llm_do/toolsets/loader.py`,
-  `llm_do/runtime/__init__.py`)
+- Shell rule matching is tokenized against parsed args, avoiding prefix
+  overmatches (e.g., `git` vs `gitx`), but it assumes each rule is a dict; passing
+  `ShellRule` objects or malformed items raises attribute errors at runtime.
+  (`llm_do/toolsets/shell/execution.py`)
+- `shell_readonly` pre-approves `find`, which can execute arbitrary commands via
+  `-exec`/`-execdir` or delete files via `-delete` without any approval prompt,
+  undermining the "readonly" expectation. (`llm_do/toolsets/builtins.py`)
+- Built-in toolsets use `TypeAdapter(dict[str, Any])` validators, so required
+  JSON schema fields are not enforced and missing args surface as `KeyError`
+  inside `call_tool()`. (`llm_do/toolsets/filesystem.py`,
+  `llm_do/toolsets/shell/toolset.py`, `llm_do/toolsets/attachments.py`)
+- Shell config models (`ShellRule`, `ShellDefault`) are defined but unused; tool
+  configs are accepted as raw dicts and validation errors surface at runtime.
+  (`llm_do/toolsets/shell/types.py`, `llm_do/toolsets/shell/toolset.py`)
 
 ## Open Questions
-- Should shell rule matching be based on tokenized args (prefix match on
-  `shlex.split`) rather than raw string prefix, to avoid overmatching?
-- Do we want to validate toolset config via pydantic models (`ShellRule`,
-  `ShellDefault`) to fail fast on invalid YAML?
-- Should `ToolsetBuildContext` support setting common toolset params (`id`,
-  `max_retries`) even when the toolset accepts a `config` dict?
-- Can `llm_do/toolsets/builtins.py` be removed, or repurposed as the single
-  source of truth for built-in aliases?
+- Should `shell_readonly` treat `find` as approval-required (or explicitly block
+  `-exec`/`-delete`) to preserve "readonly" expectations?
+- Do we want to validate shell toolset config via `ShellRule`/`ShellDefault`
+  models to fail fast on malformed YAML?
+- Should built-in toolsets use typed pydantic models for tool args so schema
+  requirements are enforced by the validator?
 
 ## Conclusion
-Core toolsets are small and fairly consistent, but the main correctness gap is
-shell rule matching precision. Loader/config validation duplication is the next
-cleanup target if/when toolset configuration needs to grow.
+Core toolsets are consistent, but the biggest correctness gap is the
+`shell_readonly` whitelist allowing `find` to execute or delete files without
+approval. Tool arg validation and shell config validation are the next cleanup
+targets to avoid silent runtime failures.

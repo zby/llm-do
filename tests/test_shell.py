@@ -131,6 +131,40 @@ class TestMatchShellRules:
         allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None)
         assert allowed is False  # 'git status' doesn't start with 'git commit'
 
+    def test_rule_requires_approval_for_args(self):
+        rules = [
+            {
+                "pattern": "find",
+                "approval_required": False,
+                "approval_required_if_args": ["-exec", "-delete"],
+            }
+        ]
+        allowed, approval = match_shell_rules(
+            "find . -exec echo {} +",
+            ["find", ".", "-exec", "echo", "{}", "+"],
+            rules,
+            None,
+        )
+        assert allowed is True
+        assert approval is True
+
+    def test_rule_allows_without_flag_args(self):
+        rules = [
+            {
+                "pattern": "find",
+                "approval_required": False,
+                "approval_required_if_args": ["-exec", "-delete"],
+            }
+        ]
+        allowed, approval = match_shell_rules(
+            "find . -maxdepth 1",
+            ["find", ".", "-maxdepth", "1"],
+            rules,
+            None,
+        )
+        assert allowed is True
+        assert approval is False
+
 
 
 

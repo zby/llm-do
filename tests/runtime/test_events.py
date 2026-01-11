@@ -26,7 +26,7 @@ class TestContextEventCallback:
         def callback(e):
             return events.append(e)
         ctx = build_runtime_context(
-            model="test-model",
+            model="test",
             on_event=callback,
         )
         child = ctx.spawn_child()
@@ -35,7 +35,7 @@ class TestContextEventCallback:
     def test_child_context_inherits_verbosity(self):
         """Test that child contexts inherit verbosity."""
         ctx = build_runtime_context(
-            model="test-model",
+            model="test",
             verbosity=2,
         )
         child = ctx.spawn_child()
@@ -56,7 +56,7 @@ class TestContextEventCallback:
 
         ctx = build_runtime_context(
             toolsets=[toolset],
-            model="test-model",
+            model="test",
             on_event=lambda e: events.append(e),
         )
 

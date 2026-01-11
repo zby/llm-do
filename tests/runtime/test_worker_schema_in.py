@@ -27,8 +27,8 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
         instructions="Extract topic details.",
         schema_in=TopicInput,
     )
-    ctx = build_runtime_context(toolsets=[], model="test-model")
-    run_ctx = ctx._make_run_context(worker.name, "test-model", ctx)
+    ctx = build_runtime_context(toolsets=[], model="test")
+    run_ctx = ctx._make_run_context(worker.name, "test", ctx)
 
     toolset = worker.as_toolset()
     tools = await toolset.get_tools(run_ctx)
@@ -47,8 +47,8 @@ async def test_worker_tool_description_prefers_description() -> None:
         instructions="Instructions fallback.",
         description="Short tool summary.",
     )
-    ctx = build_runtime_context(toolsets=[], model="test-model")
-    run_ctx = ctx._make_run_context(worker.name, "test-model", ctx)
+    ctx = build_runtime_context(toolsets=[], model="test")
+    run_ctx = ctx._make_run_context(worker.name, "test", ctx)
 
     toolset = worker.as_toolset()
     tools = await toolset.get_tools(run_ctx)

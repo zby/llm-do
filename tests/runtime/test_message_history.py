@@ -89,7 +89,7 @@ async def test_nested_worker_call_does_not_inherit_conversation_history() -> Non
     # Simulate a caller worker context (depth=1).
     caller_ctx = build_runtime_context(
         toolsets=[sub_worker.as_toolset()],
-        model="test-model",
+        model="test",
         depth=1,
         messages=list(history),
         on_event=events.append,

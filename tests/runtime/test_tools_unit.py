@@ -25,7 +25,7 @@ class TestCalculatorTools:
     @pytest.fixture
     def ctx(self, calc_toolset):
         """Create context with calculator toolset."""
-        return build_runtime_context(toolsets=[calc_toolset], model="test-model")
+        return build_runtime_context(toolsets=[calc_toolset], model="test")
 
     @pytest.mark.anyio
     async def test_add(self, ctx):
@@ -67,7 +67,7 @@ class TestPitchdeckStabilizedTools:
     @pytest.fixture
     def ctx(self, pitchdeck_toolset):
         """Create context with pitchdeck toolset."""
-        return build_runtime_context(toolsets=[pitchdeck_toolset], model="test-model")
+        return build_runtime_context(toolsets=[pitchdeck_toolset], model="test")
 
     @pytest.mark.anyio
     async def test_list_pitchdecks(self, ctx, tmp_path):

@@ -607,22 +607,13 @@ class Worker:
 
         with log_context:
             if config.on_event is not None:
-                if config.verbosity >= 2:
-                    output = await self._run_streaming(
-                        agent,
-                        prompt,
-                        child_runtime,
-                        message_history,
-                        log_messages=not use_incremental_log,
-                    )
-                else:
-                    output = await self._run_with_event_stream(
-                        agent,
-                        prompt,
-                        child_runtime,
-                        message_history,
-                        log_messages=not use_incremental_log,
-                    )
+                output = await self._run_with_event_stream(
+                    agent,
+                    prompt,
+                    child_runtime,
+                    message_history,
+                    log_messages=not use_incremental_log,
+                )
                 if _should_use_message_history(child_runtime):
                     state.messages[:] = list(child_state.messages)
             else:
@@ -652,7 +643,12 @@ class Worker:
         *,
         log_messages: bool = True,
     ) -> Any:
-        """Run agent with event stream handler for non-streaming UI updates."""
+        """Run agent with event stream handler for UI updates.
+
+        Uses agent.run() with event_stream_handler instead of agent.run_stream()
+        because run_stream() doesn't loop on tool calls - it returns after one
+        turn even when tools are invoked. See pydantic/pydantic-ai#2308.
+        """
         from pydantic_ai.messages import PartDeltaEvent
 
         from ..ui.parser import parse_event
@@ -691,63 +687,3 @@ class Worker:
             self._emit_tool_events(result.new_messages(), runtime)
         return result.output
 
-    async def _run_streaming(
-        self,
-        agent: Agent[WorkerRuntimeProtocol, Any],
-        prompt: str | Sequence[UserContent],
-        runtime: WorkerRuntimeProtocol,
-        message_history: list[Any] | None,
-        *,
-        log_messages: bool = True,
-    ) -> Any:
-        """Run agent with streaming, emitting text deltas."""
-        async with agent.run_stream(
-            prompt,
-            deps=runtime,
-            model_settings=self.model_settings,
-            message_history=message_history,
-        ) as stream:
-            # Stream text deltas
-            output: Any
-            if self.schema_out is None or self.schema_out is str:
-                async for chunk in stream.stream_text(delta=True):
-                    if runtime.on_event:
-                        runtime.on_event(TextResponseEvent(
-                            worker=self.name,
-                            depth=runtime.depth,
-                            content=chunk,
-                            is_delta=True,
-                            is_complete=False,  # Not complete - this is a streaming delta
-                        ))
-                # Avoid double completion; validate without re-marking completed.
-                output = await stream.validate_response_output(stream.response)
-                if runtime.on_event and isinstance(output, str):
-                    runtime.on_event(TextResponseEvent(
-                        worker=self.name,
-                        depth=runtime.depth,
-                        content=output,
-                        is_complete=True,
-                        is_delta=False,
-                    ))
-            else:
-                output = await stream.get_output()
-                if runtime.on_event and isinstance(output, str):
-                    runtime.on_event(TextResponseEvent(
-                        worker=self.name,
-                        depth=runtime.depth,
-                        content=output,
-                        is_complete=True,
-                        is_delta=False,
-                    ))
-
-            _finalize_messages(
-                self.name,
-                runtime,
-                None,
-                stream,
-                log_messages=log_messages,
-            )
-            # Emit tool events (must be inside context manager)
-            self._emit_tool_events(stream.new_messages(), runtime)
-
-        return output

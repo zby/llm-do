@@ -152,7 +152,7 @@ class Runtime:
         )
         toolsets = list(getattr(entry, "toolsets", []) or [])
         call_config = CallConfig(
-            toolsets=tuple(toolsets),
+            active_toolsets=tuple(toolsets),
             model=resolved_model,
         )
         return CallFrame(

@@ -60,8 +60,9 @@ class WorkerRuntime:
         return self.runtime.approval_callback
 
     @property
-    def toolsets(self) -> tuple[AbstractToolset[Any], ...]:
-        return self.frame.toolsets
+    def active_toolsets(self) -> tuple[AbstractToolset[Any], ...]:
+        """Toolsets available for this call (with approval wrappers applied)."""
+        return self.frame.active_toolsets
 
     @property
     def model(self) -> ModelType:
@@ -177,14 +178,14 @@ class WorkerRuntime:
 
     def spawn_child(
         self,
-        toolsets: Optional[list[AbstractToolset[Any]]] = None,
+        active_toolsets: Optional[list[AbstractToolset[Any]]] = None,
         *,
         model: ModelType | None = None,
     ) -> "WorkerRuntime":
         """Spawn a child worker runtime with a forked CallFrame (depth+1)."""
         return WorkerRuntime(
             runtime=self.runtime,
-            frame=self.frame.fork(toolsets, model=model),
+            frame=self.frame.fork(active_toolsets, model=model),
         )
 
     async def run(self, entry: Entry, input_data: Any) -> Any:
@@ -218,7 +219,7 @@ class WorkerRuntime:
         run_ctx = self._make_run_context(name, self.model, self)
 
         # Search for the tool across all toolsets
-        for toolset in self.toolsets:
+        for toolset in self.active_toolsets:
             tools = await toolset.get_tools(run_ctx)
             if name in tools:
                 tool = tools[name]
@@ -262,7 +263,7 @@ class WorkerRuntime:
                 return result
 
         available: list[str] = []
-        for toolset in self.toolsets:
+        for toolset in self.active_toolsets:
             tools = await toolset.get_tools(run_ctx)
             available.extend(tools.keys())
         raise KeyError(f"Tool '{name}' not found. Available: {available}")

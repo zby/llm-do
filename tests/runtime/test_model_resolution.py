@@ -70,7 +70,7 @@ class DummyEntry:
         # Like Worker.call(), fork state and create a child context with our toolsets
         state = run_ctx.deps.frame
         resolved_model = self.model if self.model is not None else state.model
-        child_runtime = run_ctx.deps.spawn_child(toolsets=self.toolsets, model=resolved_model)
+        child_runtime = run_ctx.deps.spawn_child(active_toolsets=self.toolsets, model=resolved_model)
         return await child_runtime.call("capture", {"value": 1})
 
 

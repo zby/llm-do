@@ -102,9 +102,9 @@ async def test_entry_function_exposes_its_toolsets() -> None:
     )
 
     assert result == "hello"
-    # EntryFunction exposes its toolsets via the Entry protocol
-    assert len(ctx.toolsets) == 1
-    assert ctx.toolsets[0] is toolset
+    # ToolInvocable exposes its toolset via the Entry protocol
+    assert len(ctx.active_toolsets) == 1
+    assert ctx.active_toolsets[0] is toolset
 
 
 @pytest.mark.anyio

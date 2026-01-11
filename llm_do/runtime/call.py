@@ -13,7 +13,7 @@ from .contracts import ModelType
 class CallConfig:
     """Immutable call configuration - set at fork time, never changed."""
 
-    toolsets: tuple[AbstractToolset[Any], ...]
+    active_toolsets: tuple[AbstractToolset[Any], ...]
     model: ModelType
     depth: int = 0
 
@@ -28,10 +28,11 @@ class CallFrame:
     prompt: str = ""
     messages: list[Any] = field(default_factory=list)
 
-    # Convenience accessors for backward compatibility
+    # Convenience accessors
     @property
-    def toolsets(self) -> tuple[AbstractToolset[Any], ...]:
-        return self.config.toolsets
+    def active_toolsets(self) -> tuple[AbstractToolset[Any], ...]:
+        """Toolsets available for this call (with approval wrappers applied)."""
+        return self.config.active_toolsets
 
     @property
     def model(self) -> ModelType:
@@ -43,13 +44,13 @@ class CallFrame:
 
     def fork(
         self,
-        toolsets: Optional[list[AbstractToolset[Any]]] = None,
+        active_toolsets: Optional[list[AbstractToolset[Any]]] = None,
         *,
         model: ModelType | None = None,
     ) -> "CallFrame":
         """Create child frame with incremented depth and fresh messages."""
         new_config = CallConfig(
-            toolsets=tuple(toolsets) if toolsets is not None else self.config.toolsets,
+            active_toolsets=tuple(active_toolsets) if active_toolsets is not None else self.config.active_toolsets,
             model=model if model is not None else self.config.model,
             depth=self.config.depth + 1,
         )

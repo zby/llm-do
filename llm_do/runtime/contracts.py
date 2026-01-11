@@ -68,7 +68,7 @@ class WorkerRuntimeProtocol(Protocol):
 
     def spawn_child(
         self,
-        toolsets: list[AbstractToolset[Any]] | None = None,
+        active_toolsets: list[AbstractToolset[Any]] | None = None,
         *,
         model: ModelType | None = None,
     ) -> "WorkerRuntimeProtocol": ...

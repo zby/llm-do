@@ -1,7 +1,7 @@
-"""Invocable registry and builder utilities.
+"""Entry registry and builder utilities.
 
 The registry acts as a symbol table for entry names: resolved workers and
-tool-backed invocables are bound to names so the runtime can look them up.
+entry functions are bound to names so the runtime can look them up.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from .args import WorkerArgs
 from .contracts import Entry, ModelType
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
-from .worker import ToolInvocable, Worker, WorkerToolset
+from .worker import Worker, WorkerToolset
 from .worker_file import (
     WorkerDefinition,
     build_worker_definition,
@@ -48,10 +48,6 @@ class EntryRegistry:
     def names(self) -> list[str]:
         """Return sorted entry names."""
         return sorted(self.entries.keys())
-
-
-# Backwards compatibility alias
-InvocableRegistry = EntryRegistry
 
 
 # Registry of server-side tool factories
@@ -96,18 +92,6 @@ def _merge_toolsets(
     return merged
 
 
-def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
-    """Get tool names from a toolset without needing a RunContext."""
-    from pydantic_ai.toolsets import FunctionToolset
-    if isinstance(toolset, FunctionToolset):
-        return list(toolset.tools.keys())
-    # For other toolsets, we'd need a RunContext - return empty for now
-    # WorkerToolset returns the wrapped worker as a single tool
-    if isinstance(toolset, WorkerToolset):
-        return [toolset.worker.name]
-    return []
-
-
 def build_entry_registry(
     worker_files: list[str],
     python_files: list[str],
@@ -136,16 +120,7 @@ def build_entry_registry(
     # Load Python toolsets, workers, and entry functions in a single pass
     python_toolsets, python_workers, python_entries = load_all_from_files(python_files)
 
-    # Build map of tool_name -> toolset for legacy code entry pattern (ToolInvocable)
-    # Note: duplicate tool names are detected by pydantic-ai at runtime
-    python_tool_map: dict[str, tuple[AbstractToolset[Any], str]] = {}
-    for toolset_name, toolset in python_toolsets.items():
-        tool_names = _get_tool_names(toolset)
-        for tool_name in tool_names:
-            if tool_name not in python_tool_map:
-                python_tool_map[tool_name] = (toolset, tool_name)
-
-    if not worker_files and not python_tool_map and not python_workers and not python_entries:
+    if not worker_files and not python_workers and not python_entries:
         raise ValueError("At least one .worker or .py file with entries required")
 
     entries: dict[str, Entry] = {}
@@ -159,12 +134,6 @@ def build_entry_registry(
         if name in entries:
             raise ValueError(f"Entry name '{name}' conflicts with worker name")
         entries[name] = entry_func
-
-    # Add legacy ToolInvocable entries for tools not already covered
-    for tool_name, (toolset, tool_entry_name) in python_tool_map.items():
-        if tool_name in entries:
-            continue
-        entries[tool_name] = ToolInvocable(toolset=toolset, tool_name=tool_entry_name)
 
     # First pass: load worker definitions and create stub Worker instances
     worker_entries: dict[str, Worker] = {}
@@ -269,22 +238,3 @@ def build_entry_registry(
             entry_func.resolve_toolsets(all_available_toolsets)
 
     return EntryRegistry(entries=entries)
-
-
-# Backwards compatibility alias
-def build_invocable_registry(
-    worker_files: list[str],
-    python_files: list[str],
-    *,
-    entry_name: str = "main",
-    entry_model_override: ModelType | None = None,
-    set_overrides: list[str] | None = None,
-) -> EntryRegistry:
-    """Backwards compatibility alias for build_entry_registry."""
-    return build_entry_registry(
-        worker_files,
-        python_files,
-        entry_name=entry_name,
-        entry_model_override=entry_model_override,
-        set_overrides=set_overrides,
-    )

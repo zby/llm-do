@@ -3,7 +3,7 @@ from pydantic_ai.models.test import TestModel
 
 from llm_do.runtime import Runtime, WorkerInput
 from llm_do.runtime.approval import RunApprovalPolicy
-from llm_do.runtime.registry import build_invocable_registry
+from llm_do.runtime.registry import build_entry_registry
 from llm_do.runtime.worker import Worker, WorkerToolset
 
 
@@ -21,7 +21,7 @@ Call yourself.
 """
     )
 
-    registry = build_invocable_registry([str(worker_path)], [], entry_name="recursive")
+    registry = build_entry_registry([str(worker_path)], [], entry_name="recursive")
     entry = registry.get("recursive")
 
     assert isinstance(entry, Worker)

@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 import pytest
 
-from llm_do.runtime import WorkerInput, build_invocable_registry
+from llm_do.runtime import WorkerInput, build_entry_registry
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
@@ -146,7 +146,7 @@ async def run_example(
 ) -> Any:
     """Build and run an example entry with approvals wired."""
     worker_files, python_files = _collect_example_files(example_dir)
-    registry = build_invocable_registry(
+    registry = build_entry_registry(
         worker_files,
         python_files,
         entry_name=entry_name,

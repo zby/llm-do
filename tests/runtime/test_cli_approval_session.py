@@ -14,7 +14,7 @@ from pydantic_ai_blocking_approval import (
 )
 
 from llm_do.cli.main import run
-from llm_do.runtime import InvocableRegistry, RunApprovalPolicy, Runtime
+from llm_do.runtime import EntryRegistry, RunApprovalPolicy, Runtime
 from llm_do.runtime.worker import Worker
 
 
@@ -75,7 +75,7 @@ async def test_tui_session_approval_cache_persists_across_runs() -> None:
         calls.append(request)
         return ApprovalDecision(approved=True, remember="session")
 
-    registry = InvocableRegistry(entries={
+    registry = EntryRegistry(entries={
         "main": Worker(
             name="main",
             instructions="Test worker",

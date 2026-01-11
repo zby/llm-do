@@ -1,9 +1,9 @@
-"""Invocable implementations for the context runtime.
+"""Entry implementations for the context runtime.
 
 This module provides:
-- Worker: An LLM-powered worker that IS an AbstractToolset
+- Worker: An LLM-powered worker that implements the Entry protocol
 - WorkerToolset: Adapter that exposes a Worker as a single tool for another agent
-- ToolInvocable: Wrapper for tool-as-entrypoint usage
+- EntryFunction: Wrapper for @entry decorated functions
 """
 from __future__ import annotations
 
@@ -302,53 +302,6 @@ class WorkerToolset(AbstractToolset[Any]):
             run_ctx.deps.frame,
             run_ctx,
         )
-
-
-@dataclass
-class ToolInvocable:
-    """Wrapper for using a tool from a toolset as an entry point.
-
-    This is used for the code entry pattern where a Python tool function
-    is the main entry point instead of a worker.
-
-    DEPRECATED: Use @entry decorator instead. This class will be removed
-    in a future version.
-    """
-
-    toolset: AbstractToolset[Any]
-    tool_name: str
-
-    @property
-    def name(self) -> str:
-        return self.tool_name
-
-    @property
-    def toolsets(self) -> list[AbstractToolset[Any]]:
-        """Return the toolset as a single-item list for Entry protocol compliance."""
-        return [self.toolset]
-
-    async def call(
-        self,
-        input_data: Any,
-        run_ctx: RunContext[WorkerRuntimeProtocol],
-    ) -> Any:
-        """Call the tool via its toolset.
-
-        Args:
-            input_data: Tool input (dict or BaseModel)
-            run_ctx: PydanticAI RunContext for tool execution
-        """
-        if isinstance(input_data, BaseModel):
-            input_data = input_data.model_dump()
-        elif not isinstance(input_data, dict):
-            raise TypeError(f"Expected dict or BaseModel, got {type(input_data)}")
-
-        tools = await self.toolset.get_tools(run_ctx)
-        tool = tools.get(self.tool_name)
-        if tool is None:
-            raise KeyError(f"Tool {self.tool_name} not found in toolset")
-
-        return await self.toolset.call_tool(self.tool_name, input_data, run_ctx, tool)
 
 
 # Type alias for toolset references: can be names (str) or instances

@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import InvocableRegistry, Worker, WorkerInput
+from llm_do.runtime import EntryRegistry, Worker, WorkerInput
 from llm_do.ui.events import (
     TextResponseEvent,
     ToolCallEvent,
@@ -321,7 +321,7 @@ class TestCLIEventIntegration:
             prompt="Hi there",
             on_event=lambda e: events.append(e),
             verbosity=1,
-            registry=InvocableRegistry(entries={"main": worker}),
+            registry=EntryRegistry(entries={"main": worker}),
         )
 
         assert result is not None
@@ -356,7 +356,7 @@ class TestCLIEventIntegration:
             on_event=lambda e: events.append(e),
             verbosity=1,
             approve_all=True,
-            registry=InvocableRegistry(entries={"main": worker}),
+            registry=EntryRegistry(entries={"main": worker}),
         )
 
         # Should have tool events

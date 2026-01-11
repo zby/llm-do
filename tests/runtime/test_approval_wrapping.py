@@ -4,7 +4,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 
-from llm_do.runtime import Runtime, ToolInvocable, WorkerInput
+from llm_do.runtime import Runtime, WorkerInput, entry
 from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
 from llm_do.runtime.worker import Worker
 from llm_do.toolsets.approval import set_toolset_approval_config
@@ -82,28 +82,27 @@ def test_wrap_toolsets_handles_cycles() -> None:
 
 
 @pytest.mark.anyio
-async def test_toolinvocable_exposes_its_toolset() -> None:
-    """ToolInvocable exposes its wrapped toolset via the Entry protocol."""
+async def test_entry_function_exposes_its_toolsets() -> None:
+    """EntryFunction exposes its toolsets via the Entry protocol."""
     toolset = FunctionToolset()
 
     @toolset.tool
-    def echo(input: str) -> str:
+    def helper(input: str) -> str:
         return input
 
-    invocable = ToolInvocable(
-        toolset=toolset,
-        tool_name="echo",
-    )
+    @entry(toolsets=[toolset])
+    async def echo(input: str, deps) -> str:
+        return input
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
     result, ctx = await runtime.run_invocable(
-        invocable,
+        echo,
         {"input": "hello"},
-        model="test",  # Runtime needs a model even if ToolInvocable doesn't use it
+        model="test",
     )
 
     assert result == "hello"
-    # ToolInvocable exposes its toolset via the Entry protocol
+    # EntryFunction exposes its toolsets via the Entry protocol
     assert len(ctx.toolsets) == 1
     assert ctx.toolsets[0] is toolset
 
@@ -150,26 +149,20 @@ async def test_nested_worker_calls_can_require_approval() -> None:
 
 
 @pytest.mark.anyio
-async def test_toolinvocable_entry_call_not_approval_gated() -> None:
-    """ToolInvocable entry call is not gated - it calls the tool directly."""
-    toolset = FunctionToolset()
+async def test_entry_function_call_not_approval_gated() -> None:
+    """EntryFunction call is not gated - it's a direct call, not LLM-invoked."""
 
-    @toolset.tool
-    def echo(input: str) -> str:
+    @entry()
+    async def echo(input: str, deps) -> str:
         return input
 
-    invocable = ToolInvocable(
-        toolset=toolset,
-        tool_name="echo",
-    )
-
-    # Even with reject_all, ToolInvocable succeeds because
-    # it's a direct tool call, not an LLM-invoked tool call
+    # Even with reject_all, EntryFunction succeeds because
+    # it's a direct call, not an LLM-invoked tool call
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
     result, _ctx = await runtime.run_invocable(
-        invocable,
+        echo,
         {"input": "hello"},
-        model="test",  # Runtime needs a model even if ToolInvocable doesn't use it
+        model="test",
     )
 
     assert result == "hello"

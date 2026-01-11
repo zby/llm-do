@@ -97,7 +97,3 @@ class Entry(Protocol):
         input_data: Any,
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any: ...
-
-
-# Backwards compatibility alias
-Invocable = Entry

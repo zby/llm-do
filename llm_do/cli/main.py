@@ -39,7 +39,7 @@ from ..runtime import (
     Runtime,
     WorkerRuntime,
 )
-from ..runtime.registry import InvocableRegistry, build_invocable_registry
+from ..runtime.registry import EntryRegistry, build_entry_registry
 from ..ui import (
     DisplayBackend,
     ErrorEvent,
@@ -124,7 +124,7 @@ async def run(
     return_permission_errors: bool = False,
     message_history: list[Any] | None = None,
     set_overrides: list[str] | None = None,
-    registry: InvocableRegistry | None = None,
+    registry: EntryRegistry | None = None,
     runtime: Runtime | None = None,
 ) -> tuple[Any, WorkerRuntime]:
     """Load entries and run with the given prompt.
@@ -159,7 +159,7 @@ async def run(
         # Separate worker files and Python files
         worker_files = [f for f in files if f.endswith(".worker")]
         python_files = [f for f in files if f.endswith(".py")]
-        registry = build_invocable_registry(
+        registry = build_entry_registry(
             worker_files,
             python_files,
             entry_name=resolved_entry_name,

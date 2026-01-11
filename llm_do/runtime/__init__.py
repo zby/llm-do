@@ -13,7 +13,7 @@ from .approval import (
     resolve_approval_callback,
 )
 from .args import PromptSpec, WorkerArgs, WorkerInput
-from .contracts import Entry, EventCallback, Invocable, ModelType
+from .contracts import Entry, EventCallback, ModelType
 from .deps import ToolsProxy, WorkerRuntime
 from .discovery import (
     discover_entries_from_module,
@@ -26,14 +26,11 @@ from .discovery import (
 )
 from .registry import (
     EntryRegistry,
-    InvocableRegistry,
     build_entry_registry,
-    build_invocable_registry,
 )
 from .shared import Runtime
 from .worker import (
     EntryFunction,
-    ToolInvocable,
     ToolsetRef,
     Worker,
     WorkerToolset,
@@ -52,7 +49,6 @@ __all__ = [
     "WorkerRuntime",
     "ToolsProxy",
     "Entry",
-    "Invocable",  # Backwards compatibility alias for Entry
     "ModelType",
     "EventCallback",
     "ApprovalCallback",
@@ -60,9 +56,7 @@ __all__ = [
     "WorkerApprovalPolicy",
     "resolve_approval_callback",
     "EntryRegistry",
-    "InvocableRegistry",  # Backwards compatibility alias for EntryRegistry
     "build_entry_registry",
-    "build_invocable_registry",  # Backwards compatibility alias
     "PromptSpec",
     "WorkerArgs",
     "WorkerInput",
@@ -72,7 +66,6 @@ __all__ = [
     "EntryFunction",
     "entry",  # @entry decorator
     "ToolsetRef",
-    "ToolInvocable",  # Deprecated
     # Worker file
     "WorkerDefinition",
     "WorkerFileParser",

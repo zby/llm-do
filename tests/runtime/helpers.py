@@ -8,7 +8,7 @@ from pydantic_ai.toolsets import AbstractToolset
 from llm_do.runtime import Runtime, WorkerRuntime
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.call import CallConfig, CallFrame
-from llm_do.runtime.contracts import EventCallback, Invocable, ModelType
+from llm_do.runtime.contracts import Entry, EventCallback, ModelType
 
 
 def build_runtime_context(
@@ -43,7 +43,7 @@ def build_runtime_context(
 
 
 def build_entry_context(
-    entry: Invocable,
+    entry: Entry,
     *,
     model: ModelType | None = None,
     run_approval_policy: RunApprovalPolicy | None = None,

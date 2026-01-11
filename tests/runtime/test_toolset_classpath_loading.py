@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import build_invocable_registry
+from llm_do.runtime import build_entry_registry
 
 
 @pytest.mark.anyio
@@ -22,7 +22,7 @@ Hello
     )
 
     with pytest.raises(ValueError, match="Unknown toolset"):
-        build_invocable_registry(
+        build_entry_registry(
             [str(worker)],
             [],
             entry_name="main",

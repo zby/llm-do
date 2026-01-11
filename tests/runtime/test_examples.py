@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 
 from llm_do.runtime import (
-    ToolInvocable,
-    build_invocable_registry,
+    EntryFunction,
+    build_entry_registry,
     load_toolsets_from_files,
     load_worker_file,
 )
@@ -29,7 +29,7 @@ async def test_single_worker_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "calculator" / "tools.py"])
     assert "calc_tools" in toolsets
 
-    registry = build_invocable_registry(
+    registry = build_entry_registry(
         [str(EXAMPLES_DIR / "calculator" / "main.worker")],
         [str(EXAMPLES_DIR / "calculator" / "tools.py")],
         entry_name="main",
@@ -41,7 +41,7 @@ async def test_single_worker_example_builds():
 
 @pytest.mark.anyio
 async def test_delegation_example_builds():
-    registry = build_invocable_registry(
+    registry = build_entry_registry(
         [
             str(EXAMPLES_DIR / "pitchdeck_eval" / "main.worker"),
             str(EXAMPLES_DIR / "pitchdeck_eval" / "pitch_evaluator.worker"),
@@ -57,14 +57,14 @@ async def test_delegation_example_builds():
 
 @pytest.mark.anyio
 async def test_code_entry_example_builds():
-    registry = build_invocable_registry(
+    registry = build_entry_registry(
         [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")],
         [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "tools.py")],
         entry_name="main",
         entry_model_override="test-model",
     )
     entry = registry.get("main")
-    assert isinstance(entry, ToolInvocable)
+    assert isinstance(entry, EntryFunction)
 
 
 @pytest.mark.anyio
@@ -73,7 +73,7 @@ async def test_server_side_tools_example_builds():
     assert len(worker_file.server_side_tools) == 1
     assert worker_file.server_side_tools[0]["tool_type"] == "web_search"
 
-    registry = build_invocable_registry(
+    registry = build_entry_registry(
         [str(EXAMPLES_DIR / "web_searcher" / "main.worker")],
         [],
         entry_name="main",
@@ -93,7 +93,7 @@ async def test_file_organizer_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "file_organizer" / "tools.py"])
     assert "file_tools" in toolsets
 
-    registry = build_invocable_registry(
+    registry = build_entry_registry(
         [str(EXAMPLES_DIR / "file_organizer" / "main.worker")],
         [str(EXAMPLES_DIR / "file_organizer" / "tools.py")],
         entry_name="main",
@@ -109,7 +109,7 @@ async def test_recursive_summarizer_example_builds():
     assert "filesystem_project" in worker_file.toolsets
     assert "summarizer" in worker_file.toolsets
 
-    registry = build_invocable_registry(
+    registry = build_entry_registry(
         [
             str(EXAMPLES_DIR / "recursive_summarizer" / "main.worker"),
             str(EXAMPLES_DIR / "recursive_summarizer" / "summarizer.worker"),

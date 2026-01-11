@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import Worker, build_invocable_registry
+from llm_do.runtime import Worker, build_entry_registry
 from llm_do.runtime.worker import WorkerToolset
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
@@ -19,7 +19,7 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     ]
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
-    registry = build_invocable_registry(
+    registry = build_entry_registry(
         worker_files,
         python_files,
         entry_name="main",
@@ -69,7 +69,7 @@ main = Worker(name="main", instructions="hi", toolsets=[tools])
 """
     )
 
-    build_invocable_registry([], [str(module_path)], entry_name="main")
+    build_entry_registry([], [str(module_path)], entry_name="main")
 
     lines = marker_path.read_text(encoding="utf-8").splitlines()
     assert lines == ["x"]
@@ -103,7 +103,7 @@ Instructions.
         encoding="utf-8",
     )
 
-    registry = build_invocable_registry([str(worker_path)], [], entry_name="main")
+    registry = build_entry_registry([str(worker_path)], [], entry_name="main")
     entry = registry.get("main")
     assert isinstance(entry, Worker)
     assert entry.schema_in is not None
@@ -119,7 +119,7 @@ async def test_build_entry_rejects_name_override(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ValueError, match="Cannot override worker name"):
-        build_invocable_registry(
+        build_entry_registry(
             [str(worker_path)],
             [],
             entry_name="main",

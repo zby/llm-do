@@ -4,6 +4,7 @@ import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
 from llm_do.runtime import Worker, build_invocable_registry
+from llm_do.runtime.worker import WorkerToolset
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
@@ -27,11 +28,13 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     entry = registry.get("main")
     assert isinstance(entry, Worker)
 
-    extractor = next(
+    # Workers are now wrapped in WorkerToolset adapters
+    extractor_toolset = next(
         toolset
         for toolset in entry.toolsets
-        if isinstance(toolset, Worker) and toolset.name == "web_research_extractor"
+        if isinstance(toolset, WorkerToolset) and toolset.worker.name == "web_research_extractor"
     )
+    extractor = extractor_toolset.worker
     function_toolsets = [
         toolset for toolset in extractor.toolsets if isinstance(toolset, FunctionToolset)
     ]

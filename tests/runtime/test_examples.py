@@ -9,6 +9,14 @@ from llm_do.runtime import (
     load_toolsets_from_files,
     load_worker_file,
 )
+from llm_do.runtime.worker import WorkerToolset
+
+
+def _get_toolset_name(toolset):
+    """Get the name of a toolset, handling WorkerToolset wrappers."""
+    if isinstance(toolset, WorkerToolset):
+        return toolset.worker.name
+    return getattr(toolset, "name", None)
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
@@ -43,7 +51,7 @@ async def test_delegation_example_builds():
         entry_model_override="test-model",
     )
     worker = registry.get("main")
-    toolset_names = [getattr(ts, "name", None) for ts in worker.toolsets]
+    toolset_names = [_get_toolset_name(ts) for ts in worker.toolsets]
     assert "pitch_evaluator" in toolset_names
 
 
@@ -111,5 +119,5 @@ async def test_recursive_summarizer_example_builds():
         entry_model_override="test-model",
     )
     worker = registry.get("main")
-    toolset_names = [getattr(ts, "name", None) for ts in worker.toolsets]
+    toolset_names = [_get_toolset_name(ts) for ts in worker.toolsets]
     assert "summarizer" in toolset_names

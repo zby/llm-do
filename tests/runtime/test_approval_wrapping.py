@@ -118,7 +118,7 @@ async def test_nested_worker_calls_bypass_approval_by_default() -> None:
         name="parent",
         instructions="Parent worker",
         model=TestModel(call_tools=["child"]),
-        toolsets=[child],
+        toolsets=[child.as_toolset()],  # Use as_toolset() for explicit worker-as-tool
     )
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
@@ -134,12 +134,13 @@ async def test_nested_worker_calls_can_require_approval() -> None:
         instructions="Child worker",
         model=TestModel(custom_output_text="child"),
     )
-    set_toolset_approval_config(child, {child.name: {"pre_approved": False}})
+    child_toolset = child.as_toolset()  # Use as_toolset() for explicit worker-as-tool
+    set_toolset_approval_config(child_toolset, {child.name: {"pre_approved": False}})
     parent = Worker(
         name="parent",
         instructions="Parent worker",
         model=TestModel(call_tools=["child"]),
-        toolsets=[child],
+        toolsets=[child_toolset],
     )
 
     with pytest.raises(PermissionError):

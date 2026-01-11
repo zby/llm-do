@@ -2,6 +2,7 @@
 
 This module provides:
 - Worker: An LLM-powered worker that IS an AbstractToolset
+- WorkerToolset: Adapter that exposes a Worker as a single tool for another agent
 - ToolInvocable: Wrapper for tool-as-entrypoint usage
 """
 from __future__ import annotations
@@ -212,6 +213,97 @@ class _DictValidator:
         return self._to_dict(result)
 
 
+def build_worker_tool(
+    worker: "Worker",
+    toolset: AbstractToolset[Any],
+) -> ToolsetTool[Any]:
+    """Build a ToolsetTool for exposing a Worker as a callable tool.
+
+    This shared helper is used by both Worker.get_tools() and WorkerToolset.get_tools()
+    to ensure consistent tool definition and validation.
+
+    Args:
+        worker: The worker to expose as a tool
+        toolset: The toolset that owns this tool (Worker or WorkerToolset)
+
+    Returns:
+        ToolsetTool configured for the worker
+    """
+    description_source = worker.description or worker.instructions
+    description = (
+        description_source[:200] + "..."
+        if len(description_source) > 200
+        else description_source
+    )
+    input_schema = worker.schema_in or WorkerInput
+
+    tool_def = ToolDefinition(
+        name=worker.name,
+        description=description,
+        parameters_json_schema=input_schema.model_json_schema(),
+    )
+
+    return ToolsetTool(
+        toolset=toolset,
+        tool_def=tool_def,
+        max_retries=0,
+        args_validator=_DictValidator(input_schema),
+    )
+
+
+@dataclass
+class WorkerToolset(AbstractToolset[Any]):
+    """Adapter that exposes a Worker as a single tool for another agent.
+
+    This decouples "Worker as callable entry" from "Worker as tool provider",
+    making the relationship explicit via composition rather than inheritance.
+
+    The tool name is always worker.name (no attribute-name aliasing).
+
+    Usage:
+        analyst = Worker(name="analyst", ...)
+        main_worker = Worker(
+            name="main",
+            toolsets=[analyst.as_toolset(), filesystem, shell],
+            ...
+        )
+    """
+
+    worker: "Worker"
+    bulk_approve: bool = False
+
+    def __post_init__(self) -> None:
+        # Set up approval config for this toolset adapter
+        config = get_toolset_approval_config(self)
+        if config is None:
+            set_toolset_approval_config(self, {self.worker.name: {"pre_approved": True}})
+
+    @property
+    def id(self) -> str | None:
+        """Return the worker name as this toolset's id."""
+        return self.worker.name
+
+    async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
+        """Return the wrapped worker as a callable tool."""
+        tool = build_worker_tool(self.worker, self)
+        return {self.worker.name: tool}
+
+    async def call_tool(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        run_ctx: RunContext[Any],
+        tool: ToolsetTool[Any],
+    ) -> Any:
+        """Execute the worker when called as a tool."""
+        return await self.worker._call_internal(
+            tool_args,
+            run_ctx.deps.config,
+            run_ctx.deps.frame,
+            run_ctx,
+        )
+
+
 @dataclass
 class ToolInvocable:
     """Wrapper for using a tool from a toolset as an entry point.
@@ -291,26 +383,24 @@ class Worker(AbstractToolset[Any]):
 
     async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
         """Return this worker as a callable tool."""
-        description_source = self.description or self.instructions
-        description = (
-            description_source[:200] + "..."
-            if len(description_source) > 200
-            else description_source
-        )
-        input_schema = self.schema_in or WorkerInput
+        tool = build_worker_tool(self, self)
+        return {self.name: tool}
 
-        tool_def = ToolDefinition(
-            name=self.name,
-            description=description,
-            parameters_json_schema=input_schema.model_json_schema(),
-        )
+    def as_toolset(self, *, bulk_approve: bool | None = None) -> WorkerToolset:
+        """Return a WorkerToolset adapter for this worker.
 
-        return {self.name: ToolsetTool(
-            toolset=self,
-            tool_def=tool_def,
-            max_retries=0,
-            args_validator=_DictValidator(input_schema),
-        )}
+        Use this method to explicitly expose a worker as a tool for another agent.
+
+        Args:
+            bulk_approve: If True, auto-approve subsequent calls after first approval.
+                         Defaults to worker's bulk_approve_toolsets setting.
+
+        Returns:
+            WorkerToolset adapter wrapping this worker
+        """
+        if bulk_approve is None:
+            bulk_approve = self.bulk_approve_toolsets
+        return WorkerToolset(worker=self, bulk_approve=bulk_approve)
 
     async def call_tool(
         self, name: str, tool_args: dict[str, Any], run_ctx: RunContext[Any], tool: ToolsetTool[Any]

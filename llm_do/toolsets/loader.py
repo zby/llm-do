@@ -21,6 +21,20 @@ class ToolsetBuildContext:
         return self.worker_path.parent if self.worker_path else None
 
 
+def _wrap_worker_as_toolset(toolset: AbstractToolset[Any]) -> AbstractToolset[Any]:
+    """Wrap a Worker in WorkerToolset if needed.
+
+    Workers are wrapped in WorkerToolset when used as tools for another agent.
+    This makes the "Worker as tool provider" relationship explicit via composition.
+    """
+    # Import here to avoid circular imports
+    from ..runtime.worker import Worker, WorkerToolset
+
+    if isinstance(toolset, Worker):
+        return WorkerToolset(worker=toolset, bulk_approve=toolset.bulk_approve_toolsets)
+    return toolset
+
+
 def build_toolsets(
     toolsets_definition: Sequence[str],
     context: ToolsetBuildContext,
@@ -29,6 +43,8 @@ def build_toolsets(
 
     Toolsets are registered as instances (built-ins, Python toolsets, workers).
     Worker YAML may only reference toolset names.
+
+    Workers are automatically wrapped in WorkerToolset adapters.
     """
     toolsets: list[AbstractToolset[Any]] = []
     for toolset_name in toolsets_definition:
@@ -39,5 +55,7 @@ def build_toolsets(
                 f"Unknown toolset {toolset_name!r} for worker {context.worker_name!r}. "
                 f"Available: {available}"
             )
+        # Wrap Workers in WorkerToolset for explicit tool exposure
+        toolset = _wrap_worker_as_toolset(toolset)
         toolsets.append(toolset)
     return toolsets

@@ -1,7 +1,7 @@
 # WorkerToolset Adapter
 
 ## Status
-ready for implementation
+completed
 
 ## Goal
 Create a `WorkerToolset` adapter and switch toolset exposure to use it. This decouples
@@ -65,16 +65,16 @@ main_worker = Worker(
 ```
 
 ## Tasks
-- [ ] Add shared helper to build worker tool definition/validator
-- [ ] Create `WorkerToolset` class in `llm_do/runtime/worker.py` (or new file)
-- [ ] Implement `get_tools()` via the shared helper
-- [ ] Implement `call_tool()` delegating to `worker._call_internal()` with proper context
-- [ ] Add `Worker.as_toolset()` convenience method
-- [ ] Move toolset approval config from Worker to WorkerToolset
-- [ ] Update toolset resolution to inject WorkerToolset wrappers for worker references
-- [ ] Update tests/examples that pass Workers directly as toolsets
-- [ ] Add tests for WorkerToolset (schema, call path, approval behavior)
-- [ ] Run lint/typecheck/tests
+- [x] Add shared helper to build worker tool definition/validator
+- [x] Create `WorkerToolset` class in `llm_do/runtime/worker.py` (or new file)
+- [x] Implement `get_tools()` via the shared helper
+- [x] Implement `call_tool()` delegating to `worker._call_internal()` with proper context
+- [x] Add `Worker.as_toolset()` convenience method
+- [x] Move toolset approval config from Worker to WorkerToolset
+- [x] Update toolset resolution to inject WorkerToolset wrappers for worker references
+- [x] Update tests/examples that pass Workers directly as toolsets
+- [x] Add tests for WorkerToolset (schema, call path, approval behavior)
+- [x] Run lint/typecheck/tests
 
 ## Future Steps (not this task)
 After WorkerToolset is working:

@@ -24,7 +24,7 @@ from .discovery import (
 )
 from .registry import InvocableRegistry, build_invocable_registry
 from .shared import Runtime
-from .worker import ToolInvocable, Worker
+from .worker import ToolInvocable, Worker, WorkerToolset
 from .worker_file import (
     WorkerDefinition,
     WorkerFileParser,
@@ -51,6 +51,7 @@ __all__ = [
     "WorkerInput",
     # Entries
     "Worker",
+    "WorkerToolset",
     "ToolInvocable",
     # Worker file
     "WorkerDefinition",

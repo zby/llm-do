@@ -4,7 +4,7 @@ from pydantic_ai.models.test import TestModel
 from llm_do.runtime import Runtime, WorkerInput
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.registry import build_invocable_registry
-from llm_do.runtime.worker import Worker
+from llm_do.runtime.worker import Worker, WorkerToolset
 
 
 @pytest.mark.anyio
@@ -26,7 +26,9 @@ Call yourself.
 
     assert isinstance(entry, Worker)
     assert entry.toolsets
-    assert entry.toolsets[0] is entry
+    # Toolset resolution wraps Workers in WorkerToolset adapters
+    assert isinstance(entry.toolsets[0], WorkerToolset)
+    assert entry.toolsets[0].worker is entry
 
 
 @pytest.mark.anyio
@@ -36,7 +38,8 @@ async def test_max_depth_blocks_self_recursion() -> None:
         instructions="Loop until depth is exceeded.",
         model=TestModel(call_tools=["loop"]),
     )
-    worker.toolsets = [worker]
+    # Use as_toolset() for explicit Worker-as-tool exposure
+    worker.toolsets = [worker.as_toolset()]
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
         max_depth=2,

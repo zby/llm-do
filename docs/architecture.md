@@ -39,12 +39,14 @@ When a worker runs, it operates within two scopes owned by a **Runtime**:
 - Like a web server's global config
 
 **CallFrame** (per-worker, per-call):
-- Current prompt, message history, nesting depth
+- Current prompt, message history, nesting depth, active toolsets
 - Like a request context - isolated per worker call
 
 This separation means:
 - **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
-- **Per-worker, no inheritance**: Message history, toolsets, per-tool approval rules
+- **Per-worker, no inheritance**: Message history, active toolsets (wrapped with approval), per-tool approval rules
+
+Note: `Worker.toolsets` are the *declared* toolsets from configuration. `CallFrame.active_toolsets` are the *wrapped* toolsets used during execution (with approval layers applied).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks

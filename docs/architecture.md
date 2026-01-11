@@ -44,9 +44,9 @@ When a worker runs, it operates within two scopes owned by a **Runtime**:
 
 This separation means:
 - **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
-- **Per-worker, no inheritance**: Message history, active toolsets (wrapped with approval), per-tool approval rules
+- **Per-worker, no inheritance**: Message history, active toolsets, per-tool approval rules
 
-Note: `Worker.toolsets` are the *declared* toolsets from configuration. `CallFrame.active_toolsets` are the *wrapped* toolsets used during execution (with approval layers applied).
+Note: `Worker.toolsets` are the *declared* toolsets from configuration. `CallFrame.active_toolsets` are the toolsets in use for this execution. For Workers, these are wrapped with approval before the LLM runs (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
@@ -87,6 +87,34 @@ Key points:
 ---
 
 ## Tool Approval
+
+### Trust Boundary
+
+Approval wrapping gates **LLM-initiated** tool calls, not all tool calls:
+
+- **Worker** (LLM boundary): The LLM decides which tools to call. Toolsets are wrapped with `ApprovalToolset` before the agent runs. This is where approval prompts happen.
+
+- **EntryFunction** (`@entry` decorated): Developer's Python code decides which tools to call. These are trusted - no approval wrapping. The code is reviewed and committed, not generated at runtime.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Trusted Code (no approval)                         │
+│  ┌───────────────┐     ┌───────────────┐           │
+│  │ @entry func   │────▶│ deps.call()   │           │
+│  └───────────────┘     └───────────────┘           │
+└─────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────┐
+│  LLM Boundary (approval required)                   │
+│  ┌───────────────┐     ┌───────────────┐           │
+│  │ Worker.call() │────▶│ ApprovalToolset│──▶ tool  │
+│  │ (wraps first) │     │ (gates calls)  │           │
+│  └───────────────┘     └───────────────┘           │
+└─────────────────────────────────────────────────────┘
+```
+
+### Approval Modes
 
 Tools requiring approval are wrapped by `ApprovalToolset`:
 - `--approve-all` bypasses prompts (for automation)

@@ -12,11 +12,11 @@ from ..models import select_model
 from ..ui.events import UserMessageEvent
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .call import CallConfig, CallFrame
-from .contracts import EventCallback, Invocable, MessageLogCallback, ModelType
+from .contracts import Entry, EventCallback, MessageLogCallback, ModelType
 
 if TYPE_CHECKING:
     from .deps import WorkerRuntime
-    from .registry import InvocableRegistry
+    from .registry import EntryRegistry
 
 
 class UsageCollector:
@@ -138,7 +138,7 @@ class Runtime:
 
     def _build_entry_frame(
         self,
-        entry: Invocable,
+        entry: Entry,
         *,
         model: ModelType | None = None,
         message_history: list[Any] | None = None,
@@ -162,7 +162,7 @@ class Runtime:
 
     async def run_invocable(
         self,
-        invocable: Invocable,
+        invocable: Entry,
         input_data: Any,
         *,
         model: ModelType | None = None,
@@ -196,7 +196,7 @@ class Runtime:
 
     async def run_entry(
         self,
-        registry: "InvocableRegistry",
+        registry: "EntryRegistry",
         entry_name: str,
         input_data: Any,
         *,
@@ -214,7 +214,7 @@ class Runtime:
 
     def run(
         self,
-        invocable: Invocable,
+        invocable: Entry,
         input_data: Any,
         *,
         model: ModelType | None = None,
@@ -242,7 +242,7 @@ class Runtime:
 
     def run_entry_sync(
         self,
-        registry: "InvocableRegistry",
+        registry: "EntryRegistry",
         entry_name: str,
         input_data: Any,
         *,

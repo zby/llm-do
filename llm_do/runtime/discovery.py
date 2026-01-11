@@ -18,7 +18,7 @@ from typing import Any, Iterable
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .worker import Worker
+from .worker import EntryFunction, Worker
 
 
 def load_module(path: str | Path) -> ModuleType:
@@ -87,6 +87,27 @@ def discover_workers_from_module(module: ModuleType) -> list[Worker]:
     return workers
 
 
+def discover_entries_from_module(module: ModuleType) -> list[EntryFunction]:
+    """Discover EntryFunction instances from a module.
+
+    These are functions decorated with @entry.
+
+    Args:
+        module: Loaded Python module
+
+    Returns:
+        List of discovered entry functions
+    """
+    entries: list[EntryFunction] = []
+    for name in dir(module):
+        if name.startswith("_"):
+            continue
+        obj = getattr(module, name)
+        if isinstance(obj, EntryFunction):
+            entries.append(obj)
+    return entries
+
+
 def load_toolsets_from_files(files: list[str | Path]) -> dict[str, AbstractToolset[Any]]:
     """Load all toolsets from multiple Python files.
 
@@ -153,10 +174,33 @@ def load_workers_from_files(files: list[str | Path]) -> dict[str, Worker]:
 def load_toolsets_and_workers_from_files(
     files: Iterable[str | Path],
 ) -> tuple[dict[str, AbstractToolset[Any]], dict[str, Worker]]:
-    """Load toolsets and workers from Python files with a single module pass."""
+    """Load toolsets and workers from Python files with a single module pass.
+
+    Note: This function is kept for backwards compatibility. New code should
+    use load_all_from_files() which also discovers EntryFunction instances.
+    """
+    toolsets, workers, _ = load_all_from_files(files)
+    return toolsets, workers
+
+
+def load_all_from_files(
+    files: Iterable[str | Path],
+) -> tuple[dict[str, AbstractToolset[Any]], dict[str, Worker], dict[str, EntryFunction]]:
+    """Load toolsets, workers, and entry functions from Python files.
+
+    Performs a single pass through the modules to discover all items.
+
+    Args:
+        files: Paths to Python files
+
+    Returns:
+        Tuple of (toolsets, workers, entries) dictionaries
+    """
     toolsets: dict[str, AbstractToolset[Any]] = {}
     workers: dict[str, Worker] = {}
+    entries: dict[str, EntryFunction] = {}
     worker_paths: dict[str, Path] = {}
+    entry_paths: dict[str, Path] = {}
     loaded_paths: set[Path] = set()
 
     for file_path in files:
@@ -171,6 +215,7 @@ def load_toolsets_and_workers_from_files(
         module = load_module(resolved)
         module_toolsets = discover_toolsets_from_module(module)
         module_workers = discover_workers_from_module(module)
+        module_entries = discover_entries_from_module(module)
 
         for name, toolset in module_toolsets.items():
             if name in toolsets:
@@ -187,4 +232,19 @@ def load_toolsets_and_workers_from_files(
             workers[worker.name] = worker
             worker_paths[worker.name] = resolved
 
-    return toolsets, workers
+        for entry in module_entries:
+            if entry.name in entries:
+                existing_path = entry_paths[entry.name]
+                raise ValueError(
+                    f"Duplicate entry name: {entry.name} "
+                    f"(from {existing_path} and {resolved})"
+                )
+            # Check for conflict with workers
+            if entry.name in workers:
+                raise ValueError(
+                    f"Entry name '{entry.name}' conflicts with worker name"
+                )
+            entries[entry.name] = entry
+            entry_paths[entry.name] = resolved
+
+    return toolsets, workers, entries

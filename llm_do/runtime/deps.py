@@ -12,7 +12,7 @@ from pydantic_ai.usage import RunUsage
 from .approval import ApprovalCallback
 from .args import WorkerArgs, ensure_worker_args
 from .call import CallFrame
-from .contracts import EventCallback, Invocable, ModelType, WorkerRuntimeProtocol
+from .contracts import Entry, EventCallback, ModelType, WorkerRuntimeProtocol
 from .shared import Runtime, RuntimeConfig
 
 
@@ -187,7 +187,7 @@ class WorkerRuntime:
             frame=self.frame.fork(toolsets, model=model),
         )
 
-    async def run(self, entry: Invocable, input_data: Any) -> Any:
+    async def run(self, entry: Entry, input_data: Any) -> Any:
         """Run an entry directly."""
         from .worker import Worker
 
@@ -267,12 +267,12 @@ class WorkerRuntime:
             available.extend(tools.keys())
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
-    async def _execute(self, entry: Invocable, input_data: Any) -> Any:
+    async def _execute(self, entry: Entry, input_data: Any) -> Any:
         """Execute an entry.
 
         The entry's call() method is responsible for creating any child context
         it needs. Worker.call() creates a child with wrapped toolsets and
-        incremented depth. ToolInvocable.call() uses the run_ctx directly.
+        incremented depth. ToolEntry.call() uses the run_ctx directly.
 
         Config and frame are accessible via run_ctx.deps (single source of truth).
         """

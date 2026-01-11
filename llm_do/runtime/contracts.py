@@ -74,12 +74,14 @@ class WorkerRuntimeProtocol(Protocol):
     ) -> "WorkerRuntimeProtocol": ...
 
 
-class Invocable(Protocol):
+class Entry(Protocol):
     """Protocol for entries that can be invoked via the runtime dispatcher.
 
-    Worker and ToolInvocable both implement this protocol.
-    Worker has additional attributes (model, toolsets, compatible_models)
-    that are accessed via getattr with defaults in the runtime.
+    An entry is a named callable with associated toolsets. Worker and
+    EntryFunction both implement this protocol.
+
+    Additional attributes (model, compatible_models) may be accessed via
+    getattr with defaults in the runtime.
 
     Config and state are accessed via run_ctx.deps (single source of truth).
     """
@@ -87,8 +89,15 @@ class Invocable(Protocol):
     @property
     def name(self) -> str: ...
 
+    @property
+    def toolsets(self) -> list[AbstractToolset[Any]]: ...
+
     async def call(
         self,
         input_data: Any,
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any: ...
+
+
+# Backwards compatibility alias
+Invocable = Entry

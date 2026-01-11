@@ -13,18 +13,32 @@ from .approval import (
     resolve_approval_callback,
 )
 from .args import PromptSpec, WorkerArgs, WorkerInput
-from .contracts import EventCallback, Invocable, ModelType
+from .contracts import Entry, EventCallback, Invocable, ModelType
 from .deps import ToolsProxy, WorkerRuntime
 from .discovery import (
+    discover_entries_from_module,
     discover_toolsets_from_module,
     discover_workers_from_module,
+    load_all_from_files,
     load_module,
     load_toolsets_from_files,
     load_workers_from_files,
 )
-from .registry import InvocableRegistry, build_invocable_registry
+from .registry import (
+    EntryRegistry,
+    InvocableRegistry,
+    build_entry_registry,
+    build_invocable_registry,
+)
 from .shared import Runtime
-from .worker import ToolInvocable, Worker, WorkerToolset
+from .worker import (
+    EntryFunction,
+    ToolInvocable,
+    ToolsetRef,
+    Worker,
+    WorkerToolset,
+    entry,
+)
 from .worker_file import (
     WorkerDefinition,
     WorkerFileParser,
@@ -37,22 +51,28 @@ __all__ = [
     "Runtime",
     "WorkerRuntime",
     "ToolsProxy",
-    "Invocable",
+    "Entry",
+    "Invocable",  # Backwards compatibility alias for Entry
     "ModelType",
     "EventCallback",
     "ApprovalCallback",
     "RunApprovalPolicy",
     "WorkerApprovalPolicy",
     "resolve_approval_callback",
-    "InvocableRegistry",
-    "build_invocable_registry",
+    "EntryRegistry",
+    "InvocableRegistry",  # Backwards compatibility alias for EntryRegistry
+    "build_entry_registry",
+    "build_invocable_registry",  # Backwards compatibility alias
     "PromptSpec",
     "WorkerArgs",
     "WorkerInput",
     # Entries
     "Worker",
     "WorkerToolset",
-    "ToolInvocable",
+    "EntryFunction",
+    "entry",  # @entry decorator
+    "ToolsetRef",
+    "ToolInvocable",  # Deprecated
     # Worker file
     "WorkerDefinition",
     "WorkerFileParser",
@@ -62,6 +82,8 @@ __all__ = [
     "load_module",
     "discover_toolsets_from_module",
     "discover_workers_from_module",
+    "discover_entries_from_module",
     "load_toolsets_from_files",
     "load_workers_from_files",
+    "load_all_from_files",
 ]

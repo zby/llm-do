@@ -82,8 +82,8 @@ def test_wrap_toolsets_handles_cycles() -> None:
 
 
 @pytest.mark.anyio
-async def test_toolinvocable_has_no_toolsets() -> None:
-    """ToolInvocable has no toolsets - it just calls a single tool directly."""
+async def test_toolinvocable_exposes_its_toolset() -> None:
+    """ToolInvocable exposes its wrapped toolset via the Entry protocol."""
     toolset = FunctionToolset()
 
     @toolset.tool
@@ -103,8 +103,9 @@ async def test_toolinvocable_has_no_toolsets() -> None:
     )
 
     assert result == "hello"
-    # ToolInvocable has no toolsets - the context starts empty
-    assert ctx.toolsets == ()
+    # ToolInvocable exposes its toolset via the Entry protocol
+    assert len(ctx.toolsets) == 1
+    assert ctx.toolsets[0] is toolset
 
 
 @pytest.mark.anyio

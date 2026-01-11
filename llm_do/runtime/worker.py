@@ -12,7 +12,7 @@ import json
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterable, Literal, Optional, Sequence, Type, cast
+from typing import Any, AsyncIterable, Callable, Literal, Optional, Sequence, Type, cast
 
 from pydantic import BaseModel, TypeAdapter
 from pydantic_ai import Agent
@@ -310,6 +310,9 @@ class ToolInvocable:
 
     This is used for the code entry pattern where a Python tool function
     is the main entry point instead of a worker.
+
+    DEPRECATED: Use @entry decorator instead. This class will be removed
+    in a future version.
     """
 
     toolset: AbstractToolset[Any]
@@ -318,6 +321,11 @@ class ToolInvocable:
     @property
     def name(self) -> str:
         return self.tool_name
+
+    @property
+    def toolsets(self) -> list[AbstractToolset[Any]]:
+        """Return the toolset as a single-item list for Entry protocol compliance."""
+        return [self.toolset]
 
     async def call(
         self,
@@ -341,6 +349,124 @@ class ToolInvocable:
             raise KeyError(f"Tool {self.tool_name} not found in toolset")
 
         return await self.toolset.call_tool(self.tool_name, input_data, run_ctx, tool)
+
+
+# Type alias for toolset references: can be names (str) or instances
+ToolsetRef = str | AbstractToolset[Any]
+
+
+@dataclass
+class EntryFunction:
+    """Wrapper that implements the Entry protocol for decorated functions.
+
+    Created by the @entry decorator to expose Python functions as entry points.
+    Toolset references can be names (resolved during registry linking) or instances.
+
+    Attributes:
+        func: The wrapped async function
+        entry_name: Name for this entry (from decorator or function name)
+        toolset_refs: List of toolset references (names or instances)
+        _resolved_toolsets: Resolved toolset instances (set during linking)
+    """
+
+    func: Callable[..., Any]
+    entry_name: str
+    toolset_refs: list[ToolsetRef] = field(default_factory=list)
+    _resolved_toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
+
+    @property
+    def name(self) -> str:
+        return self.entry_name
+
+    @property
+    def toolsets(self) -> list[AbstractToolset[Any]]:
+        """Return resolved toolsets for Entry protocol.
+
+        Note: If called before linking, only instance refs are available.
+        Named refs require registry linking to resolve.
+        """
+        if self._resolved_toolsets:
+            return self._resolved_toolsets
+        # Fallback: return only instance refs (unlinked state)
+        return [ref for ref in self.toolset_refs if isinstance(ref, AbstractToolset)]
+
+    def resolve_toolsets(self, available: dict[str, AbstractToolset[Any]]) -> None:
+        """Resolve named toolset refs to instances during registry linking.
+
+        Args:
+            available: Map of toolset names to instances from the registry
+        """
+        resolved: list[AbstractToolset[Any]] = []
+        for ref in self.toolset_refs:
+            if isinstance(ref, str):
+                if ref not in available:
+                    raise ValueError(
+                        f"Entry '{self.name}' references unknown toolset: {ref}. "
+                        f"Available: {sorted(available.keys())}"
+                    )
+                resolved.append(available[ref])
+            else:
+                resolved.append(ref)
+        self._resolved_toolsets = resolved
+
+    async def call(
+        self,
+        input_data: Any,
+        run_ctx: RunContext[WorkerRuntimeProtocol],
+    ) -> Any:
+        """Execute the wrapped function.
+
+        Args:
+            input_data: Entry input (typically dict with "input" key)
+            run_ctx: PydanticAI RunContext for execution context
+        """
+        # Support both dict and direct input styles
+        if isinstance(input_data, dict) and "input" in input_data:
+            prompt = input_data["input"]
+        elif isinstance(input_data, BaseModel):
+            prompt = input_data.model_dump()
+        else:
+            prompt = input_data
+
+        # Call the function with deps context
+        result = self.func(prompt, run_ctx.deps)
+        if inspect.isawaitable(result):
+            result = await result
+        return result
+
+
+def entry(
+    name: str | None = None,
+    *,
+    toolsets: list[ToolsetRef] | None = None,
+) -> Callable[[Callable[..., Any]], EntryFunction]:
+    """Decorator to mark a function as an entry point.
+
+    The decorated function should accept (input, deps) where:
+    - input: The prompt/input data (typically a string or dict)
+    - deps: WorkerRuntime instance for accessing tools and context
+
+    Args:
+        name: Entry name (defaults to function name)
+        toolsets: List of toolset references (names or instances)
+
+    Returns:
+        Decorator that wraps the function in an EntryFunction
+
+    Example:
+        @entry(name="analyzer", toolsets=["filesystem", "shell"])
+        async def analyze(input: str, deps: WorkerRuntime) -> str:
+            # Use deps.tools.shell(...) to call tools
+            return f"Analyzed: {input}"
+    """
+    def decorator(func: Callable[..., Any]) -> EntryFunction:
+        entry_name = name if name is not None else func.__name__
+        return EntryFunction(
+            func=func,
+            entry_name=entry_name,
+            toolset_refs=list(toolsets) if toolsets else [],
+        )
+    return decorator
 
 
 @dataclass

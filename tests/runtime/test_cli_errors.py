@@ -2,6 +2,8 @@
 
 These tests verify that errors are handled gracefully with user-friendly messages.
 """
+
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -9,195 +11,295 @@ import pytest
 from llm_do.cli.main import main
 
 
-class TestCLIErrorHandling:
-    """Tests for CLI error handling."""
+def create_test_manifest(tmp_path, **overrides):
+    """Create a test manifest file with defaults."""
+    manifest_data = {
+        "version": 1,
+        "runtime": {"approval_mode": "approve_all"},
+        "entry": {"name": "main"},
+        "worker_files": ["test.worker"],
+        **overrides,
+    }
+    manifest_file = tmp_path / "project.json"
+    manifest_file.write_text(json.dumps(manifest_data))
 
-    def test_missing_model_error(self, tmp_path, monkeypatch):
-        """Test that missing model shows helpful error."""
-        # Create a minimal worker file
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
+    # Create the worker file
+    worker = tmp_path / "test.worker"
+    worker.write_text("""---
 name: main
 ---
 Test worker
 """)
 
-        # Clear the model env var
+    return manifest_file
+
+
+class TestCLIManifestErrors:
+    """Tests for manifest loading errors."""
+
+    def test_manifest_not_found(self, capsys):
+        """Test that missing manifest shows helpful error."""
+        with patch("sys.argv", ["llm-do", "nonexistent.json", "hello"]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "not found" in captured.err.lower()
+
+    def test_invalid_json_manifest(self, tmp_path, capsys):
+        """Test that invalid JSON manifest shows error."""
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text("not valid json")
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Invalid JSON" in captured.err
+
+    def test_invalid_manifest_schema(self, tmp_path, capsys):
+        """Test that invalid manifest schema shows error."""
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text('{"version": 1}')  # Missing required fields
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Invalid manifest" in captured.err
+
+    def test_unsupported_manifest_version(self, tmp_path, capsys):
+        """Test that unsupported manifest version shows error."""
+        manifest_data = {
+            "version": 99,
+            "runtime": {},
+            "entry": {"name": "main"},
+            "worker_files": ["test.worker"],
+        }
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text(json.dumps(manifest_data))
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "version" in captured.err.lower()
+
+
+class TestCLIInputErrors:
+    """Tests for input handling errors."""
+
+    def test_cli_input_not_allowed(self, tmp_path, capsys):
+        """Test that CLI input is rejected when allow_cli_input is false."""
+        manifest_data = {
+            "version": 1,
+            "runtime": {},
+            "allow_cli_input": False,
+            "entry": {"name": "main", "input": {"input": "default"}},
+            "worker_files": ["test.worker"],
+        }
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text(json.dumps(manifest_data))
+
+        worker = tmp_path / "test.worker"
+        worker.write_text("---\nname: main\n---\nTest")
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "override prompt"]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "allow_cli_input" in captured.err
+
+    def test_prompt_and_input_json_mutually_exclusive(self, tmp_path, capsys):
+        """Test that prompt and --input-json cannot be combined."""
+        manifest_file = create_test_manifest(tmp_path)
+
+        with patch("sys.argv", [
+            "llm-do", str(manifest_file),
+            "prompt text", "--input-json", '{"input": "json input"}'
+        ]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Cannot combine" in captured.err
+
+    def test_invalid_input_json(self, tmp_path, capsys):
+        """Test that invalid --input-json shows error."""
+        manifest_file = create_test_manifest(tmp_path)
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "--input-json", "not json"]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Invalid JSON" in captured.err
+
+    def test_input_json_must_be_object(self, tmp_path, capsys):
+        """Test that --input-json must be a JSON object."""
+        manifest_file = create_test_manifest(tmp_path)
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "--input-json", '"string"']):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "must be a JSON object" in captured.err
+
+    def test_no_input_provided(self, tmp_path, capsys):
+        """Test that missing input shows error."""
+        manifest_data = {
+            "version": 1,
+            "runtime": {},
+            "entry": {"name": "main"},  # No input
+            "worker_files": ["test.worker"],
+        }
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text(json.dumps(manifest_data))
+
+        worker = tmp_path / "test.worker"
+        worker.write_text("---\nname: main\n---\nTest")
+
+        # Force stdin.isatty() to return True
+        with patch("sys.argv", ["llm-do", str(manifest_file)]):
+            with patch("sys.stdin.isatty", return_value=True):
+                exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "No input provided" in captured.err
+
+
+class TestCLIFlagErrors:
+    """Tests for CLI flag validation errors."""
+
+    def test_json_and_tui_mutually_exclusive(self, tmp_path, capsys):
+        """Test that --json and --tui cannot be combined."""
+        manifest_file = create_test_manifest(tmp_path)
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "--json", "--tui", "hello"]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Cannot combine --json and --tui" in captured.err
+
+    def test_headless_and_tui_mutually_exclusive(self, tmp_path, capsys):
+        """Test that --headless and --tui cannot be combined."""
+        manifest_file = create_test_manifest(tmp_path)
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "--headless", "--tui", "hello"]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Cannot combine --headless and --tui" in captured.err
+
+    def test_chat_requires_tui(self, tmp_path, capsys):
+        """Test that --chat requires TUI mode."""
+        manifest_file = create_test_manifest(tmp_path)
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "--chat", "--headless", "hello"]):
+            with patch("sys.stdout.isatty", return_value=False):
+                exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Chat mode requires TUI" in captured.err
+
+
+class TestCLIRuntimeErrors:
+    """Tests for runtime error handling."""
+
+    def test_missing_model_error(self, tmp_path, monkeypatch):
+        """Test that missing model shows helpful error."""
+        manifest_file = create_test_manifest(tmp_path)
         monkeypatch.delenv("LLM_DO_MODEL", raising=False)
 
-        # Mock sys.argv
-        with patch("sys.argv", ["llm-do", str(worker), "hello"]):
+        with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
             exit_code = main()
 
         assert exit_code == 1
 
-    def test_approve_all_and_reject_all_are_mutually_exclusive(self, tmp_path, capsys):
-        """Test that --approve-all and --reject-all cannot be combined."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
+    def test_missing_worker_file(self, tmp_path, capsys):
+        """Test that missing worker file shows error."""
+        manifest_data = {
+            "version": 1,
+            "runtime": {"approval_mode": "approve_all"},
+            "entry": {"name": "main"},
+            "worker_files": ["missing.worker"],
+        }
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text(json.dumps(manifest_data))
 
-        with patch("sys.argv", ["llm-do", str(worker), "--approve-all", "--reject-all", "hello"]):
+        with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
             with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                 exit_code = main()
 
         captured = capsys.readouterr()
         assert exit_code == 1
-        assert "Cannot combine --approve-all and --reject-all" in captured.err
+        assert "not found" in captured.err.lower()
 
-    def test_reject_all_flag_passed_to_run(self, tmp_path):
-        """Test that --reject-all is accepted and passed through to run()."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
-
-        mock_ctx = AsyncMock()
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = ("Success!", mock_ctx)
-
-            with patch("sys.argv", ["llm-do", str(worker), "--reject-all", "hello"]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
-                    exit_code = main()
-
-        assert exit_code == 0
-        assert mock_run.call_args.kwargs["reject_all"] is True
-
-    def test_max_depth_flag_passed_to_run(self, tmp_path):
-        """Test that --max-depth is accepted and passed through to run()."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
-
-        mock_ctx = AsyncMock()
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = ("Success!", mock_ctx)
-
-            with patch("sys.argv", ["llm-do", str(worker), "--max-depth", "7", "hello"]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
-                    exit_code = main()
-
-        assert exit_code == 0
-        assert mock_run.call_args.kwargs["max_depth"] == 7
-
-    def test_verbose_flag_passed_to_run(self, tmp_path):
-        """Test that -vvv is accepted and passed through to run()."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
-
-        mock_ctx = AsyncMock()
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = ("Success!", mock_ctx)
-
-            with patch("sys.argv", ["llm-do", str(worker), "-vvv", "hello"]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
-                    exit_code = main()
-
-        assert exit_code == 0
-        assert mock_run.call_args.kwargs["verbosity"] == 3
-
-    def test_invalid_worker_file_error(self, tmp_path):
-        """Test that invalid worker file shows helpful error."""
-        # Create an invalid worker file (missing frontmatter)
-        worker = tmp_path / "test.worker"
-        worker.write_text("No frontmatter here")
-
-        with patch("sys.argv", ["llm-do", str(worker), "hello"]):
-            with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
-                exit_code = main()
-
-        assert exit_code == 1
-
-    def test_unknown_entry_error(self, tmp_path):
+    def test_unknown_entry_error(self, tmp_path, capsys):
         """Test that unknown entry point shows helpful error."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
+        manifest_data = {
+            "version": 1,
+            "runtime": {"approval_mode": "approve_all"},
+            "entry": {"name": "nonexistent"},
+            "worker_files": ["test.worker"],
+        }
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text(json.dumps(manifest_data))
 
-        with patch("sys.argv", ["llm-do", str(worker), "--entry", "nonexistent", "hello"]):
+        worker = tmp_path / "test.worker"
+        worker.write_text("---\nname: main\n---\nTest")
+
+        with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
             with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                 exit_code = main()
 
         assert exit_code == 1
 
-    def test_keyboard_interrupt_handled(self, tmp_path):
+    def test_keyboard_interrupt_handled(self, tmp_path, capsys):
         """Test that KeyboardInterrupt is handled gracefully."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
+        manifest_file = create_test_manifest(tmp_path)
 
-        # Mock run() to raise KeyboardInterrupt
         with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = KeyboardInterrupt()
 
-            with patch("sys.argv", ["llm-do", str(worker), "hello"]):
+            with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
+        captured = capsys.readouterr()
         assert exit_code == 1
+        assert "Aborted" in captured.err
 
-    def test_permission_error_handled(self, tmp_path):
-        """Test that PermissionError (approval denied) is handled gracefully."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
+    def test_permission_error_handled(self, tmp_path, capsys):
+        """Test that PermissionError is handled gracefully."""
+        manifest_file = create_test_manifest(tmp_path)
 
-        # Mock run() to raise PermissionError
         with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = PermissionError("Tool 'write_file' requires approval")
 
-            with patch("sys.argv", ["llm-do", str(worker), "hello"]):
+            with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
-        assert exit_code == 1
-
-    def test_missing_worker_file_error(self, capsys):
-        """Test that missing worker files show a helpful error."""
-        missing_worker = "missing.worker"
-
-        with patch("sys.argv", ["llm-do", missing_worker, "hello"]):
-            with pytest.raises(SystemExit) as excinfo:
-                main()
-
-        assert excinfo.value.code == 2
         captured = capsys.readouterr()
-        assert "File not found:" in captured.err
-        assert missing_worker in captured.err
+        assert exit_code == 1
+        assert "Tool 'write_file'" in captured.err
 
-    def test_model_http_error_handled(self, tmp_path):
+    def test_model_http_error_handled(self, tmp_path, capsys):
         """Test that ModelHTTPError is handled gracefully."""
         from pydantic_ai.exceptions import ModelHTTPError
 
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
+        manifest_file = create_test_manifest(tmp_path)
 
-        # Mock run() to raise ModelHTTPError
         with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = ModelHTTPError(
                 status_code=401,
@@ -205,46 +307,27 @@ Test worker
                 body={"error": {"message": "Invalid API key"}},
             )
 
-            with patch("sys.argv", ["llm-do", str(worker), "hello"]):
+            with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
+        captured = capsys.readouterr()
         assert exit_code == 1
+        assert "401" in captured.err
 
-    def test_success_returns_zero(self, tmp_path):
+
+class TestCLISuccess:
+    """Tests for successful CLI execution."""
+
+    def test_success_returns_zero(self, tmp_path, capsys):
         """Test that successful execution returns 0."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
-
-        # Mock run() to return successfully
-        mock_ctx = AsyncMock()
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = ("Success!", mock_ctx)
-
-            with patch("sys.argv", ["llm-do", str(worker), "hello"]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
-                    exit_code = main()
-
-        assert exit_code == 0
-
-    def test_streaming_prints_stdout(self, tmp_path, capsys):
-        """Test that streaming mode still prints the final result."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
+        manifest_file = create_test_manifest(tmp_path)
 
         mock_ctx = AsyncMock()
         with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
-            with patch("sys.argv", ["llm-do", str(worker), "-vv", "hello"]):
+            with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
@@ -252,24 +335,75 @@ Test worker
         assert exit_code == 0
         assert captured.out.strip() == "Success!"
 
+    def test_input_from_manifest(self, tmp_path, capsys):
+        """Test using input from manifest entry.input."""
+        manifest_data = {
+            "version": 1,
+            "runtime": {"approval_mode": "approve_all"},
+            "entry": {"name": "main", "input": {"input": "manifest prompt"}},
+            "worker_files": ["test.worker"],
+        }
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text(json.dumps(manifest_data))
+
+        worker = tmp_path / "test.worker"
+        worker.write_text("---\nname: main\n---\nTest")
+
+        mock_ctx = AsyncMock()
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = ("Success!", mock_ctx)
+
+            # No prompt argument - should use manifest input
+            with patch("sys.argv", ["llm-do", str(manifest_file)]):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                    exit_code = main()
+
+        assert exit_code == 0
+        # Verify the input data passed to run()
+        call_args = mock_run.call_args
+        assert call_args.kwargs["input_data"] == {"input": "manifest prompt"}
+
+    def test_input_json_override(self, tmp_path, capsys):
+        """Test --input-json overrides manifest entry.input."""
+        manifest_data = {
+            "version": 1,
+            "runtime": {"approval_mode": "approve_all"},
+            "entry": {"name": "main", "input": {"input": "manifest prompt"}},
+            "worker_files": ["test.worker"],
+        }
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text(json.dumps(manifest_data))
+
+        worker = tmp_path / "test.worker"
+        worker.write_text("---\nname: main\n---\nTest")
+
+        mock_ctx = AsyncMock()
+        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = ("Success!", mock_ctx)
+
+            with patch("sys.argv", [
+                "llm-do", str(manifest_file),
+                "--input-json", '{"input": "json override", "extra": "data"}'
+            ]):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                    exit_code = main()
+
+        assert exit_code == 0
+        call_args = mock_run.call_args
+        assert call_args.kwargs["input_data"] == {"input": "json override", "extra": "data"}
+
 
 class TestCLIDebugFlag:
     """Tests for --debug flag behavior."""
 
     def test_debug_flag_reraises_exception(self, tmp_path):
         """Test that --debug flag causes exceptions to be re-raised."""
-        worker = tmp_path / "test.worker"
-        worker.write_text("""---
-name: main
----
-Test worker
-""")
+        manifest_file = create_test_manifest(tmp_path)
 
-        # Mock run() to raise ValueError
         with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = ValueError("Test error")
 
-            with patch("sys.argv", ["llm-do", str(worker), "hello", "--debug"]):
+            with patch("sys.argv", ["llm-do", str(manifest_file), "hello", "--debug"]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     with pytest.raises(ValueError, match="Test error"):
                         main()

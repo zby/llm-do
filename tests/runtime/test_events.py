@@ -300,12 +300,12 @@ class TestWorkerStreamingEvents:
 
 
 class TestCLIEventIntegration:
-    """Tests for CLI event integration with display backends."""
+    """Tests for Runtime event integration with display backends."""
 
     @pytest.mark.anyio
-    async def test_run_with_on_event(self):
-        """Test that run() accepts and uses on_event callback."""
-        from llm_do.cli.main import run
+    async def test_runtime_with_on_event(self):
+        """Test that Runtime accepts and uses on_event callback."""
+        from llm_do.runtime import RunApprovalPolicy, Runtime
 
         events: list[UIEvent] = []
 
@@ -316,21 +316,26 @@ class TestCLIEventIntegration:
             toolsets=[],
         )
 
-        result, ctx = await run(
-            files=[],
-            prompt="Hi there",
+        runtime = Runtime(
+            run_approval_policy=RunApprovalPolicy(mode="approve_all"),
             on_event=lambda e: events.append(e),
             verbosity=1,
-            registry=EntryRegistry(entries={"main": worker}),
+        )
+        registry = EntryRegistry(entries={"main": worker})
+
+        result, ctx = await runtime.run_entry(
+            registry,
+            "main",
+            {"input": "Hi there"},
         )
 
         assert result is not None
         assert ctx.on_event is not None
 
     @pytest.mark.anyio
-    async def test_run_with_tools_emits_events(self):
-        """Test that run() with tools emits ToolCallEvent/ToolResultEvent."""
-        from llm_do.cli.main import run
+    async def test_runtime_with_tools_emits_events(self):
+        """Test that Runtime with tools emits ToolCallEvent/ToolResultEvent."""
+        from llm_do.runtime import RunApprovalPolicy, Runtime
 
         events: list[UIEvent] = []
 
@@ -350,13 +355,17 @@ class TestCLIEventIntegration:
             toolsets=[toolset],
         )
 
-        result, ctx = await run(
-            files=[],
-            prompt="Add 3 and 4",
+        runtime = Runtime(
+            run_approval_policy=RunApprovalPolicy(mode="approve_all"),
             on_event=lambda e: events.append(e),
             verbosity=1,
-            approve_all=True,
-            registry=EntryRegistry(entries={"main": worker}),
+        )
+        registry = EntryRegistry(entries={"main": worker})
+
+        result, ctx = await runtime.run_entry(
+            registry,
+            "main",
+            {"input": "Add 3 and 4"},
         )
 
         # Should have tool events

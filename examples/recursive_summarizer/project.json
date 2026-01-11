@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "runtime": {
+    "approval_mode": "approve_all",
+    "max_depth": 10
+  },
+  "entry": {
+    "name": "main",
+    "input": {"input": "sample_input.txt"}
+  },
+  "worker_files": ["main.worker", "summarizer.worker"],
+  "python_files": ["schemas.py"]
+}

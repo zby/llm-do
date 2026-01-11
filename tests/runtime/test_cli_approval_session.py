@@ -13,7 +13,6 @@ from pydantic_ai_blocking_approval import (
     ApprovalResult,
 )
 
-from llm_do.cli.main import run
 from llm_do.runtime import EntryRegistry, RunApprovalPolicy, Runtime
 from llm_do.runtime.worker import Worker
 
@@ -89,17 +88,15 @@ async def test_tui_session_approval_cache_persists_across_runs() -> None:
             approval_callback=approval_callback,
         )
     )
-    await run(
-        files=[],
-        prompt="First turn",
-        runtime=runtime,
-        registry=registry,
+    await runtime.run_entry(
+        registry,
+        "main",
+        {"input": "First turn"},
     )
-    await run(
-        files=[],
-        prompt="Second turn",
-        runtime=runtime,
-        registry=registry,
+    await runtime.run_entry(
+        registry,
+        "main",
+        {"input": "Second turn"},
     )
 
     assert len(calls) == 1

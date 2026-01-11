@@ -1,7 +1,7 @@
 # Manifest-driven CLI (JSON)
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] confirm manifest filename / invocation shape in CLI help
@@ -77,17 +77,22 @@ Example:
 ```
 
 ## Tasks
-- [ ] Add manifest loader + schema validation (JSON).
-- [ ] Define `ProjectManifest` Pydantic models in `llm_do/runtime/manifest.py` (single `entry`, required `version`, strict fields).
-- [ ] Resolve toolsets/workers/entries per manifest-driven linker flow.
-- [ ] Add `allow_cli_input` gating and `--input-json` support.
-- [ ] Remove CLI flags superseded by the manifest (entry/model/set/approval/max-depth/files).
-- [ ] Update CLI help/docs/tests to reflect new interface.
-- [ ] Update any example scripts or docs to use manifest format.
-- [ ] Run lint, typecheck, tests.
+- [x] Add manifest loader + schema validation (JSON).
+- [x] Define `ProjectManifest` Pydantic models in `llm_do/runtime/manifest.py` (single `entry`, required `version`, strict fields).
+- [x] Resolve toolsets/workers/entries per manifest-driven linker flow.
+- [x] Add `allow_cli_input` gating and `--input-json` support.
+- [x] Remove CLI flags superseded by the manifest (entry/model/set/approval/max-depth/files).
+- [x] Update CLI help/docs/tests to reflect new interface.
+- [x] Update any example scripts or docs to use manifest format.
+- [x] Run lint, typecheck, tests.
 
 ## Current State
-Audit complete; manifest spec captured here; prerequisites resolved.
+Implementation complete. The manifest-driven CLI is now functional with:
+- `ProjectManifest` Pydantic models in `llm_do/runtime/manifest.py`
+- CLI accepts `llm-do project.json [prompt]` invocation
+- `--input-json` for inline JSON input
+- `allow_cli_input` gating for CLI overrides
+- All lint, typecheck, and tests pass (322 tests)
 
 ## Notes
 - Name collisions between workers/toolsets/entries must raise errors.

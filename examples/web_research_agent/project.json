@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "runtime": {
+    "approval_mode": "approve_all",
+    "max_depth": 5
+  },
+  "entry": {
+    "name": "main",
+    "input": {"input": "Research the current state of large language model agents and their applications"}
+  },
+  "worker_files": [
+    "main.worker",
+    "web_research_extractor.worker",
+    "web_research_consolidator.worker",
+    "web_research_reporter.worker"
+  ],
+  "python_files": ["tools.py"]
+}

@@ -12,21 +12,10 @@ recursively expanding the non-atomic ones, and merging results into a cohesive p
 ## Running
 
 ```bash
-# From project root
-llm-do examples/recursive_task_decomposer/main.worker \
-  examples/recursive_task_decomposer/planner.worker \
-  examples/recursive_task_decomposer/schemas.py \
-  --entry main \
-  "$(cat examples/recursive_task_decomposer/sample_input.txt)"
-
-# Or with max-depth control
-llm-do examples/recursive_task_decomposer/main.worker \
-  examples/recursive_task_decomposer/planner.worker \
-  examples/recursive_task_decomposer/schemas.py \
-  --entry main \
-  --max-depth 6 \
-  "$(cat examples/recursive_task_decomposer/sample_input.txt)"
+llm-do examples/recursive_task_decomposer/project.json
 ```
+
+The manifest configures `max_depth: 10` and includes a default input for the sample task.
 
 ## Sample Input
 

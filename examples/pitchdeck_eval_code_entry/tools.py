@@ -9,6 +9,9 @@ Benefits:
 - No token waste on trivial orchestration logic
 - Deterministic file handling and output paths
 - LLM only used for actual reasoning tasks (evaluation)
+
+File paths are relative to this file's directory (the project root),
+matching the behavior of filesystem_project toolset.
 """
 
 from pathlib import Path
@@ -22,31 +25,36 @@ except ImportError:
 
 from llm_do.runtime import WorkerInput, WorkerRuntime, entry
 
+# Project root is the directory containing this file
+PROJECT_ROOT = Path(__file__).parent.resolve()
 
-def list_pitchdecks(path: str = "input") -> list[dict]:
+
+def list_pitchdecks(input_dir: str = "input") -> list[dict]:
     """List pitch deck PDFs with pre-computed slugs and output paths.
 
     Args:
-        path: Directory to scan for PDF files. Defaults to "input".
+        input_dir: Directory to scan for PDF files, relative to project root.
 
     Returns:
         List of dicts with keys:
-        - file: Path to the PDF file
+        - file: Absolute path to the PDF file
         - slug: URL-safe slug derived from filename
-        - output_path: Suggested output path for the evaluation report
+        - output_path: Absolute path for the evaluation report
     """
+    input_path = PROJECT_ROOT / input_dir
     result = []
-    for pdf in sorted(Path(path).glob("*.pdf")):
-        slug = slugify(pdf.stem)
-        result.append({
-            "file": str(pdf),
-            "slug": slug,
-            "output_path": f"evaluations/{slug}.md",
-        })
+    if input_path.exists():
+        for pdf in sorted(input_path.glob("*.pdf")):
+            slug = slugify(pdf.stem)
+            result.append({
+                "file": str(pdf.resolve()),
+                "slug": slug,
+                "output_path": str((PROJECT_ROOT / "evaluations" / f"{slug}.md").resolve()),
+            })
     return result
 
 
-@entry()
+@entry(toolsets=["pitch_evaluator"])
 async def main(input: str, deps: WorkerRuntime) -> str:
     """Evaluate all pitch decks in input directory.
 
@@ -54,6 +62,8 @@ async def main(input: str, deps: WorkerRuntime) -> str:
     1. List all pitch deck PDFs (deterministic)
     2. Call LLM worker for each deck (LLM reasoning)
     3. Write results to files (deterministic)
+
+    File paths are relative to the project root (this file's directory).
 
     Args:
         input: User input (ignored - workflow is deterministic)

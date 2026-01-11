@@ -11,18 +11,18 @@ Demonstrates a Python `FunctionToolset` exposed to a worker, with per-tool appro
 ## Usage
 
 ```bash
-cd examples/data_processor
-llm-do main.worker tools.py "Format this as CSV: a\tb\n1\t2\n\nAlso compute stats for: 1, 2, 3"
+llm-do examples/data_processor/project.json "Format this as CSV: a\tb\n1\t2\n\nAlso compute stats for: 1, 2, 3"
 ```
 
-Try the gated tool (will require approval unless you pass `--approve-all`):
+Try the gated tool (change `approval_mode` in project.json to `"prompt"` first):
 
 ```bash
-llm-do main.worker tools.py "Send a notification to ops: finished processing"
+llm-do examples/data_processor/project.json "Send a notification to ops: finished processing"
 ```
 
 ## Files
 
+- `project.json` — Manifest defining entry point and files
 - `main.worker` — Worker prompt + tool approval config
 - `tools.py` — `data_tools` (`FunctionToolset`) with `format_output`, `calculate_stats`, `send_notification`
 

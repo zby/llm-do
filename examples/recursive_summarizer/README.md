@@ -12,12 +12,11 @@ Demonstrates self-recursive worker pattern for hierarchical document summarizati
 ## Running
 
 ```bash
-# From project root
-llm-do examples/recursive_summarizer/main.worker examples/recursive_summarizer/summarizer.worker --entry main "sample_input.txt"
-
-# Or with max-depth control (recommended for the sample input)
-llm-do examples/recursive_summarizer/main.worker examples/recursive_summarizer/summarizer.worker --entry main --max-depth 10 "sample_input.txt"
+llm-do examples/recursive_summarizer/project.json
 ```
+
+The manifest configures `max_depth: 10` and uses `sample_input.txt` as the default input.
+File paths resolve relative to the worker directory via `filesystem_project`.
 
 ## Expected Behavior
 

@@ -24,6 +24,15 @@ from .discovery import (
     load_toolsets_from_files,
     load_workers_from_files,
 )
+from .manifest import (
+    EntryConfig,
+    ProjectManifest,
+    load_manifest,
+    resolve_manifest_paths,
+)
+from .manifest import (
+    RuntimeConfig as ManifestRuntimeConfig,
+)
 from .registry import (
     EntryRegistry,
     build_entry_registry,
@@ -79,4 +88,10 @@ __all__ = [
     "load_toolsets_from_files",
     "load_workers_from_files",
     "load_all_from_files",
+    # Manifest
+    "ProjectManifest",
+    "ManifestRuntimeConfig",
+    "EntryConfig",
+    "load_manifest",
+    "resolve_manifest_paths",
 ]

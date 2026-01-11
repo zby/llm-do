@@ -41,26 +41,25 @@ The LLM is reserved for what it's good at: **evaluating pitch decks**.
 
 ## How It Works
 
-The `main` tool in `tools.py` uses `RunContext[WorkerRuntime]` to receive
-a context object that enables calling other tools:
+The `main` entry in `tools.py` uses `@entry` and receives a `WorkerRuntime`
+directly, so it can call workers/tools by name:
 
 ```python
-from pydantic_ai.tools import RunContext
-from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import WorkerRuntime
+from llm_do.runtime import WorkerInput, WorkerRuntime, entry
 
-tools = FunctionToolset()
-
-@tools.tool
-async def main(ctx: RunContext[WorkerRuntime], input: str) -> str:
+@entry(name="main", toolsets=["pitch_evaluator"])
+async def main(input: str, deps: WorkerRuntime) -> str:
     """Entry point - Python orchestration."""
     decks = list_pitchdecks()
 
     for deck in decks:
-        # Call LLM worker for analysis via ctx.deps
-        report = await ctx.deps.call(
+        # Call LLM worker for analysis via deps.call()
+        report = await deps.call(
             "pitch_evaluator",
-            {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]}
+            WorkerInput(
+                input="Evaluate this pitch deck.",
+                attachments=[deck["file"]],
+            ),
         )
 
         # Write result (deterministic)
@@ -69,12 +68,8 @@ async def main(ctx: RunContext[WorkerRuntime], input: str) -> str:
     return f"Evaluated {len(decks)} pitch deck(s)"
 ```
 
-Key difference from the old `llm-do` runtime:
-- Old: `@tool_context` decorator injects `ctx`
-- New: Tool receives `RunContext[WorkerRuntime]` where `ctx.deps` is the WorkerRuntime
-
-The `ctx.deps.call()` method can invoke:
-- **Code tools**: Other functions in `FunctionToolset`
+The `deps.call()` method can invoke:
+- **Code tools**: Tool functions exposed via toolsets
 - **Worker tools**: `.worker` files (LLM agents)
 
 ## Prerequisites
@@ -87,19 +82,23 @@ export ANTHROPIC_API_KEY=...
 ## Run
 
 ```bash
-cd examples/pitchdeck_eval_code_entry
-llm-do tools.py pitch_evaluator.worker --entry main --approve-all "Go"
+# Run from anywhere - no cd needed
+llm-do examples/pitchdeck_eval_code_entry/project.json
 ```
 
-Or with a different model:
+File paths (`input/`, `evaluations/`) resolve relative to where `tools.py` lives,
+matching how `filesystem_project` works for worker files.
+
+Or override the model via environment variable:
 ```bash
-llm-do tools.py pitch_evaluator.worker --entry main -m openai:gpt-4o-mini --approve-all "Go"
+LLM_DO_MODEL=openai:gpt-4o-mini llm-do examples/pitchdeck_eval_code_entry/project.json
 ```
 
 ## Files
 
 ```
 pitchdeck_eval_code_entry/
+├── project.json           # Manifest defining entry point and files
 ├── tools.py               # Code entry point: main() + list_pitchdecks()
 ├── pitch_evaluator.worker # LLM evaluator
 ├── input/                 # Drop PDFs here

@@ -1,22 +1,12 @@
 #!/usr/bin/env python
-"""Run an LLM worker with tools loaded from Python and/or worker files.
+"""Run an LLM worker using a manifest-driven project configuration.
 
 Usage:
-    llm-do <worker.worker> [tools.py...] "Your prompt here"
-    llm-do <worker.worker> [tools.py...] --entry NAME "Your prompt"
+    llm-do project.json [prompt]
+    llm-do project.json --input-json '{"input": "Your prompt"}'
 
-Supported file types:
-    .py     - Python file with toolsets (auto-discovered via isinstance)
-    .worker - Worker definition file (YAML frontmatter + instructions)
-
-Entry point resolution:
-    1. If --entry NAME specified, use that entry
-    2. Else use "main" (must exist)
-
-Toolsets:
-    - Worker files reference toolsets by name in the toolsets: section
-    - Python files export AbstractToolset instances (including FunctionToolset)
-    - Built-in toolsets: shell_readonly, shell_file_ops, filesystem_cwd, filesystem_project
+The manifest file (JSON) specifies runtime config, entry point, and file paths.
+CLI input (prompt or --input-json) overrides manifest entry.input when allowed.
 """
 from __future__ import annotations
 
@@ -38,6 +28,11 @@ from ..runtime import (
     RunApprovalPolicy,
     Runtime,
     WorkerRuntime,
+)
+from ..runtime.manifest import (
+    ProjectManifest,
+    load_manifest,
+    resolve_manifest_paths,
 )
 from ..runtime.registry import EntryRegistry, build_entry_registry
 from ..ui import (
@@ -110,94 +105,79 @@ def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], N
 
 
 async def run(
-    files: list[str],
-    prompt: str,
-    model: str | None = None,
-    entry_name: str | None = None,
-    max_depth: int | None = None,
-    approve_all: bool = False,
-    reject_all: bool = False,
+    manifest: ProjectManifest,
+    manifest_dir: Path,
+    input_data: dict[str, Any],
+    *,
+    model_override: str | None = None,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     approval_callback: ApprovalCallback | None = None,
     approval_cache: dict[Any, ApprovalDecision] | None = None,
-    return_permission_errors: bool = False,
     message_history: list[Any] | None = None,
-    set_overrides: list[str] | None = None,
     registry: EntryRegistry | None = None,
     runtime: Runtime | None = None,
 ) -> tuple[Any, WorkerRuntime]:
-    """Load entries and run with the given prompt.
+    """Load entries from manifest and run with the given input.
 
     Args:
-        files: List of .py and .worker files
-        prompt: User prompt text
-        model: Optional model override
-        entry_name: Optional entry point name (default: "main")
-        max_depth: Optional maximum worker call depth
-        approve_all: If True, auto-approve all tool calls
-        reject_all: If True, auto-reject all tool calls that require approval
+        manifest: The validated project manifest
+        manifest_dir: Directory containing the manifest file
+        input_data: Input data for the entry point
+        model_override: Optional model override (from env var)
         on_event: Optional callback for UI events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
         approval_callback: Optional interactive approval callback (TUI mode)
         approval_cache: Optional shared cache for remember="session" approvals
-        return_permission_errors: If True, return tool results on PermissionError
         message_history: Optional prior messages for multi-turn conversations
-        set_overrides: Optional list of --set KEY=VALUE overrides
         registry: Optional pre-built registry (skips registry build if provided)
         runtime: Optional pre-built runtime (skips approval/UI wiring if provided)
 
     Returns:
         Tuple of (result, context)
     """
-    if approve_all and reject_all:
-        raise ValueError("Cannot set both approve_all and reject_all")
+    # Resolve file paths relative to manifest directory
+    worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
 
-    resolved_entry_name = entry_name or "main"
+    # Determine effective model: entry.model > runtime.model > env var
+    effective_model = (
+        manifest.entry.model
+        or manifest.runtime.model
+        or model_override
+    )
 
     if registry is None:
-        # Separate worker files and Python files
-        worker_files = [f for f in files if f.endswith(".worker")]
-        python_files = [f for f in files if f.endswith(".py")]
         registry = build_entry_registry(
-            worker_files,
-            python_files,
-            entry_name=resolved_entry_name,
-            entry_model_override=model,
-            set_overrides=set_overrides,
+            [str(p) for p in worker_paths],
+            [str(p) for p in python_paths],
+            entry_name=manifest.entry.name,
+            entry_model_override=effective_model,
         )
+
     if runtime is None:
-        approval_mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
-        if approve_all:
-            approval_mode = "approve_all"
-        elif reject_all:
-            approval_mode = "reject_all"
+        approval_mode: Literal["prompt", "approve_all", "reject_all"] = manifest.runtime.approval_mode
 
         approval_policy = RunApprovalPolicy(
             mode=approval_mode,
             approval_callback=approval_callback,
             cache=approval_cache,
-            return_permission_errors=return_permission_errors,
+            return_permission_errors=manifest.runtime.return_permission_errors,
         )
         message_log_callback = None
         if verbosity >= 3:
             message_log_callback = _make_message_log_callback(sys.stderr)
         runtime = Runtime(
-            cli_model=model,
+            cli_model=effective_model,
             run_approval_policy=approval_policy,
-            max_depth=max_depth if max_depth is not None else 5,
+            max_depth=manifest.runtime.max_depth,
             on_event=on_event,
             message_log_callback=message_log_callback,
             verbosity=verbosity,
         )
     else:
         if (
-            approve_all
-            or reject_all
-            or approval_callback is not None
+            approval_callback is not None
             or approval_cache is not None
-            or return_permission_errors
-            or max_depth is not None
             or on_event is not None
             or verbosity != 0
         ):
@@ -205,26 +185,23 @@ async def run(
 
     return await runtime.run_entry(
         registry,
-        resolved_entry_name,
-        {"input": prompt},
-        model=model,
+        manifest.entry.name,
+        input_data,
+        model=effective_model,
         message_history=message_history,
     )
 
 
 async def _run_tui_mode(
-    files: list[str],
-    prompt: str,
-    model: str | None = None,
-    entry_name: str | None = None,
-    max_depth: int | None = None,
-    approve_all: bool = False,
-    reject_all: bool = False,
+    manifest: ProjectManifest,
+    manifest_dir: Path,
+    input_data: dict[str, Any],
+    *,
+    model_override: str | None = None,
     verbosity: int = 0,
     log_verbosity: int = 0,
     chat: bool = False,
     debug: bool = False,
-    set_overrides: list[str] | None = None,
 ) -> int:
     """Run in Textual TUI mode with interactive approvals.
 
@@ -291,24 +268,30 @@ async def _run_tui_mode(
         render_queue.put_nowait(approval_event)
         return await approval_queue.get()
 
-    approval_mode: Literal["prompt", "approve_all", "reject_all"] = "prompt"
-    if approve_all:
-        approval_mode = "approve_all"
-    elif reject_all:
-        approval_mode = "reject_all"
+    approval_mode: Literal["prompt", "approve_all", "reject_all"] = manifest.runtime.approval_mode
 
     approval_policy = RunApprovalPolicy(
         mode=approval_mode,
         approval_callback=_prompt_approval_in_tui,
         return_permission_errors=True,
     )
+
+    # Resolve file paths and determine effective model
+    worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
+    effective_model = (
+        manifest.entry.model
+        or manifest.runtime.model
+        or model_override
+    )
+
     message_log_callback = None
     if log_verbosity >= 3:
         message_log_callback = _make_message_log_callback(sys.stderr)
+
     runtime = Runtime(
-        cli_model=model,
+        cli_model=effective_model,
         run_approval_policy=approval_policy,
-        max_depth=max_depth if max_depth is not None else 5,
+        max_depth=manifest.runtime.max_depth,
         on_event=on_event,
         message_log_callback=message_log_callback,
         verbosity=verbosity,
@@ -326,13 +309,13 @@ async def _run_tui_mode(
         )
 
         try:
+            turn_input = {"input": user_prompt}
             result, ctx = await run(
-                files=files,
-                prompt=user_prompt,
-                model=model,
-                entry_name=entry_name,
+                manifest=manifest,
+                manifest_dir=manifest_dir,
+                input_data=turn_input,
+                model_override=model_override,
                 message_history=message_history,
-                set_overrides=set_overrides,
                 runtime=runtime,
             )
             worker_result[:] = [result]
@@ -375,9 +358,15 @@ async def _run_tui_mode(
         worker_exit_code[0] = 1
         return None
 
+    # Get initial prompt from input_data
+    initial_prompt = input_data.get("input", "")
+    if not initial_prompt:
+        emit_error_event("No input prompt provided", "ValueError")
+        return 1
+
     async def run_worker_in_background() -> int:
         """Run the worker and send events to the app."""
-        history = await run_turn(prompt, None)
+        history = await run_turn(initial_prompt, None)
         if history is not None and app is not None:
             app.set_message_history(history)
         if not chat:
@@ -409,16 +398,13 @@ async def _run_tui_mode(
 
 
 async def _run_headless_mode(
-    files: list[str],
-    prompt: str,
-    model: str | None,
-    entry_name: str | None,
-    max_depth: int | None,
-    approve_all: bool,
-    reject_all: bool,
+    manifest: ProjectManifest,
+    manifest_dir: Path,
+    input_data: dict[str, Any],
+    *,
+    model_override: str | None,
     verbosity: int,
     backend: DisplayBackend | None,
-    set_overrides: list[str] | None,
 ) -> str:
     """Run in headless/JSON mode with the display backend pipeline."""
     render_task: asyncio.Task[None] | None = None
@@ -450,16 +436,12 @@ async def _run_headless_mode(
 
     try:
         result, _ctx = await run(
-            files=files,
-            prompt=prompt,
-            model=model,
-            entry_name=entry_name,
-            max_depth=max_depth,
-            approve_all=approve_all,
-            reject_all=reject_all,
+            manifest=manifest,
+            manifest_dir=manifest_dir,
+            input_data=input_data,
+            model_override=model_override,
             on_event=on_event,
             verbosity=verbosity,
-            set_overrides=set_overrides,
         )
     finally:
         if render_queue is not None:
@@ -480,23 +462,19 @@ def main() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("files", nargs="+", help="Worker (.worker) and Python (.py) files")
-    parser.add_argument("prompt", nargs="?", help="Prompt for the LLM")
-    parser.add_argument("--entry", "-e", help="Entry point name (default: 'main' or first worker)")
     parser.add_argument(
-        "--model", "-m",
-        default=os.environ.get(ENV_MODEL_VAR),
-        help=f"Model to use (default: ${ENV_MODEL_VAR} env var)",
+        "manifest",
+        help="Path to project manifest (JSON file)",
     )
     parser.add_argument(
-        "--approve-all",
-        action="store_true",
-        help="Auto-approve all LLM-invoked tool calls",
+        "prompt",
+        nargs="?",
+        help="Prompt for the LLM (overrides manifest entry.input)",
     )
     parser.add_argument(
-        "--reject-all",
-        action="store_true",
-        help="Auto-reject all LLM-invoked tool calls that require approval",
+        "--input-json",
+        dest="input_json",
+        help="Input as inline JSON (overrides manifest entry.input)",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -506,12 +484,6 @@ def main() -> int:
             "Show progress (-v for tool calls, -vv for streaming, "
             "-vvv for full LLM message log JSONL only)"
         ),
-    )
-    parser.add_argument(
-        "--max-depth",
-        type=int,
-        default=None,
-        help="Maximum worker call depth (default: 5)",
     )
     parser.add_argument(
         "--json",
@@ -538,63 +510,79 @@ def main() -> int:
         action="store_true",
         help="Show full tracebacks on error",
     )
-    parser.add_argument(
-        "--set", "-s",
-        action="append",
-        dest="set_overrides",
-        default=[],
-        metavar="KEY=VALUE",
-        help=(
-            "Override worker config (e.g., --set model=gpt-4, "
-            "--set description='Fast run', "
-            "--set 'server_side_tools=[{\"tool_type\":\"web_search\"}]')"
-        ),
-    )
 
-    parse_args = getattr(parser, "parse_intermixed_args", parser.parse_args)
-    args = parse_args()
-
-    # Separate files from prompt in the files list (prompt might be mixed in)
-    files = []
-    prompt_parts = []
-    missing_files = []
-    for arg in args.files:
-        if Path(arg).suffix in (".py", ".worker"):
-            if Path(arg).exists():
-                files.append(arg)
-            else:
-                missing_files.append(arg)
-        else:
-            prompt_parts.append(arg)
-
-    if missing_files:
-        parser.error(f"File not found: {', '.join(missing_files)}")
-
-    if not files:
-        parser.error("At least one .worker or .py file required")
-
-    # Combine prompt from positional and any non-file args
-    if args.prompt:
-        prompt_parts.append(args.prompt)
-    prompt = " ".join(prompt_parts) if prompt_parts else None
-
-    # Single prompt mode
-    if not prompt:
-        if not sys.stdin.isatty():
-            prompt = sys.stdin.read().strip()
-        else:
-            parser.error("Prompt required (as argument or via stdin)")
+    args = parser.parse_args()
 
     # Validate mutually exclusive flags
-    if args.approve_all and args.reject_all:
-        print("Cannot combine --approve-all and --reject-all", file=sys.stderr)
-        return 1
     if args.json and args.tui:
         print("Cannot combine --json and --tui", file=sys.stderr)
         return 1
     if args.headless and args.tui:
         print("Cannot combine --headless and --tui", file=sys.stderr)
         return 1
+
+    # Load and validate manifest
+    try:
+        manifest, manifest_dir = load_manifest(args.manifest)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
+        return 1
+
+    # Determine input data
+    has_cli_input = args.prompt is not None or args.input_json is not None
+
+    if has_cli_input and not manifest.allow_cli_input:
+        print(
+            "Error: CLI input not allowed by manifest (allow_cli_input is false)",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.prompt is not None and args.input_json is not None:
+        print("Error: Cannot combine prompt argument and --input-json", file=sys.stderr)
+        return 1
+
+    # Build input_data from CLI or manifest
+    input_data: dict[str, Any]
+    if args.input_json is not None:
+        try:
+            input_data = json.loads(args.input_json)
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON in --input-json: {e}", file=sys.stderr)
+            return 1
+        if not isinstance(input_data, dict):
+            print("Error: --input-json must be a JSON object", file=sys.stderr)
+            return 1
+    elif args.prompt is not None:
+        input_data = {"input": args.prompt}
+    elif manifest.entry.input is not None:
+        input_data = manifest.entry.input
+    else:
+        # Try reading from stdin if not a TTY
+        if not sys.stdin.isatty():
+            stdin_input = sys.stdin.read().strip()
+            if stdin_input:
+                input_data = {"input": stdin_input}
+            else:
+                print(
+                    "Error: No input provided (use prompt argument, --input-json, or manifest entry.input)",
+                    file=sys.stderr,
+                )
+                return 1
+        else:
+            print(
+                "Error: No input provided (use prompt argument, --input-json, or manifest entry.input)",
+                file=sys.stderr,
+            )
+            return 1
+
+    # Get model from environment (manifest model takes precedence in run())
+    model_override = os.environ.get(ENV_MODEL_VAR)
 
     # Determine if we should use TUI mode:
     # - Explicit --tui flag
@@ -609,18 +597,14 @@ def main() -> int:
     if use_tui:
         tui_verbosity = args.verbose if args.verbose > 0 else 1
         return asyncio.run(_run_tui_mode(
-            files=files,
-            prompt=prompt,
-            model=args.model,
-            entry_name=args.entry,
-            max_depth=args.max_depth,
-            approve_all=args.approve_all,
-            reject_all=args.reject_all,
+            manifest=manifest,
+            manifest_dir=manifest_dir,
+            input_data=input_data,
+            model_override=model_override,
             verbosity=tui_verbosity,
             log_verbosity=args.verbose,
             chat=args.chat,
             debug=args.debug,
-            set_overrides=args.set_overrides or None,
         ))
 
     # Headless mode: set up display backend based on flags
@@ -640,16 +624,12 @@ def main() -> int:
 
     try:
         result = asyncio.run(_run_headless_mode(
-            files=files,
-            prompt=prompt,
-            model=args.model,
-            entry_name=args.entry,
-            max_depth=args.max_depth,
-            approve_all=args.approve_all,
-            reject_all=args.reject_all,
+            manifest=manifest,
+            manifest_dir=manifest_dir,
+            input_data=input_data,
+            model_override=model_override,
             verbosity=args.verbose,
             backend=backend,
-            set_overrides=args.set_overrides or None,
         ))
 
         print(result)

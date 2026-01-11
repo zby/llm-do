@@ -27,14 +27,18 @@ The LLM passes human-readable names like "Meeting Notes.docx" to `sanitize_filen
 ## Usage
 
 ```bash
-cd examples/file_organizer
-./reset.sh                                        # Create sample files
-llm-do main.worker tools.py "Organize the files"  # Run organizer
-./reset.sh                                        # Reset for next demo
+cd examples/file_organizer              # Required: shell commands run from cwd
+./reset.sh                              # Create sample files
+llm-do project.json                     # Run organizer (uses default prompt)
+./reset.sh                              # Reset for next demo
 ```
+
+Note: This example uses `shell_file_ops` which runs shell commands (`ls`, `mv`) from the
+current working directory, so `cd` is required.
 
 ## Files
 
+- `project.json` — Manifest defining entry point, files, and approval mode
 - `main.worker` — Worker prompt and tool configuration
 - `tools.py` — `sanitize_filename()` function (the stabilized part)
 - `reset.sh` — Recreates sample files for repeatable demos

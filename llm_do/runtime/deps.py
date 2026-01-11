@@ -15,7 +15,7 @@ from .call import CallFrame
 from .contracts import EventCallback, ModelType, WorkerRuntimeProtocol
 
 if TYPE_CHECKING:
-    from .contracts import Entry
+    from .worker import Worker
 
 from .shared import Runtime, RuntimeConfig
 
@@ -258,23 +258,7 @@ class WorkerRuntime:
             available.extend(tools.keys())
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
-    async def _execute(self, entry: "Entry", input_data: WorkerArgs) -> Any:
-        """Execute an entry.
-
-        Dispatches to the entry's call() method with the appropriate context:
-        - Worker: receives (input_data, RunContext) where run_ctx.deps is this runtime
-        - EntryFunction: receives (input_args, WorkerRuntime) directly
-
-        Config and frame are accessible via run_ctx.deps (single source of truth).
-        """
-        from .worker import EntryFunction, Worker
-
-        if isinstance(entry, EntryFunction):
-            # EntryFunction.call() takes (WorkerArgs, WorkerRuntimeProtocol)
-            return await entry.call(input_data, self)
-        elif isinstance(entry, Worker):
-            # Worker.call() takes (input_data, RunContext)
-            run_ctx = self._make_run_context(entry.name, self.model, self)
-            return await entry.call(input_data, run_ctx)
-        else:
-            raise TypeError(f"Unsupported entry type: {type(entry)}")
+    async def _execute(self, worker: "Worker", input_data: WorkerArgs) -> Any:
+        """Execute a worker using this runtime as deps."""
+        run_ctx = self._make_run_context(worker.name, self.model, self)
+        return await worker.call(input_data, run_ctx)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Optional
 
 import pytest
@@ -10,7 +9,7 @@ from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
 from llm_do.models import ModelConfigError, validate_model_compatibility
-from llm_do.runtime import WorkerInput, WorkerRuntime
+from llm_do.runtime import WorkerInput
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.worker import Worker
 from tests.runtime.helpers import build_runtime_context

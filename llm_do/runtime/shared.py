@@ -175,6 +175,7 @@ class Runtime:
         """
         from .args import ensure_worker_args
         from .deps import WorkerRuntime
+        from .worker import EntryFunction, Worker
 
         # Normalize input to WorkerArgs for all entries
         input_args = ensure_worker_args(invocable.schema_in, input_data)
@@ -189,8 +190,12 @@ class Runtime:
                 UserMessageEvent(worker=invocable.name, content=prompt_spec.text)
             )
 
-        # Dispatch to entry's call() via _execute()
-        result = await ctx._execute(invocable, input_args)
+        if isinstance(invocable, EntryFunction):
+            result = await invocable.call(input_args, ctx)
+        elif isinstance(invocable, Worker):
+            result = await ctx._execute(invocable, input_args)
+        else:
+            raise TypeError(f"Unsupported entry type: {type(invocable)}")
         return result, ctx
 
     async def run_entry(

@@ -23,7 +23,7 @@ from .args import WorkerArgs
 from .contracts import Invocable, ModelType
 from .discovery import load_toolsets_and_workers_from_files
 from .schema_refs import resolve_schema_ref
-from .worker import ToolInvocable, Worker
+from .worker import ToolInvocable, Worker, WorkerToolset
 from .worker_file import (
     WorkerDefinition,
     build_worker_definition,
@@ -98,9 +98,9 @@ def _get_tool_names(toolset: AbstractToolset[Any]) -> list[str]:
     if isinstance(toolset, FunctionToolset):
         return list(toolset.tools.keys())
     # For other toolsets, we'd need a RunContext - return empty for now
-    # Worker returns itself as a single tool
-    if isinstance(toolset, Worker):
-        return [toolset.name]
+    # WorkerToolset returns the wrapped worker as a single tool
+    if isinstance(toolset, WorkerToolset):
+        return [toolset.worker.name]
     return []
 
 

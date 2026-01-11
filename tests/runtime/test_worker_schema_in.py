@@ -30,7 +30,8 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
     ctx = build_runtime_context(toolsets=[], model="test-model")
     run_ctx = ctx._make_run_context(worker.name, "test-model", ctx)
 
-    tools = await worker.get_tools(run_ctx)
+    toolset = worker.as_toolset()
+    tools = await toolset.get_tools(run_ctx)
     tool_def = tools[worker.name].tool_def
     schema = tool_def.parameters_json_schema
     properties = schema.get("properties", {})
@@ -49,7 +50,8 @@ async def test_worker_tool_description_prefers_description() -> None:
     ctx = build_runtime_context(toolsets=[], model="test-model")
     run_ctx = ctx._make_run_context(worker.name, "test-model", ctx)
 
-    tools = await worker.get_tools(run_ctx)
+    toolset = worker.as_toolset()
+    tools = await toolset.get_tools(run_ctx)
     tool_def = tools[worker.name].tool_def
 
     assert tool_def.description == "Short tool summary."

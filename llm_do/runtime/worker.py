@@ -344,12 +344,12 @@ class ToolInvocable:
 
 
 @dataclass
-class Worker(AbstractToolset[Any]):
-    """An LLM-powered worker that is also an AbstractToolset.
+class Worker:
+    """An LLM-powered worker that can be run as an entry point.
 
-    Worker represents an agent that uses an LLM to process
-    prompts and can call tools to accomplish tasks. As an AbstractToolset,
-    it can be composed into other workers' toolsets.
+    Worker represents an agent that uses an LLM to process prompts and can
+    call tools to accomplish tasks. To expose a Worker as a tool for another
+    agent, use the as_toolset() method to get a WorkerToolset adapter.
 
     Tools are passed as a list of AbstractToolsets which are combined
     and passed directly to the PydanticAI Agent.
@@ -371,20 +371,6 @@ class Worker(AbstractToolset[Any]):
     def __post_init__(self) -> None:
         if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
             raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
-        config = get_toolset_approval_config(self)
-        if config is None:
-            set_toolset_approval_config(self, {self.name: {"pre_approved": True}})
-
-    # AbstractToolset implementation
-    @property
-    def id(self) -> str | None:
-        """Return the worker name as its toolset id."""
-        return self.name
-
-    async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
-        """Return this worker as a callable tool."""
-        tool = build_worker_tool(self, self)
-        return {self.name: tool}
 
     def as_toolset(self, *, bulk_approve: bool | None = None) -> WorkerToolset:
         """Return a WorkerToolset adapter for this worker.
@@ -401,17 +387,6 @@ class Worker(AbstractToolset[Any]):
         if bulk_approve is None:
             bulk_approve = self.bulk_approve_toolsets
         return WorkerToolset(worker=self, bulk_approve=bulk_approve)
-
-    async def call_tool(
-        self, name: str, tool_args: dict[str, Any], run_ctx: RunContext[Any], tool: ToolsetTool[Any]
-    ) -> Any:
-        """Execute the worker when called as a tool."""
-        return await self._call_internal(
-            tool_args,
-            run_ctx.deps.config,
-            run_ctx.deps.frame,
-            run_ctx,
-        )
 
     def _build_agent(
         self,

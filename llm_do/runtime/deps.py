@@ -150,7 +150,7 @@ class WorkerRuntime:
         args = input_data
         if isinstance(args, BaseModel):
             args = args.model_dump()
-        from .worker import Worker
+        from .worker import WorkerToolset
 
         validator = tool.args_validator
         if isinstance(args, (str, bytes, bytearray)):
@@ -160,8 +160,8 @@ class WorkerRuntime:
                 allow_partial="off",
                 context=run_ctx.validation_context,
             )
-            if isinstance(toolset, Worker):
-                return ensure_worker_args(toolset.schema_in, validated)
+            if isinstance(toolset, WorkerToolset):
+                return ensure_worker_args(toolset.worker.schema_in, validated)
             return validated
 
         if args is None:
@@ -171,8 +171,8 @@ class WorkerRuntime:
             allow_partial="off",
             context=run_ctx.validation_context,
         )
-        if isinstance(toolset, Worker):
-            return ensure_worker_args(toolset.schema_in, validated)
+        if isinstance(toolset, WorkerToolset):
+            return ensure_worker_args(toolset.worker.schema_in, validated)
         return validated
 
     def spawn_child(

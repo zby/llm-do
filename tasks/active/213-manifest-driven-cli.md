@@ -36,9 +36,15 @@ config; CLI input overrides are gated by `allow_cli_input`.
 - Options: `llm-do run project.json` vs positional manifest.
 - Outcome: positional manifest path + optional prompt.
 - Follow-ups: confirm `llm-do.json` default behavior in help/usage.
+- Decision: manifest must contain exactly one entry (single object, not a map).
+- Decision: when `allow_cli_input` is false, any CLI overrides (prompt/`--input-json`) are errors.
+- Decision: manifest schema uses Pydantic models (strict: `extra="forbid"`), with a required `version` field.
+- Decision: locate manifest models in runtime (`llm_do/runtime/manifest.py`) so CLI and runtime share validation.
+- Decision: `--input-json` accepts inline JSON only (no file paths).
 
 ## Tasks
 - [ ] Add manifest loader + schema validation (JSON).
+- [ ] Define `ProjectManifest` Pydantic models in `llm_do/runtime/manifest.py` (single `entry`, required `version`, strict fields).
 - [ ] Resolve toolsets/workers/entries per manifest-driven linker flow.
 - [ ] Add `allow_cli_input` gating and `--input-json` support.
 - [ ] Remove CLI flags superseded by the manifest (entry/model/set/approval/max-depth/files).
@@ -47,9 +53,10 @@ config; CLI input overrides are gated by `allow_cli_input`.
 - [ ] Run lint, typecheck, tests.
 
 ## Current State
-Task created; manifest-driven CLI not implemented yet.
+Task created; requirements clarified (single entry, CLI override gating, Pydantic schema).
 
 ## Notes
 - Manifest `toolsets` can reference built-ins and Python toolset names.
 - Name collisions between workers/toolsets/entries must raise errors.
 - `runtime` config is required in the manifest.
+- Pydantic JSON parsing is strict JSON (no comments/trailing commas).

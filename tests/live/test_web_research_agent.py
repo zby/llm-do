@@ -14,6 +14,8 @@ import asyncio
 import json
 from pathlib import Path
 
+from llm_do.runtime import WorkerInput
+
 from .conftest import get_default_model, run_example, skip_no_anthropic, skip_no_serpapi
 
 
@@ -40,7 +42,7 @@ def test_web_research_orchestrator_full_workflow(
     result = asyncio.run(
         run_example(
             web_research_agent_example,
-            "Python 3.13 new features",
+            WorkerInput(input="Python 3.13 new features"),
             model=get_default_model(),
             approval_callback=approve_all_callback,
         )
@@ -99,7 +101,7 @@ def test_web_research_consolidator(web_research_agent_example, approve_all_callb
     result = asyncio.run(
         run_example(
             web_research_agent_example,
-            json.dumps(mock_insights),
+            WorkerInput(input=json.dumps(mock_insights)),
             entry_name="web_research_consolidator",
             model=get_default_model(),
             approval_callback=approve_all_callback,

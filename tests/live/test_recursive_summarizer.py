@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from llm_do.runtime import WorkerInput
 from llm_do.ui.events import ToolCallEvent, ToolResultEvent
 
 from .conftest import skip_no_llm
@@ -63,7 +64,7 @@ async def test_recursive_summarizer_runs(recursive_summarizer_example, default_m
 
     result = await run_example(
         recursive_summarizer_example,
-        "sample_input.txt",
+        WorkerInput(input="sample_input.txt"),
         entry_name="main",
         model=default_model,
         max_depth=10,

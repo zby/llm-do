@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from llm_do.runtime import Runtime, WorkerInput, WorkerRuntime
+from llm_do.runtime import Runtime, WorkerArgs, WorkerRuntime
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.call import CallConfig, CallFrame
 from llm_do.runtime.contracts import Entry, EventCallback, ModelType
@@ -42,34 +42,9 @@ def build_runtime_context(
     return WorkerRuntime(runtime=runtime, frame=frame)
 
 
-def build_entry_context(
-    entry: Entry,
-    *,
-    model: ModelType | None = None,
-    run_approval_policy: RunApprovalPolicy | None = None,
-    max_depth: int = 5,
-    on_event: EventCallback | None = None,
-    verbosity: int = 0,
-    message_history: list[Any] | None = None,
-) -> WorkerRuntime:
-    runtime = Runtime(
-        cli_model=model,
-        run_approval_policy=run_approval_policy,
-        max_depth=max_depth,
-        on_event=on_event,
-        verbosity=verbosity,
-    )
-    frame = runtime._build_entry_frame(
-        entry,
-        model=model,
-        message_history=message_history,
-    )
-    return WorkerRuntime(runtime=runtime, frame=frame)
-
-
 async def run_entry_test(
     entry: Entry,
-    input_data: Any,
+    input_data: WorkerArgs,
     *,
     model: ModelType | None = None,
     run_approval_policy: RunApprovalPolicy | None = None,
@@ -90,8 +65,6 @@ async def run_entry_test(
         on_event=on_event,
         verbosity=verbosity,
     )
-    if isinstance(input_data, str):
-        input_data = WorkerInput(input=input_data)
     return await runtime.run_invocable(
         entry,
         input_data,

@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 import pytest
 
-from llm_do.runtime import Runtime, WorkerInput, build_entry_registry
+from llm_do.runtime import Runtime, WorkerArgs, build_entry_registry
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
@@ -134,7 +134,7 @@ def _collect_example_files(example_dir: Path) -> tuple[list[str], list[str]]:
 
 async def run_example(
     example_dir: Path,
-    input_data: Any,
+    input_data: WorkerArgs,
     *,
     entry_name: str = "main",
     model: str | None = None,
@@ -165,8 +165,6 @@ async def run_example(
         on_event=on_event,
         verbosity=verbosity,
     )
-    if isinstance(input_data, str):
-        input_data = WorkerInput(input=input_data)
     result, _ctx = await runtime.run_invocable(entry, input_data, model=model)
     return result
 

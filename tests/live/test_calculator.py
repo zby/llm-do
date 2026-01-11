@@ -8,6 +8,8 @@ Run:
 
 import asyncio
 
+from llm_do.runtime import WorkerInput
+
 from .conftest import run_example, skip_no_llm
 
 
@@ -21,7 +23,7 @@ def test_calculator_multiple_operations(calculator_example, default_model, appro
     result = asyncio.run(
         run_example(
             calculator_example,
-            "Calculate the 50th Fibonacci number and 18 factorial",
+            WorkerInput(input="Calculate the 50th Fibonacci number and 18 factorial"),
             model=default_model,
             approval_callback=approve_all_callback,
         )

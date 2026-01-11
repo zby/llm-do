@@ -50,6 +50,16 @@ class EntryRegistry:
         return sorted(self.entries.keys())
 
 
+@dataclass(slots=True)
+class WorkerSpec:
+    """Per-worker bookkeeping for two-pass registry building."""
+
+    name: str
+    path: Path
+    definition: WorkerDefinition
+    stub: Worker
+
+
 # Registry of server-side tool factories
 _BUILTIN_TOOL_FACTORIES: dict[str, Callable[[dict[str, Any]], Any]] = {
     "web_search": lambda cfg: WebSearchTool(
@@ -129,16 +139,12 @@ def build_entry_registry(
     for name, worker in python_workers.items():
         entries[name] = worker
 
-    # Add @entry decorated functions
+    # Add @entry decorated functions (conflict with workers checked in discovery)
     for name, entry_func in python_entries.items():
-        if name in entries:
-            raise ValueError(f"Entry name '{name}' conflicts with worker name")
         entries[name] = entry_func
 
-    # First pass: load worker definitions and create stub Worker instances
-    worker_entries: dict[str, Worker] = {}
-    worker_paths: dict[str, Path] = {}
-    worker_defs: dict[str, WorkerDefinition] = {}
+    # First pass: load worker definitions and create minimal stub Worker instances
+    worker_specs: dict[str, WorkerSpec] = {}
 
     for worker_file_path in worker_files:
         resolved_path = Path(worker_file_path).resolve()
@@ -149,7 +155,7 @@ def build_entry_registry(
         name = name_value
 
         # Check for duplicate worker names
-        if name in worker_entries:
+        if name in worker_specs:
             raise ValueError(f"Duplicate worker name: {name}")
 
         # Check for conflict with Python entries
@@ -164,77 +170,67 @@ def build_entry_registry(
                 "update the worker file or pass --entry to select a different worker."
             )
 
-        stub = Worker(
+        # Create minimal stub (fields filled in second pass)
+        stub = Worker(name=name, instructions="", toolsets=[])
+        worker_specs[name] = WorkerSpec(
             name=name,
-            instructions=worker_def.instructions,
-            description=worker_def.description,
-            model=worker_def.model,
-            toolsets=[],
+            path=resolved_path,
+            definition=worker_def,
+            stub=stub,
         )
-        worker_entries[name] = stub
-        worker_paths[name] = resolved_path
-        worker_defs[name] = worker_def
 
-    # Second pass: build all workers with resolved toolsets
-    workers: dict[str, Worker] = {}
-
-    # Build available toolsets map for resolution (builtins + python + worker toolsets)
+    # Second pass: resolve toolsets and fill in worker stubs
     # Workers are wrapped in WorkerToolset to expose them as tools
-    available_workers = {n: WorkerToolset(w) for n, w in worker_entries.items()}
-    # Use cwd-based builtins (can be refined per-worker if needed)
-    global_builtins = build_builtin_toolsets(Path.cwd(), Path.cwd())
-    all_available_toolsets = _merge_toolsets(global_builtins, python_toolsets, available_workers)
+    available_workers = {name: WorkerToolset(spec.stub) for name, spec in worker_specs.items()}
 
-    for name, worker_def in worker_defs.items():
-        worker_path = worker_paths[name]
-
-        # Available toolsets: built-ins + Python + workers (including self if referenced)
-        worker_root = worker_path.parent
+    for spec in worker_specs.values():
+        worker_root = spec.path.parent
         builtin_toolsets = build_builtin_toolsets(Path.cwd(), worker_root)
         all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, available_workers)
 
-        # Resolve toolsets: worker refs + python toolsets + (built-in aliases or class paths)
         toolset_context = ToolsetBuildContext(
-            worker_name=name,
-            worker_path=worker_path,
+            worker_name=spec.name,
+            worker_path=spec.path,
             available_toolsets=all_toolsets,
         )
-        resolved_toolsets = build_toolsets(worker_def.toolsets, toolset_context)
-        # Apply model override only to entry worker (if override provided)
+        resolved_toolsets = build_toolsets(spec.definition.toolsets, toolset_context)
+
+        # Apply model override only to entry worker
         worker_model: ModelType | None
-        if entry_model_override and name == entry_name:
+        if entry_model_override is not None and spec.name == entry_name:
             worker_model = entry_model_override
         else:
-            worker_model = worker_def.model
+            worker_model = spec.definition.model
 
-        # Build builtin tools from server_side_tools config
-        builtin_tools = _build_builtin_tools(worker_def.server_side_tools)
+        # Fill in stub fields
+        spec.stub.instructions = spec.definition.instructions
+        spec.stub.description = spec.definition.description
+        spec.stub.model = worker_model
+        spec.stub.compatible_models = spec.definition.compatible_models
+        spec.stub.toolsets = resolved_toolsets
+        spec.stub.builtin_tools = _build_builtin_tools(spec.definition.server_side_tools)
 
-        stub = worker_entries[name]
-        stub.instructions = worker_def.instructions
-        stub.description = worker_def.description
-        stub.model = worker_model
-        stub.compatible_models = worker_def.compatible_models
-        if worker_def.schema_in_ref:
+        if spec.definition.schema_in_ref:
             resolved_schema = resolve_schema_ref(
-                worker_def.schema_in_ref,
+                spec.definition.schema_in_ref,
                 base_path=worker_root,
             )
             if not issubclass(resolved_schema, WorkerArgs):
                 raise TypeError(
                     "schema_in_ref must resolve to a WorkerArgs subclass"
                 )
-            stub.schema_in = cast(type[WorkerArgs], resolved_schema)
-        stub.toolsets = resolved_toolsets
-        stub.builtin_tools = builtin_tools
+            spec.stub.schema_in = cast(type[WorkerArgs], resolved_schema)
 
-        workers[name] = stub
+        entries[spec.name] = spec.stub
 
-    entries.update(workers)
-
-    # Resolve toolset refs for EntryFunction instances
-    for entry_func in python_entries.values():
-        if entry_func.toolset_refs:
+    # Resolve toolset refs for EntryFunction instances (build global map only if needed)
+    entry_funcs_with_refs = [ef for ef in python_entries.values() if ef.toolset_refs]
+    if entry_funcs_with_refs:
+        global_builtins = build_builtin_toolsets(Path.cwd(), Path.cwd())
+        all_available_toolsets = _merge_toolsets(
+            global_builtins, python_toolsets, available_workers
+        )
+        for entry_func in entry_funcs_with_refs:
             entry_func.resolve_toolsets(all_available_toolsets)
 
     return EntryRegistry(entries=entries)

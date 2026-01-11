@@ -204,7 +204,8 @@ class WorkerRuntime:
             result = await ctx.deps.call("pitch_evaluator", {"input": "..."})
 
         Soft policy: tools should use their args, and only use ctx.deps
-        for worker/tool delegation.
+        for worker/tool delegation. Entry functions are trusted, so these
+        calls bypass approval wrappers.
         """
         import uuid
 

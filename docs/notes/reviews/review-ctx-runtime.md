@@ -4,16 +4,16 @@
 Review of runtime core (`llm_do/runtime/*`) for bugs, inconsistencies, and overengineering.
 
 ## Findings
-- **Message history:** Top-level runs can pass `message_history` to the model; nested worker calls still start with a clean history (`_should_use_message_history`).
-- **Approval wrapping:** Wrapping is centralized in `llm_do/runtime/approval_wrappers.py` (`wrap_entry_for_approval(...)`) and applied at the `run_entry(...)` boundary; it preserves `Worker` fields and is cycle-safe.
-- **Python discovery module re-exec:** CLI discovery uses `load_toolsets_and_workers_from_files()` to avoid importing the same `.py` twice.
-- **Per-worker approval config mutates shared instances:** `_approval_config` is stored on existing toolset instances from `ToolsetBuildContext.available_toolsets` (notably Python toolset instances + worker stubs). If multiple workers reference the same Python toolset with different `_approval_config`, the last assignment wins globally.
-- **`runtime/builtins.py` looks superseded:** built-in alias handling lives in `llm_do/toolsets/loader.py` (`BUILTIN_TOOLSET_ALIASES`), but `llm_do/runtime/builtins.py` still exists and is exported; this duplication makes it unclear which is canonical.
+- **EntryFunction approvals are intentionally skipped:** code entry points are trusted and call tools directly; documentation should make this trust boundary explicit to avoid confusion. (`llm_do/runtime/shared.py`, `llm_do/runtime/deps.py`, `llm_do/runtime/approval.py`)
+- **schema_in_ref can re-exec modules:** `resolve_schema_ref()` uses `load_module()` directly, which re-imports the module even if it was already loaded by discovery; this can re-run module side effects and produce duplicate class identities. (`llm_do/runtime/schema_refs.py`, `llm_do/runtime/discovery.py`)
+- **Bulk-approve doesn’t cover attachments:** `bulk_approve_toolsets` swaps in a scoped approval callback for main toolsets, but attachment reads still use the unscoped callback, so repeated attachment approvals continue to prompt. (`llm_do/runtime/worker.py`)
+- **Max-depth error lacks context:** `Max depth exceeded` does not include worker name or current depth, making cycles harder to debug. (`llm_do/runtime/worker.py`)
+- **Message history behavior matches current intent:** top-level runs reuse `message_history`, nested worker calls always start clean (`_should_use_message_history`).
 
 ## Open Questions
 - Should top-level worker runs reuse `message_history` while nested worker calls always start from a clean history? (Current intent appears “yes”.)
-- Are cyclic worker references intended to work? If yes, where should cycle detection/error reporting live (resolution vs runtime depth enforcement)?
-- Do we want per-worker configuration (especially `_approval_config`) for Python toolsets, or should Python toolset instances be treated as global singletons with uniform config?
+- Are cyclic worker references intended to work beyond max-depth enforcement? If yes, should cycle detection/error reporting live at resolution or runtime?
+- Should bulk-approval apply to attachment reads (or should attachments always hard-fail on denial)?
 
 ## Conclusion
-Ctx runtime is close to the intended architecture. Message-history propagation, one-pass module discovery, and the approval wrapping boundary have been clarified, but shared toolset config mutation (`_approval_config`) and duplicated builtins registries remain follow-ups.
+Ctx runtime is stable, but there are still approval-boundary edge cases (attachment bulk-approve) and schema ref loading can re-exec modules. Clarifying the trusted-code boundary for EntryFunction calls helps avoid confusion in future reviews.

@@ -34,4 +34,4 @@ Record findings in `docs/notes/reviews/review-ctx-runtime.md`.
 
 ## Last Run
 
-2026-01 (as task 41, reviewed ctx_runtime; main gaps: shared toolset config mutation, duplicated builtins registries)
+2026-01 (entry function approvals bypassed, schema_in_ref re-execs modules, bulk-approve skips attachments)

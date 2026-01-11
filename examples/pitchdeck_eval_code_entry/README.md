@@ -72,6 +72,9 @@ The `runtime.call()` method can invoke:
 - **Code tools**: Tool functions exposed via toolsets
 - **Worker tools**: `.worker` files (LLM agents)
 
+Because the entry function is trusted code, `runtime.call()` executes tools
+directly without approval wrappers. Use an LLM worker if you need approvals.
+
 ## Prerequisites
 
 ```bash

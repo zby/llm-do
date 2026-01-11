@@ -191,6 +191,7 @@ class Runtime:
             )
 
         if isinstance(invocable, EntryFunction):
+            # Entry functions are trusted code; tool calls run directly without approval wrappers.
             result = await invocable.call(input_args, ctx)
         elif isinstance(invocable, Worker):
             result = await ctx._execute(invocable, input_args)

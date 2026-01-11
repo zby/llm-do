@@ -212,8 +212,8 @@ def wrap_toolsets_for_approval(
 ) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with approval handling.
 
-    Called at Entry.call() time (Worker or EntryFunction) to ensure
-    LLM tool calls go through approval.
+    Called for LLM-driven workers to ensure tool calls go through approval.
+    Entry functions are trusted code and use toolsets directly.
     """
     worker_policy = WorkerApprovalPolicy(
         approval_callback=approval_callback,

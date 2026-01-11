@@ -84,6 +84,7 @@ Key points:
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
 - EntryFunction inputs are normalized to `WorkerArgs` (via `schema_in`, default `WorkerInput`)
+- EntryFunction tool calls are trusted and bypass approval wrapping
 
 ---
 

@@ -6,8 +6,6 @@ Design note for runtime creation and invocation of workers (`worker_create` /
 Related:
 - `tasks/backlog/dynamic-workers.md` (implementation tracking)
 - `docs/architecture.md` (run boundary + ApprovalPolicy)
-- `docs/notes/archive/workerruntime-and-approval-design.md` (approval execution boundary design record)
-- `docs/notes/per-worker-approval-config.md` (approval config semantics)
 
 ---
 
@@ -15,7 +13,7 @@ Related:
 
 Dynamic workers are **not implemented**:
 
-- Workers are resolved at `build_entry()` time before any worker runs.
+- Workers are resolved at `build_entry_registry()` time before any worker runs.
 - An LLM cannot create and invoke a new worker during execution.
 - Previously existed as `delegation` toolset with `worker_create`/`worker_call`
   tools, but this was removed.
@@ -74,21 +72,21 @@ Key constraint: PydanticAI caches tool definitions per run step. A worker that
 didn’t exist when the model generated its response cannot be called “by name”
 in that same response. This makes `worker_call` a core UX tool, not optional.
 
-### Proposed shape (SOLID / DIP)
+### Proposed shape
 
-- **`WorkerRegistry`** (runtime-owned state): stores session-created `Worker`s
+- **Session registry** (runtime-owned state): stores session-created `Worker`s
   and any metadata needed for persistence (path, created_by, etc.).
-- **`WorkerStore`** (optional, later): abstract persistence for generated workers
-  (e.g., temp dir vs project-local dir) once we actually need multiple implementations.
 - **`dynamic_workers` toolset**: exposes:
   - `worker_create(...)`: validate name, write `.worker`, load/build `Worker`,
-    wrap its toolsets for approval, then register it in `WorkerRegistry`.
+    wrap its toolsets for approval, then register it in session registry.
   - `worker_call(worker=..., input=..., attachments=...)`: resolve worker from
-    `WorkerRegistry` and run it immediately.
+    session registry and run it immediately.
 - **Optional**: expose created workers as normal tools on subsequent run steps
   using `pydantic_ai.toolsets.DynamicToolset(per_run_step=True)` that returns a
-  toolset composed from `WorkerRegistry` contents. This improves ergonomics for
-  “later calls”, but does not replace `worker_call` for create+call in one model response.
+  toolset composed from session registry contents.
+
+Note: The current architecture uses `EntryRegistry` for static worker resolution.
+Dynamic workers would need a separate session-scoped registry.
 
 ### Ordering and correctness details
 
@@ -98,10 +96,7 @@ in that same response. This makes `worker_call` a core UX tool, not optional.
   will use that name immediately in `worker_call`.
 - Consider restricting `worker_call` to **session-generated** workers only (safer
   mental model: configured workers are called directly by name; `worker_call` is
-  the “dynamic escape hatch”).
-- Optional nicety for programmatic usage: `WorkerRuntime.call(...)` can consult
-  `WorkerRegistry` when a tool is not found. This does not change LLM-facing tool
-  definitions (so it won’t replace `worker_call`), but improves direct Python runs.
+  the "dynamic escape hatch").
 
 ### Interaction with Approval
 
@@ -110,8 +105,8 @@ in that same response. This makes `worker_call` a core UX tool, not optional.
 - `worker_call` must run a worker only after the worker’s toolsets are wrapped
 
 The easiest way to keep CLI vs programmatic behavior consistent is to route
-dynamic-worker compilation/wrapping through the same “run boundary” described in
-`docs/architecture.md` (design record: `docs/notes/archive/workerruntime-and-approval-design.md`).
+dynamic-worker compilation/wrapping through the same approval boundary described in
+`docs/architecture.md`.
 
 ## 4. Open Questions
 

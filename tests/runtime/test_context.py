@@ -20,14 +20,14 @@ class TestContext:
         def multiply(a: int, b: int) -> int:
             return a * b
 
-        ctx = build_runtime_context(toolsets=[toolset], model="test-model")
+        ctx = build_runtime_context(toolsets=[toolset], model="test")
         result = await ctx.call("multiply", {"a": 3, "b": 4})
         assert result == 12
 
     @pytest.mark.anyio
     async def test_context_tool_not_found(self):
         """Test that calling unknown tool raises KeyError."""
-        ctx = build_runtime_context(toolsets=[], model="test-model")
+        ctx = build_runtime_context(toolsets=[], model="test")
         with pytest.raises(KeyError, match="Tool 'nonexistent' not found"):
             await ctx.call("nonexistent", {"x": 1})
 
@@ -40,7 +40,7 @@ class TestContext:
         def greet(name: str) -> str:
             return f"Hello, {name}!"
 
-        ctx = build_runtime_context(toolsets=[toolset], model="test-model")
+        ctx = build_runtime_context(toolsets=[toolset], model="test")
         result = await ctx.tools.greet(name="World")
         assert result == "Hello, World!"
 

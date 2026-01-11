@@ -1,10 +1,10 @@
 """Runtime deps facade for tool execution."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
 
 from pydantic import BaseModel
-from pydantic_ai.models import Model
+from pydantic_ai.models import Model, infer_model
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
@@ -132,10 +132,15 @@ class WorkerRuntime:
 
         RunContext.prompt is derived from WorkerArgs for logging/UI only.
         Tools should use their args, not prompt text.
+
+        String models are resolved to concrete Model instances via infer_model.
         """
+        model: Model = (
+            infer_model(resolved_model) if isinstance(resolved_model, str) else resolved_model
+        )
         return RunContext(
             deps=deps_ctx,
-            model=cast(Model, resolved_model),
+            model=model,
             usage=self._create_usage(),
             prompt=deps_ctx.prompt,
             messages=list(deps_ctx.messages),

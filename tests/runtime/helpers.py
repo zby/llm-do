@@ -14,7 +14,7 @@ from llm_do.runtime.contracts import Entry, EventCallback, ModelType
 def build_runtime_context(
     *,
     toolsets: list[AbstractToolset[Any]] | None = None,
-    model: ModelType = "test-model",
+    model: ModelType = "test",
     depth: int = 0,
     prompt: str = "",
     messages: list[Any] | None = None,

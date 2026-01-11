@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 import pytest
 from pydantic import BaseModel, TypeAdapter
+from pydantic_ai.models import Model
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
@@ -21,7 +22,7 @@ class CaptureArgs(BaseModel):
 
 class CaptureToolset(AbstractToolset[Any]):
     def __init__(self) -> None:
-        self.seen_model: Optional[str] = None
+        self.seen_model: Optional[Model] = None
 
     @property
     def id(self) -> str | None:
@@ -57,36 +58,59 @@ class CaptureToolset(AbstractToolset[Any]):
 async def test_child_context_uses_parent_model() -> None:
     """Child context inherits model from parent when not overridden."""
     toolset = CaptureToolset()
+    parent_model = TestModel(custom_output_text="parent")
     ctx = build_runtime_context(
         toolsets=[toolset],
-        model="parent-model",
+        model=parent_model,
     )
 
     # Spawn child without model override - should inherit parent's model
     child = ctx.spawn_child(active_toolsets=[toolset])
-    assert child.model == "parent-model"
+    assert child.model is parent_model
 
-    # Tool call should see the inherited model
+    # Tool call should see the inherited model (resolved to same instance)
     await child.call("capture", {"value": 1})
-    assert toolset.seen_model == "parent-model"
+    assert toolset.seen_model is parent_model
 
 
 @pytest.mark.anyio
 async def test_child_context_overrides_parent_model() -> None:
     """Child context can override parent's model."""
     toolset = CaptureToolset()
+    parent_model = TestModel(custom_output_text="parent")
+    child_model = TestModel(custom_output_text="child")
     ctx = build_runtime_context(
         toolsets=[toolset],
-        model="parent-model",
+        model=parent_model,
     )
 
     # Spawn child with model override
-    child = ctx.spawn_child(active_toolsets=[toolset], model="child-model")
-    assert child.model == "child-model"
+    child = ctx.spawn_child(active_toolsets=[toolset], model=child_model)
+    assert child.model is child_model
 
     # Tool call should see the overridden model
     await child.call("capture", {"value": 1})
-    assert toolset.seen_model == "child-model"
+    assert toolset.seen_model is child_model
+
+
+@pytest.mark.anyio
+async def test_string_model_resolved_to_model_instance() -> None:
+    """String model is resolved to a concrete Model in RunContext."""
+    toolset = CaptureToolset()
+    ctx = build_runtime_context(
+        toolsets=[toolset],
+        model="test",  # String model name
+    )
+
+    # The context stores the string
+    assert ctx.model == "test"
+
+    # But when we call a tool, the RunContext should have a resolved Model
+    await ctx.call("capture", {"value": 1})
+
+    # The model in RunContext should be a TestModel instance (resolved from "test")
+    assert toolset.seen_model is not None
+    assert isinstance(toolset.seen_model, TestModel)
 
 
 # --- compatible_models tests ---

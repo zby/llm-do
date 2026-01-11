@@ -1,9 +1,12 @@
 # Execution Mode Scripting Simplification
 
+## Status
+Partially implemented. `Worker.call()` provides direct Python embedding; manifest-based CLI is the current approach.
+
 ## Context
-- `docs/notes/execution-modes-user-stories.md` outlines goals for chat-first workflows with a headless escape hatch and predictable approvals/outputs.
-- `experiments/inv/v2_direct/run.py` shows how to embed workers directly in Python, but still requires manual instruction loading, duplicated base paths, and custom display/approval wiring.
-- We need a cohesive story that lets the same worker artifacts serve chat (CLI/TUI), headless CLI, and direct-Python embedding without bespoke scripts for each scenario.
+- `docs/notes/execution-modes-user-stories.md` outlines goals for TUI-first workflows with a headless escape hatch and predictable approvals/outputs.
+- Direct Python embedding is possible via `Worker.call()` with a `WorkerRuntime`.
+- CLI currently requires a JSON manifest; direct `.worker` file execution is a future simplification.
 
 ## Findings
 ### Pain points with the current direct-run pattern
@@ -38,7 +41,7 @@
 5. **Example shrink target**
    - Replace `experiments/inv/v2_direct/run.py` with a ~12–15 line sample using `quick_run`/`Runner` to demonstrate the pattern and keep docs/tests aligned with the API.
 
-> **Note:** `Runner` here is a proposed helper surface, not an existing class. The intent is to wrap `run_invocable` (or possibly alias to `WorkerRuntime`) with default display/approval wiring so repeated calls from Python stay aligned with headless CLI defaults.
+> **Note:** `Runner` here is a proposed helper surface, not an existing class. The intent is to wrap `Worker.call()` with default display/approval wiring so repeated calls from Python stay aligned with headless CLI defaults. Currently, `Worker.call()` requires manually constructing a `WorkerRuntime` with approval policy and event callbacks.
 
 ### How this supports the user stories
 - **Headless automation**: Minimal script surface plus optional directory-scanning helpers give predictable approvals, relative-path stability, and structured outputs for CI or batch jobs.
@@ -51,7 +54,7 @@
 - What defaults should `quick_run` choose for output format—plain text vs JSON envelope?
 - Should approval presets allow scoped grants (per tool/directory) to mirror future CLI ergonomics, or is global approve/prompt enough for now?
 - How do we expose citation/source metadata consistently across chat/headless/script outputs without bloating simple runs?
-- Does `Runner` become a new helper (likely wrapping `run_invocable` + display/approval defaults), or should we alias to an existing type like `WorkerRunner` to avoid duplicating concepts?
+- Does `Runner` become a new helper (wrapping `Worker.call()` + display/approval defaults), or should we extend `WorkerRunner` to serve both TUI and headless scenarios?
 
 ## Conclusion
 A thin `quick_run` + `Runner` layer, paired with an opt-in `load_workers_from_dir` helper and output/approval presets, would collapse most of the boilerplate in `experiments/inv/v2_direct/run.py` while aligning direct Python runs with the expectations in the execution-mode user stories. The same worker artifacts could then serve chat, headless CLI, and embedded scripts with consistent safety and output defaults without introducing a separate manifest format.

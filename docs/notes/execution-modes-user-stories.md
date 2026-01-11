@@ -2,29 +2,30 @@
 
 ## Mode Philosophy
 
-**Proposal: Chat as default** (like other AI assistants)
-- `llm-do` → starts chat mode
-- `llm-do --headless "prompt"` or `llm-do --run "prompt"` → headless mode
-- Aligns with user expectations from ChatGPT, Claude, etc.
-
 Two general modes:
-1. **Chat (default)** - interactive TUI with multi-turn conversations
-2. **Headless** - explicit flag, single-turn, for scripting/automation
+1. **TUI (default)** - interactive TUI with multi-turn conversations (`--chat` for multi-turn)
+2. **Headless** - explicit `--headless` flag for scripting/automation
 
-### Execution mode inventory (including near-term options)
+### Execution mode inventory
 
-- **CLI chat (default)**: `llm-do` launches the TUI with approvals prompted per tool.
-- **CLI headless**: `llm-do --headless "prompt"` or `--run` executes a single turn, honors `--approve-all`, and returns machine-readable output.
-- **Python script embedding** (from `experiments/inv/v2_direct/run.py`): call `run_invocable` with `Worker` objects inside a Python script to ship or experiment with workers without the CLI. Works with `HeadlessDisplayBackend`, `RunApprovalPolicy`, and configurable verbosity/paths.
-- **Git/relative file workers (proposed)**: discover workers relative to the current repo root or a configured search path so teams can sync workers alongside code. Support `llm-do ./workers/researcher.worker` and absolute paths for CI.
-- **Remote worker registry (moderate effort)**: allow a `--from-url`/`--from-index` flag to fetch signed worker bundles from an internal index. Useful for distribution across teams without pip-installing code.
-- **Task file execution (moderate effort)**: accept a YAML/JSON run spec (worker + prompt + args + attachments) for batch or scheduled jobs.
-- **Multi-worker orchestration (existing via tool calls)**: workers can call sub-workers today; we can add a convenience mode to spawn a worker graph from a manifest while keeping approvals scoped per tool.
+**Implemented:**
+- **CLI TUI**: `llm-do manifest.json` launches the TUI with approvals prompted per tool
+- **CLI headless**: `llm-do manifest.json --headless` for scripting, `--json` for machine-readable output
+- **Multi-turn chat**: `--chat` flag enables conversation mode in TUI
+- **Manifest-driven execution**: JSON manifest specifies runtime config, entry point, and file paths
+- **Multi-worker orchestration**: workers can call sub-workers via toolsets
+- **Python embedding**: `Worker.run()` method for direct Python execution
+
+**Future / Not Yet Implemented:**
+- **Direct worker file execution**: `llm-do ./worker.worker "prompt"` without manifest
+- **Worker discovery**: auto-scan project for workers
+- **Remote worker registry**: `--from-url` for fetching workers
 
 #### Resolved (execution modes)
 
-- Removed the package entrypoint mode in favor of running workers as Python scripts (`run_invocable`), keeping distribution aligned with plain Python instead of inventing a worker-specific bundle format.
-- Treat workers like Python functions and package the full program as a Python package (with package data for prompts/config) rather than inventing a bespoke worker file distribution format.
+- Removed the package entrypoint mode in favor of running workers as Python scripts, keeping distribution aligned with plain Python.
+- Treat workers like Python functions and package the full program as a Python package.
+- Manifest-based execution is the current approach; direct `.worker` file execution is a future simplification.
 
 ---
 
@@ -176,11 +177,8 @@ Some tools pre-approved based on worker author's judgment.
 orchestrator -> researcher -> shell.run("curl ...")
 ```
 Who approves the shell command?
-- Option A: Bubble to user always (safe but noisy)
-- Option B: Trust chain - if orchestrator is trusted, its delegates inherit trust
-- Option C: Configurable per-worker trust boundaries
 
-Current stance: keep the two-layer model. Global flags (`--approve-all`, `--headless`) apply to the session, while each worker/tool keeps its own approval policy. Sub-workers do not inherit approvals from parents; they follow their own configured policies.
+**Implemented:** Two-layer model. Global flags apply to the session, while each worker/tool keeps its own approval policy. Sub-workers do not inherit approvals from parents; they follow their own configured policies.
 
 ### Scenario 8: Headless mode, read-only tools only
 ```
@@ -362,25 +360,24 @@ Rapid iteration during development.
 
 ## Open Design Questions
 
-1. **Default mode** - Should `llm-do` alone start chat? What if there's a prompt on CLI?
-   - `llm-do` → chat
-   - `llm-do "prompt"` → chat with initial prompt? or headless single-turn?
+### Resolved
 
-2. **Worker discovery** - How to find workers without explicit paths?
+1. **Default mode** - Manifest required; TUI is default, `--headless` for scripting
+2. **Trust boundaries** - Sub-workers follow their own approval policies, not inherited from parent
+3. **Distribution format** - Workers are Python packages, no bespoke bundle format
+
+### Still Open
+
+1. **Worker discovery** - How to find workers without explicit paths?
    - `llm-do.yaml` in project root?
    - `~/.config/llm-do/workers/` for global workers?
    - Auto-scan current directory?
 
-3. **Headless tool exposure** - Should headless runs only advertise tools that
+2. **Headless tool exposure** - Should headless runs only advertise tools that
    are guaranteed to succeed without approvals?
 
-4. **Structured output defaults** - Should certain workers declare a preferred
+3. **Structured output defaults** - Should certain workers declare a preferred
    output format (Markdown/JSON) to reduce ambiguity?
-
-5. **Distribution format** - Do we treat workers as packages with entrypoints
-   (e.g., `pkg:worker`), or support a bundled directory format (zip/tarball)?
-
-3. **Trust boundaries** - How deep does approval go in nested workers?
 
 4. **Hot reload** - File watcher for worker changes during development?
 

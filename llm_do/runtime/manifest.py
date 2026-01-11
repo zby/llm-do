@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 ApprovalMode = Literal["prompt", "approve_all", "reject_all"]
 
 
-class RuntimeConfig(BaseModel):
+class ManifestRuntimeConfig(BaseModel):
     """Runtime configuration from manifest."""
 
     model_config = ConfigDict(extra="forbid")
@@ -47,7 +47,7 @@ class ProjectManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: int = Field(...)
-    runtime: RuntimeConfig
+    runtime: ManifestRuntimeConfig
     allow_cli_input: bool = True
     entry: EntryConfig
     worker_files: list[str] = Field(default_factory=list)

@@ -6,19 +6,19 @@ import pytest
 
 from llm_do.runtime.manifest import (
     EntryConfig,
+    ManifestRuntimeConfig,
     ProjectManifest,
-    RuntimeConfig,
     load_manifest,
     resolve_manifest_paths,
 )
 
 
-class TestRuntimeConfig:
-    """Tests for RuntimeConfig schema."""
+class TestManifestRuntimeConfig:
+    """Tests for ManifestRuntimeConfig schema."""
 
     def test_defaults(self):
         """Test default values."""
-        config = RuntimeConfig()
+        config = ManifestRuntimeConfig()
         assert config.approval_mode == "prompt"
         assert config.max_depth == 5
         assert config.model is None
@@ -27,23 +27,23 @@ class TestRuntimeConfig:
     def test_approval_modes(self):
         """Test valid approval modes."""
         for mode in ("prompt", "approve_all", "reject_all"):
-            config = RuntimeConfig(approval_mode=mode)
+            config = ManifestRuntimeConfig(approval_mode=mode)
             assert config.approval_mode == mode
 
     def test_invalid_approval_mode(self):
         """Test invalid approval mode raises error."""
         with pytest.raises(ValueError):
-            RuntimeConfig(approval_mode="invalid")
+            ManifestRuntimeConfig(approval_mode="invalid")
 
     def test_max_depth_minimum(self):
         """Test max_depth must be >= 1."""
         with pytest.raises(ValueError):
-            RuntimeConfig(max_depth=0)
+            ManifestRuntimeConfig(max_depth=0)
 
     def test_extra_fields_forbidden(self):
         """Test extra fields raise error."""
         with pytest.raises(ValueError):
-            RuntimeConfig(unknown_field="value")
+            ManifestRuntimeConfig(unknown_field="value")
 
 
 class TestEntryConfig:
@@ -84,7 +84,7 @@ class TestProjectManifest:
         """Test minimal valid manifest."""
         manifest = ProjectManifest(
             version=1,
-            runtime=RuntimeConfig(),
+            runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(name="main"),
             worker_files=["main.worker"],
         )
@@ -95,7 +95,7 @@ class TestProjectManifest:
         """Test version is required."""
         with pytest.raises(ValueError):
             ProjectManifest(
-                runtime=RuntimeConfig(),
+                runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(name="main"),
                 worker_files=["main.worker"],
             )
@@ -105,7 +105,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError, match="Unsupported manifest version"):
             ProjectManifest(
                 version=2,
-                runtime=RuntimeConfig(),
+                runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(name="main"),
                 worker_files=["main.worker"],
             )
@@ -124,7 +124,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError):
             ProjectManifest(
                 version=1,
-                runtime=RuntimeConfig(),
+                runtime=ManifestRuntimeConfig(),
                 worker_files=["main.worker"],
             )
 
@@ -133,7 +133,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError, match="At least one"):
             ProjectManifest(
                 version=1,
-                runtime=RuntimeConfig(),
+                runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(name="main"),
             )
 
@@ -142,7 +142,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError, match="non-empty"):
             ProjectManifest(
                 version=1,
-                runtime=RuntimeConfig(),
+                runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(name="main"),
                 worker_files=[""],
             )
@@ -152,7 +152,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError, match="Duplicate"):
             ProjectManifest(
                 version=1,
-                runtime=RuntimeConfig(),
+                runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(name="main"),
                 worker_files=["main.worker", "main.worker"],
             )
@@ -161,7 +161,7 @@ class TestProjectManifest:
         """Test allow_cli_input defaults to true."""
         manifest = ProjectManifest(
             version=1,
-            runtime=RuntimeConfig(),
+            runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(name="main"),
             python_files=["tools.py"],
         )
@@ -171,7 +171,7 @@ class TestProjectManifest:
         """Test allow_cli_input can be set false."""
         manifest = ProjectManifest(
             version=1,
-            runtime=RuntimeConfig(),
+            runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(name="main"),
             allow_cli_input=False,
             python_files=["tools.py"],
@@ -183,7 +183,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError):
             ProjectManifest(
                 version=1,
-                runtime=RuntimeConfig(),
+                runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(name="main"),
                 worker_files=["main.worker"],
                 unknown_field="value",
@@ -248,7 +248,7 @@ class TestResolveManifestPaths:
 
         manifest = ProjectManifest(
             version=1,
-            runtime=RuntimeConfig(),
+            runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(name="main"),
             worker_files=["main.worker"],
             python_files=["tools.py"],
@@ -265,7 +265,7 @@ class TestResolveManifestPaths:
         """Test missing worker file raises FileNotFoundError."""
         manifest = ProjectManifest(
             version=1,
-            runtime=RuntimeConfig(),
+            runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(name="main"),
             worker_files=["missing.worker"],
         )
@@ -277,7 +277,7 @@ class TestResolveManifestPaths:
         """Test missing python file raises FileNotFoundError."""
         manifest = ProjectManifest(
             version=1,
-            runtime=RuntimeConfig(),
+            runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(name="main"),
             python_files=["missing.py"],
         )
@@ -295,7 +295,7 @@ class TestResolveManifestPaths:
 
         manifest = ProjectManifest(
             version=1,
-            runtime=RuntimeConfig(),
+            runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(name="main"),
             worker_files=["workers/main.worker"],
         )

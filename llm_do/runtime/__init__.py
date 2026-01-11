@@ -26,12 +26,10 @@ from .discovery import (
 )
 from .manifest import (
     EntryConfig,
+    ManifestRuntimeConfig,
     ProjectManifest,
     load_manifest,
     resolve_manifest_paths,
-)
-from .manifest import (
-    RuntimeConfig as ManifestRuntimeConfig,
 )
 from .registry import (
     EntryRegistry,

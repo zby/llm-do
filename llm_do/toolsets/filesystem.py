@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional, cast
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.toolsets.abstract import SchemaValidatorProt
@@ -22,6 +22,8 @@ from pydantic_ai_blocking_approval import (
     ApprovalResult,
     needs_approval_from_config,
 )
+
+from .validators import DictValidator
 
 DEFAULT_MAX_READ_CHARS = 20_000
 """Default maximum characters to read from a file."""
@@ -35,6 +37,40 @@ class ReadResult(BaseModel):
     total_chars: int = Field(description="Total file size in characters")
     offset: int = Field(description="Starting character position used")
     chars_read: int = Field(description="Number of characters actually returned")
+
+
+class ReadFileArgs(BaseModel):
+    """Arguments for read_file."""
+
+    path: str = Field(description="Path to the file to read")
+    max_chars: int = Field(
+        default=DEFAULT_MAX_READ_CHARS,
+        description=f"Maximum characters to read (default {DEFAULT_MAX_READ_CHARS:,})",
+    )
+    offset: int = Field(
+        default=0,
+        description="Character position to start reading from (default 0)",
+    )
+
+
+class WriteFileArgs(BaseModel):
+    """Arguments for write_file."""
+
+    path: str = Field(description="Path to the file to write")
+    content: str = Field(description="Content to write to the file")
+
+
+class ListFilesArgs(BaseModel):
+    """Arguments for list_files."""
+
+    path: str = Field(
+        default=".",
+        description="Directory to search in (default: current directory)",
+    )
+    pattern: str = Field(
+        default="**/*",
+        description="Glob pattern to match (default: all files)",
+    )
 
 
 class FileSystemToolset(AbstractToolset[Any]):
@@ -313,57 +349,9 @@ class FileSystemToolset(AbstractToolset[Any]):
         tools = {}
 
         # Define tool schemas
-        read_file_schema = {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Path to the file to read",
-                },
-                "max_chars": {
-                    "type": "integer",
-                    "default": DEFAULT_MAX_READ_CHARS,
-                    "description": f"Maximum characters to read (default {DEFAULT_MAX_READ_CHARS:,})",
-                },
-                "offset": {
-                    "type": "integer",
-                    "default": 0,
-                    "description": "Character position to start reading from (default 0)",
-                },
-            },
-            "required": ["path"],
-        }
-
-        write_file_schema = {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Path to the file to write",
-                },
-                "content": {
-                    "type": "string",
-                    "description": "Content to write to the file",
-                },
-            },
-            "required": ["path", "content"],
-        }
-
-        list_files_schema = {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "default": ".",
-                    "description": "Directory to search in (default: current directory)",
-                },
-                "pattern": {
-                    "type": "string",
-                    "default": "**/*",
-                    "description": "Glob pattern to match (default: all files)",
-                },
-            },
-        }
+        read_file_schema = ReadFileArgs.model_json_schema()
+        write_file_schema = WriteFileArgs.model_json_schema()
+        list_files_schema = ListFilesArgs.model_json_schema()
 
         # Create ToolsetTool instances
         tools["read_file"] = ToolsetTool(
@@ -378,7 +366,7 @@ class FileSystemToolset(AbstractToolset[Any]):
                 parameters_json_schema=read_file_schema,
             ),
             max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, TypeAdapter(dict[str, Any]).validator),
+            args_validator=cast(SchemaValidatorProt, DictValidator(ReadFileArgs)),
         )
 
         tools["write_file"] = ToolsetTool(
@@ -389,7 +377,7 @@ class FileSystemToolset(AbstractToolset[Any]):
                 parameters_json_schema=write_file_schema,
             ),
             max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, TypeAdapter(dict[str, Any]).validator),
+            args_validator=cast(SchemaValidatorProt, DictValidator(WriteFileArgs)),
         )
 
         tools["list_files"] = ToolsetTool(
@@ -400,7 +388,7 @@ class FileSystemToolset(AbstractToolset[Any]):
                 parameters_json_schema=list_files_schema,
             ),
             max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, TypeAdapter(dict[str, Any]).validator),
+            args_validator=cast(SchemaValidatorProt, DictValidator(ListFilesArgs)),
         )
 
         return tools

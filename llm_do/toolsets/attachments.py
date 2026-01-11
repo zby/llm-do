@@ -5,11 +5,19 @@ import mimetypes
 from pathlib import Path
 from typing import Any, Optional, cast
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, Field
 from pydantic_ai.messages import BinaryContent
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.toolsets.abstract import SchemaValidatorProt
+
+from .validators import DictValidator
+
+
+class ReadAttachmentArgs(BaseModel):
+    """Arguments for read_attachment."""
+
+    path: str = Field(description="Path to the attachment file")
 
 
 class AttachmentToolset(AbstractToolset[Any]):
@@ -33,16 +41,7 @@ class AttachmentToolset(AbstractToolset[Any]):
         return f"Read attachment {path}"
 
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool[Any]]:
-        read_schema = {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Path to the attachment file",
-                },
-            },
-            "required": ["path"],
-        }
+        read_schema = ReadAttachmentArgs.model_json_schema()
 
         return {
             "read_attachment": ToolsetTool(
@@ -53,7 +52,7 @@ class AttachmentToolset(AbstractToolset[Any]):
                     parameters_json_schema=read_schema,
                 ),
                 max_retries=self._max_retries,
-                args_validator=cast(SchemaValidatorProt, TypeAdapter(dict[str, Any]).validator),
+                args_validator=cast(SchemaValidatorProt, DictValidator(ReadAttachmentArgs)),
             )
         }
 

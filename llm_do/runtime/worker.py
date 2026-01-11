@@ -12,9 +12,9 @@ import json
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterable, Callable, Literal, Optional, Sequence, Type, cast
+from typing import Any, AsyncIterable, Callable, Optional, Sequence, Type, cast
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
     BinaryContent,
@@ -33,6 +33,7 @@ from pydantic_ai_blocking_approval import ApprovalDecision
 from ..models import select_model
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..toolsets.attachments import AttachmentToolset
+from ..toolsets.validators import DictValidator
 from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
 from .approval import ApprovalCallback
 from .args import WorkerArgs, WorkerInput, ensure_worker_args
@@ -169,50 +170,6 @@ def _capture_message_log(
         yield
 
 
-class _DictValidator:
-    """Validator wrapper that validates against schema but returns dict.
-
-    This is needed because ApprovalToolset expects tool_args to be a dict,
-    but TypeAdapter.validator returns the validated BaseModel instance.
-
-    Wraps a pydantic validator to provide the same interface (validate_python,
-    validate_json, validate_strings) but converts BaseModel results to dicts.
-    """
-
-    def __init__(self, schema: Type[BaseModel]) -> None:
-        self._adapter = TypeAdapter(schema)
-        self._inner = self._adapter.validator
-
-    def _to_dict(self, result: Any) -> dict[str, Any]:
-        if isinstance(result, BaseModel):
-            return result.model_dump()
-        return result
-
-    def validate_python(
-        self,
-        input: Any,
-        *,
-        allow_partial: bool | Literal["off", "on", "trailing-strings"] = False,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        result = self._inner.validate_python(input, allow_partial=allow_partial, **kwargs)
-        return self._to_dict(result)
-
-    def validate_json(
-        self,
-        input: str | bytes | bytearray,
-        *,
-        allow_partial: bool | Literal["off", "on", "trailing-strings"] = False,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        result = self._inner.validate_json(input, allow_partial=allow_partial, **kwargs)
-        return self._to_dict(result)
-
-    def validate_strings(self, data: Any, **kwargs: Any) -> dict[str, Any]:
-        result = self._inner.validate_strings(data, **kwargs)
-        return self._to_dict(result)
-
-
 def build_worker_tool(
     worker: "Worker",
     toolset: AbstractToolset[Any],
@@ -247,7 +204,7 @@ def build_worker_tool(
         toolset=toolset,
         tool_def=tool_def,
         max_retries=0,
-        args_validator=_DictValidator(input_schema),
+        args_validator=DictValidator(input_schema),
     )
 
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional, cast
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, Field
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai.toolsets.abstract import SchemaValidatorProt
@@ -29,6 +29,7 @@ from pydantic_ai_blocking_approval import (
     needs_approval_from_config,
 )
 
+from ..validators import DictValidator
 from .execution import (
     ShellBlockedError,
     check_metacharacters,
@@ -39,6 +40,16 @@ from .execution import (
 from .types import ShellResult
 
 logger = logging.getLogger(__name__)
+
+
+class ShellArgs(BaseModel):
+    """Arguments for shell."""
+
+    command: str = Field(description="Command to execute (parsed with shlex)")
+    timeout: int = Field(
+        default=30,
+        description="Timeout in seconds (default 30, max 300)",
+    )
 
 
 class ShellToolset(AbstractToolset[Any]):
@@ -165,21 +176,7 @@ class ShellToolset(AbstractToolset[Any]):
 
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool]:
         """Return the shell tool definition."""
-        shell_schema = {
-            "type": "object",
-            "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "Command to execute (parsed with shlex)",
-                },
-                "timeout": {
-                    "type": "integer",
-                    "description": "Timeout in seconds (default 30, max 300)",
-                    "default": 30,
-                },
-            },
-            "required": ["command"],
-        }
+        shell_schema = ShellArgs.model_json_schema()
 
         return {
             "shell": ToolsetTool(
@@ -194,7 +191,7 @@ class ShellToolset(AbstractToolset[Any]):
                     parameters_json_schema=shell_schema,
             ),
             max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, TypeAdapter(dict[str, Any]).validator),
+            args_validator=cast(SchemaValidatorProt, DictValidator(ShellArgs)),
         )
         }
 

@@ -55,22 +55,22 @@ Implementation layout mirrors the scopes:
 
 ## Execution Flow
 
-`InvocableRegistry` is the symbol table for a run: it maps entry names to invocables
-(workers and tool-backed entries) after resolution.
+`EntryRegistry` is the symbol table for a run: it maps entry names to entries
+(workers, `@entry` decorated functions, and tool-backed entries) after resolution.
 
 ```
 CLI or Python
     │
     ▼
-Build InvocableRegistry → resolve toolsets
+Build EntryRegistry → resolve toolsets
     │
     ▼
 Runtime.run_entry() creates CallFrame
     │
     ▼
-Worker builds PydanticAI Agent → runs
+Entry executes (Worker builds PydanticAI Agent, or EntryFunction runs)
     │
-    ├── Tool call to another worker?
+    ├── Tool call to another entry?
     │       → new CallFrame (depth+1), same Runtime
     │       → child runs, returns result
     │

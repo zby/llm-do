@@ -54,11 +54,11 @@ from llm_do.runtime import (
     Runtime,
     RunApprovalPolicy,
     WorkerInput,
-    build_invocable_registry,
+    build_entry_registry,
 )
 
 async def main():
-    registry = build_invocable_registry(["analyzer.worker"], [])
+    registry = build_entry_registry(["analyzer.worker"], [])
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
 
     result, ctx = await runtime.run_entry(
@@ -80,13 +80,13 @@ async def main():
 
 | Parameter | Description |
 |-----------|-------------|
-| `registry` | `InvocableRegistry` containing all available entries |
+| `registry` | `EntryRegistry` containing all available entries |
 | `entry_name` | Entry point name to run |
 | `input_data` | Worker input args (WorkerArgs or dict) |
 | `model` | Override the worker's default model |
 | `message_history` | Pre-seed conversation history |
 
-Use `Runtime.run_invocable()` if you already have an invocable object.
+Use `Runtime.run_invocable()` if you already have an entry object.
 
 ### From Within Tools
 
@@ -159,7 +159,39 @@ Via `ctx.deps`, tools can access:
 
 ### Example: Code Entry Point
 
-A common pattern is using a Python tool as the entry point for deterministic orchestration:
+A common pattern is using a Python function as the entry point for deterministic orchestration. There are two approaches:
+
+**Using @entry decorator (recommended):**
+
+```python
+from llm_do.runtime import WorkerRuntime, WorkerInput, entry
+
+@entry(name="main", toolsets=["filesystem_project", "evaluator"])
+async def process_files(input: str, deps: WorkerRuntime) -> str:
+    """Orchestrate evaluation of multiple files."""
+    files = list(Path("input").glob("*.pdf"))  # deterministic
+
+    results = []
+    for f in files:
+        # LLM worker handles reasoning
+        report = await deps.call(
+            "evaluator",
+            WorkerInput(input="Analyze this file.", attachments=[str(f)])
+        )
+        Path(f"output/{f.stem}.md").write_text(report)  # deterministic
+        results.append(f.stem)
+
+    return f"Processed {len(results)} files"
+```
+
+Run with: `llm-do tools.py evaluator.worker --entry main "start"`
+
+The `@entry` decorator:
+- Marks a function as an entry point with a name and toolset references
+- Toolsets can be names (resolved during registry linking) or instances
+- The function receives `(input, deps)` where `deps` is the `WorkerRuntime`
+
+**Using FunctionToolset (legacy):**
 
 ```python
 @tools.tool
@@ -180,9 +212,7 @@ async def main(ctx: RunContext[WorkerRuntime], input: str) -> str:
     return f"Processed {len(results)} files"
 ```
 
-Run with: `llm-do tools.py evaluator.worker --entry main "start"`
-
-This keeps token-intensive orchestration in Python while delegating reasoning to workers.
+Both approaches keep token-intensive orchestration in Python while delegating reasoning to workers.
 
 ---
 

@@ -83,7 +83,11 @@ class Entry(Protocol):
     Additional attributes (model, compatible_models) may be accessed via
     getattr with defaults in the runtime.
 
-    Config and state are accessed via run_ctx.deps (single source of truth).
+    Note: Worker and EntryFunction have different call signatures:
+    - Worker.call(input_data, run_ctx) - called via WorkerRuntime._execute()
+    - EntryFunction.call(args, runtime) - called directly with WorkerArgs
+
+    Runtime.run_invocable() handles the dispatch based on entry type.
     """
 
     @property
@@ -91,9 +95,3 @@ class Entry(Protocol):
 
     @property
     def toolsets(self) -> list[AbstractToolset[Any]]: ...
-
-    async def call(
-        self,
-        input_data: Any,
-        run_ctx: RunContext[WorkerRuntimeProtocol],
-    ) -> Any: ...

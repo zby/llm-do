@@ -4,7 +4,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 
-from llm_do.runtime import Runtime, WorkerInput, entry
+from llm_do.runtime import Runtime, WorkerArgs, WorkerInput, entry
 from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
 from llm_do.runtime.worker import Worker
 from llm_do.toolsets.approval import set_toolset_approval_config
@@ -91,8 +91,9 @@ async def test_entry_function_exposes_its_toolsets() -> None:
         return input
 
     @entry(toolsets=[toolset])
-    async def echo(input: str, deps) -> str:
-        return input
+    async def echo(args: WorkerArgs, runtime_ctx) -> str:
+        # args is WorkerInput with .input attribute
+        return args.prompt_spec().text
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
     result, ctx = await runtime.run_invocable(
@@ -153,8 +154,8 @@ async def test_entry_function_call_not_approval_gated() -> None:
     """EntryFunction call is not gated - it's a direct call, not LLM-invoked."""
 
     @entry()
-    async def echo(input: str, deps) -> str:
-        return input
+    async def echo(args: WorkerArgs, runtime_ctx) -> str:
+        return args.prompt_spec().text
 
     # Even with reject_all, EntryFunction succeeds because
     # it's a direct call, not an LLM-invoked tool call

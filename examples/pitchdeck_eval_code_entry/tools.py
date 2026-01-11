@@ -23,7 +23,7 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
-from llm_do.runtime import WorkerInput, WorkerRuntime, entry
+from llm_do.runtime import WorkerArgs, WorkerInput, WorkerRuntime, entry
 
 # Project root is the directory containing this file
 PROJECT_ROOT = Path(__file__).parent.resolve()
@@ -55,7 +55,7 @@ def list_pitchdecks(input_dir: str = "input") -> list[dict]:
 
 
 @entry(toolsets=["pitch_evaluator"])
-async def main(input: str, ctx: WorkerRuntime) -> str:
+async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     """Evaluate all pitch decks in input directory.
 
     This is a code entry point that orchestrates the evaluation workflow:
@@ -66,8 +66,8 @@ async def main(input: str, ctx: WorkerRuntime) -> str:
     File paths are relative to the project root (this file's directory).
 
     Args:
-        input: User input (ignored - workflow is deterministic)
-        ctx: WorkerRuntime for calling workers
+        args: WorkerArgs input (ignored - workflow is deterministic)
+        runtime: WorkerRuntime for calling workers
     """
     decks = list_pitchdecks()
 
@@ -77,7 +77,7 @@ async def main(input: str, ctx: WorkerRuntime) -> str:
     results = []
 
     for deck in decks:
-        report = await ctx.call(
+        report = await runtime.call(
             "pitch_evaluator",
             WorkerInput(
                 input="Evaluate this pitch deck.",

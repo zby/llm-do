@@ -364,25 +364,17 @@ class EntryFunction:
 
     async def call(
         self,
-        input_data: Any,
-        run_ctx: RunContext[WorkerRuntimeProtocol],
+        input_args: WorkerArgs,
+        runtime: WorkerRuntimeProtocol,
     ) -> Any:
         """Execute the wrapped function.
 
         Args:
-            input_data: Entry input (typically dict with "input" key)
-            run_ctx: PydanticAI RunContext for execution context
+            input_args: Normalized WorkerArgs input
+            runtime: WorkerRuntime for tool access and runtime state
         """
-        # Support both dict and direct input styles
-        if isinstance(input_data, dict) and "input" in input_data:
-            prompt = input_data["input"]
-        elif isinstance(input_data, BaseModel):
-            prompt = input_data.model_dump()
-        else:
-            prompt = input_data
-
-        # Call the function with deps context
-        result = self.func(prompt, run_ctx.deps)
+        # Call the function with (args, runtime)
+        result = self.func(input_args, runtime)
         if inspect.isawaitable(result):
             result = await result
         return result
@@ -395,9 +387,9 @@ def entry(
 ) -> Callable[[Callable[..., Any]], EntryFunction]:
     """Decorator to mark a function as an entry point.
 
-    The decorated function should accept (input, ctx) where:
-    - input: The prompt/input data (typically a string or dict)
-    - ctx: WorkerRuntime instance for accessing tools and context
+    The decorated function should accept (args, runtime) where:
+    - args: WorkerArgs instance (normalized input with prompt_spec())
+    - runtime: WorkerRuntime instance for calling tools
 
     Args:
         name: Entry name (defaults to function name)
@@ -408,9 +400,10 @@ def entry(
 
     Example:
         @entry(name="analyzer", toolsets=["filesystem", "shell"])
-        async def analyze(input: str, ctx: WorkerRuntime) -> str:
-            # Use ctx.tools.shell(...) to call tools
-            return f"Analyzed: {input}"
+        async def analyze(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+            # Use runtime.call(...) to invoke tools
+            # Access prompt via args.prompt_spec().text
+            return f"Analyzed: {args.prompt_spec().text}"
     """
     def decorator(func: Callable[..., Any]) -> EntryFunction:
         entry_name = name if name is not None else func.__name__

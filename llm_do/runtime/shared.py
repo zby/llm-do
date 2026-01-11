@@ -168,30 +168,40 @@ class Runtime:
         model: ModelType | None = None,
         message_history: list[Any] | None = None,
     ) -> tuple[Any, WorkerRuntime]:
-        """Run an invocable with this runtime."""
+        """Run an invocable with this runtime.
+
+        Normalizes input_data to WorkerArgs for all entry types.
+        Sets frame.prompt from the WorkerArgs prompt_spec().
+        """
         from .args import WorkerArgs, ensure_worker_args
         from .deps import WorkerRuntime
-        from .worker import Worker
+        from .worker import EntryFunction, Worker
+
+        # Determine schema_in: Workers may have custom schema, entries use default
+        if isinstance(invocable, Worker):
+            schema_in = invocable.schema_in
+        else:
+            schema_in = None  # Will use WorkerInput default
+
+        # Normalize input to WorkerArgs for all entries
+        input_args = ensure_worker_args(schema_in, input_data)
+        prompt_spec = input_args.prompt_spec()
 
         frame = self._build_entry_frame(invocable, model=model, message_history=message_history)
+        frame.prompt = prompt_spec.text
         ctx = WorkerRuntime(runtime=self, frame=frame)
-        prompt_text: str | None = None
 
-        if isinstance(invocable, Worker):
-            input_args = ensure_worker_args(invocable.schema_in, input_data)
-            prompt_text = input_args.prompt_spec().text
-            input_data = input_args
-        elif isinstance(input_data, WorkerArgs):
-            prompt_text = input_data.prompt_spec().text
-        elif isinstance(input_data, dict) and "input" in input_data:
-            prompt_text = str(input_data["input"])
-
-        if self._config.on_event is not None and prompt_text is not None:
+        if self._config.on_event is not None:
             self._config.on_event(
-                UserMessageEvent(worker=invocable.name, content=prompt_text)
+                UserMessageEvent(worker=invocable.name, content=prompt_spec.text)
             )
 
-        result = await ctx.run(invocable, input_data)
+        # For EntryFunction, pass normalized args directly to call()
+        # For Worker, the existing ctx.run() path handles it
+        if isinstance(invocable, EntryFunction):
+            result = await invocable.call(input_args, ctx)
+        else:
+            result = await ctx.run(invocable, input_args)
         return result, ctx
 
     async def run_entry(

@@ -395,9 +395,9 @@ def entry(
 ) -> Callable[[Callable[..., Any]], EntryFunction]:
     """Decorator to mark a function as an entry point.
 
-    The decorated function should accept (input, deps) where:
+    The decorated function should accept (input, ctx) where:
     - input: The prompt/input data (typically a string or dict)
-    - deps: WorkerRuntime instance for accessing tools and context
+    - ctx: WorkerRuntime instance for accessing tools and context
 
     Args:
         name: Entry name (defaults to function name)
@@ -408,8 +408,8 @@ def entry(
 
     Example:
         @entry(name="analyzer", toolsets=["filesystem", "shell"])
-        async def analyze(input: str, deps: WorkerRuntime) -> str:
-            # Use deps.tools.shell(...) to call tools
+        async def analyze(input: str, ctx: WorkerRuntime) -> str:
+            # Use ctx.tools.shell(...) to call tools
             return f"Analyzed: {input}"
     """
     def decorator(func: Callable[..., Any]) -> EntryFunction:

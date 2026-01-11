@@ -100,7 +100,7 @@ Approval wrapping gates **LLM-initiated** tool calls, not all tool calls:
 ┌─────────────────────────────────────────────────────┐
 │  Trusted Code (no approval)                         │
 │  ┌───────────────┐     ┌───────────────┐           │
-│  │ @entry func   │────▶│ deps.call()   │           │
+│  │ @entry func   │────▶│ ctx.call()    │           │
 │  └───────────────┘     └───────────────┘           │
 └─────────────────────────────────────────────────────┘
                               │

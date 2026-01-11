@@ -167,14 +167,14 @@ A common pattern is using a Python function as the entry point for deterministic
 from llm_do.runtime import WorkerRuntime, WorkerInput, entry
 
 @entry(name="main", toolsets=["filesystem_project", "evaluator"])
-async def process_files(input: str, deps: WorkerRuntime) -> str:
+async def process_files(input: str, ctx: WorkerRuntime) -> str:
     """Orchestrate evaluation of multiple files."""
     files = list(Path("input").glob("*.pdf"))  # deterministic
 
     results = []
     for f in files:
         # LLM worker handles reasoning
-        report = await deps.call(
+        report = await ctx.call(
             "evaluator",
             WorkerInput(input="Analyze this file.", attachments=[str(f)])
         )
@@ -189,7 +189,7 @@ Run with: `llm-do tools.py evaluator.worker --entry main "start"`
 The `@entry` decorator:
 - Marks a function as an entry point with a name and toolset references
 - Toolsets can be names (resolved during registry linking) or instances
-- The function receives `(input, deps)` where `deps` is the `WorkerRuntime`
+- The function receives `(input, ctx)` where `ctx` is the `WorkerRuntime`
 
 **Using FunctionToolset (legacy):**
 

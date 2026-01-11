@@ -7,7 +7,7 @@ This example demonstrates the **code entry point** pattern using `runtime` where
 ```
 tools.py::main() (deterministic code)
     ├── calls list_pitchdecks() directly
-    ├── for each deck: ctx.deps.call("pitch_evaluator", ...)
+    ├── for each deck: ctx.call("pitch_evaluator", ...)
     └── writes results directly (Path.write_text)
 
 pitch_evaluator.worker (LLM analysis)
@@ -48,13 +48,13 @@ directly, so it can call workers/tools by name:
 from llm_do.runtime import WorkerInput, WorkerRuntime, entry
 
 @entry(name="main", toolsets=["pitch_evaluator"])
-async def main(input: str, deps: WorkerRuntime) -> str:
+async def main(input: str, ctx: WorkerRuntime) -> str:
     """Entry point - Python orchestration."""
     decks = list_pitchdecks()
 
     for deck in decks:
-        # Call LLM worker for analysis via deps.call()
-        report = await deps.call(
+        # Call LLM worker for analysis via ctx.call()
+        report = await ctx.call(
             "pitch_evaluator",
             WorkerInput(
                 input="Evaluate this pitch deck.",
@@ -68,7 +68,7 @@ async def main(input: str, deps: WorkerRuntime) -> str:
     return f"Evaluated {len(decks)} pitch deck(s)"
 ```
 
-The `deps.call()` method can invoke:
+The `ctx.call()` method can invoke:
 - **Code tools**: Tool functions exposed via toolsets
 - **Worker tools**: `.worker` files (LLM agents)
 

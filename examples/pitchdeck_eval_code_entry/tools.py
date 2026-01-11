@@ -55,7 +55,7 @@ def list_pitchdecks(input_dir: str = "input") -> list[dict]:
 
 
 @entry(toolsets=["pitch_evaluator"])
-async def main(input: str, deps: WorkerRuntime) -> str:
+async def main(input: str, ctx: WorkerRuntime) -> str:
     """Evaluate all pitch decks in input directory.
 
     This is a code entry point that orchestrates the evaluation workflow:
@@ -67,7 +67,7 @@ async def main(input: str, deps: WorkerRuntime) -> str:
 
     Args:
         input: User input (ignored - workflow is deterministic)
-        deps: WorkerRuntime for calling workers
+        ctx: WorkerRuntime for calling workers
     """
     decks = list_pitchdecks()
 
@@ -77,7 +77,7 @@ async def main(input: str, deps: WorkerRuntime) -> str:
     results = []
 
     for deck in decks:
-        report = await deps.call(
+        report = await ctx.call(
             "pitch_evaluator",
             WorkerInput(
                 input="Evaluate this pitch deck.",

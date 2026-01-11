@@ -83,6 +83,7 @@ Key points:
 - Child workers get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
+- EntryFunction inputs are normalized to `WorkerArgs` (via `schema_in`, default `WorkerInput`)
 
 ---
 

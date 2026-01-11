@@ -194,6 +194,23 @@ The `@entry` decorator:
   - `args`: `WorkerArgs` instance (normalized input with `prompt_spec()`)
   - `runtime`: `WorkerRuntime` for calling tools via `runtime.call()`
 
+Example with custom input schema:
+
+```python
+from llm_do.runtime import PromptSpec, WorkerArgs, WorkerRuntime, entry
+
+class TaggedInput(WorkerArgs):
+    input: str
+    tag: str
+
+    def prompt_spec(self) -> PromptSpec:
+        return PromptSpec(text=f"{self.input}:{self.tag}")
+
+@entry(name="main", schema_in=TaggedInput)
+async def main(args: TaggedInput, runtime: WorkerRuntime) -> str:
+    return args.tag
+```
+
 **Using FunctionToolset (legacy):**
 
 ```python

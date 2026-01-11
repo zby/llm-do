@@ -185,8 +185,8 @@ def build_invocable_registry(
         worker_path = worker_paths[name]
 
         # Available toolsets: built-ins + Python + workers (including self if referenced)
-        # Worker IS an AbstractToolset, so we can use it directly
-        available_workers = dict(worker_entries)
+        # Workers are wrapped in WorkerToolset to expose them as tools
+        available_workers = {n: WorkerToolset(w) for n, w in worker_entries.items()}
         worker_root = worker_path.parent
         builtin_toolsets = build_builtin_toolsets(Path.cwd(), worker_root)
         all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, available_workers)

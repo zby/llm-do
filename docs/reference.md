@@ -189,6 +189,7 @@ Run with: `llm-do tools.py evaluator.worker --entry main "start"`
 The `@entry` decorator:
 - Marks a function as an entry point with a name and toolset references
 - Toolsets can be names (resolved during registry linking) or instances
+- `schema_in` can specify a `WorkerArgs` subclass for input normalization (defaults to `WorkerInput`)
 - The function receives `(args, runtime)`:
   - `args`: `WorkerArgs` instance (normalized input with `prompt_spec()`)
   - `runtime`: `WorkerRuntime` for calling tools via `runtime.call()`

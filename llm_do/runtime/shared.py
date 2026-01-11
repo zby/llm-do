@@ -173,18 +173,12 @@ class Runtime:
         Normalizes input_data to WorkerArgs for all entry types.
         Sets frame.prompt from the WorkerArgs prompt_spec().
         """
-        from .args import WorkerArgs, ensure_worker_args
+        from .args import ensure_worker_args
         from .deps import WorkerRuntime
         from .worker import EntryFunction, Worker
 
-        # Determine schema_in: Workers may have custom schema, entries use default
-        if isinstance(invocable, Worker):
-            schema_in = invocable.schema_in
-        else:
-            schema_in = None  # Will use WorkerInput default
-
         # Normalize input to WorkerArgs for all entries
-        input_args = ensure_worker_args(schema_in, input_data)
+        input_args = ensure_worker_args(invocable.schema_in, input_data)
         prompt_spec = input_args.prompt_spec()
 
         frame = self._build_entry_frame(invocable, model=model, message_history=message_history)
@@ -200,8 +194,10 @@ class Runtime:
         # For Worker, the existing ctx.run() path handles it
         if isinstance(invocable, EntryFunction):
             result = await invocable.call(input_args, ctx)
-        else:
+        elif isinstance(invocable, Worker):
             result = await ctx.run(invocable, input_args)
+        else:
+            raise TypeError(f"Unsupported entry type: {type(invocable)}")
         return result, ctx
 
     async def run_entry(

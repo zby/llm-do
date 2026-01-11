@@ -319,12 +319,14 @@ class EntryFunction:
         func: The wrapped async function
         entry_name: Name for this entry (from decorator or function name)
         toolset_refs: List of toolset references (names or instances)
+        schema_in: Optional WorkerArgs subclass for input normalization
         _resolved_toolsets: Resolved toolset instances (set during linking)
     """
 
     func: Callable[..., Any]
     entry_name: str
     toolset_refs: list[ToolsetRef] = field(default_factory=list)
+    schema_in: Optional[Type[WorkerArgs]] = None
     _resolved_toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
 
     @property
@@ -362,6 +364,10 @@ class EntryFunction:
                 resolved.append(ref)
         self._resolved_toolsets = resolved
 
+    def __post_init__(self) -> None:
+        if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
+            raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
+
     async def call(
         self,
         input_args: WorkerArgs,
@@ -384,6 +390,7 @@ def entry(
     name: str | None = None,
     *,
     toolsets: list[ToolsetRef] | None = None,
+    schema_in: Optional[Type[WorkerArgs]] = None,
 ) -> Callable[[Callable[..., Any]], EntryFunction]:
     """Decorator to mark a function as an entry point.
 
@@ -394,6 +401,7 @@ def entry(
     Args:
         name: Entry name (defaults to function name)
         toolsets: List of toolset references (names or instances)
+        schema_in: Optional WorkerArgs subclass for input normalization
 
     Returns:
         Decorator that wraps the function in an EntryFunction
@@ -411,6 +419,7 @@ def entry(
             func=func,
             entry_name=entry_name,
             toolset_refs=list(toolsets) if toolsets else [],
+            schema_in=schema_in,
         )
     return decorator
 

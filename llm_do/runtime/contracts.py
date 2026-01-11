@@ -10,13 +10,13 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 from pydantic_ai.models import Model  # Used in ModelType
-from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
 
 from ..ui.events import UIEvent
 
 if TYPE_CHECKING:
     from .approval import ApprovalCallback
+    from .args import WorkerArgs
     from .call import CallFrame
     from .shared import RuntimeConfig
 
@@ -83,6 +83,9 @@ class Entry(Protocol):
     Additional attributes (model, compatible_models) may be accessed via
     getattr with defaults in the runtime.
 
+    schema_in defines the WorkerArgs subclass used to normalize entry input
+    (None defaults to WorkerInput).
+
     Note: Worker and EntryFunction have different call signatures:
     - Worker.call(input_data, run_ctx) - called via WorkerRuntime._execute()
     - EntryFunction.call(args, runtime) - called directly with WorkerArgs
@@ -95,3 +98,6 @@ class Entry(Protocol):
 
     @property
     def toolsets(self) -> list[AbstractToolset[Any]]: ...
+
+    @property
+    def schema_in(self) -> type["WorkerArgs"] | None: ...

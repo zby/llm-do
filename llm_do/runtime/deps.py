@@ -1,7 +1,7 @@
 """Runtime deps facade for tool execution."""
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, cast
 
 from pydantic import BaseModel
 from pydantic_ai.models import Model
@@ -12,7 +12,10 @@ from pydantic_ai.usage import RunUsage
 from .approval import ApprovalCallback
 from .args import WorkerArgs, ensure_worker_args
 from .call import CallFrame
-from .contracts import Entry, EventCallback, ModelType, WorkerRuntimeProtocol
+from .contracts import EventCallback, ModelType, WorkerRuntimeProtocol
+
+if TYPE_CHECKING:
+    from .worker import Worker
 from .shared import Runtime, RuntimeConfig
 
 
@@ -188,19 +191,14 @@ class WorkerRuntime:
             frame=self.frame.fork(active_toolsets, model=model),
         )
 
-    async def run(self, entry: Entry, input_data: Any) -> Any:
-        """Run an entry directly."""
-        from .worker import Worker
-
-        if isinstance(entry, Worker):
-            if not isinstance(input_data, WorkerArgs):
-                raise TypeError(
-                    f"Worker inputs must be WorkerArgs; got {type(input_data)}"
-                )
-            self.prompt = input_data.prompt_spec().text
-        elif isinstance(input_data, dict) and "input" in input_data:
-            self.prompt = str(input_data["input"])
-        return await self._execute(entry, input_data)
+    async def run(self, worker: "Worker", input_data: WorkerArgs) -> Any:
+        """Run a worker directly."""
+        if not isinstance(input_data, WorkerArgs):
+            raise TypeError(
+                f"Worker inputs must be WorkerArgs; got {type(input_data)}"
+            )
+        self.prompt = input_data.prompt_spec().text
+        return await self._execute(worker, input_data)
 
     async def call(self, name: str, input_data: Any) -> Any:
         """Call a tool by name (searched across toolsets).
@@ -268,7 +266,7 @@ class WorkerRuntime:
             available.extend(tools.keys())
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
-    async def _execute(self, entry: Entry, input_data: Any) -> Any:
+    async def _execute(self, worker: "Worker", input_data: WorkerArgs) -> Any:
         """Execute an entry.
 
         The entry's call() method is responsible for creating any child context
@@ -277,5 +275,5 @@ class WorkerRuntime:
 
         Config and frame are accessible via run_ctx.deps (single source of truth).
         """
-        run_ctx = self._make_run_context(entry.name, self.model, self)
-        return await entry.call(input_data, run_ctx)
+        run_ctx = self._make_run_context(worker.name, self.model, self)
+        return await worker.call(input_data, run_ctx)

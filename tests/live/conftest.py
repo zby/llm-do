@@ -22,12 +22,11 @@ from typing import Any, Callable
 
 import pytest
 
-from llm_do.runtime import WorkerInput, build_entry_registry
+from llm_do.runtime import Runtime, WorkerInput, build_entry_registry
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
 )
-from tests.runtime.helpers import build_entry_context
 
 # Mark all tests in this directory as live tests
 pytestmark = pytest.mark.live
@@ -159,9 +158,8 @@ async def run_example(
         approval_callback=approval_callback,
     )
 
-    ctx = build_entry_context(
-        entry,
-        model=model,
+    runtime = Runtime(
+        cli_model=model,
         run_approval_policy=approval_policy,
         max_depth=max_depth if max_depth is not None else 5,
         on_event=on_event,
@@ -169,7 +167,8 @@ async def run_example(
     )
     if isinstance(input_data, str):
         input_data = WorkerInput(input=input_data)
-    return await ctx.run(entry, input_data)
+    result, _ctx = await runtime.run_invocable(entry, input_data, model=model)
+    return result
 
 
 @pytest.fixture

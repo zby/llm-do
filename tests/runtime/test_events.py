@@ -14,7 +14,7 @@ from llm_do.ui.events import (
     ToolResultEvent,
     UIEvent,
 )
-from tests.runtime.helpers import build_entry_context, build_runtime_context
+from tests.runtime.helpers import build_runtime_context, run_entry_test
 
 
 class TestContextEventCallback:
@@ -107,12 +107,11 @@ class TestWorkerToolEvents:
             toolsets=[toolset],
         )
 
-        ctx = build_entry_context(
+        await run_entry_test(
             worker,
+            WorkerInput(input="Add 3 and 4"),
             on_event=lambda e: events.append(e),
         )
-
-        await ctx.run(worker, WorkerInput(input="Add 3 and 4"))
 
         # Should have ToolCallEvent and ToolResultEvent
         tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
@@ -156,12 +155,11 @@ class TestWorkerToolEvents:
             toolsets=[toolset],
         )
 
-        ctx = build_entry_context(
+        await run_entry_test(
             worker,
+            WorkerInput(input="Calculate"),
             on_event=lambda e: events.append(e),
         )
-
-        await ctx.run(worker, WorkerInput(input="Calculate"))
 
         tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
         tool_results = [e for e in events if isinstance(e, ToolResultEvent)]
@@ -193,12 +191,11 @@ class TestWorkerToolEvents:
             toolsets=[toolset],
         )
 
-        ctx = build_entry_context(
+        await run_entry_test(
             worker,
+            WorkerInput(input="Greet Alice"),
             on_event=lambda e: events.append(e),
         )
-
-        await ctx.run(worker, WorkerInput(input="Greet Alice"))
 
         tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
         tool_results = [e for e in events if isinstance(e, ToolResultEvent)]
@@ -229,12 +226,9 @@ class TestWorkerToolEvents:
             toolsets=[toolset],
         )
 
-        # No on_event callback
-        ctx = build_entry_context(worker)
+        # Should not crash even with no on_event callback
+        result, ctx = await run_entry_test(worker, WorkerInput(input="Hello"))
         assert ctx.on_event is None
-
-        # Should not crash
-        result = await ctx.run(worker, WorkerInput(input="Hello"))
         assert result is not None
 
 
@@ -253,13 +247,12 @@ class TestWorkerStreamingEvents:
             toolsets=[],
         )
 
-        ctx = build_entry_context(
+        await run_entry_test(
             worker,
+            WorkerInput(input="Hi"),
             on_event=lambda e: events.append(e),
             verbosity=2,  # Enable streaming
         )
-
-        await ctx.run(worker, WorkerInput(input="Hi"))
 
         text_events = [e for e in events if isinstance(e, TextResponseEvent)]
 
@@ -286,13 +279,12 @@ class TestWorkerStreamingEvents:
             toolsets=[],
         )
 
-        ctx = build_entry_context(
+        await run_entry_test(
             worker,
+            WorkerInput(input="Hi"),
             on_event=lambda e: events.append(e),
             verbosity=1,  # Not streaming level
         )
-
-        await ctx.run(worker, WorkerInput(input="Hi"))
 
         # Should NOT have streaming text events (deltas)
         text_events = [e for e in events if isinstance(e, TextResponseEvent) and e.is_delta]

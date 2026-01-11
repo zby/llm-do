@@ -14,9 +14,9 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import Worker, WorkerInput
+from llm_do.runtime import Runtime, Worker, WorkerInput
 from llm_do.ui.events import UIEvent
-from tests.runtime.helpers import build_entry_context, build_runtime_context
+from tests.runtime.helpers import build_runtime_context
 
 
 def _count_user_prompts(messages: list[ModelMessage]) -> int:
@@ -54,12 +54,17 @@ async def test_entry_worker_receives_message_history_across_turns() -> None:
         model=_make_prompt_count_model(),
         toolsets=[],
     )
-    ctx = build_entry_context(worker, on_event=events.append, verbosity=1)
+    runtime = Runtime(on_event=events.append, verbosity=1)
 
-    out1 = await ctx.run(worker, WorkerInput(input="turn 1"))
+    out1, ctx1 = await runtime.run_invocable(worker, WorkerInput(input="turn 1"))
     assert out1 == "user_prompts=1"
 
-    out2 = await ctx.run(worker, WorkerInput(input="turn 2"))
+    # Pass message history from first run to second run
+    out2, ctx2 = await runtime.run_invocable(
+        worker,
+        WorkerInput(input="turn 2"),
+        message_history=ctx1.messages,
+    )
     assert out2 == "user_prompts=2"
 
 

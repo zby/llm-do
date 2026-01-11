@@ -15,7 +15,8 @@ from .call import CallFrame
 from .contracts import EventCallback, ModelType, WorkerRuntimeProtocol
 
 if TYPE_CHECKING:
-    from .worker import Worker
+    from .contracts import Entry
+
 from .shared import Runtime, RuntimeConfig
 
 
@@ -191,15 +192,6 @@ class WorkerRuntime:
             frame=self.frame.fork(active_toolsets, model=model),
         )
 
-    async def run(self, worker: "Worker", input_data: WorkerArgs) -> Any:
-        """Run a worker directly."""
-        if not isinstance(input_data, WorkerArgs):
-            raise TypeError(
-                f"Worker inputs must be WorkerArgs; got {type(input_data)}"
-            )
-        self.prompt = input_data.prompt_spec().text
-        return await self._execute(worker, input_data)
-
     async def call(self, name: str, input_data: Any) -> Any:
         """Call a tool by name (searched across toolsets).
 
@@ -266,14 +258,23 @@ class WorkerRuntime:
             available.extend(tools.keys())
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
-    async def _execute(self, worker: "Worker", input_data: WorkerArgs) -> Any:
+    async def _execute(self, entry: "Entry", input_data: WorkerArgs) -> Any:
         """Execute an entry.
 
-        The entry's call() method is responsible for creating any child context
-        it needs. Worker.call() creates a child with wrapped toolsets and
-        incremented depth. ToolEntry.call() uses the run_ctx directly.
+        Dispatches to the entry's call() method with the appropriate context:
+        - Worker: receives (input_data, RunContext) where run_ctx.deps is this runtime
+        - EntryFunction: receives (input_args, WorkerRuntime) directly
 
         Config and frame are accessible via run_ctx.deps (single source of truth).
         """
-        run_ctx = self._make_run_context(worker.name, self.model, self)
-        return await worker.call(input_data, run_ctx)
+        from .worker import EntryFunction, Worker
+
+        if isinstance(entry, EntryFunction):
+            # EntryFunction.call() takes (WorkerArgs, WorkerRuntimeProtocol)
+            return await entry.call(input_data, self)
+        elif isinstance(entry, Worker):
+            # Worker.call() takes (input_data, RunContext)
+            run_ctx = self._make_run_context(entry.name, self.model, self)
+            return await entry.call(input_data, run_ctx)
+        else:
+            raise TypeError(f"Unsupported entry type: {type(entry)}")

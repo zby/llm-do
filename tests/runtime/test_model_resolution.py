@@ -54,49 +54,40 @@ class CaptureToolset(AbstractToolset[Any]):
         return run_ctx.model
 
 
-@dataclass
-class DummyEntry:
-    """Mock entry that creates a child context with its toolsets, like Worker does."""
+@pytest.mark.anyio
+async def test_child_context_uses_parent_model() -> None:
+    """Child context inherits model from parent when not overridden."""
+    toolset = CaptureToolset()
+    ctx = build_runtime_context(
+        toolsets=[toolset],
+        model="parent-model",
+    )
 
-    name: str
-    toolsets: list[AbstractToolset[Any]]
-    model: Optional[str] = None
+    # Spawn child without model override - should inherit parent's model
+    child = ctx.spawn_child(active_toolsets=[toolset])
+    assert child.model == "parent-model"
 
-    async def call(
-        self,
-        input_data: Any,
-        run_ctx: RunContext[WorkerRuntime],
-    ) -> Any:
-        # Like Worker.call(), fork state and create a child context with our toolsets
-        state = run_ctx.deps.frame
-        resolved_model = self.model if self.model is not None else state.model
-        child_runtime = run_ctx.deps.spawn_child(active_toolsets=self.toolsets, model=resolved_model)
-        return await child_runtime.call("capture", {"value": 1})
+    # Tool call should see the inherited model
+    await child.call("capture", {"value": 1})
+    assert toolset.seen_model == "parent-model"
 
 
 @pytest.mark.anyio
-async def test_worker_uses_context_model_for_tool_calls() -> None:
-    """Entry without model uses context's model for tool calls."""
+async def test_child_context_overrides_parent_model() -> None:
+    """Child context can override parent's model."""
     toolset = CaptureToolset()
-    entry = DummyEntry(name="child", toolsets=[toolset])
-    # In production, ctx.model is already resolved via Runtime entry setup.
-    ctx = build_runtime_context(toolsets=[], model="resolved-model")
+    ctx = build_runtime_context(
+        toolsets=[toolset],
+        model="parent-model",
+    )
 
-    await ctx._execute(entry, WorkerInput(input="hi"))
+    # Spawn child with model override
+    child = ctx.spawn_child(active_toolsets=[toolset], model="child-model")
+    assert child.model == "child-model"
 
-    assert toolset.seen_model == "resolved-model"
-
-
-@pytest.mark.anyio
-async def test_worker_model_overrides_context_model_for_tool_calls() -> None:
-    """Entry with explicit model overrides context's model."""
-    toolset = CaptureToolset()
-    entry = DummyEntry(name="child", toolsets=[toolset], model="worker-model")
-    ctx = build_runtime_context(toolsets=[], model="context-model")
-
-    await ctx._execute(entry, WorkerInput(input="hi"))
-
-    assert toolset.seen_model == "worker-model"
+    # Tool call should see the overridden model
+    await child.call("capture", {"value": 1})
+    assert toolset.seen_model == "child-model"
 
 
 # --- compatible_models tests ---

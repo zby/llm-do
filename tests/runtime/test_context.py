@@ -5,7 +5,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
 from llm_do.runtime import Worker, WorkerInput, WorkerRuntime
-from tests.runtime.helpers import build_entry_context, build_runtime_context
+from tests.runtime.helpers import build_runtime_context, run_entry_test
 
 
 class TestContext:
@@ -70,8 +70,7 @@ class TestContext:
             model=TestModel(call_tools=["call_probe"], custom_output_text="done"),
             toolsets=[toolset],
         )
-        ctx = build_entry_context(worker)
-        await ctx.run(worker, WorkerInput(input="go"))
+        await run_entry_test(worker, WorkerInput(input="go"))
 
         assert seen["call_probe"] == {"before": 1, "probe": 1, "after": 1}
         assert seen["probe"] == 1

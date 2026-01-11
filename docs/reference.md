@@ -211,29 +211,6 @@ async def main(args: TaggedInput, runtime: WorkerRuntime) -> str:
     return args.tag
 ```
 
-**Using FunctionToolset (legacy):**
-
-```python
-@tools.tool
-async def main(ctx: RunContext[WorkerRuntime], input: str) -> str:
-    """Orchestrate evaluation of multiple files."""
-    files = list(Path("input").glob("*.pdf"))  # deterministic
-
-    results = []
-    for f in files:
-        # LLM worker handles reasoning
-        report = await ctx.deps.call(
-            "evaluator",
-            WorkerInput(input="Analyze this file.", attachments=[str(f)])
-        )
-        Path(f"output/{f.stem}.md").write_text(report)  # deterministic
-        results.append(f.stem)
-
-    return f"Processed {len(results)} files"
-```
-
-Both approaches keep token-intensive orchestration in Python while delegating reasoning to workers.
-
 ---
 
 ## Writing Toolsets

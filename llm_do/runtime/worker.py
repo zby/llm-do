@@ -432,6 +432,17 @@ class Worker:
 
     Tools are passed as a list of AbstractToolsets which are combined
     and passed directly to the PydanticAI Agent.
+
+    Note: This dataclass is not frozen to support self-recursive workers where
+    a worker needs to call itself as a tool. This creates a chicken-and-egg
+    problem: the worker must exist before as_toolset() can be called, but the
+    toolset must be added to the worker's toolsets list:
+
+        worker = Worker(name="recursive", ...)
+        worker.toolsets = [worker.as_toolset()]  # Requires mutation
+
+    A future improvement could use a factory pattern or lazy resolution to
+    allow frozen Workers while still supporting self-recursion.
     """
 
     name: str

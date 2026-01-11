@@ -1,0 +1,6 @@
+# Output files
+evaluations/*.md
+
+# Python
+__pycache__/
+*.pyc

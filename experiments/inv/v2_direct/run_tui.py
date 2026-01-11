@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from llm_do.runtime import InvocableRegistry, RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.app import LlmDoApp
 from llm_do.ui.events import UIEvent
@@ -70,7 +70,7 @@ def build_workers() -> tuple[Worker, Worker]:
         name="main",
         model=MODEL,
         instructions=load_instructions("main"),
-        toolsets=[filesystem, pitch_evaluator],
+        toolsets=[filesystem, pitch_evaluator.as_toolset()],
     )
 
     return main, pitch_evaluator
@@ -82,13 +82,7 @@ def build_workers() -> tuple[Worker, Worker]:
 
 async def run_tui() -> str:
     """Run the evaluation with the Textual TUI."""
-    main, pitch_evaluator = build_workers()
-    registry = InvocableRegistry(
-        entries={
-            "main": main,
-            "pitch_evaluator": pitch_evaluator,
-        }
-    )
+    main, _pitch_evaluator = build_workers()
     event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
     result_holder: list[str] = []
@@ -114,10 +108,9 @@ async def run_tui() -> str:
     )
 
     async def run_turn(user_prompt: str, message_history: list[Any] | None) -> list[Any] | None:
-        result, ctx = await runtime.run_entry(
-            registry,
-            "main",
-            user_prompt,
+        result, ctx = await runtime.run_invocable(
+            main,
+            {"input": user_prompt},
             message_history=message_history,
         )
         result_holder[:] = [result]

@@ -12,7 +12,7 @@ with configuration constants for easy experimentation.
 import sys
 from pathlib import Path
 
-from llm_do.runtime import InvocableRegistry, RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.display import HeadlessDisplayBackend
 
@@ -67,7 +67,7 @@ def build_workers() -> tuple[Worker, Worker]:
         name="main",
         model=MODEL,
         instructions=load_instructions("main"),
-        toolsets=[filesystem, pitch_evaluator],
+        toolsets=[filesystem, pitch_evaluator.as_toolset()],
     )
 
     return main, pitch_evaluator
@@ -79,13 +79,7 @@ def build_workers() -> tuple[Worker, Worker]:
 
 def run_evaluation() -> str:
     """Run the pitch deck evaluation workflow."""
-    main, pitch_evaluator = build_workers()
-    registry = InvocableRegistry(
-        entries={
-            "main": main,
-            "pitch_evaluator": pitch_evaluator,
-        }
-    )
+    main, _pitch_evaluator = build_workers()
 
     # Set up display backend for progress output
     backend = HeadlessDisplayBackend(stream=sys.stderr, verbosity=VERBOSITY)
@@ -96,7 +90,7 @@ def run_evaluation() -> str:
         on_event=backend.display if VERBOSITY > 0 else None,
         verbosity=VERBOSITY,
     )
-    result, _ctx = runtime.run_entry_sync(registry, "main", PROMPT)
+    result, _ctx = runtime.run(main, {"input": PROMPT})
     return result
 
 

@@ -171,18 +171,6 @@ def load_workers_from_files(files: list[str | Path]) -> dict[str, Worker]:
     return all_workers
 
 
-def load_toolsets_and_workers_from_files(
-    files: Iterable[str | Path],
-) -> tuple[dict[str, AbstractToolset[Any]], dict[str, Worker]]:
-    """Load toolsets and workers from Python files with a single module pass.
-
-    Note: This function is kept for backwards compatibility. New code should
-    use load_all_from_files() which also discovers EntryFunction instances.
-    """
-    toolsets, workers, _ = load_all_from_files(files)
-    return toolsets, workers
-
-
 def load_all_from_files(
     files: Iterable[str | Path],
 ) -> tuple[dict[str, AbstractToolset[Any]], dict[str, Worker], dict[str, EntryFunction]]:

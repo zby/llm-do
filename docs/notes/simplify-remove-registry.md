@@ -58,6 +58,31 @@ class Entry(Protocol):
 - `Worker` implements `Entry` naturally
 - Python functions become entries via a decorator
 
+### Entry Toolset Scope (Code Entry)
+
+`WorkerRuntime.call()` only searches `run_ctx.deps.toolsets`, which comes from the
+entry object's `toolsets` field. ToolInvocable currently exposes *no toolsets*,
+so code entry functions cannot delegate to other workers/tools via `ctx.call()`.
+
+If ToolInvocable is removed, the replacement entry wrapper must carry toolsets.
+Two options:
+1. **Implicit scope**: registry injects all available toolsets into the entry wrapper.
+2. **Explicit scope**: the decorator declares toolset names (recommended).
+
+Explicit scope mirrors `.worker` files and keeps dependency boundaries visible.
+
+Example (explicit scope):
+
+```python
+from llm_do.runtime import entry
+
+@entry(toolsets=["pitch_evaluator", "filesystem_project"])
+async def main(input_data: dict, ctx: WorkerRuntime) -> dict:
+    report = await ctx.call("pitch_evaluator", {"input": input_data["query"]})
+    files = await ctx.call("list_files", {"path": "."})
+    return {"report": report, "files": files}
+```
+
 ### Complete Example: Decorated Function Calling a Worker
 
 ```python
@@ -123,6 +148,7 @@ A Worker isn't a toolset that happens to be callable - it's a callable that can 
 - `@entry` decorator - makes a Python function conform to Entry
 - `load_worker(path) -> Worker` - standalone function for direct Worker loading
 - `WorkerToolset` adapter - wraps a Worker to expose it as a tool for another agent
+- `EntryFunction` wrapper - holds resolved toolsets when `@entry(toolsets=[...])` is used
 
 ### New Flow
 
@@ -137,7 +163,7 @@ entry = registry.get(entry_name)  # Entry (Worker or decorated function)
 await runtime.run(entry, input_data)  # uniform interface
 
 # Python function as entry:
-@entry
+@entry(toolsets=["pitch_evaluator"])
 async def analyze(input_data, runtime):
     ...
 
@@ -211,7 +237,8 @@ The LLM acts as an **embedded interpreter** - the Worker is a compiled module wi
 1. ~~**Create `WorkerToolset` adapter**~~ - DONE (`tasks/completed/214-worker-toolset-adapter.md`)
 2. ~~**Remove Worker's AbstractToolset inheritance**~~ - DONE (Worker no longer inherits from AbstractToolset)
 3. Define `Entry` protocol, have `Worker` implement it
-4. Create `@entry` decorator for Python functions
+4. Create `@entry` decorator for Python functions, with optional `toolsets=[...]`
+   to declare explicit scope for `ctx.call(...)`
 5. Add `load_worker()` for direct Worker loading
 6. Rename `Invocable` → `Entry`, `InvocableRegistry` → `EntryRegistry`
 7. Delete `ToolInvocable` class

@@ -89,7 +89,7 @@ class InitialRequestEvent(UIEvent):
         from rich.console import Group
         from rich.text import Text
 
-        parts = [Text(f"[{self.worker}] ", style="bold cyan") + Text("Starting...")]
+        parts = [Text(f"{self.worker_tag} ", style="bold cyan") + Text("Starting...")]
         if self.instructions:
             display_instructions = self._truncate(
                 self.instructions, self.MAX_INSTRUCTIONS_DISPLAY
@@ -106,7 +106,7 @@ class InitialRequestEvent(UIEvent):
         return Group(*parts)
 
     def render_text(self, verbosity: int = 0) -> str:
-        lines = [f"[{self.worker}] Starting..."]
+        lines = [f"{self.worker_tag} Starting..."]
         if self.instructions:
             display_instructions = self._truncate(
                 self.instructions, self.MAX_INSTRUCTIONS_DISPLAY
@@ -153,7 +153,7 @@ class StatusEvent(UIEvent):
         if not self.phase:
             return None
 
-        text = Text(f"[{self.worker}] ", style="dim")
+        text = Text(f"{self.worker_tag} ", style="dim")
         text.append(f"{self.phase} {self.state}")
         if self.model:
             text.append(f" ({self.model})", style="dim")
@@ -164,7 +164,7 @@ class StatusEvent(UIEvent):
     def render_text(self, verbosity: int = 0) -> str | None:
         if not self.phase:
             return None
-        result = f"[{self.worker}] {self.phase} {self.state}"
+        result = f"{self.worker_tag} {self.phase} {self.state}"
         if self.model:
             result += f" ({self.model})"
         if self.duration_sec is not None:
@@ -201,10 +201,10 @@ class UserMessageEvent(UIEvent):
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
         from rich.text import Text
 
-        return Text(f"[{self.worker}] You: {self.content}")
+        return Text(f"{self.worker_tag} You: {self.content}")
 
     def render_text(self, verbosity: int = 0) -> str | None:
-        return f"[{self.worker}] You: {self.content}"
+        return f"{self.worker_tag} You: {self.content}"
 
     def render_json(self) -> dict[str, Any]:
         return {
@@ -462,14 +462,14 @@ class CompletionEvent(UIEvent):
 
         if verbosity >= 1:
             return (
-                Text(f"[{self.worker}] ", style="dim")
+                Text(f"{self.worker_tag} ", style="dim")
                 + Text("[OK] Complete", style="green")
             )
         return None
 
     def render_text(self, verbosity: int = 0) -> str | None:
         if verbosity >= 1:
-            return f"[{self.worker}] [OK] Complete"
+            return f"{self.worker_tag} [OK] Complete"
         return None
 
     def render_json(self) -> dict[str, Any]:
@@ -501,7 +501,7 @@ class ErrorEvent(UIEvent):
         return Panel(content, title=f"ERROR: {self.error_type}", border_style="red")
 
     def render_text(self, verbosity: int = 0) -> str:
-        lines = [f"[{self.worker}] ERROR ({self.error_type}): {self.message}"]
+        lines = [f"{self.worker_tag} ERROR ({self.error_type}): {self.message}"]
         if verbosity >= 2 and self.traceback:
             lines.append(self.traceback)
         return "\n".join(lines)

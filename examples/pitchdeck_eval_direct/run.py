@@ -92,7 +92,7 @@ def list_pitchdecks(input_dir: str = "input") -> list[dict]:
             result.append({
                 "file": str(pdf.resolve()),
                 "slug": slug,
-                "output_path": str((PROJECT_ROOT / "evaluations" / f"{slug}.md").resolve()),
+                "output_path": str((OUTPUT_DIR / f"{slug}.md").resolve()),
             })
     return result
 

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "runtime": {
+    "approval_mode": "approve_all",
+    "max_depth": 8
+  },
+  "entry": {
+    "name": "main",
+    "input": {
+      "input": "When did Project Zephyr launch and who led it?"
+    }
+  },
+  "worker_files": ["rlm.worker"],
+  "python_files": ["tools.py"]
+}

@@ -1,0 +1,48 @@
+RIVERSTONE LAB ARCHIVE
+======================
+
+Overview
+The Riverstone Lab archive collects internal memos, project notes, and
+milestone summaries from 2018 to 2024. Each entry is written by the
+program manager for that year.
+
+2018 Notes
+- Focused on hardware reliability for remote monitoring units.
+- Lead PM: Jordan Patel.
+- Key effort: Quiet Sun sensors (pilot only).
+
+2019 Notes
+- Expanded field trials in coastal regions.
+- Lead PM: Jordan Patel.
+- Introduced the "Blue Finch" dashboard for operator alerts.
+
+2020 Notes
+- Remote operations moved to a hybrid workflow.
+- Lead PM: Maya Torres.
+- Created the Signal Bus schema for telemetry ingestion.
+
+2021 Notes
+- Project Zephyr launched on 2021-03-04.
+- Project Zephyr lead: Dana Park.
+- Objective: build a low-latency telemetry pipeline for remote sensors.
+- Added a short-lived experiment called Driftwood (archived in 2021).
+
+2022 Notes
+- Project Nimbus launched on 2022-09-18.
+- Project Nimbus lead: Luis Ortega.
+- Objective: unify alerting across coastal and inland deployments.
+
+2023 Notes
+- Major outage review prompted new incident playbooks.
+- Lead PM: Keira Singh.
+- Deployed the Watchtower ingest service.
+
+2024 Notes
+- Transitioned archival storage to cold tiers.
+- Lead PM: Keira Singh.
+- Planned the "Falcon" roadmap for 2025.
+
+Appendix A: Roles
+- Dana Park joined the lab in 2016 and focuses on telemetry systems.
+- Maya Torres specializes in operations and compliance.
+- Keira Singh leads reliability reviews.

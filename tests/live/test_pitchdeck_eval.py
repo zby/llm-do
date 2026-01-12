@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import WorkerInput
+from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput
+from llm_do.runtime.registry import build_entry_registry
 
 from .conftest import run_example, skip_no_anthropic
 
@@ -75,16 +76,29 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback):
 
     pdf_path = pdf_files[0]
 
+    registry = build_entry_registry(
+        sorted(str(path) for path in pitchdeck_eval_example.glob("*.worker")),
+        sorted(str(path) for path in pitchdeck_eval_example.glob("tools.py")),
+        entry_model_override="anthropic:claude-haiku-4-5",
+    )
+    entry = registry.get("pitch_evaluator")
+
+    runtime = Runtime(
+        cli_model="anthropic:claude-haiku-4-5",
+        run_approval_policy=RunApprovalPolicy(
+            mode="prompt",
+            approval_callback=approve_all_callback,
+        ),
+    )
+
     result = asyncio.run(
-        run_example(
-            pitchdeck_eval_example,
+        runtime.run_invocable(
+            entry,
             WorkerInput(
                 input="Evaluate this pitch deck.",
                 attachments=[str(pdf_path)],
             ),
-            entry_name="pitch_evaluator",
             model="anthropic:claude-haiku-4-5",
-            approval_callback=approve_all_callback,
         )
     )
 

@@ -1,9 +1,8 @@
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from llm_do.runtime import Runtime, WorkerInput
+from llm_do.runtime import Runtime, WorkerInput, build_entry
 from llm_do.runtime.approval import RunApprovalPolicy
-from llm_do.runtime.registry import build_entry_registry
 from llm_do.runtime.worker import Worker, WorkerToolset
 
 
@@ -13,6 +12,7 @@ async def test_registry_allows_self_toolset_reference(tmp_path) -> None:
     worker_path.write_text(
         """---
 name: recursive
+entry: true
 model: test
 toolsets:
   - recursive
@@ -21,8 +21,7 @@ Call yourself.
 """
     )
 
-    registry = build_entry_registry([str(worker_path)], [], entry_name="recursive")
-    entry = registry.get("recursive")
+    entry = build_entry([str(worker_path)], [])
 
     assert isinstance(entry, Worker)
     assert entry.toolsets

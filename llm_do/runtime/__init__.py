@@ -31,10 +31,7 @@ from .manifest import (
     load_manifest,
     resolve_manifest_paths,
 )
-from .registry import (
-    EntryRegistry,
-    build_entry_registry,
-)
+from .registry import EntryRegistry, build_entry
 from .shared import Runtime
 from .worker import (
     EntryFunction,
@@ -63,7 +60,7 @@ __all__ = [
     "WorkerApprovalPolicy",
     "resolve_approval_callback",
     "EntryRegistry",
-    "build_entry_registry",
+    "build_entry",
     "PromptSpec",
     "WorkerArgs",
     "WorkerInput",

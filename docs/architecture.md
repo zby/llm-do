@@ -57,17 +57,18 @@ Implementation layout mirrors the scopes:
 
 ## Execution Flow
 
-`EntryRegistry` is the symbol table for a run: it maps entry names to entries
-(workers, `@entry` decorated functions, and tool-backed entries) after resolution.
+Entry linking resolves toolsets and produces a single entry (worker or
+`@entry` function). Internally, a registry-like symbol table maps names to
+resolved entries during the link step.
 
 ```
 CLI or Python
     │
     ▼
-Build EntryRegistry → resolve toolsets
+Build entry (link step resolves toolsets)
     │
     ▼
-Runtime.run_entry() creates CallFrame
+Runtime.run_invocable() creates CallFrame
     │
     ▼
 Entry executes (Worker builds PydanticAI Agent, or EntryFunction runs)
@@ -80,6 +81,8 @@ Entry executes (Worker builds PydanticAI Agent, or EntryFunction runs)
 ```
 
 Key points:
+- Entry selection requires exactly one candidate: a worker marked `entry: true`
+  or a single `@entry` function.
 - Child workers get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)

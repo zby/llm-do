@@ -34,7 +34,7 @@ from ..models import select_model
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..toolsets.attachments import AttachmentToolset
 from ..toolsets.validators import DictValidator
-from ..ui.events import TextResponseEvent, ToolCallEvent, ToolResultEvent
+from ..ui.events import ToolCallEvent, ToolResultEvent
 from .approval import ApprovalCallback
 from .args import WorkerArgs, WorkerInput, ensure_worker_args
 from .call import CallFrame
@@ -686,4 +686,3 @@ class Worker:
         if runtime.on_event is not None and not emitted_tool_events:
             self._emit_tool_events(result.new_messages(), runtime)
         return result.output
-

@@ -1,5 +1,6 @@
 ---
 name: main
+entry: true
 description: Entry point for recursive task decomposition
 toolsets:
   - planner

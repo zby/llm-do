@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 import pytest
 
-from llm_do.runtime import Runtime, WorkerArgs, build_entry_registry
+from llm_do.runtime import Runtime, WorkerArgs, build_entry
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
@@ -136,7 +136,6 @@ async def run_example(
     example_dir: Path,
     input_data: WorkerArgs,
     *,
-    entry_name: str = "main",
     model: str | None = None,
     approval_callback: Callable[[Any], Any] | None = None,
     max_depth: int | None = None,
@@ -145,13 +144,11 @@ async def run_example(
 ) -> Any:
     """Build and run an example entry with approvals wired."""
     worker_files, python_files = _collect_example_files(example_dir)
-    registry = build_entry_registry(
+    entry = build_entry(
         worker_files,
         python_files,
-        entry_name=entry_name,
         entry_model_override=model,
     )
-    entry = registry.get(entry_name)
 
     approval_policy = RunApprovalPolicy(
         mode="approve_all" if approval_callback is None else "prompt",

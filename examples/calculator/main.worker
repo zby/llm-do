@@ -1,5 +1,6 @@
 ---
 name: main
+entry: true
 model: anthropic:claude-haiku-4-5
 toolsets:
   - calc_tools

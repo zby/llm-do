@@ -49,27 +49,15 @@ class TestManifestRuntimeConfig:
 class TestEntryConfig:
     """Tests for EntryConfig schema."""
 
-    def test_name_required(self):
-        """Test name is required."""
-        with pytest.raises(ValueError):
-            EntryConfig()
-
-    def test_name_non_empty(self):
-        """Test name must be non-empty."""
-        with pytest.raises(ValueError):
-            EntryConfig(name="")
-
-    def test_valid_entry(self):
-        """Test valid entry config."""
-        entry = EntryConfig(name="main")
-        assert entry.name == "main"
+    def test_defaults(self):
+        """Test defaults."""
+        entry = EntryConfig()
         assert entry.model is None
         assert entry.input is None
 
     def test_with_model_and_input(self):
         """Test entry with model and input."""
         entry = EntryConfig(
-            name="main",
             model="gpt-4",
             input={"input": "Hello"},
         )
@@ -85,7 +73,7 @@ class TestProjectManifest:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(name="main"),
+            entry=EntryConfig(),
             worker_files=["main.worker"],
         )
         assert manifest.version == 1
@@ -96,7 +84,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError):
             ProjectManifest(
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(name="main"),
+                entry=EntryConfig(),
                 worker_files=["main.worker"],
             )
 
@@ -106,7 +94,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=2,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(name="main"),
+                entry=EntryConfig(),
                 worker_files=["main.worker"],
             )
 
@@ -115,7 +103,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError):
             ProjectManifest(
                 version=1,
-                entry=EntryConfig(name="main"),
+                entry=EntryConfig(),
                 worker_files=["main.worker"],
             )
 
@@ -134,7 +122,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(name="main"),
+                entry=EntryConfig(),
             )
 
     def test_empty_file_path_rejected(self):
@@ -143,7 +131,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(name="main"),
+                entry=EntryConfig(),
                 worker_files=[""],
             )
 
@@ -153,7 +141,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(name="main"),
+                entry=EntryConfig(),
                 worker_files=["main.worker", "main.worker"],
             )
 
@@ -162,7 +150,7 @@ class TestProjectManifest:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(name="main"),
+            entry=EntryConfig(),
             python_files=["tools.py"],
         )
         assert manifest.allow_cli_input is True
@@ -172,7 +160,7 @@ class TestProjectManifest:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(name="main"),
+            entry=EntryConfig(),
             allow_cli_input=False,
             python_files=["tools.py"],
         )
@@ -184,7 +172,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(name="main"),
+                entry=EntryConfig(),
                 worker_files=["main.worker"],
                 unknown_field="value",
             )
@@ -198,7 +186,7 @@ class TestLoadManifest:
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all", "max_depth": 3},
-            "entry": {"name": "main"},
+            "entry": {},
             "worker_files": ["main.worker"],
         }
         manifest_file = tmp_path / "project.json"
@@ -209,7 +197,6 @@ class TestLoadManifest:
         assert manifest.version == 1
         assert manifest.runtime.approval_mode == "approve_all"
         assert manifest.runtime.max_depth == 3
-        assert manifest.entry.name == "main"
         assert manifest_dir == tmp_path
 
     def test_file_not_found(self, tmp_path):
@@ -249,7 +236,7 @@ class TestResolveManifestPaths:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(name="main"),
+            entry=EntryConfig(),
             worker_files=["main.worker"],
             python_files=["tools.py"],
         )
@@ -266,7 +253,7 @@ class TestResolveManifestPaths:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(name="main"),
+            entry=EntryConfig(),
             worker_files=["missing.worker"],
         )
 
@@ -278,7 +265,7 @@ class TestResolveManifestPaths:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(name="main"),
+            entry=EntryConfig(),
             python_files=["missing.py"],
         )
 
@@ -296,7 +283,7 @@ class TestResolveManifestPaths:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(name="main"),
+            entry=EntryConfig(),
             worker_files=["workers/main.worker"],
         )
 

@@ -5,7 +5,8 @@ Usage:
     llm-do project.json [prompt]
     llm-do project.json --input-json '{"input": "Your prompt"}'
 
-The manifest file (JSON) specifies runtime config, entry point, and file paths.
+The manifest file (JSON) specifies runtime config and file paths; the entry is
+resolved from the file set (worker marked `entry: true` or a single `@entry` function).
 CLI input (prompt or --input-json) overrides manifest entry.input when allowed.
 """
 from __future__ import annotations
@@ -24,17 +25,18 @@ from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from ..runtime import (
     ApprovalCallback,
+    Entry,
     EventCallback,
     RunApprovalPolicy,
     Runtime,
     WorkerRuntime,
+    build_entry,
 )
 from ..runtime.manifest import (
     ProjectManifest,
     load_manifest,
     resolve_manifest_paths,
 )
-from ..runtime.registry import EntryRegistry, build_entry_registry
 from ..ui import (
     DisplayBackend,
     ErrorEvent,
@@ -115,7 +117,7 @@ async def run(
     approval_callback: ApprovalCallback | None = None,
     approval_cache: dict[Any, ApprovalDecision] | None = None,
     message_history: list[Any] | None = None,
-    registry: EntryRegistry | None = None,
+    entry: Entry | None = None,
     runtime: Runtime | None = None,
 ) -> tuple[Any, WorkerRuntime]:
     """Load entries from manifest and run with the given input.
@@ -130,7 +132,7 @@ async def run(
         approval_callback: Optional interactive approval callback (TUI mode)
         approval_cache: Optional shared cache for remember="session" approvals
         message_history: Optional prior messages for multi-turn conversations
-        registry: Optional pre-built registry (skips registry build if provided)
+        entry: Optional pre-built entry (skips entry build if provided)
         runtime: Optional pre-built runtime (skips approval/UI wiring if provided)
 
     Returns:
@@ -146,11 +148,10 @@ async def run(
         or model_override
     )
 
-    if registry is None:
-        registry = build_entry_registry(
+    if entry is None:
+        entry = build_entry(
             [str(p) for p in worker_paths],
             [str(p) for p in python_paths],
-            entry_name=manifest.entry.name,
             entry_model_override=effective_model,
         )
 
@@ -183,9 +184,8 @@ async def run(
         ):
             raise ValueError("runtime provided; do not pass approval/UI overrides")
 
-    return await runtime.run_entry(
-        registry,
-        manifest.entry.name,
+    return await runtime.run_invocable(
+        entry,
         input_data,
         model=effective_model,
         message_history=message_history,

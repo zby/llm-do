@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import Worker, build_entry_registry
+from llm_do.runtime import Worker, build_entry
 from llm_do.runtime.worker import WorkerToolset
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
@@ -19,13 +19,11 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     ]
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
-    registry = build_entry_registry(
+    entry = build_entry(
         worker_files,
         python_files,
-        entry_name="main",
         entry_model_override="test-model",
     )
-    entry = registry.get("main")
     assert isinstance(entry, Worker)
 
     # Workers are now wrapped in WorkerToolset adapters
@@ -52,7 +50,7 @@ async def test_build_entry_loads_python_modules_once(tmp_path: Path) -> None:
 
     module_path.write_text(
         f"""\
-from llm_do.runtime import Worker
+from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
 from pydantic_ai.toolsets import FunctionToolset
 
 _marker = {marker_literal}
@@ -65,11 +63,13 @@ tools = FunctionToolset()
 def ping() -> str:
     return "pong"
 
-main = Worker(name="main", instructions="hi", toolsets=[tools])
+@entry()
+async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+    return "ok"
 """
     )
 
-    build_entry_registry([], [str(module_path)], entry_name="main")
+    build_entry([], [str(module_path)])
 
     lines = marker_path.read_text(encoding="utf-8").splitlines()
     assert lines == ["x"]
@@ -96,6 +96,7 @@ class NoteInput(WorkerArgs):
         """\
 ---
 name: main
+entry: true
 schema_in_ref: schemas.py:NoteInput
 ---
 Instructions.
@@ -103,8 +104,7 @@ Instructions.
         encoding="utf-8",
     )
 
-    registry = build_entry_registry([str(worker_path)], [], entry_name="main")
-    entry = registry.get("main")
+    entry = build_entry([str(worker_path)], [])
     assert isinstance(entry, Worker)
     assert entry.schema_in is not None
     assert entry.schema_in.__name__ == "NoteInput"
@@ -114,14 +114,13 @@ Instructions.
 async def test_build_entry_rejects_name_override(tmp_path: Path) -> None:
     worker_path = tmp_path / "main.worker"
     worker_path.write_text(
-        "---\nname: main\n---\nHello\n",
+        "---\nname: main\nentry: true\n---\nHello\n",
         encoding="utf-8",
     )
 
     with pytest.raises(ValueError, match="Cannot override worker name"):
-        build_entry_registry(
+        build_entry(
             [str(worker_path)],
             [],
-            entry_name="main",
             set_overrides=["name=override"],
         )

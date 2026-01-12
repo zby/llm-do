@@ -5,7 +5,6 @@
     "max_depth": 10
   },
   "entry": {
-    "name": "main",
     "input": {"input": "sample_input.txt"}
   },
   "worker_files": ["main.worker", "summarizer.worker"],

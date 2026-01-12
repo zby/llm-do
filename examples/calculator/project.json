@@ -5,7 +5,6 @@
     "max_depth": 5
   },
   "entry": {
-    "name": "main",
     "input": {"input": "What is 7 factorial plus the 10th fibonacci number?"}
   },
   "worker_files": ["main.worker"],

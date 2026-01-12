@@ -5,7 +5,6 @@
     "max_depth": 5
   },
   "entry": {
-    "name": "main",
     "input": {"input": "Process all whiteboard images in the input directory"}
   },
   "worker_files": ["main.worker", "whiteboard_planner.worker"]

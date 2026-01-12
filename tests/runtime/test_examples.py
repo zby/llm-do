@@ -5,7 +5,7 @@ import pytest
 
 from llm_do.runtime import (
     EntryFunction,
-    build_entry_registry,
+    build_entry,
     load_toolsets_from_files,
     load_worker_file,
 )
@@ -29,41 +29,37 @@ async def test_single_worker_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "calculator" / "tools.py"])
     assert "calc_tools" in toolsets
 
-    registry = build_entry_registry(
+    entry = build_entry(
         [str(EXAMPLES_DIR / "calculator" / "main.worker")],
         [str(EXAMPLES_DIR / "calculator" / "tools.py")],
-        entry_name="main",
         entry_model_override="test-model",
     )
-    worker = registry.get("main")
+    worker = entry
     assert len(worker.toolsets) == 1
 
 
 @pytest.mark.anyio
 async def test_delegation_example_builds():
-    registry = build_entry_registry(
+    entry = build_entry(
         [
             str(EXAMPLES_DIR / "pitchdeck_eval" / "main.worker"),
             str(EXAMPLES_DIR / "pitchdeck_eval" / "pitch_evaluator.worker"),
         ],
         [],
-        entry_name="main",
         entry_model_override="test-model",
     )
-    worker = registry.get("main")
+    worker = entry
     toolset_names = [_get_toolset_name(ts) for ts in worker.toolsets]
     assert "pitch_evaluator" in toolset_names
 
 
 @pytest.mark.anyio
 async def test_code_entry_example_builds():
-    registry = build_entry_registry(
+    entry = build_entry(
         [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")],
         [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "tools.py")],
-        entry_name="main",
         entry_model_override="test-model",
     )
-    entry = registry.get("main")
     assert isinstance(entry, EntryFunction)
 
 
@@ -73,13 +69,12 @@ async def test_server_side_tools_example_builds():
     assert len(worker_file.server_side_tools) == 1
     assert worker_file.server_side_tools[0]["tool_type"] == "web_search"
 
-    registry = build_entry_registry(
+    entry = build_entry(
         [str(EXAMPLES_DIR / "web_searcher" / "main.worker")],
         [],
-        entry_name="main",
         entry_model_override="test-model",
     )
-    worker = registry.get("main")
+    worker = entry
     assert len(worker.builtin_tools) == 1
 
 
@@ -93,13 +88,12 @@ async def test_file_organizer_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "file_organizer" / "tools.py"])
     assert "file_tools" in toolsets
 
-    registry = build_entry_registry(
+    entry = build_entry(
         [str(EXAMPLES_DIR / "file_organizer" / "main.worker")],
         [str(EXAMPLES_DIR / "file_organizer" / "tools.py")],
-        entry_name="main",
         entry_model_override="test-model",
     )
-    worker = registry.get("main")
+    worker = entry
     assert len(worker.toolsets) == 2  # file_tools + shell_file_ops
 
 
@@ -109,15 +103,14 @@ async def test_recursive_summarizer_example_builds():
     assert "filesystem_project" in worker_file.toolsets
     assert "summarizer" in worker_file.toolsets
 
-    registry = build_entry_registry(
+    entry = build_entry(
         [
             str(EXAMPLES_DIR / "recursive_summarizer" / "main.worker"),
             str(EXAMPLES_DIR / "recursive_summarizer" / "summarizer.worker"),
         ],
         [],
-        entry_name="main",
         entry_model_override="test-model",
     )
-    worker = registry.get("main")
+    worker = entry
     toolset_names = [_get_toolset_name(ts) for ts in worker.toolsets]
     assert "summarizer" in toolset_names

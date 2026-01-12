@@ -1,5 +1,6 @@
 ---
 name: main
+entry: true
 description: Coordinate evaluations for every deck stored in the input directory.
 toolsets:
   - pitch_evaluator

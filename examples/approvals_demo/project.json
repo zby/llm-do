@@ -5,7 +5,6 @@
     "max_depth": 5
   },
   "entry": {
-    "name": "main",
     "input": {"input": "Add a note: Team meeting scheduled for Friday at 2pm"}
   },
   "worker_files": ["main.worker"]

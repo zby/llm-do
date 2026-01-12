@@ -5,7 +5,6 @@
     "max_depth": 5
   },
   "entry": {
-    "name": "main",
     "input": {"input": "Research the current state of large language model agents and their applications"}
   },
   "worker_files": [

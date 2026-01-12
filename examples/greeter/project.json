@@ -5,7 +5,6 @@
     "max_depth": 5
   },
   "entry": {
-    "name": "main",
     "input": {"input": "Hello! My name is Alex."}
   },
   "worker_files": ["main.worker"]

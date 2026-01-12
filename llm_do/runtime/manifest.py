@@ -2,7 +2,7 @@
 
 This module defines the Pydantic models for the manifest-driven CLI.
 The manifest is a JSON file that specifies the project configuration,
-including runtime settings, entry point, and file references.
+including runtime settings, entry config, and file references.
 """
 
 from __future__ import annotations
@@ -32,7 +32,6 @@ class EntryConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(..., min_length=1)
     model: str | None = None
     input: dict[str, Any] | None = None
 

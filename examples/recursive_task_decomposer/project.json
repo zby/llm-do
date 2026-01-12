@@ -5,7 +5,6 @@
     "max_depth": 10
   },
   "entry": {
-    "name": "main",
     "input": {"input": "TASK: Plan a 2-day onboarding workshop for new backend engineers\nCONTEXT: Remote team, 15 attendees, limited to 4 hours per day, include a hands-on lab\nREMAINING_DEPTH: 2"}
   },
   "worker_files": ["main.worker", "planner.worker"],

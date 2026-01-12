@@ -5,7 +5,6 @@
     "max_depth": 5
   },
   "entry": {
-    "name": "main",
     "input": {"input": "Organize the files in the messy_files directory"}
   },
   "worker_files": ["main.worker"],

@@ -5,7 +5,6 @@
     "max_depth": 5
   },
   "entry": {
-    "name": "main",
     "input": {"input": "What are the latest developments in quantum computing?"}
   },
   "worker_files": ["main.worker"]

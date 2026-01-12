@@ -5,7 +5,6 @@
     "max_depth": 8
   },
   "entry": {
-    "name": "main",
     "input": {
       "input": "When did Project Zephyr launch and who led it?"
     }

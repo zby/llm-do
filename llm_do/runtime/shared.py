@@ -16,7 +16,6 @@ from .contracts import Entry, EventCallback, MessageLogCallback, ModelType
 
 if TYPE_CHECKING:
     from .deps import WorkerRuntime
-    from .registry import EntryRegistry
 
 
 class UsageCollector:
@@ -199,24 +198,6 @@ class Runtime:
             raise TypeError(f"Unsupported entry type: {type(invocable)}")
         return result, ctx
 
-    async def run_entry(
-        self,
-        registry: "EntryRegistry",
-        entry_name: str,
-        input_data: Any,
-        *,
-        model: ModelType | None = None,
-        message_history: list[Any] | None = None,
-    ) -> tuple[Any, WorkerRuntime]:
-        """Run a registry entry by name with this runtime."""
-        invocable = registry.get(entry_name)
-        return await self.run_invocable(
-            invocable,
-            input_data,
-            model=model,
-            message_history=message_history,
-        )
-
     def run(
         self,
         invocable: Entry,
@@ -243,21 +224,4 @@ class Runtime:
                 model=model,
                 message_history=message_history,
             )
-        )
-
-    def run_entry_sync(
-        self,
-        registry: "EntryRegistry",
-        entry_name: str,
-        input_data: Any,
-        *,
-        model: ModelType | None = None,
-        message_history: list[Any] | None = None,
-    ) -> tuple[Any, "WorkerRuntime"]:
-        """Run a registry entry synchronously using asyncio.run()."""
-        return self.run(
-            registry.get(entry_name),
-            input_data,
-            model=model,
-            message_history=message_history,
         )

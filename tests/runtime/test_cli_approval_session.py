@@ -13,7 +13,7 @@ from pydantic_ai_blocking_approval import (
     ApprovalResult,
 )
 
-from llm_do.runtime import EntryRegistry, RunApprovalPolicy, Runtime
+from llm_do.runtime import RunApprovalPolicy, Runtime
 from llm_do.runtime.worker import Worker
 
 
@@ -74,29 +74,19 @@ async def test_tui_session_approval_cache_persists_across_runs() -> None:
         calls.append(request)
         return ApprovalDecision(approved=True, remember="session")
 
-    registry = EntryRegistry(entries={
-        "main": Worker(
-            name="main",
-            instructions="Test worker",
-            model=TestModel(call_tools=["probe"], custom_output_text="done"),
-            toolsets=[toolset],
-        )
-    })
+    worker = Worker(
+        name="main",
+        instructions="Test worker",
+        model=TestModel(call_tools=["probe"], custom_output_text="done"),
+        toolsets=[toolset],
+    )
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(
             mode="prompt",
             approval_callback=approval_callback,
         )
     )
-    await runtime.run_entry(
-        registry,
-        "main",
-        {"input": "First turn"},
-    )
-    await runtime.run_entry(
-        registry,
-        "main",
-        {"input": "Second turn"},
-    )
+    await runtime.run_invocable(worker, {"input": "First turn"})
+    await runtime.run_invocable(worker, {"input": "Second turn"})
 
     assert len(calls) == 1

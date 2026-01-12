@@ -14,7 +14,8 @@ import asyncio
 import json
 from pathlib import Path
 
-from llm_do.runtime import WorkerInput
+from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput
+from llm_do.runtime.registry import build_entry_registry
 
 from .conftest import get_default_model, run_example, skip_no_anthropic, skip_no_serpapi
 
@@ -98,13 +99,26 @@ def test_web_research_consolidator(web_research_agent_example, approve_all_callb
         ],
     }
 
-    result = asyncio.run(
-        run_example(
-            web_research_agent_example,
-            WorkerInput(input=json.dumps(mock_insights)),
-            entry_name="web_research_consolidator",
-            model=get_default_model(),
+    registry = build_entry_registry(
+        sorted(str(path) for path in web_research_agent_example.glob("*.worker")),
+        sorted(str(path) for path in web_research_agent_example.glob("tools.py")),
+        entry_model_override=get_default_model(),
+    )
+    entry = registry.get("web_research_consolidator")
+
+    runtime = Runtime(
+        cli_model=get_default_model(),
+        run_approval_policy=RunApprovalPolicy(
+            mode="prompt",
             approval_callback=approve_all_callback,
+        ),
+    )
+
+    result = asyncio.run(
+        runtime.run_invocable(
+            entry,
+            WorkerInput(input=json.dumps(mock_insights)),
+            model=get_default_model(),
         )
     )
 

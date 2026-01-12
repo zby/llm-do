@@ -102,15 +102,26 @@ def _merge_toolsets(
     return merged
 
 
-def build_entry_registry(
+def _parse_entry_marker(raw: Any, *, worker_name: str, worker_path: Path) -> bool:
+    """Parse and validate the entry marker in worker frontmatter."""
+    if raw is None:
+        return False
+    if not isinstance(raw, bool):
+        raise ValueError(
+            f"Invalid entry marker for worker '{worker_name}' in {worker_path}: "
+            "expected boolean"
+        )
+    return raw
+
+
+def _build_registry_and_entry_name(
     worker_files: list[str],
     python_files: list[str],
     *,
-    entry_name: str = "main",
     entry_model_override: ModelType | None = None,
     set_overrides: list[str] | None = None,
-) -> EntryRegistry:
-    """Build the entry symbol table with toolsets resolved and entries ready.
+) -> tuple[EntryRegistry, str]:
+    """Build the entry symbol table and return the resolved entry name.
 
     This function performs two-pass registry building:
     1. First pass: Load all Python toolsets, workers, and entry functions;
@@ -120,18 +131,39 @@ def build_entry_registry(
     Args:
         worker_files: Paths to .worker files
         python_files: Paths to .py files with toolsets/workers/entries
-        entry_name: Name of the primary entry point (default: "main")
         entry_model_override: Optional model to override on the entry worker
         set_overrides: Optional list of KEY=VALUE overrides for the entry worker
 
     Returns:
-        EntryRegistry with all entries resolved and ready to execute
+        Tuple of (EntryRegistry, entry_name) with entries resolved and ready
     """
     # Load Python toolsets, workers, and entry functions in a single pass
     python_toolsets, python_workers, python_entries = load_all_from_files(python_files)
 
     if not worker_files and not python_workers and not python_entries:
         raise ValueError("At least one .worker or .py file with entries required")
+
+    entry_func_names = sorted(python_entries.keys())
+    if len(entry_func_names) > 1:
+        raise ValueError(
+            "Multiple @entry functions found: "
+            f"{entry_func_names}. Only one entry function is allowed."
+        )
+    entry_func_name = entry_func_names[0] if entry_func_names else None
+    if entry_func_name and set_overrides:
+        raise ValueError(
+            "--set overrides only apply to worker entries; "
+            "remove --set or use a worker entry instead."
+        )
+    if set_overrides:
+        from ..config import parse_set_override
+
+        for set_spec in set_overrides:
+            key_path, _ = parse_set_override(set_spec)
+            if key_path == "entry" or key_path.startswith("entry."):
+                raise ValueError(
+                    "Cannot override entry marker via --set; update the worker frontmatter instead."
+                )
 
     entries: dict[str, Entry] = {}
 
@@ -145,6 +177,7 @@ def build_entry_registry(
 
     # First pass: load worker definitions and create minimal stub Worker instances
     worker_specs: dict[str, WorkerSpec] = {}
+    entry_worker_names: list[str] = []
 
     for worker_file_path in worker_files:
         resolved_path = Path(worker_file_path).resolve()
@@ -154,6 +187,14 @@ def build_entry_registry(
             raise ValueError("Worker file must have a 'name' field")
         name = name_value
 
+        entry_marker = _parse_entry_marker(
+            frontmatter.get("entry"),
+            worker_name=name,
+            worker_path=resolved_path,
+        )
+        if entry_marker:
+            entry_worker_names.append(name)
+
         # Check for duplicate worker names
         if name in worker_specs:
             raise ValueError(f"Duplicate worker name: {name}")
@@ -162,12 +203,12 @@ def build_entry_registry(
         if name in entries:
             raise ValueError(f"Worker name '{name}' conflicts with Python entry")
 
-        overrides = set_overrides if name == entry_name else None
+        overrides = set_overrides if entry_marker else None
         worker_def = build_worker_definition(frontmatter, instructions, overrides=overrides)
         if overrides and worker_def.name != name:
             raise ValueError(
                 f"Cannot override worker name for '{name}' via --set; "
-                "update the worker file or pass --entry to select a different worker."
+                "update the worker file instead."
             )
 
         # Create minimal stub (fields filled in second pass)
@@ -178,6 +219,23 @@ def build_entry_registry(
             definition=worker_def,
             stub=stub,
         )
+
+    if entry_func_name and entry_worker_names:
+        raise ValueError(
+            "Entry conflict: found @entry function "
+            f"'{entry_func_name}' and entry worker(s) {sorted(entry_worker_names)}."
+        )
+    if len(entry_worker_names) > 1:
+        raise ValueError(
+            "Multiple workers marked entry: "
+            f"{sorted(entry_worker_names)}. Only one entry worker is allowed."
+        )
+    if not entry_func_name and not entry_worker_names:
+        raise ValueError(
+            "No entry found. Mark one worker with entry: true or define a single @entry function."
+        )
+
+    entry_name = entry_func_name or entry_worker_names[0]
 
     # Second pass: resolve toolsets and fill in worker stubs
     # Workers are wrapped in WorkerToolset to expose them as tools
@@ -197,7 +255,7 @@ def build_entry_registry(
 
         # Apply model override only to entry worker
         worker_model: ModelType | None
-        if entry_model_override is not None and spec.name == entry_name:
+        if entry_model_override is not None and spec.name in entry_worker_names:
             worker_model = entry_model_override
         else:
             worker_model = spec.definition.model
@@ -233,4 +291,38 @@ def build_entry_registry(
         for entry_func in entry_funcs_with_refs:
             entry_func.resolve_toolsets(all_available_toolsets)
 
-    return EntryRegistry(entries=entries)
+    return EntryRegistry(entries=entries), entry_name
+
+
+def build_entry_registry(
+    worker_files: list[str],
+    python_files: list[str],
+    *,
+    entry_model_override: ModelType | None = None,
+    set_overrides: list[str] | None = None,
+) -> EntryRegistry:
+    """Build the entry symbol table with toolsets resolved and entries ready."""
+    registry, _entry_name = _build_registry_and_entry_name(
+        worker_files,
+        python_files,
+        entry_model_override=entry_model_override,
+        set_overrides=set_overrides,
+    )
+    return registry
+
+
+def build_entry(
+    worker_files: list[str],
+    python_files: list[str],
+    *,
+    entry_model_override: ModelType | None = None,
+    set_overrides: list[str] | None = None,
+) -> Entry:
+    """Build and return the single resolved entry."""
+    registry, entry_name = _build_registry_and_entry_name(
+        worker_files,
+        python_files,
+        entry_model_override=entry_model_override,
+        set_overrides=set_overrides,
+    )
+    return registry.get(entry_name)

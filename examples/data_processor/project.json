@@ -5,7 +5,6 @@
     "max_depth": 5
   },
   "entry": {
-    "name": "main",
     "input": {"input": "Format this as CSV: name\tage\nAlice\t30\nBob\t25\n\nAlso compute stats for: 10, 20, 30, 40, 50"}
   },
   "worker_files": ["main.worker"],

@@ -39,10 +39,18 @@ This schema shapes tool-call arguments and validates inputs before the worker ru
 Attachments are still a list of file paths; you can express stricter constraints
 via a custom schema if needed.
 
+## Entry Selection
+
+When loading entries from files, there must be exactly one entry candidate:
+- **Worker files**: mark the entry worker with `entry: true` in frontmatter
+- **Python files**: define a single `@entry` function
+
+If multiple candidates exist (or none), loading fails with a descriptive error.
+
 ## Calling Workers from Python
 
 Python code can invoke workers in two contexts:
-1. **From orchestrator scripts** — using `Runtime.run_entry()` to start a run
+1. **From orchestrator scripts** — using `Runtime.run_invocable()` to start a run
 2. **From within tools** — using `ctx.deps.call()` during an active run
 
 ### From Orchestrator Scripts
@@ -54,23 +62,22 @@ from llm_do.runtime import (
     Runtime,
     RunApprovalPolicy,
     WorkerInput,
-    build_entry_registry,
+    build_entry,
 )
 
 async def main():
-    registry = build_entry_registry(["analyzer.worker"], [])
+    entry = build_entry(["analyzer.worker"], [])
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
 
-    result, ctx = await runtime.run_entry(
-        registry,
-        entry_name="analyzer",
+    result, ctx = await runtime.run_invocable(
+        entry,
         input_data=WorkerInput(input="Analyze this data"),
     )
 
     print(result)
 ```
 
-`Runtime.run_entry()`:
+`Runtime.run_invocable()`:
 - Creates a fresh `WorkerRuntime` and `CallFrame` per run
 - Reuses runtime-scoped state (usage, approval cache, message log)
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
@@ -80,13 +87,12 @@ async def main():
 
 | Parameter | Description |
 |-----------|-------------|
-| `registry` | `EntryRegistry` containing all available entries |
-| `entry_name` | Entry point name to run |
+| `invocable` | `Entry` (Worker or EntryFunction) to run |
 | `input_data` | Worker input args (WorkerArgs or dict) |
 | `model` | Override the worker's default model |
 | `message_history` | Pre-seed conversation history |
 
-Use `Runtime.run_invocable()` if you already have an entry object.
+Use `Runtime.run()` for sync execution when you already have an entry object.
 
 ### From Within Tools
 
@@ -184,7 +190,8 @@ async def process_files(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     return f"Processed {len(results)} files"
 ```
 
-Run with: `llm-do tools.py evaluator.worker --entry main "start"`
+Run with a manifest that includes `tools.py` and `evaluator.worker`, e.g.
+`llm-do project.json "start"` (the single `@entry` function is selected automatically).
 
 The `@entry` decorator:
 - Marks a function as an entry point with a name and toolset references
@@ -486,28 +493,23 @@ Supported tool types:
 ## CLI Quick Reference
 
 ```bash
-# Run a worker
-llm-do worker.worker "prompt"
+# Run a manifest
+llm-do project.json "prompt"
 
-# Run with tools file
-llm-do tools.py worker.worker "prompt"
+# Run with input JSON
+llm-do project.json --input-json '{"input": "prompt"}'
 
-# Specify entry point
-llm-do tools.py worker.worker --entry main "prompt"
+# Override model via env var
+LLM_DO_MODEL=anthropic:claude-haiku-4-5 llm-do project.json "prompt"
 
-# Approval modes
-llm-do worker.worker --approve-all "prompt"
-llm-do worker.worker --reject-all "prompt"
-
-# Limit recursion depth
-llm-do worker.worker --max-depth 3 "prompt"
-
-# Override model
-llm-do worker.worker --model openai:gpt-4o "prompt"
+# TUI / headless / JSON output
+llm-do project.json --tui
+llm-do project.json --headless "prompt"
+llm-do project.json --json "prompt"
 
 # Verbose output
-llm-do worker.worker -v "prompt"      # basic
-llm-do worker.worker -vv "prompt"     # detailed
+llm-do project.json -v "prompt"      # basic
+llm-do project.json -vv "prompt"     # detailed
 ```
 
 See [cli.md](cli.md) for full CLI documentation.

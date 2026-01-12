@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import EntryRegistry, Worker, WorkerInput
+from llm_do.runtime import Worker, WorkerInput
 from llm_do.ui.events import (
     TextResponseEvent,
     ToolCallEvent,
@@ -313,11 +313,8 @@ class TestCLIEventIntegration:
             on_event=lambda e: events.append(e),
             verbosity=1,
         )
-        registry = EntryRegistry(entries={"main": worker})
-
-        result, ctx = await runtime.run_entry(
-            registry,
-            "main",
+        result, ctx = await runtime.run_invocable(
+            worker,
             {"input": "Hi there"},
         )
 
@@ -352,11 +349,8 @@ class TestCLIEventIntegration:
             on_event=lambda e: events.append(e),
             verbosity=1,
         )
-        registry = EntryRegistry(entries={"main": worker})
-
-        result, ctx = await runtime.run_entry(
-            registry,
-            "main",
+        result, ctx = await runtime.run_invocable(
+            worker,
             {"input": "Add 3 and 4"},
         )
 

@@ -4,7 +4,6 @@
     "approval_mode": "approve_all"
   },
   "entry": {
-    "name": "main",
     "input": {"input": "list all files in the current directory"}
   },
   "worker_files": ["main.worker"],

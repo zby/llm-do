@@ -16,7 +16,7 @@ def create_test_manifest(tmp_path, **overrides):
     manifest_data = {
         "version": 1,
         "runtime": {"approval_mode": "approve_all"},
-        "entry": {"name": "main"},
+        "entry": {},
         "worker_files": ["test.worker"],
         **overrides,
     }
@@ -27,6 +27,7 @@ def create_test_manifest(tmp_path, **overrides):
     worker = tmp_path / "test.worker"
     worker.write_text("""---
 name: main
+entry: true
 ---
 Test worker
 """)
@@ -75,7 +76,7 @@ class TestCLIManifestErrors:
         manifest_data = {
             "version": 99,
             "runtime": {},
-            "entry": {"name": "main"},
+            "entry": {},
             "worker_files": ["test.worker"],
         }
         manifest_file = tmp_path / "project.json"
@@ -98,14 +99,14 @@ class TestCLIInputErrors:
             "version": 1,
             "runtime": {},
             "allow_cli_input": False,
-            "entry": {"name": "main", "input": {"input": "default"}},
+            "entry": {"input": {"input": "default"}},
             "worker_files": ["test.worker"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
         worker = tmp_path / "test.worker"
-        worker.write_text("---\nname: main\n---\nTest")
+        worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         with patch("sys.argv", ["llm-do", str(manifest_file), "override prompt"]):
             exit_code = main()
@@ -155,14 +156,14 @@ class TestCLIInputErrors:
         manifest_data = {
             "version": 1,
             "runtime": {},
-            "entry": {"name": "main"},  # No input
+            "entry": {},  # No input
             "worker_files": ["test.worker"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
         worker = tmp_path / "test.worker"
-        worker.write_text("---\nname: main\n---\nTest")
+        worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         # Force stdin.isatty() to return True
         with patch("sys.argv", ["llm-do", str(manifest_file)]):
@@ -230,7 +231,7 @@ class TestCLIRuntimeErrors:
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {"name": "main"},
+            "entry": {},
             "worker_files": ["missing.worker"],
         }
         manifest_file = tmp_path / "project.json"
@@ -244,12 +245,12 @@ class TestCLIRuntimeErrors:
         assert exit_code == 1
         assert "not found" in captured.err.lower()
 
-    def test_unknown_entry_error(self, tmp_path, capsys):
-        """Test that unknown entry point shows helpful error."""
+    def test_missing_entry_marker_error(self, tmp_path, capsys):
+        """Test that missing entry marker shows helpful error."""
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {"name": "nonexistent"},
+            "entry": {},
             "worker_files": ["test.worker"],
         }
         manifest_file = tmp_path / "project.json"
@@ -262,7 +263,9 @@ class TestCLIRuntimeErrors:
             with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                 exit_code = main()
 
+        captured = capsys.readouterr()
         assert exit_code == 1
+        assert "No entry found" in captured.err
 
     def test_keyboard_interrupt_handled(self, tmp_path, capsys):
         """Test that KeyboardInterrupt is handled gracefully."""
@@ -340,14 +343,14 @@ class TestCLISuccess:
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {"name": "main", "input": {"input": "manifest prompt"}},
+            "entry": {"input": {"input": "manifest prompt"}},
             "worker_files": ["test.worker"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
         worker = tmp_path / "test.worker"
-        worker.write_text("---\nname: main\n---\nTest")
+        worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         mock_ctx = AsyncMock()
         with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
@@ -368,14 +371,14 @@ class TestCLISuccess:
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {"name": "main", "input": {"input": "manifest prompt"}},
+            "entry": {"input": {"input": "manifest prompt"}},
             "worker_files": ["test.worker"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
         worker = tmp_path / "test.worker"
-        worker.write_text("---\nname: main\n---\nTest")
+        worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         mock_ctx = AsyncMock()
         with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:

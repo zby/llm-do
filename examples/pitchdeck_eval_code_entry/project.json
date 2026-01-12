@@ -5,7 +5,6 @@
     "max_depth": 5
   },
   "entry": {
-    "name": "main",
     "input": {"input": "Go"}
   },
   "worker_files": ["pitch_evaluator.worker"],

@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import WorkerInput
+from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput
+from llm_do.runtime.registry import build_entry_registry
 
 from .conftest import run_example, skip_no_anthropic
 
@@ -80,16 +81,29 @@ def test_whiteboard_planner_directly(whiteboard_planner_example, approve_all_cal
 
     image_path = image_files[0]
 
+    registry = build_entry_registry(
+        sorted(str(path) for path in whiteboard_planner_example.glob("*.worker")),
+        sorted(str(path) for path in whiteboard_planner_example.glob("tools.py")),
+        entry_model_override="anthropic:claude-haiku-4-5",
+    )
+    entry = registry.get("whiteboard_planner")
+
+    runtime = Runtime(
+        cli_model="anthropic:claude-haiku-4-5",
+        run_approval_policy=RunApprovalPolicy(
+            mode="prompt",
+            approval_callback=approve_all_callback,
+        ),
+    )
+
     result = asyncio.run(
-        run_example(
-            whiteboard_planner_example,
+        runtime.run_invocable(
+            entry,
             WorkerInput(
                 input="Analyze this whiteboard and create a plan.",
                 attachments=[str(image_path)],
             ),
-            entry_name="whiteboard_planner",
             model="anthropic:claude-haiku-4-5",
-            approval_callback=approve_all_callback,
         )
     )
 

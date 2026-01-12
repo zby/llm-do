@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "runtime": {
+    "approval_mode": "approve_all",
+    "model": "anthropic:claude-haiku-4-5"
+  },
+  "entry": {
+    "name": "entry_calls_tool",
+    "input": {"input": "test"}
+  },
+  "worker_files": [],
+  "python_files": ["entry_calls_tool.py"]
+}

@@ -1,0 +1,13 @@
+---
+name: main
+description: Worker that tries to use undeclared tools
+model: anthropic:claude-haiku-4-5
+toolsets: []
+---
+You are a helpful assistant. The user will ask you to perform tasks.
+
+IMPORTANT: You must use the `run_shell` tool to execute shell commands.
+When asked to list files, use: run_shell(command="ls -la")
+When asked to read a file, use: read_file(path="...")
+
+Do not explain that you cannot do something. Just try to use the tools.

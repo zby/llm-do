@@ -41,15 +41,44 @@ uv pip install -e .  # or: pip install -e .
 # Set your API key
 export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 
-# Optional default model (or use --model per run)
+# Optional default model (manifest entry/runtime model overrides this)
 export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
 
-# Run a worker
+# Run a project via manifest
 cd examples/greeter
-llm-do main.worker "Tell me a joke"
+llm-do project.json "Tell me a joke"
 ```
 
-`llm-do` executes the entry point named by `--entry` from the files you pass. If omitted, the entry defaults to `main`, so name your entry worker `main` or pass `--entry` explicitly. See [`examples/`](examples/) for more.
+`llm-do` reads `project.json`, links the listed files, and runs the single entry.
+Mark one worker with `entry: true` or define a single `@entry` function in Python.
+See [`examples/`](examples/) for more.
+
+Example worker frontmatter:
+
+```yaml
+---
+name: main
+entry: true
+model: anthropic:claude-haiku-4-5
+---
+```
+
+Example manifest:
+
+```json
+{
+  "version": 1,
+  "runtime": {
+    "approval_mode": "prompt",
+    "max_depth": 5
+  },
+  "entry": {
+    "input": { "input": "Hello!" }
+  },
+  "worker_files": ["main.worker"],
+  "python_files": ["tools.py"]
+}
+```
 
 ### OAuth Login (Anthropic Pro/Max)
 
@@ -130,7 +159,7 @@ def sanitize_filename(name: str) -> str:
     return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
 ```
 
-Functions become LLM-callable tools. Reference the toolset name in your worker's `toolsets` config and pass `tools.py` to `llm-do`.
+Functions become LLM-callable tools. Reference the toolset name in your worker's `toolsets` config and list `tools.py` in `project.json` under `python_files`.
 
 To access runtime context (for calling other tools/workers), accept a `RunContext` and use `ctx.deps`:
 
@@ -154,24 +183,37 @@ You can also use:
 ## CLI Reference
 
 ```bash
-# Run a worker
-llm-do main.worker "input message"
+# Run a project via manifest
+llm-do project.json "input message"
 
-# Run a worker with Python toolsets
-llm-do main.worker tools.py "input message"
+# Use manifest default input (entry.input)
+llm-do project.json
 
-# Choose a non-default entry
-llm-do orchestrator.worker tools.py --entry orchestrator "input"
-
-# Override config at runtime
-llm-do main.worker --set model=anthropic:claude-sonnet-4 "input"
+# Provide JSON input
+llm-do project.json --input-json '{"input":"Hello"}'
 ```
 
-Common flags: `--headless`, `--tui`, `--chat`, `--json`, `-v/-vv`, `--set`, `--approve-all`, `--max-depth`, `--model`. See [`docs/cli.md`](docs/cli.md) for details.
+Common flags: `--headless`, `--tui`, `--chat`, `--json`, `-v/-vv/-vvv`, `--input-json`, `--debug`. See [`docs/cli.md`](docs/cli.md) for details.
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
 
 See [`docs/cli.md`](docs/cli.md) for full reference.
+
+## Python Entry Build
+
+If you're orchestrating from Python, link a single entry from files and run it:
+
+```python
+from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput, build_entry
+
+entry = build_entry(["main.worker"], ["tools.py"])
+runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
+
+result, _ctx = await runtime.run_invocable(
+    entry,
+    WorkerInput(input="Analyze this data"),
+)
+```
 
 ## Examples
 

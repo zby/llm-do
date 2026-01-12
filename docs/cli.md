@@ -1,27 +1,25 @@
 # CLI Reference
 
-The `llm-do` command-line interface executes workers and tools from explicit `.worker` and `.py` files using the context-centric runtime.
+The `llm-do` command-line interface executes a manifest-defined project: `.worker` and `.py` files listed in `project.json`, linked into a single entry.
+Internally, it follows the same `build_entry(...)` linking flow available to Python callers.
 
 ## Basic Usage
 
 ```bash
-# Run a worker (entry name defaults to "main")
-llm-do main.worker "input message"
+# Run a project via manifest
+llm-do project.json "input message"
 
-# Run a worker with Python toolsets
-llm-do main.worker tools.py "input message"
+# Use manifest default input (entry.input)
+llm-do project.json
 
-# Choose a non-default entry name
-llm-do orchestrator.worker helper.worker --entry orchestrator "input message"
-
-# Code entry point (tool function as entry)
-llm-do tools.py pitch_evaluator.worker --entry main "Go"
+# Provide JSON input
+llm-do project.json --input-json '{"input":"Go"}'
 ```
 
 Provide the prompt via stdin when needed:
 
 ```bash
-echo "input message" | llm-do main.worker
+echo "input message" | llm-do project.json
 ```
 
 ## OAuth
@@ -52,18 +50,15 @@ export OPENAI_API_KEY=sk-...
 
 ## Arguments
 
-- `files` - One or more `.worker` or `.py` files. At least one required.
+- `manifest` - Path to the project manifest (`project.json`).
 - `prompt` - Optional prompt string. If omitted and stdin is not a TTY, the prompt is read from stdin.
 
 ## Entry Resolution
 
-- `--entry NAME` selects the entry point by name.
-- Default entry name is `main`.
-- Names can refer to:
-  - Worker files (the `name` field in frontmatter)
-  - `Worker` objects defined in Python files
-  - Function tools discovered from `FunctionToolset`
-- If the entry name is not found, the run fails with a list of available names.
+Exactly one entry candidate must exist in the file set:
+- **Worker files**: mark the entry worker with `entry: true` in frontmatter.
+- **Python files**: define a single `@entry` function.
+- If multiple candidates exist (or none), loading fails with a descriptive error.
 
 ## Worker File Toolsets
 
@@ -123,56 +118,34 @@ for logging/UI only). Tools should use their typed args, not prompt text.
 
 ## Model Selection
 
-Model resolution uses this precedence for the entry worker:
-1. `--model` flag (entry worker only)
-2. `model` in the worker frontmatter
+Model resolution uses this precedence:
+1. `entry.model` in the manifest
+2. `runtime.model` in the manifest
 3. `LLM_DO_MODEL` environment variable
 
-Delegated workers use their own `model` fields. If unset, they inherit the entry context's model (the resolved model after applying `--model` and/or `LLM_DO_MODEL`).
+Delegated workers use their own `model` fields. If unset, they inherit the entry context's resolved model.
 
-## Configuration Overrides
+## Input Overrides
 
-**`--set KEY=VALUE`** overrides entry worker frontmatter fields at runtime. Supports dot notation for nested fields and automatic type inference:
+The manifest can provide default input via `entry.input`. CLI input (prompt or
+`--input-json`) overrides it when `allow_cli_input` is true.
 
-```bash
-# Override model
-llm-do main.worker --set model=anthropic:claude-haiku-4-5 "hello"
-
-# Override description
-llm-do main.worker --set description="Fast run" "task"
-
-# Override server-side tools
-llm-do main.worker \
-  --set 'server_side_tools=[{"tool_type":"web_search","max_uses":2}]' \
-  "task"
-```
-
-Toolset configuration lives in Python toolset instances, not worker YAML, so
-`--set` does not support toolset configuration overrides.
-
-**Type inference:**
-- JSON: `--set server_side_tools='[{"tool_type":"web_search"}]'`
-- Booleans: `true`, `false`, `yes`, `no`, `on`, `off` (case-insensitive)
-- Numbers: `42`, `3.14`
-- Strings: anything else
+If `allow_cli_input` is false and a prompt is provided, the CLI exits with an error.
 
 ## Approvals
 
-**`--approve-all`** auto-approves all LLM-invoked tool calls without prompting.
-
-**`--reject-all`** auto-rejects all LLM-invoked tool calls that require approval without prompting.
+Approvals are configured in the manifest via `runtime.approval_mode`:
+- `prompt` (interactive approvals in TUI)
+- `approve_all`
+- `reject_all`
 
 Approvals apply only to LLM-invoked actions; user-invoked top-level entries are not gated.
 
-Without either flag, approvals are interactive only in TUI mode. In headless or JSON mode, any tool that requires approval will fail with a permission error.
+In headless or JSON mode, `prompt` will fail when a tool requires approval (unless you set `return_permission_errors` in the manifest to return errors instead).
 
 ## Depth Limits
 
-Use `--max-depth` to cap worker nesting depth (default: 5):
-
-```bash
-llm-do main.worker --max-depth 3 "prompt"
-```
+Set `runtime.max_depth` in the manifest to cap worker nesting depth (default: 5).
 
 ## Output Modes
 
@@ -191,7 +164,7 @@ llm-do main.worker --max-depth 3 "prompt"
 Use `--chat` to keep the TUI open for multi-turn conversations. Chat mode requires the TUI (either a TTY or `--tui`).
 
 ```bash
-llm-do main.worker "hello" --chat
+llm-do project.json "hello" --chat
 ```
 
 Input behavior in chat mode:

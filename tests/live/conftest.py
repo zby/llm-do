@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 import pytest
 
-from llm_do.runtime import Runtime, WorkerArgs, build_entry
+from llm_do.runtime import Runtime, WorkerArgs, build_entry, load_worker_file
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
@@ -130,6 +130,36 @@ def _collect_example_files(example_dir: Path) -> tuple[list[str], list[str]]:
     worker_files = sorted(str(path) for path in example_dir.glob("*.worker"))
     python_files = sorted(str(path) for path in example_dir.glob("tools.py"))
     return worker_files, python_files
+
+
+def build_direct_entry_for_worker(
+    worker_path: Path,
+    tmp_path: Path,
+    *,
+    model: str | None = None,
+):
+    """Build a code entry that delegates directly to a single worker."""
+    worker_def = load_worker_file(worker_path)
+    toolset_name = worker_def.name
+    entry_path = tmp_path / f"direct_entry_{toolset_name}.py"
+    entry_path.write_text(
+        "\n".join(
+            [
+                "from llm_do.runtime import WorkerInput, WorkerRuntime, entry",
+                "",
+                f"@entry(toolsets=[\"{toolset_name}\"], schema_in=WorkerInput)",
+                "async def main(args: WorkerInput, runtime: WorkerRuntime) -> str:",
+                f"    return await runtime.call(\"{toolset_name}\", args)",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return build_entry(
+        [str(worker_path)],
+        [str(entry_path)],
+        entry_model_override=model,
+    )
 
 
 async def run_example(

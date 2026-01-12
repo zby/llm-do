@@ -15,9 +15,14 @@ import json
 from pathlib import Path
 
 from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput
-from llm_do.runtime.registry import build_entry_registry
 
-from .conftest import get_default_model, run_example, skip_no_anthropic, skip_no_serpapi
+from .conftest import (
+    build_direct_entry_for_worker,
+    get_default_model,
+    run_example,
+    skip_no_anthropic,
+    skip_no_serpapi,
+)
 
 
 @skip_no_anthropic
@@ -58,7 +63,11 @@ def test_web_research_orchestrator_full_workflow(
 
 
 @skip_no_anthropic
-def test_web_research_consolidator(web_research_agent_example, approve_all_callback):
+def test_web_research_consolidator(
+    web_research_agent_example,
+    approve_all_callback,
+    tmp_path,
+):
     """Test the consolidator worker.
 
     The consolidator merges insights from multiple sources.
@@ -99,12 +108,11 @@ def test_web_research_consolidator(web_research_agent_example, approve_all_callb
         ],
     }
 
-    registry = build_entry_registry(
-        sorted(str(path) for path in web_research_agent_example.glob("*.worker")),
-        sorted(str(path) for path in web_research_agent_example.glob("tools.py")),
-        entry_model_override=get_default_model(),
+    entry = build_direct_entry_for_worker(
+        web_research_agent_example / "web_research_consolidator.worker",
+        tmp_path,
+        model=get_default_model(),
     )
-    entry = registry.get("web_research_consolidator")
 
     runtime = Runtime(
         cli_model=get_default_model(),

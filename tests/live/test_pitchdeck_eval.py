@@ -14,9 +14,8 @@ from pathlib import Path
 import pytest
 
 from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput
-from llm_do.runtime.registry import build_entry_registry
 
-from .conftest import run_example, skip_no_anthropic
+from .conftest import build_direct_entry_for_worker, run_example, skip_no_anthropic
 
 
 @skip_no_anthropic
@@ -62,7 +61,7 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
 
 
 @skip_no_anthropic
-def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback):
+def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, tmp_path):
     """Test calling the pitch_evaluator worker directly with an attachment.
 
     This tests the attachment handling without the orchestrator.
@@ -76,12 +75,11 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback):
 
     pdf_path = pdf_files[0]
 
-    registry = build_entry_registry(
-        sorted(str(path) for path in pitchdeck_eval_example.glob("*.worker")),
-        sorted(str(path) for path in pitchdeck_eval_example.glob("tools.py")),
-        entry_model_override="anthropic:claude-haiku-4-5",
+    entry = build_direct_entry_for_worker(
+        pitchdeck_eval_example / "pitch_evaluator.worker",
+        tmp_path,
+        model="anthropic:claude-haiku-4-5",
     )
-    entry = registry.get("pitch_evaluator")
 
     runtime = Runtime(
         cli_model="anthropic:claude-haiku-4-5",

@@ -14,9 +14,8 @@ from pathlib import Path
 import pytest
 
 from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput
-from llm_do.runtime.registry import build_entry_registry
 
-from .conftest import run_example, skip_no_anthropic
+from .conftest import build_direct_entry_for_worker, run_example, skip_no_anthropic
 
 
 @skip_no_anthropic
@@ -66,7 +65,11 @@ def test_whiteboard_orchestrator_processes_images(
 
 
 @skip_no_anthropic
-def test_whiteboard_planner_directly(whiteboard_planner_example, approve_all_callback):
+def test_whiteboard_planner_directly(
+    whiteboard_planner_example,
+    approve_all_callback,
+    tmp_path,
+):
     """Test calling the whiteboard_planner worker directly with an image.
 
     This tests the vision capabilities without the orchestrator layer.
@@ -81,12 +84,11 @@ def test_whiteboard_planner_directly(whiteboard_planner_example, approve_all_cal
 
     image_path = image_files[0]
 
-    registry = build_entry_registry(
-        sorted(str(path) for path in whiteboard_planner_example.glob("*.worker")),
-        sorted(str(path) for path in whiteboard_planner_example.glob("tools.py")),
-        entry_model_override="anthropic:claude-haiku-4-5",
+    entry = build_direct_entry_for_worker(
+        whiteboard_planner_example / "whiteboard_planner.worker",
+        tmp_path,
+        model="anthropic:claude-haiku-4-5",
     )
-    entry = registry.get("whiteboard_planner")
 
     runtime = Runtime(
         cli_model="anthropic:claude-haiku-4-5",

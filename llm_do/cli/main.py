@@ -230,7 +230,11 @@ async def _run_tui_mode(
     def emit_error_event(message: str, error_type: str) -> None:
         """Emit error event to TUI and log backend."""
         if log_backend is None:
-            print(message, file=sys.stderr)
+            print(
+                f"[worker] ERROR ({error_type}): {message}",
+                file=sys.__stderr__,
+                flush=True,
+            )
         error_event = ErrorEvent(
             worker="worker",
             message=message,

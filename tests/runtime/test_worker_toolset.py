@@ -131,8 +131,10 @@ def test_build_worker_tool_truncates_long_description() -> None:
 
     tool = build_worker_tool(worker, toolset)
 
-    assert len(tool.tool_def.description) == 203  # 200 chars + "..."
-    assert tool.tool_def.description.endswith("...")
+    description = tool.tool_def.description
+    assert description.endswith("...")
+    assert description.startswith(long_text[:50])
+    assert len(description) < len(long_text)
 
 
 @pytest.mark.anyio

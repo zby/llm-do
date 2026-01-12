@@ -59,4 +59,4 @@ Record findings in `docs/notes/reviews/review-tests.md`. Start with inventory + 
 
 ## Last Run
 
-2026-01 (inventory + action plan recorded; no code changes yet)
+2026-01 (rewrote invocables prompt tests; relaxed truncation assertion; softened headless display assertions; relaxed shell error-string checks; tests run)

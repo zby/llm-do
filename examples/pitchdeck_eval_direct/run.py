@@ -155,7 +155,7 @@ def run_evaluation() -> str:
     )
 
     main.resolve_toolsets({"pitch_evaluator": PITCH_EVALUATOR.as_toolset()})
-    result, _ctx = runtime.run(main, {})
+    result, _ctx = runtime.run(main, WorkerInput(input=""))
     return result
 
 

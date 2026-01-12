@@ -19,7 +19,15 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import (
+    RunApprovalPolicy,
+    Runtime,
+    Worker,
+    WorkerArgs,
+    WorkerInput,
+    WorkerRuntime,
+    entry,
+)
 from llm_do.ui.display import HeadlessDisplayBackend
 
 # =============================================================================
@@ -43,9 +51,9 @@ VERBOSITY = 1
 # Paths
 # =============================================================================
 
-HERE = Path(__file__).parent
-INPUT_DIR = HERE / "input"
-OUTPUT_DIR = HERE / "evaluations"
+PROJECT_ROOT = Path(__file__).parent.resolve()
+INPUT_DIR = PROJECT_ROOT / "input"
+OUTPUT_DIR = PROJECT_ROOT / "evaluations"
 
 # =============================================================================
 # Worker (global - Workers are reusable across runs)
@@ -54,9 +62,9 @@ OUTPUT_DIR = HERE / "evaluations"
 PITCH_EVALUATOR = Worker(
     name="pitch_evaluator",
     model=MODEL,
-    instructions=(HERE / "instructions" / "pitch_evaluator.md").read_text(),
+    instructions=(PROJECT_ROOT / "instructions" / "pitch_evaluator.md").read_text(),
     toolsets=[],
-    base_path=HERE,  # For resolving attachment paths
+    base_path=PROJECT_ROOT,  # For resolving attachment paths
 )
 
 # =============================================================================
@@ -64,8 +72,11 @@ PITCH_EVALUATOR = Worker(
 # =============================================================================
 
 
-def list_pitchdecks() -> list[dict]:
+def list_pitchdecks(input_dir: str = "input") -> list[dict]:
     """List pitch deck PDFs with pre-computed slugs and output paths.
+
+    Args:
+        input_dir: Directory to scan for PDF files, relative to project root.
 
     Returns:
         List of dicts with keys:
@@ -73,14 +84,15 @@ def list_pitchdecks() -> list[dict]:
         - slug: URL-safe slug derived from filename
         - output_path: Absolute path for the evaluation report
     """
+    input_path = PROJECT_ROOT / input_dir
     result = []
-    if INPUT_DIR.exists():
-        for pdf in sorted(INPUT_DIR.glob("*.pdf")):
+    if input_path.exists():
+        for pdf in sorted(input_path.glob("*.pdf")):
             slug = slugify(pdf.stem)
             result.append({
                 "file": str(pdf.resolve()),
                 "slug": slug,
-                "output_path": str((OUTPUT_DIR / f"{slug}.md").resolve()),
+                "output_path": str((PROJECT_ROOT / "evaluations" / f"{slug}.md").resolve()),
             })
     return result
 
@@ -90,14 +102,48 @@ def list_pitchdecks() -> list[dict]:
 # =============================================================================
 
 
-def run_evaluation() -> list[str]:
-    """Run the pitch deck evaluation workflow."""
+@entry(toolsets=["pitch_evaluator"])
+async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+    """Evaluate all pitch decks in input directory.
+
+    This is a code entry point that orchestrates the evaluation workflow:
+    1. List all pitch deck PDFs (deterministic)
+    2. Call LLM worker for each deck (LLM reasoning)
+    3. Write results to files (deterministic)
+
+    File paths are relative to the project root (this file's directory).
+
+    Args:
+        args: WorkerArgs input (ignored - workflow is deterministic)
+        runtime: WorkerRuntime for calling workers
+    """
     decks = list_pitchdecks()
 
     if not decks:
-        print("No pitch decks found in input directory.")
-        return []
+        return "No pitch decks found in input directory."
 
+    results = []
+
+    for deck in decks:
+        report = await runtime.call(
+            "pitch_evaluator",
+            WorkerInput(
+                input="Evaluate this pitch deck.",
+                attachments=[deck["file"]],
+            ),
+        )
+
+        # Write result (deterministic)
+        output_path = Path(deck["output_path"])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(report)
+        results.append(deck["slug"])
+
+    return f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}"
+
+
+def run_evaluation() -> str:
+    """Run the pitch deck evaluation workflow."""
     # Set up display backend for progress output
     backend = HeadlessDisplayBackend(stream=sys.stderr, verbosity=VERBOSITY)
 
@@ -108,43 +154,23 @@ def run_evaluation() -> list[str]:
         verbosity=VERBOSITY,
     )
 
-    # Ensure output directory exists
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    results = []
-    for i, deck in enumerate(decks, 1):
-        print(f"\n[{i}/{len(decks)}] Evaluating: {deck['slug']}", file=sys.stderr)
-
-        result, _ctx = runtime.run(PITCH_EVALUATOR, {
-            "input": "Evaluate this pitch deck.",
-            "attachments": [deck["file"]],
-        })
-
-        # Write result
-        output_path = Path(deck["output_path"])
-        output_path.write_text(result)
-        results.append(deck["slug"])
-
-        print(f"  -> Written to: {output_path.name}", file=sys.stderr)
-
-    return results
+    main.resolve_toolsets({"pitch_evaluator": PITCH_EVALUATOR.as_toolset()})
+    result, _ctx = runtime.run(main, {})
+    return result
 
 
-def main():
+def cli_main():
     """Main entry point."""
     print(f"Running with MODEL={MODEL}, APPROVAL_MODE={APPROVAL_POLICY.mode}, VERBOSITY={VERBOSITY}")
     print(f"Input directory: {INPUT_DIR}")
     print(f"Output directory: {OUTPUT_DIR}")
     print("-" * 60)
 
-    results = run_evaluation()
+    result = run_evaluation()
 
     print("-" * 60)
-    if results:
-        print(f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}")
-    else:
-        print("No pitch decks were evaluated.")
+    print(result)
 
 
 if __name__ == "__main__":
-    main()
+    cli_main()

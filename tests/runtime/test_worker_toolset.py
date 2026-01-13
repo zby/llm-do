@@ -136,7 +136,7 @@ async def test_worker_toolset_call_executes_worker() -> None:
     )
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
-    result, _ctx = await runtime.run_invocable(parent, WorkerInput(input="hello"))
+    result, _ctx = await runtime.run_entry(parent, WorkerInput(input="hello"))
 
     assert "echo: hello" in str(result)
 
@@ -157,7 +157,7 @@ async def test_worker_toolset_respects_max_depth() -> None:
     )
 
     with pytest.raises(RuntimeError, match="Max depth exceeded"):
-        await runtime.run_invocable(worker, WorkerInput(input="go"))
+        await runtime.run_entry(worker, WorkerInput(input="go"))
 
 
 @pytest.mark.anyio
@@ -177,7 +177,7 @@ async def test_worker_toolset_preserves_worker_semantics() -> None:
     )
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
-    result, _ctx = await runtime.run_invocable(parent, WorkerInput(input="test"))
+    result, _ctx = await runtime.run_entry(parent, WorkerInput(input="test"))
 
     # The child's specific model output should be in the result
     assert "processed by child" in str(result)

@@ -171,7 +171,7 @@ class AbstractToolset:
         pass
 ```
 
-Runtime calls cleanup on all toolset instances at end of `run_invocable()`.
+Runtime calls cleanup on all toolset instances at end of `run_entry()`.
 
 ## Implementation Decisions
 
@@ -235,7 +235,7 @@ The `cleanup()` protocol (defined above) handles forgotten handles at run end.
 ### Cleanup Lifecycle
 - [ ] Define `cleanup()` protocol (optional async method on toolsets)
 - [ ] Track toolset instances created during run
-- [ ] Call cleanup on all instances at end of `Runtime.run_invocable()`
+- [ ] Call cleanup on all instances at end of `Runtime.run_entry()`
 - [ ] Handle cleanup errors gracefully (log, don't propagate)
 
 ### Documentation

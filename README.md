@@ -209,7 +209,7 @@ from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput, build_entry
 entry = build_entry(["main.worker"], ["tools.py"])
 runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
 
-result, _ctx = await runtime.run_invocable(
+result, _ctx = await runtime.run_entry(
     entry,
     WorkerInput(input="Analyze this data"),
 )

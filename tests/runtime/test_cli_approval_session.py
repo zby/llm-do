@@ -86,7 +86,7 @@ async def test_tui_session_approval_cache_persists_across_runs() -> None:
             approval_callback=approval_callback,
         )
     )
-    await runtime.run_invocable(worker, {"input": "First turn"})
-    await runtime.run_invocable(worker, {"input": "Second turn"})
+    await runtime.run_entry(worker, {"input": "First turn"})
+    await runtime.run_entry(worker, {"input": "Second turn"})
 
     assert len(calls) == 1

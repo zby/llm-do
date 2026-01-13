@@ -122,7 +122,7 @@ async def run_tui(
     async def run_worker() -> int:
         nonlocal exit_code
         try:
-            result, _ctx = await runtime.run_invocable(entry, input, model=model)
+            result, _ctx = await runtime.run_entry(entry, input, model=model)
             result_holder[:] = [result]
         except KeyboardInterrupt:
             exit_code = 1
@@ -196,7 +196,7 @@ async def run_headless(
     entry_name = getattr(entry, "name", "worker")
 
     try:
-        result, _ctx = await runtime.run_invocable(entry, input, model=model)
+        result, _ctx = await runtime.run_entry(entry, input, model=model)
     except KeyboardInterrupt:
         exit_code = 1
         traceback_text = traceback.format_exc() if verbosity >= 2 else None

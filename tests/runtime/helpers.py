@@ -55,7 +55,7 @@ async def run_entry_test(
 ) -> tuple[Any, WorkerRuntime]:
     """Run an entry for testing, returning result and context.
 
-    This is a convenience wrapper around Runtime.run_invocable() for tests
+    This is a convenience wrapper around Runtime.run_entry() for tests
     that need both the result and the WorkerRuntime context.
     """
     runtime = Runtime(
@@ -65,7 +65,7 @@ async def run_entry_test(
         on_event=on_event,
         verbosity=verbosity,
     )
-    return await runtime.run_invocable(
+    return await runtime.run_entry(
         entry,
         input_data,
         model=model,

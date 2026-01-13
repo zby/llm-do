@@ -99,7 +99,7 @@ def test_whiteboard_planner_directly(
     )
 
     result = asyncio.run(
-        runtime.run_invocable(
+        runtime.run_entry(
             entry,
             WorkerInput(
                 input="Analyze this whiteboard and create a plan.",

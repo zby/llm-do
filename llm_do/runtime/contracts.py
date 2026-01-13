@@ -90,7 +90,7 @@ class Entry(Protocol):
     - Worker.call(input_data, run_ctx) - called via WorkerRuntime._execute()
     - EntryFunction.call(args, runtime) - called directly with WorkerArgs
 
-    Runtime.run_invocable() handles the dispatch based on entry type.
+    Runtime.run_entry() handles the dispatch based on entry type.
     """
 
     @property

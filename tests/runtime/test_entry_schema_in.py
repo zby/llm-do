@@ -19,7 +19,7 @@ async def test_entry_schema_in_normalizes_input() -> None:
         return args.tag
 
     runtime = Runtime()
-    result, ctx = await runtime.run_invocable(
+    result, ctx = await runtime.run_entry(
         echo,
         {"input": "hi", "tag": "t1"},
         model="test",

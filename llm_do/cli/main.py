@@ -184,7 +184,7 @@ async def run(
         ):
             raise ValueError("runtime provided; do not pass approval/UI overrides")
 
-    return await runtime.run_invocable(
+    return await runtime.run_entry(
         entry,
         input_data,
         model=effective_model,

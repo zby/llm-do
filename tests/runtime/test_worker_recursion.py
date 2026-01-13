@@ -45,4 +45,4 @@ async def test_max_depth_blocks_self_recursion() -> None:
     )
 
     with pytest.raises(RuntimeError, match="Max depth exceeded: 2"):
-        await runtime.run_invocable(worker, WorkerInput(input="go"))
+        await runtime.run_entry(worker, WorkerInput(input="go"))

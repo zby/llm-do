@@ -56,11 +56,11 @@ async def test_entry_worker_receives_message_history_across_turns() -> None:
     )
     runtime = Runtime(on_event=events.append, verbosity=1)
 
-    out1, ctx1 = await runtime.run_invocable(worker, WorkerInput(input="turn 1"))
+    out1, ctx1 = await runtime.run_entry(worker, WorkerInput(input="turn 1"))
     assert out1 == "user_prompts=1"
 
     # Pass message history from first run to second run
-    out2, ctx2 = await runtime.run_invocable(
+    out2, ctx2 = await runtime.run_entry(
         worker,
         WorkerInput(input="turn 2"),
         message_history=ctx1.messages,

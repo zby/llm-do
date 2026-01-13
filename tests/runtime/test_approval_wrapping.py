@@ -96,7 +96,7 @@ async def test_entry_function_exposes_its_toolsets() -> None:
         return args.prompt_spec().text
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
-    result, ctx = await runtime.run_invocable(
+    result, ctx = await runtime.run_entry(
         echo,
         {"input": "hello"},
         model="test",
@@ -123,7 +123,7 @@ async def test_nested_worker_calls_bypass_approval_by_default() -> None:
     )
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
-    result, _ctx = await runtime.run_invocable(parent, WorkerInput(input="trigger"))
+    result, _ctx = await runtime.run_entry(parent, WorkerInput(input="trigger"))
 
     assert result is not None
 
@@ -146,7 +146,7 @@ async def test_nested_worker_calls_can_require_approval() -> None:
 
     with pytest.raises(PermissionError):
         runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
-        await runtime.run_invocable(parent, WorkerInput(input="trigger"))
+        await runtime.run_entry(parent, WorkerInput(input="trigger"))
 
 
 @pytest.mark.anyio
@@ -160,7 +160,7 @@ async def test_entry_function_call_not_approval_gated() -> None:
     # Even with reject_all, EntryFunction succeeds because
     # it's a direct call, not an LLM-invoked tool call
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
-    result, _ctx = await runtime.run_invocable(
+    result, _ctx = await runtime.run_entry(
         echo,
         {"input": "hello"},
         model="test",

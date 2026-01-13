@@ -313,7 +313,7 @@ class TestCLIEventIntegration:
             on_event=lambda e: events.append(e),
             verbosity=1,
         )
-        result, ctx = await runtime.run_invocable(
+        result, ctx = await runtime.run_entry(
             worker,
             {"input": "Hi there"},
         )
@@ -349,7 +349,7 @@ class TestCLIEventIntegration:
             on_event=lambda e: events.append(e),
             verbosity=1,
         )
-        result, ctx = await runtime.run_invocable(
+        result, ctx = await runtime.run_entry(
             worker,
             {"input": "Add 3 and 4"},
         )

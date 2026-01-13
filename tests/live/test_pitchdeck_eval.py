@@ -90,7 +90,7 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, 
     )
 
     result = asyncio.run(
-        runtime.run_invocable(
+        runtime.run_entry(
             entry,
             WorkerInput(
                 input="Evaluate this pitch deck.",

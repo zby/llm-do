@@ -192,7 +192,7 @@ async def run_example(
         on_event=on_event,
         verbosity=verbosity,
     )
-    result, _ctx = await runtime.run_invocable(entry, input_data, model=model)
+    result, _ctx = await runtime.run_entry(entry, input_data, model=model)
     return result
 
 

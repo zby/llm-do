@@ -68,7 +68,7 @@ CLI or Python
 Build entry (link step resolves toolsets)
     │
     ▼
-Runtime.run_invocable() creates CallFrame
+Runtime.run_entry() creates CallFrame
     │
     ▼
 Entry executes (Worker builds PydanticAI Agent, or EntryFunction runs)

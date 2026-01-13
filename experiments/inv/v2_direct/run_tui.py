@@ -108,7 +108,7 @@ async def run_tui() -> str:
     )
 
     async def run_turn(user_prompt: str, message_history: list[Any] | None) -> list[Any] | None:
-        result, ctx = await runtime.run_invocable(
+        result, ctx = await runtime.run_entry(
             main,
             {"input": user_prompt},
             message_history=message_history,

@@ -25,7 +25,7 @@ async def _run_prompt(input_text: str) -> str:
         model=_prompt_echo_model(),
     )
     runtime = Runtime()
-    result, _ctx = await runtime.run_invocable(worker, WorkerInput(input=input_text))
+    result, _ctx = await runtime.run_entry(worker, WorkerInput(input=input_text))
     return str(result)
 
 

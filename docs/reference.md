@@ -50,7 +50,7 @@ If multiple candidates exist (or none), loading fails with a descriptive error.
 ## Calling Workers from Python
 
 Python code can invoke workers in two contexts:
-1. **From orchestrator scripts** — using `Runtime.run_invocable()` to start a run
+1. **From orchestrator scripts** — using `Runtime.run_entry()` to start a run
 2. **From within tools** — using `ctx.deps.call()` during an active run
 
 ### From Orchestrator Scripts
@@ -69,7 +69,7 @@ async def main():
     entry = build_entry(["analyzer.worker"], [])
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
 
-    result, ctx = await runtime.run_invocable(
+    result, ctx = await runtime.run_entry(
         entry,
         input_data=WorkerInput(input="Analyze this data"),
     )
@@ -77,7 +77,7 @@ async def main():
     print(result)
 ```
 
-`Runtime.run_invocable()`:
+`Runtime.run_entry()`:
 - Creates a fresh `WorkerRuntime` and `CallFrame` per run
 - Reuses runtime-scoped state (usage, approval cache, message log)
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)

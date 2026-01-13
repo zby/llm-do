@@ -123,7 +123,7 @@ def test_web_research_consolidator(
     )
 
     result = asyncio.run(
-        runtime.run_invocable(
+        runtime.run_entry(
             entry,
             WorkerInput(input=json.dumps(mock_insights)),
             model=get_default_model(),

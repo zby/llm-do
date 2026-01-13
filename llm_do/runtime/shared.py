@@ -159,7 +159,7 @@ class Runtime:
             messages=list(message_history) if message_history else [],
         )
 
-    async def run_invocable(
+    async def run_entry(
         self,
         invocable: Entry,
         input_data: Any,
@@ -214,11 +214,11 @@ class Runtime:
         else:
             raise RuntimeError(
                 "Runtime.run() cannot be called from a running event loop; "
-                "use Runtime.run_invocable() instead."
+                "use Runtime.run_entry() instead."
             )
 
         return asyncio.run(
-            self.run_invocable(
+            self.run_entry(
                 invocable,
                 input_data,
                 model=model,

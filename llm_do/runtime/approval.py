@@ -30,7 +30,6 @@ class RunApprovalPolicy:
     approval_callback: ApprovalCallback | None = None
     return_permission_errors: bool = False
     cache: dict[Any, ApprovalDecision] | None = None
-    cache_key_fn: Callable[[ApprovalRequest], Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -146,7 +145,6 @@ def make_tui_approval_callback(
     approve_all: bool,
     reject_all: bool,
     cache: dict[Any, ApprovalDecision] | None = None,
-    cache_key_fn: Callable[[ApprovalRequest], Any] = _default_cache_key,
 ) -> ApprovalCallback:
     """Wrap an interactive approval callback with session caching.
 
@@ -164,7 +162,7 @@ def make_tui_approval_callback(
         if reject_all:
             return ApprovalDecision(approved=False, note="--reject-all")
 
-        cache_key = cache_key_fn(request)
+        cache_key = _default_cache_key(request)
         cached = session_cache.get(cache_key)
         if cached is not None:
             return cached
@@ -200,7 +198,6 @@ def resolve_approval_callback(policy: RunApprovalPolicy) -> ApprovalCallback:
         approve_all=False,
         reject_all=False,
         cache=policy.cache,
-        cache_key_fn=policy.cache_key_fn or _default_cache_key,
     )
 
 

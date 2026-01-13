@@ -5,6 +5,7 @@ Periodic audit for features that add complexity without clear value.
 ## Previous Runs
 
 - **2026-01-13**: Initial audit - see `docs/notes/reviews/useless-features-audit.md`
+- **2026-01-13**: Follow-up audit - see `docs/notes/reviews/useless-features-audit-2026-01-13.md` (confirmed `schema_out` and `cache_key_fn` still need removal)
 
 ## What Makes a Feature "Useless"
 

@@ -1,7 +1,7 @@
 # Refactor CLI to Use UI Runner API
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [ ] none
@@ -34,18 +34,18 @@ CLI uses expanded `run_tui` / `run_headless` from `llm_do/ui/runner.py` for UI e
 - Outcome: Align CLI with runner behavior by validating upfront; no CLI doc changes required.
 
 ## Tasks
-- [ ] Inventory CLI-only behavior to preserve (chat mode, log verbosity, JSON output, message log callback, error handling paths).
-- [ ] Expand `run_tui` / `run_headless` signatures to accept:
+- [x] Inventory CLI-only behavior to preserve (chat mode, log verbosity, JSON output, message log callback, error handling paths).
+- [x] Expand `run_tui` / `run_headless` signatures to accept:
   - `run_turn` callback + message history plumbing for chat
   - Additional display backends (log backend / JSON backend)
   - Optional `message_log_callback` or runtime override hooks
   - Error handling + verbosity parity with CLI
-- [ ] Refactor `llm_do/cli/main.py` to call expanded runners and remove duplicated orchestration.
-- [ ] Update any relevant docs/examples (CLI help text, UI runner usage).
-- [ ] Run `uv run ruff check .`, `uv run mypy llm_do`, `uv run pytest`.
+- [x] Refactor `llm_do/cli/main.py` to call expanded runners and remove duplicated orchestration.
+- [x] Update any relevant docs/examples (CLI help text, UI runner usage).
+- [x] Run `uv run ruff check .`, `uv run mypy llm_do`, `uv run pytest`.
 
 ## Current State
-Task created; runner expansion chosen; headless prompt rejection decision recorded. No implementation changes yet.
+Runner APIs expanded to cover CLI concerns, CLI orchestration moved to `run_tui`/`run_headless`, and CLI tests updated for new entrypoint. Ruff, mypy, and pytest run clean.
 
 ## Notes
 - None.

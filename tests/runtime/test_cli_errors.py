@@ -271,7 +271,7 @@ class TestCLIRuntimeErrors:
         """Test that KeyboardInterrupt is handled gracefully."""
         manifest_file = create_test_manifest(tmp_path)
 
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = KeyboardInterrupt()
 
             with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
@@ -286,7 +286,7 @@ class TestCLIRuntimeErrors:
         """Test that PermissionError is handled gracefully."""
         manifest_file = create_test_manifest(tmp_path)
 
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = PermissionError("Tool 'write_file' requires approval")
 
             with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
@@ -303,7 +303,7 @@ class TestCLIRuntimeErrors:
 
         manifest_file = create_test_manifest(tmp_path)
 
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = ModelHTTPError(
                 status_code=401,
                 model_name="test-model",
@@ -327,7 +327,7 @@ class TestCLISuccess:
         manifest_file = create_test_manifest(tmp_path)
 
         mock_ctx = AsyncMock()
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
             with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
@@ -353,7 +353,7 @@ class TestCLISuccess:
         worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         mock_ctx = AsyncMock()
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
             # No prompt argument - should use manifest input
@@ -364,7 +364,7 @@ class TestCLISuccess:
         assert exit_code == 0
         # Verify the input data passed to run()
         call_args = mock_run.call_args
-        assert call_args.kwargs["input_data"] == {"input": "manifest prompt"}
+        assert call_args.args[1] == {"input": "manifest prompt"}
 
     def test_input_json_override(self, tmp_path, capsys):
         """Test --input-json overrides manifest entry.input."""
@@ -381,7 +381,7 @@ class TestCLISuccess:
         worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         mock_ctx = AsyncMock()
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
             with patch("sys.argv", [
@@ -393,7 +393,7 @@ class TestCLISuccess:
 
         assert exit_code == 0
         call_args = mock_run.call_args
-        assert call_args.kwargs["input_data"] == {"input": "json override", "extra": "data"}
+        assert call_args.args[1] == {"input": "json override", "extra": "data"}
 
 
 class TestCLIDebugFlag:
@@ -403,7 +403,7 @@ class TestCLIDebugFlag:
         """Test that --debug flag causes exceptions to be re-raised."""
         manifest_file = create_test_manifest(tmp_path)
 
-        with patch("llm_do.cli.main.run", new_callable=AsyncMock) as mock_run:
+        with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = ValueError("Test error")
 
             with patch("sys.argv", ["llm-do", str(manifest_file), "hello", "--debug"]):

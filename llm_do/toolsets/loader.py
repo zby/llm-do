@@ -31,7 +31,7 @@ def _wrap_worker_as_toolset(toolset: AbstractToolset[Any]) -> AbstractToolset[An
     from ..runtime.worker import Worker, WorkerToolset
 
     if isinstance(toolset, Worker):
-        return WorkerToolset(worker=toolset, bulk_approve=toolset.bulk_approve_toolsets)
+        return WorkerToolset(worker=toolset)
     return toolset
 
 

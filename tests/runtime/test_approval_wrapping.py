@@ -168,39 +168,3 @@ async def test_entry_function_call_not_approval_gated() -> None:
 
     assert result == "hello"
 
-
-@pytest.mark.anyio
-async def test_bulk_approval_scopes_child_tool_calls() -> None:
-    toolset = FunctionToolset()
-
-    @toolset.tool
-    def tool_a(input: str) -> str:
-        return f"a:{input}"
-
-    @toolset.tool
-    def tool_b(input: str) -> str:
-        return f"b:{input}"
-
-    approvals = []
-
-    def approval_callback(request):
-        approvals.append(request)
-        return ApprovalDecision(approved=True)
-
-    worker = Worker(
-        name="bulk-worker",
-        instructions="Call tool_a then tool_b.",
-        model=TestModel(call_tools=["tool_a", "tool_b"]),
-        toolsets=[toolset],
-        bulk_approve_toolsets=True,
-    )
-
-    runtime = Runtime(
-        run_approval_policy=RunApprovalPolicy(
-            mode="prompt",
-            approval_callback=approval_callback,
-        )
-    )
-    await runtime.run_invocable(worker, WorkerInput(input="go"))
-
-    assert len(approvals) == 1

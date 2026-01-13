@@ -21,7 +21,6 @@ def test_worker_toolset_creation() -> None:
     toolset = WorkerToolset(worker=worker)
 
     assert toolset.worker is worker
-    assert toolset.bulk_approve is False
     assert toolset.id == worker.name
 
 
@@ -32,22 +31,6 @@ def test_worker_as_toolset_method() -> None:
 
     assert isinstance(toolset, WorkerToolset)
     assert toolset.worker is worker
-
-
-def test_worker_as_toolset_bulk_approve_default() -> None:
-    """as_toolset() inherits bulk_approve_toolsets from worker."""
-    worker = Worker(name="test", instructions="Test", bulk_approve_toolsets=True)
-    toolset = worker.as_toolset()
-
-    assert toolset.bulk_approve is True
-
-
-def test_worker_as_toolset_bulk_approve_override() -> None:
-    """as_toolset() accepts explicit bulk_approve override."""
-    worker = Worker(name="test", instructions="Test", bulk_approve_toolsets=False)
-    toolset = worker.as_toolset(bulk_approve=True)
-
-    assert toolset.bulk_approve is True
 
 
 def test_worker_toolset_has_approval_config() -> None:

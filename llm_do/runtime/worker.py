@@ -28,14 +28,12 @@ from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
-from pydantic_ai_blocking_approval import ApprovalDecision
 
 from ..models import select_model
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..toolsets.attachments import AttachmentToolset
 from ..toolsets.validators import DictValidator
 from ..ui.events import ToolCallEvent, ToolResultEvent
-from .approval import ApprovalCallback
 from .args import WorkerArgs, WorkerInput, ensure_worker_args
 from .call import CallFrame
 from .contracts import WorkerRuntimeProtocol
@@ -105,26 +103,6 @@ def _finalize_messages(
         if state is not None:
             state.messages[:] = messages
     return messages
-
-
-def _scoped_approval_callback(approval_callback: ApprovalCallback) -> ApprovalCallback:
-    """Return a callback that bulk-approves after the first approval."""
-    cached: ApprovalDecision | None = None
-
-    async def callback(request) -> ApprovalDecision:
-        nonlocal cached
-        if cached is not None and cached.approved:
-            return cached
-        decision = approval_callback(request)
-        if inspect.isawaitable(decision):
-            decision = await decision
-        if not isinstance(decision, ApprovalDecision):
-            raise TypeError("approval_callback must return ApprovalDecision")
-        if decision.approved:
-            cached = decision
-        return decision
-
-    return callback
 
 
 class _MessageLogList(list):
@@ -227,7 +205,6 @@ class WorkerToolset(AbstractToolset[Any]):
     """
 
     worker: "Worker"
-    bulk_approve: bool = False
 
     def __post_init__(self) -> None:
         # Set up approval config for this toolset adapter
@@ -415,27 +392,20 @@ class Worker:
     schema_in: Optional[Type[WorkerArgs]] = None
     schema_out: Optional[Type[BaseModel]] = None
     base_path: Optional[Path] = None  # Base directory for resolving relative attachment paths
-    bulk_approve_toolsets: bool = False
 
     def __post_init__(self) -> None:
         if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
             raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
 
-    def as_toolset(self, *, bulk_approve: bool | None = None) -> WorkerToolset:
+    def as_toolset(self) -> WorkerToolset:
         """Return a WorkerToolset adapter for this worker.
 
         Use this method to explicitly expose a worker as a tool for another agent.
 
-        Args:
-            bulk_approve: If True, auto-approve subsequent calls after first approval.
-                         Defaults to worker's bulk_approve_toolsets setting.
-
         Returns:
             WorkerToolset adapter wrapping this worker
         """
-        if bulk_approve is None:
-            bulk_approve = self.bulk_approve_toolsets
-        return WorkerToolset(worker=self, bulk_approve=bulk_approve)
+        return WorkerToolset(worker=self)
 
     def _build_agent(
         self,
@@ -554,8 +524,6 @@ class Worker:
 
         # Wrap toolsets for approval using runtime-scoped callback
         approval_callback = run_ctx.deps.approval_callback
-        if self.bulk_approve_toolsets:
-            approval_callback = _scoped_approval_callback(approval_callback)
         wrapped_toolsets = wrap_toolsets_for_approval(
             self.toolsets or [],
             approval_callback,

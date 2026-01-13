@@ -173,6 +173,13 @@ class AbstractToolset:
 
 Runtime calls cleanup on all toolset instances at end of `run_invocable()`.
 
+## Implementation Decisions
+
+- Python toolsets are registered as `ToolsetSpec` factories; no shared instance backcompat.
+- EntryFunction toolsets are instantiated per run (same pipeline as workers); approvals remain bypassed for simplicity.
+- WorkerToolset wrappers are created per worker call (no shared wrapper caching).
+- Cleanup is best-effort and supports sync or async `cleanup()`; errors are logged and do not fail the run.
+
 ## Handle Pattern Example
 
 Shows how a stateful toolset uses handles for explicit state management:
@@ -221,8 +228,9 @@ The `cleanup()` protocol (defined above) handles forgotten handles at run end.
 - [ ] Update `build_builtin_toolsets()` to return specs instead of instances
 - [ ] Update `_merge_toolsets()` to work with specs
 - [ ] Update `build_toolsets()` in loader.py to instantiate from specs
-- [ ] Wrap Python toolset instances in specs (factory returns the instance)
+- [ ] Update Python toolset discovery to require `ToolsetSpec` factories
 - [ ] Pass `ToolsetBuildContext` through resolution chain
+- [ ] Resolve EntryFunction toolset refs to specs and instantiate per run
 
 ### Cleanup Lifecycle
 - [ ] Define `cleanup()` protocol (optional async method on toolsets)

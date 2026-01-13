@@ -7,7 +7,7 @@ ready for implementation
 - [x] none
 
 ## Goal
-Implement per-worker toolset instances for isolation, combined with handle-based explicit state management within each instance. Add run-scoped cleanup for handles.
+Implement per-worker toolset instances for isolation, with run-scoped cleanup for handle-based resources. Document the handle pattern for stateful toolsets.
 
 ## Context
 - Relevant files/symbols:
@@ -19,51 +19,62 @@ Implement per-worker toolset instances for isolation, combined with handle-based
   - `llm_do/toolsets/approval.py` (per-tool approval config)
   - `docs/architecture.md`, `README.md`
 - How to verify:
-  - Handles from Worker A cannot be used by Worker B
-  - Cleanup is called at run end
+  - Same toolset name in different workers creates separate instances
+  - Handles from Worker A cannot be used by Worker B (when using handle pattern)
+  - Cleanup is called on all toolset instances at run end
   - Documentation accurately describes both patterns
 
 ## Decision Record: The Journey
 
-### Original Problem
-Toolset instances are shared globally, causing:
-- State leakage between workers (browser sessions, DB connections)
-- Approval config mutation affecting other workers
+### Original Problem (Ticket Created)
+Could not have both read-only and read-write filesystem toolsets in the same project. Toolsets were singletons by name—a worker couldn't choose between permission levels for the same underlying resource.
 
-### First Pivot: "Stateless Toolsets"
-Proposed: Make toolsets stateless and use handles for any state needed, with approval config defined globally per toolset name (so multiple named variants can carry different approval policies).
+### Workaround (Ticket to Backlog)
+Created separate named instances as a workaround:
+- `filesystem_cwd`, `filesystem_cwd_ro`
+- `filesystem_project`, `filesystem_project_ro`
 
-**Rationale:** Keep the framework simple (avoid per-worker scoping machinery) while allowing global approval config via distinct toolset names.
+Workers choose which variant they need via the `toolsets` list in their definition. This unblocked immediate needs, and the ticket was moved to backlog.
 
-**Clarification:** The "stateless" framing was misleading. We don't need to ban stateful toolsets, and we do need them for DB connections and document/web browsing. The real requirement was global approval config by name, not eliminating statefulness.
+### Discovery: Configuration Explosion
+The workaround doesn't scale. Adding more variations leads to combinatorial blow-up:
+- Different base paths (cwd, project root, custom directories)
+- Different permission levels (read-only, read-write, append-only)
+- Different rule sets
 
-### Second Pivot: "Explicit State / No Hidden State"
-Reframed: State is fine, but must be explicit via handles (visible to LLM), not implicit per-instance (hidden).
+Pre-creating all combinations is unsustainable. We need toolsets instantiated per-worker with worker-specific configuration.
 
-**Example:**
+### Inherent Statefulness
+Some toolsets genuinely need runtime state:
+- Database connections and transactions
+- Browser sessions for navigating large documents/web pages
+- File handles for streaming content
+
+Handle-based state makes this explicit—the LLM sees handles and controls their lifecycle:
 ```python
 txn = db.begin()           # Returns handle - LLM sees this
 db.execute(txn, sql)       # LLM passes handle back
 db.commit(txn)             # LLM controls lifecycle
 ```
 
-**Problem discovered:** With shared toolset instances, Worker B could use Worker A's handle (accidentally or through hallucination). Even with unguessable UUIDs, handles could leak between workers.
+### The Isolation Problem
+With shared toolset instances, handles can leak between workers. An LLM might hallucinate or accidentally reuse a handle name (`txn_123`) that exists in another worker's context. Even with UUID-based handles, cross-worker access is possible if the toolset instance is shared.
 
 ### Final Decision: Both Patterns Together
 
 **Per-worker toolset instances** solve isolation:
 - Each worker gets its own toolset instance
-- Handle maps are per-worker, can't leak across workers
+- Handle maps are per-worker, invisible to other workers
 - Framework manages instance lifecycle
 
 **Handle-based state** solves explicit state management:
-- State within a worker's toolset is explicit via handles
+- Multiple resources within one worker need tracking (e.g., multiple transactions)
 - LLM sees and controls state lifecycle
 - Cleanup releases forgotten handles at run end
 
 These are complementary, not alternatives:
 - Instances → isolation boundary (framework concern)
-- Handles → explicit state (toolset design concern)
+- Handles → explicit state within that boundary (toolset design concern)
 
 ## Architecture
 
@@ -87,13 +98,11 @@ These are complementary, not alternatives:
 └─────────────────────────────────────────────────────┘
 ```
 
-### Toolset Instantiation Scope
+### Toolset Instantiation
 
-| Scope | When | Use Case |
-|-------|------|----------|
-| `per_worker` (default) | New instance per worker | Stateful tools needing isolation |
-| `per_run` | Shared within run | Connection pools, shared caches |
-| `global` | Shared across runs | Truly stateless config-only toolsets |
+Each worker gets fresh toolset instances. This provides isolation—Worker A's handles are invisible to Worker B.
+
+Future optimization: Add instance caching by scope (`per_worker`, `per_run`, `global`) to avoid recreating stateless toolsets.
 
 ### Handle-Based State Within Instance
 
@@ -124,64 +133,53 @@ Why handles even with per-worker instances?
 @dataclass
 class ToolsetSpec:
     """Specification for creating toolset instances."""
-    factory: Callable[[], AbstractToolset]
-    scope: Literal["per_worker", "per_run", "global"] = "per_worker"
+    factory: Callable[[ToolsetBuildContext], AbstractToolset]
 
 # Registry stores specs, not instances
 toolset_specs: dict[str, ToolsetSpec] = {
     "database": ToolsetSpec(
-        factory=lambda: DatabaseToolset(pool),
-        scope="per_worker",
+        factory=lambda ctx: DatabaseToolset(pool),
     ),
     "shell_readonly": ToolsetSpec(
-        factory=lambda: ShellToolset(config=READONLY_RULES),
-        scope="global",  # Stateless, can share
+        factory=lambda ctx: ShellToolset(config=READONLY_RULES),
     ),
 }
 ```
 
-### Instance Cache
+### Per-Worker Instantiation
+
+Each worker gets fresh toolset instances created from specs:
 
 ```python
-class ToolsetCache:
-    def __init__(self):
-        self._global: dict[str, AbstractToolset] = {}
-        self._per_run: dict[str, AbstractToolset] = {}
-        self._per_worker: dict[tuple[str, str], AbstractToolset] = {}  # (worker_name, toolset_name)
-
-    def get(self, spec: ToolsetSpec, name: str, worker_name: str) -> AbstractToolset:
-        if spec.scope == "global":
-            if name not in self._global:
-                self._global[name] = spec.factory()
-            return self._global[name]
-        elif spec.scope == "per_run":
-            if name not in self._per_run:
-                self._per_run[name] = spec.factory()
-            return self._per_run[name]
-        else:  # per_worker
-            key = (worker_name, name)
-            if key not in self._per_worker:
-                self._per_worker[key] = spec.factory()
-            return self._per_worker[key]
+def build_toolsets_for_worker(
+    toolset_names: list[str],
+    specs: dict[str, ToolsetSpec],
+    ctx: ToolsetBuildContext,
+) -> list[AbstractToolset]:
+    """Create fresh toolset instances for a worker."""
+    return [specs[name].factory(ctx) for name in toolset_names]
 ```
 
 ### Cleanup Protocol
 
-```python
-async def cleanup(self) -> None:
-    """Called at run end to release handle-based resources."""
-    pass
+Toolsets may implement an optional `cleanup()` method for releasing handle-based resources at run end:
 
-# Runtime calls cleanup on all per_worker and per_run instances at run end
+```python
+class AbstractToolset:
+    async def cleanup(self) -> None:
+        """Called at run end to release resources. Override to implement."""
+        pass
 ```
 
+Runtime calls cleanup on all toolset instances at end of `run_invocable()`.
+
 ## Handle Pattern Example
+
+Shows how a stateful toolset uses handles for explicit state management:
 
 ```python
 class DatabaseToolset(FunctionToolset):
     """Database toolset with per-worker isolation and handle-based transactions."""
-
-    scope = "per_worker"  # Each worker gets own instance
 
     def __init__(self, pool: ConnectionPool):
         self._pool = pool
@@ -207,28 +205,29 @@ class DatabaseToolset(FunctionToolset):
         conn.execute("COMMIT")
         self._pool.release(conn)
 
-    async def cleanup(self) -> None:
-        """Rollback uncommitted transactions at run end."""
-        for conn in self._transactions.values():
-            try:
-                conn.execute("ROLLBACK")
-                self._pool.release(conn)
-            except Exception:
-                pass
-        self._transactions.clear()
+    def rollback(self, txn_handle: str) -> None:
+        """Rollback and release. LLM controls when this happens."""
+        conn = self._transactions.pop(txn_handle)
+        conn.execute("ROLLBACK")
+        self._pool.release(conn)
 ```
+
+The `cleanup()` protocol (defined above) handles forgotten handles at run end.
 
 ## Tasks
 
 ### Per-Worker Instantiation
-- [ ] Define `ToolsetSpec` with factory and scope
-- [ ] Implement `ToolsetCache` with per_worker/per_run/global scoping
-- [ ] Update registry to store specs, instantiate on demand
-- [ ] Update built-in toolsets with appropriate scopes
+- [ ] Define `ToolsetSpec` dataclass with factory
+- [ ] Update `build_builtin_toolsets()` to return specs instead of instances
+- [ ] Update `_merge_toolsets()` to work with specs
+- [ ] Update `build_toolsets()` in loader.py to instantiate from specs
+- [ ] Wrap Python toolset instances in specs (factory returns the instance)
+- [ ] Pass `ToolsetBuildContext` through resolution chain
 
 ### Cleanup Lifecycle
-- [ ] Define `cleanup()` protocol (optional async method)
-- [ ] Call cleanup on all scoped instances at run end
+- [ ] Define `cleanup()` protocol (optional async method on toolsets)
+- [ ] Track toolset instances created during run
+- [ ] Call cleanup on all instances at end of `Runtime.run_invocable()`
 - [ ] Handle cleanup errors gracefully (log, don't propagate)
 
 ### Documentation
@@ -236,19 +235,19 @@ class DatabaseToolset(FunctionToolset):
   - Per-worker isolation (framework provides)
   - Handle-based state (toolset implements)
 - [ ] Add section to `docs/architecture.md` with reference
-- [ ] Update `README.md` with brief note and reference
 - [ ] Include DB and browser examples
 
 ### Testing
+- [ ] Test that same toolset name in different workers gets different instances
 - [ ] Test handle isolation between workers
 - [ ] Test cleanup called at run end
-- [ ] Test scope options (per_worker, per_run, global)
 
-## Current State
-Task resurrected after exploring alternatives. The "stateless toolsets" approach had an isolation flaw. Final design combines per-worker instances with handle-based state. Ready for implementation.
+## Follow-on: Instance Caching
+
+Deferred to a follow-on task:
+- Instance caching by scope (`per_worker`, `per_run`, `global`) to avoid recreating stateless toolsets
 
 ## Notes
-- Approval config should be global per toolset spec/name (so distinct names can carry distinct policies)
-- Built-in toolsets like `shell_readonly` can be `global` scope (truly stateless)
-- `filesystem_project` needs `per_worker` scope (different base paths per worker)
+- Approval config is per toolset spec/name (distinct names can carry distinct policies)
 - The handle pattern is valuable within per-worker instances for multi-resource management
+- Factory receives `ToolsetBuildContext` for access to worker name, path, etc.

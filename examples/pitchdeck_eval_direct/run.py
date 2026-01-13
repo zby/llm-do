@@ -1,41 +1,31 @@
 #!/usr/bin/env python
-"""Pitch deck evaluation with TUI and interactive approvals.
+"""Pitch deck evaluation with switchable TUI or headless UI.
 
 Run with:
     uv run examples/pitchdeck_eval_direct/run.py
     python examples/pitchdeck_eval_direct/run.py
 
-This script demonstrates running llm-do workers with a Textual TUI,
-including interactive approval prompts for tool calls.
+Set UI_MODE to "tui" or "headless" to switch modes.
 """
 
 import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
 try:
     from slugify import slugify
 except ImportError:
-    raise ImportError(
-        "python-slugify required. Install with: pip install python-slugify"
-    )
-
-from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
+    raise ImportError("python-slugify required. Install with: pip install python-slugify")
 
 from llm_do.runtime import (
-    RunApprovalPolicy,
-    Runtime,
     Worker,
     WorkerArgs,
     WorkerInput,
     WorkerRuntime,
-    build_entry,
     entry,
 )
-from llm_do.ui import UIEvent, parse_approval_request
-from llm_do.ui.display import TextualDisplayBackend
+from llm_do.ui import run_ui
 
 # =============================================================================
 # CONFIGURATION - Edit these constants to experiment
@@ -46,8 +36,13 @@ MODEL = "anthropic:claude-haiku-4-5"
 # MODEL = "openai:gpt-4o-mini"
 # MODEL = "anthropic:claude-sonnet-4-20250514"
 
-# Approval mode: "prompt" for interactive, "approve_all" to skip prompts
-APPROVAL_MODE = "prompt"
+# UI mode: "tui" or "headless"
+UI_MODE = os.environ.get("LLM_DO_UI_MODE", "tui")
+if UI_MODE not in {"tui", "headless"}:
+    raise ValueError("UI_MODE must be 'tui' or 'headless'")
+
+# Approval mode: "prompt" for TUI, "approve_all"/"reject_all" for headless
+APPROVAL_MODE = "prompt" if UI_MODE == "tui" else "approve_all"
 
 # Verbosity: 1=show tool calls, 2=stream responses
 VERBOSITY = 1
@@ -147,146 +142,25 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     return f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}"
 
 
-# =============================================================================
-# TUI Runtime
-# =============================================================================
-
-
-def _ensure_stdout_textual_driver() -> None:
-    """Configure Textual to write TUI output to stdout on Linux."""
-    if sys.platform.startswith("win"):
-        return
-    if os.environ.get("TEXTUAL_DRIVER"):
-        return
-
-    os.environ["TEXTUAL_DRIVER"] = f"{__name__}:StdoutLinuxDriver"
-
-    from textual.drivers.linux_driver import LinuxDriver
-
-    class StdoutLinuxDriver(LinuxDriver):
-        def __init__(
-            self,
-            app: Any,
-            *,
-            debug: bool = False,
-            mouse: bool = True,
-            size: tuple[int, int] | None = None,
-        ) -> None:
-            super().__init__(app, debug=debug, mouse=mouse, size=size)
-            self._file = sys.__stdout__
-
-    globals()["StdoutLinuxDriver"] = StdoutLinuxDriver
-
-
-async def run_with_tui() -> int:
-    """Run the evaluation with Textual TUI and interactive approvals.
-
-    Returns:
-        Exit code (0 for success, 1 for error)
-    """
-    _ensure_stdout_textual_driver()
-    from llm_do.ui.app import LlmDoApp
-
-    app: LlmDoApp | None = None
-
-    # Set up queues for render pipeline and app communication
-    render_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
-    tui_event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
-    approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
-
-    tui_backend = TextualDisplayBackend(tui_event_queue)
-
-    # Container for result and exit code
-    worker_result: list[Any] = []
-    worker_exit_code: list[int] = [0]
-
-    def on_event(event: UIEvent) -> None:
-        """Forward events to the render pipeline."""
-        render_queue.put_nowait(event)
-
-    async def render_loop() -> None:
-        """Render UI events through the TUI backend."""
-        await tui_backend.start()
-        try:
-            while True:
-                event = await render_queue.get()
-                if event is None:
-                    tui_event_queue.put_nowait(None)
-                    render_queue.task_done()
-                    break
-                tui_backend.display(event)
-                render_queue.task_done()
-        finally:
-            await tui_backend.stop()
-
-    async def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
-        """Send an approval request to the TUI and await the user's decision."""
-        approval_event = parse_approval_request(request)
-        render_queue.put_nowait(approval_event)
-        return await approval_queue.get()
-
-    approval_policy = RunApprovalPolicy(
-        mode=APPROVAL_MODE,
-        approval_callback=prompt_approval,
-        return_permission_errors=True,
-    )
-
-    runtime = Runtime(
-        cli_model=MODEL,
-        run_approval_policy=approval_policy,
-        on_event=on_event,
-        verbosity=VERBOSITY,
-    )
-
-    entrypoint = build_entry([], [str(Path(__file__).resolve())])
-
-    async def run_worker() -> int:
-        """Run the worker and send events to the app."""
-        try:
-            result, _ctx = await runtime.run_invocable(
-                entrypoint,
-                WorkerInput(input=""),
-                model=MODEL,
-            )
-            worker_result[:] = [result]
-        except Exception as e:
-            print(f"Error: {e}", file=sys.__stderr__)
-            worker_exit_code[0] = 1
-        finally:
-            render_queue.put_nowait(None)
-        return worker_exit_code[0]
-
-    # Create the Textual app
-    app = LlmDoApp(
-        tui_event_queue,
-        approval_queue,
-        worker_coro=run_worker(),
-        auto_quit=True,
-    )
-
-    # Run with mouse disabled to allow terminal text selection
-    render_task = asyncio.create_task(render_loop())
-    await app.run_async(mouse=False)
-    render_queue.put_nowait(None)
-    if not render_task.done():
-        await render_task
-
-    # Print final result to stdout
-    if worker_result:
-        print(worker_result[0])
-
-    return worker_exit_code[0]
-
-
 def cli_main():
     """Main entry point."""
-    print(f"Starting TUI with MODEL={MODEL}, APPROVAL_MODE={APPROVAL_MODE}")
+    print(f"Starting {UI_MODE} with MODEL={MODEL}, APPROVAL_MODE={APPROVAL_MODE}")
     print(f"Input directory: {INPUT_DIR}")
     print(f"Output directory: {OUTPUT_DIR}")
     print("-" * 60)
 
-    exit_code = asyncio.run(run_with_tui())
-    sys.exit(exit_code)
+    outcome = asyncio.run(run_ui(
+        entry=main,
+        input={"input": ""},
+        model=MODEL,
+        approval_mode=APPROVAL_MODE,
+        mode=UI_MODE,
+        verbosity=VERBOSITY,
+        return_permission_errors=True,
+    ))
+    if outcome.result is not None:
+        print(outcome.result)
+    sys.exit(outcome.exit_code)
 
 
 if __name__ == "__main__":

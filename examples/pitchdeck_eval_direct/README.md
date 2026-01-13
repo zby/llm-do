@@ -1,6 +1,6 @@
 # Pitch Deck Evaluation (Direct Python)
 
-This example demonstrates running llm-do workers **directly from Python** without using the `llm-do` CLI. Python handles all orchestration while the LLM handles analysis.
+This example demonstrates running llm-do workers **directly from Python** without using the `llm-do` CLI. Python handles all orchestration while the LLM handles analysis, and you can switch between TUI and headless output.
 
 ## The Pattern
 
@@ -8,7 +8,7 @@ This example demonstrates running llm-do workers **directly from Python** withou
 run.py (Python script)
     ├── list_pitchdecks() - discover PDFs
     ├── build_pitch_evaluator() - create Worker
-    ├── Runtime.run() - call LLM for each deck
+    ├── run_ui() - run entry with TUI or headless UI
     └── write results to disk
 ```
 
@@ -39,7 +39,8 @@ Edit constants at the top of `run.py`:
 
 ```python
 MODEL = "anthropic:claude-haiku-4-5"  # or "openai:gpt-4o-mini"
-APPROVAL_POLICY = RunApprovalPolicy(mode="approve_all")
+UI_MODE = "tui"  # or "headless"
+APPROVAL_MODE = "prompt" if UI_MODE == "tui" else "approve_all"
 VERBOSITY = 1  # 0=quiet, 1=tool calls, 2=stream
 ```
 
@@ -56,11 +57,11 @@ pitchdeck_eval_direct/
 
 ## Key Code
 
-The core pattern for direct Python usage:
+The core pattern for direct Python usage with switchable UI:
 
 ```python
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
-from llm_do.ui.display import HeadlessDisplayBackend
+from llm_do.runtime import Worker, entry
+from llm_do.ui import run_ui
 
 # Build worker from instructions
 evaluator = Worker(
@@ -71,17 +72,14 @@ evaluator = Worker(
     base_path=Path(__file__).parent,  # For attachment resolution
 )
 
-# Create runtime
-runtime = Runtime(
-    cli_model="anthropic:claude-haiku-4-5",
-    run_approval_policy=RunApprovalPolicy(mode="approve_all"),
-    on_event=HeadlessDisplayBackend(stream=sys.stderr, verbosity=1).display,
+# Run the entry with TUI or headless output
+outcome = await run_ui(
+    entry=main,
+    input={"input": ""},
+    model="anthropic:claude-haiku-4-5",
+    approval_mode=APPROVAL_MODE,
+    mode=UI_MODE,
     verbosity=1,
 )
-
-# Run with input and attachments
-result, _ctx = runtime.run(evaluator, {
-    "input": "Evaluate this pitch deck.",
-    "attachments": ["/path/to/deck.pdf"],
-})
+print(outcome.result)
 ```

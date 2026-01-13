@@ -1,78 +1,50 @@
 # Per-Call Toolset Instances
 
 ## Status
-active
+ready for implementation
 
-## Problem
+## Prerequisites
+- [ ] none
 
-Toolsets are currently instantiated **per-entry-build**, not **per-call**. This breaks isolation for recursive worker calls.
+## Goal
+Per-call toolset instances with deterministic cleanup, using a single specs-based path and no shared-instance behavior.
 
-If Worker A calls itself:
+## Motivation
+Toolsets are currently instantiated per entry build, not per call, which breaks isolation for recursive or nested worker calls.
+If Worker A calls itself, both invocations share the same toolset objects, so state and handles leak across calls and cleanup runs only once.
+That makes debugging unpredictable and can corrupt stateful toolsets.
+
+Example failure mode:
 ```
 Worker A (call 1)
-  └── Worker A (call 2)  ← shares same toolset instances as call 1
+  └── Worker A (call 2)  ← shares toolset instances from call 1
 ```
 
-Both invocations share the same `self.toolsets` list, so handles/state leak between recursive calls.
+## Context
+- Relevant files/symbols: `llm_do/runtime/worker.py`, `llm_do/runtime/shared.py`, `llm_do/runtime/registry.py`, `llm_do/toolsets/loader.py`
+- Related tasks/notes/docs: `tasks/completed/113-per-worker-toolset-instances.md`, `docs/notes/reviews/review-solid.md`
+- How to verify / reproduce: add/extend tests to show recursive worker calls get isolated toolset instances; run `uv run pytest`
 
-## Decisions
-
-### 1. Worker API - Specs vs Instances
-**Decision: Keep both fields (backwards compatible)**
-
-- Add `toolset_specs: list[ToolsetSpec]` for per-call instantiation
-- Keep `toolsets: list[AbstractToolset]` for shared/legacy instances
-- If `toolset_specs` is set, use it; otherwise fall back to `toolsets`
-
-### 2. Where instantiation happens
-**Decision: Worker._call_internal**
-
-Worker already has access to `self.toolset_specs` and is the natural place to instantiate before wrapping for approval.
-
-### 3. Where cleanup happens
-**Decision: Local finally block in Worker._call_internal**
-
-```python
-async def _call_internal(self, ...):
-    # Instantiate from specs if available
-    if self.toolset_specs:
-        toolsets = [spec.factory(ctx) for spec in self.toolset_specs]
-    else:
-        toolsets = self.toolsets or []
-
-    try:
-        wrapped = wrap_toolsets_for_approval(toolsets, ...)
-        # ... run agent ...
-        return output
-    finally:
-        if self.toolset_specs:  # only cleanup if we created them
-            await self._cleanup_toolsets(toolsets)
-```
-
-Simple, self-contained, cleanup always runs even on error.
+## Decision Record
+- Decision: use a single path based on toolset specs; remove shared `toolsets` instances
+- Inputs: per-call isolation required; shared instances leak state; repo guidance says no backcompat
+- Options: keep dual fields (rejected); only specs with migration (chosen)
+- Outcome: worker definitions and registry populate `toolset_specs` only; `Worker` instantiates per-call and cleans up in `Worker._call_internal`; entry-level cleanup removed
+- Follow-ups: update any docs or examples that reference `toolsets`
 
 ## Tasks
-
-- [ ] Add `toolset_specs: list[ToolsetSpec]` field to Worker dataclass
-- [ ] Update `Worker._call_internal` to instantiate from specs
-- [ ] Add cleanup in finally block (extract helper from Runtime._cleanup_toolsets)
-- [ ] Remove cleanup from `Runtime.run_entry()` (or keep for `toolsets` path only)
-- [ ] Update registry to populate `toolset_specs` instead of `toolsets` for worker files
+- [ ] Remove `toolsets` field from `Worker` and add `toolset_specs: list[ToolsetSpec]`
+- [ ] Update `Worker._call_internal` to instantiate from specs per call
+- [ ] Add cleanup in `Worker._call_internal` finally block (extract helper from Runtime as needed)
+- [ ] Remove cleanup from `Runtime.run_entry()` (no entry-level instantiation remains)
+- [ ] Update registry to populate `toolset_specs` for worker files
+- [ ] Update toolset loader to produce specs-only data
+- [ ] Update docs/examples that reference `toolsets` to use `toolset_specs`
 - [ ] Update tests to verify per-call isolation
 - [ ] Add test for recursive worker with stateful toolset
 
-## Files to Modify
+## Current State
+Decisions updated to single-path design; implementation not started.
 
-- `llm_do/runtime/worker.py` - Add field, instantiation, cleanup
-- `llm_do/runtime/shared.py` - Adjust/remove entry-level cleanup
-- `llm_do/runtime/registry.py` - Populate toolset_specs
-- `llm_do/toolsets/loader.py` - May need adjustments
-
-## Migration
-
-Existing code using `Worker(toolsets=[...])` continues to work (shared instances, no per-call isolation). New code should use `Worker(toolset_specs=[...])` for proper isolation.
-
-## Related
-
-- Completed: `tasks/completed/113-per-worker-toolset-instances.md` (original per-worker work)
-- SOLID review: `docs/notes/reviews/review-solid.md`
+## Notes
+- Migration: update any worker definitions or registry outputs that previously passed `toolsets` to use specs instead.

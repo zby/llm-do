@@ -17,6 +17,8 @@ from urllib.error import HTTPError, URLError
 
 from pydantic_ai.toolsets import FunctionToolset
 
+from llm_do.runtime import ToolsetSpec
+
 # =============================================================================
 # Constants
 # =============================================================================
@@ -119,10 +121,6 @@ def _search_serpapi(query: str, api_key: str, limit: int) -> List[Dict[str, str 
 # Toolsets
 # =============================================================================
 
-web_research_tools = FunctionToolset()
-
-
-@web_research_tools.tool
 def search_web(query: str, num_results: int = 4) -> List[Dict[str, str | None]]:
     """
     Run a web search using SerpAPI.
@@ -161,7 +159,6 @@ def search_web(query: str, num_results: int = 4) -> List[Dict[str, str | None]]:
         raise
 
 
-@web_research_tools.tool
 def fetch_page(url: str, max_chars: int = 4000) -> str:
     """
     Fetch a URL and return cleaned text content.
@@ -229,7 +226,6 @@ def fetch_page(url: str, max_chars: int = 4000) -> str:
     return cleaned
 
 
-@web_research_tools.tool
 def generate_slug(topic: str) -> str:
     """Generate a file-safe slug for reports.
 
@@ -243,3 +239,14 @@ def generate_slug(topic: str) -> str:
     cleaned = re.sub(r"[^a-z0-9-]", "", cleaned)
     slug = cleaned.strip("-")[:60].strip("-")
     return slug or "report"
+
+
+def build_web_research_tools(_ctx):
+    tools = FunctionToolset()
+    tools.tool(search_web)
+    tools.tool(fetch_page)
+    tools.tool(generate_slug)
+    return tools
+
+
+web_research_tools = ToolsetSpec(factory=build_web_research_tools)

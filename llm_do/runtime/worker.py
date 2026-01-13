@@ -32,6 +32,7 @@ from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from ..models import select_model
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..toolsets.attachments import AttachmentToolset
+from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
 from ..toolsets.validators import DictValidator
 from ..ui.events import ToolCallEvent, ToolResultEvent
 from .args import WorkerArgs, WorkerInput, ensure_worker_args
@@ -238,8 +239,8 @@ class WorkerToolset(AbstractToolset[Any]):
         )
 
 
-# Type alias for toolset references: can be names (str) or instances
-ToolsetRef = str | AbstractToolset[Any]
+# Type alias for toolset references: can be names, specs, or instances
+ToolsetRef = str | ToolsetSpec | AbstractToolset[Any]
 
 
 @dataclass
@@ -279,11 +280,16 @@ class EntryFunction:
         # Fallback: return only instance refs (unlinked state)
         return [ref for ref in self.toolset_refs if isinstance(ref, AbstractToolset)]
 
-    def resolve_toolsets(self, available: dict[str, AbstractToolset[Any]]) -> None:
-        """Resolve named toolset refs to instances during registry linking.
+    def resolve_toolsets(
+        self,
+        available: dict[str, ToolsetSpec],
+        context: ToolsetBuildContext,
+    ) -> None:
+        """Resolve toolset refs to instances during registry linking.
 
         Args:
-            available: Map of toolset names to instances from the registry
+            available: Map of toolset names to specs from the registry
+            context: Toolset build context for instantiation
         """
         resolved: list[AbstractToolset[Any]] = []
         for ref in self.toolset_refs:
@@ -293,9 +299,14 @@ class EntryFunction:
                         f"Entry '{self.name}' references unknown toolset: {ref}. "
                         f"Available: {sorted(available.keys())}"
                     )
-                resolved.append(available[ref])
+                toolset = available[ref].factory(context)
+            elif isinstance(ref, ToolsetSpec):
+                toolset = ref.factory(context)
             else:
-                resolved.append(ref)
+                toolset = ref
+            if isinstance(toolset, Worker):
+                toolset = WorkerToolset(worker=toolset)
+            resolved.append(toolset)
         self._resolved_toolsets = resolved
 
     def __post_init__(self) -> None:

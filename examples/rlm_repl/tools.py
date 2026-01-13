@@ -18,9 +18,8 @@ from RestrictedPython import (
 from RestrictedPython.Guards import guarded_iter_unpack_sequence, safer_getattr
 from RestrictedPython.PrintCollector import PrintCollector
 
-from llm_do.runtime import WorkerInput, WorkerRuntime, entry
-
-rlm_tools = FunctionToolset()
+from llm_do.runtime import ToolsetSpec, WorkerInput, WorkerRuntime, entry
+from llm_do.toolsets.approval import set_toolset_approval_config
 
 _STATE: dict[str, Any] = {
     "context": "",
@@ -217,24 +216,31 @@ def set_context(text: str, query: str) -> None:
     env["query"] = query
 
 
-@rlm_tools.tool
-def repl(code: str) -> str:
-    """Execute Python in a restricted REPL with `context` preloaded."""
-    env = _STATE["env"]
-    env["context"] = _STATE["context"]
-    env["query"] = _STATE["query"]
+def build_rlm_tools(_ctx):
+    tools = FunctionToolset()
 
-    try:
-        return _REPL.execute(code, env)
-    except REPLError as exc:
-        return f"Error: {exc}"
-    except Exception as exc:
-        return f"Unexpected error: {exc}"
+    @tools.tool
+    def repl(code: str) -> str:
+        """Execute Python in a restricted REPL with `context` preloaded."""
+        env = _STATE["env"]
+        env["context"] = _STATE["context"]
+        env["query"] = _STATE["query"]
+
+        try:
+            return _REPL.execute(code, env)
+        except REPLError as exc:
+            return f"Error: {exc}"
+        except Exception as exc:
+            return f"Unexpected error: {exc}"
+
+    set_toolset_approval_config(
+        tools,
+        {"repl": {"pre_approved": True}},
+    )
+    return tools
 
 
-rlm_tools.__llm_do_approval_config__ = {
-    "repl": {"pre_approved": True},
-}
+rlm_tools = ToolsetSpec(factory=build_rlm_tools)
 
 PROJECT_ROOT = Path(__file__).parent.resolve()
 CONTEXT_PATH = PROJECT_ROOT / "context.txt"

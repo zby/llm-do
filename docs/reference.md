@@ -105,15 +105,20 @@ To access the runtime, accept `RunContext[WorkerRuntime]` as the first parameter
 ```python
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import WorkerInput, WorkerRuntime
+from llm_do.runtime import ToolsetSpec, WorkerInput, WorkerRuntime
 
-tools = FunctionToolset()
+def build_tools(_ctx):
+    tools = FunctionToolset()
 
-@tools.tool
-async def my_tool(ctx: RunContext[WorkerRuntime], data: str) -> str:
-    """Tool that can call workers."""
-    result = await ctx.deps.call("worker_name", WorkerInput(input=data))
-    return result
+    @tools.tool
+    async def my_tool(ctx: RunContext[WorkerRuntime], data: str) -> str:
+        """Tool that can call workers."""
+        result = await ctx.deps.call("worker_name", WorkerInput(input=data))
+        return result
+
+    return tools
+
+tools = ToolsetSpec(factory=build_tools)
 ```
 
 The `ctx` parameter is automatically injected by PydanticAI and excluded from the tool schema the LLM sees.
@@ -233,20 +238,26 @@ The simplest way to create tools. Define functions with the `@tools.tool` decora
 
 ```python
 from pydantic_ai.toolsets import FunctionToolset
+from llm_do.runtime import ToolsetSpec
 
-calc_tools = FunctionToolset()
+def build_calc_tools(_ctx):
+    calc_tools = FunctionToolset()
 
-@calc_tools.tool
-def calculate(expression: str) -> float:
-    """Evaluate a mathematical expression."""
-    return eval(expression)  # simplified example
+    @calc_tools.tool
+    def calculate(expression: str) -> float:
+        """Evaluate a mathematical expression."""
+        return eval(expression)  # simplified example
 
-@calc_tools.tool
-async def fetch_data(url: str) -> str:
-    """Fetch data from a URL."""
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url)
-        return response.text
+    @calc_tools.tool
+    async def fetch_data(url: str) -> str:
+        """Fetch data from a URL."""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            return response.text
+
+    return calc_tools
+
+calc_tools = ToolsetSpec(factory=build_calc_tools)
 ```
 
 Save as `tools.py` and reference in your worker:
@@ -261,18 +272,27 @@ toolsets:
 You are a helpful calculator...
 ```
 
+Factories receive a `ToolsetBuildContext` with worker name/path metadata if you
+need to specialize per worker (e.g., base paths).
+
 **Accessing the Runtime:**
 
 To call other workers/tools from your tool, accept `RunContext[WorkerRuntime]`:
 
 ```python
 from pydantic_ai.tools import RunContext
+from pydantic_ai.toolsets import FunctionToolset
 from llm_do.runtime import WorkerRuntime
 
-@calc_tools.tool
-async def analyze(ctx: RunContext[WorkerRuntime], text: str) -> str:
-    """Analyze text using another worker."""
-    return await ctx.deps.call("sentiment_analyzer", {"input": text})
+def build_calc_tools(_ctx):
+    calc_tools = FunctionToolset()
+
+    @calc_tools.tool
+    async def analyze(ctx: RunContext[WorkerRuntime], text: str) -> str:
+        """Analyze text using another worker."""
+        return await ctx.deps.call("sentiment_analyzer", {"input": text})
+
+    return calc_tools
 ```
 
 ### AbstractToolset (Class-Based)
@@ -345,18 +365,36 @@ class MyToolset(AbstractToolset[Any]):
         return f"{name}({tool_args.get('input', '')})"
 ```
 
+Register it with a factory so each worker gets a fresh instance:
+
+```python
+from llm_do.runtime import ToolsetSpec
+
+def build_my_toolset(_ctx):
+    return MyToolset(config={"require_approval": True})
+
+my_toolset = ToolsetSpec(factory=build_my_toolset)
+```
+
 ### Toolset Configuration
 
-Toolset configuration lives with the toolset instance in Python. Worker YAML
-only references toolset names, so you define any config when instantiating
+Toolset configuration lives in the toolset factory in Python. Worker YAML
+only references toolset names, so you define any config when building
 the toolset in a `.py` file:
 
 ```python
 from pydantic_ai.toolsets import FunctionToolset
+from llm_do.runtime import ToolsetSpec
 from llm_do.toolsets import FileSystemToolset
 
-calc_tools = FunctionToolset()
-filesystem_data = FileSystemToolset(config={"base_path": "./data", "write_approval": True})
+def build_calc_tools(_ctx):
+    return FunctionToolset()
+
+def build_filesystem(_ctx):
+    return FileSystemToolset(config={"base_path": "./data", "write_approval": True})
+
+calc_tools = ToolsetSpec(factory=build_calc_tools)
+filesystem_data = ToolsetSpec(factory=build_filesystem)
 ```
 
 Then reference the toolset names in your worker:
@@ -370,16 +408,25 @@ toolsets:
 If you need to pre-approve specific tools, attach an approval config dict:
 
 ```python
-calc_tools.__llm_do_approval_config__ = {
-    "add": {"pre_approved": True},
-    "multiply": {"pre_approved": True},
-}
+from pydantic_ai.toolsets import FunctionToolset
+from llm_do.toolsets.approval import set_toolset_approval_config
+
+def build_calc_tools(_ctx):
+    tools = FunctionToolset()
+    set_toolset_approval_config(
+        tools,
+        {
+            "add": {"pre_approved": True},
+            "multiply": {"pre_approved": True},
+        },
+    )
+    return tools
 ```
 
 **Dependencies:**
 
-Toolset instances are created in Python, so pass any dependencies directly when
-instantiating them (e.g., base paths, worker metadata, or sandbox handles).
+Toolset instances are created in Python, so pass any dependencies directly in
+the factory (e.g., base paths, worker metadata, or sandbox handles).
 
 ### Built-in Toolsets
 

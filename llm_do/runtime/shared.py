@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
+import logging
 import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -16,6 +18,10 @@ from .contracts import Entry, EventCallback, MessageLogCallback, ModelType
 
 if TYPE_CHECKING:
     from .deps import WorkerRuntime
+
+logger = logging.getLogger(__name__)
+
+TOOLSET_INSTANCE_ATTR = "__llm_do_toolset_instances__"
 
 
 class UsageCollector:
@@ -189,14 +195,33 @@ class Runtime:
                 UserMessageEvent(worker=invocable.name, content=prompt_spec.text)
             )
 
-        if isinstance(invocable, EntryFunction):
-            # Entry functions are trusted code; tool calls run directly without approval wrappers.
-            result = await invocable.call(input_args, ctx)
-        elif isinstance(invocable, Worker):
-            result = await ctx._execute(invocable, input_args)
-        else:
-            raise TypeError(f"Unsupported entry type: {type(invocable)}")
-        return result, ctx
+        cleanup_toolsets = getattr(invocable, TOOLSET_INSTANCE_ATTR, None)
+        if cleanup_toolsets is None:
+            cleanup_toolsets = list(getattr(invocable, "toolsets", []) or [])
+
+        try:
+            if isinstance(invocable, EntryFunction):
+                # Entry functions are trusted code; tool calls run directly without approval wrappers.
+                result = await invocable.call(input_args, ctx)
+            elif isinstance(invocable, Worker):
+                result = await ctx._execute(invocable, input_args)
+            else:
+                raise TypeError(f"Unsupported entry type: {type(invocable)}")
+            return result, ctx
+        finally:
+            await self._cleanup_toolsets(cleanup_toolsets)
+
+    async def _cleanup_toolsets(self, toolsets: list[Any]) -> None:
+        for toolset in toolsets:
+            cleanup = getattr(toolset, "cleanup", None)
+            if cleanup is None:
+                continue
+            try:
+                result = cleanup()
+                if inspect.isawaitable(result):
+                    await result
+            except Exception:
+                logger.exception("Toolset cleanup failed for %r", toolset)
 
     def run(
         self,

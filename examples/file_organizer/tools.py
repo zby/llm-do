@@ -8,59 +8,68 @@ import re
 
 from pydantic_ai.toolsets import FunctionToolset
 
-file_tools = FunctionToolset()
+from llm_do.runtime import ToolsetSpec
+from llm_do.toolsets.approval import set_toolset_approval_config
 
 
-@file_tools.tool
-def sanitize_filename(name: str) -> str:
-    """Convert a human-readable filename to a clean, filesystem-safe format.
+def build_file_tools(_ctx):
+    file_tools = FunctionToolset()
 
-    Pass your SEMANTIC name with normal spacing and capitalization.
-    Examples:
-        "Meeting Notes.docx" → "meeting-notes.docx"
-        "John's Report.pdf" → "johns-report.pdf"
-        "Q1 Sales Data.xlsx" → "q1-sales-data.xlsx"
+    @file_tools.tool
+    def sanitize_filename(name: str) -> str:
+        """Convert a human-readable filename to a clean, filesystem-safe format.
 
-    Do NOT pre-sanitize - pass the readable name, I'll handle cleanup:
-    - Converts to lowercase
-    - Replaces spaces/underscores with hyphens
-    - Removes special characters
-    - Preserves file extension
+        Pass your SEMANTIC name with normal spacing and capitalization.
+        Examples:
+            "Meeting Notes.docx" → "meeting-notes.docx"
+            "John's Report.pdf" → "johns-report.pdf"
+            "Q1 Sales Data.xlsx" → "q1-sales-data.xlsx"
 
-    Args:
-        name: Human-readable filename with extension (e.g. "My Report.pdf")
+        Do NOT pre-sanitize - pass the readable name, I'll handle cleanup:
+        - Converts to lowercase
+        - Replaces spaces/underscores with hyphens
+        - Removes special characters
+        - Preserves file extension
 
-    Returns:
-        Clean filename safe for any filesystem
-    """
-    # Split extension
-    if "." in name:
-        base, ext = name.rsplit(".", 1)
-        ext = ext.lower()
-    else:
-        base, ext = name, ""
+        Args:
+            name: Human-readable filename with extension (e.g. "My Report.pdf")
 
-    # Lowercase
-    base = base.lower()
+        Returns:
+            Clean filename safe for any filesystem
+        """
+        # Split extension
+        if "." in name:
+            base, ext = name.rsplit(".", 1)
+            ext = ext.lower()
+        else:
+            base, ext = name, ""
 
-    # Replace spaces and underscores with hyphens
-    base = re.sub(r"[\s_]+", "-", base)
+        # Lowercase
+        base = base.lower()
 
-    # Remove special characters (keep alphanumeric and hyphens)
-    base = re.sub(r"[^a-z0-9\-]", "", base)
+        # Replace spaces and underscores with hyphens
+        base = re.sub(r"[\s_]+", "-", base)
 
-    # Collapse multiple hyphens
-    base = re.sub(r"-+", "-", base)
+        # Remove special characters (keep alphanumeric and hyphens)
+        base = re.sub(r"[^a-z0-9\-]", "", base)
 
-    # Strip leading/trailing hyphens
-    base = base.strip("-")
+        # Collapse multiple hyphens
+        base = re.sub(r"-+", "-", base)
 
-    # Reassemble
-    if ext:
-        return f"{base}.{ext}"
-    return base
+        # Strip leading/trailing hyphens
+        base = base.strip("-")
+
+        # Reassemble
+        if ext:
+            return f"{base}.{ext}"
+        return base
+
+    set_toolset_approval_config(
+        file_tools,
+        {"sanitize_filename": {"pre_approved": True}},
+    )
+
+    return file_tools
 
 
-file_tools.__llm_do_approval_config__ = {
-    "sanitize_filename": {"pre_approved": True},
-}
+file_tools = ToolsetSpec(factory=build_file_tools)

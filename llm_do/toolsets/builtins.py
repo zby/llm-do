@@ -7,6 +7,7 @@ from typing import Any
 from pydantic_ai.toolsets import AbstractToolset
 
 from .filesystem import FileSystemToolset, ReadOnlyFileSystemToolset
+from .loader import ToolsetSpec
 from .shell import ShellToolset
 
 _SHELL_READONLY_RULES = [
@@ -46,19 +47,36 @@ def _filesystem_config(base_path: Path) -> dict[str, Any]:
 def build_builtin_toolsets(
     cwd: Path,
     project_root: Path | None,
-) -> dict[str, AbstractToolset[Any]]:
-    """Return built-in toolsets keyed by their registry names."""
+) -> dict[str, ToolsetSpec]:
+    """Return built-in toolset specs keyed by their registry names."""
     cwd_path = cwd.resolve()
     project_path = (project_root or cwd_path).resolve()
+    cwd_config = _filesystem_config(cwd_path)
+    project_config = _filesystem_config(project_path)
+
+    def filesystem_factory(
+        config: dict[str, Any],
+        *,
+        read_only: bool,
+    ) -> ToolsetSpec:
+        def factory(_ctx: Any) -> AbstractToolset[Any]:
+            if read_only:
+                return ReadOnlyFileSystemToolset(config=dict(config))
+            return FileSystemToolset(config=dict(config))
+
+        return ToolsetSpec(factory=factory)
+
+    def shell_factory(rules: list[dict[str, Any]]) -> ToolsetSpec:
+        def factory(_ctx: Any) -> AbstractToolset[Any]:
+            return ShellToolset(config={"rules": [dict(rule) for rule in rules]})
+
+        return ToolsetSpec(factory=factory)
+
     return {
-        "filesystem_cwd": FileSystemToolset(config=_filesystem_config(cwd_path)),
-        "filesystem_cwd_ro": ReadOnlyFileSystemToolset(
-            config=_filesystem_config(cwd_path),
-        ),
-        "filesystem_project": FileSystemToolset(config=_filesystem_config(project_path)),
-        "filesystem_project_ro": ReadOnlyFileSystemToolset(
-            config=_filesystem_config(project_path),
-        ),
-        "shell_readonly": ShellToolset(config={"rules": list(_SHELL_READONLY_RULES)}),
-        "shell_file_ops": ShellToolset(config={"rules": list(_SHELL_FILE_OPS_RULES)}),
+        "filesystem_cwd": filesystem_factory(cwd_config, read_only=False),
+        "filesystem_cwd_ro": filesystem_factory(cwd_config, read_only=True),
+        "filesystem_project": filesystem_factory(project_config, read_only=False),
+        "filesystem_project_ro": filesystem_factory(project_config, read_only=True),
+        "shell_readonly": shell_factory(_SHELL_READONLY_RULES),
+        "shell_file_ops": shell_factory(_SHELL_FILE_OPS_RULES),
     }

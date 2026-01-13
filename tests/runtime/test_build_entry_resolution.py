@@ -50,18 +50,23 @@ async def test_build_entry_loads_python_modules_once(tmp_path: Path) -> None:
 
     module_path.write_text(
         f"""\
-from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
+from llm_do.runtime import ToolsetSpec, WorkerArgs, WorkerRuntime, entry
 from pydantic_ai.toolsets import FunctionToolset
 
 _marker = {marker_literal}
 with open(_marker, "a", encoding="utf-8") as handle:
     handle.write("x\\n")
 
-tools = FunctionToolset()
+def build_tools(_ctx):
+    tools = FunctionToolset()
 
-@tools.tool
-def ping() -> str:
-    return "pong"
+    @tools.tool
+    def ping() -> str:
+        return "pong"
+
+    return tools
+
+tools = ToolsetSpec(factory=build_tools)
 
 @entry()
 async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:

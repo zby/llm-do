@@ -145,18 +145,25 @@ This progression reflects progressive stabilizing: initially you might prompt th
 
 ## Custom Tools
 
-Add custom tools by creating `tools.py` in your project root:
+Add custom tools by creating `tools.py` in your project root. Toolsets are
+defined as factories via `ToolsetSpec`, so each worker gets its own instance:
 
 ```python
 # tools.py
 from pydantic_ai.toolsets import FunctionToolset
+from llm_do.runtime import ToolsetSpec
 
-tools = FunctionToolset()
+def build_tools(_ctx):
+    tools = FunctionToolset()
 
-@tools.tool
-def sanitize_filename(name: str) -> str:
-    """Remove special characters from filename."""
-    return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
+    @tools.tool
+    def sanitize_filename(name: str) -> str:
+        """Remove special characters from filename."""
+        return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
+
+    return tools
+
+tools = ToolsetSpec(factory=build_tools)
 ```
 
 Functions become LLM-callable tools. Reference the toolset name in your worker's `toolsets` config and list `tools.py` in `project.json` under `python_files`.
@@ -167,14 +174,19 @@ To access runtime context (for calling other tools/workers), accept a `RunContex
 # tools.py
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import WorkerRuntime
+from llm_do.runtime import ToolsetSpec, WorkerRuntime
 
-tools = FunctionToolset()
+def build_tools(_ctx):
+    tools = FunctionToolset()
 
-@tools.tool
-async def analyze_config(ctx: RunContext[WorkerRuntime], raw: str) -> str:
-    """Delegate parsing to a worker."""
-    return await ctx.deps.call("config_parser", {"input": raw})
+    @tools.tool
+    async def analyze_config(ctx: RunContext[WorkerRuntime], raw: str) -> str:
+        """Delegate parsing to a worker."""
+        return await ctx.deps.call("config_parser", {"input": raw})
+
+    return tools
+
+tools = ToolsetSpec(factory=build_tools)
 ```
 
 You can also use:

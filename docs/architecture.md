@@ -57,7 +57,7 @@ Implementation layout mirrors the scopes:
 
 ## Execution Flow
 
-Entry linking resolves toolsets and produces a single entry (worker or
+Entry linking resolves toolset specs and produces a single entry (worker or
 `@entry` function). Internally, a registry-like symbol table maps names to
 resolved entries during the link step.
 
@@ -65,7 +65,7 @@ resolved entries during the link step.
 CLI or Python
     │
     ▼
-Build entry (link step resolves toolsets)
+Build entry (link step resolves toolset specs + instantiates per worker)
     │
     ▼
 Runtime.run_entry() creates CallFrame
@@ -88,6 +88,15 @@ Key points:
 - Max nesting depth prevents infinite recursion (default: 5)
 - EntryFunction inputs are normalized to `WorkerArgs` (via `schema_in`, default `WorkerInput`)
 - EntryFunction tool calls are trusted and bypass approval wrapping
+
+---
+
+## Toolset Instantiation & State
+
+Toolsets are registered as `ToolsetSpec` factories and instantiated per worker
+to keep state isolated. The runtime calls optional `cleanup()` hooks at run end
+to release handle-based resources. See [`docs/toolset-state.md`](toolset-state.md)
+for the handle pattern and lifecycle details.
 
 ---
 
@@ -137,4 +146,5 @@ Tools requiring approval are wrapped by `ApprovalToolset`:
 - **shell_readonly**: read-only shell commands (whitelist)
 - **shell_file_ops**: `ls` (pre-approved) + `mv` (approval required)
 
-Python toolsets are discovered from `.py` files. Workers reference toolsets by name only.
+Python toolsets are discovered from `.py` files as `ToolsetSpec` factories.
+Workers reference toolsets by name only.

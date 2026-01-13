@@ -1,11 +1,11 @@
-"""Module loading and AbstractToolset discovery.
+"""Module loading and ToolsetSpec discovery.
 
 This module provides functions to:
 - Load Python modules from file paths
-- Discover AbstractToolset instances (including FunctionToolset)
+- Discover ToolsetSpec factories for toolsets
 - Discover Worker instances
 
-Discovery uses isinstance() checks to find toolset instances
+Discovery uses isinstance() checks to find ToolsetSpec instances
 in module attributes.
 """
 from __future__ import annotations
@@ -14,10 +14,11 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Iterable
+from typing import Iterable
 
 from pydantic_ai.toolsets import AbstractToolset
 
+from ..toolsets.loader import ToolsetSpec
 from .worker import EntryFunction, Worker
 
 
@@ -46,25 +47,30 @@ def load_module(path: str | Path) -> ModuleType:
     return module
 
 
-def discover_toolsets_from_module(module: ModuleType) -> dict[str, AbstractToolset[Any]]:
-    """Discover AbstractToolset instances from a module.
+def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetSpec]:
+    """Discover ToolsetSpec factories from a module.
 
-    Scans module attributes for instances of AbstractToolset
-    (including FunctionToolset) and returns them by attribute name.
+    Scans module attributes for ToolsetSpec instances and returns them
+    by attribute name.
 
     Args:
         module: Loaded Python module
 
     Returns:
-        Dict mapping attribute names to toolset instances
+        Dict mapping attribute names to toolset specs
     """
-    toolsets: dict[str, AbstractToolset[Any]] = {}
+    toolsets: dict[str, ToolsetSpec] = {}
     for name in dir(module):
         if name.startswith("_"):
             continue
         obj = getattr(module, name)
-        if isinstance(obj, AbstractToolset):
+        if isinstance(obj, ToolsetSpec):
             toolsets[name] = obj
+        elif isinstance(obj, AbstractToolset):
+            raise ValueError(
+                f"Toolset '{name}' must be defined as ToolsetSpec; "
+                "toolset instances are no longer supported."
+            )
     return toolsets
 
 
@@ -108,19 +114,19 @@ def discover_entries_from_module(module: ModuleType) -> list[EntryFunction]:
     return entries
 
 
-def load_toolsets_from_files(files: list[str | Path]) -> dict[str, AbstractToolset[Any]]:
-    """Load all toolsets from multiple Python files.
+def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
+    """Load all toolset specs from multiple Python files.
 
     Args:
         files: List of paths to Python files
 
     Returns:
-        Dict mapping toolset names to instances
+        Dict mapping toolset names to specs
 
     Raises:
         ValueError: If duplicate toolset names are found
     """
-    all_toolsets: dict[str, AbstractToolset[Any]] = {}
+    all_toolsets: dict[str, ToolsetSpec] = {}
 
     for file_path in files:
         path = Path(file_path)
@@ -173,8 +179,8 @@ def load_workers_from_files(files: list[str | Path]) -> dict[str, Worker]:
 
 def load_all_from_files(
     files: Iterable[str | Path],
-) -> tuple[dict[str, AbstractToolset[Any]], dict[str, Worker], dict[str, EntryFunction]]:
-    """Load toolsets, workers, and entry functions from Python files.
+) -> tuple[dict[str, ToolsetSpec], dict[str, Worker], dict[str, EntryFunction]]:
+    """Load toolset specs, workers, and entry functions from Python files.
 
     Performs a single pass through the modules to discover all items.
 
@@ -182,9 +188,9 @@ def load_all_from_files(
         files: Paths to Python files
 
     Returns:
-        Tuple of (toolsets, workers, entries) dictionaries
+        Tuple of (toolset specs, workers, entries) dictionaries
     """
-    toolsets: dict[str, AbstractToolset[Any]] = {}
+    toolsets: dict[str, ToolsetSpec] = {}
     workers: dict[str, Worker] = {}
     entries: dict[str, EntryFunction] = {}
     worker_paths: dict[str, Path] = {}

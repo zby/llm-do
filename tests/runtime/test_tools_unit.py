@@ -7,10 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import load_toolsets_from_files
+from llm_do.runtime import ToolsetBuildContext, load_toolsets_from_files
 from tests.runtime.helpers import build_runtime_context
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
+
+
+def _build_toolset(spec):
+    return spec.factory(ToolsetBuildContext(worker_name="test"))
 
 
 class TestCalculatorTools:
@@ -20,7 +24,7 @@ class TestCalculatorTools:
     def calc_toolset(self):
         """Load calculator toolset."""
         toolsets = load_toolsets_from_files([EXAMPLES_DIR / "calculator" / "tools.py"])
-        return toolsets["calc_tools"]
+        return _build_toolset(toolsets["calc_tools"])
 
     @pytest.fixture
     def ctx(self, calc_toolset):
@@ -62,7 +66,7 @@ class TestPitchdeckStabilizedTools:
     def pitchdeck_toolset(self):
         """Load pitchdeck toolset."""
         toolsets = load_toolsets_from_files([EXAMPLES_DIR / "pitchdeck_eval_stabilized" / "tools.py"])
-        return toolsets["pitchdeck_tools"]
+        return _build_toolset(toolsets["pitchdeck_tools"])
 
     @pytest.fixture
     def ctx(self, pitchdeck_toolset):

@@ -18,11 +18,12 @@ from pydantic_ai.builtin_tools import (
 from pydantic_ai.toolsets import AbstractToolset
 
 from ..toolsets.builtins import build_builtin_toolsets
-from ..toolsets.loader import ToolsetBuildContext, build_toolsets
+from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, build_toolsets
 from .args import WorkerArgs
 from .contracts import Entry, ModelType
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
+from .shared import TOOLSET_INSTANCE_ATTR
 from .worker import Worker, WorkerToolset
 from .worker_file import (
     WorkerDefinition,
@@ -91,9 +92,9 @@ def _build_builtin_tools(configs: list[dict[str, Any]]) -> list[Any]:
 
 
 def _merge_toolsets(
-    *sources: Mapping[str, AbstractToolset[Any]],
-) -> dict[str, AbstractToolset[Any]]:
-    merged: dict[str, AbstractToolset[Any]] = {}
+    *sources: Mapping[str, ToolsetSpec],
+) -> dict[str, ToolsetSpec]:
+    merged: dict[str, ToolsetSpec] = {}
     for source in sources:
         for name, toolset in source.items():
             if name in merged and merged[name] is not toolset:
@@ -237,9 +238,28 @@ def _build_registry_and_entry_name(
 
     entry_name = entry_func_name or entry_worker_names[0]
 
+    created_toolsets: list[AbstractToolset[Any]] = []
+    created_toolset_ids: set[int] = set()
+
+    def _track_toolsets(toolsets: list[AbstractToolset[Any]]) -> None:
+        for toolset in toolsets:
+            toolset_id = id(toolset)
+            if toolset_id in created_toolset_ids:
+                continue
+            created_toolset_ids.add(toolset_id)
+            created_toolsets.append(toolset)
+
+    def _worker_toolset_spec(worker: Worker) -> ToolsetSpec:
+        def factory(_ctx: ToolsetBuildContext) -> AbstractToolset[Any]:
+            return WorkerToolset(worker)
+
+        return ToolsetSpec(factory=factory)
+
     # Second pass: resolve toolsets and fill in worker stubs
     # Workers are wrapped in WorkerToolset to expose them as tools
-    available_workers = {name: WorkerToolset(spec.stub) for name, spec in worker_specs.items()}
+    available_workers = {
+        name: _worker_toolset_spec(spec.stub) for name, spec in worker_specs.items()
+    }
 
     for spec in worker_specs.values():
         worker_root = spec.path.parent
@@ -252,6 +272,7 @@ def _build_registry_and_entry_name(
             available_toolsets=all_toolsets,
         )
         resolved_toolsets = build_toolsets(spec.definition.toolsets, toolset_context)
+        _track_toolsets(resolved_toolsets)
 
         # Apply model override only to entry worker
         worker_model: ModelType | None
@@ -281,6 +302,10 @@ def _build_registry_and_entry_name(
 
         entries[spec.name] = spec.stub
 
+    for worker in python_workers.values():
+        if worker.toolsets:
+            _track_toolsets(list(worker.toolsets))
+
     # Resolve toolset refs for EntryFunction instances (build global map only if needed)
     entry_funcs_with_refs = [ef for ef in python_entries.values() if ef.toolset_refs]
     if entry_funcs_with_refs:
@@ -289,7 +314,15 @@ def _build_registry_and_entry_name(
             global_builtins, python_toolsets, available_workers
         )
         for entry_func in entry_funcs_with_refs:
-            entry_func.resolve_toolsets(all_available_toolsets)
+            toolset_context = ToolsetBuildContext(
+                worker_name=entry_func.name,
+                available_toolsets=all_available_toolsets,
+            )
+            entry_func.resolve_toolsets(all_available_toolsets, toolset_context)
+            _track_toolsets(list(entry_func.toolsets))
+
+    entry = entries[entry_name]
+    setattr(entry, TOOLSET_INSTANCE_ATTR, list(created_toolsets))
 
     return EntryRegistry(entries=entries), entry_name
 

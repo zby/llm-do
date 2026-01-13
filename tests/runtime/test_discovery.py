@@ -37,16 +37,22 @@ class TestDiscoverToolsets:
     """Tests for toolset discovery."""
 
     def test_discover_function_toolset(self):
-        """Test discovering FunctionToolset from module."""
+        """Test discovering ToolsetSpec from module."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
+from llm_do.runtime import ToolsetSpec
 
-my_tools = FunctionToolset()
+def build_tools(_ctx):
+    tools = FunctionToolset()
 
-@my_tools.tool
-def add(a: int, b: int) -> int:
-    return a + b
+    @tools.tool
+    def add(a: int, b: int) -> int:
+        return a + b
+
+    return tools
+
+my_tools = ToolsetSpec(factory=build_tools)
 """)
             f.flush()
 
@@ -55,9 +61,8 @@ def add(a: int, b: int) -> int:
                 toolsets = discover_toolsets_from_module(module)
 
                 assert "my_tools" in toolsets
-                # Check it's a FunctionToolset
-                from pydantic_ai.toolsets import FunctionToolset
-                assert isinstance(toolsets["my_tools"], FunctionToolset)
+                from llm_do.runtime import ToolsetSpec
+                assert isinstance(toolsets["my_tools"], ToolsetSpec)
             finally:
                 os.unlink(f.name)
 
@@ -66,9 +71,16 @@ def add(a: int, b: int) -> int:
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
+from llm_do.runtime import ToolsetSpec
 
-_private_tools = FunctionToolset()
-public_tools = FunctionToolset()
+def build_private(_ctx):
+    return FunctionToolset()
+
+def build_public(_ctx):
+    return FunctionToolset()
+
+_private_tools = ToolsetSpec(factory=build_private)
+public_tools = ToolsetSpec(factory=build_public)
 """)
             f.flush()
 
@@ -93,12 +105,18 @@ class TestLoadToolsetsFromFiles:
             with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                 f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
+from llm_do.runtime import ToolsetSpec
 
-math_tools = FunctionToolset()
+def build_math(_ctx):
+    tools = FunctionToolset()
 
-@math_tools.tool
-def add(a: int, b: int) -> int:
-    return a + b
+    @tools.tool
+    def add(a: int, b: int) -> int:
+        return a + b
+
+    return tools
+
+math_tools = ToolsetSpec(factory=build_math)
 """)
                 files.append(f.name)
 
@@ -106,12 +124,18 @@ def add(a: int, b: int) -> int:
             with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                 f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
+from llm_do.runtime import ToolsetSpec
 
-string_tools = FunctionToolset()
+def build_string(_ctx):
+    tools = FunctionToolset()
 
-@string_tools.tool
-def upper(s: str) -> str:
-    return s.upper()
+    @tools.tool
+    def upper(s: str) -> str:
+        return s.upper()
+
+    return tools
+
+string_tools = ToolsetSpec(factory=build_string)
 """)
                 files.append(f.name)
 
@@ -133,7 +157,12 @@ def upper(s: str) -> str:
                 with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                     f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
-duplicate_tools = FunctionToolset()
+from llm_do.runtime import ToolsetSpec
+
+def build_tools(_ctx):
+    return FunctionToolset()
+
+duplicate_tools = ToolsetSpec(factory=build_tools)
 """)
                     files.append(f.name)
 

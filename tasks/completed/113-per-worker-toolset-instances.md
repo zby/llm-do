@@ -1,7 +1,7 @@
 # Per-Worker Toolset Instances with Handle-Based State
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] none
@@ -224,31 +224,36 @@ The `cleanup()` protocol (defined above) handles forgotten handles at run end.
 ## Tasks
 
 ### Per-Worker Instantiation
-- [ ] Define `ToolsetSpec` dataclass with factory
-- [ ] Update `build_builtin_toolsets()` to return specs instead of instances
-- [ ] Update `_merge_toolsets()` to work with specs
-- [ ] Update `build_toolsets()` in loader.py to instantiate from specs
-- [ ] Update Python toolset discovery to require `ToolsetSpec` factories
-- [ ] Pass `ToolsetBuildContext` through resolution chain
-- [ ] Resolve EntryFunction toolset refs to specs and instantiate per run
+- [x] Define `ToolsetSpec` dataclass with factory
+- [x] Update `build_builtin_toolsets()` to return specs instead of instances
+- [x] Update `_merge_toolsets()` to work with specs
+- [x] Update `build_toolsets()` in loader.py to instantiate from specs
+- [x] Update Python toolset discovery to require `ToolsetSpec` factories
+- [x] Pass `ToolsetBuildContext` through resolution chain
+- [x] Resolve EntryFunction toolset refs to specs and instantiate per run
 
 ### Cleanup Lifecycle
-- [ ] Define `cleanup()` protocol (optional async method on toolsets)
-- [ ] Track toolset instances created during run
-- [ ] Call cleanup on all instances at end of `Runtime.run_entry()`
-- [ ] Handle cleanup errors gracefully (log, don't propagate)
+- [x] Define `cleanup()` protocol (optional async method on toolsets)
+- [x] Track toolset instances created during run
+- [x] Call cleanup on all instances at end of `Runtime.run_entry()`
+- [x] Handle cleanup errors gracefully (log, don't propagate)
 
 ### Documentation
-- [ ] Create `docs/toolset-state.md` explaining both patterns:
+- [x] Create `docs/toolset-state.md` explaining both patterns:
   - Per-worker isolation (framework provides)
   - Handle-based state (toolset implements)
-- [ ] Add section to `docs/architecture.md` with reference
-- [ ] Include DB and browser examples
+- [x] Add section to `docs/architecture.md` with reference
+- [x] Include DB and browser examples
 
 ### Testing
-- [ ] Test that same toolset name in different workers gets different instances
-- [ ] Test handle isolation between workers
-- [ ] Test cleanup called at run end
+- [x] Test that same toolset name in different workers gets different instances
+- [x] Test handle isolation between workers
+- [x] Test cleanup called at run end
+
+## Current State
+Implemented ToolsetSpec factories, per-worker instantiation, and run-end cleanup.
+Updated examples/docs/tests and added isolation/cleanup coverage. Ruff, mypy,
+and pytest all pass.
 
 ## Follow-on: Instance Caching
 

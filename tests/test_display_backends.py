@@ -1,7 +1,7 @@
-"""Tests for display backends (headless, JSON, etc.)."""
+"""Tests for display backends (headless, etc.)."""
 import io
 
-from llm_do.ui.display import HeadlessDisplayBackend, JsonDisplayBackend
+from llm_do.ui.display import HeadlessDisplayBackend
 from llm_do.ui.events import (
     DeferredToolEvent,
     InitialRequestEvent,
@@ -184,63 +184,6 @@ class TestHeadlessDisplayBackend:
         assert "Line 1" in output
         assert "Line 2" in output
         assert "Line 3" in output
-
-
-class TestJsonDisplayBackend:
-    """Tests for JsonDisplayBackend."""
-
-    def test_writes_jsonl_to_stream(self):
-        """Backend writes JSONL records to stream."""
-        import json
-
-        stream = io.StringIO()
-        backend = JsonDisplayBackend(stream=stream)
-        event = StatusEvent(worker="test", phase="running", state="active")
-        backend.display(event)
-
-        output = stream.getvalue().strip()
-        record = json.loads(output)
-        assert record["type"] == "status"
-        assert record["worker"] == "test"
-        assert record["phase"] == "running"
-
-    def test_writes_tool_call_as_jsonl(self):
-        """Backend writes tool call events as JSONL."""
-        import json
-
-        stream = io.StringIO()
-        backend = JsonDisplayBackend(stream=stream)
-        event = ToolCallEvent(
-            worker="main",
-            tool_name="test_tool",
-            args={"key": "value"},
-        )
-        backend.display(event)
-
-        output = stream.getvalue().strip()
-        record = json.loads(output)
-        assert record["type"] == "tool_call"
-        assert record["tool_name"] == "test_tool"
-        assert record["args"]["key"] == "value"
-
-    def test_writes_deferred_tool_as_jsonl(self):
-        """Backend writes deferred tool events as JSONL."""
-        import json
-
-        stream = io.StringIO()
-        backend = JsonDisplayBackend(stream=stream)
-        event = DeferredToolEvent(
-            worker="main",
-            tool_name="test",
-            status="done",
-        )
-        backend.display(event)
-
-        output = stream.getvalue().strip()
-        record = json.loads(output)
-        assert record["type"] == "deferred_tool"
-        assert record["tool_name"] == "test"
-        assert record["status"] == "done"
 
 
 class TestParseEvent:

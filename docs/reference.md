@@ -549,10 +549,9 @@ llm-do project.json --input-json '{"input": "prompt"}'
 # Override model via env var
 LLM_DO_MODEL=anthropic:claude-haiku-4-5 llm-do project.json "prompt"
 
-# TUI / headless / JSON output
+# TUI / headless output
 llm-do project.json --tui
 llm-do project.json --headless "prompt"
-llm-do project.json --json "prompt"
 
 # Verbose output
 llm-do project.json -v "prompt"      # basic

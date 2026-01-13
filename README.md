@@ -205,7 +205,7 @@ llm-do project.json
 llm-do project.json --input-json '{"input":"Hello"}'
 ```
 
-Common flags: `--headless`, `--tui`, `--chat`, `--json`, `-v/-vv/-vvv`, `--input-json`, `--debug`. See [`docs/cli.md`](docs/cli.md) for details.
+Common flags: `--headless`, `--tui`, `--chat`, `-v/-vv/-vvv`, `--input-json`, `--debug`. See [`docs/cli.md`](docs/cli.md) for details.
 
 Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
 

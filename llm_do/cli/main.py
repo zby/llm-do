@@ -37,7 +37,7 @@ from ..runtime.manifest import (
     load_manifest,
     resolve_manifest_paths,
 )
-from ..ui import HeadlessDisplayBackend, JsonDisplayBackend, run_headless, run_tui
+from ..ui import HeadlessDisplayBackend, run_headless, run_tui
 
 ENV_MODEL_VAR = "LLM_DO_MODEL"
 
@@ -206,11 +206,6 @@ def main() -> int:
         ),
     )
     parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output events as JSON lines (for piping/automation)",
-    )
-    parser.add_argument(
         "--headless",
         action="store_true",
         help="Force headless mode (no TUI, plain text output)",
@@ -234,9 +229,6 @@ def main() -> int:
     args = parser.parse_args()
 
     # Validate mutually exclusive flags
-    if args.json and args.tui:
-        print("Cannot combine --json and --tui", file=sys.stderr)
-        return 1
     if args.headless and args.tui:
         print("Cannot combine --headless and --tui", file=sys.stderr)
         return 1
@@ -312,8 +304,8 @@ def main() -> int:
 
     # Determine if we should use TUI mode:
     # - Explicit --tui flag
-    # - Or: TTY available and not --headless and not --json
-    use_tui = args.tui or (sys.stdout.isatty() and not args.headless and not args.json)
+    # - Or: TTY available and not --headless
+    use_tui = args.tui or (sys.stdout.isatty() and not args.headless)
 
     # TUI mode
     if args.chat and not use_tui:
@@ -355,9 +347,7 @@ def main() -> int:
 
     # Headless mode: set up display backend based on flags
     backends: list[Any]
-    if args.json:
-        backends = [JsonDisplayBackend(stream=sys.stderr)]
-    elif 0 < args.verbose < 3:
+    if 0 < args.verbose < 3:
         backends = [HeadlessDisplayBackend(stream=sys.stderr, verbosity=args.verbose)]
     else:
         backends = []

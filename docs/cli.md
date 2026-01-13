@@ -141,7 +141,7 @@ Approvals are configured in the manifest via `runtime.approval_mode`:
 
 Approvals apply only to LLM-invoked actions; user-invoked top-level entries are not gated.
 
-In headless or JSON mode, `prompt` will fail when a tool requires approval (unless you set `return_permission_errors` in the manifest to return errors instead).
+In headless mode, `prompt` will fail when a tool requires approval (unless you set `return_permission_errors` in the manifest to return errors instead).
 
 ## Depth Limits
 
@@ -151,9 +151,8 @@ Set `runtime.max_depth` in the manifest to cap worker nesting depth (default: 5)
 
 | Mode | Flag | Notes |
 |------|------|-------|
-| TUI (default) | — | Uses Textual when stdout is a TTY and no `--headless`/`--json` is set. |
+| TUI (default) | — | Uses Textual when stdout is a TTY and no `--headless` is set. |
 | Headless | `--headless` | Plain-text events to stderr with `-v`/`-vv`, final output to stdout. |
-| JSON | `--json` | JSONL event stream to stderr. Cannot combine with `--tui`. |
 
 **Verbosity:**
 - `-v` shows tool calls and status updates.

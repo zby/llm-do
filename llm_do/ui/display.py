@@ -6,7 +6,6 @@ that simply call the appropriate render method on each event.
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from abc import ABC, abstractmethod
 from typing import TextIO
@@ -92,19 +91,6 @@ class HeadlessDisplayBackend(DisplayBackend):
             else:
                 self.stream.write(text + "\n")
             self.stream.flush()
-
-
-class JsonDisplayBackend(DisplayBackend):
-    """JSONL renderer for automation/scripting."""
-
-    def __init__(self, stream: TextIO | None = None):
-        self.stream = stream or sys.stderr
-
-    def display(self, event: UIEvent) -> None:
-        record = event.render_json()
-        json.dump(record, self.stream)
-        self.stream.write("\n")
-        self.stream.flush()
 
 
 class TextualDisplayBackend(DisplayBackend):

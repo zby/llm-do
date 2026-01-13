@@ -56,15 +56,6 @@ class UIEvent(ABC):
         ...
 
     @abstractmethod
-    def render_json(self) -> dict[str, Any]:
-        """Render as JSON-serializable dict.
-
-        Returns:
-            Dictionary suitable for json.dumps().
-        """
-        ...
-
-    @abstractmethod
     def create_widget(self) -> "Widget | None":
         """Create a Textual widget for TUI display.
 
@@ -119,15 +110,6 @@ class InitialRequestEvent(UIEvent):
             lines.append(f"  Attachments: {', '.join(self.attachments)}")
         return "\n".join(lines)
 
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "initial_request",
-            "worker": self.worker,
-            "instructions": self.instructions,
-            "user_input": self.user_input,
-            "attachments": self.attachments,
-        }
-
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import StatusMessage
 
@@ -171,16 +153,6 @@ class StatusEvent(UIEvent):
             result += f" [{self.duration_sec:.2f}s]"
         return result
 
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "status",
-            "worker": self.worker,
-            "phase": self.phase,
-            "state": self.state,
-            "model": self.model,
-            "duration_sec": self.duration_sec,
-        }
-
     def create_widget(self) -> "Widget | None":
         from llm_do.ui.widgets.messages import StatusMessage
 
@@ -205,13 +177,6 @@ class UserMessageEvent(UIEvent):
 
     def render_text(self, verbosity: int = 0) -> str | None:
         return f"{self.worker_tag} You: {self.content}"
-
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "user_message",
-            "worker": self.worker,
-            "content": self.content,
-        }
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import UserMessage
@@ -265,16 +230,6 @@ class TextResponseEvent(UIEvent):
             return f"{self.worker_tag} Generating response..."
         return None
 
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "text_response",
-            "worker": self.worker,
-            "content": self.content,
-            "depth": self.depth,
-            "is_complete": self.is_complete,
-            "is_delta": self.is_delta,
-        }
-
     def create_widget(self) -> "Widget | None":
         # TUI handles streaming and finalization via MessageContainer
         return None
@@ -314,15 +269,6 @@ class ToolCallEvent(UIEvent):
             args_display = self._truncate(args_str, self.MAX_ARGS_DISPLAY)
             lines.append(f"  Args: {args_display}")
         return "\n".join(lines)
-
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "tool_call",
-            "worker": self.worker,
-            "tool_name": self.tool_name,
-            "tool_call_id": self.tool_call_id,
-            "args": self.args,
-        }
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ToolCallMessage
@@ -384,16 +330,6 @@ class ToolResultEvent(UIEvent):
         lines.extend(f"  {line}" for line in content_display.split("\n"))
         return "\n".join(lines)
 
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "tool_result",
-            "worker": self.worker,
-            "tool_name": self.tool_name,
-            "tool_call_id": self.tool_call_id,
-            "content": self.content,  # Preserved as structured data
-            "is_error": self.is_error,
-        }
-
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ToolResultMessage
 
@@ -439,14 +375,6 @@ class DeferredToolEvent(UIEvent):
     def render_text(self, verbosity: int = 0) -> str:
         return f"  Deferred tool '{self.tool_name}': {self.status}"
 
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "deferred_tool",
-            "worker": self.worker,
-            "tool_name": self.tool_name,
-            "status": self.status,
-        }
-
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import StatusMessage
 
@@ -471,12 +399,6 @@ class CompletionEvent(UIEvent):
         if verbosity >= 1:
             return f"{self.worker_tag} [OK] Complete"
         return None
-
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "completion",
-            "worker": self.worker,
-        }
 
     def create_widget(self) -> "Widget | None":
         # Completion is handled at app level
@@ -505,15 +427,6 @@ class ErrorEvent(UIEvent):
         if verbosity >= 2 and self.traceback:
             lines.append(self.traceback)
         return "\n".join(lines)
-
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "error",
-            "worker": self.worker,
-            "error_type": self.error_type,
-            "message": self.message,
-            "traceback": self.traceback,
-        }
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ErrorMessage
@@ -559,15 +472,6 @@ class ApprovalRequestEvent(UIEvent):
             lines.append(f"    Args: {json.dumps(self.args)}")
         lines.append("    (Cannot approve in non-interactive mode)")
         return "\n".join(lines)
-
-    def render_json(self) -> dict[str, Any]:
-        return {
-            "type": "approval_request",
-            "worker": self.worker,
-            "tool_name": self.tool_name,
-            "reason": self.reason,
-            "args": self.args,
-        }
 
     def create_widget(self) -> "Widget | None":
         return None

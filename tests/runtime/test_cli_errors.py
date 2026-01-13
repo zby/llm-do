@@ -178,17 +178,6 @@ class TestCLIInputErrors:
 class TestCLIFlagErrors:
     """Tests for CLI flag validation errors."""
 
-    def test_json_and_tui_mutually_exclusive(self, tmp_path, capsys):
-        """Test that --json and --tui cannot be combined."""
-        manifest_file = create_test_manifest(tmp_path)
-
-        with patch("sys.argv", ["llm-do", str(manifest_file), "--json", "--tui", "hello"]):
-            exit_code = main()
-
-        captured = capsys.readouterr()
-        assert exit_code == 1
-        assert "Cannot combine --json and --tui" in captured.err
-
     def test_headless_and_tui_mutually_exclusive(self, tmp_path, capsys):
         """Test that --headless and --tui cannot be combined."""
         manifest_file = create_test_manifest(tmp_path)

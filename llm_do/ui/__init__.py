@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from .display import (
     DisplayBackend,
     HeadlessDisplayBackend,
-    JsonDisplayBackend,
     RichDisplayBackend,
     TextualDisplayBackend,
 )
@@ -31,7 +30,6 @@ __all__ = [
     # Display backends
     "DisplayBackend",
     "HeadlessDisplayBackend",
-    "JsonDisplayBackend",
     "RichDisplayBackend",
     "TextualDisplayBackend",
     # Event types

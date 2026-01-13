@@ -1,6 +1,6 @@
 # UI Architecture
 
-The `llm_do/ui/` module provides the UI event pipeline for the runtime CLI. It separates worker execution from rendering and keeps output consistent across Textual, headless text, and JSON modes.
+The `llm_do/ui/` module provides the UI event pipeline for the runtime CLI. It separates worker execution from rendering and keeps output consistent across Textual and headless text modes.
 
 ## Core Pipeline
 
@@ -16,7 +16,6 @@ Event Queue
   v
 DisplayBackend
   |-- TextualDisplayBackend (event.create_widget)
-  |-- JsonDisplayBackend (event.render_json)
   |-- HeadlessDisplayBackend (event.render_text)
   `-- RichDisplayBackend (event.render_rich, log buffer)
 ```
@@ -25,7 +24,6 @@ DisplayBackend
 
 `UIEvent` is the typed base class for all UI events. Each event renders itself into:
 - Plain text (`render_text`, ASCII-only for system strings)
-- JSON (`render_json`)
 - Textual widget (`create_widget`)
 - Rich output (`render_rich`)
 
@@ -126,7 +124,6 @@ Worker Events -> parse_event -> UIEvent queue -> TextualDisplayBackend -> LlmDoA
 |------|------|---------|---------------|-------|
 | TUI (default) | — | TextualDisplayBackend + log buffer | Yes | Requires stdout TTY |
 | Headless | `--headless` | HeadlessDisplayBackend | No | Events to stderr with `-v`/`-vv`, final output to stdout |
-| JSON | `--json` | JsonDisplayBackend | No | JSONL event stream to stderr; cannot combine with `--tui` |
 
 **TUI Terminal History:** In TUI mode, events are captured to a Rich log buffer and printed to stderr after the TUI exits.
 

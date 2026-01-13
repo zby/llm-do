@@ -20,4 +20,4 @@ Record findings in `docs/notes/reviews/review-solid.md`.
 
 ## Last Run
 
-2026-01 (reviewed; runtime↔UI coupling persists, `Worker`/`Runtime` still multi-responsibility, UI events remain render-centric)
+2026-01-13 (reviewed; runtime↔UI coupling persists, Worker/Runtime still multi-responsibility, UI events render-centric; LSP issue with Worker-as-toolset now resolved via WorkerToolset adapter)

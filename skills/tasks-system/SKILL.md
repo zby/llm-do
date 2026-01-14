@@ -75,11 +75,13 @@ Focus on substantive improvements. Challenge assumptions and identify gaps.
 
 ## Authoring Guidelines
 
-- Keep each task to a single coherent goal; split unrelated efforts.  
-- Add links to relevant files (`path/to/file.py`) and related tasks so agents can `rg` quickly.  
-- Always state **How to verify** within Context.  
-- Prefer `Prerequisites: none` unless genuinely blocked.  
-- Notes capture gotchas encountered during execution; migrate durable learnings to `AGENTS.md`, inline code comments, or docs afterward.  
+- Keep each task to a single coherent goal; split unrelated efforts.
+- **Inline information from notes** — When creating a task based on a note or design doc, copy the relevant content directly into the task rather than just referencing it (e.g., "see `docs/notes/foo.md`"). Reading an additional file is extra work for the implementer; frontload that effort when writing the task.
+- **Self-contained tasks** — Aim for the full task implementation to fit within one context window. When you know the implementer will need specific background information, inline it rather than making them go find it.
+- Add links to relevant files (`path/to/file.py`) and related tasks so agents can `rg` quickly.
+- Always state **How to verify** within Context.
+- Prefer `Prerequisites: none` unless genuinely blocked.
+- Notes capture gotchas encountered during execution; migrate durable learnings to `AGENTS.md`, inline code comments, or docs afterward.
 - Completed tasks are not documentation — if a decision matters broadly, extract it to docs before archiving.
 
 ## Helpful Commands

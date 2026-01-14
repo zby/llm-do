@@ -121,6 +121,8 @@ YYYY-MM (brief note about findings)
 ## Guidelines
 
 - Keep tasks focused - one coherent unit of work
+- **Inline information from notes** - When creating a task based on a note or design doc, copy the relevant content directly into the task rather than just referencing it. Reading an additional file is extra work for the implementer; frontload that effort when writing the task.
+- **Self-contained tasks** - Aim for the full task implementation to fit within one context window. When you know the implementer will need specific background information, inline it rather than making them go find it.
 - Front-load background gathering so tasks are startable without extra research
 - Prefer `Prerequisites: none` unless blocked by new design or another task
 - Record decisions in the task body; if a decision spans multiple tasks, extract

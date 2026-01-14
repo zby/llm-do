@@ -17,17 +17,15 @@ try:
 except ImportError:
     raise ImportError("python-slugify required. Install with: pip install python-slugify")
 
-from pydantic_ai import Agent
-from pydantic_ai.messages import (
-    BinaryContent,
-    ModelRequest,
-    ModelResponse,
+from pydantic_ai import (
+    Agent,
+    AgentRunResultEvent,
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+    PartEndEvent,
     TextPart,
-    ToolCallPart,
-    ToolReturnPart,
-    UserContent,
-    UserPromptPart,
 )
+from pydantic_ai.messages import BinaryContent, UserContent
 
 # =============================================================================
 # CONFIGURATION
@@ -35,7 +33,7 @@ from pydantic_ai.messages import (
 
 MODEL = "anthropic:claude-haiku-4-5"
 # 0=quiet, 1=progress, 2=I/O details, 3=LLM messages
-VERBOSITY = 1
+VERBOSITY = 3
 
 # =============================================================================
 # Paths
@@ -78,32 +76,32 @@ def _format_user_prompt(content: str | Sequence[UserContent]) -> list[str]:
         return [content]
     return [_format_user_content(item) for item in content]
 
-
-def log_llm_messages(messages: Sequence[object]) -> None:
-    """Print model messages when verbosity is high enough."""
+async def run_with_events(agent: Agent, prompt: str | Sequence[UserContent]) -> str:
+    """Run the agent and log messages from stream events."""
     if VERBOSITY < 3:
-        return
+        result = await agent.run(prompt)
+        return result.output
+
     log(3, "LLM messages:")
-    for message in messages:
-        if isinstance(message, ModelRequest):
-            for part in message.parts:
-                if isinstance(part, UserPromptPart):
-                    for line in _format_user_prompt(part.content):
-                        log(3, f"  user: {line}")
-                elif isinstance(part, ToolReturnPart):
-                    log(3, f"  tool return {part.tool_name}: {part.content}")
-                else:
-                    log(3, f"  {part.__class__.__name__}: {part}")
-        elif isinstance(message, ModelResponse):
-            for part in message.parts:
-                if isinstance(part, TextPart):
-                    log(3, f"  assistant: {part.content}")
-                elif isinstance(part, ToolCallPart):
-                    log(3, f"  assistant tool call {part.tool_name}: {_format_tool_args(part.args)}")
-                else:
-                    log(3, f"  {part.__class__.__name__}: {part}")
-        else:
-            log(3, f"  {message}")
+    for line in _format_user_prompt(prompt):
+        log(3, f"  user: {line}")
+
+    output: str | None = None
+    async for event in agent.run_stream_events(prompt):
+        if isinstance(event, PartEndEvent):
+            part = event.part
+            if isinstance(part, TextPart):
+                log(3, f"  assistant: {part.content}")
+        elif isinstance(event, FunctionToolCallEvent):
+            log(3, f"  assistant tool call {event.part.tool_name}: {_format_tool_args(event.part.args)}")
+        elif isinstance(event, FunctionToolResultEvent):
+            log(3, f"  tool return {event.result.tool_name}: {event.result.content}")
+        elif isinstance(event, AgentRunResultEvent):
+            output = event.result.output
+
+    if output is None:
+        raise RuntimeError("Agent run did not return a final result")
+    return output
 
 
 def list_pitchdecks(input_dir: str = "input") -> list[dict]:
@@ -164,10 +162,7 @@ async def evaluate_decks() -> str:
             "Evaluate this pitch deck.",
             [read_attachment(deck["file"])],
         )
-        result = await agent.run(prompt)
-        if VERBOSITY >= 3:
-            log_llm_messages(list(result.all_messages()))
-        report = result.output
+        report = await run_with_events(agent, prompt)
 
         output_path = Path(deck["output_path"])
         output_path.parent.mkdir(parents=True, exist_ok=True)

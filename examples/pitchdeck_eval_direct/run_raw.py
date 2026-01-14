@@ -7,7 +7,9 @@ Run with:
 """
 
 import asyncio
+import json
 import mimetypes
+from collections.abc import Sequence
 from pathlib import Path
 
 try:
@@ -16,13 +18,23 @@ except ImportError:
     raise ImportError("python-slugify required. Install with: pip install python-slugify")
 
 from pydantic_ai import Agent
-from pydantic_ai.messages import BinaryContent, UserContent
+from pydantic_ai.messages import (
+    BinaryContent,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserContent,
+    UserPromptPart,
+)
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
 MODEL = "anthropic:claude-haiku-4-5"
+# 0=quiet, 1=progress, 2=I/O details, 3=LLM messages
 VERBOSITY = 1
 
 # =============================================================================
@@ -37,6 +49,61 @@ def log(level: int, message: str) -> None:
     """Print when verbosity is high enough."""
     if VERBOSITY >= level:
         print(message)
+
+def _format_tool_args(args: object) -> str:
+    if isinstance(args, str):
+        return args
+    try:
+        return json.dumps(args, sort_keys=True, default=str)
+    except TypeError:
+        return repr(args)
+
+
+def _format_user_content(content: UserContent) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, BinaryContent):
+        return f"<binary {len(content.data)} bytes {content.media_type}>"
+    kind = getattr(content, "kind", None)
+    if kind is not None:
+        url = getattr(content, "url", None)
+        if url is not None:
+            return f"<{kind} {url}>"
+        return f"<{kind}>"
+    return repr(content)
+
+
+def _format_user_prompt(content: str | Sequence[UserContent]) -> list[str]:
+    if isinstance(content, str):
+        return [content]
+    return [_format_user_content(item) for item in content]
+
+
+def log_llm_messages(messages: Sequence[object]) -> None:
+    """Print model messages when verbosity is high enough."""
+    if VERBOSITY < 3:
+        return
+    log(3, "LLM messages:")
+    for message in messages:
+        if isinstance(message, ModelRequest):
+            for part in message.parts:
+                if isinstance(part, UserPromptPart):
+                    for line in _format_user_prompt(part.content):
+                        log(3, f"  user: {line}")
+                elif isinstance(part, ToolReturnPart):
+                    log(3, f"  tool return {part.tool_name}: {part.content}")
+                else:
+                    log(3, f"  {part.__class__.__name__}: {part}")
+        elif isinstance(message, ModelResponse):
+            for part in message.parts:
+                if isinstance(part, TextPart):
+                    log(3, f"  assistant: {part.content}")
+                elif isinstance(part, ToolCallPart):
+                    log(3, f"  assistant tool call {part.tool_name}: {_format_tool_args(part.args)}")
+                else:
+                    log(3, f"  {part.__class__.__name__}: {part}")
+        else:
+            log(3, f"  {message}")
 
 
 def list_pitchdecks(input_dir: str = "input") -> list[dict]:
@@ -98,6 +165,8 @@ async def evaluate_decks() -> str:
             [read_attachment(deck["file"])],
         )
         result = await agent.run(prompt)
+        if VERBOSITY >= 3:
+            log_llm_messages(list(result.all_messages()))
         report = result.output
 
         output_path = Path(deck["output_path"])

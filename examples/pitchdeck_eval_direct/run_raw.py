@@ -33,6 +33,11 @@ PROJECT_ROOT = Path(__file__).parent.resolve()
 INPUT_DIR = PROJECT_ROOT / "input"
 OUTPUT_DIR = PROJECT_ROOT / "evaluations"
 
+def log(level: int, message: str) -> None:
+    """Print when verbosity is high enough."""
+    if VERBOSITY >= level:
+        print(message)
+
 
 def list_pitchdecks(input_dir: str = "input") -> list[dict]:
     """List pitch deck PDFs with pre-computed slugs and output paths."""
@@ -55,10 +60,12 @@ def read_attachment(path: str) -> BinaryContent:
     if not file_path.exists():
         raise FileNotFoundError(f"Attachment not found: {path}")
 
+    size_bytes = file_path.stat().st_size
     media_type, _ = mimetypes.guess_type(str(file_path))
     if media_type is None:
         media_type = "application/octet-stream"
 
+    log(2, f"Loaded attachment {file_path} ({size_bytes} bytes, {media_type})")
     return BinaryContent(data=file_path.read_bytes(), media_type=media_type)
 
 
@@ -85,8 +92,7 @@ async def evaluate_decks() -> str:
 
     results = []
     for deck in decks:
-        if VERBOSITY >= 1:
-            print(f"Evaluating {deck['slug']} ({deck['file']})")
+        log(1, f"Evaluating {deck['slug']} ({deck['file']})")
         prompt = build_user_prompt(
             "Evaluate this pitch deck.",
             [read_attachment(deck["file"])],
@@ -97,6 +103,7 @@ async def evaluate_decks() -> str:
         output_path = Path(deck["output_path"])
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(report)
+        log(2, f"Wrote report to {output_path}")
         results.append(deck["slug"])
 
     return f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}"
@@ -104,10 +111,10 @@ async def evaluate_decks() -> str:
 
 def cli_main() -> None:
     """Main entry point."""
-    print(f"Starting raw Python run with MODEL={MODEL}, VERBOSITY={VERBOSITY}")
-    print(f"Input directory: {INPUT_DIR}")
-    print(f"Output directory: {OUTPUT_DIR}")
-    print("-" * 60)
+    log(1, f"Starting raw Python run with MODEL={MODEL}, VERBOSITY={VERBOSITY}")
+    log(1, f"Input directory: {INPUT_DIR}")
+    log(1, f"Output directory: {OUTPUT_DIR}")
+    log(1, "-" * 60)
 
     outcome = asyncio.run(evaluate_decks())
     print(outcome)

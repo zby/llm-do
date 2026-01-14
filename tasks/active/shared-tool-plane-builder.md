@@ -18,6 +18,7 @@ Unify tool plane setup so `Runtime.run_entry()` and `Worker._call_internal()` sh
   - `llm_do/runtime/approval.py` (`wrap_toolsets_for_approval`)
   - `llm_do/toolsets/loader.py` (`instantiate_toolsets`)
   - `llm_do/toolsets/attachments.py` (`AttachmentToolset`)
+  - `examples/pitchdeck_eval_direct/` (script-mode example to align with step 3/4)
 - Related tasks/notes/docs:
   - `docs/notes/unified-entry-function-design.md`
 - How to verify / reproduce:
@@ -46,6 +47,8 @@ Unify tool plane setup so `Runtime.run_entry()` and `Worker._call_internal()` sh
 - [ ] Use the shared builder in `Runtime.run_entry` for entry toolsets (keep `CallFrame.invocation_name` intact).
 - [ ] Use the shared builder in `Worker._call_internal` for worker toolsets (retain attachment handling in worker path).
 - [ ] Confirm no behavioral drift: approvals, event attribution, depth, and project-root attachment resolution.
+- [ ] Check `examples/pitchdeck_eval_direct/` matches step 3 (script mode) expectations after refactor.
+- [ ] Add a step 4 refactor example to `examples/pitchdeck_eval_direct/` that bypasses the tool plane (raw Python), with clear commentary on observability tradeoffs.
 - [ ] Update docs/comments only if behavior changes (should not be needed).
 
 ## Current State

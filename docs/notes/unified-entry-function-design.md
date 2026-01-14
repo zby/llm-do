@@ -1,7 +1,7 @@
 # Unified Entry Function Design
 
 ## Status
-Brainstorm / Design exploration
+Implemented (v1 tool-plane parity); shared builder + registry-free script mode remain open
 
 ## Two Planes of Execution
 
@@ -79,19 +79,14 @@ An entry function with access to multiple workers for orchestration is the same 
 
 The entry function is a **headless orchestrator** - same capabilities, same environment, but deterministic Python logic instead of LLM reasoning.
 
-## Current Code Is Wrong
+## Previous Gap (Fixed in v1)
 
-```python
-# Current (Runtime.run_entry):
-# "Entry functions are trusted code; tool calls run directly without approval wrappers"
-```
+Earlier `Runtime.run_entry()` bypassed approval wrapping and labeled tool events as `code_entry`. That conflated trust (entry code can run arbitrary Python) with tool-plane behavior. v1 parity keeps entry functions in the tool plane:
 
-The comment conflates two things: yes, entry functions are trusted code (they can run arbitrary Python). But that's orthogonal to whether tool calls go through the tool plane. Entry functions should stay in the tool plane for two reasons:
+1. **Smooth refactoring** - Worker → Entry stays a pure refactor with identical tool plane behavior
+2. **Observability** - tool calls emit events and carry the entry invocation name
 
-1. **Smooth refactoring** - Worker → Entry should have identical tool plane behavior
-2. **Observability** - events, depth tracking, auditable tool calls
-
-The trust model changed (code is trusted), but the tool plane should stay the same.
+Entry functions are still trusted code, but their `ctx.call()` usage now follows the same approval policy and event plumbing as workers.
 
 ## Unified Environment Concept
 
@@ -111,9 +106,9 @@ The key architectural insight is separating **tool plane setup** from **executio
 - Script: Python code (via bootstrap API)
 - Plain: Python code (tool plane optional, passed explicitly)
 
-The environment builder should be **reusable** across all modes. Currently:
-- `Worker._call_internal()` builds its own environment
-- `Runtime.run_entry()` builds a different/lighter environment for EntryFunction
+The environment builder should be **reusable** across all modes. Today:
+- `Worker._call_internal()` builds and wraps toolsets per call
+- `Runtime.run_entry()` builds a similar environment on a separate path; parity is enforced but duplication remains
 
 Proposed: One shared environment builder, with execution method as a parameter or determined by entry type. This ensures entry functions run in the same invocation environment as workers, with the same initialization, wrapping, and cleanup.
 
@@ -183,30 +178,13 @@ async def orchestrate(args, ctx):
 
 The entry function declares what it needs upfront. This is explicit and auditable - you can read the declaration and know exactly what it can do.
 
-## API Changes Needed
+## Implementation Status (v1 parity)
 
-The main change is **not** to the entry function signature - that stays the same (declares toolsets, receives WorkerRuntime, calls tools).
+The entry function signature stays the same (declares toolsets, receives WorkerRuntime, calls tools). `Runtime.run_entry()` now keeps entry functions in the tool plane:
 
-The change is to keep entry functions in the **same tool plane** as workers:
-
-### Current (Wrong)
-
-```python
-# Runtime.run_entry() for EntryFunction:
-# - Builds lighter environment
-# - Bypasses approval wrapping
-# - Different initialization path than Worker
-```
-
-### Proposed (Correct)
-
-```python
-# Runtime.run_entry() for EntryFunction:
-# - Uses same tool plane setup as Worker
-# - Same approval policy for ctx.call()
-# - Same initialization (toolsets, depth, events, cleanup)
-# - Only difference: execution method (code vs LLM)
-```
+- Entry toolsets are wrapped for approval per `RunApprovalPolicy` (including `return_permission_errors`)
+- `CallFrame.invocation_name` is set so entry/worker tool events attribute to the invocation name
+- Depth remains CallFrame stack depth (entry at 0; child workers at 1+); tool calls do not change depth
 
 ### Entry Function Signature (Unchanged)
 
@@ -218,13 +196,9 @@ async def orchestrate(args: WorkerArgs, ctx: WorkerRuntime) -> str:
     return await ctx.call("writer", {"prompt": result})
 ```
 
-### What Changes
+## Post-v1 Cleanup
 
-1. **Tool plane builder** - Extract from `Worker._call_internal()`, make reusable
-2. **Runtime.run_entry()** - Use shared builder for both Worker and EntryFunction
-3. **Entry-as-invocation path** - Entry runs in its own CallFrame (depth 0 at top level), while workers execute in a child CallFrame (depth 1); tool calls do not change depth
-4. **Approval wrapping** - Apply to entry function `ctx.call()` (currently bypassed)
-5. **Remove "trusted code" bypass** - Entry functions stay in tool plane like workers
+1. **Shared tool plane builder** - Extract from `Worker._call_internal()` and reuse in `Runtime.run_entry()` and script bootstraps to remove drift
 
 ## Worker Access Model
 
@@ -257,6 +231,7 @@ This is the opt-in model from `worker-design-rationale.md`:
 3. **Toolset build context**: `ToolsetBuildContext` no longer carries `worker_path`/`worker_dir`; toolset factories receive only explicit inputs.
 4. **Step 4 interface**: Allow `WorkerRuntime` as the dependency surface for now; a smaller ToolRouter is deferred until more examples exist.
 5. **Script bootstrap**: Require an EntryRegistry (or pre-resolved Entry) to resolve named toolsets; registry-free mode is deferred.
+6. **Entry tool-plane parity**: Entry toolsets are approval-wrapped per runtime policy; tool events are attributed via `CallFrame.invocation_name`.
 
 ## Operational Notes
 
@@ -268,7 +243,7 @@ This is the opt-in model from `worker-design-rationale.md`:
 - Attachment paths resolve relative to the runtime project root, not worker-specific paths
 - Raw Python code in any step is outside the tool plane - if you need policy control, use a toolset
 - Depth is CallFrame stack depth (worker invocation depth). Top-level entry runs at depth 0; top-level worker runs at depth 1; tool calls do not change depth.
-- Event attribution should follow invocation ownership: tool events emitted during entry functions should carry the entry name as `worker`, not a generic `code_entry`. Child workers should emit events under their own names when they run.
+- Event attribution follows invocation ownership via `CallFrame.invocation_name` (entry tool events carry the entry name; child workers emit under their own names).
 
 ## Benefits
 
@@ -280,14 +255,6 @@ This is the opt-in model from `worker-design-rationale.md`:
 6. **Opt-in model preserved**: Entry functions declare toolsets explicitly, same as workers
 7. **Flexible deployment**: Step 3 (script) is orthogonal - use it when Python embedding is needed
 8. **Easier testing**: Same tool plane means same test setup for workers and entry functions
-
-## Migration Path
-
-1. Extract tool plane builder from `Worker._call_internal()` into shared function
-2. Update `Runtime.run_entry()` to use shared builder for EntryFunction
-3. Route entry execution through the child CallFrame invocation path (same as workers)
-4. Remove "trusted code" approval bypass - entry `ctx.call()` stays in tool plane
-5. Verify entry functions get same tool plane behavior (toolsets, depth, events, cleanup)
 
 ## Related Notes
 

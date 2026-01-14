@@ -59,10 +59,11 @@ Sources (.worker + .py)
 
 ### Tool calls as syscalls (trust boundary)
 
-- LLM-initiated tool calls are syscalls: the ApprovalToolset wrapper decides
-  whether the call is permitted. This is a capability gate, not isolation.
-- `@entry` functions are trusted code. They call tools directly without approval
-  wrapping, like kernel-mode code using privileged APIs.
+- Tool calls are syscalls: the ApprovalToolset wrapper decides whether the call
+  is permitted. This is a capability gate, not isolation.
+- `@entry` functions are trusted code, but their `ctx.call()` usage still flows
+  through the same syscall gate for parity and observability. Raw Python is the
+  kernel-mode escape hatch (no approvals/events).
 
 ### Recursion semantics (now supported)
 

@@ -87,7 +87,7 @@ Key points:
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
 - EntryFunction inputs are normalized to `WorkerArgs` (via `schema_in`, default `WorkerInput`)
-- EntryFunction tool calls are trusted and bypass approval wrapping
+- EntryFunction tool calls are trusted but still go through approval wrappers per run policy
 
 ---
 
@@ -104,26 +104,22 @@ for the handle pattern and lifecycle details.
 
 ### Trust Boundary
 
-Approval wrapping gates **LLM-initiated** tool calls, not all tool calls:
+Approval wrapping gates tool calls that require approval, regardless of whether
+they were initiated by an LLM or by trusted code. The trust boundary is who
+decides to invoke tools; the tool plane remains consistent.
 
 - **Worker** (LLM boundary): The LLM decides which tools to call. Toolsets are wrapped with `ApprovalToolset` before the agent runs. This is where approval prompts happen.
 
-- **EntryFunction** (`@entry` decorated): Developer's Python code decides which tools to call. These are trusted - no approval wrapping. The code is reviewed and committed, not generated at runtime.
+- **EntryFunction** (`@entry` decorated): Developer's Python code decides which tools to call. Tool calls still flow through `ApprovalToolset` and follow the run approval policy.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Trusted Code (no approval)                         │
+│  Tool Plane (approval policy + events)              │
 │  ┌───────────────┐     ┌───────────────┐           │
-│  │ @entry func   │────▶│ ctx.call()    │           │
+│  │ @entry func   │────▶│ ApprovalToolset│──▶ tool  │
 │  └───────────────┘     └───────────────┘           │
-└─────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────┐
-│  LLM Boundary (approval required)                   │
 │  ┌───────────────┐     ┌───────────────┐           │
 │  │ Worker.call() │────▶│ ApprovalToolset│──▶ tool  │
-│  │ (wraps first) │     │ (gates calls)  │           │
 │  └───────────────┘     └───────────────┘           │
 └─────────────────────────────────────────────────────┘
 ```

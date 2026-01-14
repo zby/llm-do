@@ -206,8 +206,9 @@ The `@entry` decorator:
   - `args`: `WorkerArgs` instance (normalized input with `prompt_spec()`)
   - `runtime`: `WorkerRuntime` for calling tools via `runtime.call()`
 
-Note: `@entry` functions are trusted code. Tool calls from `runtime.call()` run
-directly without approval wrappers; approvals only gate LLM-driven tool calls.
+Note: `@entry` functions are trusted code, but tool calls from `runtime.call()`
+still go through approval wrappers and follow the run approval policy. To skip
+prompts, use `approve_all` (or drop to raw Python to bypass the tool plane).
 
 Example with custom input schema:
 

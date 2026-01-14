@@ -5,7 +5,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 
-from llm_do.runtime import Runtime, WorkerInput
+from llm_do.runtime import Runtime, ToolsetBuildContext, ToolsetSpec, WorkerInput
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.contracts import WorkerRuntimeProtocol
 from llm_do.runtime.worker import Worker, WorkerToolset, build_worker_tool
@@ -24,11 +24,13 @@ def test_worker_toolset_creation() -> None:
     assert toolset.id == worker.name
 
 
-def test_worker_as_toolset_method() -> None:
-    """Worker.as_toolset() returns a WorkerToolset adapter."""
+def test_worker_as_toolset_spec_method() -> None:
+    """Worker.as_toolset_spec() returns a ToolsetSpec factory."""
     worker = Worker(name="test", instructions="Test worker")
-    toolset = worker.as_toolset()
+    spec = worker.as_toolset_spec()
 
+    assert isinstance(spec, ToolsetSpec)
+    toolset = spec.factory(ToolsetBuildContext(worker_name="test"))
     assert isinstance(toolset, WorkerToolset)
     assert toolset.worker is worker
 
@@ -110,7 +112,7 @@ def test_build_worker_tool_truncates_long_description() -> None:
     """build_worker_tool truncates descriptions longer than 200 chars."""
     long_text = "A" * 300
     worker = Worker(name="test", instructions=long_text)
-    toolset = worker.as_toolset()
+    toolset = WorkerToolset(worker=worker)
 
     tool = build_worker_tool(worker, toolset)
 
@@ -132,7 +134,7 @@ async def test_worker_toolset_call_executes_worker() -> None:
         name="parent",
         instructions="Call the child worker",
         model=TestModel(call_tools=["child"]),
-        toolsets=[child.as_toolset()],
+        toolset_specs=[child.as_toolset_spec()],
     )
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
@@ -149,7 +151,7 @@ async def test_worker_toolset_respects_max_depth() -> None:
         instructions="Call yourself",
         model=TestModel(call_tools=["recursive"]),
     )
-    worker.toolsets = [worker.as_toolset()]
+    worker.toolset_specs = [worker.as_toolset_spec()]
 
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -173,7 +175,7 @@ async def test_worker_toolset_preserves_worker_semantics() -> None:
         name="parent",
         instructions="Delegate to child",
         model=TestModel(call_tools=["child"]),
-        toolsets=[child.as_toolset()],
+        toolset_specs=[child.as_toolset_spec()],
     )
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))

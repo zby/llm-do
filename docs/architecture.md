@@ -46,7 +46,7 @@ This separation means:
 - **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
 - **Per-worker, no inheritance**: Message history, active toolsets, per-tool approval rules
 
-Note: `Worker.toolsets` are the *declared* toolsets from configuration. `CallFrame.active_toolsets` are the toolsets in use for this execution. For Workers, these are wrapped with approval before the LLM runs (see [Trust Boundary](#trust-boundary)).
+Note: `Worker.toolset_specs` are the *declared* toolset factories from configuration. `CallFrame.active_toolsets` are the toolsets in use for this execution. For Workers, these are instantiated per call and wrapped with approval before the LLM runs (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
@@ -65,13 +65,13 @@ resolved entries during the link step.
 CLI or Python
     │
     ▼
-Build entry (link step resolves toolset specs + instantiates per worker)
+Build entry (link step resolves toolset specs)
     │
     ▼
 Runtime.run_entry() creates CallFrame
     │
     ▼
-Entry executes (Worker builds PydanticAI Agent, or EntryFunction runs)
+Entry executes (Worker builds PydanticAI Agent or EntryFunction runs; toolsets instantiated per call)
     │
     ├── Tool call to another entry?
     │       → new CallFrame (depth+1), same Runtime
@@ -93,9 +93,9 @@ Key points:
 
 ## Toolset Instantiation & State
 
-Toolsets are registered as `ToolsetSpec` factories and instantiated per worker
-to keep state isolated. The runtime calls optional `cleanup()` hooks at run end
-to release handle-based resources. See [`docs/toolset-state.md`](toolset-state.md)
+Toolsets are registered as `ToolsetSpec` factories and instantiated per call
+to keep state isolated. The runtime calls optional `cleanup()` hooks after each
+call to release handle-based resources. See [`docs/toolset-state.md`](toolset-state.md)
 for the handle pattern and lifecycle details.
 
 ---

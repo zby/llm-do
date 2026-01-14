@@ -34,7 +34,7 @@ class WorkerDefinition:
 
     This is the declarative specification extracted from a .worker file,
     containing unresolved toolset references (as strings) that will be
-    resolved to actual AbstractToolset instances when building a Worker.
+    resolved to ToolsetSpec factories when building a Worker.
     """
     name: str
     description: str | None

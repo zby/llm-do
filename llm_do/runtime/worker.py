@@ -32,13 +32,13 @@ from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from ..models import select_model
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..toolsets.attachments import AttachmentToolset
-from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
+from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, instantiate_toolsets
 from ..toolsets.validators import DictValidator
 from ..ui.events import ToolCallEvent, ToolResultEvent
 from .args import WorkerArgs, WorkerInput, ensure_worker_args
 from .call import CallFrame
 from .contracts import WorkerRuntimeProtocol
-from .shared import RuntimeConfig
+from .shared import RuntimeConfig, cleanup_toolsets
 
 
 def _resolve_attachment_path(path: str, base_path: Path | None = None) -> Path:
@@ -200,7 +200,7 @@ class WorkerToolset(AbstractToolset[Any]):
         analyst = Worker(name="analyst", ...)
         main_worker = Worker(
             name="main",
-            toolsets=[analyst.as_toolset(), filesystem, shell],
+            toolset_specs=[analyst.as_toolset_spec(), filesystem_tools, shell_tools],
             ...
         )
     """
@@ -239,8 +239,8 @@ class WorkerToolset(AbstractToolset[Any]):
         )
 
 
-# Type alias for toolset references: can be names, specs, or instances
-ToolsetRef = str | ToolsetSpec | AbstractToolset[Any]
+# Type alias for toolset references: can be names or specs
+ToolsetRef = str | ToolsetSpec
 
 
 @dataclass
@@ -248,50 +248,51 @@ class EntryFunction:
     """Wrapper that implements the Entry protocol for decorated functions.
 
     Created by the @entry decorator to expose Python functions as entry points.
-    Toolset references can be names (resolved during registry linking) or instances.
+    Toolset references can be names (resolved during registry linking) or specs.
 
     Attributes:
         func: The wrapped async function
         entry_name: Name for this entry (from decorator or function name)
-        toolset_refs: List of toolset references (names or instances)
+        toolset_refs: List of toolset references (names or specs)
         schema_in: Optional WorkerArgs subclass for input normalization
-        _resolved_toolsets: Resolved toolset instances (set during linking)
+        _resolved_toolset_specs: Resolved toolset specs (set during linking)
     """
 
     func: Callable[..., Any]
     entry_name: str
     toolset_refs: list[ToolsetRef] = field(default_factory=list)
     schema_in: Optional[Type[WorkerArgs]] = None
-    _resolved_toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
+    toolset_context: ToolsetBuildContext | None = None
+    _resolved_toolset_specs: list[ToolsetSpec] = field(default_factory=list)
 
     @property
     def name(self) -> str:
         return self.entry_name
 
     @property
-    def toolsets(self) -> list[AbstractToolset[Any]]:
-        """Return resolved toolsets for Entry protocol.
+    def toolset_specs(self) -> list[ToolsetSpec]:
+        """Return resolved toolset specs for Entry protocol.
 
-        Note: If called before linking, only instance refs are available.
+        Note: If called before linking, only spec refs are available.
         Named refs require registry linking to resolve.
         """
-        if self._resolved_toolsets:
-            return self._resolved_toolsets
-        # Fallback: return only instance refs (unlinked state)
-        return [ref for ref in self.toolset_refs if isinstance(ref, AbstractToolset)]
+        if self._resolved_toolset_specs:
+            return self._resolved_toolset_specs
+        # Fallback: return only spec refs (unlinked state)
+        return [ref for ref in self.toolset_refs if isinstance(ref, ToolsetSpec)]
 
     def resolve_toolsets(
         self,
         available: dict[str, ToolsetSpec],
         context: ToolsetBuildContext,
     ) -> None:
-        """Resolve toolset refs to instances during registry linking.
+        """Resolve toolset refs to specs during registry linking.
 
         Args:
             available: Map of toolset names to specs from the registry
             context: Toolset build context for instantiation
         """
-        resolved: list[AbstractToolset[Any]] = []
+        resolved: list[ToolsetSpec] = []
         for ref in self.toolset_refs:
             if isinstance(ref, str):
                 if ref not in available:
@@ -299,19 +300,24 @@ class EntryFunction:
                         f"Entry '{self.name}' references unknown toolset: {ref}. "
                         f"Available: {sorted(available.keys())}"
                     )
-                toolset = available[ref].factory(context)
+                resolved.append(available[ref])
             elif isinstance(ref, ToolsetSpec):
-                toolset = ref.factory(context)
+                resolved.append(ref)
             else:
-                toolset = ref
-            if isinstance(toolset, Worker):
-                toolset = WorkerToolset(worker=toolset)
-            resolved.append(toolset)
-        self._resolved_toolsets = resolved
+                raise TypeError(
+                    "Entry toolsets must be names or ToolsetSpec instances."
+                )
+        self._resolved_toolset_specs = resolved
+        self.toolset_context = context
 
     def __post_init__(self) -> None:
         if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
             raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
+        for ref in self.toolset_refs:
+            if not isinstance(ref, (str, ToolsetSpec)):
+                raise TypeError(
+                    "Entry toolsets must be names or ToolsetSpec instances."
+                )
 
     async def call(
         self,
@@ -345,7 +351,7 @@ def entry(
 
     Args:
         name: Entry name (defaults to function name)
-        toolsets: List of toolset references (names or instances)
+        toolsets: List of toolset references (names or specs)
         schema_in: Optional WorkerArgs subclass for input normalization
 
     Returns:
@@ -375,18 +381,17 @@ class Worker:
 
     Worker represents an agent that uses an LLM to process prompts and can
     call tools to accomplish tasks. To expose a Worker as a tool for another
-    agent, use the as_toolset() method to get a WorkerToolset adapter.
+    agent, use the as_toolset_spec() method to get a ToolsetSpec factory.
 
-    Tools are passed as a list of AbstractToolsets which are combined
-    and passed directly to the PydanticAI Agent.
+    Tools are passed as ToolsetSpec factories and instantiated per call.
 
     Note: This dataclass is not frozen to support self-recursive workers where
     a worker needs to call itself as a tool. This creates a chicken-and-egg
-    problem: the worker must exist before as_toolset() can be called, but the
-    toolset must be added to the worker's toolsets list:
+    problem: the worker must exist before as_toolset_spec() can be called, but the
+    toolset must be added to the worker's toolset_specs list:
 
         worker = Worker(name="recursive", ...)
-        worker.toolsets = [worker.as_toolset()]  # Requires mutation
+        worker.toolset_specs = [worker.as_toolset_spec()]  # Requires mutation
 
     A future improvement could use a factory pattern or lazy resolution to
     allow frozen Workers while still supporting self-recursion.
@@ -397,7 +402,8 @@ class Worker:
     description: str | None = None
     model: str | Model | None = None  # String identifier or Model object
     compatible_models: list[str] | None = None
-    toolsets: list[AbstractToolset[Any]] = field(default_factory=list)
+    toolset_specs: list[ToolsetSpec] = field(default_factory=list)
+    toolset_context: ToolsetBuildContext | None = None
     builtin_tools: list[Any] = field(default_factory=list)  # PydanticAI builtin tools
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[WorkerArgs]] = None
@@ -407,16 +413,33 @@ class Worker:
     def __post_init__(self) -> None:
         if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
             raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
+        for spec in self.toolset_specs:
+            if not isinstance(spec, ToolsetSpec):
+                raise TypeError(
+                    "Worker toolset_specs must contain ToolsetSpec instances."
+                )
 
-    def as_toolset(self) -> WorkerToolset:
-        """Return a WorkerToolset adapter for this worker.
+    def _resolve_toolset_context(self) -> ToolsetBuildContext:
+        if self.toolset_context is not None:
+            return self.toolset_context
+        return ToolsetBuildContext(
+            worker_name=self.name,
+            worker_path=self.base_path,
+        )
 
-        Use this method to explicitly expose a worker as a tool for another agent.
+    def as_toolset_spec(
+        self,
+        *,
+        approval_config: dict[str, dict[str, Any]] | None = None,
+    ) -> ToolsetSpec:
+        """Return a ToolsetSpec that exposes this worker as a tool."""
+        def factory(_ctx: ToolsetBuildContext) -> AbstractToolset[Any]:
+            toolset = WorkerToolset(worker=self)
+            if approval_config is not None:
+                set_toolset_approval_config(toolset, approval_config)
+            return toolset
 
-        Returns:
-            WorkerToolset adapter wrapping this worker
-        """
-        return WorkerToolset(worker=self)
+        return ToolsetSpec(factory=factory)
 
     def _build_agent(
         self,
@@ -426,7 +449,7 @@ class Worker:
         toolsets: list[AbstractToolset[Any]] | None = None,
     ) -> Agent[WorkerRuntimeProtocol, Any]:
         """Build a PydanticAI agent with toolsets passed directly."""
-        agent_toolsets = toolsets if toolsets is not None else self.toolsets
+        agent_toolsets = toolsets or []
         return Agent(
             model=resolved_model,
             instructions=self.instructions,
@@ -533,85 +556,92 @@ class Worker:
             worker_name=self.name,
         )
 
-        # Wrap toolsets for approval using runtime-scoped callback
-        approval_callback = run_ctx.deps.approval_callback
-        wrapped_toolsets = wrap_toolsets_for_approval(
-            self.toolsets or [],
-            approval_callback,
-            return_permission_errors=run_ctx.deps.return_permission_errors,
-        )
+        toolsets: list[AbstractToolset[Any]] = []
+        try:
+            toolset_context = self._resolve_toolset_context()
+            toolsets = instantiate_toolsets(self.toolset_specs, toolset_context)
 
-        attachment_parts: list[BinaryContent] = []
-        if prompt_spec.attachments:
-            attachment_toolsets = wrap_toolsets_for_approval(
-                [AttachmentToolset()],
-                run_ctx.deps.approval_callback,
-                return_permission_errors=False,
+            # Wrap toolsets for approval using runtime-scoped callback
+            approval_callback = run_ctx.deps.approval_callback
+            wrapped_toolsets = wrap_toolsets_for_approval(
+                toolsets,
+                approval_callback,
+                return_permission_errors=run_ctx.deps.return_permission_errors,
             )
-            attachment_runtime = cast(
-                Any,
-                run_ctx.deps.spawn_child(
-                    active_toolsets=attachment_toolsets,
-                    model=resolved_model,
-                ),
+
+            attachment_parts: list[BinaryContent] = []
+            if prompt_spec.attachments:
+                attachment_toolsets = wrap_toolsets_for_approval(
+                    [AttachmentToolset()],
+                    run_ctx.deps.approval_callback,
+                    return_permission_errors=False,
+                )
+                attachment_runtime = cast(
+                    Any,
+                    run_ctx.deps.spawn_child(
+                        active_toolsets=attachment_toolsets,
+                        model=resolved_model,
+                    ),
+                )
+                attachment_runtime.prompt = prompt_spec.text
+                for attachment_path in prompt_spec.attachments:
+                    resolved_path = _resolve_attachment_path(attachment_path, self.base_path)
+                    attachment = await attachment_runtime.call(
+                        "read_attachment",
+                        {"path": str(resolved_path)},
+                    )
+                    if not isinstance(attachment, BinaryContent):
+                        raise TypeError("Attachment tool must return BinaryContent")
+                    attachment_parts.append(attachment)
+
+            # Fork per-call state and build child runtime for PydanticAI deps
+            child_runtime = run_ctx.deps.spawn_child(active_toolsets=wrapped_toolsets, model=resolved_model)
+            child_runtime.prompt = prompt_spec.text
+            child_state = child_runtime.frame
+
+            agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
+            prompt = _build_user_prompt(prompt_spec.text, attachment_parts)
+            message_history = (
+                list(state.messages) if _should_use_message_history(child_runtime) and state.messages else None
             )
-            attachment_runtime.prompt = prompt_spec.text
-            for attachment_path in prompt_spec.attachments:
-                resolved_path = _resolve_attachment_path(attachment_path, self.base_path)
-                attachment = await attachment_runtime.call(
-                    "read_attachment",
-                    {"path": str(resolved_path)},
-                )
-                if not isinstance(attachment, BinaryContent):
-                    raise TypeError("Attachment tool must return BinaryContent")
-                attachment_parts.append(attachment)
 
-        # Fork per-call state and build child runtime for PydanticAI deps
-        child_runtime = run_ctx.deps.spawn_child(active_toolsets=wrapped_toolsets, model=resolved_model)
-        child_runtime.prompt = prompt_spec.text
-        child_state = child_runtime.frame
+            use_incremental_log = config.message_log_callback is not None
+            log_context = (
+                _capture_message_log(child_runtime, worker_name=self.name, depth=child_state.depth)
+                if use_incremental_log
+                else nullcontext()
+            )
 
-        agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
-        prompt = _build_user_prompt(prompt_spec.text, attachment_parts)
-        message_history = (
-            list(state.messages) if _should_use_message_history(child_runtime) and state.messages else None
-        )
+            with log_context:
+                if config.on_event is not None:
+                    output = await self._run_with_event_stream(
+                        agent,
+                        prompt,
+                        child_runtime,
+                        message_history,
+                        log_messages=not use_incremental_log,
+                    )
+                    if _should_use_message_history(child_runtime):
+                        state.messages[:] = list(child_state.messages)
+                else:
+                    result = await agent.run(
+                        prompt,
+                        deps=child_runtime,
+                        model_settings=self.model_settings,
+                        message_history=message_history,
+                    )
+                    _finalize_messages(
+                        self.name,
+                        child_runtime,
+                        state,
+                        result,
+                        log_messages=not use_incremental_log,
+                    )
+                    output = result.output
 
-        use_incremental_log = config.message_log_callback is not None
-        log_context = (
-            _capture_message_log(child_runtime, worker_name=self.name, depth=child_state.depth)
-            if use_incremental_log
-            else nullcontext()
-        )
-
-        with log_context:
-            if config.on_event is not None:
-                output = await self._run_with_event_stream(
-                    agent,
-                    prompt,
-                    child_runtime,
-                    message_history,
-                    log_messages=not use_incremental_log,
-                )
-                if _should_use_message_history(child_runtime):
-                    state.messages[:] = list(child_state.messages)
-            else:
-                result = await agent.run(
-                    prompt,
-                    deps=child_runtime,
-                    model_settings=self.model_settings,
-                    message_history=message_history,
-                )
-                _finalize_messages(
-                    self.name,
-                    child_runtime,
-                    state,
-                    result,
-                    log_messages=not use_incremental_log,
-                )
-                output = result.output
-
-        return output
+            return output
+        finally:
+            await cleanup_toolsets(toolsets)
 
     async def _run_with_event_stream(
         self,

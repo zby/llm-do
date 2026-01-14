@@ -1,6 +1,6 @@
 import pytest
 
-from llm_do.runtime import PromptSpec, Worker, WorkerArgs
+from llm_do.runtime import PromptSpec, ToolsetBuildContext, Worker, WorkerArgs
 from llm_do.runtime.args import ensure_worker_args
 from tests.runtime.helpers import build_runtime_context
 
@@ -30,7 +30,9 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
     ctx = build_runtime_context(toolsets=[], model="test")
     run_ctx = ctx._make_run_context(worker.name, "test", ctx)
 
-    toolset = worker.as_toolset()
+    toolset = worker.as_toolset_spec().factory(
+        ToolsetBuildContext(worker_name=worker.name)
+    )
     tools = await toolset.get_tools(run_ctx)
     tool_def = tools[worker.name].tool_def
     schema = tool_def.parameters_json_schema
@@ -50,7 +52,9 @@ async def test_worker_tool_description_prefers_description() -> None:
     ctx = build_runtime_context(toolsets=[], model="test")
     run_ctx = ctx._make_run_context(worker.name, "test", ctx)
 
-    toolset = worker.as_toolset()
+    toolset = worker.as_toolset_spec().factory(
+        ToolsetBuildContext(worker_name=worker.name)
+    )
     tools = await toolset.get_tools(run_ctx)
     tool_def = tools[worker.name].tool_def
 

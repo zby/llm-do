@@ -24,10 +24,11 @@ Call yourself.
     entry = build_entry([str(worker_path)], [])
 
     assert isinstance(entry, Worker)
-    assert entry.toolsets
-    # Toolset resolution wraps Workers in WorkerToolset adapters
-    assert isinstance(entry.toolsets[0], WorkerToolset)
-    assert entry.toolsets[0].worker is entry
+    assert entry.toolset_specs
+    # Toolset resolution keeps WorkerToolset factories for recursive tools
+    toolset = entry.toolset_specs[0].factory(entry.toolset_context)
+    assert isinstance(toolset, WorkerToolset)
+    assert toolset.worker is entry
 
 
 @pytest.mark.anyio
@@ -37,8 +38,8 @@ async def test_max_depth_blocks_self_recursion() -> None:
         instructions="Loop until depth is exceeded.",
         model=TestModel(call_tools=["loop"]),
     )
-    # Use as_toolset() for explicit Worker-as-tool exposure
-    worker.toolsets = [worker.as_toolset()]
+    # Use as_toolset_spec() for explicit Worker-as-tool exposure
+    worker.toolset_specs = [worker.as_toolset_spec()]
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
         max_depth=2,

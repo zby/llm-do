@@ -1,143 +1,123 @@
-"""Tests for per-worker toolset instantiation and cleanup."""
+"""Tests for per-call toolset instantiation and cleanup."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from typing import Any
+from uuid import uuid4
 
 import pytest
+from pydantic_ai.models.test import TestModel
+from pydantic_ai.tools import RunContext
+from pydantic_ai.toolsets import AbstractToolset, FunctionToolset, ToolsetTool
 
-from llm_do.runtime import Runtime, WorkerInput, build_entry
-from llm_do.runtime.worker import WorkerToolset
-
-
-def _find_loaded_module(path: Path):
-    resolved = str(path.resolve())
-    for module in sys.modules.values():
-        if getattr(module, "__file__", None) == resolved:
-            return module
-    raise AssertionError(f"Module for {resolved} not found in sys.modules")
+from llm_do.runtime import Runtime, ToolsetSpec, Worker, WorkerArgs, WorkerInput, entry
+from llm_do.runtime.approval import RunApprovalPolicy
 
 
 @pytest.mark.anyio
-async def test_per_worker_toolset_instances_isolated_handles(tmp_path: Path) -> None:
-    tools_path = tmp_path / "tools.py"
-    tools_path.write_text(
-        """\
-from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec
+async def test_recursive_worker_gets_fresh_toolset_instances() -> None:
+    instance_ids: list[str] = []
 
-def build_stateful(_ctx):
-    tools = FunctionToolset()
-    tools._handles = {}
-    return tools
+    def build_stateful(_ctx):
+        toolset = FunctionToolset()
+        toolset_id = uuid4().hex
+        toolset._instance_id = toolset_id
+        instance_ids.append(toolset_id)
 
-stateful_tools = ToolsetSpec(factory=build_stateful)
-""",
-        encoding="utf-8",
-    )
-    worker_a_path = tmp_path / "worker_a.worker"
-    worker_a_path.write_text(
-        """\
----
-name: worker_a
-entry: true
-toolsets:
-  - stateful_tools
-  - worker_b
----
-Worker A.
-""",
-        encoding="utf-8",
-    )
-    worker_b_path = tmp_path / "worker_b.worker"
-    worker_b_path.write_text(
-        """\
----
-name: worker_b
-toolsets:
-  - stateful_tools
----
-Worker B.
-""",
-        encoding="utf-8",
-    )
+        @toolset.tool
+        async def recurse(ctx: RunContext) -> str:
+            if ctx.deps.depth <= 1:
+                await ctx.deps.call("recursive", {"input": "nested"})
+            return toolset._instance_id
 
-    entry = build_entry(
-        [str(worker_a_path), str(worker_b_path)],
-        [str(tools_path)],
-    )
+        return toolset
 
-    toolset_a = next(toolset for toolset in entry.toolsets if hasattr(toolset, "_handles"))
-    worker_b_toolset = next(
-        toolset
-        for toolset in entry.toolsets
-        if isinstance(toolset, WorkerToolset) and toolset.worker.name == "worker_b"
+    stateful_spec = ToolsetSpec(factory=build_stateful)
+    worker = Worker(
+        name="recursive",
+        instructions="Call recurse tool.",
+        model=TestModel(call_tools=["recurse"], custom_output_text="done"),
+        toolset_specs=[stateful_spec],
     )
-    toolset_b = next(
-        toolset for toolset in worker_b_toolset.worker.toolsets if hasattr(toolset, "_handles")
-    )
+    worker.toolset_specs.append(worker.as_toolset_spec())
 
-    assert toolset_a is not toolset_b
-    toolset_a._handles["handle_a"] = True
-    assert "handle_a" not in toolset_b._handles
+    runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
+    await runtime.run_entry(worker, WorkerInput(input="go"))
+
+    assert len(instance_ids) == 2
+    assert instance_ids[0] != instance_ids[1]
 
 
 @pytest.mark.anyio
-async def test_cleanup_called_on_run_end(tmp_path: Path) -> None:
-    tools_path = tmp_path / "tools.py"
-    tools_path.write_text(
-        """\
-from typing import Any
+async def test_worker_toolset_cleanup_runs_per_call() -> None:
+    cleanup_calls: list[Any] = []
 
-from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
-from llm_do.runtime import ToolsetSpec, WorkerArgs, WorkerRuntime, entry
+    class CleanupToolset(AbstractToolset[Any]):
+        @property
+        def id(self) -> str | None:
+            return None
 
-CLEANUP_CALLS = []
+        async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool[Any]]:
+            return {}
 
-class CleanupToolset(AbstractToolset[Any]):
-    @property
-    def id(self) -> str | None:
-        return None
+        async def call_tool(
+            self,
+            name: str,
+            tool_args: dict[str, Any],
+            ctx: Any,
+            tool: ToolsetTool[Any],
+        ) -> Any:
+            raise ValueError("No tools registered")
 
-    async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool[Any]]:
-        return {}
+        def cleanup(self) -> None:
+            cleanup_calls.append(self)
 
-    async def call_tool(self, name: str, tool_args: dict[str, Any], ctx: Any, tool: ToolsetTool[Any]) -> Any:
-        raise ValueError("No tools registered")
-
-    def cleanup(self) -> None:
-        CLEANUP_CALLS.append(self)
-
-def build_cleanup(_ctx):
-    return CleanupToolset()
-
-cleanup_tools = ToolsetSpec(factory=build_cleanup)
-
-@entry(toolsets=["cleanup_tools"])
-async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
-    return "ok"
-""",
-        encoding="utf-8",
-    )
-    worker_path = tmp_path / "worker.worker"
-    worker_path.write_text(
-        """\
----
-name: worker
-toolsets:
-  - cleanup_tools
----
-Worker.
-""",
-        encoding="utf-8",
+    cleanup_spec = ToolsetSpec(factory=lambda _ctx: CleanupToolset())
+    worker = Worker(
+        name="cleanup_worker",
+        instructions="Run cleanup toolset.",
+        model=TestModel(custom_output_text="ok"),
+        toolset_specs=[cleanup_spec],
     )
 
-    entry = build_entry([str(worker_path)], [str(tools_path)])
     runtime = Runtime(cli_model="test")
+    await runtime.run_entry(worker, WorkerInput(input="go"))
+    await runtime.run_entry(worker, WorkerInput(input="again"))
 
-    result, _ctx = await runtime.run_entry(entry, WorkerInput(input="go"))
-    assert result == "ok"
+    assert len(cleanup_calls) == 2
 
-    module = _find_loaded_module(tools_path)
-    cleanup_calls = module.CLEANUP_CALLS
+
+@pytest.mark.anyio
+async def test_entry_function_toolset_cleanup_runs_per_call() -> None:
+    cleanup_calls: list[Any] = []
+
+    class CleanupToolset(AbstractToolset[Any]):
+        @property
+        def id(self) -> str | None:
+            return None
+
+        async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool[Any]]:
+            return {}
+
+        async def call_tool(
+            self,
+            name: str,
+            tool_args: dict[str, Any],
+            ctx: Any,
+            tool: ToolsetTool[Any],
+        ) -> Any:
+            raise ValueError("No tools registered")
+
+        def cleanup(self) -> None:
+            cleanup_calls.append(self)
+
+    cleanup_spec = ToolsetSpec(factory=lambda _ctx: CleanupToolset())
+
+    @entry(toolsets=[cleanup_spec])
+    async def main(_args: WorkerArgs, _runtime) -> str:
+        return "ok"
+
+    runtime = Runtime(cli_model="test")
+    await runtime.run_entry(main, WorkerInput(input="go"))
+    await runtime.run_entry(main, WorkerInput(input="again"))
+
     assert len(cleanup_calls) == 2

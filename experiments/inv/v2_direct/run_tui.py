@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import RunApprovalPolicy, Runtime, ToolsetSpec, Worker
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.app import LlmDoApp
 from llm_do.ui.events import UIEvent
@@ -56,13 +56,14 @@ def load_instructions(name: str) -> str:
 
 def build_workers() -> tuple[Worker, Worker]:
     """Build and return the worker entries."""
-    filesystem = FileSystemToolset(config={"base_path": str(HERE)})
+    filesystem_spec = ToolsetSpec(
+        factory=lambda _ctx: FileSystemToolset(config={"base_path": str(HERE)})
+    )
 
     pitch_evaluator = Worker(
         name="pitch_evaluator",
         model=MODEL,
         instructions=load_instructions("pitch_evaluator"),
-        toolsets=[],
         base_path=HERE,  # For resolving attachment paths
     )
 
@@ -70,7 +71,7 @@ def build_workers() -> tuple[Worker, Worker]:
         name="main",
         model=MODEL,
         instructions=load_instructions("main"),
-        toolsets=[filesystem, pitch_evaluator.as_toolset()],
+        toolset_specs=[filesystem_spec, pitch_evaluator.as_toolset_spec()],
     )
 
     return main, pitch_evaluator

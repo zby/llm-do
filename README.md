@@ -146,7 +146,7 @@ This progression reflects progressive stabilizing: initially you might prompt th
 ## Custom Tools
 
 Add custom tools by creating `tools.py` in your project root. Toolsets are
-defined as factories via `ToolsetSpec`, so each worker gets its own instance:
+defined as factories via `ToolsetSpec`, so each call gets its own instance:
 
 ```python
 # tools.py

@@ -3,8 +3,9 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import Worker, build_entry
+from llm_do.runtime import ToolsetBuildContext, Worker, build_entry
 from llm_do.runtime.worker import WorkerToolset
+from llm_do.toolsets.loader import instantiate_toolsets
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
@@ -27,14 +28,22 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     assert isinstance(entry, Worker)
 
     # Workers are now wrapped in WorkerToolset adapters
+    entry_toolsets = instantiate_toolsets(
+        entry.toolset_specs,
+        entry.toolset_context or ToolsetBuildContext(worker_name=entry.name),
+    )
     extractor_toolset = next(
         toolset
-        for toolset in entry.toolsets
+        for toolset in entry_toolsets
         if isinstance(toolset, WorkerToolset) and toolset.worker.name == "web_research_extractor"
     )
     extractor = extractor_toolset.worker
+    extractor_toolsets = instantiate_toolsets(
+        extractor.toolset_specs,
+        extractor.toolset_context or ToolsetBuildContext(worker_name=extractor.name),
+    )
     function_toolsets = [
-        toolset for toolset in extractor.toolsets if isinstance(toolset, FunctionToolset)
+        toolset for toolset in extractor_toolsets if isinstance(toolset, FunctionToolset)
     ]
     assert function_toolsets, "Expected extractor to include web_research_tools toolset"
 

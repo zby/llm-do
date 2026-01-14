@@ -63,7 +63,6 @@ PITCH_EVALUATOR = Worker(
     name="pitch_evaluator",
     model=MODEL,
     instructions=(PROJECT_ROOT / "instructions" / "pitch_evaluator.md").read_text(),
-    toolsets=[],
     base_path=PROJECT_ROOT,  # For resolving attachment paths
 )
 
@@ -102,7 +101,7 @@ def list_pitchdecks(input_dir: str = "input") -> list[dict]:
 # =============================================================================
 
 
-@entry(toolsets=[PITCH_EVALUATOR.as_toolset()])
+@entry(toolsets=[PITCH_EVALUATOR.as_toolset_spec()])
 async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     """Evaluate all pitch decks in input directory.
 

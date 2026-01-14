@@ -6,7 +6,7 @@ import inspect
 import logging
 import threading
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Sequence
 
 from pydantic_ai.usage import RunUsage
 
@@ -21,7 +21,18 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-TOOLSET_INSTANCE_ATTR = "__llm_do_toolset_instances__"
+async def cleanup_toolsets(toolsets: Sequence[Any]) -> None:
+    """Run cleanup hooks on toolsets, ignoring errors."""
+    for toolset in toolsets:
+        cleanup = getattr(toolset, "cleanup", None)
+        if cleanup is None:
+            continue
+        try:
+            result = cleanup()
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.exception("Toolset cleanup failed for %r", toolset)
 
 
 class UsageCollector:
@@ -147,6 +158,7 @@ class Runtime:
         *,
         model: ModelType | None = None,
         message_history: list[Any] | None = None,
+        active_toolsets: list[Any] | None = None,
     ) -> CallFrame:
         entry_name = getattr(entry, "name", str(entry))
         resolved_model = select_model(
@@ -155,9 +167,8 @@ class Runtime:
             compatible_models=getattr(entry, "compatible_models", None),
             worker_name=entry_name,
         )
-        toolsets = list(getattr(entry, "toolsets", []) or [])
         call_config = CallConfig(
-            active_toolsets=tuple(toolsets),
+            active_toolsets=tuple(active_toolsets or []),
             model=resolved_model,
         )
         return CallFrame(
@@ -178,6 +189,7 @@ class Runtime:
         Normalizes input_data to WorkerArgs for all entry types.
         Sets frame.prompt from the WorkerArgs prompt_spec().
         """
+        from ..toolsets.loader import ToolsetBuildContext, instantiate_toolsets
         from .args import ensure_worker_args
         from .deps import WorkerRuntime
         from .worker import EntryFunction, Worker
@@ -186,7 +198,19 @@ class Runtime:
         input_args = ensure_worker_args(invocable.schema_in, input_data)
         prompt_spec = input_args.prompt_spec()
 
-        frame = self._build_entry_frame(invocable, model=model, message_history=message_history)
+        toolsets: list[Any] = []
+        if isinstance(invocable, EntryFunction):
+            toolset_context = invocable.toolset_context or ToolsetBuildContext(
+                worker_name=invocable.name,
+            )
+            toolsets = instantiate_toolsets(invocable.toolset_specs, toolset_context)
+
+        frame = self._build_entry_frame(
+            invocable,
+            model=model,
+            message_history=message_history,
+            active_toolsets=toolsets,
+        )
         frame.prompt = prompt_spec.text
         ctx = WorkerRuntime(runtime=self, frame=frame)
 
@@ -194,10 +218,6 @@ class Runtime:
             self._config.on_event(
                 UserMessageEvent(worker=invocable.name, content=prompt_spec.text)
             )
-
-        cleanup_toolsets = getattr(invocable, TOOLSET_INSTANCE_ATTR, None)
-        if cleanup_toolsets is None:
-            cleanup_toolsets = list(getattr(invocable, "toolsets", []) or [])
 
         try:
             if isinstance(invocable, EntryFunction):
@@ -209,19 +229,7 @@ class Runtime:
                 raise TypeError(f"Unsupported entry type: {type(invocable)}")
             return result, ctx
         finally:
-            await self._cleanup_toolsets(cleanup_toolsets)
-
-    async def _cleanup_toolsets(self, toolsets: list[Any]) -> None:
-        for toolset in toolsets:
-            cleanup = getattr(toolset, "cleanup", None)
-            if cleanup is None:
-                continue
-            try:
-                result = cleanup()
-                if inspect.isawaitable(result):
-                    await result
-            except Exception:
-                logger.exception("Toolset cleanup failed for %r", toolset)
+            await cleanup_toolsets(toolsets)
 
     def run(
         self,

@@ -200,7 +200,7 @@ Run with a manifest that includes `tools.py` and `evaluator.worker`, e.g.
 
 The `@entry` decorator:
 - Marks a function as an entry point with a name and toolset references
-- Toolsets can be names (resolved during registry linking) or instances
+- Toolsets can be names (resolved during registry linking) or ToolsetSpec factories
 - `schema_in` can specify a `WorkerArgs` subclass for input normalization (defaults to `WorkerInput`)
 - The function receives `(args, runtime)`:
   - `args`: `WorkerArgs` instance (normalized input with `prompt_spec()`)
@@ -365,7 +365,7 @@ class MyToolset(AbstractToolset[Any]):
         return f"{name}({tool_args.get('input', '')})"
 ```
 
-Register it with a factory so each worker gets a fresh instance:
+Register it with a factory so each call gets a fresh instance:
 
 ```python
 from llm_do.runtime import ToolsetSpec
@@ -425,7 +425,7 @@ def build_calc_tools(_ctx):
 
 **Dependencies:**
 
-Toolset instances are created in Python, so pass any dependencies directly in
+Toolset instances are created per call in Python, so pass any dependencies directly in
 the factory (e.g., base paths, worker metadata, or sandbox handles).
 
 ### Built-in Toolsets

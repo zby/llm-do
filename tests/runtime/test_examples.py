@@ -5,11 +5,13 @@ import pytest
 
 from llm_do.runtime import (
     EntryFunction,
+    ToolsetBuildContext,
     build_entry,
     load_toolsets_from_files,
     load_worker_file,
 )
 from llm_do.runtime.worker import WorkerToolset
+from llm_do.toolsets.loader import instantiate_toolsets
 
 
 def _get_toolset_name(toolset):
@@ -17,6 +19,13 @@ def _get_toolset_name(toolset):
     if isinstance(toolset, WorkerToolset):
         return toolset.worker.name
     return getattr(toolset, "name", None)
+
+
+def _instantiate_worker_toolsets(worker):
+    return instantiate_toolsets(
+        worker.toolset_specs,
+        worker.toolset_context or ToolsetBuildContext(worker_name=worker.name),
+    )
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
@@ -35,7 +44,7 @@ async def test_single_worker_example_builds():
         entry_model_override="test-model",
     )
     worker = entry
-    assert len(worker.toolsets) == 1
+    assert len(worker.toolset_specs) == 1
 
 
 @pytest.mark.anyio
@@ -49,7 +58,7 @@ async def test_delegation_example_builds():
         entry_model_override="test-model",
     )
     worker = entry
-    toolset_names = [_get_toolset_name(ts) for ts in worker.toolsets]
+    toolset_names = [_get_toolset_name(ts) for ts in _instantiate_worker_toolsets(worker)]
     assert "pitch_evaluator" in toolset_names
 
 
@@ -94,7 +103,7 @@ async def test_file_organizer_example_builds():
         entry_model_override="test-model",
     )
     worker = entry
-    assert len(worker.toolsets) == 2  # file_tools + shell_file_ops
+    assert len(worker.toolset_specs) == 2  # file_tools + shell_file_ops
 
 
 @pytest.mark.anyio
@@ -112,5 +121,5 @@ async def test_recursive_summarizer_example_builds():
         entry_model_override="test-model",
     )
     worker = entry
-    toolset_names = [_get_toolset_name(ts) for ts in worker.toolsets]
+    toolset_names = [_get_toolset_name(ts) for ts in _instantiate_worker_toolsets(worker)]
     assert "summarizer" in toolset_names

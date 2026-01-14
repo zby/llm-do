@@ -2,22 +2,22 @@
 
 Toolsets in llm-do follow two complementary patterns:
 
-1. **Per-worker instances (framework concern)**
+1. **Per-call instances (framework concern)**
 2. **Handle-based state (toolset concern)**
 
 These patterns solve different problems and are meant to be used together.
 
 ---
 
-## Per-Worker Toolset Instances
+## Per-Call Toolset Instances
 
-Toolsets are registered as `ToolsetSpec` factories. Each worker gets a fresh
-instance created from the factory when entries are linked. This provides an
+Toolsets are registered as `ToolsetSpec` factories. Each call gets a fresh
+instance created from the factory at execution time. This provides an
 isolation boundary:
 
-- Worker A and Worker B never share toolset instance state
-- Handle maps, caches, and open resources stay per worker
-- Worker-to-worker tool calls use a separate `WorkerToolset` wrapper per worker
+- Parent and child calls never share toolset instance state
+- Handle maps, caches, and open resources stay per call
+- Worker-to-worker tool calls use a separate `WorkerToolset` wrapper per call
 
 ```python
 from llm_do.runtime import ToolsetSpec
@@ -95,7 +95,7 @@ use, and close resources within the worker boundary.
 ## Cleanup Protocol
 
 Toolsets may implement an optional `cleanup()` method (sync or async). The
-runtime calls cleanup on all toolset instances at run end and logs errors
+runtime calls cleanup on all toolset instances after each call and logs errors
 without failing the run.
 
 Use cleanup to release any forgotten handles, close sessions, and free pooled
@@ -116,5 +116,5 @@ class DatabaseToolset(FunctionToolset):
 
 - **Prefer stateless toolsets** when possible
 - **Use handles** when multiple resources must coexist inside one worker
-- **Rely on per-worker instances** for isolation between workers
-- **Implement cleanup** to prevent resource leaks at run end
+- **Rely on per-call instances** for isolation between calls
+- **Implement cleanup** to prevent resource leaks after each call

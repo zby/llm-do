@@ -14,7 +14,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import Runtime, Worker, WorkerInput
+from llm_do.runtime import Runtime, ToolsetBuildContext, Worker, WorkerInput
 from llm_do.ui.events import UIEvent
 from tests.runtime.helpers import build_runtime_context
 
@@ -52,7 +52,6 @@ async def test_entry_worker_receives_message_history_across_turns() -> None:
         name="main",
         instructions="Count user prompts in message history.",
         model=_make_prompt_count_model(),
-        toolsets=[],
     )
     runtime = Runtime(on_event=events.append, verbosity=1)
 
@@ -77,7 +76,6 @@ async def test_nested_worker_call_does_not_inherit_conversation_history() -> Non
         name="sub",
         instructions="Count user prompts in message history.",
         model=_make_prompt_count_model(),
-        toolsets=[],
     )
 
     # Simulate caller having prior conversation history.
@@ -87,8 +85,11 @@ async def test_nested_worker_call_does_not_inherit_conversation_history() -> Non
     ]
 
     # Simulate a caller worker context (depth=1).
+    sub_toolset = sub_worker.as_toolset_spec().factory(
+        ToolsetBuildContext(worker_name="caller")
+    )
     caller_ctx = build_runtime_context(
-        toolsets=[sub_worker.as_toolset()],
+        toolsets=[sub_toolset],
         model="test",
         depth=1,
         messages=list(history),

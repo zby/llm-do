@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import Worker, WorkerInput
+from llm_do.runtime import ToolsetSpec, Worker, WorkerInput
 from llm_do.ui.events import (
     TextResponseEvent,
     ToolCallEvent,
@@ -91,20 +91,24 @@ class TestWorkerToolEvents:
         """Test that Worker emits ToolCallEvent when tools are called."""
         events: list[UIEvent] = []
 
-        # Create a toolset with a simple tool
-        toolset = FunctionToolset()
+        def build_toolset(_ctx):
+            toolset = FunctionToolset()
 
-        @toolset.tool
-        def add(a: int, b: int) -> int:
-            """Add two numbers."""
-            return a + b
+            @toolset.tool
+            def add(a: int, b: int) -> int:
+                """Add two numbers."""
+                return a + b
+
+            return toolset
+
+        toolset_spec = ToolsetSpec(factory=build_toolset)
 
         # Create worker with the toolset
         worker = Worker(
             name="calculator",
             instructions="You are a calculator. Use add tool.",
             model=TestModel(call_tools=["add"]),
-            toolsets=[toolset],
+            toolset_specs=[toolset_spec],
         )
 
         await run_entry_test(
@@ -136,23 +140,28 @@ class TestWorkerToolEvents:
         """Test that Worker emits events for multiple tool calls."""
         events: list[UIEvent] = []
 
-        toolset = FunctionToolset()
+        def build_toolset(_ctx):
+            toolset = FunctionToolset()
 
-        @toolset.tool
-        def add(a: int, b: int) -> int:
-            """Add two numbers."""
-            return a + b
+            @toolset.tool
+            def add(a: int, b: int) -> int:
+                """Add two numbers."""
+                return a + b
 
-        @toolset.tool
-        def multiply(a: int, b: int) -> int:
-            """Multiply two numbers."""
-            return a * b
+            @toolset.tool
+            def multiply(a: int, b: int) -> int:
+                """Multiply two numbers."""
+                return a * b
+
+            return toolset
+
+        toolset_spec = ToolsetSpec(factory=build_toolset)
 
         worker = Worker(
             name="calculator",
             instructions="You are a calculator.",
             model=TestModel(call_tools=["add", "multiply"]),
-            toolsets=[toolset],
+            toolset_specs=[toolset_spec],
         )
 
         await run_entry_test(
@@ -177,18 +186,23 @@ class TestWorkerToolEvents:
         """Test that tool_call_id correlates ToolCallEvent with ToolResultEvent."""
         events: list[UIEvent] = []
 
-        toolset = FunctionToolset()
+        def build_toolset(_ctx):
+            toolset = FunctionToolset()
 
-        @toolset.tool
-        def greet(name: str) -> str:
-            """Greet someone."""
-            return f"Hello, {name}!"
+            @toolset.tool
+            def greet(name: str) -> str:
+                """Greet someone."""
+                return f"Hello, {name}!"
+
+            return toolset
+
+        toolset_spec = ToolsetSpec(factory=build_toolset)
 
         worker = Worker(
             name="greeter",
             instructions="Greet the user.",
             model=TestModel(call_tools=["greet"]),
-            toolsets=[toolset],
+            toolset_specs=[toolset_spec],
         )
 
         await run_entry_test(
@@ -213,17 +227,22 @@ class TestWorkerToolEvents:
     @pytest.mark.anyio
     async def test_no_events_when_callback_is_none(self):
         """Test that no crash occurs when on_event is None."""
-        toolset = FunctionToolset()
+        def build_toolset(_ctx):
+            toolset = FunctionToolset()
 
-        @toolset.tool
-        def echo(msg: str) -> str:
-            return msg
+            @toolset.tool
+            def echo(msg: str) -> str:
+                return msg
+
+            return toolset
+
+        toolset_spec = ToolsetSpec(factory=build_toolset)
 
         worker = Worker(
             name="echo",
             instructions="Echo the input.",
             model=TestModel(call_tools=["echo"]),
-            toolsets=[toolset],
+            toolset_specs=[toolset_spec],
         )
 
         # Should not crash even with no on_event callback
@@ -244,7 +263,6 @@ class TestWorkerStreamingEvents:
             name="assistant",
             instructions="Respond to the user.",
             model=TestModel(custom_output_text="Hello there!"),
-            toolsets=[],
         )
 
         await run_entry_test(
@@ -276,7 +294,6 @@ class TestWorkerStreamingEvents:
             name="assistant",
             instructions="Respond to the user.",
             model=TestModel(custom_output_text="Hello!"),
-            toolsets=[],
         )
 
         await run_entry_test(
@@ -305,7 +322,6 @@ class TestCLIEventIntegration:
             name="main",
             instructions="Test worker",
             model=TestModel(custom_output_text="Hello!"),
-            toolsets=[],
         )
 
         runtime = Runtime(
@@ -328,11 +344,16 @@ class TestCLIEventIntegration:
 
         events: list[UIEvent] = []
 
-        toolset = FunctionToolset()
+        def build_toolset(_ctx):
+            toolset = FunctionToolset()
 
-        @toolset.tool
-        def add(a: int, b: int) -> int:
-            return a + b
+            @toolset.tool
+            def add(a: int, b: int) -> int:
+                return a + b
+
+            return toolset
+
+        toolset_spec = ToolsetSpec(factory=build_toolset)
 
         worker = Worker(
             name="main",
@@ -341,7 +362,7 @@ class TestCLIEventIntegration:
                 call_tools=["add"],
                 custom_output_text="The sum is 7.",
             ),
-            toolsets=[toolset],
+            toolset_specs=[toolset_spec],
         )
 
         runtime = Runtime(

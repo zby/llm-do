@@ -13,7 +13,7 @@ from pydantic_ai_blocking_approval import (
     ApprovalResult,
 )
 
-from llm_do.runtime import RunApprovalPolicy, Runtime
+from llm_do.runtime import RunApprovalPolicy, Runtime, ToolsetSpec
 from llm_do.runtime.worker import Worker
 
 
@@ -68,17 +68,17 @@ class _ProbeToolset(AbstractToolset[Any]):
 @pytest.mark.anyio
 async def test_tui_session_approval_cache_persists_across_runs() -> None:
     calls: list[ApprovalRequest] = []
-    toolset = _ProbeToolset()
 
     def approval_callback(request: ApprovalRequest) -> ApprovalDecision:
         calls.append(request)
         return ApprovalDecision(approved=True, remember="session")
 
+    probe_spec = ToolsetSpec(factory=lambda _ctx: _ProbeToolset())
     worker = Worker(
         name="main",
         instructions="Test worker",
         model=TestModel(call_tools=["probe"], custom_output_text="done"),
-        toolsets=[toolset],
+        toolset_specs=[probe_spec],
     )
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(

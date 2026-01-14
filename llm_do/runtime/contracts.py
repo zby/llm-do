@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 from pydantic_ai.models import Model  # Used in ModelType
 from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
 
+from ..toolsets.loader import ToolsetSpec
 from ..ui.events import UIEvent
 
 if TYPE_CHECKING:
@@ -77,7 +78,7 @@ class WorkerRuntimeProtocol(Protocol):
 class Entry(Protocol):
     """Protocol for entries that can be invoked via the runtime dispatcher.
 
-    An entry is a named callable with associated toolsets. Worker and
+    An entry is a named callable with associated toolset specs. Worker and
     EntryFunction both implement this protocol.
 
     Additional attributes (model, compatible_models) may be accessed via
@@ -97,7 +98,7 @@ class Entry(Protocol):
     def name(self) -> str: ...
 
     @property
-    def toolsets(self) -> list[AbstractToolset[Any]]: ...
+    def toolset_specs(self) -> list[ToolsetSpec]: ...
 
     @property
     def schema_in(self) -> type["WorkerArgs"] | None: ...

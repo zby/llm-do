@@ -4,7 +4,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import Worker, WorkerInput, WorkerRuntime
+from llm_do.runtime import ToolsetSpec, Worker, WorkerInput, WorkerRuntime
 from tests.runtime.helpers import build_runtime_context, run_entry_test
 
 
@@ -47,28 +47,38 @@ class TestContext:
     @pytest.mark.anyio
     async def test_depth_counts_only_workers(self):
         """Test that depth increments only for worker calls."""
-        toolset = FunctionToolset()
         seen: dict[str, dict[str, int] | int] = {}
 
-        @toolset.tool
-        async def probe(run_ctx: RunContext[WorkerRuntime]) -> int:
-            depth = run_ctx.deps.depth
-            seen["probe"] = depth
-            return depth
+        def build_toolset(_ctx: object) -> FunctionToolset:
+            toolset = FunctionToolset()
 
-        @toolset.tool
-        async def call_probe(run_ctx: RunContext[WorkerRuntime]) -> dict[str, int]:
-            before = run_ctx.deps.depth
-            probe_depth = await run_ctx.deps.call("probe", {})
-            after = run_ctx.deps.depth
-            seen["call_probe"] = {"before": before, "probe": probe_depth, "after": after}
-            return seen["call_probe"]
+            @toolset.tool
+            async def probe(run_ctx: RunContext[WorkerRuntime]) -> int:
+                depth = run_ctx.deps.depth
+                seen["probe"] = depth
+                return depth
+
+            @toolset.tool
+            async def call_probe(run_ctx: RunContext[WorkerRuntime]) -> dict[str, int]:
+                before = run_ctx.deps.depth
+                probe_depth = await run_ctx.deps.call("probe", {})
+                after = run_ctx.deps.depth
+                seen["call_probe"] = {
+                    "before": before,
+                    "probe": probe_depth,
+                    "after": after,
+                }
+                return seen["call_probe"]
+
+            return toolset
+
+        toolset_spec = ToolsetSpec(factory=build_toolset)
 
         worker = Worker(
             name="depth-checker",
             instructions="Call call_probe.",
             model=TestModel(call_tools=["call_probe"], custom_output_text="done"),
-            toolsets=[toolset],
+            toolset_specs=[toolset_spec],
         )
         await run_entry_test(worker, WorkerInput(input="go"))
 

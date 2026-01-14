@@ -46,7 +46,7 @@ llm-do project.json "second prompt"  # Session 2 (separate process)
 
 **What lives here**:
 - The entry worker and any child workers it spawns
-- Toolset instances (created at run start, cleaned up at run end)
+- Toolset instances (created per worker call, cleaned up after each call)
 - Handle-based resources (DB transactions, browser sessions)
 
 **When you have multiple runs**: Only in TUI **chat mode**. Each chat turn is a separate run within the same session.
@@ -67,9 +67,9 @@ A run is the execution of a single user request. It starts when the user submits
 2. It may call child workers (each gets its own `CallFrame`)
 3. Tools are called, potentially creating handles
 4. The final output is returned
-5. Cleanup runs (releasing handles, closing connections)
+5. Cleanup runs after each worker call (releasing handles, closing connections)
 
-The key property: **all state created during a run is cleaned up at run end**. This ensures that:
+The key property: **all state created during a call is cleaned up immediately after that call**. This ensures that:
 - Uncommitted DB transactions are rolled back
 - Browser sessions are closed
 - File handles are released
@@ -81,16 +81,16 @@ The key property: **all state created during a run is cleaned up at run end**. T
 
 **What lives here**:
 - `CallFrame` (prompt, messages, depth, active toolsets)
-- Per-worker toolset instances
+- Per-call toolset instances
 - Handle maps (e.g., `{txn_123: Connection}`)
 
-**Why per-worker isolation matters**:
+**Why per-call isolation matters**:
 
 Workers are LLM-controlled. Without isolation, Worker B could accidentally use Worker A's handles:
 - LLM hallucinates a handle name that happens to exist
 - Cross-worker state leakage causes unpredictable behavior
 
-Per-worker toolset instances ensure handles are invisible across workers.
+Per-call toolset instances ensure handles are invisible across nested calls.
 
 ## Scope Summary
 
@@ -117,7 +117,7 @@ When designing toolsets, consider which scope your state belongs to:
 - State that must be isolated between workers
 - Examples: DB transactions, browser sessions, file handles
 - Use the handle pattern for explicit state management
-- Must implement `cleanup()` to release forgotten handles
+- Must implement `cleanup()` to release forgotten handles after each call
 
 ## The Chat Mode Exception
 
@@ -130,4 +130,4 @@ But run-scoped resources are still cleaned up between turns. Each chat turn is a
 ## See Also
 
 - [architecture.md](architecture.md) - Runtime and CallFrame details
-- [Task 113](../tasks/active/113-per-worker-toolset-instances.md) - Per-worker toolset instances implementation
+- [Task per-call-toolset-instances](../tasks/active/per-call-toolset-instances.md) - Per-call toolset instances implementation

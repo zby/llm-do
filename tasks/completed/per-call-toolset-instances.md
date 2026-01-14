@@ -1,7 +1,7 @@
 # Per-Call Toolset Instances
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [ ] none
@@ -33,18 +33,18 @@ Worker A (call 1)
 - Follow-ups: update any docs or examples that reference `toolsets`
 
 ## Tasks
-- [ ] Remove `toolsets` field from `Worker` and add `toolset_specs: list[ToolsetSpec]`
-- [ ] Update `Worker._call_internal` to instantiate from specs per call
-- [ ] Add cleanup in `Worker._call_internal` finally block (extract helper from Runtime as needed)
-- [ ] Remove cleanup from `Runtime.run_entry()` (no entry-level instantiation remains)
-- [ ] Update registry to populate `toolset_specs` for worker files
-- [ ] Update toolset loader to produce specs-only data
-- [ ] Update docs/examples that reference `toolsets` to use `toolset_specs`
-- [ ] Update tests to verify per-call isolation
-- [ ] Add test for recursive worker with stateful toolset
+- [x] Remove `toolsets` field from `Worker` and add `toolset_specs: list[ToolsetSpec]`
+- [x] Update `Worker._call_internal` to instantiate from specs per call
+- [x] Add cleanup in `Worker._call_internal` finally block (extract helper from Runtime as needed)
+- [x] Remove cleanup from `Runtime.run_entry()` (no entry-level instantiation remains)
+- [x] Update registry to populate `toolset_specs` for worker files
+- [x] Update toolset loader to produce specs-only data
+- [x] Update docs/examples that reference `toolsets` to use `toolset_specs`
+- [x] Update tests to verify per-call isolation
+- [x] Add test for recursive worker with stateful toolset
 
 ## Current State
-Decisions updated to single-path design; implementation not started.
+Implemented per-call toolset spec resolution and instantiation, updated docs/examples/tests, and verified with ruff, mypy, and pytest.
 
 ## Notes
 - Migration: update any worker definitions or registry outputs that previously passed `toolsets` to use specs instead.

@@ -12,7 +12,7 @@ with configuration constants for easy experimentation.
 import sys
 from pathlib import Path
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import RunApprovalPolicy, Runtime, ToolsetSpec, Worker
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.display import HeadlessDisplayBackend
 
@@ -53,13 +53,14 @@ def build_workers() -> tuple[Worker, Worker]:
     # NOTE: base_path must be configured separately on FileSystemToolset and on
     # workers that receive attachments. This duplication is not ideal - a cleaner
     # solution would unify path resolution at the runtime level.
-    filesystem = FileSystemToolset(config={"base_path": str(HERE)})
+    filesystem_spec = ToolsetSpec(
+        factory=lambda _ctx: FileSystemToolset(config={"base_path": str(HERE)})
+    )
 
     pitch_evaluator = Worker(
         name="pitch_evaluator",
         model=MODEL,
         instructions=load_instructions("pitch_evaluator"),
-        toolsets=[],
         base_path=HERE,  # For resolving attachment paths
     )
 
@@ -67,7 +68,7 @@ def build_workers() -> tuple[Worker, Worker]:
         name="main",
         model=MODEL,
         instructions=load_instructions("main"),
-        toolsets=[filesystem, pitch_evaluator.as_toolset()],
+        toolset_specs=[filesystem_spec, pitch_evaluator.as_toolset_spec()],
     )
 
     return main, pitch_evaluator

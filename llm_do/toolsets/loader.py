@@ -44,18 +44,16 @@ def _wrap_worker_as_toolset(toolset: Any) -> AbstractToolset[Any]:
     return toolset
 
 
-def build_toolsets(
+def resolve_toolset_specs(
     toolsets_definition: Sequence[str],
     context: ToolsetBuildContext,
-) -> list[AbstractToolset[Any]]:
-    """Resolve toolset instances declared in a worker file.
+) -> list[ToolsetSpec]:
+    """Resolve toolset specs declared in a worker file.
 
     Toolsets are registered as factories (built-ins, Python toolsets, workers).
     Worker YAML may only reference toolset names.
-
-    Workers are automatically wrapped in WorkerToolset adapters.
     """
-    toolsets: list[AbstractToolset[Any]] = []
+    specs: list[ToolsetSpec] = []
     for toolset_name in toolsets_definition:
         spec = context.available_toolsets.get(toolset_name)
         if spec is None:
@@ -64,8 +62,20 @@ def build_toolsets(
                 f"Unknown toolset {toolset_name!r} for worker {context.worker_name!r}. "
                 f"Available: {available}"
             )
+        specs.append(spec)
+    return specs
+
+
+def instantiate_toolsets(
+    toolset_specs: Sequence[ToolsetSpec],
+    context: ToolsetBuildContext,
+) -> list[AbstractToolset[Any]]:
+    """Instantiate toolset specs for a specific call.
+
+    Workers are automatically wrapped in WorkerToolset adapters.
+    """
+    toolsets: list[AbstractToolset[Any]] = []
+    for spec in toolset_specs:
         toolset = spec.factory(context)
-        # Wrap Workers in WorkerToolset for explicit tool exposure
-        toolset = _wrap_worker_as_toolset(toolset)
-        toolsets.append(toolset)
+        toolsets.append(_wrap_worker_as_toolset(toolset))
     return toolsets

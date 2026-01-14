@@ -69,14 +69,15 @@ evaluator = Worker(
     model="anthropic:claude-haiku-4-5",
     instructions=Path("instructions/pitch_evaluator.md").read_text(),
     toolsets=[],
-    base_path=Path(__file__).parent,  # For attachment resolution
 )
 
 # Run the entry with TUI or headless output
+# project_root is used for resolving relative attachment paths
 outcome = await run_ui(
     entry=main,
     input={"input": ""},
     model="anthropic:claude-haiku-4-5",
+    project_root=Path(__file__).parent,
     approval_mode=APPROVAL_MODE,
     mode=UI_MODE,
     verbosity=1,

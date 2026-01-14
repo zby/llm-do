@@ -133,6 +133,7 @@ async def run(
             message_log_callback = _make_message_log_callback(sys.stderr)
         runtime = Runtime(
             cli_model=effective_model,
+            project_root=manifest_dir,
             run_approval_policy=approval_policy,
             max_depth=manifest.runtime.max_depth,
             on_event=on_event,

@@ -32,7 +32,6 @@ pitch_evaluator = Worker(
     name="pitch_evaluator",
     model="anthropic:claude-haiku-4-5",
     instructions=load_instructions("pitch_evaluator"),
-    base_path=HERE,  # For resolving attachment paths
 )
 
 main = Worker(

@@ -408,7 +408,6 @@ class Worker:
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[WorkerArgs]] = None
     schema_out: Optional[Type[BaseModel]] = None
-    base_path: Optional[Path] = None  # Base directory for resolving relative attachment paths
 
     def __post_init__(self) -> None:
         if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
@@ -424,7 +423,6 @@ class Worker:
             return self.toolset_context
         return ToolsetBuildContext(
             worker_name=self.name,
-            worker_path=self.base_path,
         )
 
     def as_toolset_spec(
@@ -585,7 +583,9 @@ class Worker:
                 )
                 attachment_runtime.prompt = prompt_spec.text
                 for attachment_path in prompt_spec.attachments:
-                    resolved_path = _resolve_attachment_path(attachment_path, self.base_path)
+                    # Use project_root from runtime; fallback to CWD if unset
+                    base_for_attachments = run_ctx.deps.project_root or Path.cwd()
+                    resolved_path = _resolve_attachment_path(attachment_path, base_for_attachments)
                     attachment = await attachment_runtime.call(
                         "read_attachment",
                         {"path": str(resolved_path)},

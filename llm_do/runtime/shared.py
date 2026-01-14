@@ -6,6 +6,7 @@ import inspect
 import logging
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
 from pydantic_ai.usage import RunUsage
@@ -92,6 +93,7 @@ class RuntimeConfig:
 
     cli_model: ModelType | None
     approval_callback: ApprovalCallback
+    project_root: Path | None = None
     return_permission_errors: bool = False
     max_depth: int = 5
     on_event: EventCallback | None = None
@@ -106,6 +108,7 @@ class Runtime:
         self,
         *,
         cli_model: ModelType | None = None,
+        project_root: Path | None = None,
         run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
         on_event: EventCallback | None = None,
@@ -117,6 +120,7 @@ class Runtime:
         self._config = RuntimeConfig(
             cli_model=cli_model,
             approval_callback=approval_callback,
+            project_root=project_root,
             return_permission_errors=policy.return_permission_errors,
             max_depth=max_depth,
             on_event=on_event,
@@ -129,6 +133,10 @@ class Runtime:
     @property
     def config(self) -> RuntimeConfig:
         return self._config
+
+    @property
+    def project_root(self) -> Path | None:
+        return self._config.project_root
 
     @property
     def approval_callback(self) -> ApprovalCallback:

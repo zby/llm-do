@@ -5,6 +5,7 @@ import asyncio
 import os
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Literal, Sequence, TextIO
 
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
@@ -116,6 +117,7 @@ def _resolve_entry_factory(
 def _build_runtime(
     *,
     cli_model: ModelType | None,
+    project_root: Path | None,
     run_approval_policy: RunApprovalPolicy,
     max_depth: int,
     on_event: EventSink | None,
@@ -126,6 +128,7 @@ def _build_runtime(
     if runtime_factory is not None:
         return runtime_factory(
             cli_model=cli_model,
+            project_root=project_root,
             run_approval_policy=run_approval_policy,
             max_depth=max_depth,
             on_event=on_event,
@@ -135,6 +138,7 @@ def _build_runtime(
 
     return Runtime(
         cli_model=cli_model,
+        project_root=project_root,
         run_approval_policy=run_approval_policy,
         max_depth=max_depth,
         on_event=on_event,
@@ -189,6 +193,7 @@ async def run_tui(
     entry: Entry | None = None,
     entry_factory: EntryFactory | None = None,
     model: ModelType | None = None,
+    project_root: Path | None = None,
     approval_mode: ApprovalMode = "prompt",
     verbosity: int = 1,
     return_permission_errors: bool = True,
@@ -243,6 +248,7 @@ async def run_tui(
 
     runtime = _build_runtime(
         cli_model=model,
+        project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
         on_event=on_event,
@@ -353,6 +359,7 @@ async def run_headless(
     entry: Entry | None = None,
     entry_factory: EntryFactory | None = None,
     model: ModelType | None = None,
+    project_root: Path | None = None,
     approval_mode: ApprovalMode = "approve_all",
     verbosity: int = 1,
     return_permission_errors: bool = True,
@@ -387,6 +394,7 @@ async def run_headless(
 
     runtime = _build_runtime(
         cli_model=model,
+        project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
         on_event=on_event,
@@ -430,6 +438,7 @@ async def run_ui(
     entry_factory: EntryFactory | None = None,
     mode: UiMode = "tui",
     model: ModelType | None = None,
+    project_root: Path | None = None,
     approval_mode: ApprovalMode = "prompt",
     verbosity: int = 1,
     return_permission_errors: bool = True,
@@ -451,6 +460,7 @@ async def run_ui(
             entry=entry,
             entry_factory=entry_factory,
             model=model,
+            project_root=project_root,
             approval_mode=approval_mode,
             verbosity=verbosity,
             return_permission_errors=return_permission_errors,
@@ -470,6 +480,7 @@ async def run_ui(
             entry=entry,
             entry_factory=entry_factory,
             model=model,
+            project_root=project_root,
             approval_mode=approval_mode,
             verbosity=verbosity,
             return_permission_errors=return_permission_errors,

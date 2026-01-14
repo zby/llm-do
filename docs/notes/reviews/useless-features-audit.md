@@ -120,7 +120,7 @@ These features were audited and confirmed to have proper usage:
 |---------|--------|----------|
 | `schema_in` | **Active** | 50+ uses across tests, examples, core code |
 | `compatible_models` | **Active** | Extensive test coverage, used for model validation |
-| `base_path` | **Active** | Used in examples for attachment path resolution |
+| `base_path` | **Removed** | Attachment resolution uses `project_root` from runtime |
 | `builtin_tools` | **Active** | Used for server_side_tools (web_search) |
 | `description` | **Active** | Parsed from worker files, used in tool definitions |
 | `verbosity` | **Active** | Controls streaming output, well-tested |

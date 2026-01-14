@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from pydantic_ai.toolsets import AbstractToolset
@@ -22,12 +21,7 @@ class ToolsetBuildContext:
     """Dependencies and lookup tables for toolset resolution."""
 
     worker_name: str
-    worker_path: Path | None = None
     available_toolsets: Mapping[str, ToolsetSpec] = field(default_factory=dict)
-
-    @property
-    def worker_dir(self) -> Path | None:
-        return self.worker_path.parent if self.worker_path else None
 
 
 def _wrap_worker_as_toolset(toolset: Any) -> AbstractToolset[Any]:

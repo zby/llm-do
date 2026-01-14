@@ -64,7 +64,6 @@ def build_workers() -> tuple[Worker, Worker]:
         name="pitch_evaluator",
         model=MODEL,
         instructions=load_instructions("pitch_evaluator"),
-        base_path=HERE,  # For resolving attachment paths
     )
 
     main = Worker(

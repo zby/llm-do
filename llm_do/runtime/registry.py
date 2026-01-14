@@ -255,7 +255,6 @@ def _build_registry_and_entry_name(
 
         toolset_context = ToolsetBuildContext(
             worker_name=spec.name,
-            worker_path=spec.path,
             available_toolsets=all_toolsets,
         )
         resolved_toolset_specs = resolve_toolset_specs(
@@ -307,7 +306,6 @@ def _build_registry_and_entry_name(
         if worker.toolset_context is None:
             worker.toolset_context = ToolsetBuildContext(
                 worker_name=worker.name,
-                worker_path=worker.base_path,
                 available_toolsets=_get_global_toolsets(),
             )
 

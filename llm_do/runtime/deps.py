@@ -1,6 +1,7 @@
 """Runtime deps facade for tool execution."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
 
 from pydantic import BaseModel
@@ -58,6 +59,10 @@ class WorkerRuntime:
     @property
     def config(self) -> RuntimeConfig:
         return self.runtime.config
+
+    @property
+    def project_root(self) -> Path | None:
+        return self.runtime.project_root
 
     @property
     def approval_callback(self) -> ApprovalCallback:

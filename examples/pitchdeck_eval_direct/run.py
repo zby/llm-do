@@ -63,7 +63,6 @@ PITCH_EVALUATOR = Worker(
     name="pitch_evaluator",
     model=MODEL,
     instructions=(PROJECT_ROOT / "instructions" / "pitch_evaluator.md").read_text(),
-    base_path=PROJECT_ROOT,  # For resolving attachment paths
 )
 
 # =============================================================================
@@ -152,6 +151,7 @@ def cli_main():
         entry=main,
         input={"input": ""},
         model=MODEL,
+        project_root=PROJECT_ROOT,
         approval_mode=APPROVAL_MODE,
         mode=UI_MODE,
         verbosity=VERBOSITY,

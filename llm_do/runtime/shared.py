@@ -53,12 +53,12 @@ async def build_tool_plane(
     from .approval import wrap_toolsets_for_approval
 
     toolsets = instantiate_toolsets(toolset_specs, toolset_context)
-    wrapped_toolsets = wrap_toolsets_for_approval(
-        toolsets,
-        approval_callback,
-        return_permission_errors=return_permission_errors,
-    )
     try:
+        wrapped_toolsets = wrap_toolsets_for_approval(
+            toolsets,
+            approval_callback,
+            return_permission_errors=return_permission_errors,
+        )
         yield toolsets, wrapped_toolsets
     finally:
         await cleanup_toolsets(toolsets)

@@ -104,9 +104,11 @@ async def run_with_events(agent: Agent, prompt: str | Sequence[UserContent]) -> 
     return output
 
 
-def list_pitchdecks(input_dir: str = "input") -> list[dict]:
+def list_pitchdecks(input_dir: str | Path = INPUT_DIR) -> list[dict]:
     """List pitch deck PDFs with pre-computed slugs and output paths."""
-    input_path = PROJECT_ROOT / input_dir
+    input_path = Path(input_dir)
+    if not input_path.is_absolute():
+        input_path = PROJECT_ROOT / input_path
     result = []
     if input_path.exists():
         for pdf in sorted(input_path.glob("*.pdf")):
@@ -148,7 +150,7 @@ def build_user_prompt(
 
 async def evaluate_decks() -> str:
     """Run the evaluation loop without tool-plane approvals or events."""
-    decks = list_pitchdecks()
+    decks = list_pitchdecks(INPUT_DIR)
     if not decks:
         return "No pitch decks found in input directory."
 

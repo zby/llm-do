@@ -46,13 +46,20 @@ python examples/pitchdeck_eval_direct/run_raw.py
 
 ## Configuration
 
-Edit constants at the top of `run.py`:
+Edit constants at the top of `run.py` (step 3) or `run_raw.py` (step 4):
 
 ```python
+# run.py
 MODEL = "anthropic:claude-haiku-4-5"  # or "openai:gpt-4o-mini"
 UI_MODE = "tui"  # or "headless"
 APPROVAL_MODE = "prompt" if UI_MODE == "tui" else "approve_all"
 VERBOSITY = 1  # 0=quiet, 1=tool calls, 2=stream
+```
+
+```python
+# run_raw.py
+MODEL = "anthropic:claude-haiku-4-5"
+VERBOSITY = 3  # 0=quiet, 1=progress, 2=I/O details, 3=LLM messages
 ```
 
 ## Files

@@ -1,7 +1,7 @@
 # Shared Tool Plane Builder (Worker + Entry)
 
 ## Status
-in progress
+completed
 
 ## Prerequisites
 - [ ] none

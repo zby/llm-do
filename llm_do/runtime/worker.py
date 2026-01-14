@@ -579,6 +579,7 @@ class Worker:
                     run_ctx.deps.spawn_child(
                         active_toolsets=attachment_toolsets,
                         model=resolved_model,
+                        invocation_name=self.name,
                     ),
                 )
                 attachment_runtime.prompt = prompt_spec.text
@@ -595,7 +596,11 @@ class Worker:
                     attachment_parts.append(attachment)
 
             # Fork per-call state and build child runtime for PydanticAI deps
-            child_runtime = run_ctx.deps.spawn_child(active_toolsets=wrapped_toolsets, model=resolved_model)
+            child_runtime = run_ctx.deps.spawn_child(
+                active_toolsets=wrapped_toolsets,
+                model=resolved_model,
+                invocation_name=self.name,
+            )
             child_runtime.prompt = prompt_spec.text
             child_state = child_runtime.frame
 

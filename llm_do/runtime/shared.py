@@ -178,6 +178,7 @@ class Runtime:
         call_config = CallConfig(
             active_toolsets=tuple(active_toolsets or []),
             model=resolved_model,
+            invocation_name=entry_name,
         )
         return CallFrame(
             config=call_config,
@@ -198,6 +199,7 @@ class Runtime:
         Sets frame.prompt from the WorkerArgs prompt_spec().
         """
         from ..toolsets.loader import ToolsetBuildContext, instantiate_toolsets
+        from .approval import wrap_toolsets_for_approval
         from .args import ensure_worker_args
         from .deps import WorkerRuntime
         from .worker import EntryFunction, Worker
@@ -207,17 +209,23 @@ class Runtime:
         prompt_spec = input_args.prompt_spec()
 
         toolsets: list[Any] = []
+        wrapped_toolsets: list[Any] | None = None
         if isinstance(invocable, EntryFunction):
             toolset_context = invocable.toolset_context or ToolsetBuildContext(
                 worker_name=invocable.name,
             )
             toolsets = instantiate_toolsets(invocable.toolset_specs, toolset_context)
+            wrapped_toolsets = wrap_toolsets_for_approval(
+                toolsets,
+                self._config.approval_callback,
+                return_permission_errors=self._config.return_permission_errors,
+            )
 
         frame = self._build_entry_frame(
             invocable,
             model=model,
             message_history=message_history,
-            active_toolsets=toolsets,
+            active_toolsets=wrapped_toolsets or toolsets,
         )
         frame.prompt = prompt_spec.text
         ctx = WorkerRuntime(runtime=self, frame=frame)
@@ -229,7 +237,7 @@ class Runtime:
 
         try:
             if isinstance(invocable, EntryFunction):
-                # Entry functions are trusted code; tool calls run directly without approval wrappers.
+                # Entry functions are trusted code but still run in the tool plane.
                 result = await invocable.call(input_args, ctx)
             elif isinstance(invocable, Worker):
                 result = await ctx._execute(invocable, input_args)

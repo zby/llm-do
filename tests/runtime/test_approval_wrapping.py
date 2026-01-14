@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.settings import ModelSettings
@@ -7,6 +9,7 @@ from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 from llm_do.runtime import Runtime, ToolsetSpec, WorkerArgs, WorkerInput, entry
 from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
 from llm_do.runtime.worker import Worker
+from llm_do.toolsets.approval import set_toolset_approval_config
 from llm_do.toolsets.filesystem import FileSystemToolset
 
 # TestModel is used in test_nested_worker_calls_are_approval_gated
@@ -74,9 +77,9 @@ async def test_entry_function_exposes_its_toolsets() -> None:
     )
 
     assert result == "hello"
-    # ToolInvocable exposes its toolset via the Entry protocol
+    # EntryFunction exposes its toolset via the Entry protocol (wrapped for approval)
     assert len(ctx.active_toolsets) == 1
-    assert isinstance(ctx.active_toolsets[0], FunctionToolset)
+    assert isinstance(ctx.active_toolsets[0], ApprovalToolset)
 
 
 @pytest.mark.anyio
@@ -123,7 +126,7 @@ async def test_nested_worker_calls_can_require_approval() -> None:
 
 @pytest.mark.anyio
 async def test_entry_function_call_not_approval_gated() -> None:
-    """EntryFunction call is not gated - it's a direct call, not LLM-invoked."""
+    """EntryFunction itself is not gated; tool calls inside are policy-gated."""
 
     @entry()
     async def echo(args: WorkerArgs, runtime_ctx) -> str:
@@ -139,3 +142,38 @@ async def test_entry_function_call_not_approval_gated() -> None:
     )
 
     assert result == "hello"
+
+
+@pytest.mark.anyio
+async def test_entry_tool_calls_respect_return_permission_errors() -> None:
+    """Entry tool calls should honor return_permission_errors like workers."""
+    def build_tools(_ctx):
+        toolset = FunctionToolset()
+
+        @toolset.tool
+        def greet(name: str) -> str:
+            return f"Hello, {name}!"
+
+        set_toolset_approval_config(toolset, {"greet": {"pre_approved": False}})
+        return toolset
+
+    toolset_spec = ToolsetSpec(factory=build_tools)
+
+    @entry(toolsets=[toolset_spec])
+    async def call_tool(args: WorkerArgs, runtime_ctx) -> Any:
+        return await runtime_ctx.call("greet", {"name": "World"})
+
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(
+            mode="reject_all",
+            return_permission_errors=True,
+        )
+    )
+    result, _ctx = await runtime.run_entry(
+        call_tool,
+        {"input": "hello"},
+        model="test",
+    )
+
+    assert isinstance(result, dict)
+    assert result.get("error_type") == "permission"

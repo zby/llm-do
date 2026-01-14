@@ -94,6 +94,10 @@ class WorkerRuntime:
         return self.frame.depth
 
     @property
+    def invocation_name(self) -> str:
+        return self.frame.invocation_name
+
+    @property
     def prompt(self) -> str:
         return self.frame.prompt
 
@@ -195,11 +199,16 @@ class WorkerRuntime:
         active_toolsets: Optional[list[AbstractToolset[Any]]] = None,
         *,
         model: ModelType | None = None,
+        invocation_name: str | None = None,
     ) -> "WorkerRuntime":
         """Spawn a child worker runtime with a forked CallFrame (depth+1)."""
         return WorkerRuntime(
             runtime=self.runtime,
-            frame=self.frame.fork(active_toolsets, model=model),
+            frame=self.frame.fork(
+                active_toolsets,
+                model=model,
+                invocation_name=invocation_name,
+            ),
         )
 
     async def call(self, name: str, input_data: Any) -> Any:
@@ -209,8 +218,8 @@ class WorkerRuntime:
             result = await ctx.deps.call("pitch_evaluator", {"input": "..."})
 
         Soft policy: tools should use their args, and only use ctx.deps
-        for worker/tool delegation. Entry functions are trusted, so these
-        calls bypass approval wrappers.
+        for worker/tool delegation. Tool calls follow the runtime approval
+        policy (entry functions stay in the tool plane).
         """
         import uuid
 
@@ -234,11 +243,13 @@ class WorkerRuntime:
                 # Generate a unique call ID for event correlation
                 call_id = str(uuid.uuid4())[:8]
 
+                worker_name = self.invocation_name or "unknown"
+
                 # Emit ToolCallEvent before execution
                 if self.on_event is not None:
                     self.on_event(
                         ToolCallEvent(
-                            worker="code_entry",
+                            worker=worker_name,
                             tool_name=name,
                             tool_call_id=call_id,
                             args=validated_args,
@@ -253,7 +264,7 @@ class WorkerRuntime:
                 if self.on_event is not None:
                     self.on_event(
                         ToolResultEvent(
-                            worker="code_entry",
+                            worker=worker_name,
                             depth=self.depth,
                             tool_name=name,
                             tool_call_id=call_id,

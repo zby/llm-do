@@ -16,6 +16,7 @@ def build_runtime_context(
     toolsets: list[AbstractToolset[Any]] | None = None,
     model: ModelType = "test",
     depth: int = 0,
+    invocation_name: str = "test",
     prompt: str = "",
     messages: list[Any] | None = None,
     run_approval_policy: RunApprovalPolicy | None = None,
@@ -33,6 +34,7 @@ def build_runtime_context(
         active_toolsets=tuple(toolsets or []),
         model=model,
         depth=depth,
+        invocation_name=invocation_name,
     )
     frame = CallFrame(
         config=call_config,

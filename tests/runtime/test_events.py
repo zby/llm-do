@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec, Worker, WorkerInput
+from llm_do.runtime import ToolsetSpec, Worker, WorkerInput, entry
 from llm_do.ui.events import (
     TextResponseEvent,
     ToolCallEvent,
@@ -73,7 +73,7 @@ class TestContextEventCallback:
         # Verify tool call event content
         call_event = tool_calls[0]
         assert call_event.tool_name == "greet"
-        assert call_event.worker == "code_entry"
+        assert call_event.worker == "test"
         assert call_event.args == {"name": "World"}
 
         # Verify tool result event content
@@ -381,3 +381,42 @@ class TestCLIEventIntegration:
 
         assert len(tool_calls) >= 1, f"Expected ToolCallEvent, got: {events}"
         assert len(tool_results) >= 1, f"Expected ToolResultEvent, got: {events}"
+
+
+class TestEntryToolEvents:
+    """Tests for ToolCallEvent/ToolResultEvent emission from entry functions."""
+
+    @pytest.mark.anyio
+    async def test_entry_tool_events_use_entry_name(self):
+        """Entry tool calls should be attributed to the entry name."""
+        events: list[UIEvent] = []
+
+        def build_toolset(_ctx):
+            toolset = FunctionToolset()
+
+            @toolset.tool
+            def greet(name: str) -> str:
+                return f"Hello, {name}!"
+
+            return toolset
+
+        toolset_spec = ToolsetSpec(factory=build_toolset)
+
+        @entry(name="orchestrator", toolsets=[toolset_spec])
+        async def orchestrate(args, runtime_ctx) -> str:
+            return await runtime_ctx.call("greet", {"name": "World"})
+
+        await run_entry_test(
+            orchestrate,
+            WorkerInput(input="hi"),
+            on_event=lambda e: events.append(e),
+            model="test",
+        )
+
+        tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
+        tool_results = [e for e in events if isinstance(e, ToolResultEvent)]
+
+        assert len(tool_calls) == 1, f"Expected 1 ToolCallEvent, got: {events}"
+        assert len(tool_results) == 1, f"Expected 1 ToolResultEvent, got: {events}"
+        assert tool_calls[0].worker == "orchestrator"
+        assert tool_results[0].worker == "orchestrator"

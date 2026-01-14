@@ -1,8 +1,6 @@
 """Unit tests for attachment path resolution."""
 from pathlib import Path
 
-import pytest
-
 from llm_do.runtime.worker import _resolve_attachment_path
 
 

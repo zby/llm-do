@@ -7,6 +7,7 @@ without requiring runtime modules to import each other.
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 from pydantic_ai.models import Model  # Used in ModelType
@@ -31,6 +32,9 @@ class WorkerRuntimeProtocol(Protocol):
 
     @property
     def config(self) -> "RuntimeConfig": ...
+
+    @property
+    def project_root(self) -> "Path | None": ...
 
     @property
     def depth(self) -> int: ...
@@ -72,6 +76,7 @@ class WorkerRuntimeProtocol(Protocol):
         active_toolsets: list[AbstractToolset[Any]] | None = None,
         *,
         model: ModelType | None = None,
+        invocation_name: str | None = None,
     ) -> "WorkerRuntimeProtocol": ...
 
 

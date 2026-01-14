@@ -23,6 +23,7 @@ from pydantic_ai.messages import BinaryContent, UserContent
 # =============================================================================
 
 MODEL = "anthropic:claude-haiku-4-5"
+VERBOSITY = 1
 
 # =============================================================================
 # Paths
@@ -84,6 +85,8 @@ async def evaluate_decks() -> str:
 
     results = []
     for deck in decks:
+        if VERBOSITY >= 1:
+            print(f"Evaluating {deck['slug']} ({deck['file']})")
         prompt = build_user_prompt(
             "Evaluate this pitch deck.",
             [read_attachment(deck["file"])],
@@ -101,7 +104,7 @@ async def evaluate_decks() -> str:
 
 def cli_main() -> None:
     """Main entry point."""
-    print(f"Starting raw Python run with MODEL={MODEL}")
+    print(f"Starting raw Python run with MODEL={MODEL}, VERBOSITY={VERBOSITY}")
     print(f"Input directory: {INPUT_DIR}")
     print(f"Output directory: {OUTPUT_DIR}")
     print("-" * 60)

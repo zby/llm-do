@@ -32,13 +32,13 @@ from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from ..models import select_model
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..toolsets.attachments import AttachmentToolset
-from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, instantiate_toolsets
+from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
 from ..toolsets.validators import DictValidator
 from ..ui.events import ToolCallEvent, ToolResultEvent
 from .args import WorkerArgs, WorkerInput, ensure_worker_args
 from .call import CallFrame
 from .contracts import WorkerRuntimeProtocol
-from .shared import RuntimeConfig, cleanup_toolsets
+from .shared import RuntimeConfig, build_tool_plane
 
 
 def _resolve_attachment_path(path: str, base_path: Path | None = None) -> Path:
@@ -554,19 +554,13 @@ class Worker:
             worker_name=self.name,
         )
 
-        toolsets: list[AbstractToolset[Any]] = []
-        try:
-            toolset_context = self._resolve_toolset_context()
-            toolsets = instantiate_toolsets(self.toolset_specs, toolset_context)
-
-            # Wrap toolsets for approval using runtime-scoped callback
-            approval_callback = run_ctx.deps.approval_callback
-            wrapped_toolsets = wrap_toolsets_for_approval(
-                toolsets,
-                approval_callback,
-                return_permission_errors=run_ctx.deps.return_permission_errors,
-            )
-
+        toolset_context = self._resolve_toolset_context()
+        async with build_tool_plane(
+            toolset_specs=self.toolset_specs,
+            toolset_context=toolset_context,
+            approval_callback=run_ctx.deps.approval_callback,
+            return_permission_errors=run_ctx.deps.return_permission_errors,
+        ) as (_raw_toolsets, wrapped_toolsets):
             attachment_parts: list[BinaryContent] = []
             if prompt_spec.attachments:
                 attachment_toolsets = wrap_toolsets_for_approval(
@@ -645,8 +639,6 @@ class Worker:
                     output = result.output
 
             return output
-        finally:
-            await cleanup_toolsets(toolsets)
 
     async def _run_with_event_stream(
         self,

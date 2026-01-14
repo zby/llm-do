@@ -1,14 +1,20 @@
 # Pitch Deck Evaluation (Direct Python)
 
-This example demonstrates running llm-do workers **directly from Python** without using the `llm-do` CLI. Python handles all orchestration while the LLM handles analysis, and you can switch between TUI and headless output.
+This example demonstrates running llm-do workers **directly from Python** without using the `llm-do` CLI (step 3), plus a raw-Python refactor that bypasses the tool plane entirely (step 4). Python handles orchestration while the LLM handles analysis, and you can switch between TUI and headless output for step 3.
 
 ## The Pattern
 
 ```
-run.py (Python script)
+run.py (step 3: tool plane)
     ├── list_pitchdecks() - discover PDFs
-    ├── build_pitch_evaluator() - create Worker
+    ├── PITCH_EVALUATOR - create Worker
     ├── run_ui() - run entry with TUI or headless UI
+    └── write results to disk
+
+run_raw.py (step 4: raw Python)
+    ├── list_pitchdecks() - discover PDFs
+    ├── Agent() - call the model directly
+    ├── build multimodal prompts manually
     └── write results to disk
 ```
 
@@ -19,9 +25,10 @@ Compare to CLI-based versions:
 ## Why Direct Python?
 
 - **No CLI dependency**: Run with standard `python` or `uv run`
-- **Full control**: Customize Runtime, approval policies, verbosity
+- **Full control**: Customize Runtime, approval policies, verbosity (step 3)
 - **Easy integration**: Embed in larger Python applications
 - **Debugging**: Standard Python debugging tools work normally
+- **Raw escape hatch**: Step 4 bypasses approvals/events when you want a fully manual flow
 
 ## Run
 
@@ -31,6 +38,10 @@ uv run examples/pitchdeck_eval_direct/run.py
 
 # Or with python directly (requires dependencies)
 python examples/pitchdeck_eval_direct/run.py
+
+# Step 4: raw Python (no approvals/events)
+uv run examples/pitchdeck_eval_direct/run_raw.py
+python examples/pitchdeck_eval_direct/run_raw.py
 ```
 
 ## Configuration
@@ -49,6 +60,7 @@ VERBOSITY = 1  # 0=quiet, 1=tool calls, 2=stream
 ```
 pitchdeck_eval_direct/
 ├── run.py                           # Main entry point
+├── run_raw.py                       # Raw Python refactor (no tool plane)
 ├── instructions/
 │   └── pitch_evaluator.md           # LLM evaluator instructions
 ├── input/                           # Drop PDFs here
@@ -57,7 +69,7 @@ pitchdeck_eval_direct/
 
 ## Key Code
 
-The core pattern for direct Python usage with switchable UI:
+The core pattern for direct Python usage with switchable UI (step 3):
 
 ```python
 from llm_do.runtime import Worker, entry
@@ -83,4 +95,16 @@ outcome = await run_ui(
     verbosity=1,
 )
 print(outcome.result)
+```
+
+Step 4 skips the tool plane (no approvals, no events, no tool wrappers):
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai.messages import BinaryContent
+
+agent = Agent(model="anthropic:claude-haiku-4-5", instructions="...")
+attachment = BinaryContent(data=Path("deck.pdf").read_bytes(), media_type="application/pdf")
+result = await agent.run(["Evaluate this pitch deck.", attachment])
+print(result.output)
 ```

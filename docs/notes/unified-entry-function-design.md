@@ -1,7 +1,7 @@
 # Unified Entry Function Design
 
 ## Status
-Implemented (v1 tool-plane parity); shared builder + registry-free script mode remain open
+Implemented (v1 tool-plane parity + shared builder); registry-free script mode remains open
 
 ## Two Planes of Execution
 
@@ -198,7 +198,7 @@ async def orchestrate(args: WorkerArgs, ctx: WorkerRuntime) -> str:
 
 ## Post-v1 Cleanup
 
-1. **Shared tool plane builder** - Extract from `Worker._call_internal()` and reuse in `Runtime.run_entry()` and script bootstraps to remove drift
+1. **Shared tool plane builder** - Implemented via `build_tool_plane` in `llm_do/runtime/shared.py` and reused by worker + entry paths.
 
 ## Worker Access Model
 
@@ -232,6 +232,7 @@ This is the opt-in model from `worker-design-rationale.md`:
 4. **Step 4 interface**: Allow `WorkerRuntime` as the dependency surface for now; a smaller ToolRouter is deferred until more examples exist.
 5. **Script bootstrap**: Require an EntryRegistry (or pre-resolved Entry) to resolve named toolsets; registry-free mode is deferred.
 6. **Entry tool-plane parity**: Entry toolsets are approval-wrapped per runtime policy; tool events are attributed via `CallFrame.invocation_name`.
+7. **Shared tool plane builder**: Toolset instantiation + approval wrapping are centralized in `build_tool_plane`.
 
 ## Operational Notes
 

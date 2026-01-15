@@ -2,6 +2,14 @@
 
 Periodic simplification review of `llm_do/runtime/call.py`.
 
+## Context Gathering
+
+1. Read the target module in full
+2. Identify imports from within the project (`llm_do.*` only, skip stdlib/third-party)
+3. Read relevant parts of those internal dependencies for context
+
+Focus analysis on the target module, but use imported code to spot simplifications—duplicate logic, underused abstractions, replaceable inline code. Proposed changes may span multiple files if warranted.
+
 ## Simplification Prompt
 
 Analyze for:

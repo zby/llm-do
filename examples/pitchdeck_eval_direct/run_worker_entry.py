@@ -10,10 +10,11 @@ import asyncio
 from pathlib import Path
 
 from llm_do.runtime import RunApprovalPolicy, Runtime, Worker, WorkerInput
+from llm_do.runtime.events import RuntimeEvent
 from llm_do.toolsets.builtins import build_builtin_toolsets
 from llm_do.toolsets.loader import ToolsetBuildContext, resolve_toolset_specs
+from llm_do.ui.adapter import adapt_event
 from llm_do.ui.display import HeadlessDisplayBackend
-from llm_do.ui.events import UIEvent
 
 # =============================================================================
 # CONFIGURATION
@@ -83,8 +84,8 @@ def build_runtime(verbosity: int) -> Runtime:
     if verbosity > 0:
         backend = HeadlessDisplayBackend(verbosity=verbosity)
 
-        def on_event_callback(event: UIEvent) -> None:
-            backend.display(event)
+        def on_event_callback(event: RuntimeEvent) -> None:
+            backend.display(adapt_event(event))
 
         on_event = on_event_callback
 

@@ -41,7 +41,7 @@ uv pip install -e .  # or: pip install -e .
 # Set your API key
 export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 
-# Optional default model (manifest entry/runtime model overrides this)
+# Optional default model (used when a worker omits model)
 export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
 
 # Run a project via manifest

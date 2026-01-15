@@ -79,7 +79,7 @@ async def test_worker_toolset_cleanup_runs_per_call() -> None:
         toolset_specs=[cleanup_spec],
     )
 
-    runtime = Runtime(cli_model="test")
+    runtime = Runtime()
     await runtime.run_entry(worker, WorkerInput(input="go"))
     await runtime.run_entry(worker, WorkerInput(input="again"))
 
@@ -116,7 +116,7 @@ async def test_entry_function_toolset_cleanup_runs_per_call() -> None:
     async def main(_args: WorkerArgs, _runtime) -> str:
         return "ok"
 
-    runtime = Runtime(cli_model="test")
+    runtime = Runtime()
     await runtime.run_entry(main, WorkerInput(input="go"))
     await runtime.run_entry(main, WorkerInput(input="again"))
 

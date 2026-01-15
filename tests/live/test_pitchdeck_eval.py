@@ -82,7 +82,6 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, 
     )
 
     runtime = Runtime(
-        cli_model="anthropic:claude-haiku-4-5",
         run_approval_policy=RunApprovalPolicy(
             mode="prompt",
             approval_callback=approve_all_callback,
@@ -96,7 +95,6 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, 
                 input="Evaluate this pitch deck.",
                 attachments=[str(pdf_path)],
             ),
-            model="anthropic:claude-haiku-4-5",
         )
     )
 

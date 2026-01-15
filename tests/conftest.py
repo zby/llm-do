@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 from pydantic_ai.models.test import TestModel
 
+from llm_do.models import LLM_DO_MODEL_ENV
 from tests.tool_calling_model import ToolCallingModel
 
 
@@ -48,6 +49,12 @@ def suppress_task_exception_warnings():
         yield
 
 
+@pytest.fixture(autouse=True)
+def default_model_env(monkeypatch):
+    """Set a default model for tests that construct workers without explicit models."""
+    monkeypatch.setenv(LLM_DO_MODEL_ENV, "test")
+
+
 def pytest_configure(config):
     config.addinivalue_line(
         "markers",
@@ -79,11 +86,8 @@ def test_model():
 
     Example:
         def test_worker_with_tools(test_model):
-            result = asyncio.run(run_worker_async(
-                worker="my_worker",
-                cli_model=test_model,
-                ...
-            ))
+            worker = Worker(name="my_worker", instructions="...", model=test_model)
+            result, _ctx = asyncio.run(Runtime().run_entry(worker, WorkerInput(input="...")))
             # Verifies tools are registered and output schema works
 
     See tests/README.md for when to use TestModel vs custom agent_runner.

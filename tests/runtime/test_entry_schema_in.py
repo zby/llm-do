@@ -22,7 +22,6 @@ async def test_entry_schema_in_normalizes_input() -> None:
     result, ctx = await runtime.run_entry(
         echo,
         {"input": "hi", "tag": "t1"},
-        model="test",
     )
 
     assert result == "t1"

@@ -22,6 +22,7 @@ from typing import Any, Callable
 
 import pytest
 
+from llm_do.models import LLM_DO_MODEL_ENV
 from llm_do.runtime import Runtime, WorkerArgs, build_entry, load_worker_file
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
@@ -132,6 +133,23 @@ def _collect_example_files(example_dir: Path) -> tuple[list[str], list[str]]:
     return worker_files, python_files
 
 
+def _set_env_model(model: str | None) -> tuple[bool, str | None]:
+    if model is None:
+        return False, None
+    previous = os.environ.get(LLM_DO_MODEL_ENV)
+    os.environ[LLM_DO_MODEL_ENV] = model
+    return True, previous
+
+
+def _restore_env_model(changed: bool, previous: str | None) -> None:
+    if not changed:
+        return
+    if previous is None:
+        os.environ.pop(LLM_DO_MODEL_ENV, None)
+    else:
+        os.environ[LLM_DO_MODEL_ENV] = previous
+
+
 def build_direct_entry_for_worker(
     worker_path: Path,
     tmp_path: Path,
@@ -155,11 +173,14 @@ def build_direct_entry_for_worker(
         ),
         encoding="utf-8",
     )
-    return build_entry(
-        [str(worker_path)],
-        [str(entry_path)],
-        entry_model_override=model,
-    )
+    changed, previous = _set_env_model(model)
+    try:
+        return build_entry(
+            [str(worker_path)],
+            [str(entry_path)],
+        )
+    finally:
+        _restore_env_model(changed, previous)
 
 
 async def run_example(
@@ -173,27 +194,29 @@ async def run_example(
     verbosity: int = 0,
 ) -> Any:
     """Build and run an example entry with approvals wired."""
-    worker_files, python_files = _collect_example_files(example_dir)
-    entry = build_entry(
-        worker_files,
-        python_files,
-        entry_model_override=model,
-    )
+    changed, previous = _set_env_model(model)
+    try:
+        worker_files, python_files = _collect_example_files(example_dir)
+        entry = build_entry(
+            worker_files,
+            python_files,
+        )
 
-    approval_policy = RunApprovalPolicy(
-        mode="approve_all" if approval_callback is None else "prompt",
-        approval_callback=approval_callback,
-    )
+        approval_policy = RunApprovalPolicy(
+            mode="approve_all" if approval_callback is None else "prompt",
+            approval_callback=approval_callback,
+        )
 
-    runtime = Runtime(
-        cli_model=model,
-        run_approval_policy=approval_policy,
-        max_depth=max_depth if max_depth is not None else 5,
-        on_event=on_event,
-        verbosity=verbosity,
-    )
-    result, _ctx = await runtime.run_entry(entry, input_data, model=model)
-    return result
+        runtime = Runtime(
+            run_approval_policy=approval_policy,
+            max_depth=max_depth if max_depth is not None else 5,
+            on_event=on_event,
+            verbosity=verbosity,
+        )
+        result, _ctx = await runtime.run_entry(entry, input_data)
+        return result
+    finally:
+        _restore_env_model(changed, previous)
 
 
 @pytest.fixture

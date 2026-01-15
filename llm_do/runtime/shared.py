@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Sequence
 
 from pydantic_ai.usage import RunUsage
 
-from ..models import select_model
+from ..models import NoModelError, select_model
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .call import CallConfig, CallFrame
 from .contracts import Entry, EventCallback, MessageLogCallback, ModelType
@@ -119,7 +119,6 @@ class MessageAccumulator:
 class RuntimeConfig:
     """Shared runtime configuration (no per-call-chain state)."""
 
-    cli_model: ModelType | None
     approval_callback: ApprovalCallback
     project_root: Path | None = None
     return_permission_errors: bool = False
@@ -135,7 +134,6 @@ class Runtime:
     def __init__(
         self,
         *,
-        cli_model: ModelType | None = None,
         project_root: Path | None = None,
         run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
@@ -146,7 +144,6 @@ class Runtime:
         policy = run_approval_policy or RunApprovalPolicy(mode="approve_all")
         approval_callback = resolve_approval_callback(policy)
         self._config = RuntimeConfig(
-            cli_model=cli_model,
             approval_callback=approval_callback,
             project_root=project_root,
             return_permission_errors=policy.return_permission_errors,
@@ -192,20 +189,14 @@ class Runtime:
         self,
         entry: Entry,
         *,
-        model: ModelType | None = None,
+        model: ModelType,
         message_history: list[Any] | None = None,
         active_toolsets: list[Any] | None = None,
     ) -> CallFrame:
         entry_name = getattr(entry, "name", str(entry))
-        resolved_model = select_model(
-            worker_model=getattr(entry, "model", None),
-            cli_model=model if model is not None else self._config.cli_model,
-            compatible_models=getattr(entry, "compatible_models", None),
-            worker_name=entry_name,
-        )
         call_config = CallConfig(
             active_toolsets=tuple(active_toolsets or []),
-            model=resolved_model,
+            model=model,
             invocation_name=entry_name,
         )
         return CallFrame(
@@ -218,7 +209,6 @@ class Runtime:
         invocable: Entry,
         input_data: Any,
         *,
-        model: ModelType | None = None,
         message_history: list[Any] | None = None,
     ) -> tuple[Any, WorkerRuntime]:
         """Run an invocable with this runtime.
@@ -236,6 +226,11 @@ class Runtime:
         prompt_spec = input_args.prompt_spec()
 
         if isinstance(invocable, EntryFunction):
+            resolved_model = select_model(
+                worker_model=getattr(invocable, "model", None),
+                compatible_models=None,
+                worker_name=invocable.name,
+            )
             toolset_context = invocable.toolset_context or ToolsetBuildContext(
                 worker_name=invocable.name,
             )
@@ -247,7 +242,7 @@ class Runtime:
             ) as (_raw_toolsets, wrapped_toolsets):
                 frame = self._build_entry_frame(
                     invocable,
-                    model=model,
+                    model=resolved_model,
                     message_history=message_history,
                     active_toolsets=wrapped_toolsets,
                 )
@@ -264,9 +259,14 @@ class Runtime:
                 return result, ctx
 
         if isinstance(invocable, Worker):
+            if invocable.model is None:
+                raise NoModelError(
+                    f"Worker '{invocable.name}' has no resolved model; "
+                    "set worker.model or LLM_DO_MODEL env var."
+                )
             frame = self._build_entry_frame(
                 invocable,
-                model=model,
+                model=invocable.model,
                 message_history=message_history,
                 active_toolsets=[],
             )
@@ -288,7 +288,6 @@ class Runtime:
         invocable: Entry,
         input_data: Any,
         *,
-        model: ModelType | None = None,
         message_history: list[Any] | None = None,
     ) -> tuple[Any, "WorkerRuntime"]:
         """Run an invocable synchronously using asyncio.run()."""
@@ -306,7 +305,6 @@ class Runtime:
             self.run_entry(
                 invocable,
                 input_data,
-                model=model,
                 message_history=message_history,
             )
         )

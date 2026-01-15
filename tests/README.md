@@ -6,7 +6,7 @@ This guide documents the testing strategies and patterns used in llm-do. The cod
 
 | Pattern | Use Case | Example |
 |---------|----------|---------|
-| **TestModel** | Test worker definitions, tools, schemas | `run_worker_async(cli_model=test_model, ...)` |
+| **TestModel** | Test worker definitions, tools, schemas | `Worker(model=test_model)` + `Runtime.run_entry(...)` |
 | **Custom agent_runner** | Test orchestration logic | `run_worker_async(agent_runner=custom_runner, ...)` |
 | **Real model (integration)** | Verify critical end-to-end flows | Keep minimal |
 
@@ -59,11 +59,16 @@ model = TestModel(seed=42)
 ```python
 def test_worker_executes_with_tools(test_model):
     """Test that worker loads and tools are available."""
-    result = asyncio.run(run_worker_async(
-        registry=my_registry,
-        worker="my_worker",
-        input_data="process this",
-        cli_model=test_model,  # Uses TestModel from conftest.py fixture
+    worker = Worker(
+        name="my_worker",
+        instructions="Process this",
+        model=test_model,  # Uses TestModel from conftest.py fixture
+        toolset_specs=[...],
+    )
+    runtime = Runtime()
+    result, _ctx = asyncio.run(runtime.run_entry(
+        worker,
+        WorkerInput(input="process this"),
     ))
     # Verifies:
     # - Worker definition loaded
@@ -79,7 +84,8 @@ The `test_model` fixture is available in all tests via `tests/conftest.py`:
 ```python
 def test_something(test_model):
     # test_model is a TestModel(seed=42)
-    result = asyncio.run(run_worker_async(cli_model=test_model, ...))
+    worker = Worker(name="my_worker", instructions="...", model=test_model)
+    result, _ctx = asyncio.run(Runtime().run_entry(worker, WorkerInput(input="...")))
 ```
 
 ## Using Custom agent_runner
@@ -87,7 +93,7 @@ def test_something(test_model):
 ### When to Use
 
 Use custom `agent_runner` when you need to test **orchestration logic** without agent execution:
-- Model inheritance (`cli_model` overrides `worker.model`)
+- Model selection (worker.model or `LLM_DO_MODEL` fallback)
 - Approval flow behavior
 - Context assembly (attachments, tools)
 - Delegation allowlists
@@ -100,8 +106,8 @@ The `agent_runner` parameter in `run_worker_async()` allows you to replace the e
 ### Example
 
 ```python
-def test_model_inheritance():
-    """Test that cli_model takes precedence over worker.model."""
+def test_model_resolution_prefers_worker_model(monkeypatch):
+    """Test that worker.model takes precedence over LLM_DO_MODEL."""
 
     # Create custom runner that records what model was used
     used_model = None
@@ -111,13 +117,13 @@ def test_model_inheritance():
         used_model = context.effective_model
         return ({"status": "ok"}, [])  # (output, messages)
 
+    monkeypatch.setenv("LLM_DO_MODEL", "model-b")
     result = asyncio.run(run_worker_async(
         worker="my_worker",  # worker.model = "model-a"
-        cli_model="model-b",  # CLI override
         agent_runner=custom_runner,
     ))
 
-    assert used_model == "model-b"  # CLI took precedence
+    assert used_model == "model-a"  # Worker model takes precedence
 ```
 
 ### Custom Runner Signature
@@ -246,20 +252,20 @@ def test_prompt_file_jinja2(tmp_path):
 From `test_pydanticai_base.py`:
 
 ```python
-def test_run_worker_async_applies_model_inheritance():
-    """Test that CLI model overrides worker model."""
+def test_run_worker_async_applies_model_inheritance(monkeypatch):
+    """Test that worker.model takes precedence over LLM_DO_MODEL."""
 
     def custom_runner(definition, user_input, context, output_model):
         # Return the effective model so we can verify it
         return (context.effective_model, [])
 
+    monkeypatch.setenv("LLM_DO_MODEL", "env-model")
     result = asyncio.run(run_worker_async(
         worker="my_worker",      # has model="worker-model"
-        cli_model="cli-model",   # CLI override
         agent_runner=custom_runner,
     ))
 
-    assert result.output == "cli-model"  # CLI took precedence
+    assert result.output == "worker-model"  # Worker model takes precedence
 ```
 
 ### Example 3: Testing Approval Flow
@@ -296,15 +302,17 @@ def test_strict_mode_rejects():
 ❌ **Don't use real models in unit tests**
 ```python
 # BAD: Slow, costs money, non-deterministic
-def test_worker():
-    result = asyncio.run(run_worker_async(cli_model="openai:gpt-4", ...))
+def test_worker(monkeypatch):
+    monkeypatch.setenv("LLM_DO_MODEL", "openai:gpt-4")
+    result = asyncio.run(run_worker_async(...))
 ```
 
 ✅ **Use TestModel or custom runner**
 ```python
 # GOOD: Fast, free, deterministic
 def test_worker(test_model):
-    result = asyncio.run(run_worker_async(cli_model=test_model, ...))
+    worker = Worker(name="my_worker", instructions="...", model=test_model)
+    result, _ctx = asyncio.run(Runtime().run_entry(worker, WorkerInput(input="...")))
 ```
 
 ❌ **Don't create premature abstractions**

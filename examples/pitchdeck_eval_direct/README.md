@@ -149,7 +149,6 @@ main_worker = Worker(
 
 policy = RunApprovalPolicy(mode="approve_all", return_permission_errors=True)
 runtime = Runtime(
-    cli_model="anthropic:claude-haiku-4-5",
     project_root=Path("."),
     run_approval_policy=policy,
 )

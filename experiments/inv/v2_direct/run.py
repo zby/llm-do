@@ -85,7 +85,6 @@ def run_evaluation() -> str:
     backend = HeadlessDisplayBackend(stream=sys.stderr, verbosity=VERBOSITY)
 
     runtime = Runtime(
-        cli_model=MODEL,
         run_approval_policy=APPROVAL_POLICY,
         on_event=backend.display if VERBOSITY > 0 else None,
         verbosity=VERBOSITY,

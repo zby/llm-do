@@ -26,5 +26,4 @@ Hello
         build_entry(
             [str(worker)],
             [],
-            entry_model_override="test-model",
         )

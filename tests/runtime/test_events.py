@@ -410,7 +410,6 @@ class TestEntryToolEvents:
             orchestrate,
             WorkerInput(input="hi"),
             on_event=lambda e: events.append(e),
-            model="test",
         )
 
         tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]

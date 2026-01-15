@@ -23,7 +23,6 @@ class ManifestRuntimeConfig(BaseModel):
 
     approval_mode: ApprovalMode = "prompt"
     max_depth: int = Field(default=5, ge=1)
-    model: str | None = None
     return_permission_errors: bool = False
 
 
@@ -32,7 +31,6 @@ class EntryConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    model: str | None = None
     input: dict[str, Any] | None = None
 
 

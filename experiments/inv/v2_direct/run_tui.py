@@ -101,7 +101,6 @@ async def run_tui() -> str:
         return_permission_errors=True,
     )
     runtime = Runtime(
-        cli_model=MODEL,
         run_approval_policy=approval_policy,
         on_event=on_event,
         verbosity=VERBOSITY,

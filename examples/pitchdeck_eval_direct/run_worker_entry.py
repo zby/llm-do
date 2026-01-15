@@ -90,7 +90,6 @@ def build_runtime(verbosity: int) -> Runtime:
         on_event = on_event_callback
 
     return Runtime(
-        cli_model=MODEL,
         project_root=PROJECT_ROOT,
         run_approval_policy=policy,
         on_event=on_event,

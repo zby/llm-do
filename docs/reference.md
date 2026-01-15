@@ -83,13 +83,16 @@ async def main():
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
 - Returns both the result and the runtime context
 
+Workers resolve their model at construction (`model` in the worker definition or
+`LLM_DO_MODEL` as a fallback). `@entry` functions rely on `LLM_DO_MODEL` for tool
+contexts because they do not declare a model.
+
 **Parameters:**
 
 | Parameter | Description |
 |-----------|-------------|
 | `invocable` | `Entry` (Worker or EntryFunction) to run |
 | `input_data` | Worker input args (WorkerArgs or dict) |
-| `model` | Override the worker's default model |
 | `message_history` | Pre-seed conversation history |
 
 Use `Runtime.run()` for sync execution when you already have an entry object.
@@ -466,8 +469,8 @@ You have access to filesystem and shell tools.
 |-------|----------|-------------|
 | `name` | Yes | Worker identifier (used for `ctx.deps.call()`) |
 | `description` | No | Tool description when the worker is exposed as a tool (falls back to `instructions`) |
-| `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`) |
-| `compatible_models` | No | List of acceptable model patterns (mutually exclusive with `model`) |
+| `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`); falls back to `LLM_DO_MODEL` if omitted |
+| `compatible_models` | No | List of acceptable model patterns for the `LLM_DO_MODEL` fallback (mutually exclusive with `model`) |
 | `schema_in_ref` | No | Input schema reference (see [Worker Input Schemas](#worker-input-schemas)) |
 | `server_side_tools` | No | Server-side tool configs (e.g., web search) |
 | `toolsets` | No | List of toolset names |
@@ -505,8 +508,8 @@ or `Runtime(max_depth=...)` in Python to adjust it.
 
 **Compatible Models:**
 
-Use `compatible_models` when you want the worker to accept a CLI/env model that
-matches a pattern, rather than hardcoding `model`. Patterns use glob matching:
+Use `compatible_models` when you want the worker to accept the `LLM_DO_MODEL`
+fallback if it matches a pattern, rather than hardcoding `model`. Patterns use glob matching:
 
 ```yaml
 compatible_models:
@@ -515,7 +518,9 @@ compatible_models:
   - "anthropic:claude-haiku-*"  # any Claude Haiku variant
 ```
 
-Compatibility checks apply to string model IDs and `Model` objects (Python API).
+Compatibility checks apply to string model IDs and `Model` objects (Python API),
+and they run once at worker construction time against the env fallback.
+If you set `compatible_models`, ensure `LLM_DO_MODEL` is set to a compatible value.
 
 `model` and `compatible_models` are mutually exclusive.
 
@@ -547,7 +552,7 @@ llm-do project.json "prompt"
 # Run with input JSON
 llm-do project.json --input-json '{"input": "prompt"}'
 
-# Override model via env var
+# Set fallback model via env var
 LLM_DO_MODEL=anthropic:claude-haiku-4-5 llm-do project.json "prompt"
 
 # TUI / headless output

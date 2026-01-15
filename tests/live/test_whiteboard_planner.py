@@ -91,7 +91,6 @@ def test_whiteboard_planner_directly(
     )
 
     runtime = Runtime(
-        cli_model="anthropic:claude-haiku-4-5",
         run_approval_policy=RunApprovalPolicy(
             mode="prompt",
             approval_callback=approve_all_callback,
@@ -105,7 +104,6 @@ def test_whiteboard_planner_directly(
                 input="Analyze this whiteboard and create a plan.",
                 attachments=[str(image_path)],
             ),
-            model="anthropic:claude-haiku-4-5",
         )
     )
 

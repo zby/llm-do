@@ -118,12 +118,15 @@ for logging/UI only). Tools should use their typed args, not prompt text.
 
 ## Model Selection
 
-Model resolution uses this precedence:
-1. `entry.model` in the manifest
-2. `runtime.model` in the manifest
-3. `LLM_DO_MODEL` environment variable
+Model resolution happens when workers are constructed:
+1. `model` in the worker definition (or Python `Worker` constructor)
+2. `LLM_DO_MODEL` environment variable (fallback)
 
-Delegated workers use their own `model` fields. If unset, they inherit the entry context's resolved model.
+`compatible_models` is only checked against the env fallback at construction time.
+If you use `compatible_models`, set `LLM_DO_MODEL` to a compatible value.
+
+Workers do not inherit models from callers. Python `@entry` functions rely on
+`LLM_DO_MODEL` for tool contexts because they do not declare a model.
 
 ## Input Overrides
 

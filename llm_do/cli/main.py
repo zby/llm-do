@@ -15,7 +15,6 @@ import argparse
 import asyncio
 import itertools
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any, Callable, Literal
@@ -38,8 +37,6 @@ from ..runtime.manifest import (
     resolve_manifest_paths,
 )
 from ..ui import HeadlessDisplayBackend, run_headless, run_tui
-
-ENV_MODEL_VAR = "LLM_DO_MODEL"
 
 
 def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], None]:
@@ -75,7 +72,6 @@ async def run(
     manifest_dir: Path,
     input_data: dict[str, Any],
     *,
-    model_override: str | None = None,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     approval_callback: ApprovalCallback | None = None,
@@ -90,7 +86,6 @@ async def run(
         manifest: The validated project manifest
         manifest_dir: Directory containing the manifest file
         input_data: Input data for the entry point
-        model_override: Optional model override (from env var)
         on_event: Optional callback for runtime events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
         approval_callback: Optional interactive approval callback (TUI mode)
@@ -105,18 +100,10 @@ async def run(
     # Resolve file paths relative to manifest directory
     worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
 
-    # Determine effective model: entry.model > runtime.model > env var
-    effective_model = (
-        manifest.entry.model
-        or manifest.runtime.model
-        or model_override
-    )
-
     if entry is None:
         entry = build_entry(
             [str(p) for p in worker_paths],
             [str(p) for p in python_paths],
-            entry_model_override=effective_model,
         )
 
     if runtime is None:
@@ -132,7 +119,6 @@ async def run(
         if verbosity >= 3:
             message_log_callback = _make_message_log_callback(sys.stderr)
         runtime = Runtime(
-            cli_model=effective_model,
             project_root=manifest_dir,
             run_approval_policy=approval_policy,
             max_depth=manifest.runtime.max_depth,
@@ -152,7 +138,6 @@ async def run(
     return await runtime.run_entry(
         entry,
         input_data,
-        model=effective_model,
         message_history=message_history,
     )
 
@@ -160,14 +145,12 @@ async def run(
 def _make_entry_factory(
     manifest: ProjectManifest,
     manifest_dir: Path,
-    effective_model: str | None,
 ) -> Callable[[], Entry]:
     def factory() -> Entry:
         worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
         return build_entry(
             [str(p) for p in worker_paths],
             [str(p) for p in python_paths],
-            entry_model_override=effective_model,
         )
 
     return factory
@@ -294,14 +277,7 @@ def main() -> int:
             )
             return 1
 
-    # Get model from environment (manifest model takes precedence in run())
-    model_override = os.environ.get(ENV_MODEL_VAR)
-    effective_model = (
-        manifest.entry.model
-        or manifest.runtime.model
-        or model_override
-    )
-    entry_factory = _make_entry_factory(manifest, manifest_dir, effective_model)
+    entry_factory = _make_entry_factory(manifest, manifest_dir)
 
     # Determine if we should use TUI mode:
     # - Explicit --tui flag
@@ -329,7 +305,6 @@ def main() -> int:
         outcome = asyncio.run(run_tui(
             input=input_data,
             entry_factory=entry_factory,
-            model=effective_model,
             approval_mode=manifest.runtime.approval_mode,
             verbosity=tui_verbosity,
             return_permission_errors=True,
@@ -360,7 +335,6 @@ def main() -> int:
     outcome = asyncio.run(run_headless(
         input=input_data,
         entry_factory=entry_factory,
-        model=effective_model,
         approval_mode=manifest.runtime.approval_mode,
         verbosity=args.verbose,
         return_permission_errors=manifest.runtime.return_permission_errors,

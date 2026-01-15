@@ -73,7 +73,6 @@ async def test_entry_function_exposes_its_toolsets() -> None:
     result, ctx = await runtime.run_entry(
         echo,
         {"input": "hello"},
-        model="test",
     )
 
     assert result == "hello"
@@ -138,7 +137,6 @@ async def test_entry_function_call_not_approval_gated() -> None:
     result, _ctx = await runtime.run_entry(
         echo,
         {"input": "hello"},
-        model="test",
     )
 
     assert result == "hello"
@@ -172,7 +170,6 @@ async def test_entry_tool_calls_respect_return_permission_errors() -> None:
     result, _ctx = await runtime.run_entry(
         call_tool,
         {"input": "hello"},
-        model="test",
     )
 
     assert isinstance(result, dict)

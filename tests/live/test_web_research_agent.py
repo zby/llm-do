@@ -115,7 +115,6 @@ def test_web_research_consolidator(
     )
 
     runtime = Runtime(
-        cli_model=get_default_model(),
         run_approval_policy=RunApprovalPolicy(
             mode="prompt",
             approval_callback=approve_all_callback,
@@ -126,7 +125,6 @@ def test_web_research_consolidator(
         runtime.run_entry(
             entry,
             WorkerInput(input=json.dumps(mock_insights)),
-            model=get_default_model(),
         )
     )
 

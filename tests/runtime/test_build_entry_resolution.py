@@ -9,7 +9,6 @@ from llm_do.toolsets.loader import instantiate_toolsets
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
-
 @pytest.mark.anyio
 async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     worker_files = [
@@ -23,7 +22,6 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     entry = build_entry(
         worker_files,
         python_files,
-        entry_model_override="test-model",
     )
     assert isinstance(entry, Worker)
 

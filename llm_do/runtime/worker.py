@@ -10,7 +10,7 @@ from __future__ import annotations
 import inspect
 import json
 from contextlib import contextmanager, nullcontext
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterable, Callable, Optional, Sequence, Type, cast
 
@@ -29,7 +29,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
-from ..models import select_model
+from ..models import NoModelError, select_model
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..toolsets.attachments import AttachmentToolset
 from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
@@ -401,7 +401,7 @@ class Worker:
     instructions: str
     description: str | None = None
     model: str | Model | None = None  # String identifier or Model object
-    compatible_models: list[str] | None = None
+    compatible_models: InitVar[list[str] | None] = None
     toolset_specs: list[ToolsetSpec] = field(default_factory=list)
     toolset_context: ToolsetBuildContext | None = None
     builtin_tools: list[Any] = field(default_factory=list)  # PydanticAI builtin tools
@@ -409,7 +409,7 @@ class Worker:
     schema_in: Optional[Type[WorkerArgs]] = None
     schema_out: Optional[Type[BaseModel]] = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, compatible_models: list[str] | None) -> None:
         if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
             raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
         for spec in self.toolset_specs:
@@ -417,6 +417,11 @@ class Worker:
                 raise TypeError(
                     "Worker toolset_specs must contain ToolsetSpec instances."
                 )
+        self.model = select_model(
+            worker_model=self.model,
+            compatible_models=compatible_models,
+            worker_name=self.name,
+        )
 
     def _resolve_toolset_context(self) -> ToolsetBuildContext:
         if self.toolset_context is not None:
@@ -546,13 +551,12 @@ class Worker:
         if state.depth >= config.max_depth:
             raise RuntimeError(f"Max depth exceeded: {config.max_depth}")
 
-        # Resolve model: worker model > state model (inherited from parent)
-        resolved_model = select_model(
-            worker_model=self.model,
-            cli_model=state.model,
-            compatible_models=self.compatible_models,
-            worker_name=self.name,
-        )
+        if self.model is None:
+            raise NoModelError(
+                f"Worker '{self.name}' has no resolved model; "
+                "set worker.model or LLM_DO_MODEL env var."
+            )
+        resolved_model = self.model
 
         toolset_context = self._resolve_toolset_context()
         async with build_tool_plane(

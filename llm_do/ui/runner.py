@@ -11,7 +11,7 @@ from typing import Any, Callable, Literal, Sequence, TextIO
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from llm_do.runtime import Entry, ModelType, RunApprovalPolicy, Runtime
+from llm_do.runtime import Entry, RunApprovalPolicy, Runtime
 from llm_do.runtime.contracts import MessageLogCallback
 from llm_do.runtime.events import RuntimeEvent
 
@@ -119,7 +119,6 @@ def _resolve_entry_factory(
 
 def _build_runtime(
     *,
-    cli_model: ModelType | None,
     project_root: Path | None,
     run_approval_policy: RunApprovalPolicy,
     max_depth: int,
@@ -130,7 +129,6 @@ def _build_runtime(
 ) -> Runtime:
     if runtime_factory is not None:
         return runtime_factory(
-            cli_model=cli_model,
             project_root=project_root,
             run_approval_policy=run_approval_policy,
             max_depth=max_depth,
@@ -140,7 +138,6 @@ def _build_runtime(
         )
 
     return Runtime(
-        cli_model=cli_model,
         project_root=project_root,
         run_approval_policy=run_approval_policy,
         max_depth=max_depth,
@@ -195,7 +192,6 @@ async def run_tui(
     input: Any,
     entry: Entry | None = None,
     entry_factory: EntryFactory | None = None,
-    model: ModelType | None = None,
     project_root: Path | None = None,
     approval_mode: ApprovalMode = "prompt",
     verbosity: int = 1,
@@ -253,7 +249,6 @@ async def run_tui(
     )
 
     runtime = _build_runtime(
-        cli_model=model,
         project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
@@ -291,7 +286,6 @@ async def run_tui(
         result, ctx = await runtime.run_entry(
             entry_instance,
             input_data,
-            model=model,
             message_history=message_history,
         )
         result_holder[:] = [result]
@@ -364,7 +358,6 @@ async def run_headless(
     input: Any,
     entry: Entry | None = None,
     entry_factory: EntryFactory | None = None,
-    model: ModelType | None = None,
     project_root: Path | None = None,
     approval_mode: ApprovalMode = "approve_all",
     verbosity: int = 1,
@@ -399,7 +392,6 @@ async def run_headless(
     )
 
     runtime = _build_runtime(
-        cli_model=model,
         project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
@@ -419,7 +411,7 @@ async def run_headless(
                 "Headless mode cannot prompt for approvals; use approve_all or reject_all."
             )
         entry_instance = entry_factory()
-        result, _ctx = await runtime.run_entry(entry_instance, input, model=model)
+        result, _ctx = await runtime.run_entry(entry_instance, input)
     except KeyboardInterrupt as exc:
         exit_code = 1
         print(f"\n{_format_run_error_message(exc)}", file=error_stream)
@@ -443,7 +435,6 @@ async def run_ui(
     entry: Entry | None = None,
     entry_factory: EntryFactory | None = None,
     mode: UiMode = "tui",
-    model: ModelType | None = None,
     project_root: Path | None = None,
     approval_mode: ApprovalMode = "prompt",
     verbosity: int = 1,
@@ -465,7 +456,6 @@ async def run_ui(
             input=input,
             entry=entry,
             entry_factory=entry_factory,
-            model=model,
             project_root=project_root,
             approval_mode=approval_mode,
             verbosity=verbosity,
@@ -485,7 +475,6 @@ async def run_ui(
             input=input,
             entry=entry,
             entry_factory=entry_factory,
-            model=model,
             project_root=project_root,
             approval_mode=approval_mode,
             verbosity=verbosity,

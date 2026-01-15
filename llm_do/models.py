@@ -12,9 +12,8 @@ Pattern syntax for compatible_models:
 - "anthropic:claude-haiku-4-5" matches exactly that model
 
 Model resolution precedence (highest to lowest):
-1. CLI --model flag (explicit override)
-2. Worker's own model (worker definition)
-3. LLM_DO_MODEL environment variable
+1. Worker's own model (worker definition)
+2. LLM_DO_MODEL environment variable
 """
 from __future__ import annotations
 
@@ -203,7 +202,6 @@ def get_env_model() -> Optional[str]:
 def select_model(
     *,
     worker_model: Optional[Union[str, "Model"]],
-    cli_model: Optional[Union[str, "Model"]] = None,
     compatible_models: Optional[List[str]],
     worker_name: str = "worker",
 ) -> Union[str, "Model"]:
@@ -211,15 +209,13 @@ def select_model(
 
     Resolution order (highest to lowest priority):
     1. Worker's own model - worker definition (takes precedence)
-    2. CLI --model flag - user override
-    3. LLM_DO_MODEL env var - user's global default
+    2. LLM_DO_MODEL env var - user's global default
 
-    The CLI/env model is validated against compatible_models (string or Model).
+    The env model is validated against compatible_models (string or Model).
     Worker cannot have both model and compatible_models set.
 
     Args:
         worker_model: Model from worker definition
-        cli_model: Model from --model CLI flag
         compatible_models: Worker's compatibility patterns
         worker_name: Name of the worker (for error messages)
 
@@ -242,11 +238,7 @@ def select_model(
     if worker_model is not None:
         return worker_model  # No validation needed - it's the worker's own choice
 
-    # 2. CLI model - user override (validated against compatible_models)
-    if cli_model is not None:
-        return _validate_and_return(cli_model, compatible_models, worker_name)
-
-    # 3. Environment variable - user's global default (validated)
+    # 2. Environment variable - user's global default (validated)
     env_model = get_env_model()
     if env_model is not None:
         return _validate_and_return(env_model, compatible_models, worker_name)
@@ -254,5 +246,5 @@ def select_model(
     # No model available
     raise NoModelError(
         f"No model configured for worker '{worker_name}'. "
-        f"Set worker.model, --model flag, or {LLM_DO_MODEL_ENV} env var."
+        f"Set worker.model or {LLM_DO_MODEL_ENV} env var."
     )

@@ -79,10 +79,6 @@ class WorkerRuntime:
         return self.frame.model
 
     @property
-    def cli_model(self) -> ModelType | None:
-        return self.runtime.config.cli_model
-
-    @property
     def return_permission_errors(self) -> bool:
         return self.runtime.config.return_permission_errors
 

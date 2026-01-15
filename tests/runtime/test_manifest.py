@@ -21,7 +21,6 @@ class TestManifestRuntimeConfig:
         config = ManifestRuntimeConfig()
         assert config.approval_mode == "prompt"
         assert config.max_depth == 5
-        assert config.model is None
         assert config.return_permission_errors is False
 
     def test_approval_modes(self):
@@ -45,6 +44,11 @@ class TestManifestRuntimeConfig:
         with pytest.raises(ValueError):
             ManifestRuntimeConfig(unknown_field="value")
 
+    def test_model_field_rejected(self):
+        """Test model field is not allowed."""
+        with pytest.raises(ValueError):
+            ManifestRuntimeConfig(model="gpt-4")
+
 
 class TestEntryConfig:
     """Tests for EntryConfig schema."""
@@ -52,17 +56,19 @@ class TestEntryConfig:
     def test_defaults(self):
         """Test defaults."""
         entry = EntryConfig()
-        assert entry.model is None
         assert entry.input is None
 
-    def test_with_model_and_input(self):
-        """Test entry with model and input."""
+    def test_with_input(self):
+        """Test entry with input."""
         entry = EntryConfig(
-            model="gpt-4",
             input={"input": "Hello"},
         )
-        assert entry.model == "gpt-4"
         assert entry.input == {"input": "Hello"}
+
+    def test_model_field_rejected(self):
+        """Test model field is not allowed."""
+        with pytest.raises(ValueError):
+            EntryConfig(model="gpt-4")
 
 
 class TestProjectManifest:

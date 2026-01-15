@@ -48,7 +48,6 @@ async def run_entry_test(
     entry: Entry,
     input_data: WorkerArgs,
     *,
-    model: ModelType | None = None,
     run_approval_policy: RunApprovalPolicy | None = None,
     max_depth: int = 5,
     on_event: EventCallback | None = None,
@@ -61,7 +60,6 @@ async def run_entry_test(
     that need both the result and the WorkerRuntime context.
     """
     runtime = Runtime(
-        cli_model=model,
         run_approval_policy=run_approval_policy,
         max_depth=max_depth,
         on_event=on_event,
@@ -70,6 +68,5 @@ async def run_entry_test(
     return await runtime.run_entry(
         entry,
         input_data,
-        model=model,
         message_history=message_history,
     )

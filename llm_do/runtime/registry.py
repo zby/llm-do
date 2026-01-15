@@ -19,7 +19,7 @@ from pydantic_ai.builtin_tools import (
 from ..toolsets.builtins import build_builtin_toolsets
 from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, resolve_toolset_specs
 from .args import WorkerArgs
-from .contracts import Entry, ModelType
+from .contracts import Entry
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
 from .worker import Worker, WorkerToolset
@@ -117,7 +117,6 @@ def _build_registry_and_entry_name(
     worker_files: list[str],
     python_files: list[str],
     *,
-    entry_model_override: ModelType | None = None,
     set_overrides: list[str] | None = None,
 ) -> tuple[EntryRegistry, str]:
     """Build the entry symbol table and return the resolved entry name.
@@ -130,7 +129,6 @@ def _build_registry_and_entry_name(
     Args:
         worker_files: Paths to .worker files
         python_files: Paths to .py files with toolsets/workers/entries
-        entry_model_override: Optional model to override on the entry worker
         set_overrides: Optional list of KEY=VALUE overrides for the entry worker
 
     Returns:
@@ -210,8 +208,15 @@ def _build_registry_and_entry_name(
                 "update the worker file instead."
             )
 
-        # Create minimal stub (fields filled in second pass)
-        stub = Worker(name=name, instructions="", toolset_specs=[])
+        stub = Worker(
+            name=name,
+            instructions=worker_def.instructions,
+            description=worker_def.description,
+            model=worker_def.model,
+            compatible_models=worker_def.compatible_models,
+            toolset_specs=[],
+            builtin_tools=_build_builtin_tools(worker_def.server_side_tools),
+        )
         worker_specs[name] = WorkerSpec(
             name=name,
             path=resolved_path,
@@ -262,21 +267,9 @@ def _build_registry_and_entry_name(
             toolset_context,
         )
 
-        # Apply model override only to entry worker
-        worker_model: ModelType | None
-        if entry_model_override is not None and spec.name in entry_worker_names:
-            worker_model = entry_model_override
-        else:
-            worker_model = spec.definition.model
-
         # Fill in stub fields
-        spec.stub.instructions = spec.definition.instructions
-        spec.stub.description = spec.definition.description
-        spec.stub.model = worker_model
-        spec.stub.compatible_models = spec.definition.compatible_models
         spec.stub.toolset_specs = resolved_toolset_specs
         spec.stub.toolset_context = toolset_context
-        spec.stub.builtin_tools = _build_builtin_tools(spec.definition.server_side_tools)
 
         if spec.definition.schema_in_ref:
             resolved_schema = resolve_schema_ref(
@@ -328,14 +321,12 @@ def build_entry_registry(
     worker_files: list[str],
     python_files: list[str],
     *,
-    entry_model_override: ModelType | None = None,
     set_overrides: list[str] | None = None,
 ) -> EntryRegistry:
     """Build the entry symbol table with toolsets resolved and entries ready."""
     registry, _entry_name = _build_registry_and_entry_name(
         worker_files,
         python_files,
-        entry_model_override=entry_model_override,
         set_overrides=set_overrides,
     )
     return registry
@@ -345,14 +336,12 @@ def build_entry(
     worker_files: list[str],
     python_files: list[str],
     *,
-    entry_model_override: ModelType | None = None,
     set_overrides: list[str] | None = None,
 ) -> Entry:
     """Build and return the single resolved entry."""
     registry, entry_name = _build_registry_and_entry_name(
         worker_files,
         python_files,
-        entry_model_override=entry_model_override,
         set_overrides=set_overrides,
     )
     return registry.get(entry_name)

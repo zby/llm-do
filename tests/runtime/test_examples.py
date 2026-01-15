@@ -29,7 +29,6 @@ def _instantiate_worker_toolsets(worker):
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
-
 @pytest.mark.anyio
 async def test_single_worker_example_builds():
     worker_file = load_worker_file(EXAMPLES_DIR / "calculator" / "main.worker")
@@ -41,7 +40,6 @@ async def test_single_worker_example_builds():
     entry = build_entry(
         [str(EXAMPLES_DIR / "calculator" / "main.worker")],
         [str(EXAMPLES_DIR / "calculator" / "tools.py")],
-        entry_model_override="test-model",
     )
     worker = entry
     assert len(worker.toolset_specs) == 1
@@ -55,7 +53,6 @@ async def test_delegation_example_builds():
             str(EXAMPLES_DIR / "pitchdeck_eval" / "pitch_evaluator.worker"),
         ],
         [],
-        entry_model_override="test-model",
     )
     worker = entry
     toolset_names = [_get_toolset_name(ts) for ts in _instantiate_worker_toolsets(worker)]
@@ -67,7 +64,6 @@ async def test_code_entry_example_builds():
     entry = build_entry(
         [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")],
         [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "tools.py")],
-        entry_model_override="test-model",
     )
     assert isinstance(entry, EntryFunction)
 
@@ -81,7 +77,6 @@ async def test_server_side_tools_example_builds():
     entry = build_entry(
         [str(EXAMPLES_DIR / "web_searcher" / "main.worker")],
         [],
-        entry_model_override="test-model",
     )
     worker = entry
     assert len(worker.builtin_tools) == 1
@@ -100,7 +95,6 @@ async def test_file_organizer_example_builds():
     entry = build_entry(
         [str(EXAMPLES_DIR / "file_organizer" / "main.worker")],
         [str(EXAMPLES_DIR / "file_organizer" / "tools.py")],
-        entry_model_override="test-model",
     )
     worker = entry
     assert len(worker.toolset_specs) == 2  # file_tools + shell_file_ops
@@ -118,7 +112,6 @@ async def test_recursive_summarizer_example_builds():
             str(EXAMPLES_DIR / "recursive_summarizer" / "summarizer.worker"),
         ],
         [],
-        entry_model_override="test-model",
     )
     worker = entry
     toolset_names = [_get_toolset_name(ts) for ts in _instantiate_worker_toolsets(worker)]

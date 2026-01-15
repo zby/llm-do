@@ -34,10 +34,10 @@ from ..toolsets.approval import get_toolset_approval_config, set_toolset_approva
 from ..toolsets.attachments import AttachmentToolset
 from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
 from ..toolsets.validators import DictValidator
-from ..ui.events import ToolCallEvent, ToolResultEvent
 from .args import WorkerArgs, WorkerInput, ensure_worker_args
 from .call import CallFrame
 from .contracts import WorkerRuntimeProtocol
+from .events import ToolCallEvent, ToolResultEvent
 from .shared import RuntimeConfig, build_tool_plane
 
 
@@ -657,7 +657,7 @@ class Worker:
         """
         from pydantic_ai.messages import PartDeltaEvent
 
-        from ..ui.parser import parse_event
+        from .event_parser import parse_event
 
         emitted_tool_events = False
 
@@ -669,11 +669,13 @@ class Worker:
             async for event in events:
                 if runtime.verbosity < 2 and isinstance(event, PartDeltaEvent):
                     continue
-                ui_event = parse_event({"worker": self.name, "event": event, "depth": runtime.depth})
-                if isinstance(ui_event, (ToolCallEvent, ToolResultEvent)):
+                runtime_event = parse_event(
+                    {"worker": self.name, "event": event, "depth": runtime.depth}
+                )
+                if isinstance(runtime_event, (ToolCallEvent, ToolResultEvent)):
                     emitted_tool_events = True
                 if runtime.on_event is not None:
-                    runtime.on_event(ui_event)
+                    runtime.on_event(runtime_event)
 
         result = await agent.run(
             prompt,

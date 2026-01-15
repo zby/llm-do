@@ -8,7 +8,10 @@ The `llm_do/ui/` module provides the UI event pipeline for the runtime CLI. It s
 Worker Events
   |
   v
-parse_event()  -> UIEvent
+runtime parse_event() -> RuntimeEvent
+  |
+  v
+adapt_event() -> UIEvent
   |
   v
 Event Queue
@@ -27,11 +30,12 @@ DisplayBackend
 - Textual widget (`create_widget`)
 - Rich output (`render_rich`)
 
-### Event Parsing
+### Event Parsing + Adaptation
 
-Raw callback payloads are converted into typed events in one place:
-- `llm_do/ui/parser.py` -> `parse_event(payload)`
-- Approval requests use `parse_approval_request(request)` to emit an `ApprovalRequestEvent`
+Raw callback payloads are converted into runtime events and then adapted for UI:
+- `llm_do/runtime/event_parser.py` -> `parse_event(payload)` returns `RuntimeEvent`
+- `llm_do/ui/adapter.py` -> `adapt_event(runtime_event)` returns `UIEvent`
+- Approval requests use `llm_do/ui/parser.py` -> `parse_approval_request(request)`
 
 ### DisplayBackend
 
@@ -64,14 +68,17 @@ async def _render_loop(queue: asyncio.Queue, backend: DisplayBackend) -> None:
         await backend.stop()
 ```
 
-The worker's `message_callback` parses raw events and enqueues typed `UIEvent` objects.
+The runtime event stream handler parses raw events into `RuntimeEvent` objects, and the UI adapter converts them to `UIEvent` instances for rendering.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `llm_do/ui/events.py` | Typed UIEvent hierarchy |
-| `llm_do/ui/parser.py` | Raw event parsing into UIEvent |
+| `llm_do/runtime/events.py` | Runtime event types |
+| `llm_do/runtime/event_parser.py` | Raw event parsing into RuntimeEvent |
+| `llm_do/ui/adapter.py` | RuntimeEvent -> UIEvent adapter |
+| `llm_do/ui/parser.py` | Approval request parsing |
 | `llm_do/ui/display.py` | DisplayBackend implementations |
 | `llm_do/ui/app.py` | Textual TUI application (`LlmDoApp`) |
 | `llm_do/ui/controllers/` | UI-agnostic controllers used by the Textual app |
@@ -96,7 +103,7 @@ llm-do main.worker "task"
 ### Architecture
 
 ```
-Worker Events -> parse_event -> UIEvent queue -> TextualDisplayBackend -> LlmDoApp
+Worker Events -> runtime parse_event -> RuntimeEvent -> adapt_event -> UIEvent queue -> TextualDisplayBackend -> LlmDoApp
                                                              |
                                                              v
                                                        Controllers

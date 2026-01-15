@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .adapter import adapt_event
 from .display import (
     DisplayBackend,
     HeadlessDisplayBackend,
@@ -21,7 +22,7 @@ from .events import (
     ToolResultEvent,
     UIEvent,
 )
-from .parser import parse_approval_request, parse_event
+from .parser import parse_approval_request
 
 if TYPE_CHECKING:
     from .runner import RunUiResult, run_headless, run_tui, run_ui
@@ -45,7 +46,8 @@ __all__ = [
     "UIEvent",
     # Parser
     "parse_approval_request",
-    "parse_event",
+    # Adapter
+    "adapt_event",
     # Runners
     "RunUiResult",
     "run_headless",

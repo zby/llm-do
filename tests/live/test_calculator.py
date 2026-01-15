@@ -15,7 +15,7 @@ import asyncio
 import pytest
 
 from llm_do.runtime import WorkerInput
-from llm_do.ui.events import ToolCallEvent, ToolResultEvent
+from llm_do.runtime.events import ToolCallEvent, ToolResultEvent
 
 from .conftest import run_example, skip_no_llm
 

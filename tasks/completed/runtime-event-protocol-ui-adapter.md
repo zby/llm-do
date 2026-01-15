@@ -1,7 +1,7 @@
 # Runtime Event Protocol + UI Adapter
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] design decision needed (runtime event surface + adapter boundary)
@@ -18,7 +18,7 @@ Define a runtime-layer event protocol and a UI adapter so runtime modules no lon
   - `parse_event()` lives in `llm_do/ui/parser.py`; runtime should not call it once adapter exists.
 - How to verify / reproduce:
   - `rg -n "llm_do\\.ui" llm_do/runtime` returns no hits after refactor
-  - `rg -n "parse_event" llm_do/runtime` returns no hits after refactor
+  - `rg -n "ui\\.parser|ui\\.events" llm_do/runtime` returns no hits after refactor
   - `EventCallback` in `llm_do/runtime/contracts.py` uses a runtime-layer event type
   - UI still renders by adapting runtime events to `UIEvent` (adapter path only)
   - Tests updated for runtime events + adapter mapping (`tests/runtime/test_events.py`, `tests/test_display_backends.py`)
@@ -36,16 +36,16 @@ Define a runtime-layer event protocol and a UI adapter so runtime modules no lon
 
 ## Tasks
 - [x] Decide runtime event surface, streaming delta handling, and adapter placement
-- [ ] Inventory event emission sites and map to runtime event types
-- [ ] Add runtime-layer event definitions and update `EventCallback` typing
-- [ ] Update runtime code to emit runtime events and remove UI imports
-- [ ] Implement UI adapter that maps runtime events to `UIEvent`
-- [ ] Update UI runner/display wiring to use the adapter
-- [ ] Update/extend tests for runtime event emission + UI adapter mapping
-- [ ] Update docs/notes with final decisions and rationale
+- [x] Inventory event emission sites and map to runtime event types
+- [x] Add runtime-layer event definitions and update `EventCallback` typing
+- [x] Update runtime code to emit runtime events and remove UI imports
+- [x] Implement UI adapter that maps runtime events to `UIEvent`
+- [x] Update UI runner/display wiring to use the adapter
+- [x] Update/extend tests for runtime event emission + UI adapter mapping
+- [x] Update docs/notes with final decisions and rationale
 
 ## Current State
-Task updated with tighter verification and inline coupling details. Decisions made: runtime events include deltas; stateless adapter lives in `llm_do/ui/adapter.py`. Ready for implementation.
+Runtime events + parser added; runtime modules now emit runtime events and no longer import UI types. UI adapter (`llm_do/ui/adapter.py`) is in place and runner wiring now adapts runtime events for display. Tests and `docs/ui.md` updated; ruff/mypy/pytest run cleanly.
 
 ## Notes
 - Trade-off: richer runtime events improve UI clarity but risk UI-specific leakage into runtime.

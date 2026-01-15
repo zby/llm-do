@@ -8,11 +8,11 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
 from llm_do.runtime import ToolsetSpec, Worker, WorkerInput, entry
-from llm_do.ui.events import (
+from llm_do.runtime.events import (
+    RuntimeEvent,
     TextResponseEvent,
     ToolCallEvent,
     ToolResultEvent,
-    UIEvent,
 )
 from tests.runtime.helpers import build_runtime_context, run_entry_test
 
@@ -44,7 +44,7 @@ class TestContextEventCallback:
     @pytest.mark.anyio
     async def test_context_call_emits_events(self):
         """Test that ctx.call() emits ToolCallEvent and ToolResultEvent."""
-        events: list[UIEvent] = []
+        events: list[RuntimeEvent] = []
 
         # Create a toolset with a simple tool
         toolset = FunctionToolset()
@@ -89,7 +89,7 @@ class TestWorkerToolEvents:
     @pytest.mark.anyio
     async def test_worker_emits_tool_call_event(self):
         """Test that Worker emits ToolCallEvent when tools are called."""
-        events: list[UIEvent] = []
+        events: list[RuntimeEvent] = []
 
         def build_toolset(_ctx):
             toolset = FunctionToolset()
@@ -138,7 +138,7 @@ class TestWorkerToolEvents:
     @pytest.mark.anyio
     async def test_worker_emits_events_for_multiple_tool_calls(self):
         """Test that Worker emits events for multiple tool calls."""
-        events: list[UIEvent] = []
+        events: list[RuntimeEvent] = []
 
         def build_toolset(_ctx):
             toolset = FunctionToolset()
@@ -184,7 +184,7 @@ class TestWorkerToolEvents:
     @pytest.mark.anyio
     async def test_tool_call_ids_correlate(self):
         """Test that tool_call_id correlates ToolCallEvent with ToolResultEvent."""
-        events: list[UIEvent] = []
+        events: list[RuntimeEvent] = []
 
         def build_toolset(_ctx):
             toolset = FunctionToolset()
@@ -257,7 +257,7 @@ class TestWorkerStreamingEvents:
     @pytest.mark.anyio
     async def test_streaming_emits_text_response_events(self):
         """Test that streaming mode emits TextResponseEvent deltas."""
-        events: list[UIEvent] = []
+        events: list[RuntimeEvent] = []
 
         worker = Worker(
             name="assistant",
@@ -288,7 +288,7 @@ class TestWorkerStreamingEvents:
     @pytest.mark.anyio
     async def test_no_streaming_without_verbosity(self):
         """Test that verbosity < 2 doesn't stream (still emits tool events)."""
-        events: list[UIEvent] = []
+        events: list[RuntimeEvent] = []
 
         worker = Worker(
             name="assistant",
@@ -316,7 +316,7 @@ class TestCLIEventIntegration:
         """Test that Runtime accepts and uses on_event callback."""
         from llm_do.runtime import RunApprovalPolicy, Runtime
 
-        events: list[UIEvent] = []
+        events: list[RuntimeEvent] = []
 
         worker = Worker(
             name="main",
@@ -342,7 +342,7 @@ class TestCLIEventIntegration:
         """Test that Runtime with tools emits ToolCallEvent/ToolResultEvent."""
         from llm_do.runtime import RunApprovalPolicy, Runtime
 
-        events: list[UIEvent] = []
+        events: list[RuntimeEvent] = []
 
         def build_toolset(_ctx):
             toolset = FunctionToolset()
@@ -389,7 +389,7 @@ class TestEntryToolEvents:
     @pytest.mark.anyio
     async def test_entry_tool_events_use_entry_name(self):
         """Entry tool calls should be attributed to the entry name."""
-        events: list[UIEvent] = []
+        events: list[RuntimeEvent] = []
 
         def build_toolset(_ctx):
             toolset = FunctionToolset()

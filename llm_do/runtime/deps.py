@@ -14,6 +14,7 @@ from .approval import ApprovalCallback
 from .args import WorkerArgs, ensure_worker_args
 from .call import CallFrame
 from .contracts import EventCallback, ModelType, WorkerRuntimeProtocol
+from .events import ToolCallEvent, ToolResultEvent
 
 if TYPE_CHECKING:
     from .worker import Worker
@@ -222,8 +223,6 @@ class WorkerRuntime:
         policy (entry functions stay in the tool plane).
         """
         import uuid
-
-        from ..ui.events import ToolCallEvent, ToolResultEvent
 
         # Create a temporary run context for get_tools
         run_ctx = self._make_run_context(name, self.model, self)

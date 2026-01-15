@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Sequence
 from pydantic_ai.usage import RunUsage
 
 from ..models import select_model
-from ..ui.events import UserMessageEvent
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .call import CallConfig, CallFrame
 from .contracts import Entry, EventCallback, MessageLogCallback, ModelType
+from .events import UserMessageEvent
 
 if TYPE_CHECKING:
     from pydantic_ai.toolsets import AbstractToolset

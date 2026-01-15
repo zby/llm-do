@@ -13,14 +13,17 @@ from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from llm_do.runtime import Entry, ModelType, RunApprovalPolicy, Runtime
 from llm_do.runtime.contracts import MessageLogCallback
+from llm_do.runtime.events import RuntimeEvent
 
+from .adapter import adapt_event
 from .display import DisplayBackend, HeadlessDisplayBackend, TextualDisplayBackend
 from .events import ErrorEvent, UIEvent
 from .parser import parse_approval_request
 
 UiMode = Literal["tui", "headless"]
 ApprovalMode = Literal["prompt", "approve_all", "reject_all"]
-EventSink = Callable[[UIEvent], None]
+UiEventSink = Callable[[UIEvent], None]
+RuntimeEventSink = Callable[[RuntimeEvent], None]
 EntryFactory = Callable[[], Entry]
 RuntimeFactory = Callable[..., Runtime]
 
@@ -120,7 +123,7 @@ def _build_runtime(
     project_root: Path | None,
     run_approval_policy: RunApprovalPolicy,
     max_depth: int,
-    on_event: EventSink | None,
+    on_event: RuntimeEventSink | None,
     message_log_callback: MessageLogCallback | None,
     verbosity: int,
     runtime_factory: RuntimeFactory | None,
@@ -172,7 +175,7 @@ async def _render_loop(
 
 
 def _emit_error(
-    sink: EventSink,
+    sink: UiEventSink,
     *,
     worker: str,
     message: str,
@@ -231,8 +234,11 @@ async def run_tui(
     )
     render_closed = False
 
-    def on_event(event: UIEvent) -> None:
+    def emit_ui_event(event: UIEvent) -> None:
         render_queue.put_nowait(event)
+
+    def on_event(event: RuntimeEvent) -> None:
+        render_queue.put_nowait(adapt_event(event))
 
     async def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
         approval_event = parse_approval_request(request)
@@ -269,7 +275,7 @@ async def run_tui(
                 flush=True,
             )
         _emit_error(
-            on_event,
+            emit_ui_event,
             worker=entry_name,
             message=message,
             error_type=error_type,
@@ -376,13 +382,13 @@ async def run_headless(
         backends = [HeadlessDisplayBackend(stream=sys.stderr, verbosity=verbosity)]
     render_task: asyncio.Task[None] | None = None
     render_queue: asyncio.Queue[UIEvent | None] | None = None
-    on_event: EventSink | None = None
+    on_event: RuntimeEventSink | None = None
 
     if backends:
         render_queue = asyncio.Queue()
 
-        def on_event_callback(event: UIEvent) -> None:
-            render_queue.put_nowait(event)
+        def on_event_callback(event: RuntimeEvent) -> None:
+            render_queue.put_nowait(adapt_event(event))
 
         on_event = on_event_callback
         render_task = asyncio.create_task(_render_loop(render_queue, list(backends)))

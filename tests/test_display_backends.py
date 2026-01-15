@@ -1,6 +1,8 @@
 """Tests for display backends (headless, etc.)."""
 import io
 
+from llm_do.runtime.event_parser import parse_event
+from llm_do.ui.adapter import adapt_event
 from llm_do.ui.display import HeadlessDisplayBackend
 from llm_do.ui.events import (
     DeferredToolEvent,
@@ -10,7 +12,6 @@ from llm_do.ui.events import (
     ToolCallEvent,
     ToolResultEvent,
 )
-from llm_do.ui.parser import parse_event
 
 
 class TestHeadlessDisplayBackend:
@@ -199,7 +200,7 @@ class TestParseEvent:
                 "attachments": [],
             },
         }
-        event = parse_event(payload)
+        event = adapt_event(parse_event(payload))
         assert isinstance(event, InitialRequestEvent)
         assert event.worker == "test"
         assert event.instructions == "Do something"
@@ -215,7 +216,7 @@ class TestParseEvent:
                 "model": "claude",
             },
         }
-        event = parse_event(payload)
+        event = adapt_event(parse_event(payload))
         assert isinstance(event, StatusEvent)
         assert event.phase == "processing"
         assert event.state == "running"
@@ -227,7 +228,7 @@ class TestParseEvent:
             "worker": "main",
             "status": "Waiting",
         }
-        event = parse_event(payload)
+        event = adapt_event(parse_event(payload))
         assert isinstance(event, StatusEvent)
         assert event.phase == "Waiting"
 
@@ -242,7 +243,7 @@ class TestParseEvent:
             "worker": "assistant",
             "event": raw_event,
         }
-        event = parse_event(payload)
+        event = adapt_event(parse_event(payload))
         assert isinstance(event, TextResponseEvent)
         assert event.content == "Hello response"
         assert event.is_complete is True
@@ -262,7 +263,7 @@ class TestParseEvent:
             "worker": "main",
             "event": raw_event,
         }
-        event = parse_event(payload)
+        event = adapt_event(parse_event(payload))
         assert isinstance(event, ToolCallEvent)
         assert event.tool_name == "read_file"
         assert event.args == {"path": "/tmp/test"}
@@ -282,7 +283,7 @@ class TestParseEvent:
             "worker": "main",
             "event": raw_event,
         }
-        event = parse_event(payload)
+        event = adapt_event(parse_event(payload))
         assert isinstance(event, ToolResultEvent)
         assert event.tool_name == "read_file"
         assert event.content == "File contents"
@@ -290,6 +291,6 @@ class TestParseEvent:
     def test_parse_unknown_payload(self):
         """Parser returns StatusEvent for unknown payloads."""
         payload = {"worker": "main"}
-        event = parse_event(payload)
+        event = adapt_event(parse_event(payload))
         assert isinstance(event, StatusEvent)
         assert event.worker == "main"

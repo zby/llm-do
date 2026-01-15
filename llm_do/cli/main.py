@@ -91,7 +91,7 @@ async def run(
         manifest_dir: Directory containing the manifest file
         input_data: Input data for the entry point
         model_override: Optional model override (from env var)
-        on_event: Optional callback for UI events (tool calls, streaming text)
+        on_event: Optional callback for runtime events (tool calls, streaming text)
         verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
         approval_callback: Optional interactive approval callback (TUI mode)
         approval_cache: Optional shared cache for remember="session" approvals

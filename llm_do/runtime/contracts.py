@@ -14,7 +14,7 @@ from pydantic_ai.models import Model  # Used in ModelType
 from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
 
 from ..toolsets.loader import ToolsetSpec
-from ..ui.events import UIEvent
+from .events import RuntimeEvent
 
 if TYPE_CHECKING:
     from .approval import ApprovalCallback
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from .shared import RuntimeConfig
 
 ModelType: TypeAlias = str | Model
-EventCallback: TypeAlias = Callable[[UIEvent], None]
+EventCallback: TypeAlias = Callable[[RuntimeEvent], None]
 MessageLogCallback: TypeAlias = Callable[[str, int, list[Any]], None]
 
 

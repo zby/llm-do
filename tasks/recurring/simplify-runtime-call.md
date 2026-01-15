@@ -27,4 +27,4 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Last Run
 
-(not yet run)
+2026-01 (no code changes; noted optional API shrink + config construction helper)

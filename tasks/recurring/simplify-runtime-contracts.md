@@ -27,4 +27,4 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Last Run
 
-(not yet run)
+2026-01 (reviewed; main finding: WorkerRuntimeProtocol surface is over-specified)

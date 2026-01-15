@@ -94,7 +94,7 @@ and vice versa.
 - Toolsets use `AbstractToolset`
 - Display uses `DisplayBackend` ABC
 
-## Summary vs Previous Review
+### Summary vs Previous Review (2026-01-13)
 
 | Issue | Status |
 |-------|--------|
@@ -103,7 +103,7 @@ and vice versa.
 | UI events render-centric (OCP/ISP) | **Persists** - all events implement all render methods |
 | Worker as toolset (LSP) | **Resolved** - now uses WorkerToolset adapter |
 
-## Recommendations (unchanged)
+### Recommendations (2026-01-13)
 
 1. **Decouple runtime from UI events:** Define a lightweight `RuntimeEvent`
    protocol in runtime layer; let UI layer translate to `UIEvent` types.
@@ -117,7 +117,95 @@ and vice versa.
 4. **Slim WorkerRuntimeProtocol:** Consider splitting into smaller interfaces
    for tools that need less.
 
-## Files Reviewed
+### Files Reviewed (2026-01-13)
 - `llm_do/runtime/__init__.py`, `shared.py`, `deps.py`, `worker.py`, `call.py`, `contracts.py`, `approval.py`
 - `llm_do/ui/events.py`, `display.py`, `parser.py`, `runner.py`, `app.py`
 - `llm_do/toolsets/__init__.py`, `filesystem.py`
+
+## Review 2026-01-15
+
+### Single Responsibility Principle
+
+**Worker** (`runtime/worker.py`) still bundles many concerns and has grown further:
+- Input normalization + prompt construction
+- Attachment resolution (path normalization + tool calls)
+- Toolset plane assembly + approval wrapping
+- Agent construction + execution
+- Streaming event handling + fallback tool event emission
+- Message logging (incremental log capture)
+
+**Runtime** (`runtime/shared.py`) still aggregates multiple responsibilities:
+- Configuration and policy wiring
+- Usage + message log collection
+- Entry dispatch (`run_entry`)
+- Toolset lifecycle orchestration (`build_tool_plane` + cleanup)
+
+**WorkerRuntime** (`runtime/deps.py`) continues as the "god object":
+- Tool dispatch + arg validation
+- RunContext construction
+- Usage tracking
+- Event emission
+- Child runtime spawning
+
+**UIEvent classes** still mix data + rendering (Rich/Text/Textual).
+
+### Open/Closed Principle
+
+**Strengths:**
+- `ToolsetSpec` + `instantiate_toolsets` keep toolset creation extensible
+- `parse_event()` centralizes raw PydanticAI event parsing
+
+**Weaknesses:**
+- New entry types still require editing `Runtime.run_entry()` (type checks)
+- New render formats require touching every `UIEvent` subclass
+- `UIEvent` additions require updates in parser + widgets + display
+
+### Liskov Substitution Principle
+
+**No new violations observed.**
+- `WorkerToolset` adapter remains the correct substitution for toolset contexts
+- `ApprovalDeniedResultToolset` continues to delegate to inner toolsets
+
+### Interface Segregation Principle
+
+**Persistent issues:**
+- `WorkerRuntimeProtocol` is still wide (~15+ properties/methods)
+- `UIEvent` enforces render methods even for modes that may not be used
+
+### Dependency Inversion Principle
+
+**Still inverted at runtime/UI boundary:**
+
+```
+runtime/contracts.py → UIEvent (callback type)
+runtime/shared.py    → UserMessageEvent
+runtime/worker.py    → ToolCallEvent, ToolResultEvent, parse_event()
+runtime/deps.py      → ToolCallEvent, ToolResultEvent
+```
+
+Runtime layers still import UI types and emit UI-specific events directly.
+The coupling now includes both event type dependencies and parsing helpers,
+keeping UI as a "low-level detail" in core runtime execution.
+
+### Summary vs Previous Review (2026-01-15)
+
+| Issue | Status |
+|-------|--------|
+| Runtime↔UI coupling (DIP) | **Persists** - runtime still imports/emits UI events |
+| Worker multi-responsibility (SRP) | **Persists** - attachments + message logging added to worker scope |
+| UI events render-centric (OCP/ISP) | **Persists** - format changes require per-event edits |
+| Worker as toolset (LSP) | **Still resolved** - adapter pattern remains intact |
+| Event parsing centralization | **Stable** - parser remains the single choke point |
+
+### Recommendations (2026-01-15)
+
+1. **Decouple runtime from UI events:** Introduce a runtime-layer event protocol and let UI adapt.
+2. **Extract Worker concerns:** Split into InputNormalizer, AgentRunner, StreamHandler.
+3. **Move rendering to backends:** Use visitor/strategy for UI formats.
+4. **Slim WorkerRuntimeProtocol:** Break into smaller interfaces for tools.
+5. **Extract attachment resolution:** Move path resolution + attachment fetching into a dedicated component/toolset.
+
+### Files Reviewed (2026-01-15)
+- `llm_do/runtime/worker.py`, `shared.py`, `deps.py`, `contracts.py`, `approval.py`, `call.py`
+- `llm_do/toolsets/loader.py`
+- `llm_do/ui/events.py`, `parser.py`

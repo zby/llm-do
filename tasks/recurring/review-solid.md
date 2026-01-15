@@ -21,3 +21,4 @@ Record findings in `docs/notes/reviews/review-solid.md`.
 ## Last Run
 
 2026-01-13 (reviewed; runtime↔UI coupling persists, Worker/Runtime still multi-responsibility, UI events render-centric; LSP issue with Worker-as-toolset now resolved via WorkerToolset adapter)
+2026-01 (2026-01-15 review; runtime/UI coupling persists; Worker scope expanded (attachments, message logging); UI events render-centric; no new LSP issues)

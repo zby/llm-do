@@ -1,7 +1,7 @@
 # Entry Tool Plane Parity (Approvals + Event Attribution)
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [ ] none
@@ -38,14 +38,19 @@ Entry functions run through the same tool plane as workers (approval wrapping on
   - Extract a shared tool-plane builder once parity is enforced (separate task).
 
 ## Tasks
-- [ ] Add `invocation_name` to per-call state (CallFrame/CallConfig) and plumb through `WorkerRuntime`; default propagation in `spawn_child`, with override support for worker invocations.
-- [ ] Update `Runtime.run_entry` to set invocation name to the entry name and wrap entry toolsets with `wrap_toolsets_for_approval` using `return_permission_errors`.
-- [ ] Update `Worker._call_internal` to set invocation name to the worker name for child runtimes, including attachment reads.
-- [ ] Replace `code_entry` labeling in `WorkerRuntime.call` with invocation name; ensure missing names fall back to entry/worker name defaults.
-- [ ] Update tests (`tests/runtime/test_events.py`, `tests/runtime/helpers.py`) and fix docstrings/comments in runtime files that still claim entry calls bypass approvals.
+- [x] Add `invocation_name` to per-call state (CallFrame/CallConfig) and plumb through `WorkerRuntime`; default propagation in `spawn_child`, with override support for worker invocations.
+- [x] Update `Runtime.run_entry` to set invocation name to the entry name and wrap entry toolsets with `wrap_toolsets_for_approval` using `return_permission_errors`.
+- [x] Update `Worker._call_internal` to set invocation name to the worker name for child runtimes, including attachment reads.
+- [x] Replace `code_entry` labeling in `WorkerRuntime.call` with invocation name; ensure missing names fall back to entry/worker name defaults.
+- [x] Update tests (`tests/runtime/test_events.py`, `tests/runtime/helpers.py`) and fix docstrings/comments in runtime files that still claim entry calls bypass approvals.
 
 ## Current State
-Task created; no code changes yet.
+Completed as part of shared-tool-plane-builder refactor. All parity items implemented:
+- `invocation_name` in CallConfig with propagation via `fork()`/`spawn_child()`
+- Entry toolsets wrapped via `build_tool_plane()` in `Runtime.run_entry`
+- Worker sets `invocation_name=self.name` in `_call_internal`
+- Tool events use `self.invocation_name` instead of `code_entry`
+- Tests updated (`test_entry_tool_events_use_entry_name`)
 
 ## Notes
 - Keep depth semantics unchanged (CallFrame stack depth: entry=0, worker=1).

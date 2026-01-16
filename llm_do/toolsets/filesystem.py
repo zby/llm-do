@@ -30,8 +30,6 @@ DEFAULT_MAX_READ_CHARS = 20_000
 
 
 class ReadResult(BaseModel):
-    """Result of reading a file."""
-
     content: str = Field(description="The file content read")
     truncated: bool = Field(description="True if more content exists after this chunk")
     total_chars: int = Field(description="Total file size in characters")
@@ -40,8 +38,6 @@ class ReadResult(BaseModel):
 
 
 class ReadFileArgs(BaseModel):
-    """Arguments for read_file."""
-
     path: str = Field(description="Path to the file to read")
     max_chars: int = Field(
         default=DEFAULT_MAX_READ_CHARS,
@@ -54,15 +50,11 @@ class ReadFileArgs(BaseModel):
 
 
 class WriteFileArgs(BaseModel):
-    """Arguments for write_file."""
-
     path: str = Field(description="Path to the file to write")
     content: str = Field(description="Content to write to the file")
 
 
 class ListFilesArgs(BaseModel):
-    """Arguments for list_files."""
-
     path: str = Field(
         default=".",
         description="Directory to search in (default: current directory)",
@@ -112,12 +104,10 @@ class FileSystemToolset(AbstractToolset[Any]):
 
     @property
     def id(self) -> str | None:
-        """Unique identifier for this toolset."""
         return self._toolset_id
 
     @property
     def config(self) -> dict:
-        """Return the toolset configuration."""
         return self._config
 
     def _resolve_path(self, path: str) -> Path:
@@ -422,8 +412,6 @@ class FileSystemToolset(AbstractToolset[Any]):
 
 
 class ReadOnlyFileSystemToolset(FileSystemToolset):
-    """Read-only filesystem toolset (read/list only)."""
-
     def needs_approval(
         self,
         name: str,

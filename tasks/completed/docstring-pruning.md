@@ -1,7 +1,7 @@
 # Docstring Pruning for Cleaner Code
 
 ## Status
-ready for implementation
+complete
 
 ## Prerequisites
 - [ ] none
@@ -31,14 +31,19 @@ Remove or tighten docstrings that restate obvious behavior or type hints, while 
 - Follow-ups: none.
 
 ## Tasks
-- [ ] Inventory docstrings in candidate files; tag each as keep/shorten/remove.
-- [ ] Remove docstrings that only restate name/args/returns or repeat obvious code.
-- [ ] Keep docstrings that document non-obvious behavior, side effects, security constraints, or API contracts.
-- [ ] Avoid removing module docstrings used for CLI help or documentation.
-- [ ] Update tests if any rely on docstrings (unlikely; confirm).
+- [x] Inventory docstrings in candidate files; tag each as keep/shorten/remove.
+- [x] Remove docstrings that only restate name/args/returns or repeat obvious code.
+- [x] Keep docstrings that document non-obvious behavior, side effects, security constraints, or API contracts.
+- [x] Avoid removing module docstrings used for CLI help or documentation.
+- [x] Update tests if any rely on docstrings (unlikely; confirm).
 
 ## Current State
-Not started.
+Complete. Removed 10 truly redundant docstrings:
+- `ShellArgs`, `ReadResult`, `ReadFileArgs`, `WriteFileArgs`, `ListFilesArgs` class docstrings
+- `id` and `config` property docstrings in `ShellToolset` and `FileSystemToolset`
+- `ReadOnlyFileSystemToolset` class docstring
+
+All 302 tests pass.
 
 ## Notes
 - Prefer shortening to a single sentence when a docstring adds value but is verbose.

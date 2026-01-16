@@ -43,8 +43,6 @@ logger = logging.getLogger(__name__)
 
 
 class ShellArgs(BaseModel):
-    """Arguments for shell."""
-
     command: str = Field(description="Command to execute (parsed with shlex)")
     timeout: int = Field(
         default=30,
@@ -85,12 +83,10 @@ class ShellToolset(AbstractToolset[Any]):
 
     @property
     def id(self) -> str | None:
-        """Return toolset ID for durable execution."""
         return self._id
 
     @property
     def config(self) -> dict:
-        """Return the toolset configuration."""
         return self._config
 
     def needs_approval(

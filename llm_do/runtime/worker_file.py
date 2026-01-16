@@ -68,15 +68,9 @@ def _extract_frontmatter_and_instructions(content: str) -> tuple[dict[str, Any],
 def build_worker_definition(
     frontmatter: dict[str, Any],
     instructions: str,
-    *,
-    overrides: list[str] | None = None,
 ) -> "WorkerDefinition":
     """Build a WorkerDefinition from frontmatter and instructions."""
-    from ..config import apply_overrides
-
     fm = frontmatter
-    if overrides:
-        fm = apply_overrides(fm, overrides)
 
     name = fm.get("name")
     if not name:
@@ -199,13 +193,11 @@ class WorkerFileParser:
     def parse(
         self,
         content: str,
-        overrides: list[str] | None = None,
     ) -> WorkerDefinition:
         """Parse worker file content.
 
         Args:
             content: Raw file content
-            overrides: Optional list of --set KEY=VALUE overrides to apply
 
         Returns:
             Parsed WorkerDefinition
@@ -214,24 +206,22 @@ class WorkerFileParser:
             ValueError: If file format is invalid
         """
         fm, instructions = _extract_frontmatter_and_instructions(content)
-        return build_worker_definition(fm, instructions, overrides=overrides)
+        return build_worker_definition(fm, instructions)
 
     def load(
         self,
         path: str | Path,
-        overrides: list[str] | None = None,
     ) -> WorkerDefinition:
         """Load and parse a worker file from disk.
 
         Args:
             path: Path to worker file
-            overrides: Optional list of --set KEY=VALUE overrides to apply
 
         Returns:
             Parsed WorkerDefinition
         """
         content = Path(path).read_text(encoding="utf-8")
-        return self.parse(content, overrides=overrides)
+        return self.parse(content)
 
 
 # Default parser instance
@@ -240,7 +230,6 @@ _default_parser = WorkerFileParser()
 
 def parse_worker_file(
     content: str,
-    overrides: list[str] | None = None,
 ) -> WorkerDefinition:
     """Parse a worker file with YAML frontmatter and markdown instructions.
 
@@ -248,7 +237,6 @@ def parse_worker_file(
 
     Args:
         content: Raw file content
-        overrides: Optional list of --set KEY=VALUE overrides to apply
 
     Returns:
         Parsed WorkerDefinition
@@ -256,12 +244,11 @@ def parse_worker_file(
     Raises:
         ValueError: If file format is invalid
     """
-    return _default_parser.parse(content, overrides=overrides)
+    return _default_parser.parse(content)
 
 
 def load_worker_file(
     path: str | Path,
-    overrides: list[str] | None = None,
 ) -> WorkerDefinition:
     """Load and parse a worker file from disk.
 
@@ -269,9 +256,8 @@ def load_worker_file(
 
     Args:
         path: Path to worker file
-        overrides: Optional list of --set KEY=VALUE overrides to apply
 
     Returns:
         Parsed WorkerDefinition
     """
-    return _default_parser.load(path, overrides=overrides)
+    return _default_parser.load(path)

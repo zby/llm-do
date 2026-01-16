@@ -123,16 +123,17 @@ Instructions.
 
 
 @pytest.mark.anyio
-async def test_build_entry_rejects_name_override(tmp_path: Path) -> None:
-    worker_path = tmp_path / "main.worker"
-    worker_path.write_text(
-        "---\nname: main\nentry: true\n---\nHello\n",
+async def test_build_entry_rejects_duplicate_toolset_names(tmp_path: Path) -> None:
+    reserved_worker = tmp_path / "shell_readonly.worker"
+    reserved_worker.write_text(
+        "---\nname: shell_readonly\n---\nReserved name.\n",
+        encoding="utf-8",
+    )
+    entry_worker = tmp_path / "main.worker"
+    entry_worker.write_text(
+        "---\nname: main\nentry: true\n---\nHello.\n",
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Cannot override worker name"):
-        build_entry(
-            [str(worker_path)],
-            [],
-            set_overrides=["name=override"],
-        )
+    with pytest.raises(ValueError, match="Duplicate toolset name: shell_readonly"):
+        build_entry([str(reserved_worker), str(entry_worker)], [])

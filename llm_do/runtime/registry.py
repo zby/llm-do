@@ -95,29 +95,15 @@ def _merge_toolsets(
     merged: dict[str, ToolsetSpec] = {}
     for source in sources:
         for name, toolset in source.items():
-            if name in merged and merged[name] is not toolset:
+            if name in merged:
                 raise ValueError(f"Duplicate toolset name: {name}")
             merged[name] = toolset
     return merged
 
 
-def _parse_entry_marker(raw: Any, *, worker_name: str, worker_path: Path) -> bool:
-    """Parse and validate the entry marker in worker frontmatter."""
-    if raw is None:
-        return False
-    if not isinstance(raw, bool):
-        raise ValueError(
-            f"Invalid entry marker for worker '{worker_name}' in {worker_path}: "
-            "expected boolean"
-        )
-    return raw
-
-
 def _build_registry_and_entry_name(
     worker_files: list[str],
     python_files: list[str],
-    *,
-    set_overrides: list[str] | None = None,
 ) -> tuple[EntryRegistry, str]:
     """Build the entry symbol table and return the resolved entry name.
 
@@ -129,8 +115,6 @@ def _build_registry_and_entry_name(
     Args:
         worker_files: Paths to .worker files
         python_files: Paths to .py files with toolsets/workers/entries
-        set_overrides: Optional list of KEY=VALUE overrides for the entry worker
-
     Returns:
         Tuple of (EntryRegistry, entry_name) with entries resolved and ready
     """
@@ -147,66 +131,33 @@ def _build_registry_and_entry_name(
             f"{entry_func_names}. Only one entry function is allowed."
         )
     entry_func_name = entry_func_names[0] if entry_func_names else None
-    if entry_func_name and set_overrides:
-        raise ValueError(
-            "--set overrides only apply to worker entries; "
-            "remove --set or use a worker entry instead."
-        )
-    if set_overrides:
-        from ..config import parse_set_override
-
-        for set_spec in set_overrides:
-            key_path, _ = parse_set_override(set_spec)
-            if key_path == "entry" or key_path.startswith("entry."):
-                raise ValueError(
-                    "Cannot override entry marker via --set; update the worker frontmatter instead."
-                )
-
-    entries: dict[str, Entry] = {}
-
-    # Add Python workers as entries
-    for name, worker in python_workers.items():
-        entries[name] = worker
-
-    # Add @entry decorated functions (conflict with workers checked in discovery)
-    for name, entry_func in python_entries.items():
-        entries[name] = entry_func
 
     # First pass: load worker definitions and create minimal stub Worker instances
     worker_specs: dict[str, WorkerSpec] = {}
     entry_worker_names: list[str] = []
+    reserved_names = set(python_workers.keys()) | set(python_entries.keys())
 
     for worker_file_path in worker_files:
         resolved_path = Path(worker_file_path).resolve()
         frontmatter, instructions = load_worker_file_parts(resolved_path)
-        name_value = frontmatter.get("name")
-        if not isinstance(name_value, str) or not name_value:
-            raise ValueError("Worker file must have a 'name' field")
-        name = name_value
-
-        entry_marker = _parse_entry_marker(
-            frontmatter.get("entry"),
-            worker_name=name,
-            worker_path=resolved_path,
-        )
-        if entry_marker:
-            entry_worker_names.append(name)
+        worker_def = build_worker_definition(frontmatter, instructions)
+        name = worker_def.name
 
         # Check for duplicate worker names
         if name in worker_specs:
             raise ValueError(f"Duplicate worker name: {name}")
 
-        # Check for conflict with Python entries
-        if name in entries:
+        # Check for conflict with Python workers or entries
+        if name in reserved_names:
+            if name in python_workers:
+                raise ValueError(
+                    f"Worker name '{name}' conflicts with Python worker"
+                )
             raise ValueError(f"Worker name '{name}' conflicts with Python entry")
+        reserved_names.add(name)
 
-        overrides = set_overrides if entry_marker else None
-        worker_def = build_worker_definition(frontmatter, instructions, overrides=overrides)
-        if overrides and worker_def.name != name:
-            raise ValueError(
-                f"Cannot override worker name for '{name}' via --set; "
-                "update the worker file instead."
-            )
+        if worker_def.entry:
+            entry_worker_names.append(name)
 
         stub = Worker(
             name=name,
@@ -276,8 +227,6 @@ def _build_registry_and_entry_name(
                 )
             spec.stub.schema_in = cast(type[WorkerArgs], resolved_schema)
 
-        entries[spec.name] = spec.stub
-
     global_available_toolsets: dict[str, ToolsetSpec] | None = None
 
     def _get_global_toolsets() -> dict[str, ToolsetSpec]:
@@ -307,20 +256,22 @@ def _build_registry_and_entry_name(
             )
             entry_func.resolve_toolsets(all_available_toolsets, toolset_context)
 
+    entries: dict[str, Entry] = {}
+    entries.update(python_workers)
+    entries.update(python_entries)
+    entries.update({spec.name: spec.stub for spec in worker_specs.values()})
+
     return EntryRegistry(entries=entries), entry_name
 
 
 def build_entry_registry(
     worker_files: list[str],
     python_files: list[str],
-    *,
-    set_overrides: list[str] | None = None,
 ) -> EntryRegistry:
     """Build the entry symbol table with toolsets resolved and entries ready."""
     registry, _entry_name = _build_registry_and_entry_name(
         worker_files,
         python_files,
-        set_overrides=set_overrides,
     )
     return registry
 
@@ -328,13 +279,10 @@ def build_entry_registry(
 def build_entry(
     worker_files: list[str],
     python_files: list[str],
-    *,
-    set_overrides: list[str] | None = None,
 ) -> Entry:
     """Build and return the single resolved entry."""
     registry, entry_name = _build_registry_and_entry_name(
         worker_files,
         python_files,
-        set_overrides=set_overrides,
     )
     return registry.get(entry_name)

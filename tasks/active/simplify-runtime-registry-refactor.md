@@ -8,9 +8,8 @@ ready for implementation
 
 ## Goal
 Refactor `runtime/registry.py` to remove duplicated parsing/merging logic,
-tighten toolset merge rules, and expand `--set` overrides to target any
-`.worker`-defined worker while explicitly erroring on Python-defined workers
-with a "may add support later" message.
+tighten toolset merge rules, and remove override handling entirely until it is
+reintroduced later via a dedicated task.
 
 ## Context
 - Relevant files/symbols:
@@ -32,8 +31,8 @@ with a "may add support later" message.
     identical; call sites never rely on this, so consider always raising.
   - `entries` is built incrementally for conflict checks, then rebuilt; track
     `reserved_names` and build the final `entries` once at the end.
-  - (Old behavior) Overrides applied only to the entry worker — now expanding
-    to named `.worker` workers only, with explicit errors for Python workers.
+  - (Old behavior) Overrides applied only to the entry worker — now removed
+    entirely since `--set` is not exposed in the CLI.
 - How to verify / reproduce:
   - `uv run ruff check .`
   - `uv run mypy llm_do`
@@ -45,55 +44,32 @@ with a "may add support later" message.
 - Options: keep behavior as-is vs. tighten toolset merge rules
 - Outcome:
   1. Always error on duplicate toolset names (remove `is` identity check)
-  2. Expand `--set` to support targeting any `.worker`-defined worker (not just entry)
-  3. Reject `--set` targeting Python-defined workers with a message that we may
-     add support later if it is commonly needed
-- Follow-ups: update tests for merge behavior changes and new override syntax
+  2. Remove override plumbing (`--set`, worker overrides) from the runtime
+     implementation and tests until it is reintroduced in a dedicated task
+- Follow-ups: update tests for merge behavior changes; add backlog task for overrides
 
 ### `--set` Syntax Spec
-New consistent syntax using colon separator:
-```
---set model=gpt-4o              # entry worker (no colon = entry shorthand)
---set foo:model=gpt-4o          # worker named "foo"
---set worker:model=gpt-4o       # worker literally named "worker"
-```
-Rule: if there's a colon before the first `=`, the part before the colon is the
-worker name. No colon means entry worker. Targeted workers must be `.worker`
-definitions; targeting Python-defined workers should error with a message that
-future support may be added if this becomes common.
-
-Worker names must not contain `:` or `=` (disallowed to keep parsing unambiguous).
-Validate in `build_worker_definition()` and error early on invalid names.
+Deprecated: override syntax removed for now. See backlog task for reintroduction.
 
 ## Tasks
-- [ ] Add worker name validation: disallow `:` and `=` characters in
-      `build_worker_definition()`.
-- [ ] Update `_merge_toolsets()` to always error on duplicate names (remove `is`
+- [x] Remove override plumbing from worker parsing/registry (delete config
+      override helpers and any `set_overrides` parameters).
+- [x] Update `_merge_toolsets()` to always error on duplicate names (remove `is`
       identity check).
-- [ ] Implement new `--set` syntax with colon separator for worker targeting:
-      - Parse `<worker>:<field>=<value>` to target specific workers
-      - Keep `<field>=<value>` as shorthand for entry worker
-- [ ] Update `_build_registry_and_entry_name()` to apply overrides to targeted
-      workers (not just entry).
-- [ ] Reject `--set` targeting Python-defined workers with an explicit error
-      message noting we may add support if this becomes common.
-- [ ] Parse `.worker` files once via `build_worker_definition(...)` for base
-      validation; re-parse with overrides for workers that have them.
-- [ ] Replace incremental `entries` building with a `reserved_names` set and
+- [x] Parse `.worker` files once via `build_worker_definition(...)` for base
+      validation (no overrides).
+- [x] Replace incremental `entries` building with a `reserved_names` set and
       build the final entries map once.
-- [ ] Adjust tests to cover new override syntax and toolset merge conflicts.
-- [ ] Update user-facing docs:
-      - CLI help text for `--set` flag
-      - README.md if `--set` is documented there
+- [x] Remove override-related tests; add/adjust tests for merge conflicts.
 - [ ] Run ruff, mypy, pytest.
 
 ## Current State
-Quick cleanups applied in `llm_do/runtime/registry.py`; refactor work pending.
+Override support removed (config helpers + `set_overrides` plumbing), registry
+refactor applied (reserved names, single parse, strict toolset merge), and
+tests updated to drop override coverage and cover toolset name conflicts.
 
 ## Notes
 - Expect minor error-message ordering shifts after refactor; keep tests resilient.
 - Resolved questions:
   - Duplicate toolset names always error (even if same instance) — decided yes.
-  - Overrides now support targeting any `.worker` worker via
-    `<worker>:<field>=<value>` syntax; Python worker targets error with a
-    "may add support later" message.
+  - Overrides are removed entirely; reintroduce later via a backlog task.

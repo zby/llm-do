@@ -27,4 +27,4 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Last Run
 
-2026-01 (unused bulk_approve flag, tool event fallback parity)
+2026-01 (tool-event/message-history duplication, redundant _call_internal params, attachment path normalization)

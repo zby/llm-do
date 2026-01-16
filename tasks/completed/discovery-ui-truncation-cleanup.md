@@ -1,7 +1,7 @@
 # Discovery and UI Truncation Cleanup
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [ ] none
@@ -28,15 +28,15 @@ Reduce duplication in discovery helpers and UI event truncation logic without ch
 - Follow-ups: none.
 
 ## Tasks
-- [ ] Add a `_discover_from_module(module, target_type)` helper that avoids repeated getattr calls; use it for workers and entries.
-- [ ] Keep discover_toolsets_from_module explicit to preserve AbstractToolset error behavior.
-- [ ] Add module-level `_truncate(text, max_len)` and `_truncate_content(text, max_len, max_lines)` helpers in ui/events.
-- [ ] Update InitialRequestEvent and ToolCallEvent to use shared `_truncate`.
-- [ ] Update ToolResultEvent to use `_truncate_content`.
-- [ ] Add/adjust tests if helper behavior changes (discovery order/coverage, truncation format).
+- [x] Add a `_discover_from_module(module, target_type)` helper that avoids repeated getattr calls; use it for workers and entries.
+- [x] Keep discover_toolsets_from_module explicit to preserve AbstractToolset error behavior.
+- [x] Add module-level `_truncate(text, max_len)` and `_truncate_content(text, max_len, max_lines)` helpers in ui/events.
+- [x] Update InitialRequestEvent and ToolCallEvent to use shared `_truncate`.
+- [x] Update ToolResultEvent to use `_truncate_content`.
+- [x] Add/adjust tests if helper behavior changes (discovery order/coverage, truncation format).
 
 ## Current State
-Task updated with behavior-change/testing guidance; implementation not started.
+Discovery and UI truncation helpers refactored; no behavior changes observed. Ruff, mypy, and pytest all pass.
 
 ## Notes
 - Avoid double `getattr` in the discovery helper to prevent side effects.

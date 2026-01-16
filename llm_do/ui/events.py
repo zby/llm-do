@@ -1,8 +1,4 @@
-"""Typed UI event classes for llm-do.
-
-Each event knows how to render itself in multiple formats, following the
-"Events Know How to Render Themselves" principle.
-"""
+"""Typed UI event classes for llm-do."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -15,172 +11,115 @@ if TYPE_CHECKING:
     from textual.widget import Widget
 
 
+def _truncate(text: str, max_len: int) -> str:
+    return text[:max_len] + "..." if len(text) > max_len else text
+
+
+def _truncate_lines(text: str, max_len: int, max_lines: int) -> str:
+    text = text[:max_len] + "..." if len(text) > max_len else text
+    lines = text.split("\n")
+    return "\n".join(lines[:max_lines]) + f"\n... ({len(lines) - max_lines} more lines)" if len(lines) > max_lines else text
+
+
 @dataclass
 class UIEvent(ABC):
-    """Base class for all UI events.
-
-    Each event knows how to render itself in multiple formats.
-    The render methods receive context (verbosity) as parameters.
-    """
+    """Base class for all UI events."""
 
     worker: str = ""
     depth: int = 0
 
     @property
     def worker_tag(self) -> str:
-        """Format worker and depth as a tag like [worker:depth]."""
         return f"[{self.worker}:{self.depth}]"
 
     @abstractmethod
-    def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
-        """Render as Rich Console output.
-
-        Args:
-            verbosity: 0=minimal, 1=normal, 2=verbose
-
-        Returns:
-            A Rich renderable (Text, Panel, Group, etc.) or None to skip display.
-        """
-        ...
+    def render_rich(self, verbosity: int = 0) -> "RenderableType | None": ...
 
     @abstractmethod
-    def render_text(self, verbosity: int = 0) -> str | None:
-        """Render as plain text (ASCII only, no ANSI codes).
-
-        Args:
-            verbosity: 0=minimal, 1=normal, 2=verbose
-
-        Returns:
-            Plain ASCII string or None to skip display.
-        """
-        ...
+    def render_text(self, verbosity: int = 0) -> str | None: ...
 
     @abstractmethod
-    def create_widget(self) -> "Widget | None":
-        """Create a Textual widget for TUI display.
-
-        Returns:
-            A Textual Widget instance or None to skip display.
-        """
-        ...
+    def create_widget(self) -> "Widget | None": ...
 
 
 @dataclass
 class InitialRequestEvent(UIEvent):
     """Event emitted when worker receives initial request."""
-
     instructions: str = ""
     user_input: str = ""
     attachments: list[str] = field(default_factory=list)
-
     MAX_INPUT_DISPLAY: ClassVar[int] = 200
     MAX_INSTRUCTIONS_DISPLAY: ClassVar[int] = 400
+
+    def _build_lines(self) -> list[str]:
+        lines = [f"{self.worker_tag} Starting..."]
+        if self.instructions:
+            lines.append(f"  Instructions: {_truncate(self.instructions, self.MAX_INSTRUCTIONS_DISPLAY)}")
+        if self.user_input:
+            lines.append(f"  Prompt: {_truncate(self.user_input, self.MAX_INPUT_DISPLAY)}")
+        if self.attachments:
+            lines.append(f"  Attachments: {', '.join(self.attachments)}")
+        return lines
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
         from rich.text import Text
-
-        parts = [Text(f"{self.worker_tag} ", style="bold cyan") + Text("Starting...")]
-        if self.instructions:
-            display_instructions = self._truncate(
-                self.instructions, self.MAX_INSTRUCTIONS_DISPLAY
-            )
-            parts.append(Text("  Instructions: ", style="dim") + Text(display_instructions))
-        if self.user_input:
-            display_input = self._truncate(self.user_input, self.MAX_INPUT_DISPLAY)
-            parts.append(Text("  Prompt: ", style="dim") + Text(display_input))
-        if self.attachments:
-            parts.append(
-                Text("  Attachments: ", style="dim")
-                + Text(", ".join(self.attachments))
-            )
-        return Group(*parts)
+        return Group(*[Text(line) for line in self._build_lines()])
 
     def render_text(self, verbosity: int = 0) -> str:
-        lines = [f"{self.worker_tag} Starting..."]
-        if self.instructions:
-            display_instructions = self._truncate(
-                self.instructions, self.MAX_INSTRUCTIONS_DISPLAY
-            )
-            lines.append(f"  Instructions: {display_instructions}")
-        if self.user_input:
-            display_input = self._truncate(self.user_input, self.MAX_INPUT_DISPLAY)
-            lines.append(f"  Prompt: {display_input}")
-        if self.attachments:
-            lines.append(f"  Attachments: {', '.join(self.attachments)}")
-        return "\n".join(lines)
+        return "\n".join(self._build_lines())
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import StatusMessage
-
-        return StatusMessage(f"Starting: {self._truncate(self.user_input, 100)}")
-
-    @staticmethod
-    def _truncate(text: str, max_len: int) -> str:
-        return text[:max_len] + "..." if len(text) > max_len else text
+        return StatusMessage(f"Starting: {_truncate(self.user_input, 100)}")
 
 
 @dataclass
 class StatusEvent(UIEvent):
     """Event emitted for phase/state transitions."""
-
     phase: str = ""
     state: str = ""
     model: str = ""
     duration_sec: float | None = None
 
+    def _format(self, with_tag: bool = True) -> str | None:
+        if not self.phase:
+            return None
+        parts = [f"{self.worker_tag} " if with_tag else "", f"{self.phase} {self.state}"]
+        if self.model:
+            parts.append(f" ({self.model})")
+        if self.duration_sec is not None:
+            parts.append(f" [{self.duration_sec:.2f}s]")
+        return "".join(parts)
+
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
         from rich.text import Text
-
-        if not self.phase:
-            return None
-
-        text = Text(f"{self.worker_tag} ", style="dim")
-        text.append(f"{self.phase} {self.state}")
-        if self.model:
-            text.append(f" ({self.model})", style="dim")
-        if self.duration_sec is not None:
-            text.append(f" [{self.duration_sec:.2f}s]", style="dim")
-        return text
+        text = self._format()
+        return Text(text, style="dim") if text else None
 
     def render_text(self, verbosity: int = 0) -> str | None:
-        if not self.phase:
-            return None
-        result = f"{self.worker_tag} {self.phase} {self.state}"
-        if self.model:
-            result += f" ({self.model})"
-        if self.duration_sec is not None:
-            result += f" [{self.duration_sec:.2f}s]"
-        return result
+        return self._format()
 
     def create_widget(self) -> "Widget | None":
         from llm_do.ui.widgets.messages import StatusMessage
-
-        if not self.phase:
-            return None
-        text = f"{self.phase} {self.state}"
-        if self.model:
-            text += f" ({self.model})"
-        return StatusMessage(text)
+        text = self._format(with_tag=False)
+        return StatusMessage(text) if text else None
 
 
 @dataclass
 class UserMessageEvent(UIEvent):
     """Event emitted for user-submitted messages."""
-
     content: str = ""
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
         from rich.text import Text
-
-        return Text(f"{self.worker_tag} You: {self.content}")
+        return Text(self.render_text(verbosity) or "")
 
     def render_text(self, verbosity: int = 0) -> str | None:
         return f"{self.worker_tag} You: {self.content}"
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import UserMessage
-
         return UserMessage(self.content)
 
 
@@ -238,67 +177,43 @@ class TextResponseEvent(UIEvent):
 @dataclass
 class ToolCallEvent(UIEvent):
     """Event emitted when a tool is called."""
-
     tool_name: str = ""
     tool_call_id: str = ""
     args: dict[str, Any] = field(default_factory=dict)
     args_json: str = ""
-
     MAX_ARGS_DISPLAY: ClassVar[int] = 400
+
+    def _build_lines(self) -> list[str]:
+        lines = [f"\n{self.worker_tag} Tool call: {self.tool_name}"]
+        if self.args or self.args_json:
+            lines.append(f"  Args: {_truncate(self.args_json or str(self.args), self.MAX_ARGS_DISPLAY)}")
+        return lines
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
         from rich.text import Text
-
-        header = (
-            Text(f"\n{self.worker_tag} ", style="bold yellow")
-            + Text("Tool call: ")
-            + Text(self.tool_name, style="yellow")
-        )
-        parts: list[Text] = [header]
-        if self.args or self.args_json:
-            args_str = self.args_json or str(self.args)
-            args_display = self._truncate(args_str, self.MAX_ARGS_DISPLAY)
-            parts.append(Text("  Args: ", style="dim") + Text(args_display))
-        return Group(*parts)
+        return Group(*[Text(line) for line in self._build_lines()])
 
     def render_text(self, verbosity: int = 0) -> str:
-        lines = [f"\n{self.worker_tag} Tool call: {self.tool_name}"]
-        if self.args or self.args_json:
-            args_str = self.args_json or str(self.args)
-            args_display = self._truncate(args_str, self.MAX_ARGS_DISPLAY)
-            lines.append(f"  Args: {args_display}")
-        return "\n".join(lines)
+        return "\n".join(self._build_lines())
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ToolCallMessage
-
-        # Pass both args and args_json so widget can use same logic as render_rich
-        return ToolCallMessage(
-            self.tool_name, self.args, self.args_json, self.worker_tag
-        )
-
-    @staticmethod
-    def _truncate(text: str, max_len: int) -> str:
-        return text[:max_len] + "..." if len(text) > max_len else text
+        return ToolCallMessage(self.tool_name, self.args, self.args_json, self.worker_tag)
 
 
 @dataclass
 class ToolResultEvent(UIEvent):
     """Event emitted when a tool returns a result."""
-
     tool_name: str = ""
     tool_call_id: str = ""
-    content: Any = ""  # Preserves structured data for JSON output
+    content: Any = ""
     is_error: bool = False
-
     MAX_RESULT_DISPLAY: ClassVar[int] = 500
     MAX_RESULT_LINES: ClassVar[int] = 10
 
     def _content_as_str(self) -> str:
-        """Convert content to string for display."""
         import json
-
         if isinstance(self.content, str):
             return self.content
         try:
@@ -306,79 +221,41 @@ class ToolResultEvent(UIEvent):
         except (TypeError, ValueError):
             return str(self.content)
 
+    def _build_lines(self) -> list[str]:
+        label = "Tool error" if self.is_error else "Tool result"
+        lines = [f"\n{self.worker_tag} {label}: {self.tool_name}"]
+        lines.extend(f"  {line}" for line in _truncate_lines(self._content_as_str(), self.MAX_RESULT_DISPLAY, self.MAX_RESULT_LINES).split("\n"))
+        return lines
+
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
         from rich.text import Text
-
-        style = "red" if self.is_error else "blue"
-        label = "Tool error" if self.is_error else "Tool result"
-        header = (
-            Text(f"\n{self.worker_tag} ", style=f"bold {style}")
-            + Text(f"{label}: ")
-            + Text(self.tool_name, style=style)
-        )
-
-        content_display = self._truncate_content(self._content_as_str())
-        content_lines = [Text(f"  {line}") for line in content_display.split("\n")]
-
-        return Group(header, *content_lines)
+        return Group(*[Text(line) for line in self._build_lines()])
 
     def render_text(self, verbosity: int = 0) -> str:
-        label = "Tool error" if self.is_error else "Tool result"
-        lines = [f"\n{self.worker_tag} {label}: {self.tool_name}"]
-        content_display = self._truncate_content(self._content_as_str())
-        lines.extend(f"  {line}" for line in content_display.split("\n"))
-        return "\n".join(lines)
+        return "\n".join(self._build_lines())
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ToolResultMessage
-
-        return ToolResultMessage(
-            self.tool_name, self._content_as_str(), self.is_error, self.worker_tag
-        )
-
-    def _truncate_content(self, text: str) -> str:
-        """Truncate content by both length and line count."""
-        if len(text) > self.MAX_RESULT_DISPLAY:
-            text = text[: self.MAX_RESULT_DISPLAY] + "..."
-        lines = text.split("\n")
-        if len(lines) > self.MAX_RESULT_LINES:
-            remaining = len(lines) - self.MAX_RESULT_LINES
-            text = "\n".join(lines[: self.MAX_RESULT_LINES]) + f"\n... ({remaining} more lines)"
-        return text
+        return ToolResultMessage(self.tool_name, self._content_as_str(), self.is_error, self.worker_tag)
 
 
 @dataclass
 class DeferredToolEvent(UIEvent):
     """Event emitted for deferred (async) tool status updates."""
-
     tool_name: str = ""
     status: str = ""
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.text import Text
-
-        status_style = {
-            "pending": "dim",
-            "running": "yellow",
-            "complete": "green",
-            "error": "red",
-        }.get(self.status, "")
-
-        return (
-            Text("  Deferred tool '")
-            + Text(self.tool_name, style="yellow")
-            + Text("': ")
-            + Text(self.status, style=status_style)
-        )
+        return Text(self.render_text(verbosity) or "")
 
     def render_text(self, verbosity: int = 0) -> str:
         return f"  Deferred tool '{self.tool_name}': {self.status}"
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import StatusMessage
-
-        return StatusMessage(f"Deferred tool '{self.tool_name}': {self.status}")
+        return StatusMessage(self.render_text())
 
 
 @dataclass
@@ -387,28 +264,18 @@ class CompletionEvent(UIEvent):
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
         from rich.text import Text
-
-        if verbosity >= 1:
-            return (
-                Text(f"{self.worker_tag} ", style="dim")
-                + Text("[OK] Complete", style="green")
-            )
-        return None
+        return Text(self.render_text(verbosity) or "") if verbosity >= 1 else None
 
     def render_text(self, verbosity: int = 0) -> str | None:
-        if verbosity >= 1:
-            return f"{self.worker_tag} [OK] Complete"
-        return None
+        return f"{self.worker_tag} [OK] Complete" if verbosity >= 1 else None
 
     def create_widget(self) -> "Widget | None":
-        # Completion is handled at app level
         return None
 
 
 @dataclass
 class ErrorEvent(UIEvent):
     """Event emitted when an error occurs."""
-
     message: str = ""
     error_type: str = ""
     traceback: str | None = None
@@ -416,7 +283,6 @@ class ErrorEvent(UIEvent):
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.panel import Panel
         from rich.text import Text
-
         content = Text(self.message, style="red")
         if verbosity >= 2 and self.traceback:
             content.append(f"\n\n{self.traceback}", style="dim red")
@@ -430,14 +296,12 @@ class ErrorEvent(UIEvent):
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ErrorMessage
-
         return ErrorMessage(self.message, self.error_type)
 
 
 @dataclass
 class ApprovalRequestEvent(UIEvent):
     """Event emitted when tool requires user approval."""
-
     tool_name: str = ""
     reason: str = ""
     args: dict[str, Any] = field(default_factory=dict)
@@ -448,24 +312,16 @@ class ApprovalRequestEvent(UIEvent):
 
         from rich.panel import Panel
         from rich.text import Text
-
-        content = Text()
-        content.append(f"Tool: {self.tool_name}\n", style="bold red")
+        content = Text(f"Tool: {self.tool_name}\n", style="bold red")
         if self.reason:
             content.append(f"Reason: {self.reason}\n\n")
         if self.args:
-            content.append("Arguments:\n")
-            content.append(json.dumps(self.args, indent=2))
-
+            content.append(f"Arguments:\n{json.dumps(self.args, indent=2)}")
         return Panel(content, title="APPROVAL REQUIRED", border_style="red")
 
     def render_text(self, verbosity: int = 0) -> str:
         import json
-
-        lines = [
-            "APPROVAL REQUIRED",
-            f"    Tool: {self.tool_name}",
-        ]
+        lines = ["APPROVAL REQUIRED", f"    Tool: {self.tool_name}"]
         if self.reason:
             lines.append(f"    Reason: {self.reason}")
         if self.args:

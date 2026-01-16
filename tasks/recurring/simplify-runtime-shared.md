@@ -1,6 +1,6 @@
-# Simplify: runtime/runner.py
+# Simplify: runtime/shared.py
 
-Periodic simplification review of `llm_do/runtime/runner.py`.
+Periodic simplification review of `llm_do/runtime/shared.py`.
 
 ## Context Gathering
 
@@ -14,17 +14,17 @@ Focus analysis on the target module, but use imported code to spot simplificatio
 
 Analyze for:
 1. **Redundant validation** - Checks already handled by dependencies
-2. **Unused flexibility** - Options/config never actually used
-3. **Redundant parameters** - Values accessible via other parameters
-4. **Duplicated derived values** - Same computed value in multiple places
-5. **Over-specified interfaces** - Multiple primitives when one object would do
+2. **Over-specified interfaces** - Multiple primitives when one object would do
+3. **Unused flexibility** - Options/config never actually used
+4. **Redundant parameters** - Values accessible via other parameters
+5. **Duplicated derived values** - Same computed value in multiple places
 
 Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Output
 
-`docs/notes/reviews/simplify-runtime-runner.md`
+`docs/notes/reviews/simplify-runtime-shared.md`
 
 ## Last Run
 
-2026-01
+2026-01 (renamed from runner.py task after runner.py removal)

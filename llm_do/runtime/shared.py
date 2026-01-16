@@ -8,11 +8,11 @@ import threading
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Sequence
+from typing import TYPE_CHECKING, Any, AsyncIterator, Sequence, cast
 
 from pydantic_ai.usage import RunUsage
 
-from ..models import NULL_MODEL, NoModelError
+from ..models import NULL_MODEL
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .call import CallConfig, CallFrame
 from .contracts import Entry, EventCallback, MessageLogCallback, ModelType
@@ -225,6 +225,29 @@ class Runtime:
         input_args = ensure_worker_args(invocable.schema_in, input_data)
         prompt_spec = input_args.prompt_spec()
 
+        # Shared setup to keep Worker and EntryFunction invocation paths aligned.
+        def _build_entry_context(
+            entry: Entry,
+            *,
+            model: ModelType,
+            active_toolsets: list[Any] | None = None,
+        ) -> WorkerRuntime:
+            frame = self._build_entry_frame(
+                entry,
+                model=model,
+                message_history=message_history,
+                active_toolsets=active_toolsets,
+            )
+            frame.prompt = prompt_spec.text
+            ctx = WorkerRuntime(runtime=self, frame=frame)
+
+            if self._config.on_event is not None:
+                self._config.on_event(
+                    UserMessageEvent(worker=entry.name, content=prompt_spec.text)
+                )
+
+            return ctx
+
         if isinstance(invocable, EntryFunction):
             toolset_context = invocable.toolset_context or ToolsetBuildContext(
                 worker_name=invocable.name,
@@ -235,43 +258,24 @@ class Runtime:
                 approval_callback=self._config.approval_callback,
                 return_permission_errors=self._config.return_permission_errors,
             ) as (_raw_toolsets, wrapped_toolsets):
-                frame = self._build_entry_frame(
+                ctx = _build_entry_context(
                     invocable,
                     model=NULL_MODEL,
-                    message_history=message_history,
                     active_toolsets=wrapped_toolsets,
                 )
-                frame.prompt = prompt_spec.text
-                ctx = WorkerRuntime(runtime=self, frame=frame)
-
-                if self._config.on_event is not None:
-                    self._config.on_event(
-                        UserMessageEvent(worker=invocable.name, content=prompt_spec.text)
-                    )
 
                 # Entry functions are trusted code but still run in the tool plane.
                 result = await invocable.call(input_args, ctx)
                 return result, ctx
 
         if isinstance(invocable, Worker):
-            if invocable.model is None:
-                raise NoModelError(
-                    f"Worker '{invocable.name}' has no resolved model; "
-                    "set worker.model or LLM_DO_MODEL env var."
-                )
-            frame = self._build_entry_frame(
+            # Worker.model is resolved during __post_init__; None is a programmer error.
+            resolved_model = cast(ModelType, invocable.model)
+            ctx = _build_entry_context(
                 invocable,
-                model=invocable.model,
-                message_history=message_history,
+                model=resolved_model,
                 active_toolsets=[],
             )
-            frame.prompt = prompt_spec.text
-            ctx = WorkerRuntime(runtime=self, frame=frame)
-
-            if self._config.on_event is not None:
-                self._config.on_event(
-                    UserMessageEvent(worker=invocable.name, content=prompt_spec.text)
-                )
 
             result = await ctx._execute(invocable, input_args)
             return result, ctx

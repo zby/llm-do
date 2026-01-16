@@ -553,6 +553,8 @@ class Worker:
 
         # model is guaranteed non-None after __post_init__ (select_model raises if missing)
         resolved_model = self.model
+        if resolved_model is None:
+            raise RuntimeError("Worker model is not set")
 
         toolset_context = self._resolve_toolset_context()
         async with build_tool_plane(

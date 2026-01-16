@@ -289,7 +289,7 @@ async def run_tui(
             message_history=message_history,
         )
         result_holder[:] = [result]
-        return list(ctx.messages)
+        return list(ctx.frame.messages)
 
     async def run_with_input(
         input_data: Any,

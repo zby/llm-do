@@ -1,7 +1,7 @@
 # Simplify runtime/registry refactor
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [ ] none
@@ -61,7 +61,7 @@ Deprecated: override syntax removed for now. See backlog task for reintroduction
 - [x] Replace incremental `entries` building with a `reserved_names` set and
       build the final entries map once.
 - [x] Remove override-related tests; add/adjust tests for merge conflicts.
-- [ ] Run ruff, mypy, pytest.
+- [x] Run ruff, mypy, pytest.
 
 ## Current State
 Override support removed (config helpers + `set_overrides` plumbing), registry

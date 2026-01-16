@@ -18,12 +18,13 @@ Reduce duplication in discovery helpers and UI event truncation logic without ch
   - Pattern 9: Extract shared truncation logic into module-level helpers to avoid duplicated methods.
 - How to verify / reproduce:
   - `uv run pytest tests/test_display_backends.py`
+  - `uv run pytest tests/runtime/test_discovery.py`
 
 ## Decision Record
-- Decision: prefer small shared helpers for duplicated logic, keep existing behavior.
-- Inputs: toolset discovery has special error handling; UI truncation logic is duplicated.
-- Options: leave as-is vs extract small helpers.
-- Outcome: add helper in discovery, module-level truncation helpers in UI events.
+- Decision: prefer small shared helpers for duplicated logic; behavior changes are acceptable if tested and verified.
+- Inputs: toolset discovery has special error handling; UI truncation logic is duplicated; behavior changes OK if acceptable.
+- Options: leave as-is vs extract small helpers; keep existing behavior vs adjust behavior with updated tests.
+- Outcome: add helper in discovery, module-level truncation helpers in UI events; update tests if behavior changes.
 - Follow-ups: none.
 
 ## Tasks
@@ -32,9 +33,11 @@ Reduce duplication in discovery helpers and UI event truncation logic without ch
 - [ ] Add module-level `_truncate(text, max_len)` and `_truncate_content(text, max_len, max_lines)` helpers in ui/events.
 - [ ] Update InitialRequestEvent and ToolCallEvent to use shared `_truncate`.
 - [ ] Update ToolResultEvent to use `_truncate_content`.
+- [ ] Add/adjust tests if helper behavior changes (discovery order/coverage, truncation format).
 
 ## Current State
-Not started.
+Task updated with behavior-change/testing guidance; implementation not started.
 
 ## Notes
 - Avoid double `getattr` in the discovery helper to prevent side effects.
+- Behavior changes are acceptable if they are deliberate and covered by tests.

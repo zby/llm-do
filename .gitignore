@@ -143,3 +143,6 @@ examples/approvals_demo/notes/
 examples/pitchdeck_eval/evaluations/
 
 pydantic_ai_blocking_approval
+
+# Ralph loop logs (local state)
+ralph-logs/

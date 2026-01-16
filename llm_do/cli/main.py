@@ -308,6 +308,7 @@ def main() -> int:
         outcome = asyncio.run(run_tui(
             input=input_data,
             entry_factory=entry_factory,
+            project_root=manifest_dir,
             approval_mode=manifest.runtime.approval_mode,
             verbosity=tui_verbosity,
             return_permission_errors=True,
@@ -341,6 +342,7 @@ def main() -> int:
     outcome = asyncio.run(run_headless(
         input=input_data,
         entry_factory=entry_factory,
+        project_root=manifest_dir,
         approval_mode=manifest.runtime.approval_mode,
         verbosity=args.verbose,
         return_permission_errors=manifest.runtime.return_permission_errors,

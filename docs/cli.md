@@ -135,6 +135,9 @@ The manifest can provide default input via `entry.input`. CLI input (prompt or
 
 If `allow_cli_input` is false and a prompt is provided, the CLI exits with an error.
 
+Attachment paths in worker inputs are resolved relative to the manifest directory (the project root)
+unless they are absolute paths.
+
 ## Approvals
 
 Approvals are configured in the manifest via `runtime.approval_mode`:

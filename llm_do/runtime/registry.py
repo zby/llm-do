@@ -22,7 +22,7 @@ from .args import WorkerArgs
 from .contracts import Entry
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
-from .worker import Worker, WorkerToolset
+from .worker import Worker
 from .worker_file import (
     WorkerDefinition,
     build_worker_definition,
@@ -241,16 +241,10 @@ def _build_registry_and_entry_name(
 
     entry_name = entry_func_name or entry_worker_names[0]
 
-    def _worker_toolset_spec(worker: Worker) -> ToolsetSpec:
-        def factory(_ctx: ToolsetBuildContext) -> WorkerToolset:
-            return WorkerToolset(worker)
-
-        return ToolsetSpec(factory=factory)
-
     # Second pass: resolve toolset specs and fill in worker stubs
     # Workers are wrapped in WorkerToolset to expose them as tools
     available_workers = {
-        name: _worker_toolset_spec(spec.stub) for name, spec in worker_specs.items()
+        name: spec.stub.as_toolset_spec() for name, spec in worker_specs.items()
     }
 
     for spec in worker_specs.values():
@@ -312,7 +306,6 @@ def _build_registry_and_entry_name(
                 available_toolsets=all_available_toolsets,
             )
             entry_func.resolve_toolsets(all_available_toolsets, toolset_context)
-            entry_func.toolset_context = toolset_context
 
     return EntryRegistry(entries=entries), entry_name
 

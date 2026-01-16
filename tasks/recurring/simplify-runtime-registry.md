@@ -27,4 +27,4 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Last Run
 
-2026-01 (redundant maps/assignments, extra conflict check)
+2026-01 (worker toolset spec helper, entry parsing, toolset context redundancy)

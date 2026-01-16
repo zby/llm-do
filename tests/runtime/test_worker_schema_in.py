@@ -28,7 +28,7 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
         schema_in=TopicInput,
     )
     ctx = build_runtime_context(toolsets=[], model="test")
-    run_ctx = ctx._make_run_context(worker.name, "test", ctx)
+    run_ctx = ctx._make_run_context(worker.name)
 
     toolset = worker.as_toolset_spec().factory(
         ToolsetBuildContext(worker_name=worker.name)
@@ -50,7 +50,7 @@ async def test_worker_tool_description_prefers_description() -> None:
         description="Short tool summary.",
     )
     ctx = build_runtime_context(toolsets=[], model="test")
-    run_ctx = ctx._make_run_context(worker.name, "test", ctx)
+    run_ctx = ctx._make_run_context(worker.name)
 
     toolset = worker.as_toolset_spec().factory(
         ToolsetBuildContext(worker_name=worker.name)

@@ -15,7 +15,7 @@ from .approval import (
 )
 from .args import PromptSpec, WorkerArgs, WorkerInput
 from .contracts import Entry, EventCallback, ModelType
-from .deps import ToolsProxy, WorkerRuntime
+from .deps import WorkerRuntime
 from .discovery import (
     discover_entries_from_module,
     discover_toolsets_from_module,
@@ -52,7 +52,6 @@ __all__ = [
     # Runtime
     "Runtime",
     "WorkerRuntime",
-    "ToolsProxy",
     "Entry",
     "ModelType",
     "EventCallback",

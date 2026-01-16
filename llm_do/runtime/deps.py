@@ -10,7 +10,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
-from .args import WorkerArgs, ensure_worker_args
+from .args import WorkerArgs
 from .call import CallFrame
 from .contracts import ModelType, WorkerRuntimeProtocol
 from .events import ToolCallEvent, ToolResultEvent
@@ -88,8 +88,6 @@ class WorkerRuntime:
         args = input_data
         if isinstance(args, BaseModel):
             args = args.model_dump()
-        from .worker import WorkerToolset
-
         validator = tool.args_validator
         if isinstance(args, (str, bytes, bytearray)):
             json_input = args if args else "{}"
@@ -98,8 +96,6 @@ class WorkerRuntime:
                 allow_partial="off",
                 context=run_ctx.validation_context,
             )
-            if isinstance(toolset, WorkerToolset):
-                return ensure_worker_args(toolset.worker.schema_in, validated)
             return validated
 
         if args is None:
@@ -109,8 +105,6 @@ class WorkerRuntime:
             allow_partial="off",
             context=run_ctx.validation_context,
         )
-        if isinstance(toolset, WorkerToolset):
-            return ensure_worker_args(toolset.worker.schema_in, validated)
         return validated
 
     def spawn_child(

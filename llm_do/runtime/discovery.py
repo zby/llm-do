@@ -5,7 +5,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Iterable
+from typing import Iterable, TypeVar
 
 from pydantic_ai.toolsets import AbstractToolset
 
@@ -25,8 +25,18 @@ def load_module(path: str | Path) -> ModuleType:
     return module
 
 
-def _discover_from_module(module: ModuleType, target_type: type) -> list:
-    return [getattr(module, name) for name in dir(module) if not name.startswith("_") and isinstance(getattr(module, name), target_type)]
+T = TypeVar("T")
+
+
+def _discover_from_module(module: ModuleType, target_type: type[T]) -> list[T]:
+    discovered: list[T] = []
+    for name in dir(module):
+        if name.startswith("_"):
+            continue
+        obj = getattr(module, name)
+        if isinstance(obj, target_type):
+            discovered.append(obj)
+    return discovered
 
 
 def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetSpec]:

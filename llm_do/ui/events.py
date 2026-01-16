@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from pydantic_ai_blocking_approval import ApprovalRequest
     from rich.console import RenderableType
+    from rich.text import Text
     from textual.widget import Widget
 
 
@@ -19,6 +20,21 @@ def _truncate_lines(text: str, max_len: int, max_lines: int) -> str:
     text = text[:max_len] + "..." if len(text) > max_len else text
     lines = text.split("\n")
     return "\n".join(lines[:max_lines]) + f"\n... ({len(lines) - max_lines} more lines)" if len(lines) > max_lines else text
+
+
+def _rich_text(*parts: tuple[str, str | None]) -> "Text":
+    from rich.text import Text
+    text = Text()
+    for content, style in parts:
+        if style:
+            text.append(content, style=style)
+        else:
+            text.append(content)
+    return text
+
+
+def _rich_label_value(label: str, value: str, label_style: str = "dim") -> "Text":
+    return _rich_text((label, label_style), (value, None))
 
 
 @dataclass
@@ -51,20 +67,33 @@ class InitialRequestEvent(UIEvent):
     MAX_INPUT_DISPLAY: ClassVar[int] = 200
     MAX_INSTRUCTIONS_DISPLAY: ClassVar[int] = 400
 
+    def _detail_items(self) -> list[tuple[str, str]]:
+        items: list[tuple[str, str]] = []
+        if self.instructions:
+            items.append(
+                (
+                    "Instructions",
+                    _truncate(self.instructions, self.MAX_INSTRUCTIONS_DISPLAY),
+                )
+            )
+        if self.user_input:
+            items.append(("Prompt", _truncate(self.user_input, self.MAX_INPUT_DISPLAY)))
+        if self.attachments:
+            items.append(("Attachments", ", ".join(self.attachments)))
+        return items
+
     def _build_lines(self) -> list[str]:
         lines = [f"{self.worker_tag} Starting..."]
-        if self.instructions:
-            lines.append(f"  Instructions: {_truncate(self.instructions, self.MAX_INSTRUCTIONS_DISPLAY)}")
-        if self.user_input:
-            lines.append(f"  Prompt: {_truncate(self.user_input, self.MAX_INPUT_DISPLAY)}")
-        if self.attachments:
-            lines.append(f"  Attachments: {', '.join(self.attachments)}")
+        for label, value in self._detail_items():
+            lines.append(f"  {label}: {value}")
         return lines
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
-        from rich.text import Text
-        return Group(*[Text(line) for line in self._build_lines()])
+        parts = [_rich_text((f"{self.worker_tag} ", "bold cyan"), ("Starting...", None))]
+        for label, value in self._detail_items():
+            parts.append(_rich_label_value(f"  {label}: ", value))
+        return Group(*parts)
 
     def render_text(self, verbosity: int = 0) -> str:
         return "\n".join(self._build_lines())
@@ -93,9 +122,14 @@ class StatusEvent(UIEvent):
         return "".join(parts)
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
-        from rich.text import Text
-        text = self._format()
-        return Text(text, style="dim") if text else None
+        if not self.phase:
+            return None
+        text = _rich_text((f"{self.worker_tag} ", "dim"), (f"{self.phase} {self.state}", None))
+        if self.model:
+            text.append(f" ({self.model})", style="dim")
+        if self.duration_sec is not None:
+            text.append(f" [{self.duration_sec:.2f}s]", style="dim")
+        return text
 
     def render_text(self, verbosity: int = 0) -> str | None:
         return self._format()
@@ -183,16 +217,30 @@ class ToolCallEvent(UIEvent):
     args_json: str = ""
     MAX_ARGS_DISPLAY: ClassVar[int] = 400
 
+    def _args_display(self) -> str | None:
+        if not (self.args or self.args_json):
+            return None
+        return _truncate(self.args_json or str(self.args), self.MAX_ARGS_DISPLAY)
+
     def _build_lines(self) -> list[str]:
         lines = [f"\n{self.worker_tag} Tool call: {self.tool_name}"]
-        if self.args or self.args_json:
-            lines.append(f"  Args: {_truncate(self.args_json or str(self.args), self.MAX_ARGS_DISPLAY)}")
+        args_display = self._args_display()
+        if args_display:
+            lines.append(f"  Args: {args_display}")
         return lines
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
-        from rich.text import Text
-        return Group(*[Text(line) for line in self._build_lines()])
+        header = _rich_text(
+            (f"\n{self.worker_tag} ", "bold yellow"),
+            ("Tool call: ", None),
+            (self.tool_name, "yellow"),
+        )
+        parts = [header]
+        args_display = self._args_display()
+        if args_display:
+            parts.append(_rich_label_value("  Args: ", args_display))
+        return Group(*parts)
 
     def render_text(self, verbosity: int = 0) -> str:
         return "\n".join(self._build_lines())
@@ -221,16 +269,31 @@ class ToolResultEvent(UIEvent):
         except (TypeError, ValueError):
             return str(self.content)
 
+    def _content_lines(self) -> list[str]:
+        return _truncate_lines(
+            self._content_as_str(),
+            self.MAX_RESULT_DISPLAY,
+            self.MAX_RESULT_LINES,
+        ).split("\n")
+
     def _build_lines(self) -> list[str]:
         label = "Tool error" if self.is_error else "Tool result"
         lines = [f"\n{self.worker_tag} {label}: {self.tool_name}"]
-        lines.extend(f"  {line}" for line in _truncate_lines(self._content_as_str(), self.MAX_RESULT_DISPLAY, self.MAX_RESULT_LINES).split("\n"))
+        lines.extend(f"  {line}" for line in self._content_lines())
         return lines
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
-        from rich.text import Text
-        return Group(*[Text(line) for line in self._build_lines()])
+        style = "red" if self.is_error else "blue"
+        label = "Tool error" if self.is_error else "Tool result"
+        header = _rich_text(
+            (f"\n{self.worker_tag} ", f"bold {style}"),
+            (f"{label}: ", None),
+            (self.tool_name, style),
+        )
+        parts = [header]
+        parts.extend(_rich_text((f"  {line}", None)) for line in self._content_lines())
+        return Group(*parts)
 
     def render_text(self, verbosity: int = 0) -> str:
         return "\n".join(self._build_lines())
@@ -247,8 +310,18 @@ class DeferredToolEvent(UIEvent):
     status: str = ""
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
-        from rich.text import Text
-        return Text(self.render_text(verbosity) or "")
+        status_style = {
+            "pending": "dim",
+            "running": "yellow",
+            "complete": "green",
+            "error": "red",
+        }.get(self.status, "")
+        return _rich_text(
+            ("  Deferred tool '", None),
+            (self.tool_name, "yellow"),
+            ("': ", None),
+            (self.status, status_style),
+        )
 
     def render_text(self, verbosity: int = 0) -> str:
         return f"  Deferred tool '{self.tool_name}': {self.status}"
@@ -263,8 +336,9 @@ class CompletionEvent(UIEvent):
     """Event emitted when worker completes successfully."""
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
-        from rich.text import Text
-        return Text(self.render_text(verbosity) or "") if verbosity >= 1 else None
+        if verbosity >= 1:
+            return _rich_text((f"{self.worker_tag} ", "dim"), ("[OK] Complete", "green"))
+        return None
 
     def render_text(self, verbosity: int = 0) -> str | None:
         return f"{self.worker_tag} [OK] Complete" if verbosity >= 1 else None

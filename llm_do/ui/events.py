@@ -5,21 +5,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from .formatting import truncate_lines, truncate_text
+
 if TYPE_CHECKING:
     from pydantic_ai_blocking_approval import ApprovalRequest
     from rich.console import RenderableType
     from rich.text import Text
     from textual.widget import Widget
-
-
-def _truncate(text: str, max_len: int) -> str:
-    return text[:max_len] + "..." if len(text) > max_len else text
-
-
-def _truncate_lines(text: str, max_len: int, max_lines: int) -> str:
-    text = text[:max_len] + "..." if len(text) > max_len else text
-    lines = text.split("\n")
-    return "\n".join(lines[:max_lines]) + f"\n... ({len(lines) - max_lines} more lines)" if len(lines) > max_lines else text
 
 
 def _rich_text(*parts: tuple[str, str | None]) -> "Text":
@@ -73,11 +65,11 @@ class InitialRequestEvent(UIEvent):
             items.append(
                 (
                     "Instructions",
-                    _truncate(self.instructions, self.MAX_INSTRUCTIONS_DISPLAY),
+                    truncate_text(self.instructions, self.MAX_INSTRUCTIONS_DISPLAY),
                 )
             )
         if self.user_input:
-            items.append(("Prompt", _truncate(self.user_input, self.MAX_INPUT_DISPLAY)))
+            items.append(("Prompt", truncate_text(self.user_input, self.MAX_INPUT_DISPLAY)))
         if self.attachments:
             items.append(("Attachments", ", ".join(self.attachments)))
         return items
@@ -100,7 +92,7 @@ class InitialRequestEvent(UIEvent):
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import StatusMessage
-        return StatusMessage(f"Starting: {_truncate(self.user_input, 100)}")
+        return StatusMessage(f"Starting: {truncate_text(self.user_input, 100)}")
 
 
 @dataclass
@@ -220,7 +212,7 @@ class ToolCallEvent(UIEvent):
     def _args_display(self) -> str | None:
         if not (self.args or self.args_json):
             return None
-        return _truncate(self.args_json or str(self.args), self.MAX_ARGS_DISPLAY)
+        return truncate_text(self.args_json or str(self.args), self.MAX_ARGS_DISPLAY)
 
     def _build_lines(self) -> list[str]:
         lines = [f"\n{self.worker_tag} Tool call: {self.tool_name}"]
@@ -270,7 +262,7 @@ class ToolResultEvent(UIEvent):
             return str(self.content)
 
     def _content_lines(self) -> list[str]:
-        return _truncate_lines(
+        return truncate_lines(
             self._content_as_str(),
             self.MAX_RESULT_DISPLAY,
             self.MAX_RESULT_LINES,

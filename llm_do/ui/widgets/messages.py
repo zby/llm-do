@@ -8,7 +8,8 @@ from pydantic_ai_blocking_approval import ApprovalRequest
 from textual.containers import ScrollableContainer
 from textual.widgets import Static
 
-from llm_do.ui.events import ToolCallEvent, ToolResultEvent, _truncate
+from llm_do.ui.events import ToolCallEvent, ToolResultEvent
+from llm_do.ui.formatting import truncate_lines, truncate_text
 
 if TYPE_CHECKING:
     from llm_do.ui.events import UIEvent
@@ -126,7 +127,7 @@ class ToolCallMessage(BaseMessage):
                 args_str = json.dumps(args, indent=2, default=str)
             else:
                 args_str = str(args)
-            args_str = _truncate(args_str, ToolCallEvent.MAX_ARGS_DISPLAY)
+            args_str = truncate_text(args_str, ToolCallEvent.MAX_ARGS_DISPLAY)
             lines.append(f"Args: {args_str}")
 
         return "\n".join(lines)
@@ -173,14 +174,21 @@ class ToolResultMessage(BaseMessage):
             lines = [f"{label}: {self._tool_name}"]
 
         max_len = ToolResultEvent.MAX_RESULT_DISPLAY
+        max_lines = ToolResultEvent.MAX_RESULT_LINES
         if isinstance(self._result, str):
-            lines.append(_truncate(self._result, max_len))
+            lines.append(truncate_lines(self._result, max_len, max_lines))
         elif hasattr(self._result, "content"):
             content = self._result.content
             if isinstance(content, str):
-                lines.append(_truncate(content, max_len))
+                lines.append(truncate_lines(content, max_len, max_lines))
             else:
-                lines.append(_truncate(json.dumps(content, indent=2, default=str), max_len))
+                lines.append(
+                    truncate_lines(
+                        json.dumps(content, indent=2, default=str),
+                        max_len,
+                        max_lines,
+                    )
+                )
         return "\n".join(lines)
 
 

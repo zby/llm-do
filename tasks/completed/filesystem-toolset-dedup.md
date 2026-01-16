@@ -26,14 +26,14 @@ Deduplicate filesystem tool construction and simplify approval logic, prioritizi
 - Follow-ups: none.
 
 ## Tasks
-- [ ] Add a `_make_tool(name, desc, args_cls)` helper to build ToolsetTool instances.
-- [ ] Refactor get_tools to use the helper; update descriptions if clarity improves.
-- [ ] Simplify needs_approval with a single branch for read/write; decide default for unknown tools.
-- [ ] Add a regression test that verifies `needs_approval_from_config` short-circuits for blocked/pre_approved in filesystem tools.
-- [ ] Double-check ReadOnlyFileSystemToolset behavior remains coherent (write_file blocked).
+- [x] Add a `_make_tool(name, desc, args_cls)` helper to build ToolsetTool instances.
+- [x] Refactor get_tools to use the helper; update descriptions if clarity improves.
+- [x] Simplify needs_approval with a single branch for read/write; decide default for unknown tools.
+- [x] Add a regression test that verifies `needs_approval_from_config` short-circuits for blocked/pre_approved in filesystem tools.
+- [x] Double-check ReadOnlyFileSystemToolset behavior remains coherent (write_file blocked).
 
 ## Current State
-Constraints relaxed to allow behavior changes; implementation not started.
+Implementation complete: filesystem tool creation deduped, approval logic simplified with unknown tools requiring approval, and regression tests added. Checks pending.
 
 ## Notes
 - Approval logic should remain coherent (list_files as read, write_file as write) unless a better model emerges.

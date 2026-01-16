@@ -145,28 +145,21 @@ class FileSystemToolset(AbstractToolset[Any]):
             ApprovalResult with status: pre_approved or needs_approval
         """
         base = needs_approval_from_config(name, config)
-        if base.is_blocked:
-            return base
-        if base.is_pre_approved:
+        if base.is_blocked or base.is_pre_approved:
             return base
 
-        if name == "read_file":
-            if self._read_approval:
-                return ApprovalResult.needs_approval()
-            return ApprovalResult.pre_approved()
+        approval_required = {
+            "read_file": self._read_approval,
+            "list_files": self._read_approval,
+            "write_file": self._write_approval,
+        }.get(name)
 
-        elif name == "write_file":
-            if self._write_approval:
-                return ApprovalResult.needs_approval()
-            return ApprovalResult.pre_approved()
+        if approval_required is None:
+            return ApprovalResult.needs_approval()
 
-        elif name == "list_files":
-            if self._read_approval:
-                return ApprovalResult.needs_approval()
-            return ApprovalResult.pre_approved()
-
-        # Unknown tool - require approval
-        return ApprovalResult.needs_approval()
+        if approval_required:
+            return ApprovalResult.needs_approval()
+        return ApprovalResult.pre_approved()
 
     def get_approval_description(
         self, name: str, tool_args: dict[str, Any], ctx: Any
@@ -334,54 +327,46 @@ class FileSystemToolset(AbstractToolset[Any]):
                     results.append(str(match))
         return sorted(results)
 
-    async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool[Any]]:
-        """Return the tools provided by this toolset."""
-        tools = {}
-
-        # Define tool schemas
-        read_file_schema = ReadFileArgs.model_json_schema()
-        write_file_schema = WriteFileArgs.model_json_schema()
-        list_files_schema = ListFilesArgs.model_json_schema()
-
-        # Create ToolsetTool instances
-        tools["read_file"] = ToolsetTool(
+    def _make_tool(
+        self,
+        name: str,
+        description: str,
+        args_cls: type[BaseModel],
+    ) -> ToolsetTool[Any]:
+        return ToolsetTool(
             toolset=self,
             tool_def=ToolDefinition(
+                name=name,
+                description=description,
+                parameters_json_schema=args_cls.model_json_schema(),
+            ),
+            max_retries=self._max_retries,
+            args_validator=cast(SchemaValidatorProt, DictValidator(args_cls)),
+        )
+
+    async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool[Any]]:
+        """Return the tools provided by this toolset."""
+        return {
+            "read_file": self._make_tool(
                 name="read_file",
                 description=(
                     "Read a text file. "
                     "Do not use this on binary files (PDFs, images, etc) - "
                     "pass them as attachments instead."
                 ),
-                parameters_json_schema=read_file_schema,
+                args_cls=ReadFileArgs,
             ),
-            max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, DictValidator(ReadFileArgs)),
-        )
-
-        tools["write_file"] = ToolsetTool(
-            toolset=self,
-            tool_def=ToolDefinition(
+            "write_file": self._make_tool(
                 name="write_file",
                 description="Write a text file.",
-                parameters_json_schema=write_file_schema,
+                args_cls=WriteFileArgs,
             ),
-            max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, DictValidator(WriteFileArgs)),
-        )
-
-        tools["list_files"] = ToolsetTool(
-            toolset=self,
-            tool_def=ToolDefinition(
+            "list_files": self._make_tool(
                 name="list_files",
                 description="List files in a directory matching a glob pattern.",
-                parameters_json_schema=list_files_schema,
+                args_cls=ListFilesArgs,
             ),
-            max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, DictValidator(ListFilesArgs)),
-        )
-
-        return tools
+        }
 
     async def call_tool(
         self,

@@ -27,4 +27,4 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Last Run
 
-(not yet run)
+2026-01 (pass-throughs, ToolsProxy, tool arg normalization, tool lookup pass)

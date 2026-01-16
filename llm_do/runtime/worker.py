@@ -8,7 +8,6 @@ This module provides:
 from __future__ import annotations
 
 import inspect
-import json
 from contextlib import contextmanager, nullcontext
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
@@ -488,21 +487,11 @@ class Worker:
 
         # Emit events for each tool call/result pair
         for call_id, call_part in tool_calls.items():
-            # Parse args from JSON string if needed
-            args = call_part.args
-            if isinstance(args, str):
-                try:
-                    args = json.loads(args)
-                except json.JSONDecodeError:
-                    args = {}
-            elif not isinstance(args, dict):
-                args = {}
-
             runtime.config.on_event(ToolCallEvent(
                 worker=self.name,
                 tool_name=call_part.tool_name,
                 tool_call_id=call_id,
-                args=args,
+                args_json=call_part.args_as_json_str(),
                 depth=runtime.frame.depth,
             ))
 

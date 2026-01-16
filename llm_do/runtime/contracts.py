@@ -6,7 +6,7 @@ without requiring runtime modules to import each other.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
@@ -73,10 +73,10 @@ class WorkerRuntimeProtocol(Protocol):
 
     def spawn_child(
         self,
-        active_toolsets: list[AbstractToolset[Any]] | None = None,
+        active_toolsets: Sequence[AbstractToolset[Any]],
         *,
-        model: ModelType | None = None,
-        invocation_name: str | None = None,
+        model: ModelType,
+        invocation_name: str,
     ) -> "WorkerRuntimeProtocol": ...
 
 

@@ -29,7 +29,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 
-from ..models import NoModelError, select_model
+from ..models import select_model
 from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
 from ..toolsets.attachments import AttachmentToolset
 from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
@@ -551,11 +551,7 @@ class Worker:
         if state.depth >= config.max_depth:
             raise RuntimeError(f"Max depth exceeded: {config.max_depth}")
 
-        if self.model is None:
-            raise NoModelError(
-                f"Worker '{self.name}' has no resolved model; "
-                "set worker.model or LLM_DO_MODEL env var."
-            )
+        # model is guaranteed non-None after __post_init__ (select_model raises if missing)
         resolved_model = self.model
 
         toolset_context = self._resolve_toolset_context()

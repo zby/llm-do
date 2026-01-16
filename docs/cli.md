@@ -125,8 +125,8 @@ Model resolution happens when workers are constructed:
 `compatible_models` is only checked against the env fallback at construction time.
 If you use `compatible_models`, set `LLM_DO_MODEL` to a compatible value.
 
-Workers do not inherit models from callers. Python `@entry` functions rely on
-`LLM_DO_MODEL` for tool contexts because they do not declare a model.
+Workers do not inherit models from callers. Python `@entry` functions always use
+NullModel for tool contexts (no LLM calls allowed); configure models on workers.
 
 ## Input Overrides
 

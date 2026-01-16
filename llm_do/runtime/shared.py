@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Sequence
 
 from pydantic_ai.usage import RunUsage
 
-from ..models import NoModelError, select_model
+from ..models import NULL_MODEL, NoModelError
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .call import CallConfig, CallFrame
 from .contracts import Entry, EventCallback, MessageLogCallback, ModelType
@@ -226,11 +226,6 @@ class Runtime:
         prompt_spec = input_args.prompt_spec()
 
         if isinstance(invocable, EntryFunction):
-            resolved_model = select_model(
-                worker_model=getattr(invocable, "model", None),
-                compatible_models=None,
-                worker_name=invocable.name,
-            )
             toolset_context = invocable.toolset_context or ToolsetBuildContext(
                 worker_name=invocable.name,
             )
@@ -242,7 +237,7 @@ class Runtime:
             ) as (_raw_toolsets, wrapped_toolsets):
                 frame = self._build_entry_frame(
                     invocable,
-                    model=resolved_model,
+                    model=NULL_MODEL,
                     message_history=message_history,
                     active_toolsets=wrapped_toolsets,
                 )

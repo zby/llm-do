@@ -84,8 +84,8 @@ async def main():
 - Returns both the result and the runtime context
 
 Workers resolve their model at construction (`model` in the worker definition or
-`LLM_DO_MODEL` as a fallback). `@entry` functions rely on `LLM_DO_MODEL` for tool
-contexts because they do not declare a model.
+`LLM_DO_MODEL` as a fallback). `@entry` functions use NullModel for tool contexts,
+so LLM calls are not allowed from entry functions.
 
 **Parameters:**
 

@@ -20,10 +20,14 @@ from __future__ import annotations
 import fnmatch
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import Any, List, Optional, Union
 
-if TYPE_CHECKING:
-    from pydantic_ai.models import Model
+from pydantic_ai.models import (
+    Model,
+    ModelMessage,
+    ModelRequestParameters,
+    ModelResponse,
+)
 
 # Environment variable for default model
 LLM_DO_MODEL_ENV = "LLM_DO_MODEL"
@@ -49,7 +53,32 @@ class ModelConfigError(ValueError):
     pass
 
 
-def get_model_string(model: Union[str, "Model"]) -> str:
+class NullModel(Model):
+    """Model placeholder for tool-only contexts that should never invoke an LLM."""
+
+    @property
+    def model_name(self) -> str:
+        return "null"
+
+    @property
+    def system(self) -> str:
+        return "null"
+
+    async def request(
+        self,
+        messages: list[ModelMessage],
+        model_settings: Any,
+        model_request_parameters: ModelRequestParameters,
+    ) -> ModelResponse:
+        raise RuntimeError(
+            "NullModel cannot be used for LLM calls; configure a worker model instead."
+        )
+
+
+NULL_MODEL = NullModel()
+
+
+def get_model_string(model: Union[str, Model]) -> str:
     """Get the canonical string representation of a model.
 
     For string models, returns the string as-is.
@@ -201,10 +230,10 @@ def get_env_model() -> Optional[str]:
 
 def select_model(
     *,
-    worker_model: Optional[Union[str, "Model"]],
+    worker_model: Optional[Union[str, Model]],
     compatible_models: Optional[List[str]],
     worker_name: str = "worker",
-) -> Union[str, "Model"]:
+) -> Union[str, Model]:
     """Select and validate the effective model for a worker.
 
     Resolution order (highest to lowest priority):

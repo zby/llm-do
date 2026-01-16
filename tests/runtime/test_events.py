@@ -29,7 +29,11 @@ class TestContextEventCallback:
             model="test",
             on_event=callback,
         )
-        child = ctx.spawn_child()
+        child = ctx.spawn_child(
+            active_toolsets=ctx.active_toolsets,
+            model=ctx.model,
+            invocation_name=ctx.invocation_name,
+        )
         assert child.on_event is callback
 
     def test_child_context_inherits_verbosity(self):
@@ -38,7 +42,11 @@ class TestContextEventCallback:
             model="test",
             verbosity=2,
         )
-        child = ctx.spawn_child()
+        child = ctx.spawn_child(
+            active_toolsets=ctx.active_toolsets,
+            model=ctx.model,
+            invocation_name=ctx.invocation_name,
+        )
         assert child.verbosity == 2
 
     @pytest.mark.anyio

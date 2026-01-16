@@ -1,8 +1,9 @@
 """Per-call scope for workers (config + mutable state)."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
@@ -49,20 +50,16 @@ class CallFrame:
 
     def fork(
         self,
-        active_toolsets: Optional[list[AbstractToolset[Any]]] = None,
+        active_toolsets: Sequence[AbstractToolset[Any]],
         *,
-        model: ModelType | None = None,
-        invocation_name: str | None = None,
+        model: ModelType,
+        invocation_name: str,
     ) -> "CallFrame":
         """Create child frame with incremented depth and fresh messages."""
         new_config = CallConfig(
-            active_toolsets=tuple(active_toolsets) if active_toolsets is not None else self.config.active_toolsets,
-            model=model if model is not None else self.config.model,
+            active_toolsets=tuple(active_toolsets),
+            model=model,
             depth=self.config.depth + 1,
-            invocation_name=(
-                invocation_name
-                if invocation_name is not None
-                else self.config.invocation_name
-            ),
+            invocation_name=invocation_name,
         )
         return CallFrame(config=new_config)

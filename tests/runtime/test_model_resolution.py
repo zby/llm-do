@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 import pytest
 from pydantic import BaseModel, TypeAdapter
+from pydantic_ai import Agent
 from pydantic_ai.models import Model
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext, ToolDefinition
@@ -14,7 +15,10 @@ from llm_do.models import (
     ModelCompatibilityError,
     ModelConfigError,
     NoModelError,
+    NullModel,
 )
+from llm_do.runtime import Runtime, WorkerInput, entry
+from llm_do.runtime.call import CallConfig, CallFrame
 from llm_do.runtime.worker import Worker
 from tests.runtime.helpers import build_runtime_context
 
@@ -58,8 +62,8 @@ class CaptureToolset(AbstractToolset[Any]):
 
 
 @pytest.mark.anyio
-async def test_child_context_uses_parent_model() -> None:
-    """Child context inherits model from parent when not overridden."""
+async def test_child_context_passes_model_explicitly() -> None:
+    """Child context uses the explicitly provided model."""
     toolset = CaptureToolset()
     parent_model = TestModel(custom_output_text="parent")
     ctx = build_runtime_context(
@@ -67,8 +71,12 @@ async def test_child_context_uses_parent_model() -> None:
         model=parent_model,
     )
 
-    # Spawn child without model override - should inherit parent's model
-    child = ctx.spawn_child(active_toolsets=[toolset])
+    # Spawn child with explicit model pass-through
+    child = ctx.spawn_child(
+        active_toolsets=[toolset],
+        model=parent_model,
+        invocation_name="child",
+    )
     assert child.model is parent_model
 
     # Tool call should see the inherited model (resolved to same instance)
@@ -78,7 +86,7 @@ async def test_child_context_uses_parent_model() -> None:
 
 @pytest.mark.anyio
 async def test_child_context_overrides_parent_model() -> None:
-    """Child context can override parent's model."""
+    """Child context uses the explicitly provided override model."""
     toolset = CaptureToolset()
     parent_model = TestModel(custom_output_text="parent")
     child_model = TestModel(custom_output_text="child")
@@ -88,12 +96,41 @@ async def test_child_context_overrides_parent_model() -> None:
     )
 
     # Spawn child with model override
-    child = ctx.spawn_child(active_toolsets=[toolset], model=child_model)
+    child = ctx.spawn_child(
+        active_toolsets=[toolset],
+        model=child_model,
+        invocation_name="child",
+    )
     assert child.model is child_model
 
     # Tool call should see the overridden model
     await child.call("capture", {"value": 1})
     assert toolset.seen_model is child_model
+
+
+def test_spawn_child_requires_args() -> None:
+    """spawn_child requires explicit toolsets, model, and invocation name."""
+    toolset = CaptureToolset()
+    ctx = build_runtime_context(
+        toolsets=[toolset],
+        model="test",
+        invocation_name="parent",
+    )
+    with pytest.raises(TypeError):
+        ctx.spawn_child(active_toolsets=[toolset])
+
+
+def test_callframe_fork_requires_args() -> None:
+    """CallFrame.fork requires explicit toolsets, model, and invocation name."""
+    frame = CallFrame(
+        config=CallConfig(
+            active_toolsets=tuple(),
+            model="test",
+            invocation_name="parent",
+        ),
+    )
+    with pytest.raises(TypeError):
+        frame.fork(active_toolsets=[])
 
 
 @pytest.mark.anyio
@@ -114,6 +151,42 @@ async def test_string_model_resolved_to_model_instance() -> None:
     # The model in RunContext should be a TestModel instance (resolved from "test")
     assert toolset.seen_model is not None
     assert isinstance(toolset.seen_model, TestModel)
+
+
+# --- entry function model behavior ---
+
+
+@pytest.mark.anyio
+async def test_entry_function_uses_null_model(monkeypatch) -> None:
+    """Entry functions always use NullModel, ignoring LLM_DO_MODEL."""
+    monkeypatch.setenv(LLM_DO_MODEL_ENV, "test")
+
+    @entry()
+    async def no_op(_args, _runtime):
+        return "ok"
+
+    runtime = Runtime()
+    result, ctx = await runtime.run_entry(no_op, WorkerInput(input="hi"))
+    assert result == "ok"
+    assert isinstance(ctx.model, NullModel)
+
+
+@pytest.mark.anyio
+async def test_entry_function_null_model_llm_call_raises() -> None:
+    """Using NullModel for LLM calls should fail fast."""
+    @entry()
+    async def call_llm(_args, runtime):
+        agent = Agent(
+            model=runtime.model,
+            instructions="test",
+            deps_type=type(runtime),
+        )
+        await agent.run("hi", deps=runtime)
+        return "ok"
+
+    runtime = Runtime()
+    with pytest.raises(RuntimeError, match="NullModel cannot be used"):
+        await runtime.run_entry(call_llm, WorkerInput(input="hi"))
 
 
 # --- construction-time model resolution tests ---

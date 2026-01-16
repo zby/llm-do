@@ -1,8 +1,9 @@
 """Runtime deps facade for tool execution."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from pydantic import BaseModel
 from pydantic_ai.models import Model, infer_model
@@ -193,10 +194,10 @@ class WorkerRuntime:
 
     def spawn_child(
         self,
-        active_toolsets: Optional[list[AbstractToolset[Any]]] = None,
+        active_toolsets: Sequence[AbstractToolset[Any]],
         *,
-        model: ModelType | None = None,
-        invocation_name: str | None = None,
+        model: ModelType,
+        invocation_name: str,
     ) -> "WorkerRuntime":
         """Spawn a child worker runtime with a forked CallFrame (depth+1)."""
         return WorkerRuntime(

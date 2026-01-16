@@ -357,50 +357,47 @@ class MessageContainer(ScrollableContainer):
         self.scroll_end(animate=False)
         return self._current_assistant
 
-    def add_tool_call(self, tool_name: str, tool_call: Any) -> ToolCallMessage:
-        """Add a tool call message."""
-        self._current_assistant = None  # End any streaming
-        msg = ToolCallMessage(tool_name, tool_call)
+    def _mount_message(self, msg: BaseMessage, end_streaming: bool = False) -> None:
+        """Mount a message and scroll to end."""
+        if end_streaming:
+            self._current_assistant = None
         self.mount(msg)
         self.scroll_end(animate=False)
+
+    def add_tool_call(self, tool_name: str, tool_call: Any) -> ToolCallMessage:
+        """Add a tool call message."""
+        msg = ToolCallMessage(tool_name, tool_call)
+        self._mount_message(msg, end_streaming=True)
         return msg
 
     def add_tool_result(self, tool_name: str, result: Any) -> ToolResultMessage:
         """Add a tool result message."""
-        self._current_assistant = None  # End any streaming
         msg = ToolResultMessage(tool_name, result)
-        self.mount(msg)
-        self.scroll_end(animate=False)
+        self._mount_message(msg, end_streaming=True)
         return msg
 
     def add_user_message(self, content: str) -> UserMessage:
         """Add a user message."""
-        self._current_assistant = None
         msg = UserMessage(content)
-        self.mount(msg)
-        self.scroll_end(animate=False)
+        self._mount_message(msg, end_streaming=True)
         return msg
 
     def add_status(self, text: str) -> StatusMessage:
         """Add a status message."""
         msg = StatusMessage(f"[dim]{text}[/dim]")
-        self.mount(msg)
-        self.scroll_end(animate=False)
+        self._mount_message(msg)
         return msg
 
     def add_turn_separator(self) -> TurnSeparator:
         """Add a visual separator between turns."""
         msg = TurnSeparator("─" * 48)
-        self.mount(msg)
-        self.scroll_end(animate=False)
+        self._mount_message(msg)
         return msg
 
     def add_error(self, message: str, error_type: str = "error") -> ErrorMessage:
         """Add an error message."""
-        self._current_assistant = None  # End any streaming
         msg = ErrorMessage(message, error_type)
-        self.mount(msg)
-        self.scroll_end(animate=False)
+        self._mount_message(msg, end_streaming=True)
         return msg
 
     def handle_event(self, event: "UIEvent") -> None:

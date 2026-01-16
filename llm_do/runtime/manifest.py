@@ -95,10 +95,10 @@ class ProjectManifest(BaseModel):
 
 
 def load_manifest(manifest_path: str | Path) -> tuple[ProjectManifest, Path]:
-    """Load and validate a project manifest from a JSON file.
+    """Load and validate a project manifest from a JSON file or directory.
 
     Args:
-        manifest_path: Path to the manifest JSON file
+        manifest_path: Path to the manifest JSON file or directory containing project.json
 
     Returns:
         Tuple of (validated manifest, manifest directory path)
@@ -108,6 +108,8 @@ def load_manifest(manifest_path: str | Path) -> tuple[ProjectManifest, Path]:
         ValueError: If manifest is invalid
     """
     path = Path(manifest_path).resolve()
+    if path.is_dir():
+        path = path / "project.json"
     if not path.exists():
         raise FileNotFoundError(f"Manifest file not found: {path}")
 

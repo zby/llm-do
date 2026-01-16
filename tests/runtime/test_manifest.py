@@ -239,6 +239,29 @@ class TestLoadManifest:
         with pytest.raises(ValueError, match="Invalid manifest"):
             load_manifest(manifest_file)
 
+    def test_load_from_directory(self, tmp_path):
+        """Test loading manifest by specifying directory path."""
+        manifest_data = {
+            "version": 1,
+            "runtime": {"approval_mode": "approve_all"},
+            "entry": {},
+            "worker_files": ["main.worker"],
+        }
+        manifest_file = tmp_path / "project.json"
+        manifest_file.write_text(json.dumps(manifest_data))
+
+        # Pass directory instead of file path
+        manifest, manifest_dir = load_manifest(tmp_path)
+
+        assert manifest.version == 1
+        assert manifest.runtime.approval_mode == "approve_all"
+        assert manifest_dir == tmp_path
+
+    def test_directory_without_project_json(self, tmp_path):
+        """Test loading from directory without project.json raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError, match="project.json"):
+            load_manifest(tmp_path)
+
 
 class TestResolveManifestPaths:
     """Tests for resolve_manifest_paths function."""

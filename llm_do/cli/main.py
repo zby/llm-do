@@ -2,11 +2,13 @@
 """Run an LLM worker using a manifest-driven project configuration.
 
 Usage:
+    llm-do <project-dir> [prompt]
     llm-do project.json [prompt]
     llm-do project.json --input-json '{"input": "Your prompt"}'
 
-The manifest file (JSON) specifies runtime config and file paths; the entry is
-resolved from the file set (worker marked `entry: true` or a single `@entry` function).
+The manifest path can be a JSON file or a directory containing project.json.
+The manifest specifies runtime config and file paths; the entry is resolved
+from the file set (worker marked `entry: true` or a single `@entry` function).
 CLI input (prompt or --input-json) overrides manifest entry.input when allowed.
 """
 from __future__ import annotations
@@ -171,7 +173,7 @@ def main() -> int:
     )
     parser.add_argument(
         "manifest",
-        help="Path to project manifest (JSON file)",
+        help="Path to project manifest (JSON file or directory containing project.json)",
     )
     parser.add_argument(
         "prompt",

@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import fnmatch
 import os
-from dataclasses import dataclass
 from typing import Any, List, Optional, Union
 
 from pydantic_ai.models import (
@@ -33,24 +32,24 @@ from pydantic_ai.models import (
 LLM_DO_MODEL_ENV = "LLM_DO_MODEL"
 
 
-class ModelCompatibilityError(ValueError):
+class ModelError(ValueError):
+    """Base class for model-related errors."""
+
+
+class ModelCompatibilityError(ModelError):
     """Raised when a model is incompatible with worker requirements."""
-    pass
 
 
-class NoModelError(ValueError):
+class NoModelError(ModelError):
     """Raised when no model is available for a worker."""
-    pass
 
 
-class InvalidCompatibleModelsError(ValueError):
+class InvalidCompatibleModelsError(ModelError):
     """Raised when compatible_models configuration is invalid (e.g., empty list)."""
-    pass
 
 
-class ModelConfigError(ValueError):
+class ModelConfigError(ModelError):
     """Raised when model configuration is invalid (e.g., both model and compatible_models set)."""
-    pass
 
 
 class NullModel(Model):
@@ -110,25 +109,6 @@ def get_model_string(model: Union[str, Model]) -> str:
     return f"{provider}:{model.model_name}"
 
 
-@dataclass
-class ModelValidationResult:
-    """Result of model compatibility validation."""
-
-    valid: bool
-    model: str
-    message: Optional[str] = None
-
-
-def _normalize_pattern(pattern: str) -> str:
-    """Normalize a pattern for matching."""
-    return pattern.strip().lower()
-
-
-def _normalize_model(model: str) -> str:
-    """Normalize a model identifier for matching."""
-    return model.strip().lower()
-
-
 def model_matches_pattern(model: str, pattern: str) -> bool:
     """Check if a model matches a compatibility pattern.
 
@@ -144,17 +124,17 @@ def model_matches_pattern(model: str, pattern: str) -> bool:
     Returns:
         True if the model matches the pattern
     """
-    normalized_model = _normalize_model(model)
-    normalized_pattern = _normalize_pattern(pattern)
+    normalized_model = model.strip().lower()
+    normalized_pattern = pattern.strip().lower()
     return fnmatch.fnmatch(normalized_model, normalized_pattern)
 
 
 def validate_model_compatibility(
-    model: str,
+    model: str | Model,
     compatible_models: Optional[List[str]],
     *,
     worker_name: str = "worker",
-) -> ModelValidationResult:
+) -> None:
     """Validate that a model is compatible with the worker's requirements.
 
     Compatibility rules:
@@ -168,15 +148,15 @@ def validate_model_compatibility(
         compatible_models: List of compatibility patterns from worker definition
         worker_name: Name of the worker (for error messages)
 
-    Returns:
-        ModelValidationResult indicating if the model is valid
-
     Raises:
-        ValueError: If compatible_models is an empty list (invalid configuration)
+        InvalidCompatibleModelsError: If compatible_models is an empty list
+        ModelCompatibilityError: If the model doesn't match compatible_models
     """
+    model_str = get_model_string(model)
+
     # None means any model is allowed
     if compatible_models is None:
-        return ModelValidationResult(valid=True, model=model)
+        return
 
     # Empty list is a configuration error
     if len(compatible_models) == 0:
@@ -187,39 +167,28 @@ def validate_model_compatibility(
 
     # Check if model matches any pattern
     for pattern in compatible_models:
-        if model_matches_pattern(model, pattern):
-            return ModelValidationResult(valid=True, model=model)
+        if model_matches_pattern(model_str, pattern):
+            return
 
     # No match found
     patterns_display = ", ".join(f"'{p}'" for p in compatible_models)
-    return ModelValidationResult(
-        valid=False,
-        model=model,
-        message=(
-            f"Model '{model}' is not compatible with worker '{worker_name}'. "
-            f"Compatible patterns: {patterns_display}"
-        ),
+    raise ModelCompatibilityError(
+        f"Model '{model_str}' is not compatible with worker '{worker_name}'. "
+        f"Compatible patterns: {patterns_display}"
     )
 
 
 def _validate_and_return(
-    model: Any,
+    model: Union[str, Model],
     compatible_models: Optional[List[str]],
     worker_name: str,
-) -> Any:
+) -> Union[str, Model]:
     """Validate a model against compatibility patterns and return it.
-
-    Validates both string identifiers and Model objects (via get_model_string).
 
     Raises:
         ModelCompatibilityError: If the model doesn't match compatible_models
     """
-    model_str = get_model_string(model)
-    result = validate_model_compatibility(
-        model_str, compatible_models, worker_name=worker_name
-    )
-    if not result.valid:
-        raise ModelCompatibilityError(result.message)
+    validate_model_compatibility(model, compatible_models, worker_name=worker_name)
     return model
 
 

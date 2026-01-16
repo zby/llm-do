@@ -1,7 +1,7 @@
 # Model Compatibility Exception-Only Validation
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [ ] none
@@ -30,15 +30,15 @@ Make model compatibility validation raise on mismatch (no result object), and up
 - Follow-ups: none.
 
 ## Tasks
-- [ ] Remove ModelValidationResult and any references.
-- [ ] Change validate_model_compatibility signature to accept `str | Model`, return None, and raise ModelCompatibilityError on mismatch.
-- [ ] Add ModelError base class and update model exceptions to inherit from it.
-- [ ] Inline normalization in model_matches_pattern and remove unused helpers.
-- [ ] Simplify _validate_and_return to call validate_model_compatibility and return model.
-- [ ] Update tests to use `pytest.raises(ModelCompatibilityError)` for mismatches and remove `.valid` checks.
+- [x] Remove ModelValidationResult and any references.
+- [x] Change validate_model_compatibility signature to accept `str | Model`, return None, and raise ModelCompatibilityError on mismatch.
+- [x] Add ModelError base class and update model exceptions to inherit from it.
+- [x] Inline normalization in model_matches_pattern and remove unused helpers.
+- [x] Simplify _validate_and_return to call validate_model_compatibility and return model.
+- [x] Update tests to use `pytest.raises(ModelCompatibilityError)` for mismatches and remove `.valid` checks.
 
 ## Current State
-Not started.
+Completed exception-only validation changes in `llm_do/models.py` and updated tests.
 
 ## Notes
 - Keep error messages stable where tests assert on strings.

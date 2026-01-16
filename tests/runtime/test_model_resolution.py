@@ -212,7 +212,7 @@ def test_worker_missing_model_raises(monkeypatch) -> None:
 
 def test_worker_compatible_models_rejects_env(monkeypatch) -> None:
     monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")
-    with pytest.raises(ModelCompatibilityError, match="not compatible"):
+    with pytest.raises(ModelCompatibilityError, match="incompatible"):
         Worker(
             name="anthropic-only",
             instructions="Anthropic models only.",

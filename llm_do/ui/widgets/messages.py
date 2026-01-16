@@ -8,19 +8,10 @@ from pydantic_ai_blocking_approval import ApprovalRequest
 from textual.containers import ScrollableContainer
 from textual.widgets import Static
 
-from llm_do.ui.events import ToolCallEvent, ToolResultEvent
+from llm_do.ui.events import ToolCallEvent, ToolResultEvent, _truncate
 
 if TYPE_CHECKING:
     from llm_do.ui.events import UIEvent
-
-
-_TRUNCATION_INDICATOR = "… [truncated]."
-
-
-def _truncate_text(text: str, max_len: int) -> str:
-    if len(text) <= max_len:
-        return text
-    return text[:max_len] + _TRUNCATION_INDICATOR
 
 
 class BaseMessage(Static):
@@ -135,7 +126,7 @@ class ToolCallMessage(BaseMessage):
                 args_str = json.dumps(args, indent=2, default=str)
             else:
                 args_str = str(args)
-            args_str = _truncate_text(args_str, ToolCallEvent.MAX_ARGS_DISPLAY)
+            args_str = _truncate(args_str, ToolCallEvent.MAX_ARGS_DISPLAY)
             lines.append(f"Args: {args_str}")
 
         return "\n".join(lines)
@@ -175,33 +166,21 @@ class ToolResultMessage(BaseMessage):
 
     def _format_result(self) -> str:
         """Format tool result for display."""
-        if self._is_error:
-            label = "Tool error"
-        else:
-            label = "Tool result"
+        label = "Tool error" if self._is_error else "Tool result"
         if self._worker_tag:
             lines = [f"{self._worker_tag} {label}: {self._tool_name}"]
         else:
             lines = [f"{label}: {self._tool_name}"]
 
-        # Handle both string results and objects with .content attribute
         max_len = ToolResultEvent.MAX_RESULT_DISPLAY
         if isinstance(self._result, str):
-            content = self._result
-            if len(content) > max_len:
-                content = content[:max_len] + _TRUNCATION_INDICATOR
-            lines.append(content)
+            lines.append(_truncate(self._result, max_len))
         elif hasattr(self._result, "content"):
             content = self._result.content
             if isinstance(content, str):
-                # Truncate long results
-                if len(content) > max_len:
-                    content = content[:max_len] + _TRUNCATION_INDICATOR
-                lines.append(content)
+                lines.append(_truncate(content, max_len))
             else:
-                content_str = json.dumps(content, indent=2, default=str)
-                lines.append(_truncate_text(content_str, max_len))
-
+                lines.append(_truncate(json.dumps(content, indent=2, default=str), max_len))
         return "\n".join(lines)
 
 

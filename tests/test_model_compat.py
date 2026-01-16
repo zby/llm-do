@@ -133,7 +133,7 @@ class TestSelectModel:
 
     def test_env_model_incompatible_raises(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")
-        with pytest.raises(ModelCompatibilityError, match="not compatible"):
+        with pytest.raises(ModelCompatibilityError, match="incompatible"):
             select_model(
                 worker_model=None,
                 compatible_models=["anthropic:*"],
@@ -202,7 +202,7 @@ class TestEnvVarModel:
 
     def test_env_var_incompatible_raises(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")
-        with pytest.raises(ModelCompatibilityError, match="not compatible"):
+        with pytest.raises(ModelCompatibilityError, match="incompatible"):
             select_model(
                 worker_model=None,
                 compatible_models=["anthropic:*"],

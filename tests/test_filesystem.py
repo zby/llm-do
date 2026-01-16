@@ -48,3 +48,16 @@ def test_needs_approval_short_circuits_pre_approved(monkeypatch) -> None:
     )
 
     assert result.is_pre_approved
+
+
+def test_needs_approval_unknown_tool_requires_approval() -> None:
+    toolset = filesystem_module.FileSystemToolset(config={"read_approval": False, "write_approval": False})
+
+    result = toolset.needs_approval(
+        "unknown_tool",
+        {"path": "example.txt"},
+        None,
+        config=None,
+    )
+
+    assert result.is_needs_approval

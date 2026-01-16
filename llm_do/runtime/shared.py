@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 async def cleanup_toolsets(toolsets: Sequence[Any]) -> None:
-    """Run cleanup hooks on toolsets, ignoring errors."""
     for toolset in toolsets:
         cleanup = getattr(toolset, "cleanup", None)
         if cleanup is None:
@@ -42,31 +42,21 @@ async def cleanup_toolsets(toolsets: Sequence[Any]) -> None:
 
 @asynccontextmanager
 async def build_tool_plane(
-    *,
-    toolset_specs: Sequence["ToolsetSpec"],
-    toolset_context: "ToolsetBuildContext",
-    approval_callback: ApprovalCallback,
-    return_permission_errors: bool,
+    *, toolset_specs: Sequence["ToolsetSpec"], toolset_context: "ToolsetBuildContext",
+    approval_callback: ApprovalCallback, return_permission_errors: bool,
 ) -> AsyncIterator[tuple[list["AbstractToolset[Any]"], list["AbstractToolset[Any]"]]]:
     """Instantiate and approval-wrap toolsets for a single invocation."""
     from ..toolsets.loader import instantiate_toolsets
     from .approval import wrap_toolsets_for_approval
-
     toolsets = instantiate_toolsets(toolset_specs, toolset_context)
     try:
-        wrapped_toolsets = wrap_toolsets_for_approval(
-            toolsets,
-            approval_callback,
-            return_permission_errors=return_permission_errors,
-        )
-        yield toolsets, wrapped_toolsets
+        yield toolsets, wrap_toolsets_for_approval(toolsets, approval_callback, return_permission_errors=return_permission_errors)
     finally:
         await cleanup_toolsets(toolsets)
 
 
 class UsageCollector:
     """Thread-safe sink for RunUsage objects."""
-
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._usages: list[RunUsage] = []
@@ -83,74 +73,55 @@ class UsageCollector:
 
 
 class MessageAccumulator:
-    """Thread-safe sink for capturing messages across all workers.
-
-    Used for testing and logging. Workers do NOT read from this
-    for their conversation context - that stays in CallFrame.messages.
-    """
-
+    """Thread-safe sink for capturing messages across workers."""
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._messages: list[tuple[str, int, Any]] = []  # (worker_name, depth, message)
+        self._messages: list[tuple[str, int, Any]] = []
 
     def append(self, worker_name: str, depth: int, message: Any) -> None:
-        """Record a message from a worker."""
         with self._lock:
             self._messages.append((worker_name, depth, message))
 
     def extend(self, worker_name: str, depth: int, messages: list[Any]) -> None:
-        """Record multiple messages from a worker."""
         with self._lock:
-            for msg in messages:
-                self._messages.append((worker_name, depth, msg))
+            self._messages.extend((worker_name, depth, msg) for msg in messages)
 
     def all(self) -> list[tuple[str, int, Any]]:
-        """Return all recorded messages."""
         with self._lock:
             return list(self._messages)
 
     def for_worker(self, worker_name: str) -> list[Any]:
-        """Return messages for a specific worker."""
         with self._lock:
             return [msg for name, _, msg in self._messages if name == worker_name]
 
 
 @dataclass(frozen=True, slots=True)
 class WorkerApprovalConfig:
-    """Per-worker approval overrides for worker tool calls."""
-
+    """Per-worker approval overrides."""
     calls_require_approval: bool | None = None
     attachments_require_approval: bool | None = None
 
 
-def _normalize_worker_approval_overrides(
-    overrides: Mapping[str, Any] | None,
-) -> dict[str, WorkerApprovalConfig]:
+def _normalize_worker_approval_overrides(overrides: Mapping[str, Any] | None) -> dict[str, WorkerApprovalConfig]:
     if not overrides:
         return {}
     normalized: dict[str, WorkerApprovalConfig] = {}
     for name, value in overrides.items():
         if isinstance(value, WorkerApprovalConfig):
             normalized[name] = value
-            continue
-        if hasattr(value, "model_dump"):
+        elif hasattr(value, "model_dump"):
             value = value.model_dump()
-        if isinstance(value, Mapping):
-            normalized[name] = WorkerApprovalConfig(
-                calls_require_approval=value.get("calls_require_approval"),
-                attachments_require_approval=value.get("attachments_require_approval"),
-            )
-            continue
-        raise TypeError(
-            "worker_approval_overrides values must be mappings or WorkerApprovalConfig"
-        )
+            normalized[name] = WorkerApprovalConfig(calls_require_approval=value.get("calls_require_approval"), attachments_require_approval=value.get("attachments_require_approval"))
+        elif isinstance(value, Mapping):
+            normalized[name] = WorkerApprovalConfig(calls_require_approval=value.get("calls_require_approval"), attachments_require_approval=value.get("attachments_require_approval"))
+        else:
+            raise TypeError("worker_approval_overrides values must be mappings or WorkerApprovalConfig")
     return normalized
 
 
 @dataclass(frozen=True, slots=True)
 class RuntimeConfig:
-    """Shared runtime configuration (no per-call-chain state)."""
-
+    """Shared runtime configuration."""
     approval_callback: ApprovalCallback
     project_root: Path | None = None
     return_permission_errors: bool = False
@@ -264,11 +235,9 @@ class Runtime:
         from .deps import WorkerRuntime
         from .worker import EntryFunction, Worker
 
-        # Normalize input to WorkerArgs for all entries
         input_args = ensure_worker_args(invocable.schema_in, input_data)
         prompt_spec = input_args.prompt_spec()
 
-        # Shared setup to keep Worker and EntryFunction invocation paths aligned.
         def _build_entry_context(
             entry: Entry,
             *,
@@ -307,12 +276,10 @@ class Runtime:
                     active_toolsets=wrapped_toolsets,
                 )
 
-                # Entry functions are trusted code but still run in the tool plane.
                 result = await invocable.call(input_args, ctx)
                 return result, ctx
 
         if isinstance(invocable, Worker):
-            # Worker.model is resolved during __post_init__; None is a programmer error.
             resolved_model = cast(ModelType, invocable.model)
             ctx = _build_entry_context(
                 invocable,

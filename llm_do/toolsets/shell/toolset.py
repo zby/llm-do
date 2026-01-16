@@ -43,6 +43,8 @@ logger = logging.getLogger(__name__)
 
 
 class ShellArgs(BaseModel):
+    """Arguments for shell."""
+
     command: str = Field(description="Command to execute (parsed with shlex)")
     timeout: int = Field(
         default=30,
@@ -83,147 +85,64 @@ class ShellToolset(AbstractToolset[Any]):
 
     @property
     def id(self) -> str | None:
+        """Return toolset ID for durable execution."""
         return self._id
 
     @property
     def config(self) -> dict:
+        """Return the toolset configuration."""
         return self._config
 
     def needs_approval(
-        self,
-        name: str,
-        tool_args: dict,
-        ctx: Any,
-        config: ApprovalConfig | None = None,
+        self, name: str, tool_args: dict, ctx: Any, config: ApprovalConfig | None = None
     ) -> ApprovalResult:
-        """Determine if shell command needs approval based on whitelist rules.
-
-        Args:
-            name: Tool name (should be "shell")
-            tool_args: Tool arguments with "command"
-            ctx: RunContext with deps
-            config: Per-tool approval config from ApprovalToolset
-
-        Returns:
-            ApprovalResult with status: blocked, pre_approved, or needs_approval
-        """
         base = needs_approval_from_config(name, config)
-        if base.is_blocked:
+        if base.is_blocked or base.is_pre_approved:
             return base
-        if base.is_pre_approved:
-            return base
-
         if name != "shell":
-            # Unknown tool - require approval
             return ApprovalResult.needs_approval()
 
         command = tool_args.get("command", "")
-
-        # Check for blocked metacharacters first (consistent UX via approval layer)
         try:
             check_metacharacters(command)
-        except ShellBlockedError as e:
-            return ApprovalResult.blocked(str(e))
-
-        # Parse command for rule matching
-        try:
             args = parse_command(command)
         except ShellBlockedError as e:
             return ApprovalResult.blocked(str(e))
 
-        # Match against shell rules from config (no sandbox path validation)
         allowed, approval_required = match_shell_rules(
-            command=command,
-            args=args,
+            command=command, args=args,
             rules=self._config.get("rules", []),
             default=self._config.get("default"),
         )
-
-        # Check if command is in whitelist
         if not allowed:
-            return ApprovalResult.blocked(
-                f"Command not in whitelist (no matching rule and no default): {command}"
-            )
-
-        # Check if approval is required
-        if not approval_required:
-            return ApprovalResult.pre_approved()
-
-        # Approval required
-        return ApprovalResult.needs_approval()
+            return ApprovalResult.blocked(f"Command not in whitelist: {command}")
+        return ApprovalResult.needs_approval() if approval_required else ApprovalResult.pre_approved()
 
     def get_approval_description(self, name: str, tool_args: dict, ctx: Any) -> str:
-        """Return human-readable description for approval prompt.
-
-        Args:
-            name: Tool name (should be "shell")
-            tool_args: Tool arguments with "command"
-            ctx: RunContext with deps
-
-        Returns:
-            Description string to show user
-        """
         if name != "shell":
             return f"{name}({tool_args})"
-
         command = tool_args.get("command", "")
-        truncated = command[:80] + "..." if len(command) > 80 else command
-        return f"Execute: {truncated}"
+        return f"Execute: {command[:80]}..." if len(command) > 80 else f"Execute: {command}"
 
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool]:
-        """Return the shell tool definition."""
-        shell_schema = ShellArgs.model_json_schema()
-
         return {
             "shell": ToolsetTool(
                 toolset=self,
                 tool_def=ToolDefinition(
                     name="shell",
-                    description=(
-                        "Execute a shell command. Commands are parsed with shlex and "
-                        "executed without a shell for security. Shell metacharacters "
-                        "(|, >, <, ;, &, `, $()) are blocked."
-                    ),
-                    parameters_json_schema=shell_schema,
-            ),
-            max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, DictValidator(ShellArgs)),
-        )
+                    description="Execute a shell command. Shell metacharacters (|, >, <, ;, &, `, $()) are blocked.",
+                    parameters_json_schema=ShellArgs.model_json_schema(),
+                ),
+                max_retries=self._max_retries,
+                args_validator=cast(SchemaValidatorProt, DictValidator(ShellArgs)),
+            )
         }
 
     async def call_tool(
-        self,
-        name: str,
-        tool_args: dict[str, Any],
-        ctx: Any,
-        tool: ToolsetTool[Any],
+        self, name: str, tool_args: dict[str, Any], ctx: Any, tool: ToolsetTool[Any]
     ) -> ShellResult:
-        """Execute a shell command.
-
-        Args:
-            name: Tool name (should be "shell")
-            tool_args: Tool arguments with "command" and optional "timeout"
-            ctx: Run context (unused here, approval already handled by wrapper)
-            tool: Tool definition
-
-        Returns:
-            ShellResult with stdout, stderr, exit_code, and truncated flag
-        """
-        command = tool_args["command"]
-        timeout = tool_args.get("timeout", 30)
-
-        # Enforce timeout limits
-        timeout = min(max(timeout, 1), 300)
-
+        timeout = min(max(tool_args.get("timeout", 30), 1), 300)
         try:
-            return execute_shell(
-                command=command,
-                timeout=timeout,
-            )
+            return execute_shell(command=tool_args["command"], timeout=timeout)
         except ShellBlockedError as e:
-            return ShellResult(
-                stdout="",
-                stderr=str(e),
-                exit_code=1,
-                truncated=False,
-            )
+            return ShellResult(stdout="", stderr=str(e), exit_code=1, truncated=False)

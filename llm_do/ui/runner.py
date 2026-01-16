@@ -17,7 +17,7 @@ from llm_do.runtime.events import RuntimeEvent
 
 from .adapter import adapt_event
 from .display import DisplayBackend, HeadlessDisplayBackend, TextualDisplayBackend
-from .events import ErrorEvent, UIEvent
+from .events import UIEvent
 from .parser import parse_approval_request
 
 UiMode = Literal["tui", "headless"]
@@ -30,91 +30,46 @@ RuntimeFactory = Callable[..., Runtime]
 
 @dataclass(frozen=True, slots=True)
 class RunUiResult:
-    """Result from a UI run."""
-
     result: Any | None
     exit_code: int
 
 
 def _ensure_stdout_textual_driver() -> None:
-    """Configure Textual to write TUI output to stdout on Linux."""
-    if sys.platform.startswith("win"):
+    if sys.platform.startswith("win") or os.environ.get("TEXTUAL_DRIVER"):
         return
-    if os.environ.get("TEXTUAL_DRIVER"):
-        return
-
     os.environ["TEXTUAL_DRIVER"] = f"{__name__}:StdoutLinuxDriver"
-
     from textual.drivers.linux_driver import LinuxDriver
 
     class StdoutLinuxDriver(LinuxDriver):
-        def __init__(
-            self,
-            app: Any,
-            *,
-            debug: bool = False,
-            mouse: bool = True,
-            size: tuple[int, int] | None = None,
-        ) -> None:
+        def __init__(self, app: Any, *, debug: bool = False, mouse: bool = True, size: tuple[int, int] | None = None) -> None:
             super().__init__(app, debug=debug, mouse=mouse, size=size)
             self._file = sys.__stdout__
-
     globals()["StdoutLinuxDriver"] = StdoutLinuxDriver
-
-
-def _format_exception_message(exc: BaseException) -> str:
-    message = str(exc)
-    return message if message else repr(exc)
-
-
-def _format_model_http_error(exc: BaseException) -> str:
-    if not isinstance(exc, ModelHTTPError):
-        return _format_exception_message(exc)
-
-    message = f"Model API error (status {exc.status_code}): {exc.model_name}"
-    if exc.body and isinstance(exc.body, dict):
-        error_info = exc.body.get("error", {})
-        if isinstance(error_info, dict):
-            detail = error_info.get("message", "")
-            if detail:
-                message = f"{message}\n  {detail}"
-    return message
 
 
 def _format_run_error_message(exc: BaseException) -> str:
     if isinstance(exc, ModelHTTPError):
-        return _format_model_http_error(exc)
-    if isinstance(
-        exc,
-        (
-            FileNotFoundError,
-            ValueError,
-            PermissionError,
-            UnexpectedModelBehavior,
-            UserError,
-        ),
-    ):
+        msg = f"Model API error (status {exc.status_code}): {exc.model_name}"
+        if exc.body and isinstance(exc.body, dict) and isinstance(exc.body.get("error"), dict):
+            detail = exc.body["error"].get("message", "")
+            if detail:
+                return f"{msg}\n  {detail}"
+        return msg
+    if isinstance(exc, (FileNotFoundError, ValueError, PermissionError, UnexpectedModelBehavior, UserError)):
         return f"Error: {exc}"
     if isinstance(exc, KeyboardInterrupt):
         return "Aborted by user"
     return f"Unexpected error: {exc}"
 
 
-def _resolve_entry_factory(
-    entry: Entry | None,
-    entry_factory: EntryFactory | None,
-) -> EntryFactory:
+def _resolve_entry_factory(entry: Entry | None, entry_factory: EntryFactory | None) -> EntryFactory:
     if entry is not None and entry_factory is not None:
         raise ValueError("Provide either entry or entry_factory, not both.")
     if entry_factory is not None:
         return entry_factory
     if entry is None:
         raise ValueError("entry or entry_factory is required.")
-
-    def factory() -> Entry:
-        return entry
-
-    return factory
+    return lambda: entry
 
 
 def _build_runtime(
@@ -130,37 +85,18 @@ def _build_runtime(
     verbosity: int,
     runtime_factory: RuntimeFactory | None,
 ) -> Runtime:
-    if runtime_factory is not None:
-        return runtime_factory(
-            project_root=project_root,
-            run_approval_policy=run_approval_policy,
-            max_depth=max_depth,
-            worker_calls_require_approval=worker_calls_require_approval,
-            worker_attachments_require_approval=worker_attachments_require_approval,
-            worker_approval_overrides=worker_approval_overrides,
-            on_event=on_event,
-            message_log_callback=message_log_callback,
-            verbosity=verbosity,
-        )
-
-    return Runtime(
-        project_root=project_root,
-        run_approval_policy=run_approval_policy,
-        max_depth=max_depth,
+    factory = runtime_factory or Runtime
+    return factory(
+        project_root=project_root, run_approval_policy=run_approval_policy, max_depth=max_depth,
         worker_calls_require_approval=worker_calls_require_approval,
         worker_attachments_require_approval=worker_attachments_require_approval,
-        worker_approval_overrides=worker_approval_overrides,
-        on_event=on_event,
-        message_log_callback=message_log_callback,
-        verbosity=verbosity,
+        worker_approval_overrides=worker_approval_overrides, on_event=on_event,
+        message_log_callback=message_log_callback, verbosity=verbosity,
     )
 
 
 async def _render_loop(
-    queue: asyncio.Queue[UIEvent | None],
-    backends: Sequence[DisplayBackend],
-    *,
-    on_close: Callable[[], None] | None = None,
+    queue: asyncio.Queue[UIEvent | None], backends: Sequence[DisplayBackend], *, on_close: Callable[[], None] | None = None
 ) -> None:
     for backend in backends:
         await backend.start()
@@ -174,26 +110,10 @@ async def _render_loop(
                 backend.display(event)
             queue.task_done()
     finally:
-        if on_close is not None:
+        if on_close:
             on_close()
         for backend in backends:
             await backend.stop()
-
-
-def _emit_error(
-    sink: UiEventSink,
-    *,
-    worker: str,
-    message: str,
-    error_type: str,
-    traceback_text: str | None,
-) -> None:
-    sink(ErrorEvent(
-        worker=worker,
-        message=message,
-        error_type=error_type,
-        traceback=traceback_text,
-    ))
 
 
 async def run_tui(
@@ -279,18 +199,9 @@ async def run_tui(
     def emit_error(message: str, error_type: str) -> None:
         nonlocal exit_code
         if error_stream is not None:
-            print(
-                f"[{entry_name}] ERROR ({error_type}): {message}",
-                file=error_stream,
-                flush=True,
-            )
-        _emit_error(
-            emit_ui_event,
-            worker=entry_name,
-            message=message,
-            error_type=error_type,
-            traceback_text=None,
-        )
+            print(f"[{entry_name}] ERROR ({error_type}): {message}", file=error_stream, flush=True)
+        from .events import ErrorEvent
+        emit_ui_event(ErrorEvent(worker=entry_name, message=message, error_type=error_type))
         exit_code = 1
 
     async def run_entry(

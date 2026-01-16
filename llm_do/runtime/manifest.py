@@ -16,6 +16,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 ApprovalMode = Literal["prompt", "approve_all", "reject_all"]
 
 
+class WorkerApprovalOverride(BaseModel):
+    """Per-worker approval override configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    calls_require_approval: bool | None = None
+    attachments_require_approval: bool | None = None
+
+
 class ManifestRuntimeConfig(BaseModel):
     """Runtime configuration from manifest."""
 
@@ -24,6 +33,9 @@ class ManifestRuntimeConfig(BaseModel):
     approval_mode: ApprovalMode = "prompt"
     max_depth: int = Field(default=5, ge=1)
     return_permission_errors: bool = False
+    worker_calls_require_approval: bool = False
+    worker_attachments_require_approval: bool = False
+    worker_approval_overrides: dict[str, WorkerApprovalOverride] = Field(default_factory=dict)
 
 
 class EntryConfig(BaseModel):

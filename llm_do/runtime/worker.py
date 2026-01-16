@@ -8,10 +8,11 @@ This module provides:
 from __future__ import annotations
 
 import inspect
+import mimetypes
 from contextlib import contextmanager, nullcontext
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterable, Callable, Optional, Sequence, Type, cast
+from typing import Any, AsyncIterable, Callable, Optional, Sequence, Type
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
@@ -27,13 +28,13 @@ from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
+from pydantic_ai_blocking_approval import ApprovalResult
 
 from ..models import select_model
-from ..toolsets.approval import get_toolset_approval_config, set_toolset_approval_config
-from ..toolsets.attachments import AttachmentToolset
+from ..toolsets.approval import set_toolset_approval_config
 from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
 from ..toolsets.validators import DictValidator
-from .args import WorkerArgs, WorkerInput, ensure_worker_args
+from .args import PromptSpec, WorkerArgs, WorkerInput, ensure_worker_args
 from .call import CallFrame
 from .contracts import WorkerRuntimeProtocol
 from .events import ToolCallEvent, ToolResultEvent
@@ -54,6 +55,19 @@ def _resolve_attachment_path(path: str, base_path: Path | None = None) -> Path:
     if not file_path.is_absolute() and base_path is not None:
         file_path = base_path.expanduser() / file_path
     return file_path.resolve()
+
+
+def _load_attachment(path: Path) -> BinaryContent:
+    """Read attachment data from disk and infer media type."""
+    if not path.exists():
+        raise FileNotFoundError(f"Attachment not found: {path}")
+
+    media_type, _ = mimetypes.guess_type(str(path))
+    if media_type is None:
+        media_type = "application/octet-stream"
+
+    data = path.read_bytes()
+    return BinaryContent(data=data, media_type=media_type)
 
 
 def _build_user_prompt(
@@ -206,16 +220,74 @@ class WorkerToolset(AbstractToolset[Any]):
 
     worker: "Worker"
 
-    def __post_init__(self) -> None:
-        # Set up approval config for this toolset adapter
-        config = get_toolset_approval_config(self)
-        if config is None:
-            set_toolset_approval_config(self, {self.worker.name: {"pre_approved": True}})
-
     @property
     def id(self) -> str | None:
         """Return the worker name as this toolset's id."""
         return self.worker.name
+
+    def _prompt_spec_from_args(
+        self, tool_args: dict[str, Any]
+    ) -> PromptSpec | None:
+        try:
+            args = ensure_worker_args(self.worker.schema_in, tool_args)
+        except Exception:
+            return None
+        return args.prompt_spec()
+
+    def needs_approval(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+        config: dict[str, dict[str, Any]] | None = None,
+    ) -> ApprovalResult:
+        tool_config = (config or {}).get(name)
+        if tool_config is not None and "pre_approved" in tool_config:
+            if tool_config["pre_approved"]:
+                return ApprovalResult.pre_approved()
+            return ApprovalResult.needs_approval()
+
+        runtime_config = getattr(getattr(ctx, "deps", None), "config", None)
+        require_all = getattr(runtime_config, "worker_calls_require_approval", False)
+        require_attachments = getattr(
+            runtime_config, "worker_attachments_require_approval", False
+        )
+        overrides = getattr(runtime_config, "worker_approval_overrides", {}) or {}
+        override = overrides.get(name)
+        if override is not None:
+            if override.calls_require_approval is not None:
+                require_all = override.calls_require_approval
+            if override.attachments_require_approval is not None:
+                require_attachments = override.attachments_require_approval
+        if require_all:
+            return ApprovalResult.needs_approval()
+
+        prompt_spec = self._prompt_spec_from_args(tool_args)
+        attachments = (
+            prompt_spec.attachments
+            if prompt_spec is not None
+            else tuple(tool_args.get("attachments") or ())
+        )
+        if attachments and require_attachments:
+            return ApprovalResult.needs_approval()
+        return ApprovalResult.pre_approved()
+
+    def get_approval_description(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+    ) -> str:
+        prompt_spec = self._prompt_spec_from_args(tool_args)
+        attachments = (
+            prompt_spec.attachments
+            if prompt_spec is not None
+            else tuple(tool_args.get("attachments") or ())
+        )
+        if attachments:
+            attachment_list = ", ".join(str(path) for path in attachments)
+            return f"Call worker {name} with attachments: {attachment_list}"
+        return f"Call worker {name}"
 
     async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
         """Return the wrapped worker as a callable tool."""
@@ -531,8 +603,6 @@ class Worker:
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Shared worker execution path."""
-        from .approval import wrap_toolsets_for_approval
-
         input_args = ensure_worker_args(self.schema_in, input_data)
         prompt_spec = input_args.prompt_spec()
 
@@ -554,31 +624,10 @@ class Worker:
         ) as (_raw_toolsets, wrapped_toolsets):
             attachment_parts: list[BinaryContent] = []
             if prompt_spec.attachments:
-                attachment_toolsets = wrap_toolsets_for_approval(
-                    [AttachmentToolset()],
-                    run_ctx.deps.config.approval_callback,
-                    return_permission_errors=False,
-                )
-                attachment_runtime = cast(
-                    Any,
-                    run_ctx.deps.spawn_child(
-                        active_toolsets=attachment_toolsets,
-                        model=resolved_model,
-                        invocation_name=self.name,
-                    ),
-                )
-                attachment_runtime.frame.prompt = prompt_spec.text
+                base_for_attachments = run_ctx.deps.config.project_root or Path.cwd()
                 for attachment_path in prompt_spec.attachments:
-                    # Use project_root from config; fallback to CWD if unset
-                    base_for_attachments = run_ctx.deps.config.project_root or Path.cwd()
                     resolved_path = _resolve_attachment_path(attachment_path, base_for_attachments)
-                    attachment = await attachment_runtime.call(
-                        "read_attachment",
-                        {"path": str(resolved_path)},
-                    )
-                    if not isinstance(attachment, BinaryContent):
-                        raise TypeError("Attachment tool must return BinaryContent")
-                    attachment_parts.append(attachment)
+                    attachment_parts.append(_load_attachment(resolved_path))
 
             # Fork per-call state and build child runtime for PydanticAI deps
             child_runtime = run_ctx.deps.spawn_child(

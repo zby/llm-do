@@ -35,15 +35,13 @@ def test_worker_as_toolset_spec_method() -> None:
     assert toolset.worker is worker
 
 
-def test_worker_toolset_has_approval_config() -> None:
-    """WorkerToolset sets up approval config on creation."""
+def test_worker_toolset_has_no_default_approval_config() -> None:
+    """WorkerToolset does not install approval config by default."""
     worker = Worker(name="test", instructions="Test worker")
     toolset = WorkerToolset(worker=worker)
 
     config = get_toolset_approval_config(toolset)
-    assert config is not None
-    assert "test" in config
-    assert config["test"]["pre_approved"] is True
+    assert config is None
 
 
 def test_worker_toolset_preserves_custom_approval() -> None:

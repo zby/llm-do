@@ -22,6 +22,9 @@ class TestManifestRuntimeConfig:
         assert config.approval_mode == "prompt"
         assert config.max_depth == 5
         assert config.return_permission_errors is False
+        assert config.worker_calls_require_approval is False
+        assert config.worker_attachments_require_approval is False
+        assert config.worker_approval_overrides == {}
 
     def test_approval_modes(self):
         """Test valid approval modes."""
@@ -43,6 +46,15 @@ class TestManifestRuntimeConfig:
         """Test extra fields raise error."""
         with pytest.raises(ValueError):
             ManifestRuntimeConfig(unknown_field="value")
+
+    def test_worker_approval_overrides_reject_extra_fields(self):
+        """Per-worker overrides should forbid unknown fields."""
+        with pytest.raises(ValueError):
+            ManifestRuntimeConfig(
+                worker_approval_overrides={
+                    "summarizer": {"unexpected": True},
+                }
+            )
 
     def test_model_field_rejected(self):
         """Test model field is not allowed."""

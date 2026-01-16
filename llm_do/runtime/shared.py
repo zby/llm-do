@@ -6,9 +6,9 @@ import inspect
 import logging
 import threading
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Sequence, cast
+from typing import TYPE_CHECKING, Any, AsyncIterator, Mapping, Sequence, cast
 
 from pydantic_ai.usage import RunUsage
 
@@ -116,6 +116,38 @@ class MessageAccumulator:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkerApprovalConfig:
+    """Per-worker approval overrides for worker tool calls."""
+
+    calls_require_approval: bool | None = None
+    attachments_require_approval: bool | None = None
+
+
+def _normalize_worker_approval_overrides(
+    overrides: Mapping[str, Any] | None,
+) -> dict[str, WorkerApprovalConfig]:
+    if not overrides:
+        return {}
+    normalized: dict[str, WorkerApprovalConfig] = {}
+    for name, value in overrides.items():
+        if isinstance(value, WorkerApprovalConfig):
+            normalized[name] = value
+            continue
+        if hasattr(value, "model_dump"):
+            value = value.model_dump()
+        if isinstance(value, Mapping):
+            normalized[name] = WorkerApprovalConfig(
+                calls_require_approval=value.get("calls_require_approval"),
+                attachments_require_approval=value.get("attachments_require_approval"),
+            )
+            continue
+        raise TypeError(
+            "worker_approval_overrides values must be mappings or WorkerApprovalConfig"
+        )
+    return normalized
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeConfig:
     """Shared runtime configuration (no per-call-chain state)."""
 
@@ -123,6 +155,9 @@ class RuntimeConfig:
     project_root: Path | None = None
     return_permission_errors: bool = False
     max_depth: int = 5
+    worker_calls_require_approval: bool = False
+    worker_attachments_require_approval: bool = False
+    worker_approval_overrides: dict[str, WorkerApprovalConfig] = field(default_factory=dict)
     on_event: EventCallback | None = None
     message_log_callback: MessageLogCallback | None = None
     verbosity: int = 0
@@ -137,6 +172,9 @@ class Runtime:
         project_root: Path | None = None,
         run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
+        worker_calls_require_approval: bool = False,
+        worker_attachments_require_approval: bool = False,
+        worker_approval_overrides: Mapping[str, Any] | None = None,
         on_event: EventCallback | None = None,
         message_log_callback: MessageLogCallback | None = None,
         verbosity: int = 0,
@@ -148,6 +186,11 @@ class Runtime:
             project_root=project_root,
             return_permission_errors=policy.return_permission_errors,
             max_depth=max_depth,
+            worker_calls_require_approval=worker_calls_require_approval,
+            worker_attachments_require_approval=worker_attachments_require_approval,
+            worker_approval_overrides=_normalize_worker_approval_overrides(
+                worker_approval_overrides
+            ),
             on_event=on_event,
             message_log_callback=message_log_callback,
             verbosity=verbosity,

@@ -124,6 +124,168 @@ async def test_nested_worker_calls_can_require_approval() -> None:
 
 
 @pytest.mark.anyio
+async def test_worker_call_with_attachments_does_not_require_approval_by_default(
+    tmp_path,
+) -> None:
+    calls = []
+    attachment_path = tmp_path / "deck.pdf"
+    attachment_path.write_text("data")
+
+    def approval_callback(request):
+        calls.append(request)
+        return ApprovalDecision(approved=False, note="deny")
+
+    child = Worker(
+        name="child",
+        instructions="Child worker",
+        model=TestModel(custom_output_text="child"),
+    )
+
+    @entry(toolsets=[child.as_toolset_spec()])
+    async def parent(args: WorkerArgs, runtime_ctx) -> str:
+        return await runtime_ctx.call(
+            "child",
+            {
+                "input": "analyze",
+                "attachments": [str(attachment_path)],
+            },
+        )
+
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(
+            mode="prompt",
+            approval_callback=approval_callback,
+        )
+    )
+    result, _ctx = await runtime.run_entry(parent, {"input": "run"})
+
+    assert result is not None
+    assert calls == []
+
+
+@pytest.mark.anyio
+async def test_worker_call_requires_approval_with_attachments(tmp_path) -> None:
+    calls = []
+    attachment_path = tmp_path / "deck.pdf"
+    attachment_path.write_text("data")
+
+    def approval_callback(request):
+        calls.append(request)
+        return ApprovalDecision(approved=False, note="deny")
+
+    child = Worker(
+        name="child",
+        instructions="Child worker",
+        model=TestModel(custom_output_text="child"),
+    )
+
+    @entry(toolsets=[child.as_toolset_spec()])
+    async def parent(args: WorkerArgs, runtime_ctx) -> str:
+        return await runtime_ctx.call(
+            "child",
+            {
+                "input": "analyze",
+                "attachments": [str(attachment_path)],
+            },
+        )
+
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(
+            mode="prompt",
+            approval_callback=approval_callback,
+        ),
+        worker_attachments_require_approval=True,
+    )
+    with pytest.raises(PermissionError):
+        await runtime.run_entry(parent, {"input": "run"})
+
+    assert len(calls) == 1
+    assert str(attachment_path) in calls[0].description
+
+
+@pytest.mark.anyio
+async def test_worker_approval_override_requires_approval_without_attachments() -> None:
+    calls = []
+
+    def approval_callback(request):
+        calls.append(request)
+        return ApprovalDecision(approved=False, note="deny")
+
+    child = Worker(
+        name="child",
+        instructions="Child worker",
+        model=TestModel(custom_output_text="child"),
+    )
+
+    @entry(toolsets=[child.as_toolset_spec()])
+    async def parent(args: WorkerArgs, runtime_ctx) -> str:
+        return await runtime_ctx.call(
+            "child",
+            {
+                "input": "analyze",
+            },
+        )
+
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(
+            mode="prompt",
+            approval_callback=approval_callback,
+        ),
+        worker_approval_overrides={
+            "child": {"calls_require_approval": True},
+        },
+    )
+    with pytest.raises(PermissionError):
+        await runtime.run_entry(parent, {"input": "run"})
+
+    assert len(calls) == 1
+
+
+@pytest.mark.anyio
+async def test_worker_approval_override_requires_approval_for_attachments(
+    tmp_path,
+) -> None:
+    calls = []
+    attachment_path = tmp_path / "deck.pdf"
+    attachment_path.write_text("data")
+
+    def approval_callback(request):
+        calls.append(request)
+        return ApprovalDecision(approved=False, note="deny")
+
+    child = Worker(
+        name="child",
+        instructions="Child worker",
+        model=TestModel(custom_output_text="child"),
+    )
+
+    @entry(toolsets=[child.as_toolset_spec()])
+    async def parent(args: WorkerArgs, runtime_ctx) -> str:
+        return await runtime_ctx.call(
+            "child",
+            {
+                "input": "analyze",
+                "attachments": [str(attachment_path)],
+            },
+        )
+
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(
+            mode="prompt",
+            approval_callback=approval_callback,
+        ),
+        worker_approval_overrides={
+            "child": {"attachments_require_approval": True},
+        },
+    )
+    with pytest.raises(PermissionError):
+        await runtime.run_entry(parent, {"input": "run"})
+
+    assert len(calls) == 1
+    assert str(attachment_path) in calls[0].description
+
+
+@pytest.mark.anyio
 async def test_entry_function_call_not_approval_gated() -> None:
     """EntryFunction itself is not gated; tool calls inside are policy-gated."""
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from llm_do.toolsets.attachments import AttachmentToolset
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.toolsets.shell import ShellToolset
 
@@ -32,10 +31,3 @@ async def test_filesystem_read_requires_path() -> None:
     with pytest.raises(ValidationError):
         tool.args_validator.validate_python({})
 
-
-@pytest.mark.anyio
-async def test_attachment_requires_path() -> None:
-    toolset = AttachmentToolset()
-    tool = (await toolset.get_tools(None))["read_attachment"]
-    with pytest.raises(ValidationError):
-        tool.args_validator.validate_python({})

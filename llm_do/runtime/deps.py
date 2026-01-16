@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 from pydantic_ai.models import Model, infer_model
@@ -11,10 +10,9 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
-from .approval import ApprovalCallback
 from .args import WorkerArgs, ensure_worker_args
 from .call import CallFrame
-from .contracts import EventCallback, ModelType, WorkerRuntimeProtocol
+from .contracts import ModelType, WorkerRuntimeProtocol
 from .events import ToolCallEvent, ToolResultEvent
 
 if TYPE_CHECKING:
@@ -23,29 +21,15 @@ if TYPE_CHECKING:
 from .shared import Runtime, RuntimeConfig
 
 
-class ToolsProxy:
-    """Dynamic proxy to call tools by attribute name.
-
-    Enables syntax like `ctx.tools.shell(command="ls")` to invoke tools.
-    """
-
-    def __init__(self, ctx: "WorkerRuntime") -> None:
-        self._ctx = ctx
-
-    def __getattr__(self, name: str) -> Callable[..., Awaitable[Any]]:
-        async def _call(**kwargs: Any) -> Any:
-            return await self._ctx.call(name, kwargs)
-
-        return _call
-
-
 class WorkerRuntime:
     """Dispatches tool calls and manages worker runtime state.
 
     WorkerRuntime is the central orchestrator for executing tools and workers.
     It holds:
     - runtime (Runtime): shared config and runtime-scoped state
-    - per-branch state (CallFrame): depth, prompt/messages, toolsets, effective model
+    - frame (CallFrame): per-branch state (depth, prompt/messages, toolsets, model)
+
+    Access runtime settings via config.*, call state via frame.*.
     """
 
     def __init__(
@@ -56,73 +40,10 @@ class WorkerRuntime:
     ) -> None:
         self.runtime = runtime
         self.frame = frame
-        self.tools = ToolsProxy(self)
 
     @property
     def config(self) -> RuntimeConfig:
         return self.runtime.config
-
-    @property
-    def project_root(self) -> Path | None:
-        return self.runtime.project_root
-
-    @property
-    def approval_callback(self) -> ApprovalCallback:
-        return self.runtime.approval_callback
-
-    @property
-    def active_toolsets(self) -> tuple[AbstractToolset[Any], ...]:
-        """Toolsets available for this call (with approval wrappers applied)."""
-        return self.frame.active_toolsets
-
-    @property
-    def model(self) -> ModelType:
-        return self.frame.model
-
-    @property
-    def return_permission_errors(self) -> bool:
-        return self.runtime.config.return_permission_errors
-
-    @property
-    def max_depth(self) -> int:
-        return self.runtime.config.max_depth
-
-    @property
-    def depth(self) -> int:
-        return self.frame.depth
-
-    @property
-    def invocation_name(self) -> str:
-        return self.frame.invocation_name
-
-    @property
-    def prompt(self) -> str:
-        return self.frame.prompt
-
-    @prompt.setter
-    def prompt(self, value: str) -> None:
-        self.frame.prompt = value
-
-    @property
-    def messages(self) -> list[Any]:
-        return self.frame.messages
-
-    @property
-    def on_event(self) -> EventCallback | None:
-        return self.runtime.config.on_event
-
-    @property
-    def verbosity(self) -> int:
-        return self.runtime.config.verbosity
-
-    @property
-    def usage(self) -> list[RunUsage]:
-        return self.runtime.usage
-
-    @property
-    def message_log(self) -> list[tuple[str, int, Any]]:
-        """Return all messages captured across all workers (for testing/logging)."""
-        return self.runtime.message_log
 
     def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
         """Record messages for diagnostic logging."""
@@ -132,9 +53,7 @@ class WorkerRuntime:
         """Create a new RunUsage and add it to the shared usage sink."""
         return self.runtime._create_usage()
 
-    def _make_run_context(
-        self, tool_name: str, resolved_model: ModelType, deps_ctx: WorkerRuntimeProtocol
-    ) -> RunContext[WorkerRuntimeProtocol]:
+    def _make_run_context(self, tool_name: str) -> RunContext[WorkerRuntimeProtocol]:
         """Construct a RunContext for direct tool invocation.
 
         RunContext.prompt is derived from WorkerArgs for logging/UI only.
@@ -143,15 +62,17 @@ class WorkerRuntime:
         String models are resolved to concrete Model instances via infer_model.
         """
         model: Model = (
-            infer_model(resolved_model) if isinstance(resolved_model, str) else resolved_model
+            infer_model(self.frame.model)
+            if isinstance(self.frame.model, str)
+            else self.frame.model
         )
         return RunContext(
-            deps=deps_ctx,
+            deps=self,
             model=model,
             usage=self._create_usage(),
-            prompt=deps_ctx.prompt,
-            messages=list(deps_ctx.messages),
-            run_step=deps_ctx.depth,
+            prompt=self.frame.prompt,
+            messages=list(self.frame.messages),
+            run_step=self.frame.depth,
             retry=0,
             tool_name=tool_name,
         )
@@ -222,11 +143,13 @@ class WorkerRuntime:
         import uuid
 
         # Create a temporary run context for get_tools
-        run_ctx = self._make_run_context(name, self.model, self)
+        run_ctx = self._make_run_context(name)
 
-        # Search for the tool across all toolsets
-        for toolset in self.active_toolsets:
+        # Search for the tool across all toolsets, collecting names for error message
+        available: list[str] = []
+        for toolset in self.frame.active_toolsets:
             tools = await toolset.get_tools(run_ctx)
+            available.extend(tools.keys())
             if name in tools:
                 tool = tools[name]
                 validated_args = self._validate_tool_args(
@@ -239,17 +162,17 @@ class WorkerRuntime:
                 # Generate a unique call ID for event correlation
                 call_id = str(uuid.uuid4())[:8]
 
-                worker_name = self.invocation_name or "unknown"
+                worker_name = self.frame.invocation_name or "unknown"
 
                 # Emit ToolCallEvent before execution
-                if self.on_event is not None:
-                    self.on_event(
+                if self.config.on_event is not None:
+                    self.config.on_event(
                         ToolCallEvent(
                             worker=worker_name,
                             tool_name=name,
                             tool_call_id=call_id,
                             args=validated_args,
-                            depth=self.depth,
+                            depth=self.frame.depth,
                         )
                     )
 
@@ -257,11 +180,11 @@ class WorkerRuntime:
                 result = await toolset.call_tool(name, validated_args, run_ctx, tool)
 
                 # Emit ToolResultEvent after execution
-                if self.on_event is not None:
-                    self.on_event(
+                if self.config.on_event is not None:
+                    self.config.on_event(
                         ToolResultEvent(
                             worker=worker_name,
-                            depth=self.depth,
+                            depth=self.frame.depth,
                             tool_name=name,
                             tool_call_id=call_id,
                             content=result,
@@ -270,13 +193,9 @@ class WorkerRuntime:
 
                 return result
 
-        available: list[str] = []
-        for toolset in self.active_toolsets:
-            tools = await toolset.get_tools(run_ctx)
-            available.extend(tools.keys())
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
 
     async def _execute(self, worker: "Worker", input_data: WorkerArgs) -> Any:
         """Execute a worker using this runtime as deps."""
-        run_ctx = self._make_run_context(worker.name, self.model, self)
+        run_ctx = self._make_run_context(worker.name)
         return await worker.call(input_data, run_ctx)

@@ -7,7 +7,6 @@ without requiring runtime modules to import each other.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 from pydantic_ai.models import Model  # Used in ModelType
@@ -17,7 +16,6 @@ from ..toolsets.loader import ToolsetSpec
 from .events import RuntimeEvent
 
 if TYPE_CHECKING:
-    from .approval import ApprovalCallback
     from .args import WorkerArgs
     from .call import CallFrame
     from .shared import RuntimeConfig
@@ -28,43 +26,14 @@ MessageLogCallback: TypeAlias = Callable[[str, int, list[Any]], None]
 
 
 class WorkerRuntimeProtocol(Protocol):
-    """Structural type for the runtime object used as PydanticAI deps."""
+    """Structural type for the runtime object used as PydanticAI deps.
+
+    Minimal surface: config (runtime-scoped settings) + frame (call-scoped state).
+    Access settings via config.*, call state via frame.*.
+    """
 
     @property
     def config(self) -> "RuntimeConfig": ...
-
-    @property
-    def project_root(self) -> "Path | None": ...
-
-    @property
-    def depth(self) -> int: ...
-
-    @property
-    def max_depth(self) -> int: ...
-
-    @property
-    def model(self) -> ModelType: ...
-
-    @property
-    def prompt(self) -> str: ...
-
-    @prompt.setter
-    def prompt(self, value: str) -> None: ...
-
-    @property
-    def messages(self) -> list[Any]: ...
-
-    @property
-    def on_event(self) -> EventCallback | None: ...
-
-    @property
-    def verbosity(self) -> int: ...
-
-    @property
-    def return_permission_errors(self) -> bool: ...
-
-    @property
-    def approval_callback(self) -> "ApprovalCallback": ...
 
     @property
     def frame(self) -> "CallFrame": ...

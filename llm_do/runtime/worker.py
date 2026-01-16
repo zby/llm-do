@@ -74,7 +74,7 @@ def _build_user_prompt(
 
 def _should_use_message_history(runtime: WorkerRuntimeProtocol) -> bool:
     """Only use message history for the top-level worker run."""
-    return runtime.depth <= 1
+    return runtime.frame.depth <= 1
 
 
 def _get_all_messages(result: Any) -> list[Any]:
@@ -98,9 +98,9 @@ def _finalize_messages(
     """Log and sync message history using a single message snapshot."""
     messages = _get_all_messages(result)
     if log_messages:
-        runtime.log_messages(worker_name, runtime.depth, messages)
+        runtime.log_messages(worker_name, runtime.frame.depth, messages)
     if _should_use_message_history(runtime):
-        runtime.messages[:] = messages
+        runtime.frame.messages[:] = messages
         if state is not None:
             state.messages[:] = messages
     return messages
@@ -469,7 +469,7 @@ class Worker:
         self, messages: list[Any], runtime: WorkerRuntimeProtocol
     ) -> None:
         """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
-        if runtime.on_event is None:
+        if runtime.config.on_event is None:
             return
 
         # Collect tool calls and their returns
@@ -498,19 +498,19 @@ class Worker:
             elif not isinstance(args, dict):
                 args = {}
 
-            runtime.on_event(ToolCallEvent(
+            runtime.config.on_event(ToolCallEvent(
                 worker=self.name,
                 tool_name=call_part.tool_name,
                 tool_call_id=call_id,
                 args=args,
-                depth=runtime.depth,
+                depth=runtime.frame.depth,
             ))
 
             return_part = tool_returns.get(call_id)
             if return_part:
-                runtime.on_event(ToolResultEvent(
+                runtime.config.on_event(ToolResultEvent(
                     worker=self.name,
-                    depth=runtime.depth,
+                    depth=runtime.frame.depth,
                     tool_name=call_part.tool_name,
                     tool_call_id=call_id,
                     content=return_part.content,
@@ -558,14 +558,14 @@ class Worker:
         async with build_tool_plane(
             toolset_specs=self.toolset_specs,
             toolset_context=toolset_context,
-            approval_callback=run_ctx.deps.approval_callback,
-            return_permission_errors=run_ctx.deps.return_permission_errors,
+            approval_callback=run_ctx.deps.config.approval_callback,
+            return_permission_errors=run_ctx.deps.config.return_permission_errors,
         ) as (_raw_toolsets, wrapped_toolsets):
             attachment_parts: list[BinaryContent] = []
             if prompt_spec.attachments:
                 attachment_toolsets = wrap_toolsets_for_approval(
                     [AttachmentToolset()],
-                    run_ctx.deps.approval_callback,
+                    run_ctx.deps.config.approval_callback,
                     return_permission_errors=False,
                 )
                 attachment_runtime = cast(
@@ -576,10 +576,10 @@ class Worker:
                         invocation_name=self.name,
                     ),
                 )
-                attachment_runtime.prompt = prompt_spec.text
+                attachment_runtime.frame.prompt = prompt_spec.text
                 for attachment_path in prompt_spec.attachments:
-                    # Use project_root from runtime; fallback to CWD if unset
-                    base_for_attachments = run_ctx.deps.project_root or Path.cwd()
+                    # Use project_root from config; fallback to CWD if unset
+                    base_for_attachments = run_ctx.deps.config.project_root or Path.cwd()
                     resolved_path = _resolve_attachment_path(attachment_path, base_for_attachments)
                     attachment = await attachment_runtime.call(
                         "read_attachment",
@@ -595,7 +595,7 @@ class Worker:
                 model=resolved_model,
                 invocation_name=self.name,
             )
-            child_runtime.prompt = prompt_spec.text
+            child_runtime.frame.prompt = prompt_spec.text
             child_state = child_runtime.frame
 
             agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
@@ -667,15 +667,15 @@ class Worker:
         ) -> None:
             nonlocal emitted_tool_events
             async for event in events:
-                if runtime.verbosity < 2 and isinstance(event, PartDeltaEvent):
+                if runtime.config.verbosity < 2 and isinstance(event, PartDeltaEvent):
                     continue
                 runtime_event = parse_event(
-                    {"worker": self.name, "event": event, "depth": runtime.depth}
+                    {"worker": self.name, "event": event, "depth": runtime.frame.depth}
                 )
                 if isinstance(runtime_event, (ToolCallEvent, ToolResultEvent)):
                     emitted_tool_events = True
-                if runtime.on_event is not None:
-                    runtime.on_event(runtime_event)
+                if runtime.config.on_event is not None:
+                    runtime.config.on_event(runtime_event)
 
         result = await agent.run(
             prompt,
@@ -691,6 +691,6 @@ class Worker:
             result,
             log_messages=log_messages,
         )
-        if runtime.on_event is not None and not emitted_tool_events:
+        if runtime.config.on_event is not None and not emitted_tool_events:
             self._emit_tool_events(result.new_messages(), runtime)
         return result.output

@@ -30,11 +30,11 @@ class TestContextEventCallback:
             on_event=callback,
         )
         child = ctx.spawn_child(
-            active_toolsets=ctx.active_toolsets,
-            model=ctx.model,
-            invocation_name=ctx.invocation_name,
+            active_toolsets=ctx.frame.active_toolsets,
+            model=ctx.frame.model,
+            invocation_name=ctx.frame.invocation_name,
         )
-        assert child.on_event is callback
+        assert child.config.on_event is callback
 
     def test_child_context_inherits_verbosity(self):
         """Test that child contexts inherit verbosity."""
@@ -43,11 +43,11 @@ class TestContextEventCallback:
             verbosity=2,
         )
         child = ctx.spawn_child(
-            active_toolsets=ctx.active_toolsets,
-            model=ctx.model,
-            invocation_name=ctx.invocation_name,
+            active_toolsets=ctx.frame.active_toolsets,
+            model=ctx.frame.model,
+            invocation_name=ctx.frame.invocation_name,
         )
-        assert child.verbosity == 2
+        assert child.config.verbosity == 2
 
     @pytest.mark.anyio
     async def test_context_call_emits_events(self):
@@ -255,7 +255,7 @@ class TestWorkerToolEvents:
 
         # Should not crash even with no on_event callback
         result, ctx = await run_entry_test(worker, WorkerInput(input="Hello"))
-        assert ctx.on_event is None
+        assert ctx.config.on_event is None
         assert result is not None
 
 
@@ -343,7 +343,7 @@ class TestCLIEventIntegration:
         )
 
         assert result is not None
-        assert ctx.on_event is not None
+        assert ctx.config.on_event is not None
 
     @pytest.mark.anyio
     async def test_runtime_with_tools_emits_events(self):

@@ -25,4 +25,4 @@ async def test_entry_schema_in_normalizes_input() -> None:
     )
 
     assert result == "t1"
-    assert ctx.prompt == "hi:t1"
+    assert ctx.frame.prompt == "hi:t1"

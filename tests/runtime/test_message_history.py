@@ -62,7 +62,7 @@ async def test_entry_worker_receives_message_history_across_turns() -> None:
     out2, ctx2 = await runtime.run_entry(
         worker,
         WorkerInput(input="turn 2"),
-        message_history=ctx1.messages,
+        message_history=ctx1.frame.messages,
     )
     assert out2 == "user_prompts=2"
 

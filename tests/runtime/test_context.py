@@ -32,8 +32,8 @@ class TestContext:
             await ctx.call("nonexistent", {"x": 1})
 
     @pytest.mark.anyio
-    async def test_tools_proxy(self):
-        """Test ToolsProxy attribute access."""
+    async def test_call_with_kwargs(self):
+        """Test calling a tool with keyword arguments."""
         toolset = FunctionToolset()
 
         @toolset.tool
@@ -41,7 +41,7 @@ class TestContext:
             return f"Hello, {name}!"
 
         ctx = build_runtime_context(toolsets=[toolset], model="test")
-        result = await ctx.tools.greet(name="World")
+        result = await ctx.call("greet", {"name": "World"})
         assert result == "Hello, World!"
 
     @pytest.mark.anyio
@@ -54,15 +54,15 @@ class TestContext:
 
             @toolset.tool
             async def probe(run_ctx: RunContext[WorkerRuntime]) -> int:
-                depth = run_ctx.deps.depth
+                depth = run_ctx.deps.frame.depth
                 seen["probe"] = depth
                 return depth
 
             @toolset.tool
             async def call_probe(run_ctx: RunContext[WorkerRuntime]) -> dict[str, int]:
-                before = run_ctx.deps.depth
+                before = run_ctx.deps.frame.depth
                 probe_depth = await run_ctx.deps.call("probe", {})
-                after = run_ctx.deps.depth
+                after = run_ctx.deps.frame.depth
                 seen["call_probe"] = {
                     "before": before,
                     "probe": probe_depth,

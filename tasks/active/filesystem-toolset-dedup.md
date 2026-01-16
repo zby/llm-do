@@ -7,32 +7,33 @@ ready for implementation
 - [ ] none
 
 ## Goal
-Deduplicate filesystem tool construction and simplify approval logic while preserving current behavior (including unknown tool = needs approval).
+Deduplicate filesystem tool construction and simplify approval logic, prioritizing cleaner design over preserving existing behavior.
 
 ## Context
 - Relevant files/symbols:
   - `llm_do/toolsets/filesystem.py` (FileSystemToolset.get_tools, FileSystemToolset.needs_approval)
 - Related notes (inline summary):
   - Pattern 4: Add a small factory helper to build ToolsetTool objects to avoid repeated schema/validator boilerplate.
-  - Pattern 5: Simplify approval logic to a small conditional, but keep unknown tool default to needs approval.
+  - Pattern 5: Simplify approval logic to a small conditional; revisit the unknown-tool default.
 - How to verify / reproduce:
-  - `uv run pytest tests/runtime/test_approval_wrapping.py tests/test_toolset_args_validation.py`
+  - `uv run pytest tests/runtime/test_approval_wrapping.py tests/test_toolset_args_validation.py tests/test_filesystem.py`
 
 ## Decision Record
-- Decision: keep behavior identical, only reduce duplication.
-- Inputs: current tool descriptions and approval settings must not change.
-- Options: leave as-is vs helper method + compact approval logic.
-- Outcome: add a helper for tool creation and streamline approval without changing semantics.
+- Decision: allow behavior changes when they improve clarity or simplicity.
+- Inputs: current tool descriptions and approval settings are a reference point, not a constraint.
+- Options: leave as-is vs helper method + compact approval logic with targeted behavior tweaks.
+- Outcome: add a helper for tool creation and streamline approval; adjust semantics if it yields a cleaner, safer model.
 - Follow-ups: none.
 
 ## Tasks
 - [ ] Add a `_make_tool(name, desc, args_cls)` helper to build ToolsetTool instances.
-- [ ] Refactor get_tools to use the helper and keep descriptions identical.
-- [ ] Simplify needs_approval with a single branch for read/write and keep unknown tool -> needs approval.
-- [ ] Double-check ReadOnlyFileSystemToolset behavior (write_file blocked) remains unchanged.
+- [ ] Refactor get_tools to use the helper; update descriptions if clarity improves.
+- [ ] Simplify needs_approval with a single branch for read/write; decide default for unknown tools.
+- [ ] Add a regression test that verifies `needs_approval_from_config` short-circuits for blocked/pre_approved in filesystem tools.
+- [ ] Double-check ReadOnlyFileSystemToolset behavior remains coherent (write_file blocked).
 
 ## Current State
-Not started.
+Constraints relaxed to allow behavior changes; implementation not started.
 
 ## Notes
-- Approval logic must preserve: list_files uses read approval, write_file uses write approval.
+- Approval logic should remain coherent (list_files as read, write_file as write) unless a better model emerges.

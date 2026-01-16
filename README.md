@@ -1,5 +1,9 @@
 # llm-do
 
+*Extend with LLMs, stabilize with code.*
+
+Need new capability? Describe it in natural language—the LLM figures out how. See a pattern emerging? Extract it to tested Python—deterministic, fast, reliable. The system breathes in both directions.
+
 An imperative orchestration harness for LLM agents. Workers delegate to workers; your code owns control flow.
 
 ## Why llm-do?

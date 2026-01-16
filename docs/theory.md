@@ -1,5 +1,7 @@
 # LLM-Based Agentic Systems as Probabilistic Programs
 
+*Extend with LLMs, stabilize with code.*
+
 > This document sketches a theoretical framing for llm-do. Not a complete theory—just enough conceptual machinery to clarify why certain design choices make sense.
 
 ## Probabilistic Programming as Foundation

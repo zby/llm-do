@@ -49,8 +49,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
 
 # Run a project via manifest
-cd examples/greeter
-llm-do project.json "Tell me a joke"
+llm-do examples/greeter/project.json "Tell me a joke"
 ```
 
 `llm-do` reads `project.json`, links the listed files, and runs the single entry.
@@ -82,26 +81,6 @@ Example manifest:
   "worker_files": ["main.worker"],
   "python_files": ["tools.py"]
 }
-```
-
-### OAuth Login (Anthropic Pro/Max)
-
-Use the OAuth helper to authenticate with Anthropic subscriptions:
-
-```bash
-llm-do-oauth login --provider anthropic
-```
-
-Credentials are stored at `~/.llm-do/oauth.json`. Clear them with:
-
-```bash
-llm-do-oauth logout --provider anthropic
-```
-
-Check login status:
-
-```bash
-llm-do-oauth status --provider anthropic
 ```
 
 ## Core Concepts

@@ -1,13 +1,4 @@
-"""Module loading and ToolsetSpec discovery.
-
-This module provides functions to:
-- Load Python modules from file paths
-- Discover ToolsetSpec factories for toolsets
-- Discover Worker instances
-
-Discovery uses isinstance() checks to find ToolsetSpec instances
-in module attributes.
-"""
+"""Module loading and ToolsetSpec discovery."""
 from __future__ import annotations
 
 import importlib.util
@@ -23,20 +14,7 @@ from .worker import EntryFunction, Worker
 
 
 def load_module(path: str | Path) -> ModuleType:
-    """Load a Python module from a file path.
-
-    Args:
-        path: Path to Python file
-
-    Returns:
-        Loaded module
-
-    Raises:
-        ImportError: If module cannot be loaded
-    """
     path = Path(path).resolve()
-    # Use full path as module name to avoid collisions between files with same stem
-    # e.g., /foo/tools.py and /bar/tools.py become unique module names
     module_name = f"_llm_do_runtime_{path.stem}_{hash(str(path)) & 0xFFFFFFFF:08x}"
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
@@ -47,18 +25,11 @@ def load_module(path: str | Path) -> ModuleType:
     return module
 
 
+def _discover_from_module(module: ModuleType, target_type: type) -> list:
+    return [getattr(module, name) for name in dir(module) if not name.startswith("_") and isinstance(getattr(module, name), target_type)]
+
+
 def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetSpec]:
-    """Discover ToolsetSpec factories from a module.
-
-    Scans module attributes for ToolsetSpec instances and returns them
-    by attribute name.
-
-    Args:
-        module: Loaded Python module
-
-    Returns:
-        Dict mapping attribute names to toolset specs
-    """
     toolsets: dict[str, ToolsetSpec] = {}
     for name in dir(module):
         if name.startswith("_"):
@@ -67,113 +38,43 @@ def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetSpec]:
         if isinstance(obj, ToolsetSpec):
             toolsets[name] = obj
         elif isinstance(obj, AbstractToolset):
-            raise ValueError(
-                f"Toolset '{name}' must be defined as ToolsetSpec; "
-                "toolset instances are no longer supported."
-            )
+            raise ValueError(f"Toolset '{name}' must be defined as ToolsetSpec.")
     return toolsets
 
 
 def discover_workers_from_module(module: ModuleType) -> list[Worker]:
-    """Discover Worker instances from a module.
-
-    Args:
-        module: Loaded Python module
-
-    Returns:
-        List of discovered workers
-    """
-    workers: list[Worker] = []
-    for name in dir(module):
-        if name.startswith("_"):
-            continue
-        obj = getattr(module, name)
-        if isinstance(obj, Worker):
-            workers.append(obj)
-    return workers
+    return _discover_from_module(module, Worker)
 
 
 def discover_entries_from_module(module: ModuleType) -> list[EntryFunction]:
-    """Discover EntryFunction instances from a module.
-
-    These are functions decorated with @entry.
-
-    Args:
-        module: Loaded Python module
-
-    Returns:
-        List of discovered entry functions
-    """
-    entries: list[EntryFunction] = []
-    for name in dir(module):
-        if name.startswith("_"):
-            continue
-        obj = getattr(module, name)
-        if isinstance(obj, EntryFunction):
-            entries.append(obj)
-    return entries
+    return _discover_from_module(module, EntryFunction)
 
 
 def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
-    """Load all toolset specs from multiple Python files.
-
-    Args:
-        files: List of paths to Python files
-
-    Returns:
-        Dict mapping toolset names to specs
-
-    Raises:
-        ValueError: If duplicate toolset names are found
-    """
     all_toolsets: dict[str, ToolsetSpec] = {}
-
     for file_path in files:
         path = Path(file_path)
         if path.suffix != ".py":
             continue
-
-        module = load_module(path)
-        toolsets = discover_toolsets_from_module(module)
-
-        for name, toolset in toolsets.items():
+        for name, toolset in discover_toolsets_from_module(load_module(path)).items():
             if name in all_toolsets:
                 raise ValueError(f"Duplicate toolset name: {name}")
             all_toolsets[name] = toolset
-
     return all_toolsets
 
 
 def load_workers_from_files(files: list[str | Path]) -> dict[str, Worker]:
-    """Load all Worker instances from multiple Python files.
-
-    Args:
-        files: List of paths to Python files
-
-    Returns:
-        Dict mapping worker names to instances
-    """
     all_workers: dict[str, Worker] = {}
     worker_paths: dict[str, Path] = {}
-
     for file_path in files:
         path = Path(file_path)
         if path.suffix != ".py":
             continue
-
-        module = load_module(path)
-        workers = discover_workers_from_module(module)
-
-        for worker in workers:
+        for worker in discover_workers_from_module(load_module(path)):
             if worker.name in all_workers:
-                existing_path = worker_paths[worker.name]
-                raise ValueError(
-                    f"Duplicate worker name: {worker.name} "
-                    f"(from {existing_path} and {path})"
-                )
+                raise ValueError(f"Duplicate worker name: {worker.name} (from {worker_paths[worker.name]} and {path})")
             all_workers[worker.name] = worker
             worker_paths[worker.name] = path
-
     return all_workers
 
 

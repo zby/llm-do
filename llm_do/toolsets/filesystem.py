@@ -1,13 +1,4 @@
-"""Simple filesystem toolset for llm-do workers.
-
-This module provides basic file operations without sandbox validation.
-Security is provided by the Docker container boundary.
-
-Security model: llm-do is designed to run inside a Docker container.
-The container provides the security boundary. Running on bare metal
-is at user's own risk.
-"""
-
+"""Simple filesystem toolset for llm-do workers."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,85 +17,38 @@ from pydantic_ai_blocking_approval import (
 from .validators import DictValidator
 
 DEFAULT_MAX_READ_CHARS = 20_000
-"""Default maximum characters to read from a file."""
 
 
 class ReadResult(BaseModel):
-    """Result of reading a file."""
-
     content: str = Field(description="The file content read")
-    truncated: bool = Field(description="True if more content exists after this chunk")
+    truncated: bool = Field(description="True if more content exists")
     total_chars: int = Field(description="Total file size in characters")
-    offset: int = Field(description="Starting character position used")
-    chars_read: int = Field(description="Number of characters actually returned")
+    offset: int = Field(description="Starting character position")
+    chars_read: int = Field(description="Characters returned")
 
 
 class ReadFileArgs(BaseModel):
-    """Arguments for read_file."""
-
     path: str = Field(description="Path to the file to read")
-    max_chars: int = Field(
-        default=DEFAULT_MAX_READ_CHARS,
-        description=f"Maximum characters to read (default {DEFAULT_MAX_READ_CHARS:,})",
-    )
-    offset: int = Field(
-        default=0,
-        description="Character position to start reading from (default 0)",
-    )
+    max_chars: int = Field(default=DEFAULT_MAX_READ_CHARS, description="Maximum characters to read")
+    offset: int = Field(default=0, description="Character position to start reading from")
 
 
 class WriteFileArgs(BaseModel):
-    """Arguments for write_file."""
-
     path: str = Field(description="Path to the file to write")
     content: str = Field(description="Content to write to the file")
 
 
 class ListFilesArgs(BaseModel):
-    """Arguments for list_files."""
-
-    path: str = Field(
-        default=".",
-        description="Directory to search in (default: current directory)",
-    )
-    pattern: str = Field(
-        default="**/*",
-        description="Glob pattern to match (default: all files)",
-    )
+    path: str = Field(default=".", description="Directory to search in")
+    pattern: str = Field(default="**/*", description="Glob pattern to match")
 
 
 class FileSystemToolset(AbstractToolset[Any]):
-    """Simple file I/O toolset for PydanticAI agents.
+    """Simple file I/O toolset: read_file, write_file, list_files."""
 
-    Provides read_file, write_file, and list_files tools.
-    Works with normal filesystem paths (relative to CWD or absolute).
-    No sandbox validation - security is provided by Docker container.
-
-    Example:
-        toolset = FileSystemToolset(config={})
-        agent = Agent(..., toolsets=[toolset])
-    """
-
-    def __init__(
-        self,
-        config: dict,
-        id: Optional[str] = None,
-        max_retries: int = 1,
-    ):
-        """Initialize the file system toolset.
-
-        Args:
-            config: Configuration dict. Supports:
-                - base_path: Base directory for relative paths (default: CWD)
-                - read_approval: Whether reads require approval (default: False)
-                - write_approval: Whether writes require approval (default: True)
-            id: Optional toolset ID for durable execution
-            max_retries: Maximum number of retries for tool calls (default: 1)
-        """
+    def __init__(self, config: dict, id: Optional[str] = None, max_retries: int = 1):
         self._config = config
-        self._base_path: Path | None = None
-        if "base_path" in config:
-            self._base_path = Path(config["base_path"]).expanduser().resolve()
+        self._base_path: Path | None = Path(config["base_path"]).expanduser().resolve() if "base_path" in config else None
         self._read_approval = config.get("read_approval", False)
         self._write_approval = config.get("write_approval", True)
         self._toolset_id = id
@@ -112,29 +56,18 @@ class FileSystemToolset(AbstractToolset[Any]):
 
     @property
     def id(self) -> str | None:
-        """Unique identifier for this toolset."""
         return self._toolset_id
 
     @property
     def config(self) -> dict:
-        """Return the toolset configuration."""
         return self._config
 
     def _resolve_path(self, path: str) -> Path:
-        """Resolve a path (relative to base_path/CWD or absolute).
-
-        Args:
-            path: Path string (can be relative or absolute)
-
-        Returns:
-            Resolved absolute Path
-        """
+        """Resolve a path (relative to base_path/CWD or absolute)."""
         p = Path(path).expanduser()
         if p.is_absolute():
             return p.resolve()
-        if self._base_path is not None:
-            return (self._base_path / p).resolve()
-        return p.resolve()
+        return (self._base_path / p).resolve() if self._base_path else p.resolve()
 
     def needs_approval(
         self,
@@ -143,282 +76,104 @@ class FileSystemToolset(AbstractToolset[Any]):
         ctx: Any,
         config: ApprovalConfig | None = None,
     ) -> ApprovalResult:
-        """Check if the tool call requires approval.
-
-        Args:
-            name: Tool name being called
-            tool_args: Arguments passed to the tool
-            ctx: PydanticAI run context
-            config: Per-tool approval config from ApprovalToolset
-
-        Returns:
-            ApprovalResult with status: pre_approved or needs_approval
-        """
         base = needs_approval_from_config(name, config)
-        if base.is_blocked:
-            return base
-        if base.is_pre_approved:
+        if base.is_blocked or base.is_pre_approved:
             return base
 
-        if name == "read_file":
-            if self._read_approval:
-                return ApprovalResult.needs_approval()
-            return ApprovalResult.pre_approved()
-
-        elif name == "write_file":
-            if self._write_approval:
-                return ApprovalResult.needs_approval()
-            return ApprovalResult.pre_approved()
-
-        elif name == "list_files":
-            if self._read_approval:
-                return ApprovalResult.needs_approval()
-            return ApprovalResult.pre_approved()
-
-        # Unknown tool - require approval
-        return ApprovalResult.needs_approval()
+        requires = self._write_approval if name == "write_file" else self._read_approval
+        return ApprovalResult.needs_approval() if requires else ApprovalResult.pre_approved()
 
     def get_approval_description(
         self, name: str, tool_args: dict[str, Any], ctx: Any
     ) -> str:
-        """Return human-readable description for approval prompt.
-
-        Args:
-            name: Tool name being called
-            tool_args: Arguments passed to the tool
-            ctx: PydanticAI run context
-
-        Returns:
-            Description string to show user
-        """
         path = tool_args.get("path", "")
-
         if name == "write_file":
-            content = tool_args.get("content", "")
-            char_count = len(content)
-            return f"Write {char_count} chars to {path}"
-
-        elif name == "read_file":
+            return f"Write {len(tool_args.get('content', ''))} chars to {path}"
+        if name == "read_file":
             return f"Read from {path}"
-
-        elif name == "list_files":
-            search_path = tool_args.get("path", ".")
-            pattern = tool_args.get("pattern", "**/*")
-            return f"List files matching {pattern} in {search_path}"
-
+        if name == "list_files":
+            return f"List files matching {tool_args.get('pattern', '**/*')} in {tool_args.get('path', '.')}"
         return f"{name}({path})"
 
-    def read_file(
-        self, path: str, max_chars: int = DEFAULT_MAX_READ_CHARS, offset: int = 0
-    ) -> ReadResult:
-        """Read text file efficiently with seeking support.
-
-        For large files, avoids loading the entire file into memory by:
-        - Using file seeking when offset is specified
-        - Reading only the required bytes (with buffer for UTF-8)
-
-        Args:
-            path: Path to file
-            max_chars: Maximum characters to read
-            offset: Character position to start reading from
-
-        Returns:
-            ReadResult with content, truncation info, and metadata
-
-        Raises:
-            FileNotFoundError: If file doesn't exist
-            IsADirectoryError: If path is a directory
-        """
+    def read_file(self, path: str, max_chars: int = DEFAULT_MAX_READ_CHARS, offset: int = 0) -> ReadResult:
+        """Read text file with optional seeking support."""
         resolved = self._resolve_path(path)
-
         if not resolved.exists():
             raise FileNotFoundError(f"File not found: {path}")
-
         if not resolved.is_file():
             raise IsADirectoryError(f"Not a file: {path}")
 
-        file_size = resolved.stat().st_size
-
         # For small files (< 1MB), just read the whole thing
-        # This is simpler and handles edge cases better
-        if file_size < 1024 * 1024:
+        if resolved.stat().st_size < 1024 * 1024:
             text = resolved.read_text(encoding="utf-8")
             total_chars = len(text)
-
-            if offset > 0:
-                text = text[offset:]
-
+            text = text[offset:] if offset > 0 else text
             truncated = len(text) > max_chars
-            if truncated:
-                text = text[:max_chars]
-
-            return ReadResult(
-                content=text,
-                truncated=truncated,
-                total_chars=total_chars,
-                offset=offset,
-                chars_read=len(text),
-            )
+            return ReadResult(content=text[:max_chars], truncated=truncated, total_chars=total_chars, offset=offset, chars_read=min(len(text), max_chars))
 
         # For larger files, use streaming approach
         with open(resolved, "r", encoding="utf-8") as f:
-            # Skip offset characters if needed
             if offset > 0:
-                # Read and discard offset characters
                 skipped = 0
                 while skipped < offset:
                     chunk = f.read(min(8192, offset - skipped))
                     if not chunk:
-                        # Reached EOF before offset
-                        return ReadResult(
-                            content="",
-                            truncated=False,
-                            total_chars=skipped,
-                            offset=offset,
-                            chars_read=0,
-                        )
+                        return ReadResult(content="", truncated=False, total_chars=skipped, offset=offset, chars_read=0)
                     skipped += len(chunk)
 
-            # Read the content we need (plus one extra to check truncation)
             text = f.read(max_chars + 1)
             truncated = len(text) > max_chars
             if truncated:
                 text = text[:max_chars]
-
-            # Estimate total chars by reading rest of file in chunks
-            # (needed for total_chars metadata)
-            remaining = 0
-            while True:
-                chunk = f.read(65536)
-                if not chunk:
-                    break
-                remaining += len(chunk)
-
+            remaining = sum(len(chunk) for chunk in iter(lambda: f.read(65536), ""))
             total_chars = offset + len(text) + remaining + (1 if truncated else 0)
 
-        return ReadResult(
-            content=text,
-            truncated=truncated,
-            total_chars=total_chars,
-            offset=offset,
-            chars_read=len(text),
-        )
+        return ReadResult(content=text, truncated=truncated, total_chars=total_chars, offset=offset, chars_read=len(text))
 
     def write_file(self, path: str, content: str) -> str:
-        """Write text file.
-
-        Args:
-            path: Path to file
-            content: Content to write
-
-        Returns:
-            Confirmation message
-        """
+        """Write text file."""
         resolved = self._resolve_path(path)
-
-        # Create parent directories if needed
         resolved.parent.mkdir(parents=True, exist_ok=True)
-
         resolved.write_text(content, encoding="utf-8")
-
         return f"Written {len(content)} characters to {path}"
 
     def list_files(self, path: str = ".", pattern: str = "**/*") -> list[str]:
-        """List files matching pattern in a directory.
-
-        Args:
-            path: Directory to search in (default: current directory)
-            pattern: Glob pattern to match (default: all files)
-
-        Returns:
-            List of matching file paths (relative to search path)
-        """
+        """List files matching pattern in a directory."""
         base = self._resolve_path(path)
         results = []
         for match in base.glob(pattern):
             if match.is_file():
                 try:
-                    rel = match.relative_to(base)
-                    results.append(str(rel))
+                    results.append(str(match.relative_to(base)))
                 except ValueError:
                     results.append(str(match))
         return sorted(results)
 
+    def _make_tool(self, name: str, desc: str, args_cls: type[BaseModel]) -> ToolsetTool[Any]:
+        return ToolsetTool(
+            toolset=self,
+            tool_def=ToolDefinition(name=name, description=desc, parameters_json_schema=args_cls.model_json_schema()),
+            max_retries=self._max_retries,
+            args_validator=cast(SchemaValidatorProt, DictValidator(args_cls)),
+        )
+
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool[Any]]:
-        """Return the tools provided by this toolset."""
-        tools = {}
-
-        # Define tool schemas
-        read_file_schema = ReadFileArgs.model_json_schema()
-        write_file_schema = WriteFileArgs.model_json_schema()
-        list_files_schema = ListFilesArgs.model_json_schema()
-
-        # Create ToolsetTool instances
-        tools["read_file"] = ToolsetTool(
-            toolset=self,
-            tool_def=ToolDefinition(
-                name="read_file",
-                description=(
-                    "Read a text file. "
-                    "Do not use this on binary files (PDFs, images, etc) - "
-                    "pass them as attachments instead."
-                ),
-                parameters_json_schema=read_file_schema,
-            ),
-            max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, DictValidator(ReadFileArgs)),
-        )
-
-        tools["write_file"] = ToolsetTool(
-            toolset=self,
-            tool_def=ToolDefinition(
-                name="write_file",
-                description="Write a text file.",
-                parameters_json_schema=write_file_schema,
-            ),
-            max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, DictValidator(WriteFileArgs)),
-        )
-
-        tools["list_files"] = ToolsetTool(
-            toolset=self,
-            tool_def=ToolDefinition(
-                name="list_files",
-                description="List files in a directory matching a glob pattern.",
-                parameters_json_schema=list_files_schema,
-            ),
-            max_retries=self._max_retries,
-            args_validator=cast(SchemaValidatorProt, DictValidator(ListFilesArgs)),
-        )
-
-        return tools
+        return {
+            "read_file": self._make_tool("read_file", "Read a text file. Do not use on binary files - pass them as attachments instead.", ReadFileArgs),
+            "write_file": self._make_tool("write_file", "Write a text file.", WriteFileArgs),
+            "list_files": self._make_tool("list_files", "List files in a directory matching a glob pattern.", ListFilesArgs),
+        }
 
     async def call_tool(
-        self,
-        name: str,
-        tool_args: dict[str, Any],
-        ctx: Any,
-        tool: ToolsetTool[Any],
+        self, name: str, tool_args: dict[str, Any], ctx: Any, tool: ToolsetTool[Any]
     ) -> Any:
-        """Call a tool with the given arguments."""
         if name == "read_file":
-            path = tool_args["path"]
-            max_chars = tool_args.get("max_chars", DEFAULT_MAX_READ_CHARS)
-            offset = tool_args.get("offset", 0)
-            return self.read_file(path, max_chars=max_chars, offset=offset)
-
-        elif name == "write_file":
-            path = tool_args["path"]
-            content = tool_args["content"]
-            return self.write_file(path, content)
-
-        elif name == "list_files":
-            path = tool_args.get("path", ".")
-            pattern = tool_args.get("pattern", "**/*")
-            return self.list_files(path, pattern)
-
-        else:
-            raise ValueError(f"Unknown tool: {name}")
+            return self.read_file(tool_args["path"], tool_args.get("max_chars", DEFAULT_MAX_READ_CHARS), tool_args.get("offset", 0))
+        if name == "write_file":
+            return self.write_file(tool_args["path"], tool_args["content"])
+        if name == "list_files":
+            return self.list_files(tool_args.get("path", "."), tool_args.get("pattern", "**/*"))
+        raise ValueError(f"Unknown tool: {name}")
 
 
 class ReadOnlyFileSystemToolset(FileSystemToolset):

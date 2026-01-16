@@ -1,26 +1,9 @@
-"""Model compatibility checking and resolution for workers.
-
-This module provides utilities for:
-1. Validating model compatibility against worker's compatible_models patterns
-2. Resolving the effective model from multiple sources with proper precedence
-3. Converting Model objects to their canonical string form
-
-Pattern syntax for compatible_models:
-- "*" matches any model
-- "anthropic:*" matches any model from the anthropic provider
-- "anthropic:claude-haiku-*" matches claude-haiku variants
-- "anthropic:claude-haiku-4-5" matches exactly that model
-
-Model resolution precedence (highest to lowest):
-1. Worker's own model (worker definition)
-2. LLM_DO_MODEL environment variable
-"""
+"""Model compatibility checking and resolution for workers."""
 from __future__ import annotations
 
 import fnmatch
 import os
-from dataclasses import dataclass
-from typing import Any, List, Optional, Union
+from typing import Any
 
 from pydantic_ai.models import (
     Model,
@@ -29,28 +12,27 @@ from pydantic_ai.models import (
     ModelResponse,
 )
 
-# Environment variable for default model
 LLM_DO_MODEL_ENV = "LLM_DO_MODEL"
 
 
-class ModelCompatibilityError(ValueError):
-    """Raised when a model is incompatible with worker requirements."""
-    pass
+class ModelError(ValueError):
+    """Base class for model-related errors."""
 
 
-class NoModelError(ValueError):
-    """Raised when no model is available for a worker."""
-    pass
+class ModelCompatibilityError(ModelError):
+    """Model is incompatible with worker requirements."""
 
 
-class InvalidCompatibleModelsError(ValueError):
-    """Raised when compatible_models configuration is invalid (e.g., empty list)."""
-    pass
+class NoModelError(ModelError):
+    """No model is available for a worker."""
 
 
-class ModelConfigError(ValueError):
-    """Raised when model configuration is invalid (e.g., both model and compatible_models set)."""
-    pass
+class InvalidCompatibleModelsError(ModelError):
+    """compatible_models configuration is invalid."""
+
+
+class ModelConfigError(ModelError):
+    """Model configuration is invalid."""
 
 
 class NullModel(Model):
@@ -65,215 +47,59 @@ class NullModel(Model):
         return "null"
 
     async def request(
-        self,
-        messages: list[ModelMessage],
-        model_settings: Any,
-        model_request_parameters: ModelRequestParameters,
+        self, messages: list[ModelMessage], model_settings: Any, model_request_parameters: ModelRequestParameters
     ) -> ModelResponse:
-        raise RuntimeError(
-            "NullModel cannot be used for LLM calls; configure a worker model instead."
-        )
+        raise RuntimeError("NullModel cannot be used for LLM calls; configure a worker model instead.")
 
 
 NULL_MODEL = NullModel()
 
 
-def get_model_string(model: Union[str, Model]) -> str:
-    """Get the canonical string representation of a model.
-
-    For string models, returns the string as-is.
-    For Model objects, constructs "provider:model_name" from the object.
-
-    The provider is derived from the model's module name:
-    - pydantic_ai.models.anthropic -> "anthropic"
-    - pydantic_ai.models.openai -> "openai"
-    - pydantic_ai.models.test -> "test"
-
-    Examples:
-        >>> get_model_string("anthropic:claude-haiku-4-5")
-        'anthropic:claude-haiku-4-5'
-        >>> get_model_string(TestModel())  # doctest: +SKIP
-        'test:test'
-        >>> get_model_string(AnthropicModel("claude-haiku-4-5"))  # doctest: +SKIP
-        'anthropic:claude-haiku-4-5'
-
-    Args:
-        model: Either a string model identifier or a PydanticAI Model object
-
-    Returns:
-        The canonical model string in "provider:model_name" format
-    """
+def get_model_string(model: str | Model) -> str:
+    """Get canonical string representation (provider:model_name)."""
     if isinstance(model, str):
         return model
-    # Model object - derive provider from module name
     provider = type(model).__module__.split(".")[-1]
     return f"{provider}:{model.model_name}"
 
 
-@dataclass
-class ModelValidationResult:
-    """Result of model compatibility validation."""
-
-    valid: bool
-    model: str
-    message: Optional[str] = None
-
-
-def _normalize_pattern(pattern: str) -> str:
-    """Normalize a pattern for matching."""
-    return pattern.strip().lower()
-
-
-def _normalize_model(model: str) -> str:
-    """Normalize a model identifier for matching."""
-    return model.strip().lower()
-
-
 def model_matches_pattern(model: str, pattern: str) -> bool:
-    """Check if a model matches a compatibility pattern.
-
-    Uses fnmatch for glob-style matching:
-    - "*" matches everything
-    - "anthropic:*" matches "anthropic:claude-sonnet-4"
-    - "anthropic:claude-*" matches "anthropic:claude-sonnet-4", "anthropic:claude-haiku-4-5"
-
-    Args:
-        model: The model identifier to check (e.g., "anthropic:claude-sonnet-4")
-        pattern: The pattern to match against (e.g., "anthropic:*")
-
-    Returns:
-        True if the model matches the pattern
-    """
-    normalized_model = _normalize_model(model)
-    normalized_pattern = _normalize_pattern(pattern)
-    return fnmatch.fnmatch(normalized_model, normalized_pattern)
+    """Check if model matches a glob-style compatibility pattern."""
+    return fnmatch.fnmatch(model.strip().lower(), pattern.strip().lower())
 
 
 def validate_model_compatibility(
-    model: str,
-    compatible_models: Optional[List[str]],
-    *,
-    worker_name: str = "worker",
-) -> ModelValidationResult:
-    """Validate that a model is compatible with the worker's requirements.
-
-    Compatibility rules:
-    - None (unset): Any model is allowed
-    - ["*"]: Explicitly allows any model
-    - []: Empty list is invalid (configuration error)
-    - ["pattern1", "pattern2", ...]: Model must match at least one pattern
-
-    Args:
-        model: The model identifier to validate
-        compatible_models: List of compatibility patterns from worker definition
-        worker_name: Name of the worker (for error messages)
-
-    Returns:
-        ModelValidationResult indicating if the model is valid
-
-    Raises:
-        ValueError: If compatible_models is an empty list (invalid configuration)
-    """
-    # None means any model is allowed
+    model: str | Model, compatible_models: list[str] | None, *, worker_name: str = "worker"
+) -> None:
+    """Validate model against compatibility patterns. Raises ModelCompatibilityError if invalid."""
     if compatible_models is None:
-        return ModelValidationResult(valid=True, model=model)
-
-    # Empty list is a configuration error
-    if len(compatible_models) == 0:
+        return
+    if not compatible_models:
         raise InvalidCompatibleModelsError(
-            f"Worker '{worker_name}' has empty compatible_models list. "
-            "Use ['*'] for any model, or specify compatible patterns."
+            f"Worker '{worker_name}' has empty compatible_models list. Use ['*'] for any model."
         )
-
-    # Check if model matches any pattern
-    for pattern in compatible_models:
-        if model_matches_pattern(model, pattern):
-            return ModelValidationResult(valid=True, model=model)
-
-    # No match found
-    patterns_display = ", ".join(f"'{p}'" for p in compatible_models)
-    return ModelValidationResult(
-        valid=False,
-        model=model,
-        message=(
-            f"Model '{model}' is not compatible with worker '{worker_name}'. "
-            f"Compatible patterns: {patterns_display}"
-        ),
-    )
-
-
-def _validate_and_return(
-    model: Any,
-    compatible_models: Optional[List[str]],
-    worker_name: str,
-) -> Any:
-    """Validate a model against compatibility patterns and return it.
-
-    Validates both string identifiers and Model objects (via get_model_string).
-
-    Raises:
-        ModelCompatibilityError: If the model doesn't match compatible_models
-    """
     model_str = get_model_string(model)
-    result = validate_model_compatibility(
-        model_str, compatible_models, worker_name=worker_name
-    )
-    if not result.valid:
-        raise ModelCompatibilityError(result.message)
-    return model
+    if any(model_matches_pattern(model_str, p) for p in compatible_models):
+        return
+    patterns = ", ".join(f"'{p}'" for p in compatible_models)
+    raise ModelCompatibilityError(f"Model '{model_str}' incompatible with '{worker_name}'. Patterns: {patterns}")
 
 
-def get_env_model() -> Optional[str]:
+def get_env_model() -> str | None:
     """Get the default model from LLM_DO_MODEL environment variable."""
     return os.environ.get(LLM_DO_MODEL_ENV)
 
 
 def select_model(
-    *,
-    worker_model: Optional[Union[str, Model]],
-    compatible_models: Optional[List[str]],
-    worker_name: str = "worker",
-) -> Union[str, Model]:
-    """Select and validate the effective model for a worker.
-
-    Resolution order (highest to lowest priority):
-    1. Worker's own model - worker definition (takes precedence)
-    2. LLM_DO_MODEL env var - user's global default
-
-    The env model is validated against compatible_models (string or Model).
-    Worker cannot have both model and compatible_models set.
-
-    Args:
-        worker_model: Model from worker definition
-        compatible_models: Worker's compatibility patterns
-        worker_name: Name of the worker (for error messages)
-
-    Returns:
-        The selected model identifier or Model object
-
-    Raises:
-        ModelConfigError: If worker has both model and compatible_models set
-        ModelCompatibilityError: If selected model is incompatible with worker
-        NoModelError: If no model is available from any source
-    """
-    # Validate: can't have both model and compatible_models
+    *, worker_model: str | Model | None, compatible_models: list[str] | None, worker_name: str = "worker"
+) -> str | Model:
+    """Select and validate the effective model for a worker (worker_model > LLM_DO_MODEL env)."""
     if worker_model is not None and compatible_models is not None:
-        raise ModelConfigError(
-            f"Worker '{worker_name}' cannot have both 'model' and 'compatible_models' set. "
-            f"Use 'model' for a fixed model, or 'compatible_models' to accept external models."
-        )
-
-    # 1. Worker's own model (highest priority)
+        raise ModelConfigError(f"Worker '{worker_name}' cannot have both 'model' and 'compatible_models' set.")
     if worker_model is not None:
-        return worker_model  # No validation needed - it's the worker's own choice
-
-    # 2. Environment variable - user's global default (validated)
-    env_model = get_env_model()
+        return worker_model
+    env_model = os.environ.get(LLM_DO_MODEL_ENV)
     if env_model is not None:
-        return _validate_and_return(env_model, compatible_models, worker_name)
-
-    # No model available
-    raise NoModelError(
-        f"No model configured for worker '{worker_name}'. "
-        f"Set worker.model or {LLM_DO_MODEL_ENV} env var."
-    )
+        validate_model_compatibility(env_model, compatible_models, worker_name=worker_name)
+        return env_model
+    raise NoModelError(f"No model configured for worker '{worker_name}'. Set worker.model or {LLM_DO_MODEL_ENV}.")

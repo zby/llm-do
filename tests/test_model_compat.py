@@ -52,44 +52,24 @@ class TestValidateModelCompatibility:
     """Tests for the validation function."""
 
     def test_none_compatible_models_allows_any(self):
-        result = validate_model_compatibility("openai:gpt-4o", None)
-        assert result.valid is True
-        assert result.model == "openai:gpt-4o"
+        validate_model_compatibility("openai:gpt-4o", None)  # should not raise
 
     def test_wildcard_allows_any(self):
-        result = validate_model_compatibility("openai:gpt-4o", ["*"])
-        assert result.valid is True
+        validate_model_compatibility("openai:gpt-4o", ["*"])  # should not raise
 
     def test_exact_match_valid(self):
-        result = validate_model_compatibility(
-            "anthropic:claude-haiku-4-5",
-            ["anthropic:claude-haiku-4-5"]
-        )
-        assert result.valid is True
+        validate_model_compatibility("anthropic:claude-haiku-4-5", ["anthropic:claude-haiku-4-5"])
 
     def test_pattern_match_valid(self):
-        result = validate_model_compatibility(
-            "anthropic:claude-haiku-4-5",
-            ["anthropic:*"]
-        )
-        assert result.valid is True
+        validate_model_compatibility("anthropic:claude-haiku-4-5", ["anthropic:*"])
 
     def test_one_of_multiple_patterns_valid(self):
-        result = validate_model_compatibility(
-            "openai:gpt-4o",
-            ["anthropic:claude-haiku-4-5", "openai:gpt-4o", "google:gemini-pro"]
-        )
-        assert result.valid is True
+        validate_model_compatibility("openai:gpt-4o", ["anthropic:claude-haiku-4-5", "openai:gpt-4o", "google:gemini-pro"])
 
     def test_no_pattern_matches_invalid(self):
-        result = validate_model_compatibility(
-            "mistral:mistral-large",
-            ["anthropic:*", "openai:*"],
-            worker_name="test-worker",
-        )
-        assert result.valid is False
-        assert "mistral:mistral-large" in result.message
-        assert "test-worker" in result.message
+        with pytest.raises(ModelCompatibilityError, match="mistral:mistral-large") as exc:
+            validate_model_compatibility("mistral:mistral-large", ["anthropic:*", "openai:*"], worker_name="test-worker")
+        assert "test-worker" in str(exc.value)
 
     def test_empty_list_raises(self):
         with pytest.raises(InvalidCompatibleModelsError, match="empty compatible_models list"):
@@ -138,7 +118,7 @@ class TestSelectModel:
 
     def test_env_model_incompatible_raises(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")
-        with pytest.raises(ModelCompatibilityError, match="not compatible"):
+        with pytest.raises(ModelCompatibilityError, match="incompatible"):
             select_model(
                 worker_model=None,
                 compatible_models=["anthropic:*"],
@@ -207,7 +187,7 @@ class TestEnvVarModel:
 
     def test_env_var_incompatible_raises(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")
-        with pytest.raises(ModelCompatibilityError, match="not compatible"):
+        with pytest.raises(ModelCompatibilityError, match="incompatible"):
             select_model(
                 worker_model=None,
                 compatible_models=["anthropic:*"],
@@ -314,13 +294,11 @@ class TestGetModelString:
         model_str = get_model_string(model)
 
         # Should match "test:*" pattern
-        result = validate_model_compatibility(model_str, ["test:*"])
-        assert result.valid
+        validate_model_compatibility(model_str, ["test:*"])  # should not raise
 
         # Should match "*" pattern
-        result = validate_model_compatibility(model_str, ["*"])
-        assert result.valid
+        validate_model_compatibility(model_str, ["*"])  # should not raise
 
         # Should not match "anthropic:*"
-        result = validate_model_compatibility(model_str, ["anthropic:*"])
-        assert not result.valid
+        with pytest.raises(ModelCompatibilityError):
+            validate_model_compatibility(model_str, ["anthropic:*"])

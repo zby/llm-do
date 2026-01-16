@@ -1,10 +1,4 @@
-"""Entry implementations for the context runtime.
-
-This module provides:
-- Worker: An LLM-powered worker that implements the Entry protocol
-- WorkerToolset: Adapter that exposes a Worker as a single tool for another agent
-- EntryFunction: Wrapper for @entry decorated functions
-"""
+"""Entry implementations: Worker, WorkerToolset, EntryFunction."""
 from __future__ import annotations
 
 import inspect
@@ -42,15 +36,7 @@ from .shared import RuntimeConfig, build_tool_plane
 
 
 def _resolve_attachment_path(path: str, base_path: Path | None = None) -> Path:
-    """Resolve an attachment path to an absolute, normalized path.
-
-    Args:
-        path: Path to the file (relative or absolute)
-        base_path: Base directory for resolving relative paths
-
-    Returns:
-        Absolute, normalized Path for the attachment
-    """
+    """Resolve an attachment path to an absolute, normalized path."""
     file_path = Path(path).expanduser()
     if not file_path.is_absolute() and base_path is not None:
         file_path = base_path.expanduser() / file_path
@@ -70,18 +56,12 @@ def _load_attachment(path: Path) -> BinaryContent:
     return BinaryContent(data=data, media_type=media_type)
 
 
-def _build_user_prompt(
-    text: str, attachments: Sequence[BinaryContent]
-) -> str | Sequence[UserContent]:
+def _build_user_prompt(text: str, attachments: Sequence[BinaryContent]) -> str | Sequence[UserContent]:
     """Build a user prompt from text and resolved attachments."""
-    # If no attachments, return plain string (avoid empty/whitespace prompt for providers that require a message)
     if not attachments:
         return text if text.strip() else "(no input)"
-
-    # Build multimodal prompt with attachments
     parts: list[UserContent] = [text if text.strip() else "(no input)"]
     parts.extend(attachments)
-
     return parts
 
 
@@ -91,12 +71,7 @@ def _should_use_message_history(runtime: WorkerRuntimeProtocol) -> bool:
 
 
 def _get_all_messages(result: Any) -> list[Any]:
-    """Return all messages from a run result or stream object.
-
-    PydanticAI exposes all_messages() as a method (not a property) on both
-    RunResult and StreamedRunResult with the same signature.
-    See: https://ai.pydantic.dev/api/result/
-    """
+    """Return all messages from a run result or stream object."""
     return list(result.all_messages())
 
 
@@ -162,67 +137,26 @@ def _capture_message_log(
         yield
 
 
-def build_worker_tool(
-    worker: "Worker",
-    toolset: AbstractToolset[Any],
-) -> ToolsetTool[Any]:
-    """Build a ToolsetTool for exposing a Worker as a callable tool.
-
-    This shared helper is used by both Worker.get_tools() and WorkerToolset.get_tools()
-    to ensure consistent tool definition and validation.
-
-    Args:
-        worker: The worker to expose as a tool
-        toolset: The toolset that owns this tool (Worker or WorkerToolset)
-
-    Returns:
-        ToolsetTool configured for the worker
-    """
-    description_source = worker.description or worker.instructions
-    description = (
-        description_source[:200] + "..."
-        if len(description_source) > 200
-        else description_source
-    )
-    input_schema = worker.schema_in or WorkerInput
-
-    tool_def = ToolDefinition(
-        name=worker.name,
-        description=description,
-        parameters_json_schema=input_schema.model_json_schema(),
-    )
-
+def build_worker_tool(worker: "Worker", toolset: AbstractToolset[Any]) -> ToolsetTool[Any]:
+    """Build a ToolsetTool for exposing a Worker as a callable tool."""
+    desc = worker.description or worker.instructions
+    desc = desc[:200] + "..." if len(desc) > 200 else desc
+    schema = worker.schema_in or WorkerInput
     return ToolsetTool(
         toolset=toolset,
-        tool_def=tool_def,
+        tool_def=ToolDefinition(name=worker.name, description=desc, parameters_json_schema=schema.model_json_schema()),
         max_retries=0,
-        args_validator=DictValidator(input_schema),
+        args_validator=DictValidator(schema),
     )
 
 
 @dataclass
 class WorkerToolset(AbstractToolset[Any]):
-    """Adapter that exposes a Worker as a single tool for another agent.
-
-    This decouples "Worker as callable entry" from "Worker as tool provider",
-    making the relationship explicit via composition rather than inheritance.
-
-    The tool name is always worker.name (no attribute-name aliasing).
-
-    Usage:
-        analyst = Worker(name="analyst", ...)
-        main_worker = Worker(
-            name="main",
-            toolset_specs=[analyst.as_toolset_spec(), filesystem_tools, shell_tools],
-            ...
-        )
-    """
-
+    """Adapter that exposes a Worker as a single tool for another agent."""
     worker: "Worker"
 
     @property
     def id(self) -> str | None:
-        """Return the worker name as this toolset's id."""
         return self.worker.name
 
     def _prompt_spec_from_args(
@@ -290,45 +224,18 @@ class WorkerToolset(AbstractToolset[Any]):
         return f"Call worker {name}"
 
     async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
-        """Return the wrapped worker as a callable tool."""
-        tool = build_worker_tool(self.worker, self)
-        return {self.worker.name: tool}
+        return {self.worker.name: build_worker_tool(self.worker, self)}
 
-    async def call_tool(
-        self,
-        name: str,
-        tool_args: dict[str, Any],
-        run_ctx: RunContext[Any],
-        tool: ToolsetTool[Any],
-    ) -> Any:
-        """Execute the worker when called as a tool."""
-        return await self.worker._call_internal(
-            tool_args,
-            run_ctx.deps.config,
-            run_ctx.deps.frame,
-            run_ctx,
-        )
+    async def call_tool(self, name: str, tool_args: dict[str, Any], run_ctx: RunContext[Any], tool: ToolsetTool[Any]) -> Any:
+        return await self.worker._call_internal(tool_args, run_ctx.deps.config, run_ctx.deps.frame, run_ctx)
 
 
-# Type alias for toolset references: can be names or specs
 ToolsetRef = str | ToolsetSpec
 
 
 @dataclass
 class EntryFunction:
-    """Wrapper that implements the Entry protocol for decorated functions.
-
-    Created by the @entry decorator to expose Python functions as entry points.
-    Toolset references can be names (resolved during registry linking) or specs.
-
-    Attributes:
-        func: The wrapped async function
-        entry_name: Name for this entry (from decorator or function name)
-        toolset_refs: List of toolset references (names or specs)
-        schema_in: Optional WorkerArgs subclass for input normalization
-        _resolved_toolset_specs: Resolved toolset specs (set during linking)
-    """
-
+    """Wrapper that implements the Entry protocol for decorated functions."""
     func: Callable[..., Any]
     entry_name: str
     toolset_refs: list[ToolsetRef] = field(default_factory=list)
@@ -342,42 +249,22 @@ class EntryFunction:
 
     @property
     def toolset_specs(self) -> list[ToolsetSpec]:
-        """Return resolved toolset specs for Entry protocol.
-
-        Note: If called before linking, only spec refs are available.
-        Named refs require registry linking to resolve.
-        """
         if self._resolved_toolset_specs:
             return self._resolved_toolset_specs
-        # Fallback: return only spec refs (unlinked state)
         return [ref for ref in self.toolset_refs if isinstance(ref, ToolsetSpec)]
 
-    def resolve_toolsets(
-        self,
-        available: dict[str, ToolsetSpec],
-        context: ToolsetBuildContext,
-    ) -> None:
-        """Resolve toolset refs to specs during registry linking.
-
-        Args:
-            available: Map of toolset names to specs from the registry
-            context: Toolset build context for instantiation
-        """
+    def resolve_toolsets(self, available: dict[str, ToolsetSpec], context: ToolsetBuildContext) -> None:
+        """Resolve toolset refs to specs during registry linking."""
         resolved: list[ToolsetSpec] = []
         for ref in self.toolset_refs:
             if isinstance(ref, str):
                 if ref not in available:
-                    raise ValueError(
-                        f"Entry '{self.name}' references unknown toolset: {ref}. "
-                        f"Available: {sorted(available.keys())}"
-                    )
+                    raise ValueError(f"Entry '{self.name}' references unknown toolset: {ref}. Available: {sorted(available.keys())}")
                 resolved.append(available[ref])
             elif isinstance(ref, ToolsetSpec):
                 resolved.append(ref)
             else:
-                raise TypeError(
-                    "Entry toolsets must be names or ToolsetSpec instances."
-                )
+                raise TypeError("Entry toolsets must be names or ToolsetSpec instances.")
         self._resolved_toolset_specs = resolved
         self.toolset_context = context
 
@@ -386,96 +273,34 @@ class EntryFunction:
             raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
         for ref in self.toolset_refs:
             if not isinstance(ref, (str, ToolsetSpec)):
-                raise TypeError(
-                    "Entry toolsets must be names or ToolsetSpec instances."
-                )
+                raise TypeError("Entry toolsets must be names or ToolsetSpec instances.")
 
-    async def call(
-        self,
-        input_args: WorkerArgs,
-        runtime: WorkerRuntimeProtocol,
-    ) -> Any:
-        """Execute the wrapped function.
-
-        Args:
-            input_args: Normalized WorkerArgs input
-            runtime: WorkerRuntime for tool access and runtime state
-        """
-        # Call the function with (args, runtime)
+    async def call(self, input_args: WorkerArgs, runtime: WorkerRuntimeProtocol) -> Any:
+        """Execute the wrapped function."""
         result = self.func(input_args, runtime)
-        if inspect.isawaitable(result):
-            result = await result
-        return result
+        return await result if inspect.isawaitable(result) else result
 
 
 def entry(
-    name: str | None = None,
-    *,
-    toolsets: list[ToolsetRef] | None = None,
-    schema_in: Optional[Type[WorkerArgs]] = None,
+    name: str | None = None, *, toolsets: list[ToolsetRef] | None = None, schema_in: Optional[Type[WorkerArgs]] = None
 ) -> Callable[[Callable[..., Any]], EntryFunction]:
-    """Decorator to mark a function as an entry point.
-
-    The decorated function should accept (args, runtime) where:
-    - args: WorkerArgs instance (normalized input with prompt_spec())
-    - runtime: WorkerRuntime instance for calling tools
-
-    Args:
-        name: Entry name (defaults to function name)
-        toolsets: List of toolset references (names or specs)
-        schema_in: Optional WorkerArgs subclass for input normalization
-
-    Returns:
-        Decorator that wraps the function in an EntryFunction
-
-    Example:
-        @entry(name="analyzer", toolsets=["filesystem", "shell"])
-        async def analyze(args: WorkerArgs, runtime: WorkerRuntime) -> str:
-            # Use runtime.call(...) to invoke tools
-            # Access prompt via args.prompt_spec().text
-            return f"Analyzed: {args.prompt_spec().text}"
-    """
+    """Decorator to mark a function as an entry point."""
     def decorator(func: Callable[..., Any]) -> EntryFunction:
-        entry_name = name if name is not None else func.__name__
-        return EntryFunction(
-            func=func,
-            entry_name=entry_name,
-            toolset_refs=list(toolsets) if toolsets else [],
-            schema_in=schema_in,
-        )
+        return EntryFunction(func=func, entry_name=name or func.__name__, toolset_refs=list(toolsets) if toolsets else [], schema_in=schema_in)
     return decorator
 
 
 @dataclass
 class Worker:
-    """An LLM-powered worker that can be run as an entry point.
-
-    Worker represents an agent that uses an LLM to process prompts and can
-    call tools to accomplish tasks. To expose a Worker as a tool for another
-    agent, use the as_toolset_spec() method to get a ToolsetSpec factory.
-
-    Tools are passed as ToolsetSpec factories and instantiated per call.
-
-    Note: This dataclass is not frozen to support self-recursive workers where
-    a worker needs to call itself as a tool. This creates a chicken-and-egg
-    problem: the worker must exist before as_toolset_spec() can be called, but the
-    toolset must be added to the worker's toolset_specs list:
-
-        worker = Worker(name="recursive", ...)
-        worker.toolset_specs = [worker.as_toolset_spec()]  # Requires mutation
-
-    A future improvement could use a factory pattern or lazy resolution to
-    allow frozen Workers while still supporting self-recursion.
-    """
-
+    """An LLM-powered worker that can be run as an entry point."""
     name: str
     instructions: str
     description: str | None = None
-    model: str | Model | None = None  # String identifier or Model object
+    model: str | Model | None = None
     compatible_models: InitVar[list[str] | None] = None
     toolset_specs: list[ToolsetSpec] = field(default_factory=list)
     toolset_context: ToolsetBuildContext | None = None
-    builtin_tools: list[Any] = field(default_factory=list)  # PydanticAI builtin tools
+    builtin_tools: list[Any] = field(default_factory=list)
     model_settings: Optional[ModelSettings] = None
     schema_in: Optional[Type[WorkerArgs]] = None
     schema_out: Optional[Type[BaseModel]] = None
@@ -485,55 +310,26 @@ class Worker:
             raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
         for spec in self.toolset_specs:
             if not isinstance(spec, ToolsetSpec):
-                raise TypeError(
-                    "Worker toolset_specs must contain ToolsetSpec instances."
-                )
-        self.model = select_model(
-            worker_model=self.model,
-            compatible_models=compatible_models,
-            worker_name=self.name,
-        )
+                raise TypeError("Worker toolset_specs must contain ToolsetSpec instances.")
+        self.model = select_model(worker_model=self.model, compatible_models=compatible_models, worker_name=self.name)
 
     def _resolve_toolset_context(self) -> ToolsetBuildContext:
-        if self.toolset_context is not None:
-            return self.toolset_context
-        return ToolsetBuildContext(
-            worker_name=self.name,
-        )
+        return self.toolset_context or ToolsetBuildContext(worker_name=self.name)
 
-    def as_toolset_spec(
-        self,
-        *,
-        approval_config: dict[str, dict[str, Any]] | None = None,
-    ) -> ToolsetSpec:
+    def as_toolset_spec(self, *, approval_config: dict[str, dict[str, Any]] | None = None) -> ToolsetSpec:
         """Return a ToolsetSpec that exposes this worker as a tool."""
         def factory(_ctx: ToolsetBuildContext) -> AbstractToolset[Any]:
             toolset = WorkerToolset(worker=self)
             if approval_config is not None:
                 set_toolset_approval_config(toolset, approval_config)
             return toolset
-
         return ToolsetSpec(factory=factory)
 
-    def _build_agent(
-        self,
-        resolved_model: str | Model,
-        runtime: WorkerRuntimeProtocol,
-        *,
-        toolsets: list[AbstractToolset[Any]] | None = None,
-    ) -> Agent[WorkerRuntimeProtocol, Any]:
+    def _build_agent(self, resolved_model: str | Model, runtime: WorkerRuntimeProtocol, *, toolsets: list[AbstractToolset[Any]] | None = None) -> Agent[WorkerRuntimeProtocol, Any]:
         """Build a PydanticAI agent with toolsets passed directly."""
-        agent_toolsets = toolsets or []
         return Agent(
-            model=resolved_model,
-            instructions=self.instructions,
-            output_type=self.schema_out or str,
-            deps_type=type(runtime),
-            toolsets=agent_toolsets if agent_toolsets else None,
-            builtin_tools=self.builtin_tools,  # Pass list (empty list is fine)
-            # Use 'exhaustive' to ensure tool calls are executed even when
-            # text output is present in the same response
-            end_strategy="exhaustive",
+            model=resolved_model, instructions=self.instructions, output_type=self.schema_out or str,
+            deps_type=type(runtime), toolsets=toolsets or None, builtin_tools=self.builtin_tools, end_strategy="exhaustive",
         )
 
     def _emit_tool_events(
@@ -577,23 +373,9 @@ class Worker:
                     content=return_part.content,
                 ))
 
-    async def call(
-        self,
-        input_data: Any,
-        run_ctx: RunContext[WorkerRuntimeProtocol],
-    ) -> Any:
-        """Execute the worker with the given input.
-
-        Args:
-            input_data: Worker input args (WorkerArgs or dict)
-            run_ctx: PydanticAI RunContext (deps is the parent WorkerRuntime)
-        """
-        return await self._call_internal(
-            input_data,
-            run_ctx.deps.config,
-            run_ctx.deps.frame,
-            run_ctx,
-        )
+    async def call(self, input_data: Any, run_ctx: RunContext[WorkerRuntimeProtocol]) -> Any:
+        """Execute the worker with the given input."""
+        return await self._call_internal(input_data, run_ctx.deps.config, run_ctx.deps.frame, run_ctx)
 
     async def _call_internal(
         self,
@@ -681,56 +463,28 @@ class Worker:
             return output
 
     async def _run_with_event_stream(
-        self,
-        agent: Agent[WorkerRuntimeProtocol, Any],
-        prompt: str | Sequence[UserContent],
-        runtime: WorkerRuntimeProtocol,
-        message_history: list[Any] | None,
-        *,
-        log_messages: bool = True,
+        self, agent: Agent[WorkerRuntimeProtocol, Any], prompt: str | Sequence[UserContent],
+        runtime: WorkerRuntimeProtocol, message_history: list[Any] | None, *, log_messages: bool = True
     ) -> Any:
-        """Run agent with event stream handler for UI updates.
-
-        Uses agent.run() with event_stream_handler instead of agent.run_stream()
-        because run_stream() doesn't loop on tool calls - it returns after one
-        turn even when tools are invoked. See pydantic/pydantic-ai#2308.
-        """
+        """Run agent with event stream handler for UI updates."""
         from pydantic_ai.messages import PartDeltaEvent
 
         from .event_parser import parse_event
-
         emitted_tool_events = False
 
-        async def event_stream_handler(
-            _: RunContext[WorkerRuntimeProtocol],
-            events: AsyncIterable[Any],
-        ) -> None:
+        async def event_stream_handler(_: RunContext[WorkerRuntimeProtocol], events: AsyncIterable[Any]) -> None:
             nonlocal emitted_tool_events
             async for event in events:
                 if runtime.config.verbosity < 2 and isinstance(event, PartDeltaEvent):
                     continue
-                runtime_event = parse_event(
-                    {"worker": self.name, "event": event, "depth": runtime.frame.depth}
-                )
+                runtime_event = parse_event({"worker": self.name, "event": event, "depth": runtime.frame.depth})
                 if isinstance(runtime_event, (ToolCallEvent, ToolResultEvent)):
                     emitted_tool_events = True
                 if runtime.config.on_event is not None:
                     runtime.config.on_event(runtime_event)
 
-        result = await agent.run(
-            prompt,
-            deps=runtime,
-            model_settings=self.model_settings,
-            event_stream_handler=event_stream_handler,
-            message_history=message_history,
-        )
-        _finalize_messages(
-            self.name,
-            runtime,
-            None,
-            result,
-            log_messages=log_messages,
-        )
+        result = await agent.run(prompt, deps=runtime, model_settings=self.model_settings, event_stream_handler=event_stream_handler, message_history=message_history)
+        _finalize_messages(self.name, runtime, None, result, log_messages=log_messages)
         if runtime.config.on_event is not None and not emitted_tool_events:
             self._emit_tool_events(result.new_messages(), runtime)
         return result.output

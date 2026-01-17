@@ -1,6 +1,6 @@
-# Simplify: config.py
+# Simplify: runtime/worker_file.py
 
-Periodic simplification review of `llm_do/config.py`.
+Periodic simplification review of `llm_do/runtime/worker_file.py`.
 
 ## Context Gathering
 
@@ -23,7 +23,7 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Output
 
-`docs/notes/reviews/simplify-config.md`
+`docs/notes/reviews/simplify-runtime-worker-file.md`
 
 ## Last Run
 

@@ -97,7 +97,7 @@ Stochastic (flexible, handles ambiguity)  <-- soften --  Deterministic (reliable
 
 ### Why code wins (when it does)
 
-Determinism isn't the only advantage of stabilizing to code. There are three practical benefits:
+Stabilizing a pattern to code has three key practical benefits:
 
 **Cost.** LLM API calls are priced per token—input and output. A simple operation like sanitizing a filename might cost fractions of a cent, but at scale those fractions compound. The same operation in Python costs effectively nothing: CPU cycles are measured in nanoseconds, not dollars. When you stabilize a pattern to code, you stop paying for it.
 

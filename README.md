@@ -2,7 +2,7 @@
 
 *Extend with LLMs, stabilize with code.*
 
-Need new capability? Describe it in natural language—the LLM figures out how. See a pattern emerging? Extract it to tested Python—deterministic, fast, reliable. The system breathes in both directions.
+Need new capability? Describe it in natural language—the LLM figures out how. See a pattern emerging? Extract it to tested Python—deterministic, fast, cheap. The system breathes in both directions.
 
 An imperative orchestration harness for LLM agents. Workers delegate to workers; your code owns control flow.
 
@@ -32,7 +32,7 @@ This is the **Unix philosophy for agents**: workers are files, dangerous operati
 
 **Guardrails by construction.** Tool approvals gate dangerous operations; tool schemas and toolset policies enforce constraints in code, not prompt instructions.
 
-**Progressive stabilizing.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code. Or go the other direction—soften rigid code into prompts when edge cases multiply.
+**Progressive stabilizing.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code—deterministic, yes, but also faster (no API latency) and cheaper (no per-token costs). Or go the other direction—soften rigid code into prompts when edge cases multiply.
 
 ## Quick Start
 

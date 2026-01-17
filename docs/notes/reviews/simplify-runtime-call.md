@@ -24,6 +24,13 @@ duplicated construction logic.
   - This avoids tuple-normalization drift and makes depth increment logic
     single-source.
 
+- **CallScope exposes a redundant `frame` accessor**
+  - Pattern: over-specified interface.
+  - `CallScope` already exposes `runtime`, which itself exposes `frame`.
+  - Simplified version: drop `CallScope.frame` and update the only caller
+    (`llm_do/ui/runner.py`) to use `call_scope.runtime.frame`.
+  - This keeps CallScope focused on lifecycle + cleanup instead of state access.
+
 ## Open Questions
 - Do we want the ergonomics of `CallFrame.model`/`CallFrame.depth`, or is the
   explicit `frame.config` boundary the goal?

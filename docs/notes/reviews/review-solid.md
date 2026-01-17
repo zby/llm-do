@@ -209,3 +209,95 @@ keeping UI as a "low-level detail" in core runtime execution.
 - `llm_do/runtime/worker.py`, `shared.py`, `deps.py`, `contracts.py`, `approval.py`, `call.py`
 - `llm_do/toolsets/loader.py`
 - `llm_do/ui/events.py`, `parser.py`
+
+## Review 2026-01-17
+
+### Single Responsibility Principle
+
+**Worker** (`runtime/worker.py`) still concentrates multiple concerns:
+- Input normalization + prompt construction
+- Attachment resolution + file IO
+- Toolset assembly + approval wrapping
+- Agent construction + execution
+- Event streaming + fallback tool event emission
+- Message logging (incremental + final snapshots)
+
+**WorkerRuntime** (`runtime/deps.py`) remains a central orchestrator:
+- Tool discovery + dispatch
+- RunContext construction + usage tracking
+- Tool event emission
+- Call-frame state management + child runtime spawning
+
+**Runtime** (`runtime/shared.py`) still aggregates config, usage, message
+logging, and entry dispatch. Toolset cleanup is now owned by `CallScope`
+via `runtime/toolsets.py`, which reduces cross-cutting concerns here.
+
+**UIEvent classes** (`ui/events.py`) continue to mix data + rendering
+(Rich/Text/Textual widget creation).
+
+### Open/Closed Principle
+
+**Strengths:**
+- `Runtime.run_entry()` now relies on `Entry.start()` instead of type checks
+- Runtime events are now a stable core API (`runtime/events.py`)
+- `ToolsetSpec` continues to allow toolset extension without modifying runtime
+
+**Weaknesses:**
+- New runtime event types require updates in `ui/adapter.py`
+- `UIEvent` additions still require edits per render method
+- `run_tui()` still uses `isinstance(entry_instance, Worker)` for chat mode,
+  so new entry types must modify UI runner logic to participate
+
+### Liskov Substitution Principle
+
+**No major violations observed.**
+- `WorkerToolset` remains an adapter, not a subtype
+- `EntryFunction` and `Worker` satisfy `Entry` protocol expectations
+
+### Interface Segregation Principle
+
+**Improved:**
+- `WorkerRuntimeProtocol` is now slim (config + frame + logging + spawn_child)
+
+**Persistent issues:**
+- `UIEvent` mandates all render/create methods even if a backend never uses them
+
+### Dependency Inversion Principle
+
+**Resolved at runtime/UI boundary:**
+
+```
+runtime/events.py defines RuntimeEvent types
+ui/adapter.py adapts RuntimeEvent → UIEvent
+runtime no longer imports ui.*
+```
+
+Runtime now depends on its own event types; UI depends on runtime events, which
+restores the intended dependency direction.
+
+### Summary vs Previous Review (2026-01-15)
+
+| Issue | Status |
+|-------|--------|
+| Runtime↔UI coupling (DIP) | **Resolved** - runtime emits RuntimeEvent; UI adapts |
+| Worker multi-responsibility (SRP) | **Persists** - attachments, logging, streaming remain |
+| UI events render-centric (OCP/ISP) | **Persists** - per-event render methods required |
+| WorkerRuntimeProtocol too wide (ISP) | **Improved** - narrowed to core runtime surface |
+| run_entry type checks (OCP) | **Resolved** - `Entry.start()` dispatch |
+| UI runner Worker type checks (OCP) | **Persists** - chat path still Worker-only |
+
+### Recommendations (2026-01-17)
+
+1. **Extract Worker concerns:** Move attachments, message logging, and event
+   streaming into collaborators (InputNormalizer, AttachmentLoader, StreamHandler).
+2. **Split WorkerRuntime responsibilities:** Separate tool dispatch from runtime
+   state/usage bookkeeping.
+3. **Decouple UI rendering from events:** Shift render logic to backend-specific
+   visitors/strategies so new formats don't touch every event class.
+4. **Add a chat capability contract:** Replace `isinstance(Worker)` checks in
+   UI runner with an interface or capability flag.
+
+### Files Reviewed (2026-01-17)
+- `llm_do/runtime/events.py`, `event_parser.py`, `worker.py`, `deps.py`, `shared.py`, `call.py`, `contracts.py`, `toolsets.py`
+- `llm_do/toolsets/loader.py`
+- `llm_do/ui/adapter.py`, `events.py`, `runner.py`, `display.py`

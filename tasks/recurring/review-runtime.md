@@ -37,4 +37,4 @@ Record findings in `docs/notes/reviews/review-ctx-runtime.md`.
 
 ## Last Run
 
-2026-01 (entry function approvals bypassed, schema_in_ref re-execs modules, bulk-approve skips attachments)
+2026-01 (schema_in_ref re-execs modules, max-depth error context, runtime.call tool-name conflicts, python builtins use CWD for filesystem_project)

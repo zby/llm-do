@@ -95,6 +95,18 @@ Stochastic (flexible, handles ambiguity)  -- stabilize -->  Deterministic (relia
 Stochastic (flexible, handles ambiguity)  <-- soften --  Deterministic (reliable, testable, cheap)
 ```
 
+### Why code wins (when it does)
+
+Determinism isn't the only advantage of stabilizing to code. There are three practical benefits:
+
+**Cost.** LLM API calls are priced per token—input and output. A simple operation like sanitizing a filename might cost fractions of a cent, but at scale those fractions compound. The same operation in Python costs effectively nothing: CPU cycles are measured in nanoseconds, not dollars. When you stabilize a pattern to code, you stop paying for it.
+
+**Latency.** Every LLM call involves network round-trip time plus inference time. Even fast models add hundreds of milliseconds; slower models can take seconds. Code executes in microseconds. For operations on the critical path—especially those called repeatedly in loops—this difference dominates. A workflow that makes 50 LLM calls where 40 could be code is leaving performance on the table.
+
+**Reliability.** Deterministic code returns the same output for the same input, every time. No hallucination, no refusal, no drift across model versions. When you know exactly what a component should do, code does it perfectly. LLMs excel at ambiguity; code excels at precision.
+
+The tradeoff: code requires you to know the exact behavior upfront. LLMs let you specify *intent* and figure out the details. That's why stabilizing is progressive—you wait until patterns emerge before committing to code.
+
 ### One-shot stabilizing
 
 LLMs can act as compilers: spec in, code out. Each run samples from the distribution, producing a different but (hopefully) valid implementation.

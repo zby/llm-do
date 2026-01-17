@@ -14,6 +14,7 @@ from .approval import (
     resolve_approval_callback,
 )
 from .args import PromptSpec, WorkerArgs, WorkerInput
+from .call import CallScope
 from .contracts import Entry, EventCallback, ModelType
 from .deps import WorkerRuntime
 from .discovery import (
@@ -52,6 +53,7 @@ __all__ = [
     # Runtime
     "Runtime",
     "WorkerRuntime",
+    "CallScope",
     "Entry",
     "ModelType",
     "EventCallback",

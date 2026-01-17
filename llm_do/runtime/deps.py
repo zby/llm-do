@@ -191,5 +191,6 @@ class WorkerRuntime:
 
     async def _execute(self, worker: "Worker", input_data: WorkerArgs) -> Any:
         """Execute a worker using this runtime as deps."""
-        run_ctx = self._make_run_context(worker.name)
-        return await worker.call(input_data, run_ctx)
+        scope = worker.start(self.runtime, message_history=self.frame.messages)
+        async with scope:
+            return await scope.run_turn(input_data)

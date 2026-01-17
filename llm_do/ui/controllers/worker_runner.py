@@ -6,7 +6,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Coroutine
 
-RunTurnFn = Callable[[str, list[Any] | None], Awaitable[list[Any] | None]]
+RunTurnFn = Callable[[str], Awaitable[list[Any] | None]]
 
 
 @dataclass(slots=True)
@@ -29,13 +29,10 @@ class WorkerRunner:
     def set_message_history(self, history: list[Any] | None) -> None:
         self.message_history = list(history or [])
 
-    def history_for_turn(self) -> list[Any] | None:
-        return self.message_history or None
-
     async def run_turn_and_update(self, prompt: str) -> list[Any] | None:
         if self.run_turn is None:
             raise RuntimeError("Conversation runner not configured")
-        new_history = await self.run_turn(prompt, self.history_for_turn())
+        new_history = await self.run_turn(prompt)
         if new_history is not None:
             self.message_history = list(new_history)
         return new_history
@@ -46,4 +43,3 @@ class WorkerRunner:
         task = asyncio.create_task(self.run_turn_and_update(prompt))
         self._task = task
         return task
-

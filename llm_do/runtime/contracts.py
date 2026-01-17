@@ -62,7 +62,8 @@ class Entry(Protocol):
     (None defaults to WorkerInput).
 
     Note: Worker and EntryFunction have different call signatures:
-    - Worker.call(input_data, run_ctx) - called via WorkerRuntime._execute()
+    - Worker.start(runtime) -> CallScope (CallScope.run_turn executes top-level calls)
+    - Worker.call(input_data, run_ctx) - used when a Worker is invoked as a tool
     - EntryFunction.call(args, runtime) - called directly with WorkerArgs
 
     Runtime.run_entry() handles the dispatch based on entry type.

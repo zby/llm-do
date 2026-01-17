@@ -6,7 +6,7 @@ import mimetypes
 from contextlib import contextmanager, nullcontext
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterable, Callable, Optional, Sequence, Type
+from typing import TYPE_CHECKING, Any, AsyncIterable, Callable, Optional, Sequence, Type
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
@@ -26,13 +26,18 @@ from pydantic_ai_blocking_approval import ApprovalResult
 
 from ..models import select_model
 from ..toolsets.approval import set_toolset_approval_config
-from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
+from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, instantiate_toolsets
 from ..toolsets.validators import DictValidator
+from .approval import wrap_toolsets_for_approval
 from .args import PromptSpec, WorkerArgs, WorkerInput, ensure_worker_args
-from .call import CallFrame
+from .call import CallConfig, CallFrame, CallScope
 from .contracts import WorkerRuntimeProtocol
-from .events import ToolCallEvent, ToolResultEvent
-from .shared import RuntimeConfig, build_tool_plane
+from .deps import WorkerRuntime
+from .events import ToolCallEvent, ToolResultEvent, UserMessageEvent
+from .shared import RuntimeConfig, cleanup_toolsets
+
+if TYPE_CHECKING:
+    from .shared import Runtime
 
 
 def _resolve_attachment_path(path: str, base_path: Path | None = None) -> Path:
@@ -67,7 +72,7 @@ def _build_user_prompt(text: str, attachments: Sequence[BinaryContent]) -> str |
 
 def _should_use_message_history(runtime: WorkerRuntimeProtocol) -> bool:
     """Only use message history for the top-level worker run."""
-    return runtime.frame.depth <= 1
+    return runtime.frame.depth == 0
 
 
 def _get_all_messages(result: Any) -> list[Any]:
@@ -78,7 +83,6 @@ def _get_all_messages(result: Any) -> list[Any]:
 def _finalize_messages(
     worker_name: str,
     runtime: WorkerRuntimeProtocol,
-    state: CallFrame | None,
     result: Any,
     *,
     log_messages: bool = True,
@@ -89,8 +93,6 @@ def _finalize_messages(
         runtime.log_messages(worker_name, runtime.frame.depth, messages)
     if _should_use_message_history(runtime):
         runtime.frame.messages[:] = messages
-        if state is not None:
-            state.messages[:] = messages
     return messages
 
 
@@ -227,7 +229,7 @@ class WorkerToolset(AbstractToolset[Any]):
         return {self.worker.name: build_worker_tool(self.worker, self)}
 
     async def call_tool(self, name: str, tool_args: dict[str, Any], run_ctx: RunContext[Any], tool: ToolsetTool[Any]) -> Any:
-        return await self.worker._call_internal(tool_args, run_ctx.deps.config, run_ctx.deps.frame, run_ctx)
+        return await self.worker.call(tool_args, run_ctx)
 
 
 ToolsetRef = str | ToolsetSpec
@@ -325,6 +327,73 @@ class Worker:
             return toolset
         return ToolsetSpec(factory=factory)
 
+    def _build_toolsets(
+        self, config: RuntimeConfig
+    ) -> tuple[list[AbstractToolset[Any]], list[AbstractToolset[Any]]]:
+        toolset_context = self._resolve_toolset_context()
+        toolsets = instantiate_toolsets(self.toolset_specs, toolset_context)
+        wrapped_toolsets = wrap_toolsets_for_approval(
+            toolsets,
+            config.approval_callback,
+            return_permission_errors=config.return_permission_errors,
+        )
+        return toolsets, wrapped_toolsets
+
+    def _make_call_scope(
+        self,
+        runtime: WorkerRuntimeProtocol,
+        toolsets: list[AbstractToolset[Any]],
+    ) -> CallScope:
+        async def run_turn(input_data: Any) -> Any:
+            return await self._run_turn(runtime, input_data)
+
+        async def close() -> None:
+            await cleanup_toolsets(toolsets)
+
+        return CallScope(runtime=runtime, _run_turn=run_turn, _close=close)
+
+    def start(
+        self,
+        runtime: "Runtime",
+        *,
+        message_history: list[Any] | None = None,
+    ) -> CallScope:
+        """Start a top-level call scope for this worker."""
+        resolved_model = self.model
+        if resolved_model is None:
+            raise RuntimeError("Worker model is not set")
+
+        toolsets, wrapped_toolsets = self._build_toolsets(runtime.config)
+        call_config = CallConfig(
+            active_toolsets=tuple(wrapped_toolsets),
+            model=resolved_model,
+            depth=0,
+            invocation_name=self.name,
+        )
+        frame = CallFrame(
+            config=call_config,
+            messages=list(message_history) if message_history else [],
+        )
+        call_runtime = WorkerRuntime(runtime=runtime, frame=frame)
+        return self._make_call_scope(call_runtime, toolsets)
+
+    def _start_child(self, parent_runtime: WorkerRuntimeProtocol) -> CallScope:
+        """Start a nested call scope for this worker."""
+        if parent_runtime.frame.depth >= parent_runtime.config.max_depth:
+            raise RuntimeError(f"Max depth exceeded: {parent_runtime.config.max_depth}")
+
+        resolved_model = self.model
+        if resolved_model is None:
+            raise RuntimeError("Worker model is not set")
+
+        toolsets, wrapped_toolsets = self._build_toolsets(parent_runtime.config)
+        child_runtime = parent_runtime.spawn_child(
+            active_toolsets=wrapped_toolsets,
+            model=resolved_model,
+            invocation_name=self.name,
+        )
+        return self._make_call_scope(child_runtime, toolsets)
+
     def _build_agent(self, resolved_model: str | Model, runtime: WorkerRuntimeProtocol, *, toolsets: list[AbstractToolset[Any]] | None = None) -> Agent[WorkerRuntimeProtocol, Any]:
         """Build a PydanticAI agent with toolsets passed directly."""
         return Agent(
@@ -375,92 +444,85 @@ class Worker:
 
     async def call(self, input_data: Any, run_ctx: RunContext[WorkerRuntimeProtocol]) -> Any:
         """Execute the worker with the given input."""
-        return await self._call_internal(input_data, run_ctx.deps.config, run_ctx.deps.frame, run_ctx)
+        scope = self._start_child(run_ctx.deps)
+        try:
+            return await scope.run_turn(input_data)
+        finally:
+            await scope.close()
 
-    async def _call_internal(
+    async def _run_turn(
         self,
+        runtime: WorkerRuntimeProtocol,
         input_data: Any,
-        config: RuntimeConfig,
-        state: CallFrame,
-        run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
-        """Shared worker execution path."""
+        """Run a single turn for an active call scope."""
         input_args = ensure_worker_args(self.schema_in, input_data)
         prompt_spec = input_args.prompt_spec()
 
-        # Check depth limit using global config and per-call state
-        if state.depth >= config.max_depth:
-            raise RuntimeError(f"Max depth exceeded: {config.max_depth}")
+        runtime.frame.prompt = prompt_spec.text
+        if runtime.config.on_event is not None and runtime.frame.depth == 0:
+            runtime.config.on_event(
+                UserMessageEvent(worker=self.name, content=prompt_spec.text)
+            )
+
+        attachment_parts: list[BinaryContent] = []
+        if prompt_spec.attachments:
+            base_for_attachments = runtime.config.project_root or Path.cwd()
+            for attachment_path in prompt_spec.attachments:
+                resolved_path = _resolve_attachment_path(
+                    attachment_path, base_for_attachments
+                )
+                attachment_parts.append(_load_attachment(resolved_path))
 
         # model is guaranteed non-None after __post_init__ (select_model raises if missing)
         resolved_model = self.model
         if resolved_model is None:
             raise RuntimeError("Worker model is not set")
 
-        toolset_context = self._resolve_toolset_context()
-        async with build_tool_plane(
-            toolset_specs=self.toolset_specs,
-            toolset_context=toolset_context,
-            approval_callback=run_ctx.deps.config.approval_callback,
-            return_permission_errors=run_ctx.deps.config.return_permission_errors,
-        ) as (_raw_toolsets, wrapped_toolsets):
-            attachment_parts: list[BinaryContent] = []
-            if prompt_spec.attachments:
-                base_for_attachments = run_ctx.deps.config.project_root or Path.cwd()
-                for attachment_path in prompt_spec.attachments:
-                    resolved_path = _resolve_attachment_path(attachment_path, base_for_attachments)
-                    attachment_parts.append(_load_attachment(resolved_path))
+        agent = self._build_agent(
+            resolved_model,
+            runtime,
+            toolsets=list(runtime.frame.active_toolsets),
+        )
+        prompt = _build_user_prompt(prompt_spec.text, attachment_parts)
+        message_history = (
+            list(runtime.frame.messages)
+            if _should_use_message_history(runtime) and runtime.frame.messages
+            else None
+        )
 
-            # Fork per-call state and build child runtime for PydanticAI deps
-            child_runtime = run_ctx.deps.spawn_child(
-                active_toolsets=wrapped_toolsets,
-                model=resolved_model,
-                invocation_name=self.name,
-            )
-            child_runtime.frame.prompt = prompt_spec.text
-            child_state = child_runtime.frame
+        use_incremental_log = runtime.config.message_log_callback is not None
+        log_context = (
+            _capture_message_log(runtime, worker_name=self.name, depth=runtime.frame.depth)
+            if use_incremental_log
+            else nullcontext()
+        )
 
-            agent = self._build_agent(resolved_model, child_runtime, toolsets=wrapped_toolsets)
-            prompt = _build_user_prompt(prompt_spec.text, attachment_parts)
-            message_history = (
-                list(state.messages) if _should_use_message_history(child_runtime) and state.messages else None
-            )
+        with log_context:
+            if runtime.config.on_event is not None:
+                output = await self._run_with_event_stream(
+                    agent,
+                    prompt,
+                    runtime,
+                    message_history,
+                    log_messages=not use_incremental_log,
+                )
+            else:
+                result = await agent.run(
+                    prompt,
+                    deps=runtime,
+                    model_settings=self.model_settings,
+                    message_history=message_history,
+                )
+                _finalize_messages(
+                    self.name,
+                    runtime,
+                    result,
+                    log_messages=not use_incremental_log,
+                )
+                output = result.output
 
-            use_incremental_log = config.message_log_callback is not None
-            log_context = (
-                _capture_message_log(child_runtime, worker_name=self.name, depth=child_state.depth)
-                if use_incremental_log
-                else nullcontext()
-            )
-
-            with log_context:
-                if config.on_event is not None:
-                    output = await self._run_with_event_stream(
-                        agent,
-                        prompt,
-                        child_runtime,
-                        message_history,
-                        log_messages=not use_incremental_log,
-                    )
-                    if _should_use_message_history(child_runtime):
-                        state.messages[:] = list(child_state.messages)
-                else:
-                    result = await agent.run(
-                        prompt,
-                        deps=child_runtime,
-                        model_settings=self.model_settings,
-                        message_history=message_history,
-                    )
-                    _finalize_messages(
-                        self.name,
-                        child_runtime,
-                        state,
-                        result,
-                        log_messages=not use_incremental_log,
-                    )
-                    output = result.output
-
-            return output
+        return output
 
     async def _run_with_event_stream(
         self, agent: Agent[WorkerRuntimeProtocol, Any], prompt: str | Sequence[UserContent],
@@ -484,7 +546,7 @@ class Worker:
                     runtime.config.on_event(runtime_event)
 
         result = await agent.run(prompt, deps=runtime, model_settings=self.model_settings, event_stream_handler=event_stream_handler, message_history=message_history)
-        _finalize_messages(self.name, runtime, None, result, log_messages=log_messages)
+        _finalize_messages(self.name, runtime, result, log_messages=log_messages)
         if runtime.config.on_event is not None and not emitted_tool_events:
             self._emit_tool_events(result.new_messages(), runtime)
         return result.output

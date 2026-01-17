@@ -84,7 +84,7 @@ class LlmDoApp(App[None]):
         approval_response_queue: asyncio.Queue[ApprovalDecision] | None = None,
         worker_coro: Coroutine[Any, Any, Any] | None = None,
         run_turn: Callable[
-            [str, list[Any] | None],
+            [str],
             Coroutine[Any, Any, list[Any] | None],
         ] | None = None,
         auto_quit: bool = True,

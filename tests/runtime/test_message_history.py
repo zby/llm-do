@@ -84,14 +84,14 @@ async def test_nested_worker_call_does_not_inherit_conversation_history() -> Non
         ModelResponse(parts=[TextPart(content="previous response")]),
     ]
 
-    # Simulate a caller worker context (depth=1).
+    # Simulate a caller worker context (depth=0).
     sub_toolset = sub_worker.as_toolset_spec().factory(
         ToolsetBuildContext(worker_name="caller")
     )
     caller_ctx = build_runtime_context(
         toolsets=[sub_toolset],
         model="test",
-        depth=1,
+        depth=0,
         messages=list(history),
         on_event=events.append,
         verbosity=1,

@@ -11,7 +11,7 @@ from typing import Any, Callable, Literal, Mapping, Sequence, TextIO
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from llm_do.runtime import Entry, RunApprovalPolicy, Runtime
+from llm_do.runtime import CallScope, Entry, RunApprovalPolicy, Runtime, Worker
 from llm_do.runtime.contracts import MessageLogCallback
 from llm_do.runtime.events import RuntimeEvent
 
@@ -195,6 +195,15 @@ async def run_tui(
 
     result_holder: list[Any] = []
     exit_code = 0
+    entry_instance: Entry | None = None
+    call_scope: CallScope | None = None
+    message_history: list[Any] | None = None
+
+    def get_entry_instance() -> Entry:
+        nonlocal entry_instance
+        if entry_instance is None:
+            entry_instance = entry_factory()
+        return entry_instance
 
     def emit_error(message: str, error_type: str) -> None:
         nonlocal exit_code
@@ -206,23 +215,47 @@ async def run_tui(
 
     async def run_entry(
         input_data: Any,
-        message_history: list[Any] | None,
     ) -> list[Any] | None:
-        entry_instance = entry_factory()
+        nonlocal call_scope
+        nonlocal message_history
+
+        entry_instance = get_entry_instance()
+        if isinstance(entry_instance, Worker):
+            if chat:
+                if call_scope is None:
+                    call_scope = entry_instance.start(
+                        runtime,
+                        message_history=message_history,
+                    )
+                result = await call_scope.run_turn(input_data)
+                result_holder[:] = [result]
+                message_history = list(call_scope.frame.messages)
+                return message_history
+
+            scope = entry_instance.start(
+                runtime,
+                message_history=message_history,
+            )
+            async with scope:
+                result = await scope.run_turn(input_data)
+            result_holder[:] = [result]
+            message_history = list(scope.frame.messages)
+            return message_history
+
         result, ctx = await runtime.run_entry(
             entry_instance,
             input_data,
             message_history=message_history,
         )
         result_holder[:] = [result]
-        return list(ctx.frame.messages)
+        message_history = list(ctx.frame.messages)
+        return message_history
 
     async def run_with_input(
         input_data: Any,
-        message_history: list[Any] | None,
     ) -> list[Any] | None:
         try:
-            return await run_entry(input_data, message_history)
+            return await run_entry(input_data)
         except KeyboardInterrupt as exc:
             emit_error(_format_run_error_message(exc), type(exc).__name__)
             return None
@@ -234,9 +267,8 @@ async def run_tui(
 
     async def run_turn(
         user_prompt: str,
-        message_history: list[Any] | None,
     ) -> list[Any] | None:
-        return await run_with_input({"input": user_prompt}, message_history)
+        return await run_with_input({"input": user_prompt})
 
     use_prompt_input = chat or initial_prompt is not None
     if use_prompt_input and not initial_prompt:
@@ -251,9 +283,9 @@ async def run_tui(
         nonlocal render_closed
         history: list[Any] | None
         if use_prompt_input:
-            history = await run_with_input({"input": initial_prompt}, None)
+            history = await run_with_input({"input": initial_prompt})
         else:
-            history = await run_with_input(input, None)
+            history = await run_with_input(input)
         if history is not None and app is not None:
             app.set_message_history(history)
         if not chat:
@@ -270,6 +302,8 @@ async def run_tui(
     )
 
     await app.run_async(mouse=False)
+    if call_scope is not None:
+        await call_scope.close()
     if not render_closed:
         render_queue.put_nowait(None)
         render_closed = True

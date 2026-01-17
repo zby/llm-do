@@ -9,9 +9,8 @@ from llm_do.ui.controllers import WorkerRunner
 
 @pytest.mark.anyio
 async def test_worker_runner_updates_message_history() -> None:
-    async def run_turn(prompt: str, history: list[object] | None) -> list[object] | None:
+    async def run_turn(prompt: str) -> list[object] | None:
         assert prompt == "hello"
-        assert history is None
         return ["m1"]
 
     runner = WorkerRunner(run_turn=run_turn)
@@ -26,7 +25,7 @@ async def test_worker_runner_updates_message_history() -> None:
 async def test_worker_runner_rejects_concurrent_turns() -> None:
     gate = asyncio.Event()
 
-    async def run_turn(_: str, __: list[object] | None) -> list[object] | None:
+    async def run_turn(_: str) -> list[object] | None:
         await gate.wait()
         return ["done"]
 
@@ -37,4 +36,3 @@ async def test_worker_runner_rejects_concurrent_turns() -> None:
 
     gate.set()
     await task
-

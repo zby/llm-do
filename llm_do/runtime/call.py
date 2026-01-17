@@ -1,13 +1,13 @@
 """Per-call scope for workers (config + mutable state)."""
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .contracts import ModelType
+from .contracts import ModelType, WorkerRuntimeProtocol
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,3 +63,34 @@ class CallFrame:
             invocation_name=invocation_name,
         )
         return CallFrame(config=new_config)
+
+
+@dataclass(slots=True)
+class CallScope:
+    """Lifecycle wrapper for a worker call scope (frame + toolsets)."""
+
+    runtime: WorkerRuntimeProtocol
+    _run_turn: Callable[[Any], Awaitable[Any]]
+    _close: Callable[[], Awaitable[None]]
+    _closed: bool = False
+
+    @property
+    def frame(self) -> CallFrame:
+        return self.runtime.frame
+
+    async def run_turn(self, input_data: Any) -> Any:
+        if self._closed:
+            raise RuntimeError("CallScope is closed")
+        return await self._run_turn(input_data)
+
+    async def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        await self._close()
+
+    async def __aenter__(self) -> "CallScope":
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        await self.close()

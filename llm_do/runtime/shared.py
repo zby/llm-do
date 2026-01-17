@@ -228,7 +228,7 @@ class Runtime:
         """Run an invocable with this runtime.
 
         Normalizes input_data to WorkerArgs for all entry types.
-        Sets frame.prompt from the WorkerArgs prompt_spec().
+        Entry functions set frame.prompt from WorkerArgs; workers handle per-turn prompts.
         """
         from ..toolsets.loader import ToolsetBuildContext
         from .args import ensure_worker_args
@@ -280,15 +280,10 @@ class Runtime:
                 return result, ctx
 
         if isinstance(invocable, Worker):
-            resolved_model = cast(ModelType, invocable.model)
-            ctx = _build_entry_context(
-                invocable,
-                model=resolved_model,
-                active_toolsets=[],
-            )
-
-            result = await ctx._execute(invocable, input_args)
-            return result, ctx
+            scope = invocable.start(self, message_history=message_history)
+            async with scope:
+                result = await scope.run_turn(input_args)
+            return result, cast(WorkerRuntime, scope.runtime)
 
         raise TypeError(f"Unsupported entry type: {type(invocable)}")
 

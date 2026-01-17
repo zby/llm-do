@@ -82,5 +82,5 @@ class TestContext:
         )
         await run_entry_test(worker, WorkerInput(input="go"))
 
-        assert seen["call_probe"] == {"before": 1, "probe": 1, "after": 1}
-        assert seen["probe"] == 1
+        assert seen["call_probe"] == {"before": 0, "probe": 0, "after": 0}
+        assert seen["probe"] == 0

@@ -28,7 +28,7 @@ Workers can also declare a typed input schema via `schema_in_ref`; schemas must 
 
 ## Runtime: Shared + Per-Call
 
-When a worker runs, it operates within two scopes owned by a **Runtime**:
+When an entry runs (usually a worker), it operates within two scopes owned by a **Runtime**:
 
 **Runtime** (process-scoped, shared across runs in a session):
 - Owns a `RuntimeConfig` plus mutable runtime state (usage, message log, approval callback cache)
@@ -38,20 +38,25 @@ When a worker runs, it operates within two scopes owned by a **Runtime**:
 - Approval policy, event callbacks, max depth, verbosity
 - Like a web server's global config
 
-**CallFrame** (per-worker, per-call):
+**CallScope** (per-entry call, may span multiple turns in chat for workers):
+- Owns CallFrame + toolset instances for a single entry invocation
+- Cleans up toolsets when the scope exits
+
+**CallFrame** (per-entry call state):
 - Current prompt, message history, nesting depth, active toolsets
-- Like a request context - isolated per worker call
+- Like a request context - isolated per call
 
 This separation means:
 - **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
-- **Per-worker, no inheritance**: Message history, active toolsets, per-tool approval rules
+- **Per-call, no inheritance**: Message history, active toolsets, per-tool approval rules
 
-Note: `Worker.toolset_specs` are the *declared* toolset factories from configuration. `CallFrame.active_toolsets` are the toolsets in use for this execution. For Workers, these are instantiated per call and wrapped with approval before the LLM runs (see [Trust Boundary](#trust-boundary)).
+Note: `Worker.toolset_specs` are the *declared* toolset factories from configuration. `CallFrame.active_toolsets` are the toolsets in use for this execution. These are instantiated per call and wrapped with approval before execution (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
-- `llm_do/runtime/call.py`: `CallConfig`, `CallFrame`
+- `llm_do/runtime/call.py`: `CallConfig`, `CallFrame`, `CallScope`
 - `llm_do/runtime/deps.py`: `WorkerRuntime`, `ToolsProxy`
+- `llm_do/runtime/toolsets.py`: toolset lifecycle helpers
 
 ---
 
@@ -68,13 +73,13 @@ CLI or Python
 Build entry (link step resolves toolset specs)
     │
     ▼
-Runtime.run_entry() creates CallFrame
+Runtime.run_entry() creates CallScope
     │
     ▼
-Entry executes (Worker builds PydanticAI Agent or EntryFunction runs; toolsets instantiated per call)
+Entry executes (CallScope.run_turn executes each prompt)
     │
     ├── Tool call to another entry?
-    │       → new CallFrame (depth+1), same Runtime
+    │       → new CallScope (depth+1), same Runtime
     │       → child runs, returns result
     │
     └── Final output
@@ -83,6 +88,7 @@ Entry executes (Worker builds PydanticAI Agent or EntryFunction runs; toolsets i
 Key points:
 - Entry selection requires exactly one candidate: a worker marked `entry: true`
   or a single `@entry` function.
+- Top-level workers (depth 0) keep message history across turns in a CallScope
 - Child workers get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
@@ -94,8 +100,10 @@ Key points:
 ## Toolset Instantiation & State
 
 Toolsets are registered as `ToolsetSpec` factories and instantiated per call
-to keep state isolated. The runtime calls optional `cleanup()` hooks after each
-call to release handle-based resources. See [`docs/toolset-state.md`](toolset-state.md)
+to keep state isolated. In chat mode, the top-level call scope can span multiple
+turns, so toolset instances persist until that scope closes. The runtime calls
+optional `cleanup()` hooks when the call scope exits to release handle-based
+resources. See [`docs/toolset-state.md`](toolset-state.md)
 for the handle pattern and lifecycle details.
 
 ---

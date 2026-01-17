@@ -24,7 +24,7 @@ from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai_blocking_approval import ApprovalResult
 
-from ..models import select_model
+from ..models import NULL_MODEL, select_model
 from ..toolsets.approval import set_toolset_approval_config
 from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, instantiate_toolsets
 from ..toolsets.validators import DictValidator
@@ -34,7 +34,7 @@ from .call import CallConfig, CallFrame, CallScope
 from .contracts import WorkerRuntimeProtocol
 from .deps import WorkerRuntime
 from .events import ToolCallEvent, ToolResultEvent, UserMessageEvent
-from .shared import RuntimeConfig, cleanup_toolsets
+from .shared import RuntimeConfig
 
 if TYPE_CHECKING:
     from .shared import Runtime
@@ -277,6 +277,48 @@ class EntryFunction:
             if not isinstance(ref, (str, ToolsetSpec)):
                 raise TypeError("Entry toolsets must be names or ToolsetSpec instances.")
 
+    def start(
+        self,
+        runtime: "Runtime",
+        *,
+        message_history: list[Any] | None = None,
+    ) -> CallScope:
+        toolset_context = self.toolset_context or ToolsetBuildContext(
+            worker_name=self.name
+        )
+        toolsets = instantiate_toolsets(self.toolset_specs, toolset_context)
+        wrapped_toolsets = wrap_toolsets_for_approval(
+            toolsets,
+            runtime.config.approval_callback,
+            return_permission_errors=runtime.config.return_permission_errors,
+        )
+        call_config = CallConfig(
+            active_toolsets=tuple(wrapped_toolsets),
+            model=NULL_MODEL,
+            depth=0,
+            invocation_name=self.name,
+        )
+        frame = CallFrame(
+            config=call_config,
+            messages=list(message_history) if message_history else [],
+        )
+        call_runtime = WorkerRuntime(runtime=runtime, frame=frame)
+        return CallScope(entry=self, runtime=call_runtime, toolsets=toolsets)
+
+    async def run_turn(
+        self,
+        runtime: WorkerRuntimeProtocol,
+        input_data: Any,
+    ) -> Any:
+        input_args = ensure_worker_args(self.schema_in, input_data)
+        prompt_spec = input_args.prompt_spec()
+        runtime.frame.prompt = prompt_spec.text
+        if runtime.config.on_event is not None and runtime.frame.depth == 0:
+            runtime.config.on_event(
+                UserMessageEvent(worker=self.name, content=prompt_spec.text)
+            )
+        return await self.call(input_args, runtime)
+
     async def call(self, input_args: WorkerArgs, runtime: WorkerRuntimeProtocol) -> Any:
         """Execute the wrapped function."""
         result = self.func(input_args, runtime)
@@ -339,19 +381,6 @@ class Worker:
         )
         return toolsets, wrapped_toolsets
 
-    def _make_call_scope(
-        self,
-        runtime: WorkerRuntimeProtocol,
-        toolsets: list[AbstractToolset[Any]],
-    ) -> CallScope:
-        async def run_turn(input_data: Any) -> Any:
-            return await self._run_turn(runtime, input_data)
-
-        async def close() -> None:
-            await cleanup_toolsets(toolsets)
-
-        return CallScope(runtime=runtime, _run_turn=run_turn, _close=close)
-
     def start(
         self,
         runtime: "Runtime",
@@ -375,7 +404,7 @@ class Worker:
             messages=list(message_history) if message_history else [],
         )
         call_runtime = WorkerRuntime(runtime=runtime, frame=frame)
-        return self._make_call_scope(call_runtime, toolsets)
+        return CallScope(entry=self, runtime=call_runtime, toolsets=toolsets)
 
     def _start_child(self, parent_runtime: WorkerRuntimeProtocol) -> CallScope:
         """Start a nested call scope for this worker."""
@@ -392,7 +421,7 @@ class Worker:
             model=resolved_model,
             invocation_name=self.name,
         )
-        return self._make_call_scope(child_runtime, toolsets)
+        return CallScope(entry=self, runtime=child_runtime, toolsets=toolsets)
 
     def _build_agent(self, resolved_model: str | Model, runtime: WorkerRuntimeProtocol, *, toolsets: list[AbstractToolset[Any]] | None = None) -> Agent[WorkerRuntimeProtocol, Any]:
         """Build a PydanticAI agent with toolsets passed directly."""
@@ -450,7 +479,7 @@ class Worker:
         finally:
             await scope.close()
 
-    async def _run_turn(
+    async def run_turn(
         self,
         runtime: WorkerRuntimeProtocol,
         input_data: Any,

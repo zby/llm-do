@@ -17,8 +17,8 @@ from .events import RuntimeEvent
 
 if TYPE_CHECKING:
     from .args import WorkerArgs
-    from .call import CallFrame
-    from .shared import RuntimeConfig
+    from .call import CallFrame, CallScope
+    from .shared import Runtime, RuntimeConfig
 
 ModelType: TypeAlias = str | Model
 EventCallback: TypeAlias = Callable[[RuntimeEvent], None]
@@ -61,8 +61,9 @@ class Entry(Protocol):
     schema_in defines the WorkerArgs subclass used to normalize entry input
     (None defaults to WorkerInput).
 
-    Note: Worker and EntryFunction have different call signatures:
-    - Worker.start(runtime) -> CallScope (CallScope.run_turn executes top-level calls)
+    Note: Entry implementations expose both setup and per-turn execution:
+    - Entry.start(runtime) -> CallScope (CallScope.run_turn executes per-turn calls)
+    - Entry.run_turn(runtime, input_data) - per-turn execution within a scope
     - Worker.call(input_data, run_ctx) - used when a Worker is invoked as a tool
     - EntryFunction.call(args, runtime) - called directly with WorkerArgs
 
@@ -71,6 +72,19 @@ class Entry(Protocol):
 
     @property
     def name(self) -> str: ...
+
+    def start(
+        self,
+        runtime: "Runtime",
+        *,
+        message_history: list[Any] | None = None,
+    ) -> "CallScope": ...
+
+    async def run_turn(
+        self,
+        runtime: WorkerRuntimeProtocol,
+        input_data: Any,
+    ) -> Any: ...
 
     @property
     def toolset_specs(self) -> list[ToolsetSpec]: ...

@@ -78,7 +78,7 @@ async def main():
 ```
 
 `Runtime.run_entry()`:
-- Creates a fresh `WorkerRuntime` and `CallFrame` per run
+- Creates a fresh `CallScope` for the entry (one turn by default)
 - Reuses runtime-scoped state (usage, approval cache, message log)
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
 - Returns both the result and the runtime context
@@ -93,9 +93,29 @@ so LLM calls are not allowed from entry functions.
 |-----------|-------------|
 | `invocable` | `Entry` (Worker or EntryFunction) to run |
 | `input_data` | Worker input args (WorkerArgs or dict) |
-| `message_history` | Pre-seed conversation history |
+| `message_history` | Pre-seed conversation history for the top-level call scope |
 
 Use `Runtime.run()` for sync execution when you already have an entry object.
+
+### Multi-Turn Workers (CallScope)
+
+For chat-style flows, start a worker call scope and run multiple turns inside it:
+
+```python
+from llm_do.runtime import Runtime, Worker, WorkerInput, build_entry
+
+async def main():
+    entry = build_entry(["assistant.worker"], [])
+    runtime = Runtime()
+
+    assert isinstance(entry, Worker)
+    async with entry.start(runtime) as scope:
+        await scope.run_turn(WorkerInput(input="turn 1"))
+        await scope.run_turn(WorkerInput(input="turn 2"))
+```
+
+`CallScope` owns the toolsets and the `CallFrame` for that entry call. Message
+history is stored on `scope.frame.messages` and is reused across turns at depth 0.
 
 ### From Within Tools
 
@@ -157,19 +177,16 @@ result = await ctx.deps.call("analyzer", WorkerInput(input=data))
 result = await ctx.deps.tools.analyzer(input=data)
 ```
 
-**Available Runtime Properties:**
+**Available Runtime State:**
 
-Via `ctx.deps`, tools can access:
+Via `ctx.deps`, tools can access (depth lives at `ctx.deps.frame.depth`, and limits at `ctx.deps.config.max_depth`):
 
 | Property | Description |
 |----------|-------------|
 | `call(name, input_data)` | Invoke a worker or tool by name |
 | `tools.<name>(**kwargs)` | Attribute-style tool invocation |
-| `depth` | Current nesting depth |
-| `max_depth` | Maximum allowed depth (default: 5) |
-| `model` | Current model identifier |
-| `prompt` | Current prompt text (logging/UI only) |
-| `messages` | Conversation history |
+| `frame` | Call state (`depth`, `model`, `prompt`, `messages`, `active_toolsets`) |
+| `config` | Runtime config (`max_depth`, approval policy, verbosity, etc.) |
 
 ### Example: Code Entry Point
 

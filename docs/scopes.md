@@ -5,20 +5,12 @@ llm-do has three main scopes that govern resource lifecycle and state isolation.
 ## The Three Scopes
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  SESSION                                                         │
-│  (Runtime object lifetime - one CLI/TUI invocation)             │
-│                                                                  │
-│  ┌────────────────────────┐  ┌────────────────────────┐         │
-│  │  RUN 1                 │  │  RUN 2                 │   ...   │
-│  │  (one prompt→response) │  │  (next chat turn)     │         │
-│  │                        │  │                        │         │
-│  │  ┌────────┐ ┌────────┐ │  │  ┌────────┐           │         │
-│  │  │Worker A│→│Worker B│ │  │  │Worker A│           │         │
-│  │  │(entry) │ │(child) │ │  │  │(entry) │           │         │
-│  │  └────────┘ └────────┘ │  │  └────────┘           │         │
-│  └────────────────────────┘  └────────────────────────┘         │
-└─────────────────────────────────────────────────────────────────┘
+SESSION (Runtime)
+└── CALL SCOPE (top-level entry, depth 0)
+    ├── Turn 1 (prompt -> response)
+    │   └── Call Scope (child worker, depth 1)
+    ├── Turn 2 (prompt -> response)
+    └── Turn 3 (prompt -> response)
 ```
 
 ### Session Scope
@@ -36,69 +28,62 @@ llm-do has three main scopes that govern resource lifecycle and state isolation.
 
 **Examples**:
 ```bash
-llm-do project.json "first prompt"   # Session 1 (one run, then exit)
+llm-do project.json "first prompt"   # Session 1 (one call, then exit)
 llm-do project.json "second prompt"  # Session 2 (separate process)
 ```
 
-### Run Scope
+### Call Scope
 
-**Lifetime**: One `runtime.run_entry()` call. One user prompt → one final response.
+**Lifetime**: From entry invocation until `CallScope.close()` (or exiting `async with` when managing scopes manually).
 
 **What lives here**:
-- The entry worker and any child workers it spawns
-- Toolset instances (created per worker call, cleaned up after each call)
+- `CallFrame` (prompt, messages, depth, active toolsets)
+- Toolset instances (created per call, cleaned up when the scope exits)
 - Handle-based resources (DB transactions, browser sessions)
 
-**When you have multiple runs**: Only in TUI **chat mode**. Each chat turn is a separate run within the same session.
+**When you have multiple calls**: A single call scope may span multiple turns in
+TUI **chat mode**, while nested worker calls create child call scopes.
 
 ```
 Session (TUI with --chat)
-├── Run 1: "Analyze this file"     → response
-├── Run 2: "Now fix the bug"       → response  (new run, same session)
-└── Run 3: "Write tests for it"    → response  (new run, same session)
+└── Call Scope (top-level worker entry)
+    ├── Turn 1: "Analyze this file" → response
+    ├── Turn 2: "Now fix the bug"   → response
+    └── Turn 3: "Write tests"       → response
 ```
 
-In **headless mode** or **single-turn TUI**, session = run (one prompt, one response, exit).
+In **headless mode** or **single-turn TUI**, the top-level call scope lasts
+for a single turn.
 
-**What is a run, really?**
+**What is a call, really?**
 
-A run is the execution of a single user request. It starts when the user submits a prompt and ends when the final response is returned. During a run:
-1. The entry worker is invoked
-2. It may call child workers (each gets its own `CallFrame`)
-3. Tools are called, potentially creating handles
-4. The final output is returned
-5. Cleanup runs after each worker call (releasing handles, closing connections)
+A call scope is the execution context for one entry invocation. It starts when
+the entry is invoked and ends when the scope closes. During a call:
+1. Toolsets are instantiated and wrapped for approval
+2. One or more turns run within the same `CallFrame`
+3. Tools may create handles and state
+4. Cleanup runs when the scope exits (releasing handles, closing connections)
 
 The key property: **all state created during a call is cleaned up immediately after that call**. This ensures that:
 - Uncommitted DB transactions are rolled back
 - Browser sessions are closed
 - File handles are released
-- The next run starts fresh
+- The next call starts fresh
 
-### Worker Scope
+### Turn Scope
 
-**Lifetime**: One worker execution within a run. A run may involve multiple workers.
+**Lifetime**: One prompt -> response within a call scope.
 
-**What lives here**:
-- `CallFrame` (prompt, messages, depth, active toolsets)
-- Per-call toolset instances
-- Handle maps (e.g., `{txn_123: Connection}`)
-
-**Why per-call isolation matters**:
-
-Workers are LLM-controlled. Without isolation, Worker B could accidentally use Worker A's handles:
-- LLM hallucinates a handle name that happens to exist
-- Cross-worker state leakage causes unpredictable behavior
-
-Per-call toolset instances ensure handles are invisible across nested calls.
+Turns update the `CallFrame` prompt and, for the top-level worker (depth 0),
+append to message history. Nested worker calls always start with fresh history.
 
 ## Scope Summary
 
 | Scope | Lifetime | Created When | Cleaned Up When |
 |-------|----------|--------------|-----------------|
 | Session | Process lifetime | CLI/TUI starts | Process exits |
-| Run | One prompt→response | `run_entry()` called | Response returned |
-| Worker | One worker execution | Worker invoked | Worker returns |
+| Call | One entry invocation | `Runtime.run_entry()` or `Entry.start()` | Scope closes |
+| Turn | One prompt→response | `CallScope.run_turn()` called | Response returned |
 
 ## Implications for Toolset Design
 
@@ -108,26 +93,26 @@ When designing toolsets, consider which scope your state belongs to:
 - Truly stateless configuration
 - Examples: shell command rules, static file paths
 
-**Run-scoped**:
-- Shared resources within a run
-- Examples: connection pools, shared caches
-- Must implement `cleanup()` to release at run end
-
-**Worker-scoped** (most common):
-- State that must be isolated between workers
-- Examples: DB transactions, browser sessions, file handles
+**Call-scoped** (most common):
+- State that must be isolated between invocations
+- Examples: DB transactions, browser sessions, file handles, per-call caches
 - Use the handle pattern for explicit state management
-- Must implement `cleanup()` to release forgotten handles after each call
+- Must implement `cleanup()` to release forgotten handles at call end
+
+**Turn-scoped** (rare):
+- Ephemeral data tied to a single prompt
+- Examples: per-turn metrics, temporary buffers
 
 ## The Chat Mode Exception
 
-Chat mode (`--chat`) is the only case where multiple runs share a session. This enables:
-- Message history continuity across turns
+Chat mode (`--chat`) keeps a single top-level call scope open. This enables:
+- Message history continuity across turns (depth 0 only)
+- Toolset instances that persist across turns
 - Session-level approval caching (approve once, remember for session)
 
-But run-scoped resources are still cleaned up between turns. Each chat turn is a fresh run with fresh toolset instances.
+Toolsets and handles are cleaned up when the chat session ends (scope closes).
 
 ## See Also
 
-- [architecture.md](architecture.md) - Runtime and CallFrame details
+- [architecture.md](architecture.md) - Runtime and CallScope details
 - [Task per-call-toolset-instances](../tasks/active/per-call-toolset-instances.md) - Per-call toolset instances implementation

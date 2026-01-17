@@ -138,7 +138,7 @@ and vice versa.
 - Configuration and policy wiring
 - Usage + message log collection
 - Entry dispatch (`run_entry`)
-- Toolset lifecycle orchestration (`build_tool_plane` + cleanup)
+- Toolset lifecycle orchestration (call-scope cleanup via `runtime/toolsets.py`)
 
 **WorkerRuntime** (`runtime/deps.py`) continues as the "god object":
 - Tool dispatch + arg validation

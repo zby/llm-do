@@ -2,57 +2,18 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
-import logging
 import threading
-from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, Mapping, cast
 
 from pydantic_ai.usage import RunUsage
 
-from ..models import NULL_MODEL
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
-from .call import CallConfig, CallFrame
-from .contracts import Entry, EventCallback, MessageLogCallback, ModelType
-from .events import UserMessageEvent
+from .contracts import Entry, EventCallback, MessageLogCallback
 
 if TYPE_CHECKING:
-    from pydantic_ai.toolsets import AbstractToolset
-
-    from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
     from .deps import WorkerRuntime
-
-logger = logging.getLogger(__name__)
-
-
-async def cleanup_toolsets(toolsets: Sequence[Any]) -> None:
-    for toolset in toolsets:
-        cleanup = getattr(toolset, "cleanup", None)
-        if cleanup is None:
-            continue
-        try:
-            result = cleanup()
-            if inspect.isawaitable(result):
-                await result
-        except Exception:
-            logger.exception("Toolset cleanup failed for %r", toolset)
-
-
-@asynccontextmanager
-async def build_tool_plane(
-    *, toolset_specs: Sequence["ToolsetSpec"], toolset_context: "ToolsetBuildContext",
-    approval_callback: ApprovalCallback, return_permission_errors: bool,
-) -> AsyncIterator[tuple[list["AbstractToolset[Any]"], list["AbstractToolset[Any]"]]]:
-    """Instantiate and approval-wrap toolsets for a single invocation."""
-    from ..toolsets.loader import instantiate_toolsets
-    from .approval import wrap_toolsets_for_approval
-    toolsets = instantiate_toolsets(toolset_specs, toolset_context)
-    try:
-        yield toolsets, wrap_toolsets_for_approval(toolsets, approval_callback, return_permission_errors=return_permission_errors)
-    finally:
-        await cleanup_toolsets(toolsets)
 
 
 class UsageCollector:
@@ -199,25 +160,6 @@ class Runtime:
         if self._config.message_log_callback is not None:
             self._config.message_log_callback(worker_name, depth, messages)
 
-    def _build_entry_frame(
-        self,
-        entry: Entry,
-        *,
-        model: ModelType,
-        message_history: list[Any] | None = None,
-        active_toolsets: list[Any] | None = None,
-    ) -> CallFrame:
-        entry_name = getattr(entry, "name", str(entry))
-        call_config = CallConfig(
-            active_toolsets=tuple(active_toolsets or []),
-            model=model,
-            invocation_name=entry_name,
-        )
-        return CallFrame(
-            config=call_config,
-            messages=list(message_history) if message_history else [],
-        )
-
     async def run_entry(
         self,
         invocable: Entry,
@@ -227,65 +169,17 @@ class Runtime:
     ) -> tuple[Any, WorkerRuntime]:
         """Run an invocable with this runtime.
 
-        Normalizes input_data to WorkerArgs for all entry types.
-        Entry functions set frame.prompt from WorkerArgs; workers handle per-turn prompts.
+        Entry implementations handle per-turn prompt handling inside run_turn.
         """
-        from ..toolsets.loader import ToolsetBuildContext
-        from .args import ensure_worker_args
         from .deps import WorkerRuntime
-        from .worker import EntryFunction, Worker
-
-        input_args = ensure_worker_args(invocable.schema_in, input_data)
-        prompt_spec = input_args.prompt_spec()
-
-        def _build_entry_context(
-            entry: Entry,
-            *,
-            model: ModelType,
-            active_toolsets: list[Any] | None = None,
-        ) -> WorkerRuntime:
-            frame = self._build_entry_frame(
-                entry,
-                model=model,
-                message_history=message_history,
-                active_toolsets=active_toolsets,
-            )
-            frame.prompt = prompt_spec.text
-            ctx = WorkerRuntime(runtime=self, frame=frame)
-
-            if self._config.on_event is not None:
-                self._config.on_event(
-                    UserMessageEvent(worker=entry.name, content=prompt_spec.text)
-                )
-
-            return ctx
-
-        if isinstance(invocable, EntryFunction):
-            toolset_context = invocable.toolset_context or ToolsetBuildContext(
-                worker_name=invocable.name,
-            )
-            async with build_tool_plane(
-                toolset_specs=invocable.toolset_specs,
-                toolset_context=toolset_context,
-                approval_callback=self._config.approval_callback,
-                return_permission_errors=self._config.return_permission_errors,
-            ) as (_raw_toolsets, wrapped_toolsets):
-                ctx = _build_entry_context(
-                    invocable,
-                    model=NULL_MODEL,
-                    active_toolsets=wrapped_toolsets,
-                )
-
-                result = await invocable.call(input_args, ctx)
-                return result, ctx
-
-        if isinstance(invocable, Worker):
+        try:
             scope = invocable.start(self, message_history=message_history)
-            async with scope:
-                result = await scope.run_turn(input_args)
-            return result, cast(WorkerRuntime, scope.runtime)
+        except AttributeError as exc:
+            raise TypeError(f"Unsupported entry type: {type(invocable)}") from exc
 
-        raise TypeError(f"Unsupported entry type: {type(invocable)}")
+        async with scope:
+            result = await scope.run_turn(input_data)
+        return result, cast(WorkerRuntime, scope.runtime)
 
     def run(
         self,

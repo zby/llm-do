@@ -301,14 +301,16 @@ async def run_tui(
         auto_quit=not chat,
     )
 
-    await app.run_async(mouse=False)
-    if call_scope is not None:
-        await call_scope.close()
-    if not render_closed:
-        render_queue.put_nowait(None)
-        render_closed = True
-    if not render_task.done():
-        await render_task
+    try:
+        await app.run_async(mouse=False)
+    finally:
+        if call_scope is not None:
+            await call_scope.close()
+        if not render_closed:
+            render_queue.put_nowait(None)
+            render_closed = True
+        if not render_task.done():
+            await render_task
     result = result_holder[0] if result_holder else None
     return RunUiResult(result=result, exit_code=exit_code)
 

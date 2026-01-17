@@ -14,6 +14,11 @@ class PromptSpec:
     text: str
     attachments: tuple[str, ...] = ()
 
+    def _normalized_text(self) -> str:
+        """Return display-safe text for prompts with no user input."""
+        # TODO: Revisit normalization rules for empty prompts.
+        return self.text if self.text.strip() else "(no input)"
+
 
 class WorkerArgs(BaseModel):
     """Base class for worker input models."""

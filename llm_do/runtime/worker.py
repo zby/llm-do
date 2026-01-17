@@ -61,11 +61,14 @@ def _load_attachment(path: Path) -> BinaryContent:
     return BinaryContent(data=data, media_type=media_type)
 
 
-def _build_user_prompt(text: str, attachments: Sequence[BinaryContent]) -> str | Sequence[UserContent]:
-    """Build a user prompt from text and resolved attachments."""
+def _build_user_prompt(
+    prompt_spec: PromptSpec, attachments: Sequence[BinaryContent]
+) -> str | Sequence[UserContent]:
+    """Build a user prompt from prompt spec and resolved attachments."""
+    text = prompt_spec._normalized_text()
     if not attachments:
-        return text if text.strip() else "(no input)"
-    parts: list[UserContent] = [text if text.strip() else "(no input)"]
+        return text
+    parts: list[UserContent] = [text]
     parts.extend(attachments)
     return parts
 
@@ -315,7 +318,10 @@ class EntryFunction:
         runtime.frame.prompt = prompt_spec.text
         if runtime.config.on_event is not None and runtime.frame.depth == 0:
             runtime.config.on_event(
-                UserMessageEvent(worker=self.name, content=prompt_spec.text)
+                UserMessageEvent(
+                    worker=self.name,
+                    content=prompt_spec._normalized_text(),
+                )
             )
         return await self.call(input_args, runtime)
 
@@ -491,7 +497,10 @@ class Worker:
         runtime.frame.prompt = prompt_spec.text
         if runtime.config.on_event is not None and runtime.frame.depth == 0:
             runtime.config.on_event(
-                UserMessageEvent(worker=self.name, content=prompt_spec.text)
+                UserMessageEvent(
+                    worker=self.name,
+                    content=prompt_spec._normalized_text(),
+                )
             )
 
         attachment_parts: list[BinaryContent] = []
@@ -513,7 +522,7 @@ class Worker:
             runtime,
             toolsets=list(runtime.frame.active_toolsets),
         )
-        prompt = _build_user_prompt(prompt_spec.text, attachment_parts)
+        prompt = _build_user_prompt(prompt_spec, attachment_parts)
         message_history = (
             list(runtime.frame.messages)
             if _should_use_message_history(runtime) and runtime.frame.messages

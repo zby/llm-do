@@ -13,6 +13,7 @@ from llm_do.runtime.events import (
     TextResponseEvent,
     ToolCallEvent,
     ToolResultEvent,
+    UserMessageEvent,
 )
 from tests.runtime.helpers import build_runtime_context, run_entry_test
 
@@ -314,6 +315,33 @@ class TestWorkerStreamingEvents:
         # Should NOT have streaming text events (deltas)
         text_events = [e for e in events if isinstance(e, TextResponseEvent) and e.is_delta]
         assert len(text_events) == 0, "Should not stream text at verbosity=1"
+
+
+class TestUserMessageEvents:
+    """Tests for UserMessageEvent emission from workers."""
+
+    @pytest.mark.anyio
+    async def test_user_message_event_normalizes_empty_input(self, tmp_path):
+        events: list[RuntimeEvent] = []
+        attachment_path = tmp_path / "note.txt"
+        attachment_path.write_text("data")
+
+        worker = Worker(
+            name="assistant",
+            instructions="Respond to the user.",
+            model=TestModel(custom_output_text="ok"),
+        )
+
+        await run_entry_test(
+            worker,
+            WorkerInput(input=" ", attachments=[str(attachment_path)]),
+            on_event=lambda e: events.append(e),
+        )
+
+        user_events = [e for e in events if isinstance(e, UserMessageEvent)]
+        assert user_events
+        # TODO: This normalization is temporary while prompt handling is revised.
+        assert user_events[0].content == "(no input)"
 
 
 class TestCLIEventIntegration:

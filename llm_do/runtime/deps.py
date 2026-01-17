@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import BaseModel
 from pydantic_ai.models import Model, infer_model
@@ -10,14 +10,9 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
-from .args import WorkerArgs
 from .call import CallFrame
 from .contracts import ModelType, WorkerRuntimeProtocol
 from .events import ToolCallEvent, ToolResultEvent
-
-if TYPE_CHECKING:
-    from .worker import Worker
-
 from .shared import Runtime, RuntimeConfig
 
 
@@ -188,9 +183,3 @@ class WorkerRuntime:
                 return result
 
         raise KeyError(f"Tool '{name}' not found. Available: {available}")
-
-    async def _execute(self, worker: "Worker", input_data: WorkerArgs) -> Any:
-        """Execute a worker using this runtime as deps."""
-        scope = worker.start(self.runtime, message_history=self.frame.messages)
-        async with scope:
-            return await scope.run_turn(input_data)

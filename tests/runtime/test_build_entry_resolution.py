@@ -22,6 +22,7 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     entry = build_entry(
         worker_files,
         python_files,
+        project_root=EXAMPLES_DIR / "web_research_agent",
     )
     assert isinstance(entry, Worker)
 
@@ -81,7 +82,7 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
 """
     )
 
-    build_entry([], [str(module_path)])
+    build_entry([], [str(module_path)], project_root=tmp_path)
 
     lines = marker_path.read_text(encoding="utf-8").splitlines()
     assert lines == ["x"]
@@ -116,7 +117,7 @@ Instructions.
         encoding="utf-8",
     )
 
-    entry = build_entry([str(worker_path)], [])
+    entry = build_entry([str(worker_path)], [], project_root=tmp_path)
     assert isinstance(entry, Worker)
     assert entry.schema_in is not None
     assert entry.schema_in.__name__ == "NoteInput"
@@ -136,4 +137,4 @@ async def test_build_entry_rejects_duplicate_toolset_names(tmp_path: Path) -> No
     )
 
     with pytest.raises(ValueError, match="Duplicate toolset name: shell_readonly"):
-        build_entry([str(reserved_worker), str(entry_worker)], [])
+        build_entry([str(reserved_worker), str(entry_worker)], [], project_root=tmp_path)

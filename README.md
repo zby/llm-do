@@ -199,16 +199,25 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 If you're orchestrating from Python, link a single entry from files and run it:
 
 ```python
+from pathlib import Path
+
 from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput, build_entry
 
-entry = build_entry(["main.worker"], ["tools.py"])
-runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
+project_root = Path(".").resolve()
+entry = build_entry(["main.worker"], ["tools.py"], project_root=project_root)
+runtime = Runtime(
+    run_approval_policy=RunApprovalPolicy(mode="approve_all"),
+    project_root=project_root,
+)
 
 result, _ctx = await runtime.run_entry(
     entry,
     WorkerInput(input="Analyze this data"),
 )
 ```
+
+`build_entry()` requires an explicit `project_root`; pass the same root to `Runtime`
+to keep filesystem toolsets and attachment resolution aligned.
 
 ## Examples
 

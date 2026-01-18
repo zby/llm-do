@@ -95,6 +95,7 @@ def test_whiteboard_planner_directly(
             mode="prompt",
             approval_callback=approve_all_callback,
         ),
+        project_root=whiteboard_planner_example,
     )
 
     result = asyncio.run(

@@ -86,6 +86,7 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, 
             mode="prompt",
             approval_callback=approve_all_callback,
         ),
+        project_root=pitchdeck_eval_example,
     )
 
     result = asyncio.run(

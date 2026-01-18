@@ -58,6 +58,8 @@ Python code can invoke workers in two contexts:
 Use `Runtime` to create a shared execution environment and run entries:
 
 ```python
+from pathlib import Path
+
 from llm_do.runtime import (
     Runtime,
     RunApprovalPolicy,
@@ -66,8 +68,12 @@ from llm_do.runtime import (
 )
 
 async def main():
-    entry = build_entry(["analyzer.worker"], [])
-    runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
+    project_root = Path(".").resolve()
+    entry = build_entry(["analyzer.worker"], [], project_root=project_root)
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(mode="approve_all"),
+        project_root=project_root,
+    )
 
     result, ctx = await runtime.run_entry(
         entry,
@@ -82,6 +88,9 @@ async def main():
 - Reuses runtime-scoped state (usage, approval cache, message log)
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
 - Returns both the result and the runtime context
+ 
+`build_entry()` requires an explicit `project_root`; pass the same root to `Runtime`
+to keep filesystem toolsets and attachment resolution aligned.
 
 Workers resolve their model at construction (`model` in the worker definition or
 `LLM_DO_MODEL` as a fallback). `@entry` functions use NullModel for tool contexts,
@@ -102,11 +111,14 @@ Use `Runtime.run()` for sync execution when you already have an entry object.
 For chat-style flows, start a worker call scope and run multiple turns inside it:
 
 ```python
+from pathlib import Path
+
 from llm_do.runtime import Runtime, Worker, WorkerInput, build_entry
 
 async def main():
-    entry = build_entry(["assistant.worker"], [])
-    runtime = Runtime()
+    project_root = Path(".").resolve()
+    entry = build_entry(["assistant.worker"], [], project_root=project_root)
+    runtime = Runtime(project_root=project_root)
 
     assert isinstance(entry, Worker)
     async with entry.start(runtime) as scope:
@@ -451,12 +463,15 @@ the factory (e.g., base paths, worker metadata, or sandbox handles).
 
 ### Built-in Toolsets
 
+`filesystem_project` uses the project root passed to `build_entry` (the manifest
+directory in the CLI).
+
 | Name | Class | Tools |
 |------|-------|-------|
 | `filesystem_cwd` | `FileSystemToolset` | `read_file`, `write_file`, `list_files` (base: CWD) |
 | `filesystem_cwd_ro` | `ReadOnlyFileSystemToolset` | `read_file`, `list_files` (base: CWD) |
-| `filesystem_project` | `FileSystemToolset` | `read_file`, `write_file`, `list_files` (base: worker dir) |
-| `filesystem_project_ro` | `ReadOnlyFileSystemToolset` | `read_file`, `list_files` (base: worker dir) |
+| `filesystem_project` | `FileSystemToolset` | `read_file`, `write_file`, `list_files` (base: project root) |
+| `filesystem_project_ro` | `ReadOnlyFileSystemToolset` | `read_file`, `list_files` (base: project root) |
 | `shell_readonly` | `ShellToolset` | Read-only shell commands (whitelist) |
 | `shell_file_ops` | `ShellToolset` | `ls` (pre-approved) + `mv` (approval required) |
 

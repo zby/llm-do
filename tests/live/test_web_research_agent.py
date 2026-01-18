@@ -119,6 +119,7 @@ def test_web_research_consolidator(
             mode="prompt",
             approval_callback=approve_all_callback,
         ),
+        project_root=web_research_agent_example,
     )
 
     result = asyncio.run(

@@ -143,10 +143,12 @@ Tools requiring approval are wrapped by `ApprovalToolset`:
 
 ## Built-in Toolsets
 
+`filesystem_project` is rooted at the project root (manifest directory for CLI runs).
+
 - **filesystem_cwd**: `read_file`, `write_file`, `list_files` (base: CWD)
 - **filesystem_cwd_ro**: `read_file`, `list_files` (base: CWD)
-- **filesystem_project**: `read_file`, `write_file`, `list_files` (base: worker dir)
-- **filesystem_project_ro**: `read_file`, `list_files` (base: worker dir)
+- **filesystem_project**: `read_file`, `write_file`, `list_files` (base: project root)
+- **filesystem_project_ro**: `read_file`, `list_files` (base: project root)
 - **shell_readonly**: read-only shell commands (whitelist)
 - **shell_file_ops**: `ls` (pre-approved) + `mv` (approval required)
 

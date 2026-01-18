@@ -106,6 +106,7 @@ async def run(
         entry = build_entry(
             [str(p) for p in worker_paths],
             [str(p) for p in python_paths],
+            project_root=manifest_dir,
         )
 
     if runtime is None:
@@ -156,6 +157,7 @@ def _make_entry_factory(
         return build_entry(
             [str(p) for p in worker_paths],
             [str(p) for p in python_paths],
+            project_root=manifest_dir,
         )
 
     return factory

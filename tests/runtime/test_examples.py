@@ -37,9 +37,11 @@ async def test_single_worker_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "calculator" / "tools.py"])
     assert "calc_tools" in toolsets
 
+    project_root = EXAMPLES_DIR / "calculator"
     entry = build_entry(
-        [str(EXAMPLES_DIR / "calculator" / "main.worker")],
-        [str(EXAMPLES_DIR / "calculator" / "tools.py")],
+        [str(project_root / "main.worker")],
+        [str(project_root / "tools.py")],
+        project_root=project_root,
     )
     worker = entry
     assert len(worker.toolset_specs) == 1
@@ -47,12 +49,14 @@ async def test_single_worker_example_builds():
 
 @pytest.mark.anyio
 async def test_delegation_example_builds():
+    project_root = EXAMPLES_DIR / "pitchdeck_eval"
     entry = build_entry(
         [
-            str(EXAMPLES_DIR / "pitchdeck_eval" / "main.worker"),
-            str(EXAMPLES_DIR / "pitchdeck_eval" / "pitch_evaluator.worker"),
+            str(project_root / "main.worker"),
+            str(project_root / "pitch_evaluator.worker"),
         ],
         [],
+        project_root=project_root,
     )
     worker = entry
     toolset_names = [_get_toolset_name(ts) for ts in _instantiate_worker_toolsets(worker)]
@@ -61,9 +65,11 @@ async def test_delegation_example_builds():
 
 @pytest.mark.anyio
 async def test_code_entry_example_builds():
+    project_root = EXAMPLES_DIR / "pitchdeck_eval_code_entry"
     entry = build_entry(
-        [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "pitch_evaluator.worker")],
-        [str(EXAMPLES_DIR / "pitchdeck_eval_code_entry" / "tools.py")],
+        [str(project_root / "pitch_evaluator.worker")],
+        [str(project_root / "tools.py")],
+        project_root=project_root,
     )
     assert isinstance(entry, EntryFunction)
 
@@ -74,9 +80,11 @@ async def test_server_side_tools_example_builds():
     assert len(worker_file.server_side_tools) == 1
     assert worker_file.server_side_tools[0]["tool_type"] == "web_search"
 
+    project_root = EXAMPLES_DIR / "web_searcher"
     entry = build_entry(
-        [str(EXAMPLES_DIR / "web_searcher" / "main.worker")],
+        [str(project_root / "main.worker")],
         [],
+        project_root=project_root,
     )
     worker = entry
     assert len(worker.builtin_tools) == 1
@@ -92,9 +100,11 @@ async def test_file_organizer_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "file_organizer" / "tools.py"])
     assert "file_tools" in toolsets
 
+    project_root = EXAMPLES_DIR / "file_organizer"
     entry = build_entry(
-        [str(EXAMPLES_DIR / "file_organizer" / "main.worker")],
-        [str(EXAMPLES_DIR / "file_organizer" / "tools.py")],
+        [str(project_root / "main.worker")],
+        [str(project_root / "tools.py")],
+        project_root=project_root,
     )
     worker = entry
     assert len(worker.toolset_specs) == 2  # file_tools + shell_file_ops
@@ -106,12 +116,14 @@ async def test_recursive_summarizer_example_builds():
     assert "filesystem_project" in worker_file.toolsets
     assert "summarizer" in worker_file.toolsets
 
+    project_root = EXAMPLES_DIR / "recursive_summarizer"
     entry = build_entry(
         [
-            str(EXAMPLES_DIR / "recursive_summarizer" / "main.worker"),
-            str(EXAMPLES_DIR / "recursive_summarizer" / "summarizer.worker"),
+            str(project_root / "main.worker"),
+            str(project_root / "summarizer.worker"),
         ],
         [],
+        project_root=project_root,
     )
     worker = entry
     toolset_names = [_get_toolset_name(ts) for ts in _instantiate_worker_toolsets(worker)]

@@ -104,6 +104,8 @@ def _merge_toolsets(
 def _build_registry_and_entry_name(
     worker_files: list[str],
     python_files: list[str],
+    *,
+    project_root: Path | str,
 ) -> tuple[EntryRegistry, str]:
     """Build the entry symbol table and return the resolved entry name.
 
@@ -115,9 +117,13 @@ def _build_registry_and_entry_name(
     Args:
         worker_files: Paths to .worker files
         python_files: Paths to .py files with toolsets/workers/entries
+        project_root: Shared project root for filesystem toolsets
     Returns:
         Tuple of (EntryRegistry, entry_name) with entries resolved and ready
     """
+    if project_root is None:
+        raise ValueError("project_root is required to build entries")
+    project_root_path = Path(project_root).resolve()
     # Load Python toolsets, workers, and entry functions in a single pass
     python_toolsets, python_workers, python_entries = load_all_from_files(python_files)
 
@@ -198,11 +204,11 @@ def _build_registry_and_entry_name(
         name: spec.stub.as_toolset_spec() for name, spec in worker_specs.items()
     }
 
+    builtin_toolsets = build_builtin_toolsets(Path.cwd(), project_root_path)
+    all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, available_workers)
+
     for spec in worker_specs.values():
         worker_root = spec.path.parent
-        builtin_toolsets = build_builtin_toolsets(Path.cwd(), worker_root)
-        all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, available_workers)
-
         toolset_context = ToolsetBuildContext(
             worker_name=spec.name,
             available_toolsets=all_toolsets,
@@ -227,34 +233,22 @@ def _build_registry_and_entry_name(
                 )
             spec.stub.schema_in = cast(type[WorkerArgs], resolved_schema)
 
-    global_available_toolsets: dict[str, ToolsetSpec] | None = None
-
-    def _get_global_toolsets() -> dict[str, ToolsetSpec]:
-        nonlocal global_available_toolsets
-        if global_available_toolsets is None:
-            global_builtins = build_builtin_toolsets(Path.cwd(), Path.cwd())
-            global_available_toolsets = _merge_toolsets(
-                global_builtins, python_toolsets, available_workers
-            )
-        return global_available_toolsets
-
     for worker in python_workers.values():
         if worker.toolset_context is None:
             worker.toolset_context = ToolsetBuildContext(
                 worker_name=worker.name,
-                available_toolsets=_get_global_toolsets(),
+                available_toolsets=all_toolsets,
             )
 
     # Resolve toolset refs for EntryFunction instances (build global map only if needed)
     entry_funcs_with_refs = [ef for ef in python_entries.values() if ef.toolset_refs]
     if entry_funcs_with_refs:
-        all_available_toolsets = _get_global_toolsets()
         for entry_func in entry_funcs_with_refs:
             toolset_context = ToolsetBuildContext(
                 worker_name=entry_func.name,
-                available_toolsets=all_available_toolsets,
+                available_toolsets=all_toolsets,
             )
-            entry_func.resolve_toolsets(all_available_toolsets, toolset_context)
+            entry_func.resolve_toolsets(all_toolsets, toolset_context)
 
     entries: dict[str, Entry] = {}
     entries.update(python_workers)
@@ -267,11 +261,17 @@ def _build_registry_and_entry_name(
 def build_entry_registry(
     worker_files: list[str],
     python_files: list[str],
+    *,
+    project_root: Path | str,
 ) -> EntryRegistry:
-    """Build the entry symbol table with toolsets resolved and entries ready."""
+    """Build the entry symbol table with toolsets resolved and entries ready.
+
+    project_root anchors filesystem toolsets like filesystem_project.
+    """
     registry, _entry_name = _build_registry_and_entry_name(
         worker_files,
         python_files,
+        project_root=project_root,
     )
     return registry
 
@@ -279,10 +279,16 @@ def build_entry_registry(
 def build_entry(
     worker_files: list[str],
     python_files: list[str],
+    *,
+    project_root: Path | str,
 ) -> Entry:
-    """Build and return the single resolved entry."""
+    """Build and return the single resolved entry.
+
+    project_root anchors filesystem toolsets like filesystem_project.
+    """
     registry, entry_name = _build_registry_and_entry_name(
         worker_files,
         python_files,
+        project_root=project_root,
     )
     return registry.get(entry_name)

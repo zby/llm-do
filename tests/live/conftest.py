@@ -178,6 +178,7 @@ def build_direct_entry_for_worker(
         return build_entry(
             [str(worker_path)],
             [str(entry_path)],
+            project_root=worker_path.parent,
         )
     finally:
         _restore_env_model(changed, previous)
@@ -200,6 +201,7 @@ async def run_example(
         entry = build_entry(
             worker_files,
             python_files,
+            project_root=example_dir,
         )
 
         approval_policy = RunApprovalPolicy(
@@ -212,6 +214,7 @@ async def run_example(
             max_depth=max_depth if max_depth is not None else 5,
             on_event=on_event,
             verbosity=verbosity,
+            project_root=example_dir,
         )
         result, _ctx = await runtime.run_entry(entry, input_data)
         return result

@@ -26,4 +26,5 @@ Hello
         build_entry(
             [str(worker)],
             [],
+            project_root=tmp_path,
         )

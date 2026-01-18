@@ -21,7 +21,7 @@ Call yourself.
 """
     )
 
-    entry = build_entry([str(worker_path)], [])
+    entry = build_entry([str(worker_path)], [], project_root=tmp_path)
 
     assert isinstance(entry, Worker)
     assert entry.toolset_specs

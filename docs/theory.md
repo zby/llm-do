@@ -167,7 +167,9 @@ The calling convention is unified. The implementation moved. The rest of the sys
 
 The unified calling convention isn't merely convenient—it's a requirement for smooth stabilization.
 
-Consider the alternative: a framework with separate mechanisms for calling tools vs workers (e.g., a `call_worker` tool or `delegate_to_agent` pattern). When you stabilize a worker into a tool:
+Consider the alternative: a framework with separate mechanisms for calling tools and for calling workers (e.g., `call_tool` vs. `call_worker`).
+
+When you stabilize a worker into a tool:
 - Every caller must be updated to use the new calling mechanism
 - Prompts that invoke the worker must be rewritten
 - The change ripples through the system

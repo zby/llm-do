@@ -40,6 +40,8 @@ LLM ──calls──▶ Tool ──calls──▶ LLM ──calls──▶ Tool
 | Neural (LLM) | Flexible reasoning, handles ambiguity, contextual judgment |
 | Symbolic (Tool) | Deterministic, precise, cheap, auditable |
 
+This unification has a practical consequence for stabilization: when a worker graduates to a tool, callers don't change. Frameworks with separate calling mechanisms (e.g., `call_worker` vs `call_tool`) force caller updates on every stabilization—the calling convention fights the refactoring. Unified calling makes stabilization local.
+
 The question isn't "LLM or code?" but **"how much of each, and where?"** Any component can slide along the spectrum as requirements evolve.
 
 ## Distribution Boundaries

@@ -1,14 +1,18 @@
 # llm-do 5-Minute Meetup Demo Plan
 
+## Title
+
+**llm-do: Extend with LLMs, Stabilise with Code**
+
 ## Core Message
 
-Show how llm-do lets you start flexible with LLMs, then progressively harden with code—same call sites, increasing reliability.
+Show how llm-do lets you start flexible with LLMs, then progressively stabilise with code—same call sites, but faster, cheaper, and more reliable.
 
 ## Demo Structure (5 minutes)
 
 ### 1. Hook (30 sec)
 
-"What if you could prototype with LLMs, then swap in deterministic code as patterns emerge—without rewriting your orchestration?"
+"What if you could prototype with LLMs, then swap in deterministic code as patterns emerge—faster, cheaper, more reliable—without rewriting your orchestration?"
 
 ### 2. Live Demo: Pitch Deck Evaluator (3 min)
 
@@ -45,7 +49,7 @@ One slide showing: Workers (YAML+prompt) + Tools (Python) = Unified function spa
 1. **Tangible progression** — Audiences see the same task done 3 ways
 2. **Real metrics** — Show actual token counts/latency differences
 3. **Low risk** — These examples are tested and work reliably
-4. **Memorable concept** — "Extend with LLMs, stabilize with code"
+4. **Memorable concept** — "Extend with LLMs, stabilise with code"
 
 ## Backup/Alternative: File Organizer
 

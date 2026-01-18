@@ -9,7 +9,8 @@ Benefits:
 - No token waste on trivial orchestration logic
 - Deterministic file handling and output paths
 - LLM only used for actual reasoning tasks (evaluation)
-- Tool calls run directly without approval prompts (entry code is trusted)
+- Tool calls still flow through the tool plane (approvals/events) even though
+  entry code is trusted
 
 File paths are relative to this file's directory (the project root),
 matching the behavior of filesystem_project toolset.

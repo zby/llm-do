@@ -75,7 +75,7 @@ def _build_user_prompt(
 
 def _should_use_message_history(runtime: WorkerRuntimeProtocol) -> bool:
     """Only use message history for the top-level worker run."""
-    return runtime.frame.depth == 0
+    return runtime.frame.config.depth == 0
 
 
 def _get_all_messages(result: Any) -> list[Any]:
@@ -93,7 +93,7 @@ def _finalize_messages(
     """Log and sync message history using a single message snapshot."""
     messages = _get_all_messages(result)
     if log_messages:
-        runtime.log_messages(worker_name, runtime.frame.depth, messages)
+        runtime.log_messages(worker_name, runtime.frame.config.depth, messages)
     if _should_use_message_history(runtime):
         runtime.frame.messages[:] = messages
     return messages
@@ -295,8 +295,8 @@ class EntryFunction:
             runtime.config.approval_callback,
             return_permission_errors=runtime.config.return_permission_errors,
         )
-        call_config = CallConfig(
-            active_toolsets=tuple(wrapped_toolsets),
+        call_config = CallConfig.build(
+            wrapped_toolsets,
             model=NULL_MODEL,
             depth=0,
             invocation_name=self.name,
@@ -316,7 +316,7 @@ class EntryFunction:
         input_args = ensure_worker_args(self.schema_in, input_data)
         prompt_spec = input_args.prompt_spec()
         runtime.frame.prompt = prompt_spec.text
-        if runtime.config.on_event is not None and runtime.frame.depth == 0:
+        if runtime.config.on_event is not None and runtime.frame.config.depth == 0:
             runtime.config.on_event(
                 UserMessageEvent(
                     worker=self.name,
@@ -399,8 +399,8 @@ class Worker:
             raise RuntimeError("Worker model is not set")
 
         toolsets, wrapped_toolsets = self._build_toolsets(runtime.config)
-        call_config = CallConfig(
-            active_toolsets=tuple(wrapped_toolsets),
+        call_config = CallConfig.build(
+            wrapped_toolsets,
             model=resolved_model,
             depth=0,
             invocation_name=self.name,
@@ -414,8 +414,11 @@ class Worker:
 
     def _start_child(self, parent_runtime: WorkerRuntimeProtocol) -> CallScope:
         """Start a nested call scope for this worker."""
-        if parent_runtime.frame.depth >= parent_runtime.config.max_depth:
-            raise RuntimeError(f"Max depth exceeded: {parent_runtime.config.max_depth}")
+        if parent_runtime.frame.config.depth >= parent_runtime.config.max_depth:
+            raise RuntimeError(
+                f"Max depth exceeded calling '{self.name}': "
+                f"depth {parent_runtime.frame.config.depth} >= max {parent_runtime.config.max_depth}"
+            )
 
         resolved_model = self.model
         if resolved_model is None:
@@ -464,14 +467,14 @@ class Worker:
                 tool_name=call_part.tool_name,
                 tool_call_id=call_id,
                 args_json=call_part.args_as_json_str(),
-                depth=runtime.frame.depth,
+                depth=runtime.frame.config.depth,
             ))
 
             return_part = tool_returns.get(call_id)
             if return_part:
                 runtime.config.on_event(ToolResultEvent(
                     worker=self.name,
-                    depth=runtime.frame.depth,
+                    depth=runtime.frame.config.depth,
                     tool_name=call_part.tool_name,
                     tool_call_id=call_id,
                     content=return_part.content,
@@ -495,7 +498,7 @@ class Worker:
         prompt_spec = input_args.prompt_spec()
 
         runtime.frame.prompt = prompt_spec.text
-        if runtime.config.on_event is not None and runtime.frame.depth == 0:
+        if runtime.config.on_event is not None and runtime.frame.config.depth == 0:
             runtime.config.on_event(
                 UserMessageEvent(
                     worker=self.name,
@@ -520,7 +523,7 @@ class Worker:
         agent = self._build_agent(
             resolved_model,
             runtime,
-            toolsets=list(runtime.frame.active_toolsets),
+            toolsets=list(runtime.frame.config.active_toolsets),
         )
         prompt = _build_user_prompt(prompt_spec, attachment_parts)
         message_history = (
@@ -531,7 +534,7 @@ class Worker:
 
         use_incremental_log = runtime.config.message_log_callback is not None
         log_context = (
-            _capture_message_log(runtime, worker_name=self.name, depth=runtime.frame.depth)
+            _capture_message_log(runtime, worker_name=self.name, depth=runtime.frame.config.depth)
             if use_incremental_log
             else nullcontext()
         )
@@ -577,7 +580,7 @@ class Worker:
             async for event in events:
                 if runtime.config.verbosity < 2 and isinstance(event, PartDeltaEvent):
                     continue
-                runtime_event = parse_event({"worker": self.name, "event": event, "depth": runtime.frame.depth})
+                runtime_event = parse_event({"worker": self.name, "event": event, "depth": runtime.frame.config.depth})
                 if isinstance(runtime_event, (ToolCallEvent, ToolResultEvent)):
                     emitted_tool_events = True
                 if runtime.config.on_event is not None:

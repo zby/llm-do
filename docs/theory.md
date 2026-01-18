@@ -163,6 +163,19 @@ result = await ctx.call("ticket_classifier", ticket_text)
 
 The calling convention is unified. The implementation moved. The rest of the system doesn't care.
 
+### Unified Calling as Requirement
+
+The unified calling convention isn't merely convenient—it's a requirement for smooth stabilization.
+
+Consider the alternative: a framework with separate mechanisms for calling tools and for calling workers (e.g., `call_tool` vs. `call_worker`).
+
+When you stabilize a worker into a tool:
+- Every caller must be updated to use the new calling mechanism
+- Prompts that invoke the worker must be rewritten
+- The change ripples through the system
+
+With unified calling, stabilization is local: the implementation changes, but callers don't. This is what makes progressive stabilization practical—you can refactor component by component without coordination overhead.
+
 ### What the harness enables
 
 - **Progressive stabilizing**: Start flexible, extract determinism as patterns emerge

@@ -89,6 +89,48 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
 
 
 @pytest.mark.anyio
+async def test_build_entry_schema_in_ref_reuses_loaded_module(
+    tmp_path: Path,
+) -> None:
+    marker_path = tmp_path / "marker.txt"
+    schema_path = tmp_path / "schemas.py"
+    marker_literal = repr(str(marker_path))
+    schema_path.write_text(
+        f"""\
+from llm_do.runtime import PromptSpec, WorkerArgs
+
+_marker = {marker_literal}
+with open(_marker, "a", encoding="utf-8") as handle:
+    handle.write("x\\n")
+
+class NoteInput(WorkerArgs):
+    input: str
+
+    def prompt_spec(self) -> PromptSpec:
+        return PromptSpec(text=self.input)
+""",
+        encoding="utf-8",
+    )
+    worker_path = tmp_path / "main.worker"
+    worker_path.write_text(
+        """\
+---
+name: main
+entry: true
+schema_in_ref: schemas.py:NoteInput
+---
+Instructions.
+""",
+        encoding="utf-8",
+    )
+
+    build_entry([str(worker_path)], [str(schema_path)], project_root=tmp_path)
+
+    lines = marker_path.read_text(encoding="utf-8").splitlines()
+    assert lines == ["x"]
+
+
+@pytest.mark.anyio
 async def test_build_entry_resolves_schema_in_ref(tmp_path: Path) -> None:
     schema_path = tmp_path / "schemas.py"
     schema_path.write_text(

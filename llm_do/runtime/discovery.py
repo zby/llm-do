@@ -12,16 +12,29 @@ from pydantic_ai.toolsets import AbstractToolset
 from ..toolsets.loader import ToolsetSpec
 from .worker import EntryFunction, Worker
 
+_LOADED_MODULES: dict[Path, ModuleType] = {}
+
 
 def load_module(path: str | Path) -> ModuleType:
-    path = Path(path).resolve()
-    module_name = f"_llm_do_runtime_{path.stem}_{hash(str(path)) & 0xFFFFFFFF:08x}"
-    spec = importlib.util.spec_from_file_location(module_name, path)
+    resolved = Path(path).resolve()
+    cached = _LOADED_MODULES.get(resolved)
+    if cached is not None:
+        return cached
+    module_name = (
+        f"_llm_do_runtime_{resolved.stem}_{hash(str(resolved)) & 0xFFFFFFFF:08x}"
+    )
+    spec = importlib.util.spec_from_file_location(module_name, resolved)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load module from {path}")
+        raise ImportError(f"Cannot load module from {resolved}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+    _LOADED_MODULES[resolved] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        _LOADED_MODULES.pop(resolved, None)
+        sys.modules.pop(spec.name, None)
+        raise
     return module
 
 

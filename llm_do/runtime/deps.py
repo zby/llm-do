@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic_ai.models import Model, infer_model
 from pydantic_ai.tools import RunContext
-from pydantic_ai.toolsets import AbstractToolset
+from pydantic_ai.toolsets import AbstractToolset, CombinedToolset
 from pydantic_ai.usage import RunUsage
 
 from .call import CallFrame
@@ -134,52 +134,49 @@ class WorkerRuntime:
         # Create a temporary run context for get_tools
         run_ctx = self._make_run_context(name)
 
-        # Search for the tool across all toolsets, collecting names for error message
-        available: list[str] = []
-        for toolset in self.frame.config.active_toolsets:
-            tools = await toolset.get_tools(run_ctx)
-            available.extend(tools.keys())
-            if name in tools:
-                tool = tools[name]
-                validated_args = self._validate_tool_args(
-                    toolset,
-                    tool,
-                    input_data,
-                    run_ctx,
+        combined_toolset = CombinedToolset(self.frame.config.active_toolsets)
+        tools = await combined_toolset.get_tools(run_ctx)
+        tool = tools.get(name)
+        if tool is None:
+            raise KeyError(f"Tool '{name}' not found. Available: {list(tools.keys())}")
+
+        validated_args = self._validate_tool_args(
+            tool.toolset,
+            tool,
+            input_data,
+            run_ctx,
+        )
+
+        # Generate a unique call ID for event correlation
+        call_id = str(uuid.uuid4())[:8]
+
+        worker_name = self.frame.config.invocation_name or "unknown"
+
+        # Emit ToolCallEvent before execution
+        if self.config.on_event is not None:
+            self.config.on_event(
+                ToolCallEvent(
+                    worker=worker_name,
+                    tool_name=name,
+                    tool_call_id=call_id,
+                    args=validated_args,
+                    depth=self.frame.config.depth,
                 )
+            )
 
-                # Generate a unique call ID for event correlation
-                call_id = str(uuid.uuid4())[:8]
+        # Execute the tool
+        result = await combined_toolset.call_tool(name, validated_args, run_ctx, tool)
 
-                worker_name = self.frame.config.invocation_name or "unknown"
+        # Emit ToolResultEvent after execution
+        if self.config.on_event is not None:
+            self.config.on_event(
+                ToolResultEvent(
+                    worker=worker_name,
+                    depth=self.frame.config.depth,
+                    tool_name=name,
+                    tool_call_id=call_id,
+                    content=result,
+                )
+            )
 
-                # Emit ToolCallEvent before execution
-                if self.config.on_event is not None:
-                    self.config.on_event(
-                        ToolCallEvent(
-                            worker=worker_name,
-                            tool_name=name,
-                            tool_call_id=call_id,
-                            args=validated_args,
-                            depth=self.frame.config.depth,
-                        )
-                    )
-
-                # Execute the tool
-                result = await toolset.call_tool(name, validated_args, run_ctx, tool)
-
-                # Emit ToolResultEvent after execution
-                if self.config.on_event is not None:
-                    self.config.on_event(
-                        ToolResultEvent(
-                            worker=worker_name,
-                            depth=self.frame.config.depth,
-                            tool_name=name,
-                            tool_call_id=call_id,
-                            content=result,
-                        )
-                    )
-
-                return result
-
-        raise KeyError(f"Tool '{name}' not found. Available: {available}")
+        return result

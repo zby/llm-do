@@ -1,5 +1,6 @@
 """Tests for WorkerRuntime."""
 import pytest
+from pydantic_ai.exceptions import UserError
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
@@ -43,6 +44,24 @@ class TestContext:
         ctx = build_runtime_context(toolsets=[toolset], model="test")
         result = await ctx.call("greet", {"name": "World"})
         assert result == "Hello, World!"
+
+    @pytest.mark.anyio
+    async def test_context_call_tool_conflict_raises(self):
+        """Test that duplicate tool names raise a conflict error."""
+        toolset_a = FunctionToolset()
+        toolset_b = FunctionToolset()
+
+        @toolset_a.tool(name="clash")
+        def clash_a() -> str:
+            return "a"
+
+        @toolset_b.tool(name="clash")
+        def clash_b() -> str:
+            return "b"
+
+        ctx = build_runtime_context(toolsets=[toolset_a, toolset_b], model="test")
+        with pytest.raises(UserError, match="conflicts with existing tool"):
+            await ctx.call("clash", {})
 
     @pytest.mark.anyio
     async def test_depth_counts_only_workers(self):

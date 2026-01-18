@@ -23,6 +23,38 @@ class CallConfig:
     depth: int = 0
     invocation_name: str = ""
 
+    @classmethod
+    def build(
+        cls,
+        active_toolsets: Sequence[AbstractToolset[Any]],
+        *,
+        model: ModelType,
+        depth: int,
+        invocation_name: str,
+    ) -> "CallConfig":
+        """Normalize toolsets and construct a CallConfig."""
+        return cls(
+            active_toolsets=tuple(active_toolsets),
+            model=model,
+            depth=depth,
+            invocation_name=invocation_name,
+        )
+
+    def fork(
+        self,
+        active_toolsets: Sequence[AbstractToolset[Any]],
+        *,
+        model: ModelType,
+        invocation_name: str,
+    ) -> "CallConfig":
+        """Create a child config with incremented depth."""
+        return self.build(
+            active_toolsets,
+            model=model,
+            depth=self.depth + 1,
+            invocation_name=invocation_name,
+        )
+
 
 @dataclass(slots=True)
 class CallFrame:
@@ -34,24 +66,6 @@ class CallFrame:
     prompt: str = ""
     messages: list[Any] = field(default_factory=list)
 
-    # Convenience accessors
-    @property
-    def active_toolsets(self) -> tuple[AbstractToolset[Any], ...]:
-        """Toolsets available for this call (with approval wrappers applied)."""
-        return self.config.active_toolsets
-
-    @property
-    def model(self) -> ModelType:
-        return self.config.model
-
-    @property
-    def depth(self) -> int:
-        return self.config.depth
-
-    @property
-    def invocation_name(self) -> str:
-        return self.config.invocation_name
-
     def fork(
         self,
         active_toolsets: Sequence[AbstractToolset[Any]],
@@ -60,10 +74,9 @@ class CallFrame:
         invocation_name: str,
     ) -> "CallFrame":
         """Create child frame with incremented depth and fresh messages."""
-        new_config = CallConfig(
-            active_toolsets=tuple(active_toolsets),
+        new_config = self.config.fork(
+            active_toolsets,
             model=model,
-            depth=self.config.depth + 1,
             invocation_name=invocation_name,
         )
         return CallFrame(config=new_config)
@@ -71,16 +84,12 @@ class CallFrame:
 
 @dataclass(slots=True)
 class CallScope:
-    """Lifecycle wrapper for an entry call scope (frame + toolsets)."""
+    """Lifecycle wrapper for an entry call scope (runtime + toolsets)."""
 
     entry: "Entry"
     runtime: WorkerRuntimeProtocol
     toolsets: Sequence["AbstractToolset[Any]"]
     _closed: bool = False
-
-    @property
-    def frame(self) -> CallFrame:
-        return self.runtime.frame
 
     async def run_turn(self, input_data: Any) -> Any:
         if self._closed:

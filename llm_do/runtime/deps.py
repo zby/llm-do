@@ -22,9 +22,9 @@ class WorkerRuntime:
     WorkerRuntime is the central orchestrator for executing tools and workers.
     It holds:
     - runtime (Runtime): shared config and runtime-scoped state
-    - frame (CallFrame): per-branch state (depth, prompt/messages, toolsets, model)
+    - frame (CallFrame): per-branch state (prompt/messages + immutable config)
 
-    Access runtime settings via config.*, call state via frame.*.
+    Access runtime settings via config.*, call state via frame.prompt/messages and frame.config.*.
     """
 
     def __init__(
@@ -57,9 +57,9 @@ class WorkerRuntime:
         String models are resolved to concrete Model instances via infer_model.
         """
         model: Model = (
-            infer_model(self.frame.model)
-            if isinstance(self.frame.model, str)
-            else self.frame.model
+            infer_model(self.frame.config.model)
+            if isinstance(self.frame.config.model, str)
+            else self.frame.config.model
         )
         return RunContext(
             deps=self,
@@ -67,7 +67,7 @@ class WorkerRuntime:
             usage=self._create_usage(),
             prompt=self.frame.prompt,
             messages=list(self.frame.messages),
-            run_step=self.frame.depth,
+            run_step=self.frame.config.depth,
             retry=0,
             tool_name=tool_name,
         )
@@ -136,7 +136,7 @@ class WorkerRuntime:
 
         # Search for the tool across all toolsets, collecting names for error message
         available: list[str] = []
-        for toolset in self.frame.active_toolsets:
+        for toolset in self.frame.config.active_toolsets:
             tools = await toolset.get_tools(run_ctx)
             available.extend(tools.keys())
             if name in tools:
@@ -151,7 +151,7 @@ class WorkerRuntime:
                 # Generate a unique call ID for event correlation
                 call_id = str(uuid.uuid4())[:8]
 
-                worker_name = self.frame.invocation_name or "unknown"
+                worker_name = self.frame.config.invocation_name or "unknown"
 
                 # Emit ToolCallEvent before execution
                 if self.config.on_event is not None:
@@ -161,7 +161,7 @@ class WorkerRuntime:
                             tool_name=name,
                             tool_call_id=call_id,
                             args=validated_args,
-                            depth=self.frame.depth,
+                            depth=self.frame.config.depth,
                         )
                     )
 
@@ -173,7 +173,7 @@ class WorkerRuntime:
                     self.config.on_event(
                         ToolResultEvent(
                             worker=worker_name,
-                            depth=self.frame.depth,
+                            depth=self.frame.config.depth,
                             tool_name=name,
                             tool_call_id=call_id,
                             content=result,

@@ -31,9 +31,9 @@ class TestContextEventCallback:
             on_event=callback,
         )
         child = ctx.spawn_child(
-            active_toolsets=ctx.frame.active_toolsets,
-            model=ctx.frame.model,
-            invocation_name=ctx.frame.invocation_name,
+            active_toolsets=ctx.frame.config.active_toolsets,
+            model=ctx.frame.config.model,
+            invocation_name=ctx.frame.config.invocation_name,
         )
         assert child.config.on_event is callback
 
@@ -44,9 +44,9 @@ class TestContextEventCallback:
             verbosity=2,
         )
         child = ctx.spawn_child(
-            active_toolsets=ctx.frame.active_toolsets,
-            model=ctx.frame.model,
-            invocation_name=ctx.frame.invocation_name,
+            active_toolsets=ctx.frame.config.active_toolsets,
+            model=ctx.frame.config.model,
+            invocation_name=ctx.frame.config.invocation_name,
         )
         assert child.config.verbosity == 2
 

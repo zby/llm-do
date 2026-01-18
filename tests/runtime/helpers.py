@@ -30,8 +30,8 @@ def build_runtime_context(
         on_event=on_event,
         verbosity=verbosity,
     )
-    call_config = CallConfig(
-        active_toolsets=tuple(toolsets or []),
+    call_config = CallConfig.build(
+        toolsets or [],
         model=model,
         depth=depth,
         invocation_name=invocation_name,

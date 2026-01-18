@@ -29,7 +29,7 @@ class WorkerRuntimeProtocol(Protocol):
     """Structural type for the runtime object used as PydanticAI deps.
 
     Minimal surface: config (runtime-scoped settings) + frame (call-scoped state).
-    Access settings via config.*, call state via frame.*.
+    Access settings via config.*, call state via frame.prompt/messages and frame.config.*.
     """
 
     @property

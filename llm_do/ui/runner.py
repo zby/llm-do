@@ -229,7 +229,7 @@ async def run_tui(
                     )
                 result = await call_scope.run_turn(input_data)
                 result_holder[:] = [result]
-                message_history = list(call_scope.frame.messages)
+                message_history = list(call_scope.runtime.frame.messages)
                 return message_history
 
             scope = entry_instance.start(
@@ -239,7 +239,7 @@ async def run_tui(
             async with scope:
                 result = await scope.run_turn(input_data)
             result_holder[:] = [result]
-            message_history = list(scope.frame.messages)
+            message_history = list(scope.runtime.frame.messages)
             return message_history
 
         result, ctx = await runtime.run_entry(

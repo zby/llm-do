@@ -54,15 +54,15 @@ class TestContext:
 
             @toolset.tool
             async def probe(run_ctx: RunContext[WorkerRuntime]) -> int:
-                depth = run_ctx.deps.frame.depth
+                depth = run_ctx.deps.frame.config.depth
                 seen["probe"] = depth
                 return depth
 
             @toolset.tool
             async def call_probe(run_ctx: RunContext[WorkerRuntime]) -> dict[str, int]:
-                before = run_ctx.deps.frame.depth
+                before = run_ctx.deps.frame.config.depth
                 probe_depth = await run_ctx.deps.call("probe", {})
-                after = run_ctx.deps.frame.depth
+                after = run_ctx.deps.frame.config.depth
                 seen["call_probe"] = {
                     "before": before,
                     "probe": probe_depth,

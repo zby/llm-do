@@ -77,8 +77,8 @@ async def test_entry_function_exposes_its_toolsets() -> None:
 
     assert result == "hello"
     # EntryFunction exposes its toolset via the Entry protocol (wrapped for approval)
-    assert len(ctx.frame.active_toolsets) == 1
-    assert isinstance(ctx.frame.active_toolsets[0], ApprovalToolset)
+    assert len(ctx.frame.config.active_toolsets) == 1
+    assert isinstance(ctx.frame.config.active_toolsets[0], ApprovalToolset)
 
 
 @pytest.mark.anyio

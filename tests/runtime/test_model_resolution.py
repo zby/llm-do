@@ -77,7 +77,7 @@ async def test_child_context_passes_model_explicitly() -> None:
         model=parent_model,
         invocation_name="child",
     )
-    assert child.frame.model is parent_model
+    assert child.frame.config.model is parent_model
 
     # Tool call should see the inherited model (resolved to same instance)
     await child.call("capture", {"value": 1})
@@ -101,7 +101,7 @@ async def test_child_context_overrides_parent_model() -> None:
         model=child_model,
         invocation_name="child",
     )
-    assert child.frame.model is child_model
+    assert child.frame.config.model is child_model
 
     # Tool call should see the overridden model
     await child.call("capture", {"value": 1})
@@ -123,9 +123,10 @@ def test_spawn_child_requires_args() -> None:
 def test_callframe_fork_requires_args() -> None:
     """CallFrame.fork requires explicit toolsets, model, and invocation name."""
     frame = CallFrame(
-        config=CallConfig(
-            active_toolsets=tuple(),
+        config=CallConfig.build(
+            [],
             model="test",
+            depth=0,
             invocation_name="parent",
         ),
     )
@@ -143,7 +144,7 @@ async def test_string_model_resolved_to_model_instance() -> None:
     )
 
     # The context stores the string
-    assert ctx.frame.model == "test"
+    assert ctx.frame.config.model == "test"
 
     # But when we call a tool, the RunContext should have a resolved Model
     await ctx.call("capture", {"value": 1})
@@ -168,7 +169,7 @@ async def test_entry_function_uses_null_model(monkeypatch) -> None:
     runtime = Runtime()
     result, ctx = await runtime.run_entry(no_op, WorkerInput(input="hi"))
     assert result == "ok"
-    assert isinstance(ctx.frame.model, NullModel)
+    assert isinstance(ctx.frame.config.model, NullModel)
 
 
 @pytest.mark.anyio
@@ -177,7 +178,7 @@ async def test_entry_function_null_model_llm_call_raises() -> None:
     @entry()
     async def call_llm(_args, runtime):
         agent = Agent(
-            model=runtime.frame.model,
+            model=runtime.frame.config.model,
             instructions="test",
             deps_type=type(runtime),
         )

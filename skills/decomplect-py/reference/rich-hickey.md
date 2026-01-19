@@ -1,35 +1,35 @@
 # Rich Hickey's Simplicity Principles (Python Examples)
 
-## Core Philosophy
+## The Philosophy
 
-Rich Hickey (creator of Clojure) distinguishes between **simple** and **easy**:
+Rich Hickey, creator of Clojure, draws a crucial distinction:
 
-- **Simple**: Not intertwined. One role, one concept, one dimension. Opposite of complex (complected).
-- **Easy**: Near at hand. Familiar. Convenient. Opposite of hard.
+- **Simple**: Focused on one thing. Untangled from other concerns. An objective property of the code itself.
+- **Easy**: Familiar and accessible. A subjective feeling that varies by person.
 
-**Key insight**: Easy is relative to the person. Simple is objective.
+The insight: We often mistake *easy* for *simple*. Familiarity feels like simplicity, but they're not the same.
 
-## What is Complecting?
+## Complecting: The Enemy of Simplicity
 
-**Complecting** = braiding/intertwining concerns that should be separate.
+**Complecting** means weaving together things that don't belong together—creating hidden dependencies between concepts that should stand alone.
 
-### Common Complections
+### Tangled vs. Untangled
 
-| Complected | Decomplected |
-|------------|--------------|
-| State + Identity | Values + Managed references |
-| What + How | Declarative + Implementation |
-| What + When | Logic + Scheduling/Ordering |
-| What + Who | Logic + Polymorphism dispatch |
-| Values + Place | Immutable values + References |
-| Rules + Enforcement | Data validation + Schema |
+| Tangled | Untangled |
+|---------|-----------|
+| State + Identity | Immutable values + Managed references |
+| What + How | Specification + Implementation |
+| What + When | Logic + Scheduling |
+| What + Who | Logic + Dispatch mechanism |
+| Values + Location | Data + References to data |
+| Rules + Enforcement | Validation rules + Schema definitions |
 
-## Simple Made Easy (Key Concepts with Python)
+## Core Principles Applied to Python
 
 ### 1. Values Over State
 
 ```python
-# Complected: value tied to place/identity
+# Tangled: value bound to mutable identity
 class User:
     def __init__(self, name: str):
         self.name = name
@@ -37,7 +37,7 @@ class User:
     def set_name(self, name: str):
         self.name = name
 
-# Decomplected: immutable values
+# Untangled: immutable values
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
@@ -51,7 +51,7 @@ def rename(user: User, name: str) -> User:
 ### 2. Functions Over Methods
 
 ```python
-# Complected: behavior tied to class
+# Tangled: behavior bound to class
 class User:
     def __init__(self, email: str, age: int):
         self.email = email
@@ -65,7 +65,7 @@ class User:
             errors.append('Invalid age')
         return errors
 
-# Decomplected: function operates on data
+# Untangled: standalone function operating on data
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
@@ -85,7 +85,7 @@ def validate_user(user: User) -> list[str]:
 ### 3. Data Over Objects
 
 ```python
-# Complected: data + behavior + identity
+# Tangled: data + behavior + identity in one
 class OrderProcessor:
     def __init__(self):
         self.orders: list[Order] = []
@@ -97,7 +97,7 @@ class OrderProcessor:
         for order in self.orders:
             self._process_one(order)
 
-# Decomplected: plain data + separate functions
+# Untangled: plain data + separate functions
 from dataclasses import dataclass
 from typing import NamedTuple
 
@@ -127,20 +127,20 @@ def process_order(order: Order) -> ProcessedOrder:
 ### 4. Comprehensions Over Iteration with Mutation
 
 ```python
-# Complected: how (loop) with what (transformation)
+# Tangled: mechanics (loop) woven with intent (transformation)
 result = []
 for item in items:
     if item.active:
         result.append(transform(item))
 
-# Decomplected: declarative
+# Untangled: declares intent directly
 result = [transform(item) for item in items if item.active]
 ```
 
 ### 5. Explicit Dependencies Over Module State
 
 ```python
-# Complected: shared mutable state
+# Tangled: hidden shared state
 _config: dict = {}  # global, mutable
 
 def get_setting(key: str) -> str:
@@ -149,7 +149,7 @@ def get_setting(key: str) -> str:
 def set_setting(key: str, value: str):
     _config[key] = value
 
-# Decomplected: explicit dependency
+# Untangled: dependencies passed explicitly
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
@@ -162,17 +162,17 @@ def create_service(config: Config) -> Service:
     return Service(database_url=config.database_url)
 ```
 
-## The Simplicity Checklist
+## Questions for Evaluating Simplicity
 
-When reviewing Python code, ask:
+When examining Python code:
 
-1. **Can I understand this in isolation?** (no hidden dependencies)
-2. **Can I change this without fear?** (no action at a distance)
-3. **Can I test this without mocks?** (pure functions)
-4. **Can I reuse this in a different context?** (not tied to framework)
-5. **Can I reason about this locally?** (referential transparency)
+1. **Self-contained?** Can I understand this without chasing imports?
+2. **Safe to modify?** Can I change this without side effects elsewhere?
+3. **Directly testable?** Can I test with plain values, no mocks?
+4. **Portable?** Could I use this in another project unchanged?
+5. **Locally comprehensible?** Can I reason about what happens here, right here?
 
-## Complexity Smells in Python
+## Warning Signs in Python Code
 
 - Mutable state shared across functions
 - Module-level mutable variables (`_cache = {}`)
@@ -184,7 +184,7 @@ When reviewing Python code, ask:
 - `global` keyword usage
 - Mutable default arguments
 
-## Simplicity Patterns
+## Simplification Patterns
 
 ### Pattern: Replace Mutation with Transformation
 
@@ -242,13 +242,13 @@ def process_with_logging(data: Data) -> Result:
 ### Pattern: Replace Time Coupling with Data Flow
 
 ```python
-# Before: operations must happen in order
+# Before: implicit ordering
 def process():
     validate()  # must be first
     transform()  # must be second
     save()      # must be third
 
-# After: data flow enforces order
+# After: data flow makes ordering explicit
 def process(input_data: Input) -> Result:
     validated = validate(input_data)  # returns data
     if validated.errors:
@@ -280,9 +280,11 @@ def get_user(user_id: str) -> User:
     return User(id=user_id, name='Alice', email='alice@example.com')
 ```
 
-## Rich Hickey Talks (Reference)
+## Further Reading
 
-- **Simple Made Easy** (2011): Core simplicity concepts
-- **The Value of Values** (2012): Immutability and facts
-- **The Language of the System** (2012): System-level simplicity
-- **Hammock Driven Development** (2010): Thinking before coding
+Rich Hickey's talks that shaped these ideas:
+
+- **Simple Made Easy** (2011): The foundational talk on simplicity vs. ease
+- **The Value of Values** (2012): Why immutability matters
+- **The Language of the System** (2012): Simplicity at the system level
+- **Hammock Driven Development** (2010): The value of thinking before coding

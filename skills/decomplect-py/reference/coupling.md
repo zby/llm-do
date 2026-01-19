@@ -1,20 +1,20 @@
 # High-Cohesion, Low-Coupling (Python Examples)
 
-## Definitions
+## What These Terms Mean
 
-**Cohesion**: How closely related the elements within a module are. High cohesion means the module does one thing well.
+**Cohesion** measures how well the pieces inside a module fit together. High cohesion: everything in the module serves one clear purpose. Low cohesion: a grab-bag of unrelated functions.
 
-**Coupling**: How dependent modules are on each other. Low coupling means modules can change independently.
+**Coupling** measures how much modules depend on each other's details. Low coupling: modules interact through clean interfaces. High coupling: changing one module breaks several others.
 
-## The Goal
+## The Objective
 
-- **Maximize cohesion**: Group related functionality
-- **Minimize coupling**: Reduce dependencies between groups
+- **Strengthen cohesion**: Keep related code together
+- **Weaken coupling**: Keep unrelated code apart
 
-## Types of Coupling (Worst to Best)
+## Coupling Types (Worst to Best)
 
 ### 1. Content Coupling (Worst)
-One module modifies the internals of another.
+Reaching into another module's private implementation.
 
 ```python
 # Bad: directly accessing internal state
@@ -29,7 +29,7 @@ class OrderService:
 ```
 
 ### 2. Common Coupling
-Modules share global data.
+Multiple modules reading and writing shared globals.
 
 ```python
 # Bad: shared global state
@@ -43,7 +43,7 @@ def service_b():
 ```
 
 ### 3. Control Coupling
-One module controls the flow of another via flags.
+Passing flags that change another module's behavior.
 
 ```python
 # Bad: flag determines behavior
@@ -75,7 +75,7 @@ class SlowProcessor:
 ```
 
 ### 4. Stamp Coupling
-Modules share composite data but only use parts.
+Passing entire structures when only a few fields are used.
 
 ```python
 # Bad: passing whole User when only name needed
@@ -96,7 +96,7 @@ def greet(name: str) -> str:
 ```
 
 ### 5. Data Coupling (Best)
-Modules share only necessary primitive data.
+Passing exactly the data needed, nothing more.
 
 ```python
 # Good: minimal data sharing
@@ -104,10 +104,10 @@ def calculate_discount(price: float, percentage: float) -> float:
     return price * (percentage / 100)
 ```
 
-## Types of Cohesion (Worst to Best)
+## Cohesion Types (Worst to Best)
 
 ### 1. Coincidental Cohesion (Worst)
-Unrelated functionality grouped together.
+Random functions thrown together with no unifying theme.
 
 ```python
 # Bad: unrelated utilities
@@ -126,7 +126,7 @@ class Utils:
 ```
 
 ### 2. Logical Cohesion
-Grouped by category, not by function.
+Grouped by surface-level similarity, not by function.
 
 ```python
 # Bad: grouped by "type"
@@ -137,7 +137,7 @@ class Handlers:
 ```
 
 ### 3. Temporal Cohesion
-Grouped by when they execute.
+Grouped by when they run, not by what they do.
 
 ```python
 # Bad: grouped by "initialization time"
@@ -150,7 +150,7 @@ def init_app():
 ```
 
 ### 4. Functional Cohesion (Best)
-Every element contributes to a single well-defined task.
+Every element contributes to one well-defined task.
 
 ```python
 # Good: single responsibility
@@ -374,16 +374,16 @@ class InventoryService:
             self._repo.reserve(item['sku'], item['qty'])
 ```
 
-## Dependency Direction
+## Dependency Direction Principle
 
-Dependencies should point toward stability and abstraction.
+Dependencies should flow toward stability. Concrete modules depend on abstract ones, not the reverse.
 
 ```
-Unstable (changes often)  ->  Stable (rarely changes)
-Concrete (implementation) ->  Abstract (interfaces)
+Volatile (changes often)  →  Stable (changes rarely)
+Concrete (implementation) →  Abstract (interface)
 ```
 
-### Example: Dependency Inversion
+### Example: Inverting Dependencies
 
 ```python
 # Bad: high-level depends on low-level
@@ -421,23 +421,23 @@ class OrderService:
         self._repo.save(order)
 ```
 
-## Coupling Checklist
+## Evaluation Questions
 
-When reviewing Python code, check:
+When reviewing Python code:
 
-1. **Import graph**: Can you draw a clean dependency diagram?
-2. **Change impact**: If module A changes, how many others are affected?
-3. **Test isolation**: Can you test a module without its dependencies?
-4. **Interface size**: Are protocols/ABCs minimal (ISP)?
-5. **Circular dependencies**: Any A -> B -> A cycles?
+1. **Dependency diagram**: Can you sketch the import graph cleanly?
+2. **Ripple effects**: Changing module A—how many others need updates?
+3. **Testable in isolation**: Can you test this module alone?
+4. **Interface surface**: Are protocols and ABCs narrowly scoped?
+5. **Circular references**: Any import cycles?
 
-## Decoupling Strategies
+## Techniques for Reducing Coupling
 
-1. **Dependency injection**: Pass dependencies, don't create them
-2. **Events/Messages**: Communicate via events, not direct calls
-3. **Protocols**: Depend on contracts, not implementations
-4. **Data transfer objects**: Copy data at boundaries
-5. **Configuration**: Externalize environment-specific values
+1. **Dependency injection**: Accept dependencies as parameters
+2. **Event-driven communication**: Publish events instead of direct calls
+3. **Protocol-based interfaces**: Depend on behavior contracts, not classes
+4. **Data transfer at boundaries**: Copy data rather than sharing objects
+5. **Externalized configuration**: Keep environment specifics out of code
 
 ```python
 # Example: Event-based decoupling

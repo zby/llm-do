@@ -1,31 +1,31 @@
 # Functional Core, Imperative Shell (Python Examples)
 
-## Concept
+## The Idea
 
-Separate your code into two layers:
+Organize code into two distinct zones:
 
-1. **Functional Core**: Pure functions containing business logic. No I/O, no side effects.
-2. **Imperative Shell**: Thin layer that handles I/O and orchestrates the core.
+1. **Functional Core**: Where all the interesting logic lives. Pure computations that transform inputs to outputs, with no awareness of the outside world.
+2. **Imperative Shell**: A thin wrapper that deals with messy reality—reading files, calling APIs, writing to databases—then hands clean data to the core.
 
-## Why?
+## The Payoff
 
-- **Testability**: Core logic testable without mocks
-- **Predictability**: Pure functions always return same output for same input
-- **Composability**: Pure functions compose easily
-- **Debuggability**: No hidden state changes
+- **Tests without mocks**: The core takes values and returns values. Test it directly.
+- **Reproducible behavior**: Run the same computation twice, get the same result.
+- **Easy composition**: Chain pure functions together without worrying about hidden interactions.
+- **Simpler debugging**: When something's wrong, it's in the data, not in some invisible state change.
 
-## The Pattern
+## Visual Model
 
 ```
-+-------------------------------------+
-|         Imperative Shell            |
-|  +-----------------------------+    |
-|  |      Functional Core        |    |
-|  |   (pure business logic)     |    |
-|  +-----------------------------+    |
-|           ^         v               |
-|     [Read I/O]  [Write I/O]         |
-+-------------------------------------+
+┌─────────────────────────────────────┐
+│         Imperative Shell            │
+│  ┌─────────────────────────────┐    │
+│  │      Functional Core        │    │
+│  │    (pure calculations)      │    │
+│  └─────────────────────────────┘    │
+│         ↑             ↓             │
+│    [fetch data]  [persist results]  │
+└─────────────────────────────────────┘
 ```
 
 ## Python Examples
@@ -271,7 +271,7 @@ if __name__ == '__main__':
     )
 ```
 
-## Testing Benefits
+## How Testing Changes
 
 ```python
 # Core is trivially testable - no mocks needed!
@@ -305,21 +305,21 @@ def test_determine_level():
     assert determine_level(25) == 'bronze'
 ```
 
-## Python I/O Checklist
+## What Counts as I/O in Python
 
-What counts as I/O in Python:
+Operations that reach outside pure computation:
 
-1. **File operations**: `open()`, `read()`, `write()`, `pathlib` I/O
-2. **Database**: SQLAlchemy, Django ORM, raw SQL
-3. **Network**: `requests`, `httpx`, `aiohttp`, sockets
+1. **File operations**: `open()`, `read()`, `write()`, `pathlib` I/O methods
+2. **Database**: SQLAlchemy, Django ORM, raw SQL connections
+3. **Network**: `requests`, `httpx`, `aiohttp`, socket operations
 4. **Console**: `print()`, `input()`
 5. **Logging**: `logging.*`, `logger.*`
 6. **Time/Random**: `datetime.now()`, `time.time()`, `random.*`, `uuid.uuid4()`
 7. **Environment**: `os.environ`, `os.getenv()`
 
-## Common Mistakes
+## Pitfalls to Avoid
 
-### Mistake 1: Logger in Core
+### Pitfall 1: Logging in Core Functions
 
 ```python
 # Bad: I/O in core
@@ -343,7 +343,7 @@ def calculate(data: Data) -> CalculationResult:
     )
 ```
 
-### Mistake 2: Time/Random in Core
+### Pitfall 2: Time/Random in Core Functions
 
 ```python
 # Bad: non-deterministic
@@ -374,7 +374,7 @@ def create_order_handler(items: list[Item]) -> Order:
     )
 ```
 
-### Mistake 3: Exceptions in Core
+### Pitfall 3: Exceptions for Business Logic
 
 ```python
 # Bad: exceptions are side effects

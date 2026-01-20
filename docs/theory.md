@@ -159,7 +159,7 @@ Real systems need both directions. A component might start as an LLM call (quick
 
 The hybrid VM unifies neural (LLM) and symbolic (Python) execution under a single calling convention. On top of this VM sits a **harness**—the orchestration layer that intercepts operations, manages approvals, and controls execution flow.
 
-Bidirectional flow has a practical requirement: **you need to swap stochastic and deterministic components without rewriting the rest of the system**.
+Bidirectional flow has a practical requirement: **you need to swap neural and symbolic components without rewriting the rest of the system**.
 
 If calling an LLM looks completely different from calling a function, refactoring across the boundary is painful. Your code structure fights the change.
 

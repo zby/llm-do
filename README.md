@@ -1,27 +1,14 @@
 # llm-do
 
-*A hybrid virtual machine for LLM and code.*
+*A hybrid VM—extend with prompts, stabilize with code.*
 
-**Pure LLM VMs exist.** Projects like [OpenProse](https://github.com/openprose/prose) treat the LLM as an interpreter—feed it a spec, it executes. "Simulation with sufficient fidelity is implementation." This works, but it's slow, expensive, and fully stochastic.
-
-**llm-do is the next step: a hybrid VM.** LLM reasoning and Python code share a unified execution model. Call a worker (LLM) or a tool (Python) with the same convention. Move computation freely between neural and symbolic—stabilize patterns to code when they emerge, soften rigid code back to LLM when edge cases multiply.
+LLM reasoning and Python code share a unified execution model. Call a worker (LLM) or a tool (Python) with the same convention. Move computation freely between neural and symbolic—stabilize patterns to code when they emerge, soften rigid code back to LLM when edge cases multiply.
 
 ```
-Spec → sample interpretation → execute → output     # Pure LLM VM
-Spec → [LLM ⟷ Code ⟷ LLM ⟷ Code] → output          # Hybrid VM (llm-do)
+[LLM ⟷ Code ⟷ LLM ⟷ Code] → output
 ```
 
-## Why a Hybrid VM?
-
-| Aspect | Pure LLM VM | Hybrid VM (llm-do) |
-|--------|-------------|---------------------|
-| **Execution** | All neural—LLM interprets everything | Mixed—LLM for reasoning, code for precision |
-| **Cost** | Every operation costs tokens | Stabilized paths cost nothing |
-| **Latency** | API round-trip for each step | Microseconds for code paths |
-| **Reliability** | Stochastic throughout | Deterministic where it matters |
-| **Flexibility** | Maximum—everything is promptable | High—soften any component back to LLM |
-
-The hybrid approach gives you the best of both: LLM flexibility where you need it, code reliability where you don't. And the boundary is movable—what's neural today can be symbolic tomorrow.
+The boundary is movable. What's neural today can be symbolic tomorrow—and vice versa.
 
 ## The Harness Layer
 

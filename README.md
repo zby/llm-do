@@ -48,7 +48,7 @@ llm-do examples/greeter/project.json "Tell me a joke"
 Mark one worker with `entry: true` or define a single `@entry` function in Python.
 See [`examples/`](examples/) for more.
 
-Example worker frontmatter:
+Example worker file (`main.worker`):
 
 ```yaml
 ---
@@ -56,6 +56,8 @@ name: main
 entry: true
 model: anthropic:claude-haiku-4-5
 ---
+You are a friendly greeter. Respond to the user with a warm, personalized greeting.
+Keep your responses brief and cheerful.
 ```
 
 Example manifest:

@@ -1,152 +1,206 @@
-# llm-do: Concept and Design
+# llm-do: Design and Implementation
 
-> The way to build useful non-deterministic systems more complex than chat is to make them deterministic at key spots.
+> How llm-do realizes the hybrid VM model. For the theoretical foundation—probabilistic programs, distribution boundaries, why stabilizing works—see [theory.md](theory.md).
 
-## The Hybrid VM
+## Workers as Functions
 
-LLMs can be treated as interpreters. Give an LLM a sufficiently detailed spec, and it executes it—"simulation with sufficient fidelity is implementation." Projects like [OpenProse](https://github.com/openprose/prose) demonstrate this: a pure LLM VM where natural language specs become executable programs.
+A **worker** is a prompt + configuration + tools, packaged as an executable unit. Workers are the neural operations of the hybrid VM.
 
-But pure LLM VMs have limitations:
-- **Cost**: Every operation costs tokens
-- **Latency**: Every step requires an API round-trip
-- **Reliability**: Everything is stochastic
-
-**llm-do is a hybrid VM.** It unifies LLM execution (neural) and Python execution (symbolic) under a single calling convention. Both are "operations" the VM can execute; callers don't know—or care—which is which.
-
-```
-Pure LLM VM:     Spec → LLM interprets → Output
-Hybrid VM:       Spec → [LLM ⟷ Code ⟷ LLM ⟷ Code] → Output
+```yaml
+---
+name: file_organizer
+model: anthropic:claude-haiku-4-5
+toolsets: [filesystem]
+---
+You organize files by renaming them to consistent formats.
+Given a filename, return a cleaned version.
 ```
 
-The key insight: **the boundary between neural and symbolic is movable**. Start with LLM flexibility, stabilize to code as patterns emerge, soften back to LLM when edge cases multiply. The VM's unified calling convention makes this refactoring local—callers don't change.
+Workers call other workers and Python tools interchangeably—the calling convention is unified:
 
-## Why This Exists
+```python
+# From Python
+result = await ctx.call("file_organizer", {"input": filename})
 
-LLM apps usually start as "just prompt it" and then hit a wall:
-
-- **Pure prompts are flexible but fragile** — Hard to test, hard to debug, easy to regress.
-- **Pure code is reliable but brittle** — Edge cases multiply into unmaintainable conditionals.
-- **Graph/DSL frameworks add structure, but also new abstractions** — Refactoring means redrawing edges.
-
-llm-do is a response: a hybrid VM that treats both LLM reasoning and Python code as first-class operations, letting you progressively move computation between them as your system evolves.
-
-## Theoretical Foundation
-
-LLMs are stochastic computers: specs map to distributions over behaviors, not deterministic outputs. Calls cross distribution boundaries between stochastic and deterministic execution. Reliability comes from shaping distributions and stabilizing boundaries where it matters.
-
-See [LLM-Based Agentic Systems as Probabilistic Programs](theory.md) for the full treatment.
-
-## Core Idea
-
-**Workers are functions.**
-
-A **worker** is a prompt + configuration + tools (and optionally schemas/policies), packaged as an executable unit. Workers call other workers and Python tools interchangeably—LLM reasoning and deterministic code interleave freely.
-
-**Quick example**: A `file_organizer` worker renames files to consistent formats. Initially it decides naming conventions via LLM reasoning—flexible but slow. After observing patterns, you extract `sanitize_filename()` to Python: deterministic, tested, fast. The worker still handles ambiguous cases ("is this a date or a version number?"), but the common path is now code.
-
-## Unified Function Space
-
-Workers and tools share a calling convention. Whether a function is implemented as an LLM agent loop or Python code is an implementation detail. This is **neuro-symbolic computation** in practice:
-
-```
-LLM ──calls──▶ Tool ──calls──▶ LLM ──calls──▶ Tool ...
-     reason         execute         reason
+# From another worker (via tool call)
+# The LLM sees both workers and tools as callable functions
 ```
 
-| Component | Strengths |
-|-----------|-----------|
-| Neural (LLM) | Flexible reasoning, handles ambiguity, contextual judgment |
-| Symbolic (Tool) | Deterministic, precise, cheap, auditable |
+## Unified Calling Convention
 
-This unification has a practical consequence for stabilization: when a worker graduates to a tool, callers don't change. Frameworks with separate calling mechanisms (e.g., `call_worker` vs `call_tool`) force caller updates on every stabilization—the calling convention fights the refactoring. Unified calling makes stabilization local.
+Theory says: unified calling enables local refactoring when components move across the neural-symbolic boundary. Here's how llm-do implements it.
 
-The question isn't "LLM or code?" but **"how much of each, and where?"** Any component can slide along the spectrum as requirements evolve.
+**Both workers and tools use `ctx.call()`:**
 
-## Distribution Boundaries
+```python
+# Call a worker (neural)
+analysis = await ctx.call("sentiment_analyzer", {"input": text})
 
-Unified calling convention doesn't mean identical semantics. A call into an LLM crosses a distribution boundary:
+# Call a tool (symbolic) - same syntax
+sanitized = await ctx.call("sanitize_filename", {"name": raw_name})
+```
 
-|                  | Tool (deterministic) | Worker (stochastic) |
-|------------------|----------------------|---------------------|
-| Same input       | Same output          | Distribution over outputs |
-| Failure modes    | Crashes, exceptions  | Hallucination, refusal, drift |
-| Retry semantics  | Usually safe         | May get different result |
-| Testing          | Assert equality      | Sample and check invariants |
+**Workers see tools and other workers identically.** When an LLM runs, its available tools include both Python functions and other workers. It doesn't know—or need to know—which is which.
 
-The goal: an interface **thin enough to enable composition** and **honest enough that you know when you're crossing the boundary**.
-
-See [theory.md](theory.md) for the formal treatment of distribution boundaries.
+**Stabilizing doesn't change call sites.** When `sentiment_analyzer` graduates from a worker to a Python function, callers keep using `ctx.call("sentiment_analyzer", ...)`. The registry dispatches to the new implementation.
 
 ## The Harness Layer
 
-On top of the VM sits a **harness**—the orchestration and control layer. Most agent frameworks are graph DSLs—nodes, edges, an engine. llm-do's harness is **imperative**:
-- Your code owns control flow
-- The harness intercepts at the tool layer (like syscalls)
-- Call sites stay the same when implementations change
+The harness is the orchestration layer sitting on top of the VM. It's imperative—your code owns control flow.
+
+**Key responsibilities:**
+- Dispatch calls to workers or tools
+- Intercept tool calls for approval
+- Manage execution context and depth limits
+- Track conversation state within worker runs
+
+**Harness vs. graph DSLs:**
+
+| Aspect | Graph DSLs | llm-do Harness |
+|--------|------------|----------------|
+| Control flow | DSL constructs | Native Python |
+| State | Global context through graph | Local scope per worker |
+| Approvals | Checkpoint/resume | Blocking interception |
+| Refactoring | Redraw edges | Change code |
+
+Need a fixed sequence? Write a loop. Need dynamic routing? Let the LLM decide. Same calling convention for both.
+
+## Approvals as Syscalls
+
+Every tool call from an LLM can be intercepted. Think syscalls: when a worker needs to do something potentially dangerous, execution blocks until the harness grants permission.
 
 ```python
-# Today: LLM handles classification (neural operation)
-result = await ctx.call("ticket_classifier", ticket_text)
-
-# Tomorrow: stabilized to Python (symbolic operation, same call site)
-result = await ctx.call("ticket_classifier", ticket_text)
+runtime = Runtime(
+    run_approval_policy=RunApprovalPolicy(
+        mode="prompt",  # Ask user for each call
+        # Or: "approve_all", "reject_all", custom callable
+    )
+)
 ```
 
-The harness doesn't care whether it's dispatching to neural or symbolic—the VM abstraction handles that. Need a fixed sequence? Write a Python script. Need dynamic routing? Let the LLM decide. Same calling convention for both.
+**Pattern-based rules** auto-approve safe operations:
 
-## Distribution Shaping in llm-do
+```python
+def my_policy(call_info):
+    if call_info.tool_name == "read_file":
+        return "approve"  # Always safe
+    if call_info.tool_name == "delete_file":
+        return "reject"   # Never allow
+    return "prompt"       # Ask for others
+```
 
-Theory identifies what shapes distributions. Here's how those map to llm-do surfaces:
+**Approvals reduce risk, not eliminate it.** Prompt injection can trick LLMs into misusing approved tools. Treat approvals as one defense layer. For real isolation, use containers.
+
+## Distribution Shaping Surfaces
+
+Theory identifies mechanisms that shape LLM output distributions. Here's how they map to llm-do:
 
 | Theory concept | llm-do surface |
 |----------------|----------------|
-| System prompt / examples | Worker `system_prompt`, `spec` fields |
-| Tool definitions | Tool registry, `@tools.tool` decorators, schema validation |
-| Output schemas | Structured outputs, Pydantic models, enums/ranges |
-| Conversation history | Not reused yet; each run starts clean |
-| Temperature / model | Worker config: `model`, `temperature`, defaults |
+| System prompt | Worker `system_prompt` field, spec body |
+| Few-shot examples | Examples in worker spec |
+| Tool definitions | `@tools.tool` decorators, toolset schemas |
+| Output schemas | Pydantic models, structured output config |
+| Temperature / model | Worker config: `model`, `temperature` |
 
-Each knob narrows the distribution differently. Schemas constrain structure; examples shift the mode; temperature controls sampling breadth.
+Each narrows the distribution differently. Schemas constrain structure; examples shift the mode; temperature controls sampling breadth.
 
-## Tool Calls as Syscalls (Approvals)
+## Stabilizing Workflow
 
-Every tool call from an LLM can be intercepted for approval—at any nesting depth. Think of approvals as syscalls: when a worker needs to do something dangerous, execution blocks until the harness grants permission.
+Theory says: stabilize stochastic components to deterministic code as patterns emerge. Here's the practical workflow.
 
-Pattern-based rules auto-approve safe operations; risky actions require consent. Progressive trust: start tight, loosen as confidence grows.
+### 1. Start stochastic
 
-**Approvals reduce risk, not eliminate it.** Prompt injection can trick LLMs into misusing approved tools. Treat approvals as one defense layer, not a security boundary. For real isolation, use containers.
+Worker handles everything with LLM judgment:
 
-## Stabilizing and Softening Workflow
-
-The unified interface enables refactoring in both directions.
-
-### Stabilizing workflow
-
-1. **Start stochastic** — Worker handles the task with LLM judgment
-2. **Observe patterns** — Run tasks, watch what the LLM consistently does
-3. **Extract to code** — Stable patterns become Python functions
-4. **Keep stochastic edges** — Worker handles remaining ambiguous cases
-
-**What changes when you stabilize:**
-- Approvals: fewer needed (deterministic code is trusted)
-- Tool surface: shrinks to what actually needs LLM judgment
-- Testing: more surface area for traditional unit tests
-- Performance: faster, cheaper, no API calls
-- Auditability: deterministic paths are fully traceable
-
-**Canonical example** — The pitchdeck progression:
-- [`pitchdeck_eval`](../examples/pitchdeck_eval/) — All LLM: orchestrator decides everything
-- [`pitchdeck_eval_stabilized`](../examples/pitchdeck_eval_stabilized/) — Extracted `list_pitchdecks()` to Python
-- [`pitchdeck_eval_code_entry`](../examples/pitchdeck_eval_code_entry/) — Python orchestration, LLM only for analysis
-
-### Softening workflow
-
-**Extension** (common): Need new capability? Write a spec and plug it in:
-```python
-result = await ctx.call("sentiment_analyzer", customer_feedback)
+```yaml
+---
+name: filename_cleaner
+model: anthropic:claude-haiku-4-5
+---
+Clean the given filename: remove special characters,
+normalize spacing, ensure valid extension.
 ```
 
-**Replacement** (rare): Rigid code drowning in edge cases? Swap it for a worker that handles linguistic variation.
+### 2. Observe patterns
+
+Run it repeatedly. Watch what the LLM consistently does:
+- Always lowercases
+- Replaces spaces with underscores
+- Strips leading/trailing whitespace
+- Keeps alphanumerics and `.-_`
+
+### 3. Extract to code
+
+Stable patterns become Python:
+
+```python
+@tools.tool
+def sanitize_filename(name: str) -> str:
+    """Remove special characters from filename."""
+    name = name.strip().lower()
+    return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
+```
+
+### 4. Keep stochastic edges
+
+Worker still handles ambiguous cases the code can't:
+
+```yaml
+---
+name: filename_cleaner
+model: anthropic:claude-haiku-4-5
+toolsets: [filename_tools]
+---
+Clean the given filename. Use sanitize_filename for basic cleanup.
+For ambiguous cases (is "2024-03" a date or version?), use judgment
+to pick the most descriptive format.
+```
+
+### What changes when you stabilize
+
+| Aspect | Before (stochastic) | After (deterministic) |
+|--------|---------------------|----------------------|
+| Cost | Per-token API charges | Effectively free |
+| Latency | Network + inference | Microseconds |
+| Reliability | May vary | Identical every time |
+| Testing | Statistical sampling | Assert equality |
+| Approvals | May need user consent | Trusted by default |
+
+### Canonical progression
+
+The pitchdeck examples demonstrate this:
+
+1. **[`pitchdeck_eval/`](../examples/pitchdeck_eval/)** — All LLM: orchestrator decides everything
+2. **[`pitchdeck_eval_stabilized/`](../examples/pitchdeck_eval_stabilized/)** — Extracted `list_pitchdecks()` to Python
+3. **[`pitchdeck_eval_code_entry/`](../examples/pitchdeck_eval_code_entry/)** — Python orchestration, LLM only for analysis
+
+## Softening Workflow
+
+Theory says: soften deterministic code back to stochastic when edge cases multiply or you need new capability.
+
+### Extension (common)
+
+Need new capability? Write a spec:
+
+```yaml
+---
+name: sentiment_analyzer
+model: anthropic:claude-haiku-4-5
+---
+Analyze the sentiment of the given text.
+Return: positive, negative, or neutral with confidence score.
+```
+
+Now it's callable:
+
+```python
+result = await ctx.call("sentiment_analyzer", {"input": feedback})
+```
+
+### Replacement (rare)
+
+Rigid code drowning in edge cases? A function full of `if/elif` handling linguistic variations might be better as an LLM call that handles the variation naturally.
 
 ### Hybrid pattern
 
@@ -155,64 +209,97 @@ Python handles deterministic logic; workers handle judgment:
 ```python
 @tools.tool
 async def evaluate_document(ctx: RunContext[WorkerRuntime], path: str) -> dict:
-    content = load_file(path)  # deterministic
-    if not validate_format(content):
+    content = load_file(path)           # deterministic
+    if not validate_format(content):    # deterministic
         raise ValueError("Invalid format")
 
-    analysis = await ctx.deps.call("content_analyzer", {"input": content})  # stochastic
+    # Stochastic: LLM judgment for analysis
+    analysis = await ctx.deps.call("content_analyzer", {"input": content})
 
-    return {"score": compute_score(analysis), "analysis": analysis}  # deterministic
+    return {                            # deterministic
+        "score": compute_score(analysis),
+        "analysis": analysis
+    }
 ```
 
-Think "deterministic pipeline that uses LLM where judgment is needed."
+Think: "deterministic pipeline that uses LLM where judgment is needed."
 
-## Versioning and Reproducibility
+## Toolset Patterns
 
-When you stabilize (one-shot or progressive), you create artifacts that should be versioned:
-- Worker specs (the intent)
-- Generated/stabilized code (the frozen sample)
-- Model + decoding params when reproducibility matters
+### Basic toolset
 
-Don't rely on "re-generate later" as a build step—regeneration gives you a different sample. Treat worker specs and stabilized artifacts as deployable inputs.
+```python
+from pydantic_ai.toolsets import FunctionToolset
+from llm_do.runtime import ToolsetSpec
 
-## Testing Stance
+def build_tools(_ctx):
+    tools = FunctionToolset()
 
-**Stochastic components**: Run N times, assert invariants hold across samples. This is statistical testing, not equality assertions.
+    @tools.tool
+    def add(a: int, b: int) -> int:
+        """Add two numbers."""
+        return a + b
 
-**Deterministic components**: Normal unit tests. Assert equality.
+    return tools
 
-**Stabilizing increases testable surface**: Every piece you extract to Python becomes traditionally testable. This is a strong practical argument for progressive stabilizing.
+tools = ToolsetSpec(factory=build_tools)
+```
 
-See [architecture.md](architecture.md) for harness logging and approval mechanics.
+### Toolset with runtime access
+
+```python
+from pydantic_ai.tools import RunContext
+from llm_do.runtime import WorkerRuntime
+
+def build_tools(_ctx):
+    tools = FunctionToolset()
+
+    @tools.tool
+    async def delegate_analysis(ctx: RunContext[WorkerRuntime], text: str) -> str:
+        """Delegate to another worker."""
+        return await ctx.deps.call("analyzer", {"input": text})
+
+    return tools
+```
+
+### Toolset policies
+
+Constrain what tools can do in code, not prompt instructions:
+
+```python
+def build_tools(_ctx):
+    tools = FunctionToolset()
+
+    @tools.tool
+    def write_file(path: str, content: str) -> str:
+        """Write content to a file."""
+        # Policy: only allow writes to output directory
+        if not path.startswith("output/"):
+            raise ValueError("Can only write to output/")
+        Path(path).write_text(content)
+        return f"Wrote {path}"
+
+    return tools
+```
 
 ## Tradeoffs
 
-**llm-do is a good fit when you want:**
-- Normal-code control flow (branching, loops, retries)
-- Fast prototyping that can be progressively stabilized
-- Tight scoping and tool-level auditability
-- Flexibility to refactor between LLM and code
+**llm-do is a good fit when:**
+- You want normal Python control flow (branching, loops, retries)
+- You're prototyping and will stabilize as patterns emerge
+- You need tool-level auditability and approvals
+- You want flexibility to refactor between LLM and code
 
-**It may be a poor fit if you need:**
-- Durable workflow engine with checkpointing/replay
-- Graph visualization as the primary interface
-- Distributed orchestration out of the box
+**It may be a poor fit when:**
+- You need durable workflows with checkpointing/replay
+- Graph visualization is your primary interface
+- You need distributed orchestration out of the box
 
-llm-do can be a component *within* durable workflow systems, but doesn't replace Temporal, Prefect, or similar engines.
-
-## Design Principles
-
-1. **Hybrid VM** — Neural and symbolic operations unified under one execution model
-2. **Workers as functions** — Focused, composable units
-3. **Unified calling convention** — Workers and tools call each other freely; callers don't know which is which
-4. **Movable boundaries** — Stabilize to code as patterns emerge; soften back to LLM when needed
-5. **Harness for control** — Imperative orchestration, syscall-style approvals
-6. **Bounded recursion** — Depth limits prevent runaway recursion
+llm-do can be a component *within* durable workflow systems (Temporal, Prefect), but doesn't replace them.
 
 ---
 
 **Further reading:**
-- [theory.md](theory.md) — Probabilistic programs framing: distribution boundaries, stabilizing/softening, the harness pattern
-- [architecture.md](architecture.md) — Internal structure: runtime scopes, execution flow, approval mechanics
-- [reference.md](reference.md) — API reference: calling workers from Python, writing toolsets, worker file format
-- [examples/](../examples/) — Working examples showing the stabilizing progression
+- [theory.md](theory.md) — Theoretical foundation: probabilistic programs, distribution boundaries
+- [architecture.md](architecture.md) — Internal structure: runtime scopes, execution flow
+- [reference.md](reference.md) — API reference: worker format, toolset API, runtime methods

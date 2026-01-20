@@ -22,19 +22,9 @@ On top of the VM sits a **harness**—an imperative orchestration layer where yo
 | **Refactoring** | Redraw edges, update graph definitions | Change code—extract functions, inline workers |
 | **Control flow** | DSL constructs (branches, loops) | Native Python: `if`, `for`, `try/except` |
 
-> For the full design rationale—including the VM model, stabilizing/softening, and security posture—see [`docs/concept.md`](docs/concept.md).
+> For the theoretical foundation, see [`docs/theory.md`](docs/theory.md). For implementation details, see [`docs/concept.md`](docs/concept.md).
 
 This is the **Unix philosophy for agents**: workers are files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
-
-**Delegation.** Workers call other workers like function calls. A summarizer delegates to an analyzer; an orchestrator coordinates specialists. Each runs with its own tools and model.
-
-**Unified function space.** Workers and Python tools are the same abstraction—they call each other freely. LLM reasoning and deterministic code interleave; which is which becomes an implementation detail. When you stabilize a worker into code, callers don't change.
-
-**Tight context.** Each worker does one thing well. No bloated multi-purpose prompts that try to handle everything. Task executors receive only relevant history—no conversation baggage from parent agents.
-
-**Guardrails by construction.** Tool approvals gate dangerous operations; tool schemas and toolset policies enforce constraints in code, not prompt instructions.
-
-**Progressive stabilizing.** Start with prompts for flexibility. As patterns stabilize, extract deterministic logic to tested Python code—deterministic, yes, but also faster (no API latency) and cheaper (no per-token costs). Or go the other direction—soften rigid code into prompts when edge cases multiply.
 
 ## Quick Start
 
@@ -101,7 +91,7 @@ Worker ──calls──▶ Tool ──calls──▶ Worker ──calls──�
  neural          symbolic         neural          symbolic
 ```
 
-This is **neuro-symbolic computation**: interleaved LLM reasoning and deterministic code, with the boundary between them movable. See [`docs/concept.md`](docs/concept.md) for the full design philosophy.
+This is **neuro-symbolic computation**: interleaved LLM reasoning and deterministic code, with the boundary between them movable.
 
 **Why "workers" not "agents"?** llm-do is built on [PydanticAI](https://ai.pydantic.dev/), which uses "agent" for its LLM orchestration primitive. We use "worker" to distinguish our composable, constrained prompt units from the underlying PydanticAI agents that execute them. A worker *defines* what to do; the PydanticAI agent *executes* it.
 
@@ -208,6 +198,7 @@ See [`docs/cli.md`](docs/cli.md) for full reference.
 If you're orchestrating from Python, link a single entry from files and run it:
 
 ```python
+import asyncio
 from pathlib import Path
 
 from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput, build_entry
@@ -219,10 +210,15 @@ runtime = Runtime(
     project_root=project_root,
 )
 
-result, _ctx = await runtime.run_entry(
-    entry,
-    WorkerInput(input="Analyze this data"),
-)
+async def main() -> None:
+    result, _ctx = await runtime.run_entry(
+        entry,
+        WorkerInput(input="Analyze this data"),
+    )
+    print(result)
+
+
+asyncio.run(main())
 ```
 
 `build_entry()` requires an explicit `project_root`; pass the same root to `Runtime`
@@ -253,7 +249,8 @@ uv run -m experiments.inv.v2_direct.run
 
 ## Documentation
 
-- **[`docs/concept.md`](docs/concept.md)** — Design philosophy
+- **[`docs/theory.md`](docs/theory.md)** — Theoretical foundation: probabilistic programs, distribution boundaries
+- **[`docs/concept.md`](docs/concept.md)** — Design and implementation: how llm-do realizes the theory
 - **[`docs/reference.md`](docs/reference.md)** — API reference: calling workers from Python, writing toolsets
 - **[`docs/architecture.md`](docs/architecture.md)** — Internal structure: runtime scopes, execution flow
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference

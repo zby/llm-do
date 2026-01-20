@@ -132,7 +132,17 @@ spec → LLM → code → executor → result
 
 This is stabilizing in one step. But unlike traditional compilation, regeneration gives you a *different sample*, not the same code—a consequence of the program sampling model.
 
-**Versioning implication**: Both spec and generated code should be versioned. Keep only the spec, and reproducing what you deployed is practically impossible.[^repro] Keep only the code, and you lose the intent that generated it.
+### Versioning and Reproducibility
+
+Stabilizing—whether one-shot or progressive—creates artifacts that should be versioned:
+
+- **The spec** (the intent—natural language description of what you want)
+- **Generated/stabilized code** (the frozen sample)
+- **Model + decoding params** when reproducibility matters
+
+Don't rely on "re-generate later" as a build step—regeneration gives you a *different sample*, not the same code. Treat worker specs and stabilized artifacts as deployable inputs.
+
+Both spec and code are necessary. Keep only the spec, and reproducing what you deployed is practically impossible.[^repro] Keep only the code, and you lose the intent that generated it.
 
 [^repro]: Theoretical reproducibility requires pinning model version, decoding parameters, RNG seeds, and more. In practice, this is rarely done.
 

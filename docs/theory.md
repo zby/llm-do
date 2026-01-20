@@ -1,8 +1,21 @@
 # LLM-Based Agentic Systems as Probabilistic Programs
 
-*Extend with LLMs, stabilize with code.*
+*A hybrid virtual machine for LLM and code.*
 
 > This document sketches a theoretical framing for llm-do. Not a complete theory—just enough conceptual machinery to clarify why certain design choices make sense.
+
+## LLMs as Virtual Machines
+
+An LLM can be viewed as a virtual machine. Give it a sufficiently detailed specification, and it interprets that spec into behavior. This is more than metaphor—projects like [OpenProse](https://github.com/openprose/prose) treat the LLM explicitly as an interpreter: "A long-running AI session is a Turing-complete computer."
+
+The key insight: **simulation with sufficient fidelity is implementation.** When an LLM receives a detailed VM specification, it *becomes* that VM through simulation. The interpreter runs inside the session.
+
+This pure LLM VM approach has limitations:
+- Every operation costs tokens (expensive at scale)
+- Every step requires API round-trip (high latency)
+- All execution is stochastic (unpredictable)
+
+**llm-do takes the next step: a hybrid VM** that unifies LLM execution (neural) and Python execution (symbolic) under a single calling convention. The VM can dispatch to either; callers don't need to know which. This enables moving computation between neural and symbolic as systems evolve—stabilize patterns to code when they emerge, soften rigid code back to LLM when edge cases multiply.
 
 ## Probabilistic Programming as Foundation
 
@@ -142,26 +155,28 @@ The rarer path is **replacement**: rigid code is drowning in edge cases, so you 
 
 Real systems need both directions. A component might start as an LLM call (quick to add), stabilize to code as patterns emerge (reliable and fast), then grow new capabilities via softening. The system breathes.
 
-## The Harness Pattern
+## The Hybrid VM and Harness Pattern
 
-Bidirectional flow has a practical requirement: **you need to swap stochastic and deterministic components without rewriting the rest of the system**.
+The hybrid VM unifies neural (LLM) and symbolic (Python) execution under a single calling convention. On top of this VM sits a **harness**—the orchestration layer that intercepts operations, manages approvals, and controls execution flow.
+
+Bidirectional flow has a practical requirement: **you need to swap neural and symbolic components without rewriting the rest of the system**.
 
 If calling an LLM looks completely different from calling a function, refactoring across the boundary is painful. Your code structure fights the change.
 
-This motivates the harness pattern:
-- Stochastic and deterministic components share a calling convention
+The hybrid VM solves this:
+- Neural and symbolic operations share a calling convention
 - The harness intercepts at the tool layer, enabling approvals and composition
 - Call sites don't change when implementations move across the boundary
 
 ```python
-# Today: LLM handles classification
+# Today: LLM handles classification (neural operation)
 result = await ctx.call("ticket_classifier", ticket_text)
 
-# Tomorrow: stabilized to Python (same call site)
+# Tomorrow: stabilized to Python (symbolic operation, same call site)
 result = await ctx.call("ticket_classifier", ticket_text)
 ```
 
-The calling convention is unified. The implementation moved. The rest of the system doesn't care.
+The calling convention is unified. The implementation moved from neural to symbolic. The VM dispatches to either; callers don't care.
 
 ### Unified Calling as Requirement
 
@@ -217,4 +232,4 @@ Treating agentic systems as probabilistic programs suggests:
 
 ---
 
-This sketch provides the conceptual backdrop for llm-do's design. The probabilistic programming framing gives us established vocabulary; the "program sampling" mental model captures how practitioners intuitively reason about LLM behavior; the harness pattern shows how to build systems that can evolve across the stochastic-deterministic boundary. The [concept document](concept.md) explains how these ideas manifest in practice.
+This sketch provides the conceptual backdrop for llm-do's design. The VM framing—pure LLM VMs exist, llm-do is a hybrid—positions the system in the emerging landscape of LLM-based computation. The probabilistic programming framing gives us established vocabulary; the "program sampling" mental model captures how practitioners intuitively reason about LLM behavior; the hybrid VM shows how to build systems that can evolve across the neural-symbolic boundary. The [concept document](concept.md) explains how these ideas manifest in practice.

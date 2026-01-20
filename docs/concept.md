@@ -2,6 +2,24 @@
 
 > The way to build useful non-deterministic systems more complex than chat is to make them deterministic at key spots.
 
+## The Hybrid VM
+
+LLMs can be treated as interpreters. Give an LLM a sufficiently detailed spec, and it executes it—"simulation with sufficient fidelity is implementation." Projects like [OpenProse](https://github.com/openprose/prose) demonstrate this: a pure LLM VM where natural language specs become executable programs.
+
+But pure LLM VMs have limitations:
+- **Cost**: Every operation costs tokens
+- **Latency**: Every step requires an API round-trip
+- **Reliability**: Everything is stochastic
+
+**llm-do is a hybrid VM.** It unifies LLM execution (neural) and Python execution (symbolic) under a single calling convention. Both are "operations" the VM can execute; callers don't know—or care—which is which.
+
+```
+Pure LLM VM:     Spec → LLM interprets → Output
+Hybrid VM:       Spec → [LLM ⟷ Code ⟷ LLM ⟷ Code] → Output
+```
+
+The key insight: **the boundary between neural and symbolic is movable**. Start with LLM flexibility, stabilize to code as patterns emerge, soften back to LLM when edge cases multiply. The VM's unified calling convention makes this refactoring local—callers don't change.
+
 ## Why This Exists
 
 LLM apps usually start as "just prompt it" and then hit a wall:
@@ -10,7 +28,7 @@ LLM apps usually start as "just prompt it" and then hit a wall:
 - **Pure code is reliable but brittle** — Edge cases multiply into unmaintainable conditionals.
 - **Graph/DSL frameworks add structure, but also new abstractions** — Refactoring means redrawing edges.
 
-llm-do is a response: treat prompts as callable units, let control flow live in code or LLM instructions (your choice), and progressively replace uncertainty with determinism where it pays off.
+llm-do is a response: a hybrid VM that treats both LLM reasoning and Python code as first-class operations, letting you progressively move computation between them as your system evolves.
 
 ## Theoretical Foundation
 
@@ -59,22 +77,22 @@ The goal: an interface **thin enough to enable composition** and **honest enough
 
 See [theory.md](theory.md) for the formal treatment of distribution boundaries.
 
-## Harness, Not Graph
+## The Harness Layer
 
-Most agent frameworks are graph DSLs—nodes, edges, an engine. llm-do is an **imperative harness**:
+On top of the VM sits a **harness**—the orchestration and control layer. Most agent frameworks are graph DSLs—nodes, edges, an engine. llm-do's harness is **imperative**:
 - Your code owns control flow
-- llm-do intercepts at the tool layer
+- The harness intercepts at the tool layer (like syscalls)
 - Call sites stay the same when implementations change
 
 ```python
-# Today: LLM handles classification
+# Today: LLM handles classification (neural operation)
 result = await ctx.call("ticket_classifier", ticket_text)
 
-# Tomorrow: stabilized to Python (same call site)
+# Tomorrow: stabilized to Python (symbolic operation, same call site)
 result = await ctx.call("ticket_classifier", ticket_text)
 ```
 
-Need a fixed sequence? Write a Python script. Need dynamic routing? Let the LLM decide. Same semantics for both.
+The harness doesn't care whether it's dispatching to neural or symbolic—the VM abstraction handles that. Need a fixed sequence? Write a Python script. Need dynamic routing? Let the LLM decide. Same calling convention for both.
 
 ## Distribution Shaping in llm-do
 
@@ -184,11 +202,11 @@ llm-do can be a component *within* durable workflow systems, but doesn't replace
 
 ## Design Principles
 
-1. **Workers as functions** — Focused, composable units
-2. **Unified function space** — Workers and tools call each other freely
-3. **Honest abstraction** — Same calling convention, visible boundaries
-4. **Bidirectional refactoring** — Stabilize as patterns stabilize; soften to add capabilities
-5. **Guardrails by construction** — Schema validation and approval enforcement in code
+1. **Hybrid VM** — Neural and symbolic operations unified under one execution model
+2. **Workers as functions** — Focused, composable units
+3. **Unified calling convention** — Workers and tools call each other freely; callers don't know which is which
+4. **Movable boundaries** — Stabilize to code as patterns emerge; soften back to LLM when needed
+5. **Harness for control** — Imperative orchestration, syscall-style approvals
 6. **Bounded recursion** — Depth limits prevent runaway recursion
 
 ---

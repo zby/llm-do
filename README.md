@@ -1,14 +1,31 @@
 # llm-do
 
-*Extend with LLMs, stabilize with code.*
+*A hybrid virtual machine for LLM and code.*
 
-Need new capability? Describe it in natural language—the LLM figures out how. See a pattern emerging? Extract it to tested Python—deterministic, fast, cheap. The system breathes in both directions.
+**Pure LLM VMs exist.** Projects like [OpenProse](https://github.com/openprose/prose) treat the LLM as an interpreter—feed it a spec, it executes. "Simulation with sufficient fidelity is implementation." This works, but it's slow, expensive, and fully stochastic.
 
-An imperative orchestration harness for LLM agents. Workers delegate to workers; your code owns control flow.
+**llm-do is the next step: a hybrid VM.** LLM reasoning and Python code share a unified execution model. Call a worker (LLM) or a tool (Python) with the same convention. Move computation freely between neural and symbolic—stabilize patterns to code when they emerge, soften rigid code back to LLM when edge cases multiply.
 
-## Why llm-do?
+```
+Spec → sample interpretation → execute → output     # Pure LLM VM
+Spec → [LLM ⟷ Code ⟷ LLM ⟷ Code] → output          # Hybrid VM (llm-do)
+```
 
-Most agent frameworks are **graph DSLs**—you define nodes and edges, an engine runs the graph. llm-do is an **imperative orchestration harness**: your code owns control flow, llm-do intercepts at the tool layer. Think syscalls, not state machines.
+## Why a Hybrid VM?
+
+| Aspect | Pure LLM VM | Hybrid VM (llm-do) |
+|--------|-------------|---------------------|
+| **Execution** | All neural—LLM interprets everything | Mixed—LLM for reasoning, code for precision |
+| **Cost** | Every operation costs tokens | Stabilized paths cost nothing |
+| **Latency** | API round-trip for each step | Microseconds for code paths |
+| **Reliability** | Stochastic throughout | Deterministic where it matters |
+| **Flexibility** | Maximum—everything is promptable | High—soften any component back to LLM |
+
+The hybrid approach gives you the best of both: LLM flexibility where you need it, code reliability where you don't. And the boundary is movable—what's neural today can be symbolic tomorrow.
+
+## The Harness Layer
+
+On top of the VM sits a **harness**—an imperative orchestration layer where your code owns control flow. Think syscalls, not state machines.
 
 | Aspect | Graph DSLs | llm-do Harness |
 |--------|------------|----------------|
@@ -17,10 +34,8 @@ Most agent frameworks are **graph DSLs**—you define nodes and edges, an engine
 | **Approvals** | Checkpoints: serialize graph state, resume after input | Interception: blocking "syscall" at the tool level |
 | **Refactoring** | Redraw edges, update graph definitions | Change code—extract functions, inline workers |
 | **Control flow** | DSL constructs (branches, loops) | Native Python: `if`, `for`, `try/except` |
-| **Durability** | Often built-in checkpointing/replay | None—restart on failure (or integrate external engine) |
-| **Visualization** | Graph editors, visual debugging | Code is the source of truth |
 
-> For the full design rationale—including stabilizing prompts into code (and softening code back to prompts), security posture, and related research—see [`docs/concept.md`](docs/concept.md).
+> For the full design rationale—including the VM model, stabilizing/softening, and security posture—see [`docs/concept.md`](docs/concept.md).
 
 This is the **Unix philosophy for agents**: workers are files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
 
@@ -85,14 +100,21 @@ Example manifest:
 
 ## Core Concepts
 
-Workers are `.worker` files: YAML front matter (config) + body (instructions). Workers and Python tools form a unified function space—each is exposed as a callable tool, taking input and returning results. LLM reasoning and deterministic code call each other freely:
+**The VM executes two kinds of operations:**
+
+| Operation Type | Implementation | Characteristics |
+|----------------|----------------|-----------------|
+| **Neural** | Workers (`.worker` files) | Stochastic, flexible, handles ambiguity |
+| **Symbolic** | Python tools | Deterministic, fast, cheap, testable |
+
+Both share a unified calling convention—`ctx.call(name, input)`—so the VM treats them identically:
 
 ```
 Worker ──calls──▶ Tool ──calls──▶ Worker ──calls──▶ Tool ...
-        reason          execute          reason
+ neural          symbolic         neural          symbolic
 ```
 
-This dual recursion lets each component play to its strengths: LLMs handle ambiguity and context; Python handles precision and speed. See [`docs/concept.md`](docs/concept.md) for the full design philosophy.
+This is **neuro-symbolic computation**: interleaved LLM reasoning and deterministic code, with the boundary between them movable. See [`docs/concept.md`](docs/concept.md) for the full design philosophy.
 
 **Why "workers" not "agents"?** llm-do is built on [PydanticAI](https://ai.pydantic.dev/), which uses "agent" for its LLM orchestration primitive. We use "worker" to distinguish our composable, constrained prompt units from the underlying PydanticAI agents that execute them. A worker *defines* what to do; the PydanticAI agent *executes* it.
 
@@ -124,7 +146,7 @@ my-project/
 └── output/
 ```
 
-This progression reflects progressive stabilizing: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability. See the pitchdeck examples for a concrete progression: [`pitchdeck_eval`](examples/pitchdeck_eval/) (all LLM) → [`pitchdeck_eval_stabilized`](examples/pitchdeck_eval_stabilized/) (extracted tools) → [`pitchdeck_eval_code_entry`](examples/pitchdeck_eval_code_entry/) (Python orchestration).
+This progression reflects **moving computation within the VM**: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability. The operation migrates from neural to symbolic without changing how callers invoke it. See the pitchdeck examples for a concrete progression: [`pitchdeck_eval`](examples/pitchdeck_eval/) (all LLM) → [`pitchdeck_eval_stabilized`](examples/pitchdeck_eval_stabilized/) (extracted tools) → [`pitchdeck_eval_code_entry`](examples/pitchdeck_eval_code_entry/) (Python orchestration).
 
 ## Custom Tools
 

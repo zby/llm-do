@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -19,7 +19,9 @@ class AgentRuntime:
     approval_callback: ApprovalCallback | None = None
     approval_config: ApprovalConfig | None = None
     capability_map: dict[str, Sequence[str]] | None = None
-    capability_rules: dict[str, str] | None = None
+    capability_rules: dict[str, str] | None = field(
+        default_factory=lambda: {"proc.exec.unlisted": "blocked"}
+    )
     capability_default: str = "needs_approval"
     approval_policy: Any | None = None
     max_depth: int = 5

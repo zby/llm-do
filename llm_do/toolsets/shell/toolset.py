@@ -139,7 +139,7 @@ class ShellToolset(AbstractToolset[Any]):
             check_metacharacters(command)
             args = parse_command(command)
         except ShellBlockedError:
-            caps.add("proc.exec.blocked")
+            caps.add("proc.exec.unlisted")
             return caps
 
         allowed, approval_required = match_shell_rules(
@@ -148,7 +148,7 @@ class ShellToolset(AbstractToolset[Any]):
             default=self._config.get("default"),
         )
         if not allowed:
-            caps.add("proc.exec.blocked")
+            caps.add("proc.exec.unlisted")
             return caps
         if approval_required:
             caps.add("proc.exec.needs_approval")

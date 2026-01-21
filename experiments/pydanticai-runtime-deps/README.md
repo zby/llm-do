@@ -217,3 +217,6 @@ runtime = AgentRuntime(
 Toolsets are wrapped per call via `runtime.toolsets_for(agent)`.
 Toolsets may optionally implement `get_capabilities(name, tool_args, ctx, config)` to
 provide per-call capabilities used by the policy wrapper.
+Approval decisions are derived from capabilities plus config; toolsets should not
+return approval decisions here.
+The default runtime policy blocks `proc.exec.unlisted` unless overridden.

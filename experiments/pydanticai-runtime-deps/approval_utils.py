@@ -56,11 +56,10 @@ class CapabilityPolicyToolset(WrapperToolset, SupportsNeedsApproval, SupportsApp
         if inspect.isawaitable(capabilities):
             capabilities = await capabilities
         caps = _normalize_caps(capabilities)
-        policy_result = self.approval_policy(name, tool_args, ctx, config, caps)
-        if inspect.isawaitable(policy_result):
-            policy_result = await policy_result
-        toolset_result = await _toolset_needs_approval(self.wrapped, name, tool_args, ctx, config)
-        return _merge_approval_results(toolset_result, policy_result)
+        result = self.approval_policy(name, tool_args, ctx, config, caps)
+        if inspect.isawaitable(result):
+            result = await result
+        return result
 
     def get_approval_description(self, name: str, tool_args: dict[str, Any], ctx: RunContext[Any]) -> str:
         if isinstance(self.wrapped, SupportsApprovalDescription):
@@ -187,46 +186,6 @@ def _normalize_caps(value: set[str] | Sequence[str] | None) -> set[str]:
     if not value:
         return set()
     return set(value)
-
-
-def _merge_approval_results(
-    toolset_result: ApprovalResult | None,
-    policy_result: ApprovalResult,
-) -> ApprovalResult:
-    if toolset_result is None:
-        return policy_result
-    if toolset_result.is_blocked:
-        return toolset_result
-    if policy_result.is_blocked:
-        return policy_result
-    if toolset_result.is_needs_approval or policy_result.is_needs_approval:
-        return ApprovalResult.needs_approval()
-    return ApprovalResult.pre_approved()
-
-
-async def _toolset_needs_approval(
-    inner: AbstractToolset[Any],
-    name: str,
-    tool_args: dict[str, Any],
-    ctx: RunContext[Any],
-    cfg: ApprovalConfig,
-) -> ApprovalResult | None:
-    toolset: AbstractToolset[Any] | None = None
-    if isinstance(inner, SupportsNeedsApproval):
-        toolset = inner
-    else:
-        tools = await inner.get_tools(ctx)
-        tool = tools.get(name)
-        if tool is not None and isinstance(tool.toolset, SupportsNeedsApproval):
-            toolset = tool.toolset
-
-    if toolset is None:
-        return None
-
-    result = toolset.needs_approval(name, tool_args, ctx, cfg)
-    if inspect.isawaitable(result):
-        result = await result
-    return result
 
 
 async def _toolset_capabilities(

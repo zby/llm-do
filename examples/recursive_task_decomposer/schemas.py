@@ -1,4 +1,5 @@
 from pydantic import Field
+from pydantic_ai import BinaryContent
 
 from llm_do.runtime import PromptSpec, WorkerArgs
 
@@ -19,3 +20,24 @@ class PlannerInput(WorkerArgs):
                 f"Remaining depth: {self.remaining_depth}"
             )
         )
+
+    def input_parts(self, model_name: str | None = None) -> list[object]:
+        parts: list[object] = [
+            "Input fields are attached as plain text files. Read them exactly.",
+        ]
+        parts.extend(_as_text_file_parts("task.txt", self.task))
+        parts.extend(_as_text_file_parts("context.txt", self.context))
+        parts.extend(_as_text_file_parts("remaining_depth.txt", str(self.remaining_depth)))
+        return parts
+
+
+def _as_text_file(name: str, text: str) -> BinaryContent:
+    return BinaryContent(
+        data=text.encode("utf-8"),
+        media_type="text/plain",
+        identifier=name,
+    )
+
+
+def _as_text_file_parts(name: str, text: str) -> list[object]:
+    return [f"{name}:", _as_text_file(name, text)]

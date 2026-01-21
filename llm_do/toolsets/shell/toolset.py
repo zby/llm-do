@@ -124,6 +124,38 @@ class ShellToolset(AbstractToolset[Any]):
         command = tool_args.get("command", "")
         return f"Execute: {command[:80]}..." if len(command) > 80 else f"Execute: {command}"
 
+    def get_capabilities(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+        config: ApprovalConfig | None = None,
+    ) -> set[str]:
+        if name != "shell":
+            return set()
+        caps = {"proc.exec"}
+        command = tool_args.get("command", "")
+        try:
+            check_metacharacters(command)
+            args = parse_command(command)
+        except ShellBlockedError:
+            caps.add("proc.exec.blocked")
+            return caps
+
+        allowed, approval_required = match_shell_rules(
+            command=command, args=args,
+            rules=self._config.get("rules", []),
+            default=self._config.get("default"),
+        )
+        if not allowed:
+            caps.add("proc.exec.blocked")
+            return caps
+        if approval_required:
+            caps.add("proc.exec.needs_approval")
+        else:
+            caps.add("proc.exec.pre_approved")
+        return caps
+
     async def get_tools(self, ctx: Any) -> dict[str, ToolsetTool]:
         return {
             "shell": ToolsetTool(

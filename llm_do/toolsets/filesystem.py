@@ -101,6 +101,40 @@ class FileSystemToolset(AbstractToolset[Any]):
             return f"List files matching {tool_args.get('pattern', '**/*')} in {tool_args.get('path', '.')}"
         return f"{name}({path})"
 
+    def get_capabilities(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+        config: ApprovalConfig | None = None,
+    ) -> set[str]:
+        if name == "read_file":
+            base = "fs.read"
+        elif name == "list_files":
+            base = "fs.list"
+        elif name == "write_file":
+            base = "fs.write"
+        else:
+            return set()
+
+        caps = {base}
+        path = tool_args.get("path")
+        if not path or self._base_path is None:
+            return caps
+
+        try:
+            resolved = self._resolve_path(str(path))
+        except Exception:
+            return caps
+
+        try:
+            resolved.relative_to(self._base_path)
+        except ValueError:
+            caps.add(f"{base}.outside_base")
+        else:
+            caps.add(f"{base}.within_base")
+        return caps
+
     def read_file(self, path: str, max_chars: int = DEFAULT_MAX_READ_CHARS, offset: int = 0) -> ReadResult:
         """Read text file with optional seeking support."""
         resolved = self._resolve_path(path)

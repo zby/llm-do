@@ -12,11 +12,11 @@ from llm_do.toolsets.loader import ToolsetBuildContext, ToolsetSpec, instantiate
 
 
 @dataclass(frozen=True)
-class PathResolver:
+class AttachmentResolver:
     path_map: Mapping[str, Path]
     base_path: Path | None = None
 
-    def resolve(self, path: str) -> Path:
+    def resolve_path(self, path: str) -> Path:
         resolved = self.path_map.get(path)
         if resolved is not None:
             return resolved
@@ -25,7 +25,7 @@ class PathResolver:
         return Path(path).expanduser().resolve()
 
     def load_binary(self, path: str) -> BinaryContent:
-        return BinaryContent.from_path(self.resolve(path))
+        return BinaryContent.from_path(self.resolve_path(path))
 
 
 @dataclass(frozen=True)
@@ -78,10 +78,9 @@ class ApprovalWrapper:
 @dataclass
 class AgentRuntime:
     agents: dict[str, Agent[Any, Any]]
-    path_map: dict[str, Path]
+    attachment_resolver: AttachmentResolver
     toolset_specs: dict[str, Sequence[ToolsetSpec]] = field(default_factory=dict)
     toolset_registry: dict[str, ToolsetSpec] = field(default_factory=dict)
-    base_path: Path | None = None
     event_stream_handler: Any | None = None
     approval_callback: ApprovalCallback | None = None
     approval_config: ApprovalConfig | None = None
@@ -93,15 +92,12 @@ class AgentRuntime:
     approval_policy: Any | None = None
     max_depth: int = 5
     depth: int = 0
-    _path_resolver: PathResolver = field(init=False)
+    _attachment_resolver: AttachmentResolver = field(init=False)
     _toolset_resolver: ToolsetResolver = field(init=False)
     _approval_wrapper: ApprovalWrapper = field(init=False)
 
     def __post_init__(self) -> None:
-        self._path_resolver = PathResolver(
-            path_map=self.path_map,
-            base_path=self.base_path,
-        )
+        self._attachment_resolver = self.attachment_resolver
         self._toolset_resolver = ToolsetResolver(
             toolset_specs=self.toolset_specs,
             toolset_registry=self.toolset_registry,
@@ -144,10 +140,10 @@ class AgentRuntime:
         return result.output
 
     def resolve_path(self, path: str) -> Path:
-        return self._path_resolver.resolve(path)
+        return self._attachment_resolver.resolve_path(path)
 
     def load_binary(self, path: str) -> BinaryContent:
-        return self._path_resolver.load_binary(path)
+        return self._attachment_resolver.load_binary(path)
 
     def _resolve_agent_name(self, agent: Agent[Any, Any]) -> str | None:
         for name, candidate in self.agents.items():

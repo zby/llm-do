@@ -10,7 +10,7 @@ from pydantic_ai import Agent, RunContext
 
 from logging_utils import event_stream_logger
 from otel_utils import configure_trace_logging
-from runtime import AgentRuntime, build_path_map
+from runtime import AgentRuntime, AttachmentResolver, build_path_map
 
 ROOT = Path(__file__).parent
 PROMPTS_DIR = ROOT / "prompts"
@@ -146,8 +146,10 @@ def main() -> int:
             "orchestrator": orchestrator,
             "pitch_evaluator": pitch_evaluator,
         },
-        path_map=build_path_map({MOCK_DECK_PATH: deck_path}),
-        base_path=ROOT,
+        attachment_resolver=AttachmentResolver(
+            path_map=build_path_map({MOCK_DECK_PATH: deck_path}),
+            base_path=ROOT,
+        ),
         event_stream_handler=event_handler,
         max_depth=args.max_depth,
     )

@@ -22,8 +22,39 @@ without custom agent loops:
 A minimal runtime object supplied as `deps` can provide the same delegation semantics
 as llm-do's WorkerRuntime, while relying on PydanticAI's built-in agent loop.
 
-## Proposed Runtime Shape
-A minimal runtime object (used as `deps`) should include:
+## Current Architecture
+
+### Core runtime (`runtime.py`)
+The experiment uses a **deps-as-runtime** object (`AgentRuntime`) that owns the
+run-scoped policy and delegation surface. It is intentionally small and delegates
+specialized concerns to helper components.
+
+**AgentRuntime responsibilities**
+- Agent registry (`agents`) and delegation (`call_agent`).
+- Depth tracking (`depth`, `max_depth`) with child runtime spawning.
+- Toolset resolution per call (`toolsets_for`), including approval wrapping.
+- Attachment access via an injected `AttachmentResolver`.
+
+**Injected / composed helpers**
+- `AttachmentResolver`: resolves attachment paths and loads `BinaryContent`.
+- `ToolsetResolver`: instantiates toolsets per agent call from toolset specs.
+- `ApprovalWrapper`: wraps toolsets per call using capability-based approvals.
+
+### Toolset flow (per call)
+Toolsets are created **per agent call**, not per agent:
+1. `AgentRuntime.toolsets_for(agent)` resolves toolset specs for the agent name.
+2. `ToolsetResolver` instantiates toolsets using `ToolsetBuildContext`.
+3. `ApprovalWrapper` wraps the toolset list if approval is enabled.
+4. The resulting toolsets are passed to `agent.run(...)`.
+
+### Attachments flow
+Attachments are resolved by the injected `AttachmentResolver`, which supports:
+- `path_map` aliases for mock paths (e.g., `path/to/deck.txt` → real file)
+- optional `base_path` for relative paths
+Tools/agents pass attachment paths; the runtime loads `BinaryContent` on demand.
+
+## Runtime Shape
+The runtime object (used as `deps`) provides:
 
 - `agents`: name -> Agent registry
 - `max_depth`: global recursion limit
@@ -170,7 +201,7 @@ Recursive task decomposer (model-driven input schema):
    handled without reimplementing the agent loop.
 
 ## Out of Scope
-- Input schema / attachments (llm-do only)
+- Input schema (llm-do only)
 - CLI and UI event streaming
 - Toolset approval wrappers beyond the deferred-handler proposal
 
@@ -197,6 +228,7 @@ tool loop.
 Minimal example:
 
 ```python
+from runtime import AgentRuntime, AttachmentResolver, build_path_map
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 def approve_all(_: ApprovalRequest) -> ApprovalDecision:
@@ -204,7 +236,9 @@ def approve_all(_: ApprovalRequest) -> ApprovalDecision:
 
 runtime = AgentRuntime(
     agents=agents,
-    path_map=build_path_map({}),
+    attachment_resolver=AttachmentResolver(
+        path_map=build_path_map({}),
+    ),
     approval_callback=approve_all,
     approval_config={
         "shell": {"capabilities": ["proc.exec"]},

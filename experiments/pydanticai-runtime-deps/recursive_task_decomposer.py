@@ -6,7 +6,7 @@ from pathlib import Path
 
 from logging_utils import event_stream_logger
 from otel_utils import configure_trace_logging
-from runtime import AgentRuntime, build_path_map
+from runtime import AgentRuntime, AttachmentResolver, build_path_map
 from worker_loader import load_worker_agents
 
 DEFAULT_PROJECT_DIR = Path("examples/recursive_task_decomposer")
@@ -120,8 +120,10 @@ def main() -> int:
         agents=bundle.agents,
         toolset_specs=bundle.toolset_specs,
         toolset_registry=bundle.toolset_registry,
-        path_map=build_path_map({}),
-        base_path=project_dir,
+        attachment_resolver=AttachmentResolver(
+            path_map=build_path_map({}),
+            base_path=project_dir,
+        ),
         event_stream_handler=event_handler,
         max_depth=args.max_depth,
     )

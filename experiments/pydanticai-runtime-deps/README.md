@@ -87,7 +87,8 @@ Worker loader helper (`worker_loader.py`):
 - Adds delegation tools for toolsets that reference other workers
 - Resolves `schema_in_ref` to WorkerArgs models and uses them as tool schemas
 - If a WorkerArgs model defines `input_parts()`, it is used to build the callee prompt
-- Wires built-in toolsets (filesystem/shell) and Python ToolsetSpecs
+- Resolves built-in toolsets (filesystem/shell) and Python ToolsetSpecs
+- Returns toolset specs/registry so the runtime can instantiate toolsets per call
 - Reports unsupported toolsets for follow-up
 
 Example usage (loads the pitchdeck workers and prints unresolved toolsets):

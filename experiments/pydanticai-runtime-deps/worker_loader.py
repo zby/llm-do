@@ -16,7 +16,6 @@ from llm_do.toolsets.builtins import build_builtin_toolsets
 from llm_do.toolsets.loader import (
     ToolsetBuildContext,
     ToolsetSpec,
-    instantiate_toolsets,
     resolve_toolset_specs,
 )
 
@@ -29,6 +28,8 @@ class WorkerAgentBundle:
     definitions: dict[str, WorkerDefinition]
     entry_name: str | None
     unsupported_toolsets: dict[str, list[str]]
+    toolset_specs: dict[str, list[ToolsetSpec]]
+    toolset_registry: dict[str, ToolsetSpec]
 
 
 def load_worker_agents(
@@ -45,7 +46,7 @@ def load_worker_agents(
         project_root=project_root,
         cwd=cwd,
     )
-    agents, unsupported = _build_agents(
+    agents, unsupported, toolset_specs = _build_agents(
         definitions,
         worker_paths=worker_paths,
         toolset_registry=toolset_registry,
@@ -57,6 +58,8 @@ def load_worker_agents(
         definitions=definitions,
         entry_name=entry_name,
         unsupported_toolsets=unsupported,
+        toolset_specs=toolset_specs,
+        toolset_registry=dict(toolset_registry),
     )
 
 
@@ -81,9 +84,14 @@ def _build_agents(
     worker_paths: Mapping[str, Path],
     toolset_registry: Mapping[str, ToolsetSpec],
     model_override: str | None,
-) -> tuple[dict[str, Agent[Any, Any]], dict[str, list[str]]]:
+) -> tuple[
+    dict[str, Agent[Any, Any]],
+    dict[str, list[str]],
+    dict[str, list[ToolsetSpec]],
+]:
     agents: dict[str, Agent[Any, Any]] = {}
     unsupported: dict[str, list[str]] = {}
+    toolset_specs: dict[str, list[ToolsetSpec]] = {}
     worker_names = set(definitions.keys())
     schema_map = _resolve_worker_schemas(definitions, worker_paths=worker_paths)
     for name, definition in definitions.items():
@@ -92,7 +100,7 @@ def _build_agents(
             raise ValueError(
                 f"Worker '{name}' has no model. Provide model_override or set model in frontmatter."
             )
-        toolsets, delegate_names, unsupported_toolsets = _resolve_toolsets(
+        specs, delegate_names, unsupported_toolsets = _resolve_toolsets(
             definition,
             worker_names,
             toolset_registry=toolset_registry,
@@ -103,10 +111,11 @@ def _build_agents(
             deps_type=AgentRuntime,
             instructions=definition.instructions,
             output_type=str,
-            toolsets=toolsets,
+            toolsets=[],
             builtin_tools=builtin_tools,
         )
         agents[name] = agent
+        toolset_specs[name] = specs
         for delegate_name in delegate_names:
             _add_delegate_tool(
                 agent,
@@ -117,7 +126,7 @@ def _build_agents(
             )
         if unsupported_toolsets:
             unsupported[name] = unsupported_toolsets
-    return agents, unsupported
+    return agents, unsupported, toolset_specs
 
 
 def _resolve_toolsets(
@@ -125,7 +134,7 @@ def _resolve_toolsets(
     worker_names: set[str],
     *,
     toolset_registry: Mapping[str, ToolsetSpec],
-) -> tuple[list[Any], list[str], list[str]]:
+) -> tuple[list[ToolsetSpec], list[str], list[str]]:
     delegate_names: list[str] = []
     unsupported: list[str] = []
     toolset_names: list[str] = []
@@ -146,8 +155,7 @@ def _resolve_toolsets(
         available_toolsets=toolset_registry,
     )
     specs = resolve_toolset_specs(toolset_names, context)
-    toolsets = instantiate_toolsets(specs, context)
-    return toolsets, delegate_names, unsupported
+    return specs, delegate_names, unsupported
 
 
 def _add_delegate_tool(

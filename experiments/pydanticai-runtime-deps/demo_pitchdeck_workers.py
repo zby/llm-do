@@ -103,6 +103,8 @@ def main() -> int:
     event_handler = event_stream_logger() if args.log_events else None
     runtime = AgentRuntime(
         agents=bundle.agents,
+        toolset_specs=bundle.toolset_specs,
+        toolset_registry=bundle.toolset_registry,
         path_map=build_path_map({}),
         base_path=project_dir,
         event_stream_handler=event_handler,

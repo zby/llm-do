@@ -30,6 +30,83 @@ def build_tools(_ctx):
 my_tools = ToolsetSpec(factory=build_tools)
 ```
 
+### Why Per-Call?
+
+If toolsets were shared across calls, recursive or nested workers would share
+state in ways that break isolation:
+
+```
+Worker A (call 1)
+  └── Worker A (call 2)  ← would share toolset instances from call 1
+```
+
+With shared instances:
+- Handle maps leak between calls (call 2 sees call 1's transaction handles)
+- Cleanup runs only once, not per call
+- Debugging becomes unpredictable—state from one call affects another
+
+Per-call instances make each invocation self-contained. The LLM in call 2
+cannot accidentally reference handles from call 1 because they exist in
+separate toolset instances.
+
+---
+
+## Sharing Expensive Resources via Factories
+
+Some resources are expensive to create: database connection pools, browser
+instances, API clients with connection pooling. Creating these per call
+would be wasteful.
+
+The factory pattern solves this: **capture shared resources in the factory
+closure, instantiate per-call state in the toolset**.
+
+```python
+from llm_do.runtime import ToolsetSpec
+
+# tools.py
+
+# Expensive resource created once at module load
+pool = ConnectionPool(max_connections=10)
+
+def build_database_tools(_ctx):
+    # Each call gets a fresh toolset instance...
+    # ...but they all share the same connection pool
+    return DatabaseToolset(pool)
+
+database = ToolsetSpec(factory=build_database_tools)
+```
+
+This gives you both:
+- **Shared**: The connection pool (expensive, thread-safe, reusable)
+- **Isolated**: The transaction map inside each `DatabaseToolset` instance
+
+The same pattern works for any expensive-to-create resource:
+
+```python
+# Browser instance shared across calls
+browser = playwright.chromium.launch()
+
+def build_browser_tools(_ctx):
+    return BrowserToolset(browser)  # Pages map is per-call
+
+browser_tools = ToolsetSpec(factory=build_browser_tools)
+```
+
+```python
+# HTTP client with connection pooling shared across calls
+http_client = httpx.AsyncClient()
+
+def build_api_tools(_ctx):
+    return ApiToolset(http_client)  # Request state is per-call
+
+api = ToolsetSpec(factory=build_api_tools)
+```
+
+**Rule of thumb**: If a resource is expensive to create and safe to share
+(connection pools, browser instances, HTTP clients), capture it in the
+factory closure. Per-call state (handle maps, transaction tracking, request
+context) belongs in the toolset instance.
+
 ---
 
 ## Handle-Based State (Within a Worker)

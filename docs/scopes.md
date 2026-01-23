@@ -41,6 +41,8 @@ llm-do project.json "second prompt"  # Session 2 (separate process)
 - Toolset instances (created per call, cleaned up when the scope exits)
 - Handle-based resources (DB transactions, browser sessions)
 
+**Naming vs instances**: Toolsets are referenced by name in worker config (run-scoped capability), but the actual toolset instances live in the call scope. A new call gets fresh instances, even when the names are the same.
+
 **When you have multiple calls**: A single call scope may span multiple turns in
 TUI **chat mode**, while nested worker calls create child call scopes.
 

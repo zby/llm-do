@@ -11,9 +11,10 @@ These patterns solve different problems and are meant to be used together.
 
 ## Per-Call Toolset Instances
 
-Toolsets are registered as `ToolsetSpec` factories. Each call gets a fresh
-instance created from the factory at execution time. This provides an
-isolation boundary:
+Toolsets are registered by name as `ToolsetSpec` factories. The name is a
+run-scoped declaration of capability, while the instances are created per call.
+Each call gets a fresh instance created from the factory at execution time.
+This provides an isolation boundary:
 
 - Parent and child calls never share toolset instance state
 - Handle maps, caches, and open resources stay per call

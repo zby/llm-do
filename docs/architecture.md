@@ -50,7 +50,7 @@ This separation means:
 - **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
 - **Per-call, no inheritance**: Message history, active toolsets, per-tool approval rules
 
-Note: `Worker.toolset_specs` are the *declared* toolset factories from configuration. `CallFrame.active_toolsets` are the toolsets in use for this execution. These are instantiated per call and wrapped with approval before execution (see [Trust Boundary](#trust-boundary)).
+Note: `Worker.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what a worker is allowed to use. `CallFrame.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks

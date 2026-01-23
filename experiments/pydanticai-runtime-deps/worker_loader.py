@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -174,7 +173,7 @@ def _add_delegate_tool(
                 raise TypeError(
                     f"Expected WorkerArgs input for {target_name}, got {type(args)}"
                 )
-            prompt = _build_prompt_from_worker_args(args, model_name=target_model)
+            prompt = _build_prompt_from_worker_args(args)
             return await ctx.deps.call_agent(target_name, prompt, ctx=ctx)
 
         delegate_with_schema.__annotations__["args"] = schema_in
@@ -210,39 +209,12 @@ def _build_prompt(
     return parts
 
 
-def _build_prompt_from_worker_args(
-    args: WorkerArgs,
-    *,
-    model_name: str | None,
-) -> PromptMessages:
+def _build_prompt_from_worker_args(args: WorkerArgs) -> PromptMessages:
     """Build a prompt message list from WorkerArgs.
 
     Uses the prompt_messages() method which returns lazy Attachment objects.
     """
-    renderer = getattr(args, "input_parts", None)
-    if callable(renderer):
-        parts = _call_input_parts(renderer, model_name)
-        return _normalize_prompt_parts(parts)
-
-    # Use prompt_messages() which returns list[str | Attachment]
     return args.prompt_messages()
-
-
-def _call_input_parts(renderer: Any, model_name: str | None) -> Any:
-    signature = inspect.signature(renderer)
-    if len(signature.parameters) == 0:
-        return renderer()
-    return renderer(model_name)
-
-
-def _normalize_prompt_parts(parts: Any) -> PromptMessages:
-    if isinstance(parts, str):
-        return [parts]
-    if isinstance(parts, tuple):
-        parts = list(parts)
-    if isinstance(parts, list):
-        return parts
-    return [parts]
 
 
 def _build_toolset_registry(

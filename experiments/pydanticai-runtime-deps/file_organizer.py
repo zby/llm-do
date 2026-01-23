@@ -9,13 +9,15 @@ from logging_utils import event_stream_logger
 from otel_utils import configure_trace_logging
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from runtime import AgentRuntime, AttachmentResolver, build_path_map
+from runtime import AgentRuntime
 
 ROOT = Path(__file__).parent
 PROMPTS_DIR = ROOT / "prompts"
 INPUT_DIR = ROOT / "input"
 DEFAULT_LIST_PATH = INPUT_DIR / "files.txt"
-MOCK_LIST_PATH = "path/to/files.txt"
+
+# Set at runtime from CLI args
+_actual_list_path: Path | None = None
 
 
 def load_text(path: Path) -> str:
@@ -53,18 +55,18 @@ def build_agents(model_name: str) -> tuple[Agent[Any, str], Agent[Any, FileOrgan
 
     @orchestrator.tool(name="find_file_list_path")
     def find_file_list_path(ctx: RunContext[AgentRuntime]) -> str:
-        return MOCK_LIST_PATH
+        if _actual_list_path is None:
+            raise RuntimeError("File list path not configured")
+        return str(_actual_list_path)
 
     @orchestrator.tool(name="file_organizer")
     async def call_file_organizer(
         ctx: RunContext[AgentRuntime],
         file_list_path: str,
     ) -> dict[str, Any]:
-        file_list = ctx.deps.load_binary(file_list_path)
-        prompt = [
-            f"Organize the files listed in {file_list.identifier}.",
-            file_list,
-        ]
+        # Read text file content directly (Anthropic only supports images/PDFs as binary)
+        file_content = Path(file_list_path).read_text(encoding="utf-8")
+        prompt = f"Organize the following files:\n\n{file_content}"
         plan = await ctx.deps.call_agent(
             "file_organizer",
             prompt,
@@ -127,9 +129,11 @@ def main() -> int:
             "No model configured. Pass --model or set LLM_DO_MODEL."
         )
 
+    global _actual_list_path
     list_path = (Path(args.files) if args.files else DEFAULT_LIST_PATH).resolve()
     if not list_path.exists():
         raise SystemExit(f"File list not found: {list_path}")
+    _actual_list_path = list_path
 
     if args.trace_dir:
         trace_config = configure_trace_logging(
@@ -148,10 +152,7 @@ def main() -> int:
             "orchestrator": orchestrator,
             "file_organizer": file_organizer,
         },
-        attachment_resolver=AttachmentResolver(
-            path_map=build_path_map({MOCK_LIST_PATH: list_path}),
-            base_path=ROOT,
-        ),
+        base_path=ROOT,
         event_stream_handler=event_handler,
         max_depth=args.max_depth,
     )

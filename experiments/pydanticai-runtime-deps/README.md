@@ -33,10 +33,9 @@ specialized concerns to helper components.
 - Agent registry (`agents`) and delegation (`call_agent`).
 - Depth tracking (`depth`, `max_depth`) with child runtime spawning.
 - Toolset resolution per call (`toolsets_for`), including approval wrapping.
-- Attachment access via an injected `AttachmentResolver`.
+- Attachment rendering via `base_path` and main trunk's `render_prompt()`.
 
 **Injected / composed helpers**
-- `AttachmentResolver`: resolves attachment paths and loads `BinaryContent`.
 - `ToolsetResolver`: instantiates toolsets per agent call from toolset specs.
 - `ApprovalWrapper`: wraps toolsets per call using capability-based approvals.
 
@@ -48,10 +47,11 @@ Toolsets are created **per agent call**, not per agent:
 4. The resulting toolsets are passed to `agent.run(...)`.
 
 ### Attachments flow
-Attachments are resolved by the injected `AttachmentResolver`, which supports:
-- `path_map` aliases for mock paths (e.g., `path/to/deck.txt` → real file)
-- optional `base_path` for relative paths
-Tools/agents pass attachment paths; the runtime loads `BinaryContent` on demand.
+Attachments use the main trunk's `Attachment` class and `render_prompt()` function:
+- Tools create `Attachment(path)` objects in prompt messages (lazy references)
+- `AgentRuntime.call_agent()` calls `render_prompt(messages, base_path)` to resolve attachments
+- `base_path` on `AgentRuntime` is used for relative path resolution
+- Attachment resolution happens at render time, not at prompt construction time
 
 ## Runtime Shape
 The runtime object (used as `deps`) provides:
@@ -228,7 +228,8 @@ tool loop.
 Minimal example:
 
 ```python
-from runtime import AgentRuntime, AttachmentResolver, build_path_map
+from pathlib import Path
+from runtime import AgentRuntime
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 def approve_all(_: ApprovalRequest) -> ApprovalDecision:
@@ -236,9 +237,7 @@ def approve_all(_: ApprovalRequest) -> ApprovalDecision:
 
 runtime = AgentRuntime(
     agents=agents,
-    attachment_resolver=AttachmentResolver(
-        path_map=build_path_map({}),
-    ),
+    base_path=Path.cwd(),
     approval_callback=approve_all,
     approval_config={
         "shell": {"capabilities": ["proc.exec"]},

@@ -112,3 +112,12 @@ can be deferred or removed entirely.
 ## Notes on runtime splitting
 We also expect a **CallScope-like boundary** to remain, to preserve clean lifecycle
 management and keep `AgentRuntime` from growing into an untestable god object.
+
+## Converged: Attachments
+Attachments are now **converged with the main trunk**. The experiment uses:
+- `Attachment` class from `llm_do.runtime.args` for lazy file references
+- `render_prompt()` to resolve attachments to `BinaryContent` at call time
+- `base_path` on `AgentRuntime` for relative path resolution
+
+This replaces the previous `AttachmentResolver` class with path mapping support.
+The main trunk's approach is simpler (no path aliasing) and uses lazy loading.

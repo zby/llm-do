@@ -1,7 +1,7 @@
 from pydantic import Field
 from pydantic_ai import BinaryContent
 
-from llm_do.runtime import PromptSpec, WorkerArgs
+from llm_do.runtime import PromptContent, WorkerArgs
 
 
 class PlannerInput(WorkerArgs):
@@ -11,15 +11,13 @@ class PlannerInput(WorkerArgs):
     context: str = Field("", description="Constraints, resources, or deadlines")
     remaining_depth: int = Field(0, ge=0, description="Remaining recursion depth")
 
-    def prompt_spec(self) -> PromptSpec:
-        return PromptSpec(
-            text=(
-                "Plan the task below.\n"
-                f"Task: {self.task}\n"
-                f"Context: {self.context}\n"
-                f"Remaining depth: {self.remaining_depth}"
-            )
-        )
+    def prompt_messages(self) -> list[PromptContent]:
+        return [
+            "Plan the task below.\n"
+            f"Task: {self.task}\n"
+            f"Context: {self.context}\n"
+            f"Remaining depth: {self.remaining_depth}"
+        ]
 
     def input_parts(self, model_name: str | None = None) -> list[object]:
         parts: list[object] = [

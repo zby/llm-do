@@ -1,7 +1,7 @@
 import pytest
 
-from llm_do.runtime import PromptSpec, ToolsetBuildContext, Worker, WorkerArgs
-from llm_do.runtime.args import ensure_worker_args
+from llm_do.runtime import PromptContent, ToolsetBuildContext, Worker, WorkerArgs
+from llm_do.runtime.args import normalize_input
 from tests.runtime.helpers import build_runtime_context
 
 
@@ -9,15 +9,15 @@ class TopicInput(WorkerArgs):
     topic: str
     limit: int = 3
 
-    def prompt_spec(self) -> PromptSpec:
-        return PromptSpec(text=f"topic={self.topic}\nlimit={self.limit}")
+    def prompt_messages(self) -> list[PromptContent]:
+        return [f"topic={self.topic}\nlimit={self.limit}"]
 
 
 class TextInput(WorkerArgs):
     input: str
 
-    def prompt_spec(self) -> PromptSpec:
-        return PromptSpec(text=self.input)
+    def prompt_messages(self) -> list[PromptContent]:
+        return [self.input]
 
 
 @pytest.mark.anyio
@@ -62,14 +62,16 @@ async def test_worker_tool_description_prefers_description() -> None:
 
 
 @pytest.mark.anyio
-async def test_worker_args_validation_requires_dict() -> None:
-    """Worker args require a structured payload."""
-    with pytest.raises(TypeError, match="Worker inputs must be dict"):
-        ensure_worker_args(TextInput, "hello")
+async def test_normalize_input_accepts_string() -> None:
+    """Simple strings are accepted directly without a schema."""
+    args, messages = normalize_input(None, "hello")
+    assert args is None
+    assert messages == ["hello"]
 
 
 @pytest.mark.anyio
-async def test_worker_args_validation_accepts_dict() -> None:
-    """Worker args validation returns the expected WorkerArgs instance."""
-    result = ensure_worker_args(TextInput, {"input": "hello"})
-    assert isinstance(result, TextInput)
+async def test_normalize_input_accepts_dict_with_schema() -> None:
+    """Dict input with a schema returns structured args."""
+    args, messages = normalize_input(TextInput, {"input": "hello"})
+    assert isinstance(args, TextInput)
+    assert messages == ["hello"]

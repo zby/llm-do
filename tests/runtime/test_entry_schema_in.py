@@ -1,14 +1,14 @@
 import pytest
 
-from llm_do.runtime import PromptSpec, Runtime, WorkerArgs, entry
+from llm_do.runtime import PromptContent, Runtime, WorkerArgs, entry
 
 
 class CustomInput(WorkerArgs):
     input: str
     tag: str
 
-    def prompt_spec(self) -> PromptSpec:
-        return PromptSpec(text=f"{self.input}:{self.tag}")
+    def prompt_messages(self) -> list[PromptContent]:
+        return [f"{self.input}:{self.tag}"]
 
 
 @pytest.mark.anyio

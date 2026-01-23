@@ -67,7 +67,7 @@ async def test_entry_function_exposes_its_toolsets() -> None:
     @entry(toolsets=[toolset_spec])
     async def echo(args: WorkerArgs, runtime_ctx) -> str:
         # args is WorkerInput with .input attribute
-        return args.prompt_spec().text
+        return args.input
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
     result, ctx = await runtime.run_entry(
@@ -291,7 +291,7 @@ async def test_entry_function_call_not_approval_gated() -> None:
 
     @entry()
     async def echo(args: WorkerArgs, runtime_ctx) -> str:
-        return args.prompt_spec().text
+        return args.input
 
     # Even with reject_all, EntryFunction succeeds because
     # it's a direct call, not an LLM-invoked tool call

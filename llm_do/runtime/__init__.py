@@ -13,7 +13,7 @@ from .approval import (
     WorkerApprovalPolicy,
     resolve_approval_callback,
 )
-from .args import PromptSpec, WorkerArgs, WorkerInput
+from .args import Attachment, PromptContent, PromptMessages, WorkerArgs, WorkerInput
 from .call import CallScope
 from .contracts import Entry, EventCallback, ModelType
 from .deps import WorkerRuntime
@@ -63,7 +63,9 @@ __all__ = [
     "resolve_approval_callback",
     "EntryRegistry",
     "build_entry",
-    "PromptSpec",
+    "Attachment",
+    "PromptContent",
+    "PromptMessages",
     "WorkerArgs",
     "WorkerInput",
     # Entries

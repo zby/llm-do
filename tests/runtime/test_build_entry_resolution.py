@@ -97,7 +97,7 @@ async def test_build_entry_schema_in_ref_reuses_loaded_module(
     marker_literal = repr(str(marker_path))
     schema_path.write_text(
         f"""\
-from llm_do.runtime import PromptSpec, WorkerArgs
+from llm_do.runtime import PromptContent, WorkerArgs
 
 _marker = {marker_literal}
 with open(_marker, "a", encoding="utf-8") as handle:
@@ -106,8 +106,8 @@ with open(_marker, "a", encoding="utf-8") as handle:
 class NoteInput(WorkerArgs):
     input: str
 
-    def prompt_spec(self) -> PromptSpec:
-        return PromptSpec(text=self.input)
+    def prompt_messages(self) -> list[PromptContent]:
+        return [self.input]
 """,
         encoding="utf-8",
     )
@@ -135,14 +135,14 @@ async def test_build_entry_resolves_schema_in_ref(tmp_path: Path) -> None:
     schema_path = tmp_path / "schemas.py"
     schema_path.write_text(
         """\
-from llm_do.runtime import PromptSpec, WorkerArgs
+from llm_do.runtime import PromptContent, WorkerArgs
 
 
 class NoteInput(WorkerArgs):
     input: str
 
-    def prompt_spec(self) -> PromptSpec:
-        return PromptSpec(text=self.input)
+    def prompt_messages(self) -> list[PromptContent]:
+        return [self.input]
 """,
         encoding="utf-8",
     )

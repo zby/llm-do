@@ -1,10 +1,10 @@
-"""llm-do: LLM-powered worker runtime.
+"""llm-do: LLM-powered agent runtime.
 
-This package provides the runtime for LLM workers.
+This package provides the runtime for LLM agents built with PydanticAI.
 
 Main entry points:
-- llm-do CLI: Run workers from .worker and .py files
-- runtime module: Programmatic API for running workers
+- llm-do CLI: Run agents from .worker files
+- runtime module: Programmatic API for running agents
 
 Security model: llm-do is designed to run inside a Docker container.
 The container provides the security boundary. Running on bare metal
@@ -30,7 +30,7 @@ from .models import (
 )
 
 # Re-export from runtime for convenience
-from .runtime import Runtime, Worker, WorkerRuntime
+from .runtime import AgentBundle, AgentRuntime, load_agents, run, run_sync
 
 __all__ = [
     # Approval handling
@@ -47,9 +47,11 @@ __all__ = [
     "ModelCompatibilityError",
     "NoModelError",
     # Runtime types
-    "WorkerRuntime",
-    "Runtime",
-    "Worker",
+    "AgentRuntime",
+    "AgentBundle",
+    "load_agents",
+    "run",
+    "run_sync",
     # Version
     "__version__",
 ]

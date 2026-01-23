@@ -1,21 +1,22 @@
 """Module loading and ToolsetSpec discovery."""
+
 from __future__ import annotations
 
 import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Iterable, TypeVar
+from typing import Any, Iterable
 
 from pydantic_ai.toolsets import AbstractToolset
 
 from ..toolsets.loader import ToolsetSpec
-from .worker import EntryFunction, Worker
 
 _LOADED_MODULES: dict[Path, ModuleType] = {}
 
 
 def load_module(path: str | Path) -> ModuleType:
+    """Load a Python module from a file path."""
     resolved = Path(path).resolve()
     cached = _LOADED_MODULES.get(resolved)
     if cached is not None:
@@ -38,21 +39,8 @@ def load_module(path: str | Path) -> ModuleType:
     return module
 
 
-T = TypeVar("T")
-
-
-def _discover_from_module(module: ModuleType, target_type: type[T]) -> list[T]:
-    discovered: list[T] = []
-    for name in dir(module):
-        if name.startswith("_"):
-            continue
-        obj = getattr(module, name)
-        if isinstance(obj, target_type):
-            discovered.append(obj)
-    return discovered
-
-
 def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetSpec]:
+    """Discover ToolsetSpec instances from a module."""
     toolsets: dict[str, ToolsetSpec] = {}
     for name in dir(module):
         if name.startswith("_"):
@@ -65,15 +53,8 @@ def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetSpec]:
     return toolsets
 
 
-def discover_workers_from_module(module: ModuleType) -> list[Worker]:
-    return _discover_from_module(module, Worker)
-
-
-def discover_entries_from_module(module: ModuleType) -> list[EntryFunction]:
-    return _discover_from_module(module, EntryFunction)
-
-
 def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
+    """Load ToolsetSpec instances from Python files."""
     all_toolsets: dict[str, ToolsetSpec] = {}
     for file_path in files:
         path = Path(file_path)
@@ -86,39 +67,21 @@ def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
     return all_toolsets
 
 
-def load_workers_from_files(files: list[str | Path]) -> dict[str, Worker]:
-    all_workers: dict[str, Worker] = {}
-    worker_paths: dict[str, Path] = {}
-    for file_path in files:
-        path = Path(file_path)
-        if path.suffix != ".py":
-            continue
-        for worker in discover_workers_from_module(load_module(path)):
-            if worker.name in all_workers:
-                raise ValueError(f"Duplicate worker name: {worker.name} (from {worker_paths[worker.name]} and {path})")
-            all_workers[worker.name] = worker
-            worker_paths[worker.name] = path
-    return all_workers
-
-
 def load_all_from_files(
     files: Iterable[str | Path],
-) -> tuple[dict[str, ToolsetSpec], dict[str, Worker], dict[str, EntryFunction]]:
-    """Load toolset specs, workers, and entry functions from Python files.
+) -> tuple[dict[str, ToolsetSpec], dict[str, Any], dict[str, Any]]:
+    """Load toolset specs from Python files.
 
-    Performs a single pass through the modules to discover all items.
+    This function is kept for backward compatibility but now only loads toolsets.
+    Worker and entry discovery is handled by the agent_loader module.
 
     Args:
         files: Paths to Python files
 
     Returns:
-        Tuple of (toolset specs, workers, entries) dictionaries
+        Tuple of (toolset specs, empty dict, empty dict)
     """
     toolsets: dict[str, ToolsetSpec] = {}
-    workers: dict[str, Worker] = {}
-    entries: dict[str, EntryFunction] = {}
-    worker_paths: dict[str, Path] = {}
-    entry_paths: dict[str, Path] = {}
     loaded_paths: set[Path] = set()
 
     for file_path in files:
@@ -132,36 +95,11 @@ def load_all_from_files(
 
         module = load_module(resolved)
         module_toolsets = discover_toolsets_from_module(module)
-        module_workers = discover_workers_from_module(module)
-        module_entries = discover_entries_from_module(module)
 
         for name, toolset in module_toolsets.items():
             if name in toolsets:
                 raise ValueError(f"Duplicate toolset name: {name}")
             toolsets[name] = toolset
 
-        for worker in module_workers:
-            if worker.name in workers:
-                existing_path = worker_paths[worker.name]
-                raise ValueError(
-                    f"Duplicate worker name: {worker.name} "
-                    f"(from {existing_path} and {resolved})"
-                )
-            workers[worker.name] = worker
-            worker_paths[worker.name] = resolved
-
-        for entry in module_entries:
-            if entry.name in entries:
-                existing_path = entry_paths[entry.name]
-                raise ValueError(
-                    f"Duplicate entry name: {entry.name} "
-                    f"(from {existing_path} and {resolved})"
-                )
-            if entry.name in workers:
-                raise ValueError(
-                    f"Entry name '{entry.name}' conflicts with worker name"
-                )
-            entries[entry.name] = entry
-            entry_paths[entry.name] = resolved
-
-    return toolsets, workers, entries
+    # Return empty dicts for workers and entries (no longer supported)
+    return toolsets, {}, {}

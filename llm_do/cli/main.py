@@ -8,7 +8,7 @@ Usage:
 
 The manifest path can be a JSON file or a directory containing project.json.
 The manifest specifies runtime config and file paths; the entry is resolved
-from the file set (worker marked `entry: true` or a single `@entry` function).
+from the file set (worker marked `entry: true`).
 CLI input (prompt or --input-json) overrides manifest entry.input when allowed.
 """
 from __future__ import annotations
@@ -25,14 +25,15 @@ from pydantic_ai.messages import ModelMessagesTypeAdapter
 from pydantic_ai_blocking_approval import ApprovalDecision
 
 from ..runtime import (
+    AgentBundle,
+    AgentRuntime,
     ApprovalCallback,
-    Entry,
+    AttachmentResolver,
     EventCallback,
     RunApprovalPolicy,
-    Runtime,
-    WorkerRuntime,
-    build_entry,
+    load_agents,
 )
+from ..runtime.executor import build_runtime, run_entry_agent
 from ..runtime.manifest import (
     ProjectManifest,
     load_manifest,
@@ -52,7 +53,9 @@ def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], N
             serialized = []
             for msg in messages:
                 try:
-                    serialized.append(ModelMessagesTypeAdapter.dump_python([msg], mode="json")[0])
+                    serialized.append(
+                        ModelMessagesTypeAdapter.dump_python([msg], mode="json")[0]
+                    )
                 except Exception:
                     serialized.append({"repr": repr(msg)})
 
@@ -79,10 +82,10 @@ async def run(
     approval_callback: ApprovalCallback | None = None,
     approval_cache: dict[Any, ApprovalDecision] | None = None,
     message_history: list[Any] | None = None,
-    entry: Entry | None = None,
-    runtime: Runtime | None = None,
-) -> tuple[Any, WorkerRuntime]:
-    """Load entries from manifest and run with the given input.
+    bundle: AgentBundle | None = None,
+    runtime: AgentRuntime | None = None,
+) -> tuple[Any, AgentRuntime]:
+    """Load agents from manifest and run with the given input.
 
     Args:
         manifest: The validated project manifest
@@ -93,24 +96,27 @@ async def run(
         approval_callback: Optional interactive approval callback (TUI mode)
         approval_cache: Optional shared cache for remember="session" approvals
         message_history: Optional prior messages for multi-turn conversations
-        entry: Optional pre-built entry (skips entry build if provided)
+        bundle: Optional pre-built agent bundle (skips loading if provided)
         runtime: Optional pre-built runtime (skips approval/UI wiring if provided)
 
     Returns:
-        Tuple of (result, context)
+        Tuple of (result, runtime)
     """
     # Resolve file paths relative to manifest directory
     worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
 
-    if entry is None:
-        entry = build_entry(
-            [str(p) for p in worker_paths],
-            [str(p) for p in python_paths],
+    if bundle is None:
+        bundle = load_agents(
+            worker_paths,
+            python_files=python_paths,
             project_root=manifest_dir,
+            cwd=manifest_dir,
         )
 
     if runtime is None:
-        approval_mode: Literal["prompt", "approve_all", "reject_all"] = manifest.runtime.approval_mode
+        approval_mode: Literal["prompt", "approve_all", "reject_all"] = (
+            manifest.runtime.approval_mode
+        )
 
         approval_policy = RunApprovalPolicy(
             mode=approval_mode,
@@ -121,16 +127,16 @@ async def run(
         message_log_callback = None
         if verbosity >= 3:
             message_log_callback = _make_message_log_callback(sys.stderr)
-        runtime = Runtime(
+
+        runtime = build_runtime(
+            bundle,
             project_root=manifest_dir,
-            run_approval_policy=approval_policy,
+            approval_policy=approval_policy,
             max_depth=manifest.runtime.max_depth,
-            worker_calls_require_approval=manifest.runtime.worker_calls_require_approval,
-            worker_attachments_require_approval=manifest.runtime.worker_attachments_require_approval,
-            worker_approval_overrides=manifest.runtime.worker_approval_overrides,
             on_event=on_event,
             message_log_callback=message_log_callback,
             verbosity=verbosity,
+            return_permission_errors=manifest.runtime.return_permission_errors,
         )
     else:
         if (
@@ -141,23 +147,23 @@ async def run(
         ):
             raise ValueError("runtime provided; do not pass approval/UI overrides")
 
-    return await runtime.run_entry(
-        entry,
-        input_data,
-        message_history=message_history,
-    )
+    result = await run_entry_agent(bundle, input_data, runtime=runtime)
+    return result, runtime
 
 
-def _make_entry_factory(
+def _make_bundle_factory(
     manifest: ProjectManifest,
     manifest_dir: Path,
-) -> Callable[[], Entry]:
-    def factory() -> Entry:
+) -> Callable[[], AgentBundle]:
+    """Create a factory function for loading agent bundles."""
+
+    def factory() -> AgentBundle:
         worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
-        return build_entry(
-            [str(p) for p in worker_paths],
-            [str(p) for p in python_paths],
+        return load_agents(
+            worker_paths,
+            python_files=python_paths,
             project_root=manifest_dir,
+            cwd=manifest_dir,
         )
 
     return factory
@@ -188,7 +194,8 @@ def main() -> int:
         help="Input as inline JSON (overrides manifest entry.input)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="count",
         default=0,
         help=(
@@ -273,18 +280,20 @@ def main() -> int:
                 input_data = {"input": stdin_input}
             else:
                 print(
-                    "Error: No input provided (use prompt argument, --input-json, or manifest entry.input)",
+                    "Error: No input provided (use prompt argument, --input-json, "
+                    "or manifest entry.input)",
                     file=sys.stderr,
                 )
                 return 1
         else:
             print(
-                "Error: No input provided (use prompt argument, --input-json, or manifest entry.input)",
+                "Error: No input provided (use prompt argument, --input-json, "
+                "or manifest entry.input)",
                 file=sys.stderr,
             )
             return 1
 
-    entry_factory = _make_entry_factory(manifest, manifest_dir)
+    bundle_factory = _make_bundle_factory(manifest, manifest_dir)
 
     # Determine if we should use TUI mode:
     # - Explicit --tui flag
@@ -305,29 +314,35 @@ def main() -> int:
 
         extra_backends = None
         if 0 < log_verbosity < 3:
-            extra_backends = [HeadlessDisplayBackend(sys.stderr, verbosity=log_verbosity)]
+            extra_backends = [
+                HeadlessDisplayBackend(sys.stderr, verbosity=log_verbosity)
+            ]
 
         error_stream = sys.stderr if extra_backends is None else None
-        initial_prompt = input_data.get("input", "") if isinstance(input_data, dict) else ""
-        outcome = asyncio.run(run_tui(
-            input=input_data,
-            entry_factory=entry_factory,
-            project_root=manifest_dir,
-            approval_mode=manifest.runtime.approval_mode,
-            verbosity=tui_verbosity,
-            return_permission_errors=True,
-            max_depth=manifest.runtime.max_depth,
-            worker_calls_require_approval=manifest.runtime.worker_calls_require_approval,
-            worker_attachments_require_approval=manifest.runtime.worker_attachments_require_approval,
-            worker_approval_overrides=manifest.runtime.worker_approval_overrides,
-            message_log_callback=message_log_callback,
-            extra_backends=extra_backends,
-            chat=args.chat,
-            initial_prompt=initial_prompt,
-            debug=args.debug,
-            worker_name="worker",
-            error_stream=error_stream,
-        ))
+        initial_prompt = (
+            input_data.get("input", "") if isinstance(input_data, dict) else ""
+        )
+        outcome = asyncio.run(
+            run_tui(
+                input=input_data,
+                entry_factory=bundle_factory,
+                project_root=manifest_dir,
+                approval_mode=manifest.runtime.approval_mode,
+                verbosity=tui_verbosity,
+                return_permission_errors=True,
+                max_depth=manifest.runtime.max_depth,
+                worker_calls_require_approval=manifest.runtime.worker_calls_require_approval,
+                worker_attachments_require_approval=manifest.runtime.worker_attachments_require_approval,
+                worker_approval_overrides=manifest.runtime.worker_approval_overrides,
+                message_log_callback=message_log_callback,
+                extra_backends=extra_backends,
+                chat=args.chat,
+                initial_prompt=initial_prompt,
+                debug=args.debug,
+                worker_name="worker",
+                error_stream=error_stream,
+            )
+        )
         if outcome.result is not None:
             print(outcome.result)
         return outcome.exit_code
@@ -343,21 +358,23 @@ def main() -> int:
     if args.verbose >= 3:
         message_log_callback = _make_message_log_callback(sys.stderr)
 
-    outcome = asyncio.run(run_headless(
-        input=input_data,
-        entry_factory=entry_factory,
-        project_root=manifest_dir,
-        approval_mode=manifest.runtime.approval_mode,
-        verbosity=args.verbose,
-        return_permission_errors=manifest.runtime.return_permission_errors,
-        max_depth=manifest.runtime.max_depth,
-        worker_calls_require_approval=manifest.runtime.worker_calls_require_approval,
-        worker_attachments_require_approval=manifest.runtime.worker_attachments_require_approval,
-        worker_approval_overrides=manifest.runtime.worker_approval_overrides,
-        backends=backends,
-        message_log_callback=message_log_callback,
-        debug=args.debug,
-    ))
+    outcome = asyncio.run(
+        run_headless(
+            input=input_data,
+            entry_factory=bundle_factory,
+            project_root=manifest_dir,
+            approval_mode=manifest.runtime.approval_mode,
+            verbosity=args.verbose,
+            return_permission_errors=manifest.runtime.return_permission_errors,
+            max_depth=manifest.runtime.max_depth,
+            worker_calls_require_approval=manifest.runtime.worker_calls_require_approval,
+            worker_attachments_require_approval=manifest.runtime.worker_attachments_require_approval,
+            worker_approval_overrides=manifest.runtime.worker_approval_overrides,
+            backends=backends,
+            message_log_callback=message_log_callback,
+            debug=args.debug,
+        )
+    )
     if outcome.result is not None:
         print(outcome.result)
     return outcome.exit_code

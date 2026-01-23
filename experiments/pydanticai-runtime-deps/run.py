@@ -9,13 +9,15 @@ from logging_utils import event_stream_logger
 from otel_utils import configure_trace_logging
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from runtime import AgentRuntime, AttachmentResolver, build_path_map
+from runtime import AgentRuntime
 
 ROOT = Path(__file__).parent
 PROMPTS_DIR = ROOT / "prompts"
 INPUT_DIR = ROOT / "input"
 DEFAULT_DECK_PATH = INPUT_DIR / "deck.txt"
-MOCK_DECK_PATH = "path/to/deck.txt"
+
+# Will be set to the actual deck path at runtime
+_deck_path: Path | None = None
 
 
 def load_text(path: Path) -> str:
@@ -50,18 +52,18 @@ def build_agents(model_name: str) -> tuple[Agent[Any, str], Agent[Any, PitchEval
 
     @orchestrator.tool(name="find_deck_path")
     def find_deck_path(ctx: RunContext[AgentRuntime]) -> str:
-        return MOCK_DECK_PATH
+        if _deck_path is None:
+            raise RuntimeError("Deck path not configured")
+        return str(_deck_path)
 
     @orchestrator.tool(name="pitch_evaluator")
     async def call_pitch_evaluator(
         ctx: RunContext[AgentRuntime],
         deck_path: str,
     ) -> dict[str, Any]:
-        deck_file = ctx.deps.load_binary(deck_path)
-        prompt = [
-            f"Analyze the pitch deck in file {deck_file.identifier}.",
-            deck_file,
-        ]
+        # Read text file content directly (Attachment is for binary files like images/PDFs)
+        deck_content = Path(deck_path).read_text(encoding="utf-8")
+        prompt = f"Analyze the following pitch deck:\n\n{deck_content}"
         evaluation = await ctx.deps.call_agent(
             "pitch_evaluator",
             prompt,
@@ -117,6 +119,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    global _deck_path
+
     args = parse_args()
     model_name = args.model or os.environ.get("LLM_DO_MODEL")
     if not model_name:
@@ -124,9 +128,9 @@ def main() -> int:
             "No model configured. Pass --model or set LLM_DO_MODEL."
         )
 
-    deck_path = (Path(args.deck) if args.deck else DEFAULT_DECK_PATH).resolve()
-    if not deck_path.exists():
-        raise SystemExit(f"Deck file not found: {deck_path}")
+    _deck_path = (Path(args.deck) if args.deck else DEFAULT_DECK_PATH).resolve()
+    if not _deck_path.exists():
+        raise SystemExit(f"Deck file not found: {_deck_path}")
 
     if args.trace_dir:
         trace_config = configure_trace_logging(
@@ -145,10 +149,7 @@ def main() -> int:
             "orchestrator": orchestrator,
             "pitch_evaluator": pitch_evaluator,
         },
-        attachment_resolver=AttachmentResolver(
-            path_map=build_path_map({MOCK_DECK_PATH: deck_path}),
-            base_path=ROOT,
-        ),
+        base_path=ROOT,
         event_stream_handler=event_handler,
         max_depth=args.max_depth,
     )

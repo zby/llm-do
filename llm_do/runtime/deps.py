@@ -80,9 +80,23 @@ class WorkerRuntime:
         run_ctx: RunContext[WorkerRuntimeProtocol],
     ) -> Any:
         """Validate tool args for direct calls to match PydanticAI behavior."""
+        from .args import Attachment
+
         args = input_data
         if isinstance(args, BaseModel):
             args = args.model_dump()
+        # Convert message list to dict format for tool schema validation
+        elif isinstance(args, list):
+            text_parts = []
+            attachments = []
+            for item in args:
+                if isinstance(item, str):
+                    text_parts.append(item)
+                elif isinstance(item, Attachment):
+                    attachments.append(str(item.path))
+            args = {"input": " ".join(text_parts)}
+            if attachments:
+                args["attachments"] = attachments
         validator = tool.args_validator
         if isinstance(args, (str, bytes, bytearray)):
             json_input = args if args else "{}"

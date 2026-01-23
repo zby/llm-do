@@ -8,7 +8,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from pydantic_ai import Agent, RunContext
 from runtime import AgentRuntime
 
-from llm_do.runtime.args import WorkerArgs
+from llm_do.runtime.args import Attachment, PromptMessages, WorkerArgs
 from llm_do.runtime.discovery import load_toolsets_from_files
 from llm_do.runtime.registry import _build_builtin_tools
 from llm_do.runtime.schema_refs import resolve_schema_ref
@@ -166,7 +166,7 @@ def _add_delegate_tool(
 ) -> None:
     description = target_definition.description
     if schema_in is not None:
-        async def delegate(
+        async def delegate_with_schema(
             ctx: RunContext[AgentRuntime],
             args: Any,
         ) -> Any:
@@ -174,70 +174,58 @@ def _add_delegate_tool(
                 raise TypeError(
                     f"Expected WorkerArgs input for {target_name}, got {type(args)}"
                 )
-            prompt = _build_prompt_from_worker_args(ctx, args, model_name=target_model)
+            prompt = _build_prompt_from_worker_args(args, model_name=target_model)
             return await ctx.deps.call_agent(target_name, prompt, ctx=ctx)
 
-        delegate.__annotations__["args"] = schema_in
-        agent.tool(name=target_name, description=description)(delegate)
+        delegate_with_schema.__annotations__["args"] = schema_in
+        agent.tool(name=target_name, description=description)(delegate_with_schema)
         return
 
     @agent.tool(name=target_name, description=description)
-    async def delegate(
+    async def delegate_simple(
         ctx: RunContext[AgentRuntime],
         input: str,
         attachments: list[str] | None = None,
     ) -> Any:
-        prompt = _build_prompt(ctx, input, attachments)
+        prompt = _build_prompt(input, attachments)
         return await ctx.deps.call_agent(target_name, prompt, ctx=ctx)
 
 
 def _build_prompt(
-    ctx: RunContext[AgentRuntime],
     input_text: str,
     attachments: Iterable[str] | None,
-) -> str | list[Any]:
-    parts: list[Any] = []
+) -> PromptMessages:
+    """Build a prompt message list from text and attachment paths.
+
+    Uses lazy Attachment objects that will be resolved at render time.
+    """
+    parts: list[str | Attachment] = []
     if input_text:
         parts.append(input_text)
     if attachments:
         for path in attachments:
-            try:
-                content = ctx.deps.load_binary(path)
-            except Exception:
-                parts.append(f"[Missing attachment: {path}]")
-                continue
-            parts.append(f"File {content.identifier} (source {path})")
-            parts.append(content)
+            parts.append(Attachment(path))
     if not parts:
-        return input_text
-    if len(parts) == 1 and isinstance(parts[0], str):
-        return parts[0]
+        return [input_text] if input_text else []
     return parts
 
 
 def _build_prompt_from_worker_args(
-    ctx: RunContext[AgentRuntime],
     args: WorkerArgs,
     *,
     model_name: str | None,
-) -> str | list[Any]:
+) -> PromptMessages:
+    """Build a prompt message list from WorkerArgs.
+
+    Uses the prompt_messages() method which returns lazy Attachment objects.
+    """
     renderer = getattr(args, "input_parts", None)
     if callable(renderer):
         parts = _call_input_parts(renderer, model_name)
         return _normalize_prompt_parts(parts)
 
-    spec = args.prompt_spec()
-    text = spec.text if spec.text.strip() else "(no input)"
-    parts: list[Any] = [text]
-    for path in spec.attachments:
-        try:
-            content = ctx.deps.load_binary(path)
-        except Exception:
-            parts.append(f"[Missing attachment: {path}]")
-            continue
-        parts.append(f"File {content.identifier} (source {path})")
-        parts.append(content)
-    return _normalize_prompt_parts(parts)
+    # Use prompt_messages() which returns list[str | Attachment]
+    return args.prompt_messages()
 
 
 def _call_input_parts(renderer: Any, model_name: str | None) -> Any:
@@ -247,14 +235,12 @@ def _call_input_parts(renderer: Any, model_name: str | None) -> Any:
     return renderer(model_name)
 
 
-def _normalize_prompt_parts(parts: Any) -> str | list[Any]:
+def _normalize_prompt_parts(parts: Any) -> PromptMessages:
     if isinstance(parts, str):
-        return parts
+        return [parts]
     if isinstance(parts, tuple):
         parts = list(parts)
     if isinstance(parts, list):
-        if len(parts) == 1 and isinstance(parts[0], str):
-            return parts[0]
         return parts
     return [parts]
 

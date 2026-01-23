@@ -5,31 +5,15 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from approval_utils import wrap_toolsets_for_approval
-from pydantic_ai import Agent, BinaryContent, RunContext
+from pydantic_ai import Agent, RunContext
 from pydantic_ai_blocking_approval import ApprovalCallback, ApprovalConfig
 
+from llm_do.runtime.args import PromptContent, PromptMessages, render_prompt
 from llm_do.toolsets.loader import (
     ToolsetBuildContext,
     ToolsetSpec,
     instantiate_toolsets,
 )
-
-
-@dataclass(frozen=True)
-class AttachmentResolver:
-    path_map: Mapping[str, Path]
-    base_path: Path | None = None
-
-    def resolve_path(self, path: str) -> Path:
-        resolved = self.path_map.get(path)
-        if resolved is not None:
-            return resolved
-        if self.base_path is not None:
-            return (self.base_path / path).expanduser().resolve()
-        return Path(path).expanduser().resolve()
-
-    def load_binary(self, path: str) -> BinaryContent:
-        return BinaryContent.from_path(self.resolve_path(path))
 
 
 @dataclass(frozen=True)
@@ -40,7 +24,6 @@ class ToolsetResolver:
     def build_for(
         self,
         agent_name: str | None,
-        fallback_toolsets: Sequence[Any] | None,
     ) -> list[Any]:
         if agent_name:
             specs = self.toolset_specs.get(agent_name) or []
@@ -50,7 +33,7 @@ class ToolsetResolver:
                     available_toolsets=self.toolset_registry,
                 )
                 return instantiate_toolsets(specs, context)
-        return list(fallback_toolsets or ())
+        return []
 
 
 @dataclass(frozen=True)
@@ -82,7 +65,7 @@ class ApprovalWrapper:
 @dataclass
 class AgentRuntime:
     agents: dict[str, Agent[Any, Any]]
-    attachment_resolver: AttachmentResolver
+    base_path: Path | None = None
     toolset_specs: dict[str, Sequence[ToolsetSpec]] = field(default_factory=dict)
     toolset_registry: dict[str, ToolsetSpec] = field(default_factory=dict)
     event_stream_handler: Any | None = None
@@ -96,12 +79,10 @@ class AgentRuntime:
     approval_policy: Any | None = None
     max_depth: int = 5
     depth: int = 0
-    _attachment_resolver: AttachmentResolver = field(init=False)
     _toolset_resolver: ToolsetResolver = field(init=False)
     _approval_wrapper: ApprovalWrapper = field(init=False)
 
     def __post_init__(self) -> None:
-        self._attachment_resolver = self.attachment_resolver
         self._toolset_resolver = ToolsetResolver(
             toolset_specs=self.toolset_specs,
             toolset_registry=self.toolset_registry,
@@ -125,7 +106,7 @@ class AgentRuntime:
     async def call_agent(
         self,
         name: str,
-        prompt: str | Sequence[Any],
+        prompt: str | PromptMessages,
         *,
         ctx: RunContext["AgentRuntime"],
     ) -> Any:
@@ -134,8 +115,11 @@ class AgentRuntime:
             raise KeyError(f"Unknown agent: {name}")
         child = self.spawn()
         toolsets = child.toolsets_for(agent, agent_name=name)
+        # Render prompt, resolving Attachment objects to BinaryContent
+        messages: list[PromptContent] = [prompt] if isinstance(prompt, str) else list(prompt)
+        rendered_prompt = render_prompt(messages, self.base_path)
         result = await agent.run(
-            prompt,
+            rendered_prompt,
             deps=child,
             usage=ctx.usage,
             event_stream_handler=self.event_stream_handler,
@@ -143,28 +127,14 @@ class AgentRuntime:
         )
         return result.output
 
-    def resolve_path(self, path: str) -> Path:
-        return self._attachment_resolver.resolve_path(path)
-
-    def load_binary(self, path: str) -> BinaryContent:
-        return self._attachment_resolver.load_binary(path)
-
     def _resolve_agent_name(self, agent: Agent[Any, Any]) -> str | None:
         for name, candidate in self.agents.items():
             if candidate is agent:
                 return name
         return None
 
-    def _build_toolsets(
-        self,
-        agent: Agent[Any, Any],
-        *,
-        agent_name: str | None,
-    ) -> list[Any]:
-        return self._toolset_resolver.build_for(
-            agent_name,
-            agent.toolsets,
-        )
+    def _build_toolsets(self, agent_name: str | None) -> list[Any]:
+        return self._toolset_resolver.build_for(agent_name)
 
     def toolsets_for(
         self,
@@ -173,12 +143,5 @@ class AgentRuntime:
         agent_name: str | None = None,
     ) -> Sequence[Any]:
         resolved_name = agent_name or self._resolve_agent_name(agent)
-        toolsets = self._build_toolsets(agent, agent_name=resolved_name)
+        toolsets = self._build_toolsets(resolved_name)
         return self._approval_wrapper.wrap(toolsets)
-
-
-def build_path_map(mapping: Mapping[str, Path]) -> dict[str, Path]:
-    resolved: dict[str, Path] = {}
-    for key, value in mapping.items():
-        resolved[key] = value.resolve()
-    return resolved

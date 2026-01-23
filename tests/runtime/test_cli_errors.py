@@ -351,9 +351,9 @@ class TestCLISuccess:
                     exit_code = main()
 
         assert exit_code == 0
-        # Verify the input data passed to run()
+        # Verify the input data passed to run() is a message list
         call_args = mock_run.call_args
-        assert call_args.args[1] == {"input": "manifest prompt"}
+        assert call_args.args[1] == ["manifest prompt"]
 
     def test_input_json_override(self, tmp_path, capsys):
         """Test --input-json overrides manifest entry.input."""
@@ -373,16 +373,18 @@ class TestCLISuccess:
         with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ("Success!", mock_ctx)
 
+            # Note: extra fields beyond 'input' and 'attachments' are ignored
             with patch("sys.argv", [
                 "llm-do", str(manifest_file),
-                "--input-json", '{"input": "json override", "extra": "data"}'
+                "--input-json", '{"input": "json override"}'
             ]):
                 with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
                     exit_code = main()
 
         assert exit_code == 0
+        # Input is converted to message list
         call_args = mock_run.call_args
-        assert call_args.args[1] == {"input": "json override", "extra": "data"}
+        assert call_args.args[1] == ["json override"]
 
 
 class TestCLIDebugFlag:

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from pydantic_ai import Agent, RunContext
+from runtime import AgentRuntime
 
 from llm_do.runtime.args import WorkerArgs
 from llm_do.runtime.discovery import load_toolsets_from_files
@@ -18,8 +19,6 @@ from llm_do.toolsets.loader import (
     ToolsetSpec,
     resolve_toolset_specs,
 )
-
-from runtime import AgentRuntime
 
 
 @dataclass

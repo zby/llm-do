@@ -2,10 +2,23 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Mapping, Protocol, Sequence, runtime_checkable
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Mapping,
+    Protocol,
+    Sequence,
+    runtime_checkable,
+)
 
 from pydantic_ai import RunContext
-from pydantic_ai.toolsets import AbstractToolset, CombinedToolset, ToolsetTool, WrapperToolset
+from pydantic_ai.toolsets import (
+    AbstractToolset,
+    CombinedToolset,
+    ToolsetTool,
+    WrapperToolset,
+)
 from pydantic_ai_blocking_approval import (
     ApprovalCallback,
     ApprovalConfig,
@@ -15,7 +28,6 @@ from pydantic_ai_blocking_approval import (
     SupportsNeedsApproval,
     needs_approval_from_config,
 )
-
 
 ApprovalPolicy = Callable[
     [str, dict[str, Any], RunContext[Any], ApprovalConfig, set[str]],

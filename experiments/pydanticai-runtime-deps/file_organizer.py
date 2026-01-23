@@ -5,11 +5,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
-from pydantic_ai import Agent, RunContext
-
 from logging_utils import event_stream_logger
 from otel_utils import configure_trace_logging
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent, RunContext
 from runtime import AgentRuntime, AttachmentResolver, build_path_map
 
 ROOT = Path(__file__).parent

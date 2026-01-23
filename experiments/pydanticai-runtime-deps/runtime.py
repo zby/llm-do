@@ -4,11 +4,15 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from approval_utils import wrap_toolsets_for_approval
 from pydantic_ai import Agent, BinaryContent, RunContext
 from pydantic_ai_blocking_approval import ApprovalCallback, ApprovalConfig
 
-from approval_utils import wrap_toolsets_for_approval
-from llm_do.toolsets.loader import ToolsetBuildContext, ToolsetSpec, instantiate_toolsets
+from llm_do.toolsets.loader import (
+    ToolsetBuildContext,
+    ToolsetSpec,
+    instantiate_toolsets,
+)
 
 
 @dataclass(frozen=True)

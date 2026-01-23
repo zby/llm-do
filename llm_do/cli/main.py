@@ -217,7 +217,7 @@ def main() -> int:
         help="Show full tracebacks on error",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_intermixed_args()
 
     # Validate mutually exclusive flags
     if args.headless and args.tui:

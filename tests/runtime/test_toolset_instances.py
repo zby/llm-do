@@ -9,7 +9,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset, FunctionToolset, ToolsetTool
 
-from llm_do.runtime import Runtime, ToolsetSpec, Worker, WorkerArgs, WorkerInput, entry
+from llm_do.runtime import Runtime, ToolsetSpec, Worker, WorkerArgs, entry
 from llm_do.runtime.approval import RunApprovalPolicy
 
 
@@ -41,7 +41,7 @@ async def test_recursive_worker_gets_fresh_toolset_instances() -> None:
     worker.toolset_specs.append(worker.as_toolset_spec())
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
-    await runtime.run_entry(worker, WorkerInput(input="go"))
+    await runtime.run_entry(worker, {"input": "go"})
 
     assert len(instance_ids) == 2
     assert instance_ids[0] != instance_ids[1]
@@ -80,8 +80,8 @@ async def test_worker_toolset_cleanup_runs_per_call() -> None:
     )
 
     runtime = Runtime()
-    await runtime.run_entry(worker, WorkerInput(input="go"))
-    await runtime.run_entry(worker, WorkerInput(input="again"))
+    await runtime.run_entry(worker, {"input": "go"})
+    await runtime.run_entry(worker, {"input": "again"})
 
     assert len(cleanup_calls) == 2
 
@@ -117,7 +117,7 @@ async def test_entry_function_toolset_cleanup_runs_per_call() -> None:
         return "ok"
 
     runtime = Runtime()
-    await runtime.run_entry(main, WorkerInput(input="go"))
-    await runtime.run_entry(main, WorkerInput(input="again"))
+    await runtime.run_entry(main, {"input": "go"})
+    await runtime.run_entry(main, {"input": "again"})
 
     assert len(cleanup_calls) == 2

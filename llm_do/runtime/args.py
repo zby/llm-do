@@ -102,20 +102,14 @@ class WorkerArgs(BaseModel):
         )
 
 
-class WorkerInput(WorkerArgs):
-    """Default worker input schema with text and optional attachments.
-
-    This is provided for backwards compatibility. For simple cases,
-    you can pass a string or list[str | Attachment] directly.
-    """
-
-    input: str
-    attachments: list[str] = []
-
-    def prompt_messages(self) -> list[PromptContent]:
-        parts: list[PromptContent] = [self.input]
-        parts.extend(Attachment(p) for p in self.attachments)
-        return parts
+def _dict_to_messages(data: dict[str, Any]) -> list[PromptContent]:
+    """Convert a dict with 'input' and optional 'attachments' to messages."""
+    if "input" not in data:
+        raise TypeError("Dict input must have an 'input' field")
+    parts: list[PromptContent] = [data["input"]]
+    for path in data.get("attachments") or []:
+        parts.append(Attachment(path))
+    return parts
 
 
 def normalize_input(
@@ -150,11 +144,13 @@ def normalize_input(
             )
         return input_data, input_data.prompt_messages()
 
-    # Dict -> validate with schema (or use WorkerInput as fallback)
+    # Dict -> validate with schema or convert directly to messages
     if isinstance(input_data, dict):
-        schema = schema_in if schema_in is not None else WorkerInput
-        args = schema.model_validate(input_data)
-        return args, args.prompt_messages()
+        if schema_in is not None:
+            args = schema_in.model_validate(input_data)
+            return args, args.prompt_messages()
+        # No schema: convert dict with 'input'/'attachments' directly
+        return None, _dict_to_messages(input_data)
 
     # Other BaseModel (not WorkerArgs)
     if isinstance(input_data, BaseModel):

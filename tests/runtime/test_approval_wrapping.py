@@ -6,7 +6,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 
-from llm_do.runtime import Runtime, ToolsetSpec, WorkerArgs, WorkerInput, entry
+from llm_do.runtime import Runtime, ToolsetSpec, WorkerArgs, entry
 from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
 from llm_do.runtime.worker import Worker
 from llm_do.toolsets.approval import set_toolset_approval_config
@@ -65,9 +65,9 @@ async def test_entry_function_exposes_its_toolsets() -> None:
     toolset_spec = ToolsetSpec(factory=build_tools)
 
     @entry(toolsets=[toolset_spec])
-    async def echo(args: WorkerArgs, runtime_ctx) -> str:
-        # args is WorkerInput with .input attribute
-        return args.input
+    async def echo(messages, runtime_ctx) -> str:
+        # messages is a list of prompt content (strings/attachments)
+        return messages[0] if messages else ""
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
     result, ctx = await runtime.run_entry(
@@ -96,7 +96,7 @@ async def test_nested_worker_calls_bypass_approval_by_default() -> None:
     )
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
-    result, _ctx = await runtime.run_entry(parent, WorkerInput(input="trigger"))
+    result, _ctx = await runtime.run_entry(parent, {"input": "trigger"})
 
     assert result is not None
 
@@ -120,7 +120,7 @@ async def test_nested_worker_calls_can_require_approval() -> None:
 
     with pytest.raises(PermissionError):
         runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="reject_all"))
-        await runtime.run_entry(parent, WorkerInput(input="trigger"))
+        await runtime.run_entry(parent, {"input": "trigger"})
 
 
 @pytest.mark.anyio
@@ -290,8 +290,8 @@ async def test_entry_function_call_not_approval_gated() -> None:
     """EntryFunction itself is not gated; tool calls inside are policy-gated."""
 
     @entry()
-    async def echo(args: WorkerArgs, runtime_ctx) -> str:
-        return args.input
+    async def echo(messages, runtime_ctx) -> str:
+        return messages[0] if messages else ""
 
     # Even with reject_all, EntryFunction succeeds because
     # it's a direct call, not an LLM-invoked tool call

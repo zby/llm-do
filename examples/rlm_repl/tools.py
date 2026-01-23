@@ -18,7 +18,7 @@ from RestrictedPython import (
 from RestrictedPython.Guards import guarded_iter_unpack_sequence, safer_getattr
 from RestrictedPython.PrintCollector import PrintCollector
 
-from llm_do.runtime import ToolsetSpec, WorkerInput, WorkerRuntime, entry
+from llm_do.runtime import ToolsetSpec, WorkerRuntime, entry
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 _STATE: dict[str, Any] = {
@@ -246,9 +246,11 @@ PROJECT_ROOT = Path(__file__).parent.resolve()
 CONTEXT_PATH = PROJECT_ROOT / "context.txt"
 
 
-@entry(name="main", schema_in=WorkerInput, toolsets=["rlm"])
-async def main(args: WorkerInput, runtime: WorkerRuntime) -> str:
+@entry(name="main", toolsets=["rlm"])
+async def main(messages, runtime: WorkerRuntime) -> str:
     """Load context and run the RLM worker with the user query."""
-    query = args.input.strip() or "Summarize the context."
+    # Extract text from messages (first string part)
+    text_parts = [m for m in messages if isinstance(m, str)]
+    query = (text_parts[0].strip() if text_parts else "") or "Summarize the context."
     set_context(CONTEXT_PATH.read_text(encoding="utf-8"), query)
-    return await runtime.call("rlm", WorkerInput(input=query))
+    return await runtime.call("rlm", query)

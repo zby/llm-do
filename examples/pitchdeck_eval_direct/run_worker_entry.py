@@ -9,7 +9,7 @@ Run with:
 import asyncio
 from pathlib import Path
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker, WorkerInput
+from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
 from llm_do.runtime.events import RuntimeEvent
 from llm_do.toolsets.builtins import build_builtin_toolsets
 from llm_do.toolsets.loader import ToolsetBuildContext, resolve_toolset_specs
@@ -103,7 +103,7 @@ async def run_entry_worker() -> str:
     runtime = build_runtime(VERBOSITY)
     result, _ctx = await runtime.run_entry(
         main_worker,
-        WorkerInput(input=""),
+        "",  # Empty prompt - worker handles file discovery
     )
     return result
 

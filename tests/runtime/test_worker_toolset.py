@@ -5,7 +5,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 
-from llm_do.runtime import Runtime, ToolsetBuildContext, ToolsetSpec, WorkerInput
+from llm_do.runtime import Runtime, ToolsetBuildContext, ToolsetSpec
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.contracts import WorkerRuntimeProtocol
 from llm_do.runtime.worker import Worker, WorkerToolset, build_worker_tool
@@ -136,7 +136,7 @@ async def test_worker_toolset_call_executes_worker() -> None:
     )
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
-    result, _ctx = await runtime.run_entry(parent, WorkerInput(input="hello"))
+    result, _ctx = await runtime.run_entry(parent, {"input": "hello"})
 
     assert "echo: hello" in str(result)
 
@@ -157,7 +157,7 @@ async def test_worker_toolset_respects_max_depth() -> None:
     )
 
     with pytest.raises(RuntimeError, match="Max depth exceeded"):
-        await runtime.run_entry(worker, WorkerInput(input="go"))
+        await runtime.run_entry(worker, {"input": "go"})
 
 
 @pytest.mark.anyio
@@ -177,7 +177,7 @@ async def test_worker_toolset_preserves_worker_semantics() -> None:
     )
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
-    result, _ctx = await runtime.run_entry(parent, WorkerInput(input="test"))
+    result, _ctx = await runtime.run_entry(parent, {"input": "test"})
 
     # The child's specific model output should be in the result
     assert "processed by child" in str(result)

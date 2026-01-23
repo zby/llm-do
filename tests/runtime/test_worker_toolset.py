@@ -52,6 +52,7 @@ def test_worker_toolset_preserves_custom_approval() -> None:
     set_toolset_approval_config(toolset, {"test": {"pre_approved": False}})
 
     config = get_toolset_approval_config(toolset)
+    assert config is not None
     assert config["test"]["pre_approved"] is False
 
 
@@ -63,7 +64,9 @@ async def test_worker_toolset_get_tools() -> None:
 
     # Create mock run context
     mock_deps = MagicMock(spec=WorkerRuntimeProtocol)
-    run_ctx = RunContext(deps=mock_deps, model=None, usage=None, prompt="test")
+    mock_model = TestModel()
+    from pydantic_ai.usage import RunUsage
+    run_ctx = RunContext(deps=mock_deps, model=mock_model, usage=RunUsage(), prompt="test")
 
     tools = await toolset.get_tools(run_ctx)
 
@@ -81,7 +84,9 @@ async def test_worker_toolset_uses_worker_name_as_tool_name() -> None:
     toolset = WorkerToolset(worker=worker)
 
     mock_deps = MagicMock(spec=WorkerRuntimeProtocol)
-    run_ctx = RunContext(deps=mock_deps, model=None, usage=None, prompt="test")
+    mock_model = TestModel()
+    from pydantic_ai.usage import RunUsage
+    run_ctx = RunContext(deps=mock_deps, model=mock_model, usage=RunUsage(), prompt="test")
 
     tools = await toolset.get_tools(run_ctx)
 
@@ -115,6 +120,7 @@ def test_build_worker_tool_truncates_long_description() -> None:
     tool = build_worker_tool(worker, toolset)
 
     description = tool.tool_def.description
+    assert description is not None
     assert description.endswith("...")
     assert description.startswith(long_text[:50])
     assert len(description) < len(long_text)

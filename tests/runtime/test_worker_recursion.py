@@ -26,7 +26,9 @@ Call yourself.
     assert isinstance(entry, Worker)
     assert entry.toolset_specs
     # Toolset resolution keeps WorkerToolset factories for recursive tools
-    toolset = entry.toolset_specs[0].factory(entry.toolset_context)
+    ctx = entry.toolset_context
+    assert ctx is not None
+    toolset = entry.toolset_specs[0].factory(ctx)
     assert isinstance(toolset, WorkerToolset)
     assert toolset.worker is entry
 

@@ -22,8 +22,9 @@ def test_approval_workflow_batches_and_resets() -> None:
     assert current.queue_index == 1
     assert current.queue_total == 2
 
-    current = approvals.pop_current()
-    assert current is not None
+    popped = approvals.pop_current()
+    assert popped is not None
+    current = popped
     assert current.request.tool_name == "t2"
     assert current.queue_index == 2
     assert current.queue_total == 2

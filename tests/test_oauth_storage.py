@@ -9,7 +9,7 @@ from llm_do.oauth.storage import OAuthCredentials, OAuthStorage
 
 class InMemoryStorage:
     def __init__(self) -> None:
-        self._storage = {}
+        self._storage: dict[str, dict[str, object]] = {}
 
     def load(self):
         return dict(self._storage)

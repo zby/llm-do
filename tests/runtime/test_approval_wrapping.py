@@ -41,7 +41,8 @@ def test_wrap_toolsets_preserves_worker_fields() -> None:
         model_settings=model_settings,
     )
 
-    wrapped = policy.wrap_toolsets([worker])
+    # Worker is not an AbstractToolset but is accepted by wrap_toolsets
+    wrapped = policy.wrap_toolsets([worker])  # type: ignore[list-item]
 
     assert len(wrapped) == 1
     assert isinstance(wrapped[0], ApprovalToolset)

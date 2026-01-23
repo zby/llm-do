@@ -25,8 +25,10 @@ async def test_recursive_worker_gets_fresh_toolset_instances() -> None:
 
         @toolset.tool
         async def recurse(ctx: RunContext) -> str:
-            if ctx.deps.frame.config.depth == 0:
-                await ctx.deps.call("recursive", {"input": "nested"})
+            deps = ctx.deps
+            assert deps is not None
+            if deps.frame.config.depth == 0:
+                await deps.call("recursive", {"input": "nested"})
             return toolset._instance_id
 
         return toolset

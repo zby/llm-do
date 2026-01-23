@@ -16,7 +16,7 @@ def test_get_toolset_approval_config_reads_attribute() -> None:
 
 def test_get_toolset_approval_config_rejects_non_dict() -> None:
     toolset = FunctionToolset()
-    toolset.__llm_do_approval_config__ = "bad"
+    setattr(toolset, "__llm_do_approval_config__", "bad")  # type: ignore[arg-type]
 
     try:
         get_toolset_approval_config(toolset)

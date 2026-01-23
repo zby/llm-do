@@ -82,12 +82,13 @@ class TestContext:
                 before = run_ctx.deps.frame.config.depth
                 probe_depth = await run_ctx.deps.call("probe", {})
                 after = run_ctx.deps.frame.config.depth
-                seen["call_probe"] = {
+                result: dict[str, int] = {
                     "before": before,
                     "probe": probe_depth,
                     "after": after,
                 }
-                return seen["call_probe"]
+                seen["call_probe"] = result
+                return result
 
             return toolset
 

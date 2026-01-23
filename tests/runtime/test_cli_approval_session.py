@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from pydantic import TypeAdapter
@@ -12,6 +12,7 @@ from pydantic_ai_blocking_approval import (
     ApprovalRequest,
     ApprovalResult,
 )
+from pydantic_core import SchemaValidator
 
 from llm_do.runtime import RunApprovalPolicy, Runtime, ToolsetSpec
 from llm_do.runtime.worker import Worker
@@ -51,7 +52,7 @@ class _ProbeToolset(AbstractToolset[Any]):
                 toolset=self,
                 tool_def=tool_def,
                 max_retries=0,
-                args_validator=TypeAdapter(dict[str, Any]).validator,
+                args_validator=cast(SchemaValidator, TypeAdapter(dict[str, Any]).validator),
             )
         }
 

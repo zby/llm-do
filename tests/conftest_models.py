@@ -70,7 +70,7 @@ class Scenario:
         return bool(self.pattern.search(prompt))
 
     def to_response(self, call_id_prefix: str = "call") -> ModelResponse:
-        parts = []
+        parts: list[ToolCallPart | TextPart] = []
 
         # Add tool calls first
         for i, tc in enumerate(self.tool_calls):
@@ -90,7 +90,11 @@ def extract_user_prompt(messages: list[ModelMessage]) -> str:
     for msg in reversed(messages):
         for part in msg.parts:
             if isinstance(part, UserPromptPart):
-                return part.content
+                content = part.content
+                if isinstance(content, str):
+                    return content
+                # Handle sequence case - join string parts
+                return " ".join(str(c) for c in content if isinstance(c, str))
     return ""
 
 

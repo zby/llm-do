@@ -12,7 +12,12 @@ def _prompt_echo_model() -> FunctionModel:
         for message in messages:
             for part in message.parts:
                 if isinstance(part, UserPromptPart):
-                    return ModelResponse(parts=[TextPart(content=part.content)])
+                    content = part.content
+                    if isinstance(content, str):
+                        return ModelResponse(parts=[TextPart(content=content)])
+                    # Handle sequence case
+                    text = " ".join(str(c) for c in content if isinstance(c, str))
+                    return ModelResponse(parts=[TextPart(content=text)])
         return ModelResponse(parts=[TextPart(content="")])
 
     return FunctionModel(respond)

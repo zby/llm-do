@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import pytest
 from pydantic import BaseModel, TypeAdapter
@@ -9,6 +9,7 @@ from pydantic_ai.models import Model
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
+from pydantic_core import SchemaValidator
 
 from llm_do.models import (
     LLM_DO_MODEL_ENV,
@@ -46,7 +47,7 @@ class CaptureToolset(AbstractToolset[Any]):
                 toolset=self,
                 tool_def=tool_def,
                 max_retries=0,
-                args_validator=TypeAdapter(CaptureArgs).validator,
+                args_validator=cast(SchemaValidator, TypeAdapter(CaptureArgs).validator),
             )
         }
 
@@ -117,7 +118,7 @@ def test_spawn_child_requires_args() -> None:
         invocation_name="parent",
     )
     with pytest.raises(TypeError):
-        ctx.spawn_child(active_toolsets=[toolset])
+        ctx.spawn_child(active_toolsets=[toolset])  # type: ignore[call-arg]
 
 
 def test_callframe_fork_requires_args() -> None:
@@ -131,7 +132,7 @@ def test_callframe_fork_requires_args() -> None:
         ),
     )
     with pytest.raises(TypeError):
-        frame.fork(active_toolsets=[])
+        frame.fork(active_toolsets=[])  # type: ignore[call-arg]
 
 
 @pytest.mark.anyio

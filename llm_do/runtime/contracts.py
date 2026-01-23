@@ -58,14 +58,14 @@ class Entry(Protocol):
     Additional attributes (model, compatible_models) may be accessed via
     getattr with defaults in the runtime.
 
-    schema_in defines the WorkerArgs subclass used to normalize entry input
-    (None defaults to WorkerInput).
+    schema_in defines an optional WorkerArgs subclass for structured input.
+    If None, entries accept string or list[str | Attachment] directly.
 
     Note: Entry implementations expose both setup and per-turn execution:
     - Entry.start(runtime) -> CallScope (CallScope.run_turn executes per-turn calls)
     - Entry.run_turn(runtime, input_data) - per-turn execution within a scope
     - Worker.call(input_data, run_ctx) - used when a Worker is invoked as a tool
-    - EntryFunction.call(args, runtime) - called directly with WorkerArgs
+    - EntryFunction.call(args, messages, runtime) - called with args and messages
 
     Runtime.run_entry() handles the dispatch based on entry type.
     """

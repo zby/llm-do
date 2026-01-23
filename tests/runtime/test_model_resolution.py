@@ -17,7 +17,7 @@ from llm_do.models import (
     NoModelError,
     NullModel,
 )
-from llm_do.runtime import Runtime, WorkerInput, entry
+from llm_do.runtime import Runtime, entry
 from llm_do.runtime.call import CallConfig, CallFrame
 from llm_do.runtime.worker import Worker
 from tests.runtime.helpers import build_runtime_context
@@ -167,7 +167,7 @@ async def test_entry_function_uses_null_model(monkeypatch) -> None:
         return "ok"
 
     runtime = Runtime()
-    result, ctx = await runtime.run_entry(no_op, WorkerInput(input="hi"))
+    result, ctx = await runtime.run_entry(no_op, {"input": "hi"})
     assert result == "ok"
     assert isinstance(ctx.frame.config.model, NullModel)
 
@@ -187,7 +187,7 @@ async def test_entry_function_null_model_llm_call_raises() -> None:
 
     runtime = Runtime()
     with pytest.raises(RuntimeError, match="NullModel cannot be used"):
-        await runtime.run_entry(call_llm, WorkerInput(input="hi"))
+        await runtime.run_entry(call_llm, {"input": "hi"})
 
 
 # --- construction-time model resolution tests ---

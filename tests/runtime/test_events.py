@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec, Worker, WorkerInput, entry
+from llm_do.runtime import ToolsetSpec, Worker, entry
 from llm_do.runtime.events import (
     RuntimeEvent,
     TextResponseEvent,
@@ -122,7 +122,7 @@ class TestWorkerToolEvents:
 
         await run_entry_test(
             worker,
-            WorkerInput(input="Add 3 and 4"),
+            {"input": "Add 3 and 4"},
             on_event=lambda e: events.append(e),
         )
 
@@ -175,7 +175,7 @@ class TestWorkerToolEvents:
 
         await run_entry_test(
             worker,
-            WorkerInput(input="Calculate"),
+            {"input": "Calculate"},
             on_event=lambda e: events.append(e),
         )
 
@@ -216,7 +216,7 @@ class TestWorkerToolEvents:
 
         await run_entry_test(
             worker,
-            WorkerInput(input="Greet Alice"),
+            {"input": "Greet Alice"},
             on_event=lambda e: events.append(e),
         )
 
@@ -255,7 +255,7 @@ class TestWorkerToolEvents:
         )
 
         # Should not crash even with no on_event callback
-        result, ctx = await run_entry_test(worker, WorkerInput(input="Hello"))
+        result, ctx = await run_entry_test(worker, {"input": "Hello"})
         assert ctx.config.on_event is None
         assert result is not None
 
@@ -276,7 +276,7 @@ class TestWorkerStreamingEvents:
 
         await run_entry_test(
             worker,
-            WorkerInput(input="Hi"),
+            {"input": "Hi"},
             on_event=lambda e: events.append(e),
             verbosity=2,  # Enable streaming
         )
@@ -307,7 +307,7 @@ class TestWorkerStreamingEvents:
 
         await run_entry_test(
             worker,
-            WorkerInput(input="Hi"),
+            {"input": "Hi"},
             on_event=lambda e: events.append(e),
             verbosity=1,  # Not streaming level
         )
@@ -334,7 +334,7 @@ class TestUserMessageEvents:
 
         await run_entry_test(
             worker,
-            WorkerInput(input=" ", attachments=[str(attachment_path)]),
+            {"input": " ", "attachments": [str(attachment_path)]},
             on_event=lambda e: events.append(e),
         )
 
@@ -444,7 +444,7 @@ class TestEntryToolEvents:
 
         await run_entry_test(
             orchestrate,
-            WorkerInput(input="hi"),
+            {"input": "hi"},
             on_event=lambda e: events.append(e),
         )
 

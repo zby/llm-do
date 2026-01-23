@@ -1,46 +1,76 @@
-"""Unit tests for attachment path resolution."""
+"""Unit tests for Attachment path resolution."""
 from pathlib import Path
 
-from llm_do.runtime.worker import _resolve_attachment_path
+import pytest
+
+from llm_do.runtime import Attachment
 
 
-class TestResolveAttachmentPath:
-    """Tests for _resolve_attachment_path helper."""
+class TestAttachmentRender:
+    """Tests for Attachment path resolution and rendering."""
 
-    def test_absolute_path_returned_as_is(self, tmp_path: Path) -> None:
-        """Absolute paths should be returned unchanged (after normalization)."""
+    def test_absolute_path_resolved(self, tmp_path: Path) -> None:
+        """Absolute paths should be resolved correctly."""
         test_file = tmp_path / "test.pdf"
-        test_file.touch()
-        result = _resolve_attachment_path(str(test_file))
-        assert result == test_file.resolve()
+        test_file.write_bytes(b"test content")
+        attachment = Attachment(str(test_file))
+        result = attachment.render()
+        assert result.data == b"test content"
+        assert result.media_type == "application/pdf"
 
     def test_relative_path_with_base_path(self, tmp_path: Path) -> None:
         """Relative paths should be resolved against base_path."""
         subdir = tmp_path / "attachments"
         subdir.mkdir()
         test_file = subdir / "test.pdf"
-        test_file.touch()
+        test_file.write_bytes(b"pdf content")
 
-        result = _resolve_attachment_path("attachments/test.pdf", tmp_path)
-        assert result == test_file.resolve()
+        attachment = Attachment("attachments/test.pdf")
+        result = attachment.render(base_path=tmp_path)
+        assert result.data == b"pdf content"
 
-    def test_relative_path_without_base_path(self) -> None:
+    def test_relative_path_without_base_path(self, tmp_path: Path) -> None:
         """Relative paths without base_path resolve from CWD."""
-        result = _resolve_attachment_path("somefile.txt")
-        expected = Path.cwd() / "somefile.txt"
-        assert result == expected.resolve()
+        attachment = Attachment("somefile.txt")
+        # Should raise FileNotFoundError since file doesn't exist
+        with pytest.raises(FileNotFoundError):
+            attachment.render()
 
-    def test_tilde_expansion(self, tmp_path: Path) -> None:
+    def test_tilde_expansion(self) -> None:
         """Home directory (~) should be expanded."""
-        result = _resolve_attachment_path("~/test.pdf")
-        assert "~" not in str(result)
-        assert result.is_absolute()
+        attachment = Attachment("~/test.pdf")
+        # The path should be expanded (though file won't exist)
+        resolved = attachment.path.expanduser()
+        assert "~" not in str(resolved)
+        assert resolved.is_absolute()
 
-    def test_base_path_tilde_expansion(self) -> None:
-        """Base path with tilde should also be expanded."""
-        result = _resolve_attachment_path("test.pdf", Path("~/mydir"))
-        assert "~" not in str(result)
-        assert result.is_absolute()
+    def test_file_not_found_raises(self, tmp_path: Path) -> None:
+        """FileNotFoundError should be raised for missing files."""
+        attachment = Attachment(tmp_path / "nonexistent.pdf")
+        with pytest.raises(FileNotFoundError, match="Attachment not found"):
+            attachment.render()
+
+    def test_media_type_detection(self, tmp_path: Path) -> None:
+        """Media type should be detected from file extension."""
+        for ext, expected_type in [
+            (".pdf", "application/pdf"),
+            (".png", "image/png"),
+            (".jpg", "image/jpeg"),
+            (".txt", "text/plain"),
+        ]:
+            test_file = tmp_path / f"test{ext}"
+            test_file.write_bytes(b"content")
+            attachment = Attachment(test_file)
+            result = attachment.render()
+            assert result.media_type == expected_type
+
+    def test_unknown_extension_uses_octet_stream(self, tmp_path: Path) -> None:
+        """Unknown extensions should use application/octet-stream."""
+        test_file = tmp_path / "test.xyz123"
+        test_file.write_bytes(b"content")
+        attachment = Attachment(test_file)
+        result = attachment.render()
+        assert result.media_type == "application/octet-stream"
 
 
 class TestRuntimeProjectRoot:

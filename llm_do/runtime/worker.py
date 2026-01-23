@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import inspect
-import mimetypes
 from contextlib import contextmanager, nullcontext
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
@@ -11,7 +10,6 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Callable, Optional, Sequen
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
-    BinaryContent,
     ModelRequest,
     ModelResponse,
     ToolCallPart,
@@ -29,7 +27,15 @@ from ..toolsets.approval import set_toolset_approval_config
 from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, instantiate_toolsets
 from ..toolsets.validators import DictValidator
 from .approval import wrap_toolsets_for_approval
-from .args import PromptSpec, WorkerArgs, WorkerInput, ensure_worker_args
+from .args import (
+    Attachment,
+    PromptContent,
+    WorkerArgs,
+    get_display_text,
+    has_attachments,
+    normalize_input,
+    render_prompt,
+)
 from .call import CallConfig, CallFrame, CallScope
 from .contracts import WorkerRuntimeProtocol
 from .deps import WorkerRuntime
@@ -38,39 +44,6 @@ from .shared import RuntimeConfig
 
 if TYPE_CHECKING:
     from .shared import Runtime
-
-
-def _resolve_attachment_path(path: str, base_path: Path | None = None) -> Path:
-    """Resolve an attachment path to an absolute, normalized path."""
-    file_path = Path(path).expanduser()
-    if not file_path.is_absolute() and base_path is not None:
-        file_path = base_path.expanduser() / file_path
-    return file_path.resolve()
-
-
-def _load_attachment(path: Path) -> BinaryContent:
-    """Read attachment data from disk and infer media type."""
-    if not path.exists():
-        raise FileNotFoundError(f"Attachment not found: {path}")
-
-    media_type, _ = mimetypes.guess_type(str(path))
-    if media_type is None:
-        media_type = "application/octet-stream"
-
-    data = path.read_bytes()
-    return BinaryContent(data=data, media_type=media_type)
-
-
-def _build_user_prompt(
-    prompt_spec: PromptSpec, attachments: Sequence[BinaryContent]
-) -> str | Sequence[UserContent]:
-    """Build a user prompt from prompt spec and resolved attachments."""
-    text = prompt_spec._normalized_text()
-    if not attachments:
-        return text
-    parts: list[UserContent] = [text]
-    parts.extend(attachments)
-    return parts
 
 
 def _should_use_message_history(runtime: WorkerRuntimeProtocol) -> bool:
@@ -142,11 +115,18 @@ def _capture_message_log(
         yield
 
 
+class _DefaultWorkerToolSchema(BaseModel):
+    """Default schema for workers exposed as tools."""
+
+    input: str
+    attachments: list[str] = []
+
+
 def build_worker_tool(worker: "Worker", toolset: AbstractToolset[Any]) -> ToolsetTool[Any]:
     """Build a ToolsetTool for exposing a Worker as a callable tool."""
     desc = worker.description or worker.instructions
     desc = desc[:200] + "..." if len(desc) > 200 else desc
-    schema = worker.schema_in or WorkerInput
+    schema = worker.schema_in or _DefaultWorkerToolSchema
     return ToolsetTool(
         toolset=toolset,
         tool_def=ToolDefinition(name=worker.name, description=desc, parameters_json_schema=schema.model_json_schema()),
@@ -164,14 +144,24 @@ class WorkerToolset(AbstractToolset[Any]):
     def id(self) -> str | None:
         return self.worker.name
 
-    def _prompt_spec_from_args(
+    def _messages_from_args(
         self, tool_args: dict[str, Any]
-    ) -> PromptSpec | None:
+    ) -> list[PromptContent] | None:
+        """Extract prompt messages from tool args, or None if parsing fails."""
         try:
-            args = ensure_worker_args(self.worker.schema_in, tool_args)
+            _, messages = normalize_input(self.worker.schema_in, tool_args)
+            return messages
         except Exception:
             return None
-        return args.prompt_spec()
+
+    def _get_attachment_paths(self, tool_args: dict[str, Any]) -> list[str]:
+        """Extract attachment paths from tool args for approval display."""
+        messages = self._messages_from_args(tool_args)
+        if messages is not None:
+            return [str(p.path) for p in messages if isinstance(p, Attachment)]
+        # Fallback: check raw tool_args for attachments field
+        raw_attachments = tool_args.get("attachments") or []
+        return list(raw_attachments)
 
     def needs_approval(
         self,
@@ -201,13 +191,13 @@ class WorkerToolset(AbstractToolset[Any]):
         if require_all:
             return ApprovalResult.needs_approval()
 
-        prompt_spec = self._prompt_spec_from_args(tool_args)
-        attachments = (
-            prompt_spec.attachments
-            if prompt_spec is not None
-            else tuple(tool_args.get("attachments") or ())
+        messages = self._messages_from_args(tool_args)
+        has_attach = (
+            has_attachments(messages)
+            if messages is not None
+            else bool(tool_args.get("attachments"))
         )
-        if attachments and require_attachments:
+        if has_attach and require_attachments:
             return ApprovalResult.needs_approval()
         return ApprovalResult.pre_approved()
 
@@ -217,14 +207,9 @@ class WorkerToolset(AbstractToolset[Any]):
         tool_args: dict[str, Any],
         ctx: Any,
     ) -> str:
-        prompt_spec = self._prompt_spec_from_args(tool_args)
-        attachments = (
-            prompt_spec.attachments
-            if prompt_spec is not None
-            else tuple(tool_args.get("attachments") or ())
-        )
-        if attachments:
-            attachment_list = ", ".join(str(path) for path in attachments)
+        attachment_paths = self._get_attachment_paths(tool_args)
+        if attachment_paths:
+            attachment_list = ", ".join(attachment_paths)
             return f"Call worker {name} with attachments: {attachment_list}"
         return f"Call worker {name}"
 
@@ -313,21 +298,28 @@ class EntryFunction:
         runtime: WorkerRuntimeProtocol,
         input_data: Any,
     ) -> Any:
-        input_args = ensure_worker_args(self.schema_in, input_data)
-        prompt_spec = input_args.prompt_spec()
-        runtime.frame.prompt = prompt_spec.text
+        input_args, messages = normalize_input(self.schema_in, input_data)
+        display_text = get_display_text(messages)
+        runtime.frame.prompt = display_text
         if runtime.config.on_event is not None and runtime.frame.config.depth == 0:
             runtime.config.on_event(
                 UserMessageEvent(
                     worker=self.name,
-                    content=prompt_spec._normalized_text(),
+                    content=display_text,
                 )
             )
-        return await self.call(input_args, runtime)
+        return await self.call(input_args, messages, runtime)
 
-    async def call(self, input_args: WorkerArgs, runtime: WorkerRuntimeProtocol) -> Any:
+    async def call(
+        self,
+        input_args: WorkerArgs | None,
+        messages: list[PromptContent],
+        runtime: WorkerRuntimeProtocol,
+    ) -> Any:
         """Execute the wrapped function."""
-        result = self.func(input_args, runtime)
+        # Pass structured args if available, otherwise pass messages
+        first_arg = input_args if input_args is not None else messages
+        result = self.func(first_arg, runtime)
         return await result if inspect.isawaitable(result) else result
 
 
@@ -494,26 +486,17 @@ class Worker:
         input_data: Any,
     ) -> Any:
         """Run a single turn for an active call scope."""
-        input_args = ensure_worker_args(self.schema_in, input_data)
-        prompt_spec = input_args.prompt_spec()
+        _, messages = normalize_input(self.schema_in, input_data)
 
-        runtime.frame.prompt = prompt_spec.text
+        display_text = get_display_text(messages)
+        runtime.frame.prompt = display_text
         if runtime.config.on_event is not None and runtime.frame.config.depth == 0:
             runtime.config.on_event(
                 UserMessageEvent(
                     worker=self.name,
-                    content=prompt_spec._normalized_text(),
+                    content=display_text,
                 )
             )
-
-        attachment_parts: list[BinaryContent] = []
-        if prompt_spec.attachments:
-            base_for_attachments = runtime.config.project_root or Path.cwd()
-            for attachment_path in prompt_spec.attachments:
-                resolved_path = _resolve_attachment_path(
-                    attachment_path, base_for_attachments
-                )
-                attachment_parts.append(_load_attachment(resolved_path))
 
         # model is guaranteed non-None after __post_init__ (select_model raises if missing)
         resolved_model = self.model
@@ -525,7 +508,8 @@ class Worker:
             runtime,
             toolsets=list(runtime.frame.config.active_toolsets),
         )
-        prompt = _build_user_prompt(prompt_spec, attachment_parts)
+        base_path = runtime.config.project_root or Path.cwd()
+        prompt = render_prompt(messages, base_path)
         message_history = (
             list(runtime.frame.messages)
             if _should_use_message_history(runtime) and runtime.frame.messages

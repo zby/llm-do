@@ -7,8 +7,10 @@ without requiring runtime modules to import each other.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
+from pydantic_ai import Agent, BinaryContent, RunContext
 from pydantic_ai.models import Model  # Used in ModelType
 from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
 
@@ -25,11 +27,58 @@ EventCallback: TypeAlias = Callable[[RuntimeEvent], None]
 MessageLogCallback: TypeAlias = Callable[[str, int, list[Any]], None]
 
 
+class AgentRuntimeProtocol(Protocol):
+    """Protocol for the AgentRuntime deps object passed to PydanticAI agents.
+
+    AgentRuntime provides:
+    - Agent registry for delegation via call_agent()
+    - Depth tracking via spawn()
+    - Per-call toolset instantiation via toolsets_for()
+    - Attachment resolution via load_binary()
+    - Backward-compatible frame-based API
+    """
+
+    @property
+    def config(self) -> "RuntimeConfig": ...
+
+    @property
+    def depth(self) -> int: ...
+
+    @property
+    def agents(self) -> dict[str, Agent[Any, Any]]: ...
+
+    def spawn(self) -> "AgentRuntimeProtocol": ...
+
+    async def call_agent(
+        self,
+        name: str,
+        prompt: str | Sequence[Any],
+        *,
+        ctx: RunContext["AgentRuntimeProtocol"],
+    ) -> Any: ...
+
+    def resolve_path(self, path: str) -> Path: ...
+
+    def load_binary(self, path: str) -> BinaryContent: ...
+
+    def toolsets_for(
+        self,
+        agent: Agent[Any, Any],
+        *,
+        agent_name: str | None = None,
+    ) -> Sequence[AbstractToolset[Any]]: ...
+
+    def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None: ...
+
+
 class WorkerRuntimeProtocol(Protocol):
     """Structural type for the runtime object used as PydanticAI deps.
 
     Minimal surface: config (runtime-scoped settings) + frame (call-scoped state).
     Access settings via config.*, call state via frame.prompt/messages and frame.config.*.
+
+    Note: This protocol is maintained for backward compatibility. New code should
+    use AgentRuntimeProtocol which provides the cleaner spawn/call_agent pattern.
     """
 
     @property

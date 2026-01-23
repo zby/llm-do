@@ -2,16 +2,14 @@
 from __future__ import annotations
 
 import inspect
-import mimetypes
 from contextlib import contextmanager, nullcontext
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterable, Callable, Optional, Sequence, Type
 
 from pydantic import BaseModel
-from pydantic_ai import Agent
+from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.messages import (
-    BinaryContent,
     ModelRequest,
     ModelResponse,
     ToolCallPart,
@@ -31,25 +29,34 @@ from ..toolsets.validators import DictValidator
 from .approval import wrap_toolsets_for_approval
 from .args import PromptSpec, WorkerArgs, WorkerInput, ensure_worker_args
 from .call import CallConfig, CallFrame, CallScope
-from .contracts import WorkerRuntimeProtocol
-from .deps import WorkerRuntime
+from .contracts import AgentRuntimeProtocol, WorkerRuntimeProtocol
+from .deps import AgentRuntime
 from .events import ToolCallEvent, ToolResultEvent, UserMessageEvent
 from .shared import RuntimeConfig
 
 if TYPE_CHECKING:
     from .shared import Runtime
 
+# Backward compatibility alias
+WorkerRuntime = AgentRuntime
+
 
 def _resolve_attachment_path(path: str, base_path: Path | None = None) -> Path:
-    """Resolve an attachment path to an absolute, normalized path."""
+    """Resolve an attachment path to an absolute, normalized path.
+
+    This is a backward-compatibility helper. New code should use
+    AttachmentResolver.resolve_path() instead.
+    """
     file_path = Path(path).expanduser()
     if not file_path.is_absolute() and base_path is not None:
         file_path = base_path.expanduser() / file_path
     return file_path.resolve()
 
 
-def _load_attachment(path: Path) -> BinaryContent:
-    """Read attachment data from disk and infer media type."""
+def _load_binary_from_path(path: Path) -> BinaryContent:
+    """Load a file as BinaryContent with inferred media type."""
+    import mimetypes
+
     if not path.exists():
         raise FileNotFoundError(f"Attachment not found: {path}")
 
@@ -73,9 +80,18 @@ def _build_user_prompt(
     return parts
 
 
-def _should_use_message_history(runtime: WorkerRuntimeProtocol) -> bool:
+def _get_runtime_depth(runtime: WorkerRuntimeProtocol | AgentRuntimeProtocol) -> int:
+    """Get depth from runtime, supporting both old and new protocols."""
+    if hasattr(runtime, "frame") and runtime.frame is not None:
+        return runtime.frame.config.depth
+    if hasattr(runtime, "depth"):
+        return runtime.depth
+    return 0
+
+
+def _should_use_message_history(runtime: WorkerRuntimeProtocol | AgentRuntimeProtocol) -> bool:
     """Only use message history for the top-level worker run."""
-    return runtime.frame.config.depth == 0
+    return _get_runtime_depth(runtime) == 0
 
 
 def _get_all_messages(result: Any) -> list[Any]:
@@ -85,17 +101,19 @@ def _get_all_messages(result: Any) -> list[Any]:
 
 def _finalize_messages(
     worker_name: str,
-    runtime: WorkerRuntimeProtocol,
+    runtime: WorkerRuntimeProtocol | AgentRuntimeProtocol,
     result: Any,
     *,
     log_messages: bool = True,
 ) -> list[Any]:
     """Log and sync message history using a single message snapshot."""
     messages = _get_all_messages(result)
+    depth = _get_runtime_depth(runtime)
     if log_messages:
-        runtime.log_messages(worker_name, runtime.frame.config.depth, messages)
+        runtime.log_messages(worker_name, depth, messages)
     if _should_use_message_history(runtime):
-        runtime.frame.messages[:] = messages
+        if hasattr(runtime, "frame") and runtime.frame is not None:
+            runtime.frame.messages[:] = messages
     return messages
 
 
@@ -310,13 +328,17 @@ class EntryFunction:
 
     async def run_turn(
         self,
-        runtime: WorkerRuntimeProtocol,
+        runtime: WorkerRuntimeProtocol | AgentRuntimeProtocol,
         input_data: Any,
     ) -> Any:
         input_args = ensure_worker_args(self.schema_in, input_data)
         prompt_spec = input_args.prompt_spec()
-        runtime.frame.prompt = prompt_spec.text
-        if runtime.config.on_event is not None and runtime.frame.config.depth == 0:
+        depth = _get_runtime_depth(runtime)
+
+        if hasattr(runtime, "frame") and runtime.frame is not None:
+            runtime.frame.prompt = prompt_spec.text
+
+        if runtime.config.on_event is not None and depth == 0:
             runtime.config.on_event(
                 UserMessageEvent(
                     worker=self.name,
@@ -325,7 +347,7 @@ class EntryFunction:
             )
         return await self.call(input_args, runtime)
 
-    async def call(self, input_args: WorkerArgs, runtime: WorkerRuntimeProtocol) -> Any:
+    async def call(self, input_args: WorkerArgs, runtime: WorkerRuntimeProtocol | AgentRuntimeProtocol) -> Any:
         """Execute the wrapped function."""
         result = self.func(input_args, runtime)
         return await result if inspect.isawaitable(result) else result
@@ -440,11 +462,13 @@ class Worker:
         )
 
     def _emit_tool_events(
-        self, messages: list[Any], runtime: WorkerRuntimeProtocol
+        self, messages: list[Any], runtime: WorkerRuntimeProtocol | AgentRuntimeProtocol
     ) -> None:
         """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
         if runtime.config.on_event is None:
             return
+
+        depth = _get_runtime_depth(runtime)
 
         # Collect tool calls and their returns
         tool_calls: dict[str, ToolCallPart] = {}
@@ -467,14 +491,14 @@ class Worker:
                 tool_name=call_part.tool_name,
                 tool_call_id=call_id,
                 args_json=call_part.args_as_json_str(),
-                depth=runtime.frame.config.depth,
+                depth=depth,
             ))
 
             return_part = tool_returns.get(call_id)
             if return_part:
                 runtime.config.on_event(ToolResultEvent(
                     worker=self.name,
-                    depth=runtime.frame.config.depth,
+                    depth=depth,
                     tool_name=call_part.tool_name,
                     tool_call_id=call_id,
                     content=return_part.content,
@@ -497,8 +521,12 @@ class Worker:
         input_args = ensure_worker_args(self.schema_in, input_data)
         prompt_spec = input_args.prompt_spec()
 
-        runtime.frame.prompt = prompt_spec.text
-        if runtime.config.on_event is not None and runtime.frame.config.depth == 0:
+        depth = _get_runtime_depth(runtime)
+
+        if hasattr(runtime, "frame") and runtime.frame is not None:
+            runtime.frame.prompt = prompt_spec.text
+
+        if runtime.config.on_event is not None and depth == 0:
             runtime.config.on_event(
                 UserMessageEvent(
                     worker=self.name,
@@ -506,35 +534,49 @@ class Worker:
                 )
             )
 
+        # Load attachments using runtime's attachment resolver if available
         attachment_parts: list[BinaryContent] = []
         if prompt_spec.attachments:
-            base_for_attachments = runtime.config.project_root or Path.cwd()
-            for attachment_path in prompt_spec.attachments:
-                resolved_path = _resolve_attachment_path(
-                    attachment_path, base_for_attachments
-                )
-                attachment_parts.append(_load_attachment(resolved_path))
+            if hasattr(runtime, "load_binary"):
+                # Use the runtime's attachment resolver (new pattern)
+                for attachment_path in prompt_spec.attachments:
+                    attachment_parts.append(runtime.load_binary(attachment_path))
+            else:
+                # Fallback to direct file loading
+                base_for_attachments = runtime.config.project_root or Path.cwd()
+                for attachment_path in prompt_spec.attachments:
+                    resolved = Path(attachment_path).expanduser()
+                    if not resolved.is_absolute() and base_for_attachments is not None:
+                        resolved = base_for_attachments.expanduser() / resolved
+                    resolved = resolved.resolve()
+                    attachment_parts.append(_load_binary_from_path(resolved))
 
         # model is guaranteed non-None after __post_init__ (select_model raises if missing)
         resolved_model = self.model
         if resolved_model is None:
             raise RuntimeError("Worker model is not set")
 
+        # Get active toolsets from frame if available
+        active_toolsets: list[AbstractToolset[Any]] = []
+        if hasattr(runtime, "frame") and runtime.frame is not None:
+            active_toolsets = list(runtime.frame.config.active_toolsets)
+
         agent = self._build_agent(
             resolved_model,
             runtime,
-            toolsets=list(runtime.frame.config.active_toolsets),
+            toolsets=active_toolsets if active_toolsets else None,
         )
         prompt = _build_user_prompt(prompt_spec, attachment_parts)
-        message_history = (
-            list(runtime.frame.messages)
-            if _should_use_message_history(runtime) and runtime.frame.messages
-            else None
-        )
+
+        # Get message history from frame if available
+        message_history: list[Any] | None = None
+        if hasattr(runtime, "frame") and runtime.frame is not None:
+            if _should_use_message_history(runtime) and runtime.frame.messages:
+                message_history = list(runtime.frame.messages)
 
         use_incremental_log = runtime.config.message_log_callback is not None
         log_context = (
-            _capture_message_log(runtime, worker_name=self.name, depth=runtime.frame.config.depth)
+            _capture_message_log(runtime, worker_name=self.name, depth=depth)
             if use_incremental_log
             else nullcontext()
         )
@@ -566,21 +608,22 @@ class Worker:
         return output
 
     async def _run_with_event_stream(
-        self, agent: Agent[WorkerRuntimeProtocol, Any], prompt: str | Sequence[UserContent],
-        runtime: WorkerRuntimeProtocol, message_history: list[Any] | None, *, log_messages: bool = True
+        self, agent: Agent[Any, Any], prompt: str | Sequence[UserContent],
+        runtime: WorkerRuntimeProtocol | AgentRuntimeProtocol, message_history: list[Any] | None, *, log_messages: bool = True
     ) -> Any:
         """Run agent with event stream handler for UI updates."""
         from pydantic_ai.messages import PartDeltaEvent
 
         from .event_parser import parse_event
         emitted_tool_events = False
+        depth = _get_runtime_depth(runtime)
 
-        async def event_stream_handler(_: RunContext[WorkerRuntimeProtocol], events: AsyncIterable[Any]) -> None:
+        async def event_stream_handler(_: RunContext[Any], events: AsyncIterable[Any]) -> None:
             nonlocal emitted_tool_events
             async for event in events:
                 if runtime.config.verbosity < 2 and isinstance(event, PartDeltaEvent):
                     continue
-                runtime_event = parse_event({"worker": self.name, "event": event, "depth": runtime.frame.config.depth})
+                runtime_event = parse_event({"worker": self.name, "event": event, "depth": depth})
                 if isinstance(runtime_event, (ToolCallEvent, ToolResultEvent)):
                     emitted_tool_events = True
                 if runtime.config.on_event is not None:

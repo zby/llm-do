@@ -15,8 +15,11 @@ from .approval import (
 )
 from .args import PromptSpec, WorkerArgs, WorkerInput
 from .call import CallScope
-from .contracts import Entry, EventCallback, ModelType
-from .deps import WorkerRuntime
+from .contracts import AgentRuntimeProtocol, Entry, EventCallback, ModelType
+from .deps import AgentRuntime, AttachmentResolver, ToolsetResolver
+
+# Backward compatibility alias
+WorkerRuntime = AgentRuntime
 from .discovery import (
     discover_entries_from_module,
     discover_toolsets_from_module,
@@ -52,7 +55,11 @@ from .worker_file import (
 __all__ = [
     # Runtime
     "Runtime",
-    "WorkerRuntime",
+    "AgentRuntime",
+    "WorkerRuntime",  # Backward compatibility alias for AgentRuntime
+    "AgentRuntimeProtocol",
+    "AttachmentResolver",
+    "ToolsetResolver",
     "CallScope",
     "Entry",
     "ModelType",

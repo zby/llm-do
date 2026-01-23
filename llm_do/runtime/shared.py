@@ -13,7 +13,7 @@ from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_call
 from .contracts import Entry, EventCallback, MessageLogCallback
 
 if TYPE_CHECKING:
-    from .deps import WorkerRuntime
+    from .deps import AgentRuntime, AgentRuntime as WorkerRuntime
 
 
 class UsageCollector:
@@ -166,12 +166,12 @@ class Runtime:
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
-    ) -> tuple[Any, WorkerRuntime]:
+    ) -> tuple[Any, "AgentRuntime"]:
         """Run an invocable with this runtime.
 
         Entry implementations handle per-turn prompt handling inside run_turn.
         """
-        from .deps import WorkerRuntime
+        from .deps import AgentRuntime
         try:
             scope = invocable.start(self, message_history=message_history)
         except AttributeError as exc:
@@ -179,7 +179,7 @@ class Runtime:
 
         async with scope:
             result = await scope.run_turn(input_data)
-        return result, cast(WorkerRuntime, scope.runtime)
+        return result, cast(AgentRuntime, scope.runtime)
 
     def run(
         self,
@@ -187,7 +187,7 @@ class Runtime:
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
-    ) -> tuple[Any, "WorkerRuntime"]:
+    ) -> tuple[Any, "AgentRuntime"]:
         """Run an invocable synchronously using asyncio.run()."""
         try:
             asyncio.get_running_loop()

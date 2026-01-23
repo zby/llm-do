@@ -11,8 +11,6 @@ Note: This requires a model that supports server-side web search
 
 import asyncio
 
-from llm_do.runtime import WorkerInput
-
 from .conftest import run_example, skip_no_anthropic
 
 
@@ -26,7 +24,7 @@ def test_web_searcher_current_events(web_searcher_example, approve_all_callback)
     result = asyncio.run(
         run_example(
             web_searcher_example,
-            WorkerInput(input="What is the current weather in New York City?"),
+            "What is the current weather in New York City?",
             model="anthropic:claude-haiku-4-5",
             approval_callback=approve_all_callback,
         )
@@ -43,7 +41,7 @@ def test_web_searcher_tech_news(web_searcher_example, approve_all_callback):
     result = asyncio.run(
         run_example(
             web_searcher_example,
-            WorkerInput(input="What are the latest developments in AI?"),
+            "What are the latest developments in AI?",
             model="anthropic:claude-haiku-4-5",
             approval_callback=approve_all_callback,
         )

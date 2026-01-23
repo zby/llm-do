@@ -14,7 +14,6 @@ import asyncio
 
 import pytest
 
-from llm_do.runtime import WorkerInput
 from llm_do.runtime.events import ToolCallEvent, ToolResultEvent
 
 from .conftest import run_example, skip_no_llm
@@ -30,7 +29,7 @@ def test_calculator_multiple_operations(calculator_example, default_model, appro
     result = asyncio.run(
         run_example(
             calculator_example,
-            WorkerInput(input="Calculate the 50th Fibonacci number and 18 factorial"),
+            "Calculate the 50th Fibonacci number and 18 factorial",
             model=default_model,
             approval_callback=approve_all_callback,
         )
@@ -64,7 +63,7 @@ async def test_calculator_verbosity_2(calculator_example, default_model):
 
     result = await run_example(
         calculator_example,
-        WorkerInput(input="what is 15 * 7?"),
+        "what is 15 * 7?",
         model=default_model,
         on_event=on_event,
         verbosity=2,  # This is the key - must work with streaming verbosity

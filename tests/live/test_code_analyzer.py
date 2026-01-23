@@ -9,8 +9,6 @@ Run:
 import asyncio
 from pathlib import Path
 
-from llm_do.runtime import WorkerInput
-
 from .conftest import run_example, skip_no_llm
 
 
@@ -25,7 +23,7 @@ def test_code_analyzer_count_files(code_analyzer_example, default_model, approve
     result = asyncio.run(
         run_example(
             code_analyzer_example,
-            WorkerInput(input="How many Python files are there?"),
+            "How many Python files are there?",
             model=default_model,
             approval_callback=approve_all_callback,
         )
@@ -45,7 +43,7 @@ def test_code_analyzer_find_pattern(code_analyzer_example, default_model, approv
     result = asyncio.run(
         run_example(
             code_analyzer_example,
-            WorkerInput(input="Find all TODO comments"),
+            "Find all TODO comments",
             model=default_model,
             approval_callback=approve_all_callback,
         )
@@ -65,7 +63,7 @@ def test_code_analyzer_line_count(code_analyzer_example, default_model, approve_
     result = asyncio.run(
         run_example(
             code_analyzer_example,
-            WorkerInput(input="Count the lines in lines_test.py"),
+            "Count the lines in lines_test.py",
             model=default_model,
             approval_callback=approve_all_callback,
         )

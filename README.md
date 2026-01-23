@@ -203,7 +203,7 @@ If you're orchestrating from Python, link a single entry from files and run it:
 import asyncio
 from pathlib import Path
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput, build_entry
+from llm_do.runtime import RunApprovalPolicy, Runtime, build_entry
 
 project_root = Path(".").resolve()
 entry = build_entry(["main.worker"], ["tools.py"], project_root=project_root)
@@ -215,7 +215,7 @@ runtime = Runtime(
 async def main() -> None:
     result, _ctx = await runtime.run_entry(
         entry,
-        WorkerInput(input="Analyze this data"),
+        "Analyze this data",
     )
     print(result)
 

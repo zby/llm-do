@@ -20,24 +20,30 @@ Supported forms:
 - `module.Class`
 - `path.py:Class` (relative to the worker file)
 
-Schemas must subclass `WorkerArgs` and implement `prompt_spec()`. If omitted, workers use the default `WorkerInput` schema:
+Schemas must subclass `WorkerArgs` and implement `prompt_spec()`. Input can be passed in several forms:
 
 ```python
-from pydantic import Field
+# Simple string
+runtime.call("worker", "text")
 
+# With attachments
+runtime.call("worker", {"input": "text", "attachments": ["file.pdf"]})
+```
+
+For custom schemas, subclass `WorkerArgs`:
+
+```python
 from llm_do.runtime import PromptSpec, WorkerArgs
 
-class WorkerInput(WorkerArgs):
+class PitchInput(WorkerArgs):
     input: str
-    attachments: list[str] = Field(default_factory=list)
+    company_name: str
 
     def prompt_spec(self) -> PromptSpec:
-        return PromptSpec(text=self.input, attachments=tuple(self.attachments))
+        return PromptSpec(text=f"Evaluate {self.company_name}: {self.input}")
 ```
 
 This schema shapes tool-call arguments and validates inputs before the worker runs.
-Attachments are still a list of file paths; you can express stricter constraints
-via a custom schema if needed.
 
 ## Entry Selection
 
@@ -63,7 +69,6 @@ from pathlib import Path
 from llm_do.runtime import (
     Runtime,
     RunApprovalPolicy,
-    WorkerInput,
     build_entry,
 )
 
@@ -77,7 +82,7 @@ async def main():
 
     result, ctx = await runtime.run_entry(
         entry,
-        input_data=WorkerInput(input="Analyze this data"),
+        input_data="Analyze this data",
     )
 
     print(result)
@@ -113,7 +118,7 @@ For chat-style flows, start a worker call scope and run multiple turns inside it
 ```python
 from pathlib import Path
 
-from llm_do.runtime import Runtime, Worker, WorkerInput, build_entry
+from llm_do.runtime import Runtime, Worker, build_entry
 
 async def main():
     project_root = Path(".").resolve()
@@ -122,8 +127,8 @@ async def main():
 
     assert isinstance(entry, Worker)
     async with entry.start(runtime) as scope:
-        await scope.run_turn(WorkerInput(input="turn 1"))
-        await scope.run_turn(WorkerInput(input="turn 2"))
+        await scope.run_turn("turn 1")
+        await scope.run_turn("turn 2")
 ```
 
 `CallScope` owns the toolsets and the `CallFrame` for that entry call. Message
@@ -140,7 +145,7 @@ To access the runtime, accept `RunContext[WorkerRuntime]` as the first parameter
 ```python
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec, WorkerInput, WorkerRuntime
+from llm_do.runtime import ToolsetSpec, WorkerRuntime
 
 def build_tools(_ctx):
     tools = FunctionToolset()
@@ -148,7 +153,7 @@ def build_tools(_ctx):
     @tools.tool
     async def my_tool(ctx: RunContext[WorkerRuntime], data: str) -> str:
         """Tool that can call workers."""
-        result = await ctx.deps.call("worker_name", WorkerInput(input=data))
+        result = await ctx.deps.call("worker_name", data)
         return result
 
     return tools
@@ -166,7 +171,7 @@ Use `ctx.deps.call(name, input_data)` to invoke any worker or tool by name:
 @tools.tool
 async def orchestrate(ctx: RunContext[WorkerRuntime], task: str) -> str:
     # Call an LLM worker
-    analysis = await ctx.deps.call("analyzer", WorkerInput(input=task))
+    analysis = await ctx.deps.call("analyzer", task)
 
     # Call another Python tool
     formatted = await ctx.deps.call("formatter", {"text": analysis})
@@ -177,7 +182,7 @@ async def orchestrate(ctx: RunContext[WorkerRuntime], task: str) -> str:
 `RunContext.prompt` is derived from `WorkerArgs.prompt_spec().text` for logging/UI
 only; tools should rely on their typed args and use `ctx.deps` only for delegation.
 
-The `input_data` argument is typically a `WorkerArgs` instance (or dict) with an `"input"` key, but the exact schema depends on the target worker/tool.
+The `input_data` argument can be a string, list (with `Attachment`s), or dict.
 
 **Alternative: Attribute-Style Calls:**
 
@@ -185,7 +190,7 @@ For convenience, you can use attribute-style syntax via `ctx.deps.tools`:
 
 ```python
 # These are equivalent:
-result = await ctx.deps.call("analyzer", WorkerInput(input=data))
+result = await ctx.deps.call("analyzer", data)
 result = await ctx.deps.tools.analyzer(input=data)
 ```
 
@@ -207,7 +212,7 @@ A common pattern is using a Python function as the entry point for deterministic
 **Using @entry decorator (recommended):**
 
 ```python
-from llm_do.runtime import WorkerArgs, WorkerRuntime, WorkerInput, entry
+from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
 
 @entry(name="main", toolsets=["filesystem_project", "evaluator"])
 async def process_files(args: WorkerArgs, runtime: WorkerRuntime) -> str:
@@ -219,7 +224,7 @@ async def process_files(args: WorkerArgs, runtime: WorkerRuntime) -> str:
         # LLM worker handles reasoning
         report = await runtime.call(
             "evaluator",
-            WorkerInput(input="Analyze this file.", attachments=[str(f)])
+            {"input": "Analyze this file.", "attachments": [str(f)]}
         )
         Path(f"output/{f.stem}.md").write_text(report)  # deterministic
         results.append(f.stem)
@@ -233,7 +238,7 @@ Run with a manifest that includes `tools.py` and `evaluator.worker`, e.g.
 The `@entry` decorator:
 - Marks a function as an entry point with a name and toolset references
 - Toolsets can be names (resolved during registry linking) or ToolsetSpec factories
-- `schema_in` can specify a `WorkerArgs` subclass for input normalization (defaults to `WorkerInput`)
+- `schema_in` can specify a `WorkerArgs` subclass for input normalization
 - The function receives `(args, runtime)`:
   - `args`: `WorkerArgs` instance (normalized input with `prompt_spec()`)
   - `runtime`: `WorkerRuntime` for calling tools via `runtime.call()`

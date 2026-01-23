@@ -25,7 +25,7 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
-from llm_do.runtime import Attachment, WorkerArgs, WorkerRuntime, entry
+from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
 
 # Project root is the directory containing this file
 PROJECT_ROOT = Path(__file__).parent.resolve()
@@ -81,7 +81,7 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     for deck in decks:
         report = await runtime.call(
             "pitch_evaluator",
-            ["Evaluate this pitch deck.", Attachment(deck["file"])],
+            {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]},
         )
 
         # Write result (deterministic)

@@ -14,7 +14,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput
+from llm_do.runtime import RunApprovalPolicy, Runtime
 
 from .conftest import (
     build_direct_entry_for_worker,
@@ -48,7 +48,7 @@ def test_web_research_orchestrator_full_workflow(
     result = asyncio.run(
         run_example(
             web_research_agent_example,
-            WorkerInput(input="Python 3.13 new features"),
+            "Python 3.13 new features",
             model=get_default_model(),
             approval_callback=approve_all_callback,
         )
@@ -125,7 +125,7 @@ def test_web_research_consolidator(
     result = asyncio.run(
         runtime.run_entry(
             entry,
-            WorkerInput(input=json.dumps(mock_insights)),
+            json.dumps(mock_insights),
         )
     )
 

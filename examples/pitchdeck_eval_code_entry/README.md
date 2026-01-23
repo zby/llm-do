@@ -45,7 +45,7 @@ The `main` entry in `tools.py` uses `@entry` and receives `WorkerArgs` and
 `WorkerRuntime`, so it can call workers/tools by name:
 
 ```python
-from llm_do.runtime import WorkerArgs, WorkerInput, WorkerRuntime, entry
+from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
 
 @entry(name="main", toolsets=["pitch_evaluator"])
 async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
@@ -56,10 +56,7 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
         # Call LLM worker for analysis via runtime.call()
         report = await runtime.call(
             "pitch_evaluator",
-            WorkerInput(
-                input="Evaluate this pitch deck.",
-                attachments=[deck["file"]],
-            ),
+            {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]},
         )
 
         # Write result (deterministic)

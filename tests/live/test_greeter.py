@@ -9,8 +9,6 @@ Run:
 
 import asyncio
 
-from llm_do.runtime import WorkerInput
-
 from .conftest import run_example, skip_no_llm
 
 
@@ -20,7 +18,7 @@ def test_greeter_responds_to_message(greeter_example, default_model, approve_all
     result = asyncio.run(
         run_example(
             greeter_example,
-            WorkerInput(input="Hello, how are you?"),
+            "Hello, how are you?",
             model=default_model,
             approval_callback=approve_all_callback,
         )
@@ -38,7 +36,7 @@ def test_greeter_tells_joke(greeter_example, default_model, approve_all_callback
     result = asyncio.run(
         run_example(
             greeter_example,
-            WorkerInput(input="Tell me a joke"),
+            "Tell me a joke",
             model=default_model,
             approval_callback=approve_all_callback,
         )

@@ -22,7 +22,7 @@ Instructions for the worker...
 ```
 
 Workers can call other workers as tools, forming a call tree. Each worker declares its own toolsets - they're not inherited.
-Workers can also declare a typed input schema via `schema_in_ref`; schemas must subclass `WorkerArgs` and implement `prompt_spec()`. If omitted, the default schema is `WorkerInput`.
+Workers can also declare a typed input schema via `schema_in_ref`; schemas must subclass `WorkerArgs` and implement `prompt_spec()`. Input can be a string, list (with `Attachment`s), or dict.
 
 ---
 
@@ -92,7 +92,7 @@ Key points:
 - Child workers get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
-- EntryFunction inputs are normalized to `WorkerArgs` (via `schema_in`, default `WorkerInput`)
+- EntryFunction inputs are normalized to `WorkerArgs` (via `schema_in`)
 - EntryFunction tool calls are trusted but still go through approval wrappers per run policy
 
 ---

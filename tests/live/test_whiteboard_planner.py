@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput
+from llm_do.runtime import RunApprovalPolicy, Runtime
 
 from .conftest import build_direct_entry_for_worker, run_example, skip_no_anthropic
 
@@ -50,7 +50,7 @@ def test_whiteboard_orchestrator_processes_images(
     result = asyncio.run(
         run_example(
             whiteboard_planner_example,
-            WorkerInput(input=""),
+            "",
             model="anthropic:claude-haiku-4-5",
             approval_callback=approve_all_callback,
         )
@@ -101,10 +101,7 @@ def test_whiteboard_planner_directly(
     result = asyncio.run(
         runtime.run_entry(
             entry,
-            WorkerInput(
-                input="Analyze this whiteboard and create a plan.",
-                attachments=[str(image_path)],
-            ),
+            {"input": "Analyze this whiteboard and create a plan.", "attachments": [str(image_path)]},
         )
     )
 

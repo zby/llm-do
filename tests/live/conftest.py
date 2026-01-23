@@ -160,14 +160,29 @@ def build_direct_entry_for_worker(
     worker_def = load_worker_file(worker_path)
     toolset_name = worker_def.name
     entry_path = tmp_path / f"direct_entry_{toolset_name}.py"
+    # Generate entry that converts message list back to dict for runtime.call()
     entry_path.write_text(
         "\n".join(
             [
-                "from llm_do.runtime import WorkerInput, WorkerRuntime, entry",
+                "from llm_do.runtime import Attachment, WorkerRuntime, entry",
                 "",
-                f"@entry(toolsets=[\"{toolset_name}\"], schema_in=WorkerInput)",
-                "async def main(args: WorkerInput, runtime: WorkerRuntime) -> str:",
-                f"    return await runtime.call(\"{toolset_name}\", args)",
+                f"@entry(toolsets=[\"{toolset_name}\"])",
+                "async def main(args, runtime: WorkerRuntime) -> str:",
+                "    # Convert message list to dict format for runtime.call()",
+                "    if isinstance(args, list):",
+                "        text_parts = []",
+                "        attachments = []",
+                "        for item in args:",
+                "            if isinstance(item, str):",
+                "                text_parts.append(item)",
+                "            elif isinstance(item, Attachment):",
+                "                attachments.append(str(item.path))",
+                "        call_args = {'input': ' '.join(text_parts)}",
+                "        if attachments:",
+                "            call_args['attachments'] = attachments",
+                "    else:",
+                "        call_args = args",
+                f"    return await runtime.call(\"{toolset_name}\", call_args)",
                 "",
             ]
         ),

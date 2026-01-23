@@ -124,7 +124,7 @@ print(outcome.result)
 Entry workers can be invoked directly without a decorator (step 3):
 
 ```python
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker, WorkerInput
+from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
 from llm_do.toolsets.builtins import build_builtin_toolsets
 from llm_do.toolsets.loader import ToolsetBuildContext, resolve_toolset_specs
 
@@ -152,7 +152,7 @@ runtime = Runtime(
     project_root=Path("."),
     run_approval_policy=policy,
 )
-result, _ctx = await runtime.run_entry(main_worker, WorkerInput(input=""))
+result, _ctx = await runtime.run_entry(main_worker, "")
 print(result)
 ```
 

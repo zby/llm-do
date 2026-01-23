@@ -87,7 +87,7 @@ def test_model():
     Example:
         def test_worker_with_tools(test_model):
             worker = Worker(name="my_worker", instructions="...", model=test_model)
-            result, _ctx = asyncio.run(Runtime().run_entry(worker, WorkerInput(input="...")))
+            result, _ctx = asyncio.run(Runtime().run_entry(worker, "..."))
             # Verifies tools are registered and output schema works
 
     See tests/README.md for when to use TestModel vs custom agent_runner.

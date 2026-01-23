@@ -21,7 +21,6 @@ except ImportError:
 from llm_do.runtime import (
     Worker,
     WorkerArgs,
-    WorkerInput,
     WorkerRuntime,
     entry,
 )
@@ -125,10 +124,7 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     for deck in decks:
         report = await runtime.call(
             "pitch_evaluator",
-            WorkerInput(
-                input="Evaluate this pitch deck.",
-                attachments=[deck["file"]],
-            ),
+            {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]},
         )
 
         # Write result (deterministic)

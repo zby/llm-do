@@ -68,7 +68,7 @@ def test_worker_executes_with_tools(test_model):
     runtime = Runtime()
     result, _ctx = asyncio.run(runtime.run_entry(
         worker,
-        WorkerInput(input="process this"),
+        "process this",
     ))
     # Verifies:
     # - Worker definition loaded
@@ -85,7 +85,7 @@ The `test_model` fixture is available in all tests via `tests/conftest.py`:
 def test_something(test_model):
     # test_model is a TestModel(seed=42)
     worker = Worker(name="my_worker", instructions="...", model=test_model)
-    result, _ctx = asyncio.run(Runtime().run_entry(worker, WorkerInput(input="...")))
+    result, _ctx = asyncio.run(Runtime().run_entry(worker, "..."))
 ```
 
 ## Using Custom agent_runner
@@ -312,7 +312,7 @@ def test_worker(monkeypatch):
 # GOOD: Fast, free, deterministic
 def test_worker(test_model):
     worker = Worker(name="my_worker", instructions="...", model=test_model)
-    result, _ctx = asyncio.run(Runtime().run_entry(worker, WorkerInput(input="...")))
+    result, _ctx = asyncio.run(Runtime().run_entry(worker, "..."))
 ```
 
 ❌ **Don't create premature abstractions**

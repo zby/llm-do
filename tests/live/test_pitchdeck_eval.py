@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, WorkerInput
+from llm_do.runtime import RunApprovalPolicy, Runtime
 
 from .conftest import build_direct_entry_for_worker, run_example, skip_no_anthropic
 
@@ -47,7 +47,7 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
     result = asyncio.run(
         run_example(
             pitchdeck_eval_example,
-            WorkerInput(input="Process the pitch decks in input/ and write evaluations."),
+            "Process the pitch decks in input/ and write evaluations.",
             model="anthropic:claude-haiku-4-5",
             approval_callback=approve_all_callback,
         )
@@ -92,10 +92,7 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, 
     result = asyncio.run(
         runtime.run_entry(
             entry,
-            WorkerInput(
-                input="Evaluate this pitch deck.",
-                attachments=[str(pdf_path)],
-            ),
+            {"input": "Evaluate this pitch deck.", "attachments": [str(pdf_path)]},
         )
     )
 

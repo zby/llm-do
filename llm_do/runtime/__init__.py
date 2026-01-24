@@ -16,15 +16,22 @@ from .approval import (
 from .args import Attachment, PromptContent, PromptMessages, WorkerArgs
 from .call import CallScope
 from .contracts import Entry, EventCallback, ModelType
-from .deps import WorkerRuntime
+from .deps import CallRuntime
 from .discovery import (
+    discover_agents_from_module,
     discover_entries_from_module,
     discover_toolsets_from_module,
-    discover_workers_from_module,
+    load_agents_from_files,
     load_all_from_files,
     load_module,
     load_toolsets_from_files,
-    load_workers_from_files,
+)
+from .entries import (
+    AgentEntry,
+    EntryFunction,
+    EntryToolset,
+    ToolsetRef,
+    entry,
 )
 from .manifest import (
     EntryConfig,
@@ -35,13 +42,6 @@ from .manifest import (
 )
 from .registry import EntryRegistry, build_entry
 from .shared import Runtime
-from .worker import (
-    EntryFunction,
-    ToolsetRef,
-    Worker,
-    WorkerToolset,
-    entry,
-)
 from .worker_file import (
     WorkerDefinition,
     WorkerFileParser,
@@ -52,7 +52,7 @@ from .worker_file import (
 __all__ = [
     # Runtime
     "Runtime",
-    "WorkerRuntime",
+    "CallRuntime",
     "CallScope",
     "Entry",
     "ModelType",
@@ -68,8 +68,8 @@ __all__ = [
     "PromptMessages",
     "WorkerArgs",
     # Entries
-    "Worker",
-    "WorkerToolset",
+    "AgentEntry",
+    "EntryToolset",
     "EntryFunction",
     "entry",  # @entry decorator
     "ToolsetRef",
@@ -81,10 +81,10 @@ __all__ = [
     # Discovery
     "load_module",
     "discover_toolsets_from_module",
-    "discover_workers_from_module",
+    "discover_agents_from_module",
     "discover_entries_from_module",
     "load_toolsets_from_files",
-    "load_workers_from_files",
+    "load_agents_from_files",
     "load_all_from_files",
     # Manifest
     "ProjectManifest",

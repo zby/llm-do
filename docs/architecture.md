@@ -50,12 +50,12 @@ This separation means:
 - **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
 - **Per-call, no inheritance**: Message history, active toolsets, per-tool approval rules
 
-Note: `Worker.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what a worker is allowed to use. `CallFrame.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
+Note: `Entry` toolset references (declared on `EntryFunction` or `AgentEntry`) are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what an entry is allowed to use. `CallFrame.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
 - `llm_do/runtime/call.py`: `CallConfig`, `CallFrame`, `CallScope`
-- `llm_do/runtime/deps.py`: `WorkerRuntime`, `ToolsProxy`
+- `llm_do/runtime/deps.py`: `CallRuntime`
 - `llm_do/runtime/toolsets.py`: toolset lifecycle helpers
 
 ---
@@ -127,7 +127,7 @@ decides to invoke tools; the tool plane remains consistent.
 │  │ @entry func   │────▶│ ApprovalToolset│──▶ tool  │
 │  └───────────────┘     └───────────────┘           │
 │  ┌───────────────┐     ┌───────────────┐           │
-│  │ Worker.call() │────▶│ ApprovalToolset│──▶ tool  │
+│  │ Entry.run_turn() │──▶│ ApprovalToolset│──▶ tool │
 │  └───────────────┘     └───────────────┘           │
 └─────────────────────────────────────────────────────┘
 ```

@@ -25,7 +25,7 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
     This is the main integration test for the pitchdeck_eval example.
     It tests:
     - File listing (finding PDFs in input/)
-    - Worker delegation (calling pitch_evaluator)
+    - AgentEntry delegation (calling pitch_evaluator)
     - Attachment passing (PDF files)
     - Vision/PDF reading capabilities
     - File writing (saving reports)

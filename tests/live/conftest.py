@@ -163,11 +163,11 @@ def build_direct_entry_for_worker(
     entry_path.write_text(
         "\n".join(
             [
-                "from llm_do.runtime import WorkerRuntime, entry",
+                "from llm_do.runtime import CallScope, entry",
                 "",
                 f"@entry(toolsets=[\"{toolset_name}\"])",
-                "async def main(args, runtime: WorkerRuntime) -> str:",
-                f"    return await runtime.call(\"{toolset_name}\", args)",
+                "async def main(args, scope: CallScope) -> str:",
+                f"    return await scope.call_tool(\"{toolset_name}\", args)",
                 "",
             ]
         ),

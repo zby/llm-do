@@ -5,15 +5,16 @@ import asyncio
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from typing import TYPE_CHECKING, Any, Mapping, Sequence, cast
 
 from pydantic_ai.usage import RunUsage
 
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
-from .contracts import Entry, EventCallback, MessageLogCallback
+from .call import CallFrame
+from .contracts import Entry, EventCallback, MessageLogCallback, ModelType
 
 if TYPE_CHECKING:
-    from .deps import WorkerRuntime
+    from .deps import CallRuntime
 
 
 class UsageCollector:
@@ -127,8 +128,7 @@ class Runtime:
             message_log_callback=message_log_callback,
             verbosity=verbosity,
         )
-        self._usage = UsageCollector()
-        self._message_log = MessageAccumulator()
+        self._state = RunState()
 
     @property
     def config(self) -> RuntimeConfig:
@@ -144,21 +144,53 @@ class Runtime:
 
     @property
     def usage(self) -> list[RunUsage]:
-        return self._usage.all()
+        return self._state.usage.all()
 
     @property
     def message_log(self) -> list[tuple[str, int, Any]]:
-        return self._message_log.all()
+        return self._state.message_log.all()
 
     def _create_usage(self) -> RunUsage:
         """Create a new RunUsage and add it to the shared usage sink."""
-        return self._usage.create()
+        return self._state.usage.create()
 
     def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
         """Record messages for diagnostic logging."""
-        self._message_log.extend(worker_name, depth, messages)
+        self._state.message_log.extend(worker_name, depth, messages)
         if self._config.message_log_callback is not None:
             self._config.message_log_callback(worker_name, depth, messages)
+
+    def spawn_call_runtime(
+        self,
+        *,
+        active_toolsets: Sequence[Any],
+        model: ModelType,
+        invocation_name: str,
+        message_history: list[Any] | None = None,
+        parent: CallFrame | None = None,
+    ) -> "CallRuntime":
+        """Create a CallRuntime for an entry call."""
+        from .call import CallConfig
+        from .deps import CallRuntime
+
+        if parent is None:
+            call_config = CallConfig.build(
+                active_toolsets,
+                model=model,
+                depth=0,
+                invocation_name=invocation_name,
+            )
+        else:
+            call_config = parent.config.fork(
+                active_toolsets,
+                model=model,
+                invocation_name=invocation_name,
+            )
+        frame = CallFrame(
+            config=call_config,
+            messages=list(message_history) if message_history else [],
+        )
+        return CallRuntime(runtime=self, frame=frame)
 
     async def run_entry(
         self,
@@ -166,12 +198,12 @@ class Runtime:
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
-    ) -> tuple[Any, WorkerRuntime]:
+    ) -> tuple[Any, CallRuntime]:
         """Run an invocable with this runtime.
 
         Entry implementations handle per-turn prompt handling inside run_turn.
         """
-        from .deps import WorkerRuntime
+        from .deps import CallRuntime
         try:
             scope = invocable.start(self, message_history=message_history)
         except AttributeError as exc:
@@ -179,7 +211,7 @@ class Runtime:
 
         async with scope:
             result = await scope.run_turn(input_data)
-        return result, cast(WorkerRuntime, scope.runtime)
+        return result, cast(CallRuntime, scope.runtime)
 
     def run(
         self,
@@ -187,7 +219,7 @@ class Runtime:
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
-    ) -> tuple[Any, "WorkerRuntime"]:
+    ) -> tuple[Any, "CallRuntime"]:
         """Run an invocable synchronously using asyncio.run()."""
         try:
             asyncio.get_running_loop()
@@ -206,3 +238,9 @@ class Runtime:
                 message_history=message_history,
             )
         )
+@dataclass(slots=True)
+class RunState:
+    """Run-scoped sinks for usage and message logs."""
+
+    usage: UsageCollector = field(default_factory=UsageCollector)
+    message_log: MessageAccumulator = field(default_factory=MessageAccumulator)

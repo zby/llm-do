@@ -7,7 +7,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec, Worker, entry
+from llm_do.runtime import AgentEntry, ToolsetSpec, entry
 from llm_do.runtime.events import (
     RuntimeEvent,
     TextResponseEvent,
@@ -15,11 +15,15 @@ from llm_do.runtime.events import (
     ToolResultEvent,
     UserMessageEvent,
 )
-from tests.runtime.helpers import build_runtime_context, run_entry_test
+from tests.runtime.helpers import (
+    build_call_scope,
+    build_runtime_context,
+    run_entry_test,
+)
 
 
 class TestContextEventCallback:
-    """Tests for WorkerRuntime event callback wiring."""
+    """Tests for CallRuntime event callback wiring."""
 
     def test_child_context_inherits_on_event(self):
         """Test that child contexts inherit on_event callback."""
@@ -52,7 +56,7 @@ class TestContextEventCallback:
 
     @pytest.mark.anyio
     async def test_context_call_emits_events(self):
-        """Test that ctx.call() emits ToolCallEvent and ToolResultEvent."""
+        """Test that scope.call_tool() emits ToolCallEvent and ToolResultEvent."""
         events: list[RuntimeEvent] = []
 
         # Create a toolset with a simple tool
@@ -63,13 +67,13 @@ class TestContextEventCallback:
             """Greet someone."""
             return f"Hello, {name}!"
 
-        ctx = build_runtime_context(
+        scope = build_call_scope(
             toolsets=[toolset],
             model="test",
             on_event=lambda e: events.append(e),
         )
 
-        result = await ctx.call("greet", {"name": "World"})
+        result = await scope.call_tool("greet", {"name": "World"})
         assert result == "Hello, World!"
 
         # Should have ToolCallEvent and ToolResultEvent
@@ -92,12 +96,12 @@ class TestContextEventCallback:
         assert result_event.content == "Hello, World!"
 
 
-class TestWorkerToolEvents:
-    """Tests for ToolCallEvent/ToolResultEvent emission from Worker."""
+class TestAgentEntryToolEvents:
+    """Tests for ToolCallEvent/ToolResultEvent emission from AgentEntry."""
 
     @pytest.mark.anyio
     async def test_worker_emits_tool_call_event(self):
-        """Test that Worker emits ToolCallEvent when tools are called."""
+        """Test that AgentEntry emits ToolCallEvent when tools are called."""
         events: list[RuntimeEvent] = []
 
         def build_toolset(_ctx):
@@ -113,7 +117,7 @@ class TestWorkerToolEvents:
         toolset_spec = ToolsetSpec(factory=build_toolset)
 
         # Create worker with the toolset
-        worker = Worker(
+        worker = AgentEntry(
             name="calculator",
             instructions="You are a calculator. Use add tool.",
             model=TestModel(call_tools=["add"]),
@@ -146,7 +150,7 @@ class TestWorkerToolEvents:
 
     @pytest.mark.anyio
     async def test_worker_emits_events_for_multiple_tool_calls(self):
-        """Test that Worker emits events for multiple tool calls."""
+        """Test that AgentEntry emits events for multiple tool calls."""
         events: list[RuntimeEvent] = []
 
         def build_toolset(_ctx):
@@ -166,7 +170,7 @@ class TestWorkerToolEvents:
 
         toolset_spec = ToolsetSpec(factory=build_toolset)
 
-        worker = Worker(
+        worker = AgentEntry(
             name="calculator",
             instructions="You are a calculator.",
             model=TestModel(call_tools=["add", "multiply"]),
@@ -207,7 +211,7 @@ class TestWorkerToolEvents:
 
         toolset_spec = ToolsetSpec(factory=build_toolset)
 
-        worker = Worker(
+        worker = AgentEntry(
             name="greeter",
             instructions="Greet the user.",
             model=TestModel(call_tools=["greet"]),
@@ -247,7 +251,7 @@ class TestWorkerToolEvents:
 
         toolset_spec = ToolsetSpec(factory=build_toolset)
 
-        worker = Worker(
+        worker = AgentEntry(
             name="echo",
             instructions="Echo the input.",
             model=TestModel(call_tools=["echo"]),
@@ -260,7 +264,7 @@ class TestWorkerToolEvents:
         assert result is not None
 
 
-class TestWorkerStreamingEvents:
+class TestAgentEntryStreamingEvents:
     """Tests for TextResponseEvent emission during streaming."""
 
     @pytest.mark.anyio
@@ -268,7 +272,7 @@ class TestWorkerStreamingEvents:
         """Test that streaming mode emits TextResponseEvent deltas."""
         events: list[RuntimeEvent] = []
 
-        worker = Worker(
+        worker = AgentEntry(
             name="assistant",
             instructions="Respond to the user.",
             model=TestModel(custom_output_text="Hello there!"),
@@ -299,7 +303,7 @@ class TestWorkerStreamingEvents:
         """Test that verbosity < 2 doesn't stream (still emits tool events)."""
         events: list[RuntimeEvent] = []
 
-        worker = Worker(
+        worker = AgentEntry(
             name="assistant",
             instructions="Respond to the user.",
             model=TestModel(custom_output_text="Hello!"),
@@ -326,7 +330,7 @@ class TestUserMessageEvents:
         attachment_path = tmp_path / "note.txt"
         attachment_path.write_text("data")
 
-        worker = Worker(
+        worker = AgentEntry(
             name="assistant",
             instructions="Respond to the user.",
             model=TestModel(custom_output_text="ok"),
@@ -354,7 +358,7 @@ class TestCLIEventIntegration:
 
         events: list[RuntimeEvent] = []
 
-        worker = Worker(
+        worker = AgentEntry(
             name="main",
             instructions="Test worker",
             model=TestModel(custom_output_text="Hello!"),
@@ -391,7 +395,7 @@ class TestCLIEventIntegration:
 
         toolset_spec = ToolsetSpec(factory=build_toolset)
 
-        worker = Worker(
+        worker = AgentEntry(
             name="main",
             instructions="Test worker",
             model=TestModel(
@@ -439,8 +443,8 @@ class TestEntryToolEvents:
         toolset_spec = ToolsetSpec(factory=build_toolset)
 
         @entry(name="orchestrator", toolsets=[toolset_spec])
-        async def orchestrate(args, runtime_ctx) -> str:
-            return await runtime_ctx.call("greet", {"name": "World"})
+        async def orchestrate(args, scope) -> str:
+            return await scope.call_tool("greet", {"name": "World"})
 
         await run_entry_test(
             orchestrate,

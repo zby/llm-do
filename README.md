@@ -86,7 +86,7 @@ Example manifest:
 | **Neural** | Workers (`.worker` files) | Stochastic, flexible, handles ambiguity |
 | **Symbolic** | Python tools | Deterministic, fast, cheap, testable |
 
-Orchestration uses `ctx.deps.call_agent(...)` to delegate between agents; entry toolsets are invoked via `call_tool("main", ...)`:
+Orchestration uses `ctx.deps.call_agent(...)` to delegate between agents; the LLM sees both tools and agents as callable functions:
 
 ```
 Worker ──calls──▶ Tool ──calls──▶ Worker ──calls──▶ Tool ...

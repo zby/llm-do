@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai_blocking_approval import ApprovalResult
@@ -19,7 +19,7 @@ class _DefaultAgentToolSchema(BaseModel):
     """Default schema for agents exposed as tools."""
 
     input: str
-    attachments: list[str] = []
+    attachments: list[str] = Field(default_factory=list)
 
 
 @dataclass
@@ -104,16 +104,17 @@ class AgentToolset(AbstractToolset[Any]):
     async def get_tools(
         self, run_ctx: RunContext[WorkerRuntimeProtocol]
     ) -> dict[str, ToolsetTool[Any]]:
+        tool_name = self.tool_name or self.spec.name
         desc = self.spec.description or self.spec.instructions
         desc = desc[:200] + "..." if len(desc) > 200 else desc
         schema = self.spec.schema_in or _DefaultAgentToolSchema
         tool_def = ToolDefinition(
-            name=self.tool_name,
+            name=tool_name,
             description=desc,
             parameters_json_schema=schema.model_json_schema(),
         )
         return {
-            self.tool_name: ToolsetTool(
+            tool_name: ToolsetTool(
                 toolset=self,
                 tool_def=tool_def,
                 max_retries=0,

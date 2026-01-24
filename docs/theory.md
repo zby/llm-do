@@ -167,39 +167,41 @@ Real systems need both directions. A component might start as an LLM call (quick
 
 ## The Hybrid VM and Harness Pattern
 
-The hybrid VM unifies neural (LLM) and symbolic (Python) execution under a single calling convention. On top of this VM sits a **harness**—the orchestration layer that intercepts operations, manages approvals, and controls execution flow.
+The hybrid VM unifies neural (LLM) and symbolic (Python) execution **at the tool layer the LLM sees**. On top of this VM sits a **harness**—the orchestration layer that intercepts operations, manages approvals, and controls execution flow.
 
-Bidirectional flow has a practical requirement: **you need to swap neural and symbolic components without rewriting the rest of the system**.
+Bidirectional flow has a practical requirement: **you need to swap neural and symbolic components without rewriting prompts**.
 
-If calling an LLM looks completely different from calling a function, refactoring across the boundary is painful. Your code structure fights the change.
+If an LLM call looks completely different from a tool call, refactoring across the boundary is painful. Prompt structure fights the change.
 
 The hybrid VM solves this:
-- Neural and symbolic operations share a calling convention
+- Agents and tools share a single tool namespace for the LLM
 - The harness intercepts at the tool layer, enabling approvals and composition
-- Call sites don't change when implementations move across the boundary
+- Prompt call sites stay stable when implementations move across the boundary
 
 ```python
-# Today: LLM handles classification (neural operation)
-result = await ctx.call("ticket_classifier", ticket_text)
+# LLM tool call (prompt) stays the same:
+# tool: ticket_classifier(...)
 
-# Tomorrow: stabilized to Python (symbolic operation, same call site)
-result = await ctx.call("ticket_classifier", ticket_text)
+# Python orchestration today (neural)
+analysis = await ctx.deps.call_agent("ticket_classifier", ticket_text)
+
+# Python orchestration tomorrow (symbolic)
+analysis = ticket_classifier(ticket_text)
 ```
 
-The calling convention is unified. The implementation moved from neural to symbolic. The VM dispatches to either; callers don't care.
+The LLM-facing calling convention is unified. The implementation moved from neural to symbolic; prompts don't change.
 
 ### Unified Calling as Requirement
 
-The unified calling convention isn't merely convenient—it's a requirement for smooth stabilization.
+Unified calling at the LLM boundary isn't merely convenient—it's a requirement for smooth stabilization.
 
-Consider the alternative: a framework with separate mechanisms for calling tools and for calling workers (e.g., `call_tool` vs. `call_worker`).
+Consider the alternative: a framework where agents and tools have different LLM-facing names or invocation shapes.
 
 When you stabilize a worker into a tool:
-- Every caller must be updated to use the new calling mechanism
-- Prompts that invoke the worker must be rewritten
+- Prompts must be rewritten to call the new tool
 - The change ripples through the system
 
-With unified calling, stabilization is local: the implementation changes, but callers don't. This is what makes progressive stabilization practical—you can refactor component by component without coordination overhead.
+With unified LLM-facing calls, stabilization is local: the implementation changes, but prompts don't. This is what makes progressive stabilization practical—you can refactor component by component without coordination overhead.
 
 ### What the harness enables
 

@@ -84,7 +84,7 @@ append to message history. Nested worker calls always start with fresh history.
 |-------|----------|--------------|-----------------|
 | Session | Process lifetime | CLI/TUI starts | Process exits |
 | Call | One entry invocation | `Runtime.run_entry()` | Call returns |
-| Turn | One prompt→response | `CallScope.call_tool("main", ...)` called | Response returned |
+| Turn | One prompt→response | Entry calls `runtime.call_agent(...)` | Response returned |
 
 ## Implications for Toolset Design
 

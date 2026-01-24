@@ -7,7 +7,7 @@ This example demonstrates the **code entry point** pattern using `runtime` where
 ```
 tools.py::ENTRY_SPEC (deterministic code)
     ├── calls list_pitchdecks() directly
-    ├── for each deck: ctx.deps.call_agent("pitch_evaluator", ...)
+    ├── for each deck: runtime.call_agent("pitch_evaluator", ...)
     └── writes results directly (Path.write_text)
 
 pitch_evaluator.worker (LLM analysis)
@@ -66,10 +66,11 @@ async def main(_input_data, runtime: WorkerRuntime) -> str:
 ENTRY_SPEC = EntrySpec(name="main", main=main)
 ```
 
-The `runtime.call_agent()` method can invoke:
-- **LLM agents**: `.worker` files (LLM agents) or Python `AgentSpec` instances
+The `runtime.call_agent()` method accepts either:
+- An agent name (string) - looks up the agent in the registry (populated from `.worker` files)
+- An `AgentSpec` instance - invokes the agent directly
 
-Entry tools are trusted code, but agent calls still go through the tool
+Entry functions are trusted code, but agent calls still go through the tool
 plane and respect approval policies/toolset configs (for parity and
 observability). Use `approval_mode: "prompt"` in `project.json` if you want
 interactive approvals.
@@ -77,7 +78,7 @@ interactive approvals.
 ## Prerequisites
 
 ```bash
-pip install -e .              # llm-do from repo root (includes python-slugify)
+pip install -e .              # llm-do from repo root
 export ANTHROPIC_API_KEY=...
 ```
 
@@ -86,15 +87,15 @@ export ANTHROPIC_API_KEY=...
 ```bash
 # Run from anywhere - no cd needed
 llm-do examples/pitchdeck_eval_code_entry/project.json
+
+# Or with uv
+uv run llm-do examples/pitchdeck_eval_code_entry/project.json
 ```
 
 File paths (`input/`, `evaluations/`) resolve relative to where `tools.py` lives,
 matching how `filesystem_project` works for worker files.
 
-Or override the model via environment variable:
-```bash
-LLM_DO_MODEL=openai:gpt-4o-mini llm-do examples/pitchdeck_eval_code_entry/project.json
-```
+To use a different model, edit the `model:` field in `pitch_evaluator.worker` (must support PDF/vision).
 
 ## Files
 
@@ -123,3 +124,5 @@ LLM evaluates        →   LLM evaluates        →   LLM evaluates
 Choose the right level based on your needs:
 - **LLM-Orchestrated**: Mechanical tasks in Python, orchestration in LLM
 - **Code Entry Point**: Only reasoning tasks use LLM tokens
+
+See also `examples/pitchdeck_eval_direct/` for running the same pattern directly from Python without the CLI.

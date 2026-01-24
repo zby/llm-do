@@ -1,148 +1,76 @@
 # Pitch Deck Evaluation (Direct Python)
 
-This example demonstrates running llm-do workers **directly from Python** without using the `llm-do` CLI (step 3), plus a raw-Python refactor that bypasses the tool plane entirely (step 4). Python handles orchestration while the LLM handles analysis, and you can switch between TUI and headless output for step 3.
+This example demonstrates running llm-do **directly from Python** without the CLI. Three scripts show different levels of abstraction, helping you choose the right approach for your use case.
 
-## The Pattern
+## The Scripts
 
-```
-run.py (step 3: tool plane)
-    ├── list_pitchdecks() - discover PDFs
-    ├── PITCH_EVALUATOR - create AgentSpec
-    ├── run_ui() - run entry with TUI or headless UI
-    └── write results to disk
+| Script | Orchestration | Uses llm-do | Tool Plane |
+|--------|---------------|-------------|------------|
+| `run.py` | Python code | Yes | Yes (approvals, events) |
+| `run_worker_entry.py` | LLM agent | Yes | Yes (approvals, events) |
+| `run_raw.py` | Python code | No | No (raw PydanticAI) |
 
-run_worker_entry.py (step 3: agent entry, tool plane)
-    ├── build AgentSpec objects directly
-    ├── Runtime.run_entry() on the entry EntrySpec
-    └── main agent calls pitch_evaluator tool
+### run.py - Code Entry with UI
 
-run_raw.py (step 4: raw Python)
-    ├── list_pitchdecks() - discover PDFs
-    ├── Agent() - call the model directly
-    ├── build multimodal prompts manually
-    └── write results to disk
-```
-
-Compare to CLI-based versions:
-- `pitchdeck_eval/` - LLM orchestrates via `.worker` files
-- `pitchdeck_eval_code_entry/` - Python via `EntrySpec`, still uses CLI
-
-## Why Direct Python?
-
-- **No CLI dependency**: Run with standard `python` or `uv run`
-- **Full control**: Customize Runtime, approval policies, verbosity (step 3)
-- **Easy integration**: Embed in larger Python applications
-- **Debugging**: Standard Python debugging tools work normally
-- **Raw escape hatch**: Step 4 bypasses approvals/events when you want a fully manual flow
-
-## Run
-
-```bash
-# From repo root
-uv run examples/pitchdeck_eval_direct/run.py
-
-# Or with python directly (requires dependencies)
-python examples/pitchdeck_eval_direct/run.py
-
-# Step 3: agent entry (no code entry tool)
-uv run examples/pitchdeck_eval_direct/run_worker_entry.py
-python examples/pitchdeck_eval_direct/run_worker_entry.py
-
-# Step 4: raw Python (no approvals/events)
-uv run examples/pitchdeck_eval_direct/run_raw.py
-python examples/pitchdeck_eval_direct/run_raw.py
-```
-
-## Configuration
-
-Edit constants at the top of `run.py` (step 3), `run_worker_entry.py` (step 3), or `run_raw.py` (step 4):
-
-```python
-# run.py
-MODEL = "anthropic:claude-haiku-4-5"  # or "openai:gpt-4o-mini"
-UI_MODE = "tui"  # or "headless"
-APPROVAL_MODE = "prompt" if UI_MODE == "tui" else "approve_all"
-VERBOSITY = 1  # 0=quiet, 1=tool calls, 2=stream
-```
-
-```python
-# run_worker_entry.py
-MODEL = "anthropic:claude-haiku-4-5"
-APPROVAL_MODE = "approve_all"
-VERBOSITY = 1  # 0=quiet, 1=normal, 2=stream
-```
-
-```python
-# run_raw.py
-MODEL = "anthropic:claude-haiku-4-5"
-VERBOSITY = 3  # 0=quiet, 1=progress, 2=I/O details, 3=LLM messages
-```
-
-## Files
+Python handles the orchestration loop. The LLM only evaluates decks.
 
 ```
-pitchdeck_eval_direct/
-├── run.py                           # Main entry point
-├── run_raw.py                       # Raw Python refactor (no tool plane)
-├── run_worker_entry.py              # Agent entry (no code entry tool)
-├── instructions/
-│   └── main.md                       # Main worker instructions
-│   └── pitch_evaluator.md           # LLM evaluator instructions
-├── input/                           # Drop PDFs here
-└── evaluations/                     # Reports written here
+Python main() → runtime.call_agent("pitch_evaluator") → write results
 ```
 
-## Key Code
-
-The core pattern for direct Python usage with switchable UI (step 3):
+This is the recommended approach when orchestration is mechanical (list files, loop, write results). Python code is deterministic, testable, and doesn't waste tokens on trivial decisions.
 
 ```python
 from llm_do.runtime import AgentSpec, EntrySpec, WorkerRuntime
 from llm_do.ui import run_ui
 
-# Build agent from instructions
-evaluator = AgentSpec(
+EVALUATOR = AgentSpec(
     name="pitch_evaluator",
     model="anthropic:claude-haiku-4-5",
     instructions=Path("instructions/pitch_evaluator.md").read_text(),
 )
 
-# Entry function
 async def main(_input_data, runtime: WorkerRuntime) -> str:
-    # call_agent(...) for each deck
-    ...
+    for deck in list_pitchdecks():
+        report = await runtime.call_agent(EVALUATOR, {
+            "input": "Evaluate this pitch deck.",
+            "attachments": [deck["file"]],
+        })
+        Path(deck["output_path"]).write_text(report)
+    return "Done"
 
 ENTRY_SPEC = EntrySpec(name="main", main=main)
 
-# Run the entry with TUI or headless output
-# project_root is used for resolving relative attachment paths
+# Run with TUI or headless output
 outcome = await run_ui(
     entry=ENTRY_SPEC,
     input={"input": ""},
     project_root=Path(__file__).parent,
-    approval_mode=APPROVAL_MODE,
-    mode=UI_MODE,
-    verbosity=1,
+    approval_mode="approve_all",  # or "prompt" for interactive
+    mode="headless",  # or "tui"
 )
-print(outcome.result)
 ```
 
-Entry workers can be invoked directly without a decorator (step 3):
+### run_worker_entry.py - Agent Entry
+
+An LLM main agent orchestrates, calling pitch_evaluator as a tool. The LLM decides what to do based on its instructions.
+
+```
+Python → Runtime.run_entry() → LLM main agent → pitch_evaluator tool
+```
+
+Use this when orchestration requires judgment or flexibility that benefits from LLM reasoning. The main agent can adapt to unexpected situations, handle errors creatively, or make decisions about which files to process.
 
 ```python
 from llm_do.runtime import AgentSpec, EntrySpec, RunApprovalPolicy, Runtime
 from llm_do.toolsets.agent import agent_as_toolset
 from llm_do.toolsets.builtins import build_builtin_toolsets
 
-pitch_evaluator = AgentSpec(
-    name="pitch_evaluator",
-    model="anthropic:claude-haiku-4-5",
-    instructions=Path("instructions/pitch_evaluator.md").read_text(),
-)
-builtin_toolsets = build_builtin_toolsets(Path.cwd(), Path("."))
+# Build agents and wire toolsets
+pitch_evaluator = AgentSpec(name="pitch_evaluator", model=MODEL, instructions=...)
 main_agent = AgentSpec(
     name="main",
-    model="anthropic:claude-haiku-4-5",
+    model=MODEL,
     instructions=Path("instructions/main.md").read_text(),
     toolset_specs=[
         builtin_toolsets["filesystem_project"],
@@ -154,24 +82,95 @@ async def main(input_data, runtime):
     return await runtime.call_agent(main_agent, input_data)
 
 entry_spec = EntrySpec(name="main", main=main)
-
-policy = RunApprovalPolicy(mode="approve_all", return_permission_errors=True)
-runtime = Runtime(
-    project_root=Path("."),
-    run_approval_policy=policy,
-)
+runtime = Runtime(project_root=Path("."), run_approval_policy=policy)
 result, _ctx = await runtime.run_entry(entry_spec, "")
-print(result)
 ```
 
-Step 4 skips the tool plane (no approvals, no events, no tool wrappers):
+### run_raw.py - Raw PydanticAI
+
+Bypasses llm-do entirely. Uses PydanticAI's `Agent` directly with `BinaryContent` for PDFs.
+
+```
+Python → Agent.run() with PDF attachment → write results
+```
+
+No approvals, no events, no tool wrappers. Use this when:
+- You don't need approval workflows
+- You don't need event logging/observability
+- You want minimal dependencies
+- You're prototyping or debugging
 
 ```python
 from pydantic_ai import Agent
 from pydantic_ai.messages import BinaryContent
 
 agent = Agent(model="anthropic:claude-haiku-4-5", instructions="...")
-attachment = BinaryContent(data=Path("deck.pdf").read_bytes(), media_type="application/pdf")
+attachment = BinaryContent(
+    data=Path("deck.pdf").read_bytes(),
+    media_type="application/pdf",
+)
 result = await agent.run(["Evaluate this pitch deck.", attachment])
 print(result.output)
 ```
+
+## What the Tool Plane Provides
+
+When you use llm-do (run.py or run_worker_entry.py), you get:
+
+- **Approvals**: Interactive or policy-based approval of tool calls
+- **Events**: Structured logging of all agent activity
+- **Attachments**: Automatic handling of file attachments with path resolution
+- **Depth limits**: Protection against runaway agent recursion
+- **UI options**: TUI for interactive use, headless for automation
+
+When you use raw PydanticAI (run_raw.py), you bypass all of this. You're responsible for building prompts, handling attachments, and logging.
+
+## Why Direct Python?
+
+- **No CLI dependency**: Run with `python` or `uv run`
+- **Full control**: Customize Runtime, approval policies, verbosity
+- **Easy integration**: Embed in larger Python applications
+- **Debugging**: Standard Python debugging tools work normally
+
+## Run
+
+```bash
+# Code entry with TUI/headless UI
+uv run examples/pitchdeck_eval_direct/run.py
+
+# Agent entry (LLM orchestrates)
+uv run examples/pitchdeck_eval_direct/run_worker_entry.py
+
+# Raw PydanticAI (no llm-do)
+uv run examples/pitchdeck_eval_direct/run_raw.py
+```
+
+## Configuration
+
+Edit constants at the top of each script:
+
+```python
+MODEL = "anthropic:claude-haiku-4-5"  # must support PDF/vision
+UI_MODE = "tui"  # or "headless" (run.py only)
+APPROVAL_MODE = "approve_all"  # or "prompt" for interactive
+VERBOSITY = 1  # 0=quiet, 1=normal, 2=verbose
+```
+
+## Files
+
+```
+pitchdeck_eval_direct/
+├── run.py                  # Code entry with run_ui()
+├── run_worker_entry.py     # Agent entry with Runtime.run_entry()
+├── run_raw.py              # Raw PydanticAI
+├── instructions/
+│   ├── main.md             # Main agent instructions (for run_worker_entry.py)
+│   └── pitch_evaluator.md  # Evaluator instructions
+├── input/                  # Drop PDFs here
+└── evaluations/            # Reports written here
+```
+
+## Compare to CLI-based versions
+
+- `pitchdeck_eval/` - LLM orchestrates via `.worker` files, uses CLI
+- `pitchdeck_eval_code_entry/` - Python entry via `EntrySpec`, uses CLI

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any
 
 from pydantic import BaseModel
 from pydantic_ai.models import Model, infer_model
@@ -93,15 +93,6 @@ class CallScope:
     toolsets: Sequence["AbstractToolset[Any]"]
     _closed: bool = False
 
-    def _create_usage(self) -> RunUsage:
-        runtime = cast(Any, self.runtime)
-        shared_runtime = getattr(runtime, "runtime", None)
-        if shared_runtime is not None:
-            create_usage = getattr(shared_runtime, "_create_usage", None)
-            if callable(create_usage):
-                return create_usage()
-        return RunUsage()
-
     def _make_run_context(self, tool_name: str) -> RunContext[WorkerRuntimeProtocol]:
         """Construct a RunContext for direct tool invocation."""
         model: Model = (
@@ -112,7 +103,7 @@ class CallScope:
         return RunContext(
             deps=self.runtime,
             model=model,
-            usage=self._create_usage(),
+            usage=RunUsage(),
             prompt=self.runtime.frame.prompt,
             messages=list(self.runtime.frame.messages),
             run_step=self.runtime.frame.config.depth,

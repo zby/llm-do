@@ -15,7 +15,6 @@ from pydantic_ai.messages import (
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from llm_do.runtime import AgentSpec, EntrySpec, Runtime
-from llm_do.runtime.events import RuntimeEvent
 from tests.runtime.helpers import build_runtime_context
 
 
@@ -44,9 +43,8 @@ def _make_prompt_count_model() -> FunctionModel:
 
 
 @pytest.mark.anyio
-async def test_entry_agent_receives_message_history_across_turns() -> None:
-    """Entry agent (depth=0) should receive message_history on turn 2+."""
-    events: list[RuntimeEvent] = []
+async def test_entry_agent_does_not_receive_message_history_across_turns() -> None:
+    """Entry agent ignores message_history until runtime owns sync."""
 
     agent_spec = AgentSpec(
         name="main",
@@ -59,7 +57,7 @@ async def test_entry_agent_receives_message_history_across_turns() -> None:
 
     entry_spec = EntrySpec(name="main", main=main)
 
-    runtime = Runtime(on_event=events.append, verbosity=1)
+    runtime = Runtime(verbosity=1)
     runtime.register_agents({agent_spec.name: agent_spec})
 
     out1, ctx1 = await runtime.run_entry(entry_spec, {"input": "turn 1"})
@@ -70,14 +68,12 @@ async def test_entry_agent_receives_message_history_across_turns() -> None:
         {"input": "turn 2"},
         message_history=ctx1.frame.messages,
     )
-    assert out2 == "user_prompts=2"
+    assert out2 == "user_prompts=1"
 
 
 @pytest.mark.anyio
 async def test_nested_agent_call_does_not_inherit_conversation_history() -> None:
     """Nested agent calls should not receive the caller's message history."""
-    events: list[RuntimeEvent] = []
-
     agent_spec = AgentSpec(
         name="sub",
         instructions="Count user prompts in message history.",
@@ -94,7 +90,6 @@ async def test_nested_agent_call_does_not_inherit_conversation_history() -> None
         model="test",
         depth=1,
         messages=list(history),
-        on_event=events.append,
         verbosity=1,
     )
 

@@ -16,7 +16,7 @@ from .toolsets import cleanup_toolsets
 
 
 class WorkerRuntime:
-    """Dispatches tool calls and agent runs, managing call-scoped state.
+    """Dispatches agent runs, managing call-scoped state.
 
     WorkerRuntime is the central orchestrator for executing tools and agents.
     It holds:
@@ -34,7 +34,6 @@ class WorkerRuntime:
     ) -> None:
         self.runtime = runtime
         self.frame = frame
-        self._entry_history_consumed = False
 
     @property
     def config(self) -> RuntimeConfig:
@@ -43,10 +42,6 @@ class WorkerRuntime:
     def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
         """Record messages for diagnostic logging."""
         self.runtime.log_messages(worker_name, depth, messages)
-
-    def reset_entry_history(self) -> None:
-        """Allow a new entry turn to pass message history into call_agent."""
-        self._entry_history_consumed = False
 
     def spawn_child(
         self,
@@ -102,23 +97,13 @@ class WorkerRuntime:
             invocation_name=spec.name,
         )
 
-        use_entry_history = (
-            self.frame.config.depth == 0 and not self._entry_history_consumed
-        )
-        message_history = list(self.frame.messages) if use_entry_history else None
-
         try:
-            output, messages = await run_agent(
+            output, _messages = await run_agent(
                 spec,
                 child_runtime,
                 input_data,
-                message_history=message_history,
             )
         finally:
             await cleanup_toolsets(toolsets)
-
-        if use_entry_history:
-            self.frame.messages[:] = messages
-            self._entry_history_consumed = True
 
         return output

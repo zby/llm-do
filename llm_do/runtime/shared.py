@@ -220,7 +220,6 @@ class Runtime:
             invocation_name=entry_spec.name,
             depth=0,
         )
-        call_runtime.reset_entry_history()
         if message_history:
             call_runtime.frame.messages[:] = list(message_history)
         call_runtime.frame.prompt = display_text

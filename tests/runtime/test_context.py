@@ -1,36 +1,38 @@
-"""Tests for WorkerRuntime."""
+"""Tests for call/runtime context behavior."""
 import pytest
 from pydantic_ai.exceptions import UserError
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec, Worker, WorkerRuntime
-from tests.runtime.helpers import build_runtime_context, run_entry_test
+from llm_do.runtime import AgentSpec, EntrySpec, Runtime, ToolsetSpec, WorkerRuntime
+from tests.runtime.helpers import build_call_scope
 
 
 class TestContext:
-    """Tests for WorkerRuntime class."""
+    """Tests for call scope behavior."""
 
     @pytest.mark.anyio
     async def test_context_call_tool(self):
-        """Test calling a tool through context."""
+        """Test calling a tool through a call scope."""
         toolset = FunctionToolset()
 
         @toolset.tool
         def multiply(a: int, b: int) -> int:
             return a * b
 
-        ctx = build_runtime_context(toolsets=[toolset], model="test")
-        result = await ctx.call("multiply", {"a": 3, "b": 4})
-        assert result == 12
+        scope = build_call_scope(toolsets=[toolset], model="test")
+        async with scope:
+            result = await scope.call_tool("multiply", {"a": 3, "b": 4})
+            assert result == 12
 
     @pytest.mark.anyio
     async def test_context_tool_not_found(self):
         """Test that calling unknown tool raises KeyError."""
-        ctx = build_runtime_context(toolsets=[], model="test")
-        with pytest.raises(KeyError, match="Tool 'nonexistent' not found"):
-            await ctx.call("nonexistent", {"x": 1})
+        scope = build_call_scope(toolsets=[], model="test")
+        async with scope:
+            with pytest.raises(KeyError, match="Tool 'nonexistent' not found"):
+                await scope.call_tool("nonexistent", {"x": 1})
 
     @pytest.mark.anyio
     async def test_call_with_kwargs(self):
@@ -41,9 +43,10 @@ class TestContext:
         def greet(name: str) -> str:
             return f"Hello, {name}!"
 
-        ctx = build_runtime_context(toolsets=[toolset], model="test")
-        result = await ctx.call("greet", {"name": "World"})
-        assert result == "Hello, World!"
+        scope = build_call_scope(toolsets=[toolset], model="test")
+        async with scope:
+            result = await scope.call_tool("greet", {"name": "World"})
+            assert result == "Hello, World!"
 
     @pytest.mark.anyio
     async def test_context_call_tool_conflict_raises(self):
@@ -59,48 +62,44 @@ class TestContext:
         def clash_b() -> str:
             return "b"
 
-        ctx = build_runtime_context(toolsets=[toolset_a, toolset_b], model="test")
-        with pytest.raises(UserError, match="conflicts with existing tool"):
-            await ctx.call("clash", {})
+        scope = build_call_scope(toolsets=[toolset_a, toolset_b], model="test")
+        async with scope:
+            with pytest.raises(UserError, match="conflicts with existing tool"):
+                await scope.call_tool("clash", {})
 
     @pytest.mark.anyio
-    async def test_depth_counts_only_workers(self):
-        """Test that depth increments only for worker calls."""
-        seen: dict[str, dict[str, int] | int] = {}
+    async def test_depth_counts_only_agents(self):
+        """Test that depth increments only for call_agent invocations."""
+        seen: dict[str, int] = {}
 
         def build_toolset(_ctx: object) -> FunctionToolset:
             toolset = FunctionToolset()
 
             @toolset.tool
-            async def probe(run_ctx: RunContext[WorkerRuntime]) -> int:
-                depth = run_ctx.deps.frame.config.depth
-                seen["probe"] = depth
+            async def probe(ctx: RunContext[WorkerRuntime]) -> int:
+                depth = ctx.deps.frame.config.depth
+                seen["probe_depth"] = depth
                 return depth
-
-            @toolset.tool
-            async def call_probe(run_ctx: RunContext[WorkerRuntime]) -> dict[str, int]:
-                before = run_ctx.deps.frame.config.depth
-                probe_depth = await run_ctx.deps.call("probe", {})
-                after = run_ctx.deps.frame.config.depth
-                result: dict[str, int] = {
-                    "before": before,
-                    "probe": probe_depth,
-                    "after": after,
-                }
-                seen["call_probe"] = result
-                return result
 
             return toolset
 
         toolset_spec = ToolsetSpec(factory=build_toolset)
 
-        worker = Worker(
+        agent_spec = AgentSpec(
             name="depth-checker",
-            instructions="Call call_probe.",
-            model=TestModel(call_tools=["call_probe"], custom_output_text="done"),
+            instructions="Call probe.",
+            model=TestModel(call_tools=["probe"], custom_output_text="done"),
             toolset_specs=[toolset_spec],
         )
-        await run_entry_test(worker, {"input": "go"})
 
-        assert seen["call_probe"] == {"before": 0, "probe": 0, "after": 0}
-        assert seen["probe"] == 0
+        async def main(input_data, runtime: WorkerRuntime) -> str:
+            seen["entry_depth"] = runtime.frame.config.depth
+            return await runtime.call_agent(agent_spec, input_data)
+
+        entry_spec = EntrySpec(name="entry", main=main)
+
+        runtime = Runtime()
+        await runtime.run_entry(entry_spec, {"input": "go"})
+
+        assert seen["entry_depth"] == 0
+        assert seen["probe_depth"] == 1

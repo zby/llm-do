@@ -3,14 +3,15 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetBuildContext, Worker, build_entry
-from llm_do.runtime.worker import WorkerToolset
+from llm_do.runtime import ToolsetBuildContext, build_entry
+from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.loader import instantiate_toolsets
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
+
 @pytest.mark.anyio
-async def test_build_entry_resolves_nested_worker_toolsets() -> None:
+async def test_build_entry_resolves_nested_agent_toolsets() -> None:
     worker_files = [
         str(EXAMPLES_DIR / "web_research_agent" / "main.worker"),
         str(EXAMPLES_DIR / "web_research_agent" / "web_research_extractor.worker"),
@@ -19,24 +20,24 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     ]
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
-    entry = build_entry(
+    entry_spec, registry = build_entry(
         worker_files,
         python_files,
         project_root=EXAMPLES_DIR / "web_research_agent",
     )
-    assert isinstance(entry, Worker)
 
-    # Workers are now wrapped in WorkerToolset adapters
+    entry_agent = registry.agents[entry_spec.name]
+
     entry_toolsets = instantiate_toolsets(
-        entry.toolset_specs,
-        entry.toolset_context or ToolsetBuildContext(worker_name=entry.name),
+        entry_agent.toolset_specs,
+        entry_agent.toolset_context or ToolsetBuildContext(worker_name=entry_agent.name),
     )
     extractor_toolset = next(
         toolset
         for toolset in entry_toolsets
-        if isinstance(toolset, WorkerToolset) and toolset.worker.name == "web_research_extractor"
+        if isinstance(toolset, AgentToolset) and toolset.spec.name == "web_research_extractor"
     )
-    extractor = extractor_toolset.worker
+    extractor = extractor_toolset.spec
     extractor_toolsets = instantiate_toolsets(
         extractor.toolset_specs,
         extractor.toolset_context or ToolsetBuildContext(worker_name=extractor.name),
@@ -58,27 +59,19 @@ async def test_build_entry_loads_python_modules_once(tmp_path: Path) -> None:
 
     module_path.write_text(
         f"""\
-from llm_do.runtime import ToolsetSpec, WorkerArgs, WorkerRuntime, entry
-from pydantic_ai.toolsets import FunctionToolset
+from llm_do.runtime import EntrySpec
 
 _marker = {marker_literal}
 with open(_marker, "a", encoding="utf-8") as handle:
     handle.write("x\\n")
 
-def build_tools(_ctx):
-    tools = FunctionToolset()
-
-    @tools.tool
-    def ping() -> str:
-        return "pong"
-
-    return tools
-
-tools = ToolsetSpec(factory=build_tools)
-
-@entry()
-async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+async def main(_input, _runtime):
     return "ok"
+
+ENTRY = EntrySpec(
+    name="main",
+    main=main,
+)
 """
     )
 
@@ -159,10 +152,9 @@ Instructions.
         encoding="utf-8",
     )
 
-    entry = build_entry([str(worker_path)], [], project_root=tmp_path)
-    assert isinstance(entry, Worker)
-    assert entry.schema_in is not None
-    assert entry.schema_in.__name__ == "NoteInput"
+    entry_spec, _registry = build_entry([str(worker_path)], [], project_root=tmp_path)
+    assert entry_spec.schema_in is not None
+    assert entry_spec.schema_in.__name__ == "NoteInput"
 
 
 @pytest.mark.anyio

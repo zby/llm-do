@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Pitch deck evaluation by calling a Worker entry directly (no @entry).
+"""Pitch deck evaluation by calling an agent entry directly (no code entry toolset).
 
 Run with:
     uv run examples/pitchdeck_eval_direct/run_worker_entry.py
@@ -9,10 +9,10 @@ Run with:
 import asyncio
 from pathlib import Path
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import AgentSpec, EntrySpec, RunApprovalPolicy, Runtime
 from llm_do.runtime.events import RuntimeEvent
+from llm_do.toolsets.agent import agent_as_toolset
 from llm_do.toolsets.builtins import build_builtin_toolsets
-from llm_do.toolsets.loader import ToolsetBuildContext, resolve_toolset_specs
 from llm_do.ui.adapter import adapt_event
 from llm_do.ui.display import HeadlessDisplayBackend
 
@@ -34,39 +34,40 @@ INPUT_DIR = PROJECT_ROOT / "input"
 OUTPUT_DIR = PROJECT_ROOT / "evaluations"
 
 # =============================================================================
-# Workers
+# Agents
 # =============================================================================
 
 
-def build_entry_worker() -> Worker:
-    """Build the entry worker and its evaluator tool worker."""
-    pitch_evaluator = Worker(
+def build_entry_spec() -> EntrySpec:
+    """Build the entry spec and its evaluator agent."""
+    pitch_evaluator = AgentSpec(
         name="pitch_evaluator",
         model=MODEL,
         instructions=(INSTRUCTIONS_DIR / "pitch_evaluator.md").read_text(),
     )
 
     builtin_toolsets = build_builtin_toolsets(Path.cwd(), PROJECT_ROOT)
-    available_toolsets = dict(builtin_toolsets)
-    available_toolsets["pitch_evaluator"] = pitch_evaluator.as_toolset_spec()
+    toolset_specs = [
+        builtin_toolsets["filesystem_project"],
+        agent_as_toolset(pitch_evaluator, tool_name="pitch_evaluator"),
+    ]
 
-    toolset_context = ToolsetBuildContext(
-        worker_name="main",
-        available_toolsets=available_toolsets,
-    )
-    toolset_specs = resolve_toolset_specs(
-        ["pitch_evaluator", "filesystem_project"],
-        toolset_context,
-    )
-
-    main_worker = Worker(
+    main_agent = AgentSpec(
         name="main",
         model=MODEL,
         instructions=(INSTRUCTIONS_DIR / "main.md").read_text(),
         toolset_specs=toolset_specs,
-        toolset_context=toolset_context,
     )
-    return main_worker
+
+    async def main(input_data, runtime) -> str:
+        return await runtime.call_agent(main_agent, input_data)
+
+    return EntrySpec(
+        main=main,
+        name=main_agent.name,
+        description=main_agent.description,
+        schema_in=main_agent.schema_in,
+    )
 
 
 # =============================================================================
@@ -99,10 +100,10 @@ def build_runtime(verbosity: int) -> Runtime:
 
 async def run_entry_worker() -> str:
     """Run the entry worker, which calls the evaluator as a tool."""
-    main_worker = build_entry_worker()
+    entry_spec = build_entry_spec()
     runtime = build_runtime(VERBOSITY)
     result, _ctx = await runtime.run_entry(
-        main_worker,
+        entry_spec,
         "",  # Empty prompt - worker handles file discovery
     )
     return result
@@ -111,7 +112,7 @@ async def run_entry_worker() -> str:
 def cli_main() -> None:
     """Main entry point."""
     print(
-        "Starting worker entry run with "
+        "Starting agent entry run with "
         f"MODEL={MODEL}, APPROVAL_MODE={APPROVAL_MODE}, VERBOSITY={VERBOSITY}"
     )
     print(f"Input directory: {INPUT_DIR}")

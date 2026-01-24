@@ -22,7 +22,7 @@ Instructions for the worker...
 ```
 
 Workers can call other workers as tools, forming a call tree. Each worker declares its own toolsets - they're not inherited.
-Workers can also declare a typed input schema via `schema_in_ref`; schemas must subclass `WorkerArgs` and implement `prompt_spec()`. Input can be a string, list (with `Attachment`s), or dict.
+Workers can also declare a typed input schema via `schema_in_ref`; schemas must subclass `WorkerArgs` and implement `prompt_messages()`. Input can be a string, list (with `Attachment`s), or dict.
 
 ---
 
@@ -50,7 +50,7 @@ This separation means:
 - **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
 - **Per-call, no inheritance**: Message history, active toolsets, per-tool approval rules
 
-Note: `Worker.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what a worker is allowed to use. `CallFrame.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
+Note: `AgentSpec.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what a worker is allowed to use. `CallFrame.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
@@ -62,46 +62,45 @@ Implementation layout mirrors the scopes:
 
 ## Execution Flow
 
-Entry linking resolves toolset specs and produces a single entry (worker or
-`@entry` function). Internally, a registry-like symbol table maps names to
-resolved entries during the link step.
+Entry linking resolves toolset specs for agents and produces a single `EntrySpec`
+with a plain `main` function. Internally, a registry maps agent names to `AgentSpec`
+instances during the link step.
 
 ```
 CLI or Python
     │
     ▼
-Build entry (link step resolves toolset specs)
+Build entry (link step resolves agent toolset specs)
     │
     ▼
-Runtime.run_entry() creates CallScope
+Runtime.run_entry() creates entry runtime (NullModel, no toolsets)
     │
     ▼
-Entry executes (CallScope.run_turn executes each prompt)
+Entry executes (entry_spec.main(...))
     │
-    ├── Tool call to another entry?
-    │       → new CallScope (depth+1), same Runtime
-    │       → child runs, returns result
+    ├── Entry code calls runtime.call_agent(...)
+    │       → new CallRuntime (depth+1), same Runtime
+    │       → agent runs with its toolsets, returns result
     │
     └── Final output
 ```
 
 Key points:
 - Entry selection requires exactly one candidate: a worker marked `entry: true`
-  or a single `@entry` function.
-- Top-level workers (depth 0) keep message history across turns in a CallScope
-- Child workers get fresh message history (parent only sees tool call/result)
+  or a single `EntrySpec`.
+- Top-level entries (depth 0) keep message history across turns via `message_history`
+- Child agent calls get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
-- EntryFunction inputs are normalized to `WorkerArgs` (via `schema_in`)
-- EntryFunction tool calls are trusted but still go through approval wrappers per run policy
+- EntrySpec inputs are normalized to `WorkerArgs` (via `schema_in`)
+- Entry functions are trusted but agent tool calls still go through approval wrappers per run policy
 
 ---
 
 ## Toolset Instantiation & State
 
 Toolsets are registered as `ToolsetSpec` factories and instantiated per call
-to keep state isolated. In chat mode, the top-level call scope can span multiple
-turns, so toolset instances persist until that scope closes. The runtime calls
+to keep state isolated. The runtime calls
 optional `cleanup()` hooks when the call scope exits to release handle-based
 resources. See [`docs/toolset-state.md`](toolset-state.md)
 for the handle pattern and lifecycle details.
@@ -116,18 +115,18 @@ Approval wrapping gates tool calls that require approval, regardless of whether
 they were initiated by an LLM or by trusted code. The trust boundary is who
 decides to invoke tools; the tool plane remains consistent.
 
-- **Worker** (LLM boundary): The LLM decides which tools to call. Toolsets are wrapped with `ApprovalToolset` before the agent runs. This is where approval prompts happen.
+- **Agent** (LLM boundary): The LLM decides which tools to call. Toolsets are wrapped with `ApprovalToolset` before the agent runs. This is where approval prompts happen.
 
-- **EntryFunction** (`@entry` decorated): Developer's Python code decides which tools to call. Tool calls still flow through `ApprovalToolset` and follow the run approval policy.
+- **Entry function**: Developer's Python code decides which agents/tools to call. Agent tool calls still flow through `ApprovalToolset` and follow the run approval policy.
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │  Tool Plane (approval policy + events)              │
 │  ┌───────────────┐     ┌───────────────┐           │
-│  │ @entry func   │────▶│ ApprovalToolset│──▶ tool  │
+│  │ Entry main()  │────▶│ ApprovalToolset│──▶ tool  │
 │  └───────────────┘     └───────────────┘           │
 │  ┌───────────────┐     ┌───────────────┐           │
-│  │ Worker.call() │────▶│ ApprovalToolset│──▶ tool  │
+│  │ Agent run()   │────▶│ ApprovalToolset│──▶ tool  │
 │  └───────────────┘     └───────────────┘           │
 └─────────────────────────────────────────────────────┘
 ```

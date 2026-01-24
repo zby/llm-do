@@ -1,9 +1,9 @@
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from llm_do.runtime import Runtime, build_entry
+from llm_do.runtime import AgentSpec, EntrySpec, Runtime, build_entry
 from llm_do.runtime.approval import RunApprovalPolicy
-from llm_do.runtime.worker import Worker, WorkerToolset
+from llm_do.toolsets.agent import AgentToolset, agent_as_toolset
 
 
 @pytest.mark.anyio
@@ -21,31 +21,37 @@ Call yourself.
 """
     )
 
-    entry = build_entry([str(worker_path)], [], project_root=tmp_path)
+    entry_spec, registry = build_entry([str(worker_path)], [], project_root=tmp_path)
 
-    assert isinstance(entry, Worker)
-    assert entry.toolset_specs
-    # Toolset resolution keeps WorkerToolset factories for recursive tools
-    ctx = entry.toolset_context
+    agent = registry.agents[entry_spec.name]
+    assert agent.toolset_specs
+    ctx = agent.toolset_context
     assert ctx is not None
-    toolset = entry.toolset_specs[0].factory(ctx)
-    assert isinstance(toolset, WorkerToolset)
-    assert toolset.worker is entry
+    toolset = agent.toolset_specs[0].factory(ctx)
+    assert isinstance(toolset, AgentToolset)
+    assert toolset.spec is agent
 
 
 @pytest.mark.anyio
 async def test_max_depth_blocks_self_recursion() -> None:
-    worker = Worker(
+    agent_spec = AgentSpec(
         name="loop",
         instructions="Loop until depth is exceeded.",
-        model=TestModel(call_tools=["loop"]),
+        model=TestModel(call_tools=["main"], custom_output_text="done"),
+        toolset_specs=[],
     )
-    # Use as_toolset_spec() for explicit Worker-as-tool exposure
-    worker.toolset_specs = [worker.as_toolset_spec()]
+    agent_spec.toolset_specs = [agent_as_toolset(agent_spec)]
+
+    async def main(input_data, runtime):
+        return await runtime.call_agent(agent_spec, input_data)
+
+    entry_spec = EntrySpec(name="entry", main=main, schema_in=None)
+
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
         max_depth=2,
     )
+    runtime.register_agents({agent_spec.name: agent_spec})
 
-    with pytest.raises(RuntimeError, match=r"Max depth exceeded calling 'loop': depth 2 >= max 2"):
-        await runtime.run_entry(worker, {"input": "go"})
+    with pytest.raises(RuntimeError, match="max_depth exceeded"):
+        await runtime.run_entry(entry_spec, {"input": "go"})

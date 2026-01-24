@@ -14,7 +14,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import Runtime, ToolsetBuildContext, Worker
+from llm_do.runtime import AgentSpec, EntrySpec, Runtime
 from llm_do.runtime.events import RuntimeEvent
 from tests.runtime.helpers import build_runtime_context
 
@@ -44,23 +44,29 @@ def _make_prompt_count_model() -> FunctionModel:
 
 
 @pytest.mark.anyio
-async def test_entry_worker_receives_message_history_across_turns() -> None:
-    """Entry worker (depth=0) should receive message_history on turn 2+."""
+async def test_entry_agent_receives_message_history_across_turns() -> None:
+    """Entry agent (depth=0) should receive message_history on turn 2+."""
     events: list[RuntimeEvent] = []
 
-    worker = Worker(
+    agent_spec = AgentSpec(
         name="main",
         instructions="Count user prompts in message history.",
         model=_make_prompt_count_model(),
     )
-    runtime = Runtime(on_event=events.append, verbosity=1)
 
-    out1, ctx1 = await runtime.run_entry(worker, {"input": "turn 1"})
+    async def main(input_data, runtime) -> str:
+        return await runtime.call_agent(agent_spec, input_data)
+
+    entry_spec = EntrySpec(name="main", main=main)
+
+    runtime = Runtime(on_event=events.append, verbosity=1)
+    runtime.register_agents({agent_spec.name: agent_spec})
+
+    out1, ctx1 = await runtime.run_entry(entry_spec, {"input": "turn 1"})
     assert out1 == "user_prompts=1"
 
-    # Pass message history from first run to second run
-    out2, ctx2 = await runtime.run_entry(
-        worker,
+    out2, _ctx2 = await runtime.run_entry(
+        entry_spec,
         {"input": "turn 2"},
         message_history=ctx1.frame.messages,
     )
@@ -68,34 +74,29 @@ async def test_entry_worker_receives_message_history_across_turns() -> None:
 
 
 @pytest.mark.anyio
-async def test_nested_worker_call_does_not_inherit_conversation_history() -> None:
-    """Nested worker calls should not receive the caller's message history."""
+async def test_nested_agent_call_does_not_inherit_conversation_history() -> None:
+    """Nested agent calls should not receive the caller's message history."""
     events: list[RuntimeEvent] = []
 
-    sub_worker = Worker(
+    agent_spec = AgentSpec(
         name="sub",
         instructions="Count user prompts in message history.",
         model=_make_prompt_count_model(),
     )
 
-    # Simulate caller having prior conversation history.
     history: list[ModelMessage] = [
         ModelRequest(parts=[UserPromptPart(content="previous turn")]),
         ModelResponse(parts=[TextPart(content="previous response")]),
     ]
 
-    # Simulate a caller worker context (depth=0).
-    sub_toolset = sub_worker.as_toolset_spec().factory(
-        ToolsetBuildContext(worker_name="caller")
-    )
     caller_ctx = build_runtime_context(
-        toolsets=[sub_toolset],
+        toolsets=[],
         model="test",
-        depth=0,
+        depth=1,
         messages=list(history),
         on_event=events.append,
         verbosity=1,
     )
 
-    result = await caller_ctx.call("sub", {"input": "nested call"})
+    result = await caller_ctx.call_agent(agent_spec, {"input": "nested call"})
     assert result == "user_prompts=1"

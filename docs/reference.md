@@ -20,27 +20,27 @@ Supported forms:
 - `module.Class`
 - `path.py:Class` (relative to the worker file)
 
-Schemas must subclass `WorkerArgs` and implement `prompt_spec()`. Input can be passed in several forms:
+Schemas must subclass `WorkerArgs` and implement `prompt_messages()`. Input can be passed in several forms:
 
 ```python
 # Simple string
-runtime.call("worker", "text")
+await ctx.deps.call_agent("worker", "text")
 
 # With attachments
-runtime.call("worker", {"input": "text", "attachments": ["file.pdf"]})
+await ctx.deps.call_agent("worker", {"input": "text", "attachments": ["file.pdf"]})
 ```
 
 For custom schemas, subclass `WorkerArgs`:
 
 ```python
-from llm_do.runtime import PromptSpec, WorkerArgs
+from llm_do.runtime import PromptContent, WorkerArgs
 
 class PitchInput(WorkerArgs):
     input: str
     company_name: str
 
-    def prompt_spec(self) -> PromptSpec:
-        return PromptSpec(text=f"Evaluate {self.company_name}: {self.input}")
+    def prompt_messages(self) -> list[PromptContent]:
+        return [f"Evaluate {self.company_name}: {self.input}"]
 ```
 
 This schema shapes tool-call arguments and validates inputs before the worker runs.
@@ -49,15 +49,15 @@ This schema shapes tool-call arguments and validates inputs before the worker ru
 
 When loading entries from files, there must be exactly one entry candidate:
 - **Worker files**: mark the entry worker with `entry: true` in frontmatter
-- **Python files**: define a single `@entry` function
+- **Python files**: define a single `EntrySpec` instance
 
 If multiple candidates exist (or none), loading fails with a descriptive error.
 
-## Calling Workers from Python
+## Calling Agents from Python
 
-Python code can invoke workers in two contexts:
+Python code can invoke agents in two contexts:
 1. **From orchestrator scripts** — using `Runtime.run_entry()` to start a run
-2. **From within tools** — using `ctx.deps.call()` during an active run
+2. **From within tools** — using `ctx.deps.call_agent()` during an active run
 
 ### From Orchestrator Scripts
 
@@ -74,14 +74,15 @@ from llm_do.runtime import (
 
 async def main():
     project_root = Path(".").resolve()
-    entry = build_entry(["analyzer.worker"], [], project_root=project_root)
+    entry_spec, registry = build_entry(["analyzer.worker"], [], project_root=project_root)
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
         project_root=project_root,
     )
+    runtime.register_agents(registry.agents)
 
     result, ctx = await runtime.run_entry(
-        entry,
+        entry_spec,
         input_data="Analyze this data",
     )
 
@@ -89,54 +90,59 @@ async def main():
 ```
 
 `Runtime.run_entry()`:
-- Creates a fresh `CallScope` for the entry (one turn by default)
+- Creates a fresh entry runtime (NullModel, no toolsets) for the entry function
 - Reuses runtime-scoped state (usage, approval cache, message log)
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
 - Returns both the result and the runtime context
  
-`build_entry()` requires an explicit `project_root`; pass the same root to `Runtime`
+`build_entry()` returns `(EntrySpec, AgentRegistry)` and requires an explicit `project_root`; pass the same root to `Runtime`
 to keep filesystem toolsets and attachment resolution aligned.
 
 Workers resolve their model at construction (`model` in the worker definition or
-`LLM_DO_MODEL` as a fallback). `@entry` functions use NullModel for tool contexts,
-so LLM calls are not allowed from entry functions.
+`LLM_DO_MODEL` as a fallback). Entry functions run under NullModel (no toolsets),
+so direct LLM calls from entry code are not allowed.
 
 **Parameters:**
 
 | Parameter | Description |
 |-----------|-------------|
-| `invocable` | `Entry` (Worker or EntryFunction) to run |
-| `input_data` | Worker input args (WorkerArgs or dict) |
+| `entry_spec` | `EntrySpec` to run (plain `main` function) |
+| `input_data` | Input payload (str, list of prompt parts, dict, or `WorkerArgs`) |
 | `message_history` | Pre-seed conversation history for the top-level call scope |
 
 Use `Runtime.run()` for sync execution when you already have an entry object.
 
-### Multi-Turn Workers (CallScope)
+### Multi-Turn Entries (message_history)
 
-For chat-style flows, start a worker call scope and run multiple turns inside it:
+For chat-style flows, carry forward `message_history` between turns:
 
 ```python
 from pathlib import Path
 
-from llm_do.runtime import Runtime, Worker, build_entry
+from llm_do.runtime import Runtime, build_entry
 
 async def main():
     project_root = Path(".").resolve()
-    entry = build_entry(["assistant.worker"], [], project_root=project_root)
+    entry_spec, registry = build_entry(["assistant.worker"], [], project_root=project_root)
     runtime = Runtime(project_root=project_root)
+    runtime.register_agents(registry.agents)
 
-    assert isinstance(entry, Worker)
-    async with entry.start(runtime) as scope:
-        await scope.run_turn("turn 1")
-        await scope.run_turn("turn 2")
+    message_history = None
+    result, ctx = await runtime.run_entry(entry_spec, {"input": "turn 1"})
+    message_history = list(ctx.frame.messages)
+
+    result, ctx = await runtime.run_entry(
+        entry_spec,
+        {"input": "turn 2"},
+        message_history=message_history,
+    )
 ```
 
-`CallScope` owns the toolsets and the `CallFrame` for that entry call. Message
-history is stored on `scope.frame.messages` and is reused across turns at depth 0.
+The top-level agent consumes `message_history` on each turn at depth 0.
 
 ### From Within Tools
 
-Tools can access the runtime to call other workers or tools. This enables hybrid patterns where deterministic Python code orchestrates LLM reasoning.
+Tools can access the runtime to call other agents. This enables hybrid patterns where deterministic Python code orchestrates LLM reasoning.
 
 **Accepting the Runtime Context:**
 
@@ -152,8 +158,8 @@ def build_tools(_ctx):
 
     @tools.tool
     async def my_tool(ctx: RunContext[WorkerRuntime], data: str) -> str:
-        """Tool that can call workers."""
-        result = await ctx.deps.call("worker_name", data)
+        """Tool that can call agents."""
+        result = await ctx.deps.call_agent("worker_name", data)
         return result
 
     return tools
@@ -163,36 +169,22 @@ tools = ToolsetSpec(factory=build_tools)
 
 The `ctx` parameter is automatically injected by PydanticAI and excluded from the tool schema the LLM sees.
 
-**Calling Workers and Tools:**
+**Calling Agents:**
 
-Use `ctx.deps.call(name, input_data)` to invoke any worker or tool by name:
+Use `ctx.deps.call_agent(spec_or_name, input_data)` to invoke an agent by name or `AgentSpec`:
 
 ```python
 @tools.tool
 async def orchestrate(ctx: RunContext[WorkerRuntime], task: str) -> str:
-    # Call an LLM worker
-    analysis = await ctx.deps.call("analyzer", task)
-
-    # Call another Python tool
-    formatted = await ctx.deps.call("formatter", {"text": analysis})
-
-    return formatted
+    # Call an LLM agent
+    analysis = await ctx.deps.call_agent("analyzer", task)
+    return analysis
 ```
 
-`RunContext.prompt` is derived from `WorkerArgs.prompt_spec().text` for logging/UI
+`RunContext.prompt` is derived from `WorkerArgs.prompt_messages()` for logging/UI
 only; tools should rely on their typed args and use `ctx.deps` only for delegation.
 
-The `input_data` argument can be a string, list (with `Attachment`s), or dict.
-
-**Alternative: Attribute-Style Calls:**
-
-For convenience, you can use attribute-style syntax via `ctx.deps.tools`:
-
-```python
-# These are equivalent:
-result = await ctx.deps.call("analyzer", data)
-result = await ctx.deps.tools.analyzer(input=data)
-```
+The `input_data` argument can be a string, list (with `Attachment`s), dict, or `WorkerArgs`.
 
 **Available Runtime State:**
 
@@ -200,68 +192,74 @@ Via `ctx.deps`, tools can access (depth lives at `ctx.deps.frame.depth`, and lim
 
 | Property | Description |
 |----------|-------------|
-| `call(name, input_data)` | Invoke a worker or tool by name |
-| `tools.<name>(**kwargs)` | Attribute-style tool invocation |
+| `call_agent(spec_or_name, input_data)` | Invoke an agent by name or `AgentSpec` |
 | `frame` | Call state (`depth`, `model`, `prompt`, `messages`, `active_toolsets`) |
 | `config` | Runtime config (`max_depth`, approval policy, verbosity, etc.) |
 
 ### Example: Code Entry Point
 
-A common pattern is using a Python function as the entry point for deterministic orchestration. There are two approaches:
-
-**Using @entry decorator (recommended):**
+A common pattern is using a Python function as the entry point for deterministic orchestration:
 
 ```python
-from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
+from pathlib import Path
 
-@entry(name="main", toolsets=["filesystem_project", "evaluator"])
-async def process_files(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+from llm_do.runtime import EntrySpec, WorkerRuntime
+
+async def main(_input_data, runtime: WorkerRuntime) -> str:
     """Orchestrate evaluation of multiple files."""
     files = list(Path("input").glob("*.pdf"))  # deterministic
 
     results = []
     for f in files:
-        # LLM worker handles reasoning
-        report = await runtime.call(
+        # LLM agent handles reasoning
+        report = await runtime.call_agent(
             "evaluator",
-            {"input": "Analyze this file.", "attachments": [str(f)]}
+            {"input": "Analyze this file.", "attachments": [str(f)]},
         )
         Path(f"output/{f.stem}.md").write_text(report)  # deterministic
         results.append(f.stem)
 
     return f"Processed {len(results)} files"
+
+ENTRY_SPEC = EntrySpec(name="main", main=main)
 ```
 
 Run with a manifest that includes `tools.py` and `evaluator.worker`, e.g.
-`llm-do project.json "start"` (the single `@entry` function is selected automatically).
+`llm-do project.json "start"` (the single `EntrySpec` is selected automatically).
 
-The `@entry` decorator:
-- Marks a function as an entry point with a name and toolset references
-- Toolsets can be names (resolved during registry linking) or ToolsetSpec factories
-- `schema_in` can specify a `WorkerArgs` subclass for input normalization
-- The function receives `(args, runtime)`:
-  - `args`: `WorkerArgs` instance (normalized input with `prompt_spec()`)
-  - `runtime`: `WorkerRuntime` for calling tools via `runtime.call()`
+`EntrySpec` fields:
+- `name`: Entry name for logging/events
+- `main`: Async function called for the entry
+- `schema_in`: Optional `WorkerArgs` subclass for input normalization
 
-Note: `@entry` functions are trusted code, but tool calls from `runtime.call()`
-still go through approval wrappers and follow the run approval policy. To skip
-prompts, use `approve_all` (or drop to raw Python to bypass the tool plane).
+`main` receives:
+- A `WorkerArgs` instance when `schema_in` is provided
+- Otherwise, a list of prompt parts (`list[PromptContent]`)
+
+Note: Entry functions are trusted code, but agent calls still go through approval
+wrappers and follow the run approval policy. To skip prompts, use `approve_all`
+(or drop to raw Python to bypass the tool plane).
 
 Example with custom input schema:
 
 ```python
-from llm_do.runtime import PromptSpec, WorkerArgs, WorkerRuntime, entry
+from llm_do.runtime import EntrySpec, WorkerArgs, PromptContent, WorkerRuntime
 
 class TaggedInput(WorkerArgs):
     input: str
     tag: str
 
-    def prompt_spec(self) -> PromptSpec:
-        return PromptSpec(text=f"{self.input}:{self.tag}")
+    def prompt_messages(self) -> list[PromptContent]:
+        return [f"{self.input}:{self.tag}"]
 
-@entry(name="main", schema_in=TaggedInput)
-async def main(args: TaggedInput, runtime: WorkerRuntime) -> str:
+async def main(args: TaggedInput, _runtime: WorkerRuntime) -> str:
     return args.tag
+
+ENTRY_SPEC = EntrySpec(
+    name="main",
+    main=main,
+    schema_in=TaggedInput,
+)
 ```
 
 ---
@@ -315,7 +313,7 @@ need to specialize per worker (e.g., base paths).
 
 **Accessing the Runtime:**
 
-To call other workers/tools from your tool, accept `RunContext[WorkerRuntime]`:
+To call other agents from your tool, accept `RunContext[WorkerRuntime]`:
 
 ```python
 from pydantic_ai.tools import RunContext
@@ -327,8 +325,8 @@ def build_calc_tools(_ctx):
 
     @calc_tools.tool
     async def analyze(ctx: RunContext[WorkerRuntime], text: str) -> str:
-        """Analyze text using another worker."""
-        return await ctx.deps.call("sentiment_analyzer", {"input": text})
+        """Analyze text using another agent."""
+        return await ctx.deps.call_agent("sentiment_analyzer", {"input": text})
 
     return calc_tools
 ```
@@ -504,7 +502,7 @@ You have access to filesystem and shell tools.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Worker identifier (used for `ctx.deps.call()`) |
+| `name` | Yes | Worker identifier (used for `ctx.deps.call_agent()`) |
 | `description` | No | Tool description when the worker is exposed as a tool (falls back to `instructions`) |
 | `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`); falls back to `LLM_DO_MODEL` if omitted |
 | `compatible_models` | No | List of acceptable model patterns for the `LLM_DO_MODEL` fallback (mutually exclusive with `model`) |

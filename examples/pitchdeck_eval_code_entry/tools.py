@@ -1,6 +1,6 @@
 """Code entry point for pitch deck evaluation using runtime.
 
-This example demonstrates the @entry pattern where Python code is the
+This example demonstrates the EntrySpec pattern where Python code is the
 entry point instead of an LLM orchestrator. The main() function handles
 all deterministic orchestration (list files, loop, write results) while
 the pitch_evaluator worker handles the actual LLM analysis.
@@ -25,7 +25,7 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
-from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
+from llm_do.runtime import EntrySpec, WorkerRuntime
 
 # Project root is the directory containing this file
 PROJECT_ROOT = Path(__file__).parent.resolve()
@@ -56,8 +56,7 @@ def list_pitchdecks(input_dir: str = "input") -> list[dict]:
     return result
 
 
-@entry(toolsets=["pitch_evaluator"])
-async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+async def main(_input_data, runtime: WorkerRuntime) -> str:
     """Evaluate all pitch decks in input directory.
 
     This is a code entry point that orchestrates the evaluation workflow:
@@ -66,10 +65,6 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     3. Write results to files (deterministic)
 
     File paths are relative to the project root (this file's directory).
-
-    Args:
-        args: WorkerArgs input (ignored - workflow is deterministic)
-        runtime: WorkerRuntime for calling workers
     """
     decks = list_pitchdecks()
 
@@ -79,7 +74,7 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     results = []
 
     for deck in decks:
-        report = await runtime.call(
+        report = await runtime.call_agent(
             "pitch_evaluator",
             {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]},
         )
@@ -91,3 +86,6 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
         results.append(deck["slug"])
 
     return f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}"
+
+
+ENTRY_SPEC = EntrySpec(name="main", main=main)

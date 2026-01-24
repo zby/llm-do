@@ -80,14 +80,17 @@ def test_model():
         - TestModel(seed=42) - deterministic pseudo-random responses
 
     Use this fixture when testing:
-        - Worker definitions and their tool integration
+        - Agent definitions and their tool integration
         - Output schema validation
         - Tool calling behavior
 
     Example:
-        def test_worker_with_tools(test_model):
-            worker = Worker(name="my_worker", instructions="...", model=test_model)
-            result, _ctx = asyncio.run(Runtime().run_entry(worker, "..."))
+        def test_agent_with_tools(test_model):
+            agent = AgentSpec(name="my_agent", instructions="...", model=test_model)
+            async def main(input_data, runtime):
+                return await runtime.call_agent(agent, input_data)
+            entry = EntrySpec(name="main", main=main)
+            result, _ctx = asyncio.run(Runtime().run_entry(entry, {"input": "..."}))
             # Verifies tools are registered and output schema works
 
     See tests/README.md for when to use TestModel vs custom agent_runner.

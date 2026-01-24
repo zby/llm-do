@@ -57,7 +57,7 @@ export OPENAI_API_KEY=sk-...
 
 Exactly one entry candidate must exist in the file set:
 - **Worker files**: mark the entry worker with `entry: true` in frontmatter.
-- **Python files**: define a single `@entry` function.
+- **Python files**: define a single `EntrySpec` instance.
 - If multiple candidates exist (or none), loading fails with a descriptive error.
 
 ## Worker File Toolsets
@@ -95,27 +95,27 @@ Supported forms:
 - `module.Class`
 - `path.py:Class` (relative to the worker file)
 
-Schemas must subclass `WorkerArgs` and implement `prompt_spec()`. Input can be passed as:
+Schemas must subclass `WorkerArgs` and implement `prompt_messages()`. Input can be passed as:
 
 - Simple string: `"text"`
 - With attachments: `{"input": "text", "attachments": ["file.pdf"]}`
 
 Use `schema_in_ref` for custom validation or typed tool-call structure.
 
-`prompt_spec().text` is used to build the LLM prompt (and `RunContext.prompt`
+`prompt_messages()` is used to build the LLM prompt (and `RunContext.prompt`
 for logging/UI only). Tools should use their typed args, not prompt text.
 
 ## Model Selection
 
-Model resolution happens when workers are constructed:
-1. `model` in the worker definition (or Python `Worker` constructor)
+Model resolution happens when agents are constructed:
+1. `model` in the worker definition (or Python `AgentSpec` constructor)
 2. `LLM_DO_MODEL` environment variable (fallback)
 
 `compatible_models` is only checked against the env fallback at construction time.
 If you use `compatible_models`, set `LLM_DO_MODEL` to a compatible value.
 
-Workers do not inherit models from callers. Python `@entry` functions always use
-NullModel for tool contexts (no LLM calls allowed); configure models on workers.
+Workers do not inherit models from callers. Entry functions always use
+NullModel (no LLM calls allowed); configure models on workers.
 
 ## Input Overrides
 

@@ -1,8 +1,4 @@
-"""Entry registry and builder utilities.
-
-The registry acts as a symbol table for entry names: resolved workers and
-entry functions are bound to names so the runtime can look them up.
-"""
+"""Entry/agent registry and builder utilities."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,13 +12,14 @@ from pydantic_ai.builtin_tools import (
     WebSearchTool,
 )
 
+from ..models import select_model
+from ..toolsets.agent import agent_as_toolset
 from ..toolsets.builtins import build_builtin_toolsets
 from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, resolve_toolset_specs
 from .args import WorkerArgs
-from .contracts import Entry
+from .contracts import AgentSpec, EntrySpec, WorkerRuntimeProtocol
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
-from .worker import Worker
 from .worker_file import (
     WorkerDefinition,
     build_worker_definition,
@@ -31,22 +28,22 @@ from .worker_file import (
 
 
 @dataclass(frozen=True, slots=True)
-class EntryRegistry:
-    """Symbol table mapping entry names to resolved entries."""
+class AgentRegistry:
+    """Symbol table mapping agent names to AgentSpec instances."""
 
-    entries: dict[str, Entry]
+    agents: dict[str, AgentSpec]
 
-    def get(self, name: str) -> Entry:
-        """Return the entry for a name or raise with a helpful error."""
+    def get(self, name: str) -> AgentSpec:
         try:
-            return self.entries[name]
+            return self.agents[name]
         except KeyError as exc:
-            available = sorted(self.entries.keys())
-            raise ValueError(f"Entry '{name}' not found. Available: {available}") from exc
+            available = sorted(self.agents.keys())
+            raise ValueError(
+                f"Agent '{name}' not found. Available: {available}"
+            ) from exc
 
     def names(self) -> list[str]:
-        """Return sorted entry names."""
-        return sorted(self.entries.keys())
+        return sorted(self.agents.keys())
 
 
 @dataclass(slots=True)
@@ -56,10 +53,9 @@ class WorkerSpec:
     name: str
     path: Path
     definition: WorkerDefinition
-    stub: Worker
+    spec: AgentSpec
 
 
-# Registry of server-side tool factories
 _BUILTIN_TOOL_FACTORIES: dict[str, Callable[[dict[str, Any]], Any]] = {
     "web_search": lambda cfg: WebSearchTool(
         max_uses=cfg.get("max_uses"),
@@ -101,47 +97,33 @@ def _merge_toolsets(
     return merged
 
 
-def _build_registry_and_entry_name(
+def _build_registry_and_entry_spec(
     worker_files: list[str],
     python_files: list[str],
     *,
     project_root: Path | str,
-) -> tuple[EntryRegistry, str]:
-    """Build the entry symbol table and return the resolved entry name.
-
-    This function performs two-pass registry building:
-    1. First pass: Load all Python toolsets, workers, and entry functions;
-       load worker file definitions and create stub Workers.
-    2. Second pass: Resolve toolset references for workers and entry functions.
-
-    Args:
-        worker_files: Paths to .worker files
-        python_files: Paths to .py files with toolsets/workers/entries
-        project_root: Shared project root for filesystem toolsets
-    Returns:
-        Tuple of (EntryRegistry, entry_name) with entries resolved and ready
-    """
+) -> tuple[EntrySpec, AgentRegistry]:
     if project_root is None:
         raise ValueError("project_root is required to build entries")
     project_root_path = Path(project_root).resolve()
-    # Load Python toolsets, workers, and entry functions in a single pass
-    python_toolsets, python_workers, python_entries = load_all_from_files(python_files)
 
-    if not worker_files and not python_workers and not python_entries:
+    python_toolsets, python_agents, python_entries = load_all_from_files(python_files)
+
+    if not worker_files and not python_agents and not python_entries:
         raise ValueError("At least one .worker or .py file with entries required")
 
-    entry_func_names = sorted(python_entries.keys())
-    if len(entry_func_names) > 1:
+    entry_specs = sorted(python_entries.values(), key=lambda e: e.name)
+    if len(entry_specs) > 1:
+        entry_names = [entry.name for entry in entry_specs]
         raise ValueError(
-            "Multiple @entry functions found: "
-            f"{entry_func_names}. Only one entry function is allowed."
+            "Multiple EntrySpec instances found: "
+            f"{entry_names}. Only one entry is allowed."
         )
-    entry_func_name = entry_func_names[0] if entry_func_names else None
+    entry_from_python = entry_specs[0] if entry_specs else None
 
-    # First pass: load worker definitions and create minimal stub Worker instances
     worker_specs: dict[str, WorkerSpec] = {}
     entry_worker_names: list[str] = []
-    reserved_names = set(python_workers.keys()) | set(python_entries.keys())
+    reserved_names = set(python_agents.keys()) | set(python_entries.keys())
 
     for worker_file_path in worker_files:
         resolved_path = Path(worker_file_path).resolve()
@@ -149,15 +131,13 @@ def _build_registry_and_entry_name(
         worker_def = build_worker_definition(frontmatter, instructions)
         name = worker_def.name
 
-        # Check for duplicate worker names
         if name in worker_specs:
             raise ValueError(f"Duplicate worker name: {name}")
 
-        # Check for conflict with Python workers or entries
         if name in reserved_names:
-            if name in python_workers:
+            if name in python_agents:
                 raise ValueError(
-                    f"Worker name '{name}' conflicts with Python worker"
+                    f"Worker name '{name}' conflicts with Python agent"
                 )
             raise ValueError(f"Worker name '{name}' conflicts with Python entry")
         reserved_names.add(name)
@@ -165,12 +145,16 @@ def _build_registry_and_entry_name(
         if worker_def.entry:
             entry_worker_names.append(name)
 
-        stub = Worker(
+        resolved_model = select_model(
+            worker_model=worker_def.model,
+            compatible_models=worker_def.compatible_models,
+            worker_name=name,
+        )
+        spec = AgentSpec(
             name=name,
             instructions=worker_def.instructions,
             description=worker_def.description,
-            model=worker_def.model,
-            compatible_models=worker_def.compatible_models,
+            model=resolved_model,
             toolset_specs=[],
             builtin_tools=_build_builtin_tools(worker_def.server_side_tools),
         )
@@ -178,84 +162,86 @@ def _build_registry_and_entry_name(
             name=name,
             path=resolved_path,
             definition=worker_def,
-            stub=stub,
+            spec=spec,
         )
 
-    if entry_func_name and entry_worker_names:
+    if entry_from_python and entry_worker_names:
         raise ValueError(
-            "Entry conflict: found @entry function "
-            f"'{entry_func_name}' and entry worker(s) {sorted(entry_worker_names)}."
+            "Entry conflict: found Python EntrySpec and entry worker(s) "
+            f"{sorted(entry_worker_names)}."
         )
     if len(entry_worker_names) > 1:
         raise ValueError(
             "Multiple workers marked entry: "
             f"{sorted(entry_worker_names)}. Only one entry worker is allowed."
         )
-    if not entry_func_name and not entry_worker_names:
-        raise ValueError(
-            "No entry found. Mark one worker with entry: true or define a single @entry function."
-        )
 
-    entry_name = entry_func_name or entry_worker_names[0]
-
-    # Second pass: resolve toolset specs and fill in worker stubs
-    # Workers are wrapped in WorkerToolset to expose them as tools
-    available_workers = {
-        name: spec.stub.as_toolset_spec() for name, spec in worker_specs.items()
-    }
+    agents: dict[str, AgentSpec] = dict(python_agents)
+    agents.update({spec.name: spec.spec for spec in worker_specs.values()})
 
     builtin_toolsets = build_builtin_toolsets(Path.cwd(), project_root_path)
-    all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, available_workers)
+    agent_toolsets = {
+        name: agent_as_toolset(spec, tool_name=name) for name, spec in agents.items()
+    }
+    all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, agent_toolsets)
 
-    for spec in worker_specs.values():
-        worker_root = spec.path.parent
+    for worker_spec in worker_specs.values():
+        worker_root = worker_spec.path.parent
         toolset_context = ToolsetBuildContext(
-            worker_name=spec.name,
+            worker_name=worker_spec.name,
             available_toolsets=all_toolsets,
         )
         resolved_toolset_specs = resolve_toolset_specs(
-            spec.definition.toolsets,
+            worker_spec.definition.toolsets,
             toolset_context,
         )
 
-        # Fill in stub fields
-        spec.stub.toolset_specs = resolved_toolset_specs
-        spec.stub.toolset_context = toolset_context
+        worker_spec.spec.toolset_specs = resolved_toolset_specs
+        worker_spec.spec.toolset_context = toolset_context
 
-        if spec.definition.schema_in_ref:
+        if worker_spec.definition.schema_in_ref:
             resolved_schema = resolve_schema_ref(
-                spec.definition.schema_in_ref,
+                worker_spec.definition.schema_in_ref,
                 base_path=worker_root,
             )
             if not issubclass(resolved_schema, WorkerArgs):
                 raise TypeError(
                     "schema_in_ref must resolve to a WorkerArgs subclass"
                 )
-            spec.stub.schema_in = cast(type[WorkerArgs], resolved_schema)
+            worker_spec.spec.schema_in = cast(type[WorkerArgs], resolved_schema)
 
-    for worker in python_workers.values():
-        if worker.toolset_context is None:
-            worker.toolset_context = ToolsetBuildContext(
-                worker_name=worker.name,
+    for agent in python_agents.values():
+        if agent.toolset_context is None:
+            agent.toolset_context = ToolsetBuildContext(
+                worker_name=agent.name,
                 available_toolsets=all_toolsets,
             )
 
-    # Resolve toolset refs for EntryFunction instances (build global map only if needed)
-    entry_funcs_with_refs = [ef for ef in python_entries.values() if ef.toolset_refs]
-    if entry_funcs_with_refs:
-        for entry_func in entry_funcs_with_refs:
-            toolset_context = ToolsetBuildContext(
-                worker_name=entry_func.name,
-                available_toolsets=all_toolsets,
-            )
-            entry_func.resolve_toolsets(all_toolsets, toolset_context)
+    if entry_from_python is None and not entry_worker_names:
+        raise ValueError(
+            "No entry found. Mark one worker with entry: true or "
+            "define a single EntrySpec in Python."
+        )
 
-    entries: dict[str, Entry] = {}
-    entries.update(python_workers)
-    entries.update(python_entries)
-    entries.update({spec.name: spec.stub for spec in worker_specs.values()})
+    if entry_from_python is not None:
+        entry_spec = entry_from_python
+    else:
+        entry_agent = agents[entry_worker_names[0]]
 
-    return EntryRegistry(entries=entries), entry_name
+        async def entry_main(
+            input_data: Any,
+            runtime: WorkerRuntimeProtocol,
+        ) -> Any:
+            return await runtime.call_agent(entry_agent, input_data)
+
+        entry_spec = EntrySpec(
+            main=entry_main,
+            name=entry_agent.name,
+            description=entry_agent.description,
+            schema_in=entry_agent.schema_in,
+        )
+
+    return entry_spec, AgentRegistry(agents=agents)
 
 
 def build_entry_registry(
@@ -263,16 +249,13 @@ def build_entry_registry(
     python_files: list[str],
     *,
     project_root: Path | str,
-) -> EntryRegistry:
-    """Build the entry symbol table with toolsets resolved and entries ready.
-
-    project_root anchors filesystem toolsets like filesystem_project.
-    """
-    registry, _entry_name = _build_registry_and_entry_name(
+) -> AgentRegistry:
+    entry_spec, registry = _build_registry_and_entry_spec(
         worker_files,
         python_files,
         project_root=project_root,
     )
+    _ = entry_spec
     return registry
 
 
@@ -281,14 +264,10 @@ def build_entry(
     python_files: list[str],
     *,
     project_root: Path | str,
-) -> Entry:
-    """Build and return the single resolved entry.
-
-    project_root anchors filesystem toolsets like filesystem_project.
-    """
-    registry, entry_name = _build_registry_and_entry_name(
+) -> tuple[EntrySpec, AgentRegistry]:
+    """Build and return the resolved entry spec with agent registry."""
+    return _build_registry_and_entry_spec(
         worker_files,
         python_files,
         project_root=project_root,
     )
-    return registry.get(entry_name)

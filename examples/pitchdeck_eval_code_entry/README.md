@@ -5,9 +5,9 @@ This example demonstrates the **code entry point** pattern using `runtime` where
 ## The Pattern
 
 ```
-tools.py::main() (deterministic code)
+tools.py::ENTRY_SPEC (deterministic code)
     ├── calls list_pitchdecks() directly
-    ├── for each deck: runtime.call("pitch_evaluator", ...)
+    ├── for each deck: ctx.deps.call_agent("pitch_evaluator", ...)
     └── writes results directly (Path.write_text)
 
 pitch_evaluator.worker (LLM analysis)
@@ -41,20 +41,19 @@ The LLM is reserved for what it's good at: **evaluating pitch decks**.
 
 ## How It Works
 
-The `main` entry in `tools.py` uses `@entry` and receives `WorkerArgs` and
-`WorkerRuntime`, so it can call workers/tools by name:
+The entry function in `tools.py` is exposed via `EntrySpec` and receives a
+runtime handle, so it can call agents by name:
 
 ```python
-from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
+from llm_do.runtime import EntrySpec, WorkerRuntime
 
-@entry(name="main", toolsets=["pitch_evaluator"])
-async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+async def main(_input_data, runtime: WorkerRuntime) -> str:
     """Entry point - Python orchestration."""
     decks = list_pitchdecks()
 
     for deck in decks:
-        # Call LLM worker for analysis via runtime.call()
-        report = await runtime.call(
+        # Call LLM agent via call_agent
+        report = await runtime.call_agent(
             "pitch_evaluator",
             {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]},
         )
@@ -63,13 +62,14 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
         Path(deck["output_path"]).write_text(report)
 
     return f"Evaluated {len(decks)} pitch deck(s)"
+
+ENTRY_SPEC = EntrySpec(name="main", main=main)
 ```
 
-The `runtime.call()` method can invoke:
-- **Code tools**: Tool functions exposed via toolsets
-- **Worker tools**: `.worker` files (LLM agents)
+The `runtime.call_agent()` method can invoke:
+- **LLM agents**: `.worker` files (LLM agents) or Python `AgentSpec` instances
 
-Entry functions are trusted code, but tool calls still go through the tool
+Entry tools are trusted code, but agent calls still go through the tool
 plane and respect approval policies/toolset configs (for parity and
 observability). Use `approval_mode: "prompt"` in `project.json` if you want
 interactive approvals.

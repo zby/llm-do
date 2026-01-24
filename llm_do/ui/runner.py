@@ -11,7 +11,7 @@ from typing import Any, Callable, Literal, Mapping, Sequence, TextIO
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from llm_do.runtime import CallScope, Entry, RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import AgentRegistry, EntrySpec, RunApprovalPolicy, Runtime
 from llm_do.runtime.contracts import MessageLogCallback
 from llm_do.runtime.events import RuntimeEvent
 
@@ -24,7 +24,7 @@ UiMode = Literal["tui", "headless"]
 ApprovalMode = Literal["prompt", "approve_all", "reject_all"]
 UiEventSink = Callable[[UIEvent], None]
 RuntimeEventSink = Callable[[RuntimeEvent], None]
-EntryFactory = Callable[[], Entry]
+EntryFactory = Callable[[], tuple[EntrySpec, AgentRegistry]]
 RuntimeFactory = Callable[..., Runtime]
 
 
@@ -62,14 +62,19 @@ def _format_run_error_message(exc: BaseException) -> str:
     return f"Unexpected error: {exc}"
 
 
-def _resolve_entry_factory(entry: Entry | None, entry_factory: EntryFactory | None) -> EntryFactory:
+def _resolve_entry_factory(
+    entry: EntrySpec | None,
+    entry_factory: EntryFactory | None,
+    agent_registry: AgentRegistry | None,
+) -> EntryFactory:
     if entry is not None and entry_factory is not None:
         raise ValueError("Provide either entry or entry_factory, not both.")
     if entry_factory is not None:
         return entry_factory
     if entry is None:
         raise ValueError("entry or entry_factory is required.")
-    return lambda: entry
+    registry = agent_registry or AgentRegistry(agents={})
+    return lambda: (entry, registry)
 
 
 def _build_runtime(
@@ -119,8 +124,9 @@ async def _render_loop(
 async def run_tui(
     *,
     input: Any,
-    entry: Entry | None = None,
+    entry: EntrySpec | None = None,
     entry_factory: EntryFactory | None = None,
+    agent_registry: AgentRegistry | None = None,
     project_root: Path | None = None,
     approval_mode: ApprovalMode = "prompt",
     verbosity: int = 1,
@@ -142,12 +148,12 @@ async def run_tui(
     _ensure_stdout_textual_driver()
     from .app import LlmDoApp
 
-    entry_factory = _resolve_entry_factory(entry, entry_factory)
+    entry_factory = _resolve_entry_factory(entry, entry_factory, agent_registry)
     app: LlmDoApp | None = None
     tui_event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
     tui_backend = TextualDisplayBackend(tui_event_queue)
-    entry_name = worker_name if worker_name is not None else str(getattr(entry, "name", "worker"))
+    entry_name = worker_name or "entry"
 
     render_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     backends: list[DisplayBackend] = [tui_backend]
@@ -195,14 +201,15 @@ async def run_tui(
 
     result_holder: list[Any] = []
     exit_code = 0
-    entry_instance: Entry | None = None
-    call_scope: CallScope | None = None
+    entry_instance: tuple[EntrySpec, AgentRegistry] | None = None
     message_history: list[Any] | None = None
 
-    def get_entry_instance() -> Entry:
+    def get_entry_instance() -> tuple[EntrySpec, AgentRegistry]:
         nonlocal entry_instance
+        nonlocal entry_name
         if entry_instance is None:
             entry_instance = entry_factory()
+            entry_name = worker_name or entry_instance[0].name
         return entry_instance
 
     def emit_error(message: str, error_type: str) -> None:
@@ -216,34 +223,13 @@ async def run_tui(
     async def run_entry(
         input_data: Any,
     ) -> list[Any] | None:
-        nonlocal call_scope
         nonlocal message_history
 
-        entry_instance = get_entry_instance()
-        if isinstance(entry_instance, Worker):
-            if chat:
-                if call_scope is None:
-                    call_scope = entry_instance.start(
-                        runtime,
-                        message_history=message_history,
-                    )
-                result = await call_scope.run_turn(input_data)
-                result_holder[:] = [result]
-                message_history = list(call_scope.runtime.frame.messages)
-                return message_history
-
-            scope = entry_instance.start(
-                runtime,
-                message_history=message_history,
-            )
-            async with scope:
-                result = await scope.run_turn(input_data)
-            result_holder[:] = [result]
-            message_history = list(scope.runtime.frame.messages)
-            return message_history
+        entry_spec, registry = get_entry_instance()
+        runtime.register_agents(registry.agents)
 
         result, ctx = await runtime.run_entry(
-            entry_instance,
+            entry_spec,
             input_data,
             message_history=message_history,
         )
@@ -304,8 +290,6 @@ async def run_tui(
     try:
         await app.run_async(mouse=False)
     finally:
-        if call_scope is not None:
-            await call_scope.close()
         if not render_closed:
             render_queue.put_nowait(None)
             render_closed = True
@@ -318,8 +302,9 @@ async def run_tui(
 async def run_headless(
     *,
     input: Any,
-    entry: Entry | None = None,
+    entry: EntrySpec | None = None,
     entry_factory: EntryFactory | None = None,
+    agent_registry: AgentRegistry | None = None,
     project_root: Path | None = None,
     approval_mode: ApprovalMode = "approve_all",
     verbosity: int = 1,
@@ -335,7 +320,7 @@ async def run_headless(
     error_stream: TextIO | None = None,
 ) -> RunUiResult:
     """Run a single entry with a headless text backend."""
-    entry_factory = _resolve_entry_factory(entry, entry_factory)
+    entry_factory = _resolve_entry_factory(entry, entry_factory, agent_registry)
     if backends is None:
         backends = [HeadlessDisplayBackend(stream=sys.stderr, verbosity=verbosity)]
     render_task: asyncio.Task[None] | None = None
@@ -378,8 +363,9 @@ async def run_headless(
             raise ValueError(
                 "Headless mode cannot prompt for approvals; use approve_all or reject_all."
             )
-        entry_instance = entry_factory()
-        result, _ctx = await runtime.run_entry(entry_instance, input)
+        entry_spec, registry = entry_factory()
+        runtime.register_agents(registry.agents)
+        result, _ctx = await runtime.run_entry(entry_spec, input)
     except KeyboardInterrupt as exc:
         exit_code = 1
         print(f"\n{_format_run_error_message(exc)}", file=error_stream)
@@ -400,8 +386,9 @@ async def run_headless(
 async def run_ui(
     *,
     input: Any,
-    entry: Entry | None = None,
+    entry: EntrySpec | None = None,
     entry_factory: EntryFactory | None = None,
+    agent_registry: AgentRegistry | None = None,
     mode: UiMode = "tui",
     project_root: Path | None = None,
     approval_mode: ApprovalMode = "prompt",
@@ -427,6 +414,7 @@ async def run_ui(
             input=input,
             entry=entry,
             entry_factory=entry_factory,
+            agent_registry=agent_registry,
             project_root=project_root,
             approval_mode=approval_mode,
             verbosity=verbosity,
@@ -449,6 +437,7 @@ async def run_ui(
             input=input,
             entry=entry,
             entry_factory=entry_factory,
+            agent_registry=agent_registry,
             project_root=project_root,
             approval_mode=approval_mode,
             verbosity=verbosity,

@@ -1,6 +1,6 @@
 import pytest
 
-from llm_do.runtime import PromptContent, Runtime, WorkerArgs, entry
+from llm_do.runtime import EntrySpec, PromptContent, Runtime, WorkerArgs
 
 
 class CustomInput(WorkerArgs):
@@ -13,14 +13,14 @@ class CustomInput(WorkerArgs):
 
 @pytest.mark.anyio
 async def test_entry_schema_in_normalizes_input() -> None:
-    @entry(schema_in=CustomInput)
-    async def echo(args: WorkerArgs, runtime_ctx) -> str:
-        assert isinstance(args, CustomInput)
+    async def main(args: CustomInput, _runtime) -> str:
         return args.tag
+
+    entry_spec = EntrySpec(name="echo", main=main, schema_in=CustomInput)
 
     runtime = Runtime()
     result, ctx = await runtime.run_entry(
-        echo,
+        entry_spec,
         {"input": "hi", "tag": "t1"},
     )
 

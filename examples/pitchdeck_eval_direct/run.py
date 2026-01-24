@@ -18,12 +18,7 @@ try:
 except ImportError:
     raise ImportError("python-slugify required. Install with: pip install python-slugify")
 
-from llm_do.runtime import (
-    Worker,
-    WorkerArgs,
-    WorkerRuntime,
-    entry,
-)
+from llm_do.runtime import AgentSpec, EntrySpec, WorkerRuntime
 from llm_do.ui import run_ui
 
 # =============================================================================
@@ -55,10 +50,10 @@ INPUT_DIR = PROJECT_ROOT / "input"
 OUTPUT_DIR = PROJECT_ROOT / "evaluations"
 
 # =============================================================================
-# Worker (global - Workers are reusable across runs)
+# Agent (global - reusable across runs)
 # =============================================================================
 
-PITCH_EVALUATOR = Worker(
+PITCH_EVALUATOR = AgentSpec(
     name="pitch_evaluator",
     model=MODEL,
     instructions=(PROJECT_ROOT / "instructions" / "pitch_evaluator.md").read_text(),
@@ -99,8 +94,7 @@ def list_pitchdecks(input_dir: str = "input") -> list[dict]:
 # =============================================================================
 
 
-@entry(toolsets=[PITCH_EVALUATOR.as_toolset_spec()])
-async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+async def main(_input_data, runtime: WorkerRuntime) -> str:
     """Evaluate all pitch decks in input directory.
 
     This is a code entry point that orchestrates the evaluation workflow:
@@ -109,10 +103,6 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     3. Write results to files (deterministic)
 
     File paths are relative to the project root (this file's directory).
-
-    Args:
-        args: WorkerArgs input (ignored - workflow is deterministic)
-        runtime: WorkerRuntime for calling workers
     """
     decks = list_pitchdecks()
 
@@ -122,8 +112,8 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     results = []
 
     for deck in decks:
-        report = await runtime.call(
-            "pitch_evaluator",
+        report = await runtime.call_agent(
+            PITCH_EVALUATOR,
             {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]},
         )
 
@@ -136,6 +126,9 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     return f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}"
 
 
+ENTRY_SPEC = EntrySpec(name="main", main=main)
+
+
 def cli_main():
     """Main entry point."""
     print(f"Starting {UI_MODE} with MODEL={MODEL}, APPROVAL_MODE={APPROVAL_MODE}")
@@ -144,9 +137,8 @@ def cli_main():
     print("-" * 60)
 
     outcome = asyncio.run(run_ui(
-        entry=main,
+        entry=ENTRY_SPEC,
         input={"input": ""},
-        model=MODEL,
         project_root=PROJECT_ROOT,
         approval_mode=APPROVAL_MODE,
         mode=UI_MODE,

@@ -6,19 +6,22 @@ without requiring runtime modules to import each other.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
+from pydantic import BaseModel
 from pydantic_ai.models import Model  # Used in ModelType
+from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
 
-from ..toolsets.loader import ToolsetSpec
+from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
+from .args import WorkerArgs
 from .events import RuntimeEvent
 
 if TYPE_CHECKING:
-    from .args import WorkerArgs
-    from .call import CallFrame, CallScope
-    from .shared import Runtime, RuntimeConfig
+    from .call import CallFrame
+    from .shared import RuntimeConfig
 
 ModelType: TypeAlias = str | Model
 EventCallback: TypeAlias = Callable[[RuntimeEvent], None]
@@ -39,6 +42,7 @@ class WorkerRuntimeProtocol(Protocol):
     def frame(self) -> "CallFrame": ...
 
     def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None: ...
+    def reset_entry_history(self) -> None: ...
 
     def spawn_child(
         self,
@@ -48,46 +52,45 @@ class WorkerRuntimeProtocol(Protocol):
         invocation_name: str,
     ) -> "WorkerRuntimeProtocol": ...
 
+    async def call_agent(self, spec_or_name: "AgentSpec | str", input_data: Any) -> Any: ...
 
-class Entry(Protocol):
-    """Protocol for entries that can be invoked via the runtime dispatcher.
+    async def _call_tool(self, name: str, input_data: Any) -> Any: ...
 
-    An entry is a named callable with associated toolset specs. Worker and
-    EntryFunction both implement this protocol.
 
-    Additional attributes (model, compatible_models) may be accessed via
-    getattr with defaults in the runtime.
+@dataclass(frozen=True, slots=True)
+class EntrySpec:
+    """Specification for a root entry invocation."""
 
-    schema_in defines an optional WorkerArgs subclass for structured input.
-    If None, entries accept string or list[str | Attachment] directly.
+    main: Callable[[Any, "WorkerRuntimeProtocol"], Awaitable[Any]]
+    name: str
+    description: str | None = None
+    schema_in: type["WorkerArgs"] | None = None
 
-    Note: Entry implementations expose both setup and per-turn execution:
-    - Entry.start(runtime) -> CallScope (CallScope.run_turn executes per-turn calls)
-    - Entry.run_turn(runtime, input_data) - per-turn execution within a scope
-    - Worker.call(input_data, run_ctx) - used when a Worker is invoked as a tool
-    - EntryFunction.call(args, messages, runtime) - called with args and messages
+    def __post_init__(self) -> None:
+        if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
+            raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
 
-    Runtime.run_entry() handles the dispatch based on entry type.
-    """
 
-    @property
-    def name(self) -> str: ...
+@dataclass(slots=True)
+class AgentSpec:
+    """Configuration for constructing a PydanticAI agent per call."""
 
-    def start(
-        self,
-        runtime: "Runtime",
-        *,
-        message_history: list[Any] | None = None,
-    ) -> "CallScope": ...
+    name: str
+    instructions: str
+    model: ModelType
+    toolset_specs: list[ToolsetSpec] = field(default_factory=list)
+    toolset_context: ToolsetBuildContext | None = None
+    description: str | None = None
+    schema_in: type["WorkerArgs"] | None = None
+    schema_out: type[BaseModel] | None = None
+    model_settings: ModelSettings | None = None
+    builtin_tools: list[Any] = field(default_factory=list)
 
-    async def run_turn(
-        self,
-        runtime: WorkerRuntimeProtocol,
-        input_data: Any,
-    ) -> Any: ...
-
-    @property
-    def toolset_specs(self) -> list[ToolsetSpec]: ...
-
-    @property
-    def schema_in(self) -> type["WorkerArgs"] | None: ...
+    def __post_init__(self) -> None:
+        if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
+            raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
+        if self.schema_out is not None and not issubclass(self.schema_out, BaseModel):
+            raise TypeError(f"schema_out must subclass BaseModel; got {self.schema_out}")
+        for spec in self.toolset_specs:
+            if not isinstance(spec, ToolsetSpec):
+                raise TypeError("Agent toolset_specs must contain ToolsetSpec instances.")

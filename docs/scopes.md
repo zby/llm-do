@@ -6,7 +6,7 @@ llm-do has three main scopes that govern resource lifecycle and state isolation.
 
 ```
 SESSION (Runtime)
-└── CALL SCOPE (top-level entry, depth 0)
+└── ENTRY CALL (depth 0)
     ├── Turn 1 (prompt -> response)
     │   └── Call Scope (child worker, depth 1)
     ├── Turn 2 (prompt -> response)
@@ -34,35 +34,34 @@ llm-do project.json "second prompt"  # Session 2 (separate process)
 
 ### Call Scope
 
-**Lifetime**: From entry invocation until `CallScope.close()` (or exiting `async with` when managing scopes manually).
+**Lifetime**: From entry invocation until `Runtime.run_entry()` returns. For agent toolsets, a `CallScope` is used internally to manage toolset lifecycles.
 
 **What lives here**:
 - `CallFrame` (prompt, messages, depth, active toolsets)
-- Toolset instances (created per call, cleaned up when the scope exits)
+- Toolset instances for agent calls (created per call, cleaned up when the scope exits)
 - Handle-based resources (DB transactions, browser sessions)
 
 **Naming vs instances**: Toolsets are referenced by name in worker config (run-scoped capability), but the actual toolset instances live in the call scope. A new call gets fresh instances, even when the names are the same.
 
-**When you have multiple calls**: A single call scope may span multiple turns in
-TUI **chat mode**, while nested worker calls create child call scopes.
+**When you have multiple calls**: Each `Runtime.run_entry()` call creates a fresh
+entry call frame. Nested worker calls still create child call scopes.
 
 ```
 Session (TUI with --chat)
-└── Call Scope (top-level worker entry)
+└── Entry Calls (message_history carried forward)
     ├── Turn 1: "Analyze this file" → response
     ├── Turn 2: "Now fix the bug"   → response
     └── Turn 3: "Write tests"       → response
 ```
 
-In **headless mode** or **single-turn TUI**, the top-level call scope lasts
-for a single turn.
+In **headless mode** or **single-turn TUI**, the entry call lasts for a single turn.
 
 **What is a call, really?**
 
 A call scope is the execution context for one entry invocation. It starts when
-the entry is invoked and ends when the scope closes. During a call:
-1. Toolsets are instantiated and wrapped for approval
-2. One or more turns run within the same `CallFrame`
+the entry is invoked and ends when `Runtime.run_entry()` returns. During a call:
+1. Agent toolsets are instantiated and wrapped for approval (for agent calls)
+2. One turn runs per `Runtime.run_entry()` invocation
 3. Tools may create handles and state
 4. Cleanup runs when the scope exits (releasing handles, closing connections)
 
@@ -76,7 +75,7 @@ The key property: **all state created during a call is cleaned up immediately af
 
 **Lifetime**: One prompt -> response within a call scope.
 
-Turns update the `CallFrame` prompt and, for the top-level worker (depth 0),
+Turns update the `CallFrame` prompt and, for the top-level agent (depth 0),
 append to message history. Nested worker calls always start with fresh history.
 
 ## Scope Summary
@@ -84,8 +83,8 @@ append to message history. Nested worker calls always start with fresh history.
 | Scope | Lifetime | Created When | Cleaned Up When |
 |-------|----------|--------------|-----------------|
 | Session | Process lifetime | CLI/TUI starts | Process exits |
-| Call | One entry invocation | `Runtime.run_entry()` or `Entry.start()` | Scope closes |
-| Turn | One prompt→response | `CallScope.run_turn()` called | Response returned |
+| Call | One entry invocation | `Runtime.run_entry()` | Call returns |
+| Turn | One prompt→response | `CallScope.call_tool("main", ...)` called | Response returned |
 
 ## Implications for Toolset Design
 
@@ -107,12 +106,12 @@ When designing toolsets, consider which scope your state belongs to:
 
 ## The Chat Mode Exception
 
-Chat mode (`--chat`) keeps a single top-level call scope open. This enables:
+Chat mode (`--chat`) keeps message history across turns by passing `message_history`
+back into `Runtime.run_entry()`. This enables:
 - Message history continuity across turns (depth 0 only)
-- Toolset instances that persist across turns
 - Session-level approval caching (approve once, remember for session)
 
-Toolsets and handles are cleaned up when the chat session ends (scope closes).
+Toolsets and handles still follow per-call lifetimes for agent executions.
 
 ## See Also
 

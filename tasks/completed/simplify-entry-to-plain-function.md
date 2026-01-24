@@ -1,10 +1,10 @@
 # Simplify Entry to Plain Function
 
 ## Status
-active (implement after remove-worker-class-v3)
+ready for implementation
 
 ## Prerequisites
-- [ ] remove-worker-class-v3 complete
+- [x] remove-worker-class-v3 complete
 
 ## Goal
 Simplify entry points from toolsets to plain async functions. Entry points are trusted code that don't need toolset/approval machinery.
@@ -122,13 +122,16 @@ For `.worker` files, the loader creates `EntrySpec` from frontmatter — no chan
 
 ## Tasks
 
-- [ ] Update `EntrySpec` to hold function reference instead of `ToolsetSpec`
-- [ ] Update `Runtime.run_entry()` to call function directly
-- [ ] Remove entry toolset validation ("exactly one main")
-- [ ] Update loaders to produce function-based `EntrySpec`
-- [ ] Update discovery to find `main` function or `EntrySpec` instance
-- [ ] Decide fate of `Runtime.create_scope()` for chat mode
-- [ ] Update tests and examples
+- [x] Update `EntrySpec` to hold function reference instead of `ToolsetSpec`
+- [x] Update `Runtime.run_entry()` to call function directly
+- [x] Remove entry toolset validation ("exactly one main")
+- [x] Update loaders to produce function-based `EntrySpec`
+- [x] Update discovery to find `main` function or `EntrySpec` instance
+- [x] Decide fate of `Runtime.create_scope()` for chat mode
+- [x] Update tests and examples
+
+## Current State
+Implementation updated EntrySpec + runtime, removed create_scope, rewired loaders/UI, and refreshed tests/examples/docs. Checks run: mypy/pytest pass; ruff still fails in llm-council scripts.
 
 ## Decision: Entry main signature
 

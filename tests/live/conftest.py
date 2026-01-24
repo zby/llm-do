@@ -163,12 +163,15 @@ def build_direct_entry_for_worker(
     entry_path.write_text(
         "\n".join(
             [
-                "from llm_do.runtime import WorkerRuntime, entry",
+                "from llm_do.runtime import EntrySpec",
                 "",
-                f"@entry(toolsets=[\"{toolset_name}\"])",
-                "async def main(args, runtime: WorkerRuntime) -> str:",
-                f"    return await runtime.call(\"{toolset_name}\", args)",
+                "async def main(input_data, runtime) -> str:",
+                f"    return await runtime.call_agent(\"{toolset_name}\", input_data)",
                 "",
+                "ENTRY = EntrySpec(",
+                "    name=\"main\",",
+                "    main=main,",
+                ")",
             ]
         ),
         encoding="utf-8",
@@ -198,7 +201,7 @@ async def run_example(
     changed, previous = _set_env_model(model)
     try:
         worker_files, python_files = _collect_example_files(example_dir)
-        entry = build_entry(
+        entry, registry = build_entry(
             worker_files,
             python_files,
             project_root=example_dir,
@@ -216,6 +219,7 @@ async def run_example(
             verbosity=verbosity,
             project_root=example_dir,
         )
+        runtime.register_agents(registry.agents)
         result, _ctx = await runtime.run_entry(entry, input_data)
         return result
     finally:

@@ -5,12 +5,18 @@ import asyncio
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from pydantic_ai.usage import RunUsage
 
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
-from .contracts import Entry, EventCallback, MessageLogCallback
+from .contracts import (
+    AgentSpec,
+    EntrySpec,
+    EventCallback,
+    MessageLogCallback,
+    ModelType,
+)
 
 if TYPE_CHECKING:
     from .deps import WorkerRuntime
@@ -129,6 +135,7 @@ class Runtime:
         )
         self._usage = UsageCollector()
         self._message_log = MessageAccumulator()
+        self._agent_registry: dict[str, AgentSpec] = {}
 
     @property
     def config(self) -> RuntimeConfig:
@@ -150,6 +157,13 @@ class Runtime:
     def message_log(self) -> list[tuple[str, int, Any]]:
         return self._message_log.all()
 
+    @property
+    def agent_registry(self) -> dict[str, AgentSpec]:
+        return self._agent_registry
+
+    def register_agents(self, agents: Mapping[str, AgentSpec]) -> None:
+        self._agent_registry = dict(agents)
+
     def _create_usage(self) -> RunUsage:
         """Create a new RunUsage and add it to the shared usage sink."""
         return self._usage.create()
@@ -160,30 +174,65 @@ class Runtime:
         if self._config.message_log_callback is not None:
             self._config.message_log_callback(worker_name, depth, messages)
 
+    def spawn_call_runtime(
+        self,
+        active_toolsets: Sequence[Any],
+        *,
+        model: ModelType,
+        invocation_name: str,
+        depth: int,
+    ) -> "WorkerRuntime":
+        """Create a WorkerRuntime with a new CallFrame."""
+        from .call import CallConfig, CallFrame
+        from .deps import WorkerRuntime
+
+        call_config = CallConfig.build(
+            active_toolsets,
+            model=model,
+            depth=depth,
+            invocation_name=invocation_name,
+        )
+        frame = CallFrame(config=call_config)
+        return WorkerRuntime(runtime=self, frame=frame)
+
     async def run_entry(
         self,
-        invocable: Entry,
+        entry_spec: EntrySpec,
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
     ) -> tuple[Any, WorkerRuntime]:
-        """Run an invocable with this runtime.
+        """Run an entry function with this runtime."""
+        from ..models import NULL_MODEL
+        from .args import get_display_text, normalize_input
+        from .events import UserMessageEvent
 
-        Entry implementations handle per-turn prompt handling inside run_turn.
-        """
-        from .deps import WorkerRuntime
-        try:
-            scope = invocable.start(self, message_history=message_history)
-        except AttributeError as exc:
-            raise TypeError(f"Unsupported entry type: {type(invocable)}") from exc
+        input_args, messages = normalize_input(entry_spec.schema_in, input_data)
+        display_text = get_display_text(messages)
+        if self.config.on_event is not None:
+            self.config.on_event(
+                UserMessageEvent(worker=entry_spec.name, content=display_text)
+            )
 
-        async with scope:
-            result = await scope.run_turn(input_data)
-        return result, cast(WorkerRuntime, scope.runtime)
+        call_runtime = self.spawn_call_runtime(
+            active_toolsets=[],
+            model=NULL_MODEL,
+            invocation_name=entry_spec.name,
+            depth=0,
+        )
+        call_runtime.reset_entry_history()
+        if message_history:
+            call_runtime.frame.messages[:] = list(message_history)
+        call_runtime.frame.prompt = display_text
+
+        entry_input = input_args if input_args is not None else messages
+        result = await entry_spec.main(entry_input, call_runtime)
+
+        return result, call_runtime
 
     def run(
         self,
-        invocable: Entry,
+        entry_spec: EntrySpec,
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
@@ -201,7 +250,7 @@ class Runtime:
 
         return asyncio.run(
             self.run_entry(
-                invocable,
+                entry_spec,
                 input_data,
                 message_history=message_history,
             )

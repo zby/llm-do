@@ -11,8 +11,6 @@ from .toolsets import cleanup_toolsets
 if TYPE_CHECKING:
     from pydantic_ai.toolsets import AbstractToolset
 
-    from .contracts import Entry
-
 
 @dataclass(frozen=True, slots=True)
 class CallConfig:
@@ -84,17 +82,16 @@ class CallFrame:
 
 @dataclass(slots=True)
 class CallScope:
-    """Lifecycle wrapper for an entry call scope (runtime + toolsets)."""
+    """Lifecycle wrapper for a call scope (runtime + toolsets)."""
 
-    entry: "Entry"
     runtime: WorkerRuntimeProtocol
     toolsets: Sequence["AbstractToolset[Any]"]
     _closed: bool = False
 
-    async def run_turn(self, input_data: Any) -> Any:
+    async def call_tool(self, name: str, input_data: Any) -> Any:
         if self._closed:
             raise RuntimeError("CallScope is closed")
-        return await self.entry.run_turn(self.runtime, input_data)
+        return await self.runtime._call_tool(name, input_data)
 
     async def close(self) -> None:
         if self._closed:

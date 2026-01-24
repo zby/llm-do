@@ -5,10 +5,16 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from llm_do.runtime import Runtime, WorkerArgs, WorkerRuntime
-from llm_do.runtime.approval import RunApprovalPolicy
+from llm_do.runtime import (
+    AgentRegistry,
+    CallScope,
+    EntrySpec,
+    Runtime,
+    WorkerRuntime,
+)
+from llm_do.runtime.approval import RunApprovalPolicy, wrap_toolsets_for_approval
 from llm_do.runtime.call import CallConfig, CallFrame
-from llm_do.runtime.contracts import Entry, EventCallback, ModelType
+from llm_do.runtime.contracts import EventCallback, ModelType
 
 
 def build_runtime_context(
@@ -44,15 +50,47 @@ def build_runtime_context(
     return WorkerRuntime(runtime=runtime, frame=frame)
 
 
+def build_call_scope(
+    *,
+    toolsets: list[AbstractToolset[Any]],
+    model: ModelType = "test",
+    depth: int = 0,
+    invocation_name: str = "test",
+    run_approval_policy: RunApprovalPolicy | None = None,
+    max_depth: int = 5,
+    on_event: EventCallback | None = None,
+    verbosity: int = 0,
+) -> CallScope:
+    runtime = Runtime(
+        run_approval_policy=run_approval_policy,
+        max_depth=max_depth,
+        on_event=on_event,
+        verbosity=verbosity,
+    )
+    wrapped_toolsets = wrap_toolsets_for_approval(
+        toolsets,
+        runtime.config.approval_callback,
+        return_permission_errors=runtime.config.return_permission_errors,
+    )
+    call_runtime = runtime.spawn_call_runtime(
+        wrapped_toolsets,
+        model=model,
+        invocation_name=invocation_name,
+        depth=depth,
+    )
+    return CallScope(runtime=call_runtime, toolsets=toolsets)
+
+
 async def run_entry_test(
-    entry: Entry,
-    input_data: WorkerArgs,
+    entry: EntrySpec,
+    input_data: Any,
     *,
     run_approval_policy: RunApprovalPolicy | None = None,
     max_depth: int = 5,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
     message_history: list[Any] | None = None,
+    agent_registry: AgentRegistry | None = None,
 ) -> tuple[Any, WorkerRuntime]:
     """Run an entry for testing, returning result and context.
 
@@ -65,6 +103,8 @@ async def run_entry_test(
         on_event=on_event,
         verbosity=verbosity,
     )
+    if agent_registry is not None:
+        runtime.register_agents(agent_registry.agents)
     return await runtime.run_entry(
         entry,
         input_data,

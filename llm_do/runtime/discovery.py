@@ -10,7 +10,7 @@ from typing import Iterable, TypeVar
 from pydantic_ai.toolsets import AbstractToolset
 
 from ..toolsets.loader import ToolsetSpec
-from .worker import EntryFunction, Worker
+from .contracts import AgentSpec, EntrySpec
 
 _LOADED_MODULES: dict[Path, ModuleType] = {}
 
@@ -65,12 +65,12 @@ def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetSpec]:
     return toolsets
 
 
-def discover_workers_from_module(module: ModuleType) -> list[Worker]:
-    return _discover_from_module(module, Worker)
+def discover_agents_from_module(module: ModuleType) -> list[AgentSpec]:
+    return _discover_from_module(module, AgentSpec)
 
 
-def discover_entries_from_module(module: ModuleType) -> list[EntryFunction]:
-    return _discover_from_module(module, EntryFunction)
+def discover_entries_from_module(module: ModuleType) -> list[EntrySpec]:
+    return _discover_from_module(module, EntrySpec)
 
 
 def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
@@ -86,25 +86,27 @@ def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
     return all_toolsets
 
 
-def load_workers_from_files(files: list[str | Path]) -> dict[str, Worker]:
-    all_workers: dict[str, Worker] = {}
-    worker_paths: dict[str, Path] = {}
+def load_agents_from_files(files: list[str | Path]) -> dict[str, AgentSpec]:
+    all_agents: dict[str, AgentSpec] = {}
+    agent_paths: dict[str, Path] = {}
     for file_path in files:
         path = Path(file_path)
         if path.suffix != ".py":
             continue
-        for worker in discover_workers_from_module(load_module(path)):
-            if worker.name in all_workers:
-                raise ValueError(f"Duplicate worker name: {worker.name} (from {worker_paths[worker.name]} and {path})")
-            all_workers[worker.name] = worker
-            worker_paths[worker.name] = path
-    return all_workers
+        for agent in discover_agents_from_module(load_module(path)):
+            if agent.name in all_agents:
+                raise ValueError(
+                    f"Duplicate agent name: {agent.name} (from {agent_paths[agent.name]} and {path})"
+                )
+            all_agents[agent.name] = agent
+            agent_paths[agent.name] = path
+    return all_agents
 
 
 def load_all_from_files(
     files: Iterable[str | Path],
-) -> tuple[dict[str, ToolsetSpec], dict[str, Worker], dict[str, EntryFunction]]:
-    """Load toolset specs, workers, and entry functions from Python files.
+) -> tuple[dict[str, ToolsetSpec], dict[str, AgentSpec], dict[str, EntrySpec]]:
+    """Load toolset specs, agents, and entry specs from Python files.
 
     Performs a single pass through the modules to discover all items.
 
@@ -112,12 +114,12 @@ def load_all_from_files(
         files: Paths to Python files
 
     Returns:
-        Tuple of (toolset specs, workers, entries) dictionaries
+        Tuple of (toolset specs, agents, entries) dictionaries
     """
     toolsets: dict[str, ToolsetSpec] = {}
-    workers: dict[str, Worker] = {}
-    entries: dict[str, EntryFunction] = {}
-    worker_paths: dict[str, Path] = {}
+    agents: dict[str, AgentSpec] = {}
+    entries: dict[str, EntrySpec] = {}
+    agent_paths: dict[str, Path] = {}
     entry_paths: dict[str, Path] = {}
     loaded_paths: set[Path] = set()
 
@@ -132,7 +134,7 @@ def load_all_from_files(
 
         module = load_module(resolved)
         module_toolsets = discover_toolsets_from_module(module)
-        module_workers = discover_workers_from_module(module)
+        module_agents = discover_agents_from_module(module)
         module_entries = discover_entries_from_module(module)
 
         for name, toolset in module_toolsets.items():
@@ -140,15 +142,15 @@ def load_all_from_files(
                 raise ValueError(f"Duplicate toolset name: {name}")
             toolsets[name] = toolset
 
-        for worker in module_workers:
-            if worker.name in workers:
-                existing_path = worker_paths[worker.name]
+        for agent in module_agents:
+            if agent.name in agents:
+                existing_path = agent_paths[agent.name]
                 raise ValueError(
-                    f"Duplicate worker name: {worker.name} "
+                    f"Duplicate agent name: {agent.name} "
                     f"(from {existing_path} and {resolved})"
                 )
-            workers[worker.name] = worker
-            worker_paths[worker.name] = resolved
+            agents[agent.name] = agent
+            agent_paths[agent.name] = resolved
 
         for entry in module_entries:
             if entry.name in entries:
@@ -157,11 +159,7 @@ def load_all_from_files(
                     f"Duplicate entry name: {entry.name} "
                     f"(from {existing_path} and {resolved})"
                 )
-            if entry.name in workers:
-                raise ValueError(
-                    f"Entry name '{entry.name}' conflicts with worker name"
-                )
             entries[entry.name] = entry
             entry_paths[entry.name] = resolved
 
-    return toolsets, workers, entries
+    return toolsets, agents, entries

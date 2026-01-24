@@ -24,20 +24,6 @@ class ToolsetBuildContext:
     available_toolsets: Mapping[str, ToolsetSpec] = field(default_factory=dict)
 
 
-def _wrap_worker_as_toolset(toolset: Any) -> AbstractToolset[Any]:
-    """Wrap a Worker in WorkerToolset if needed.
-
-    Workers are wrapped in WorkerToolset when used as tools for another agent.
-    This makes the "Worker as tool provider" relationship explicit via composition.
-    """
-    # Import here to avoid circular imports
-    from ..runtime.worker import Worker, WorkerToolset
-
-    if isinstance(toolset, Worker):
-        return WorkerToolset(worker=toolset)
-    return toolset
-
-
 def resolve_toolset_specs(
     toolsets_definition: Sequence[str],
     context: ToolsetBuildContext,
@@ -65,11 +51,9 @@ def instantiate_toolsets(
     context: ToolsetBuildContext,
 ) -> list[AbstractToolset[Any]]:
     """Instantiate toolset specs for a specific call.
-
-    Workers are automatically wrapped in WorkerToolset adapters.
     """
     toolsets: list[AbstractToolset[Any]] = []
     for spec in toolset_specs:
         toolset = spec.factory(context)
-        toolsets.append(_wrap_worker_as_toolset(toolset))
+        toolsets.append(toolset)
     return toolsets

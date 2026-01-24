@@ -16,11 +16,11 @@ You organize files by renaming them to consistent formats.
 Given a filename, return a cleaned version.
 ```
 
-Workers call other workers and Python tools interchangeably—the calling convention is unified:
+Workers call other workers via `call_agent`, and the LLM can call both tools and other workers through the tool list:
 
 ```python
-# From Python
-result = await ctx.call("file_organizer", {"input": filename})
+# From Python (inside a tool)
+result = await ctx.deps.call_agent("file_organizer", {"input": filename})
 
 # From another worker (via tool call)
 # The LLM sees both workers and tools as callable functions
@@ -30,19 +30,16 @@ result = await ctx.call("file_organizer", {"input": filename})
 
 Theory says: unified calling enables local refactoring when components move across the neural-symbolic boundary. Here's how llm-do implements it.
 
-**Both workers and tools use `ctx.call()`:**
+**Agents use `ctx.deps.call_agent()`:**
 
 ```python
-# Call a worker (neural)
-analysis = await ctx.call("sentiment_analyzer", {"input": text})
-
-# Call a tool (symbolic) - same syntax
-sanitized = await ctx.call("sanitize_filename", {"name": raw_name})
+# Call an agent (neural)
+analysis = await ctx.deps.call_agent("sentiment_analyzer", {"input": text})
 ```
 
-**Workers see tools and other workers identically.** When an LLM runs, its available tools include both Python functions and other workers. It doesn't know—or need to know—which is which.
+**Workers see tools and other workers identically.** When an LLM runs, its available tools include both Python functions and other workers (via the agent-as-toolset adapter). It doesn't know—or need to know—which is which.
 
-**Stabilizing doesn't change call sites.** When `sentiment_analyzer` graduates from a worker to a Python function, callers keep using `ctx.call("sentiment_analyzer", ...)`. The registry dispatches to the new implementation.
+**Stabilizing doesn't change call sites for the LLM.** When `sentiment_analyzer` graduates from a worker to a Python function, the LLM still sees a tool named `sentiment_analyzer`. Python orchestration can call the new function directly while agent calls continue to use `ctx.deps.call_agent(...)` as needed.
 
 ## The Harness Layer
 
@@ -195,7 +192,7 @@ Return: positive, negative, or neutral with confidence score.
 Now it's callable:
 
 ```python
-result = await ctx.call("sentiment_analyzer", {"input": feedback})
+result = await ctx.deps.call_agent("sentiment_analyzer", {"input": feedback})
 ```
 
 ### Replacement (rare)
@@ -214,7 +211,7 @@ async def evaluate_document(ctx: RunContext[WorkerRuntime], path: str) -> dict:
         raise ValueError("Invalid format")
 
     # Stochastic: LLM judgment for analysis
-    analysis = await ctx.deps.call("content_analyzer", {"input": content})
+    analysis = await ctx.deps.call_agent("content_analyzer", {"input": content})
 
     return {                            # deterministic
         "score": compute_score(analysis),
@@ -256,8 +253,8 @@ def build_tools(_ctx):
 
     @tools.tool
     async def delegate_analysis(ctx: RunContext[WorkerRuntime], text: str) -> str:
-        """Delegate to another worker."""
-        return await ctx.deps.call("analyzer", {"input": text})
+        """Delegate to another agent."""
+        return await ctx.deps.call_agent("analyzer", {"input": text})
 
     return tools
 ```

@@ -45,7 +45,7 @@ llm-do examples/greeter/project.json "Tell me a joke"
 ```
 
 `llm-do` reads `project.json`, links the listed files, and runs the single entry.
-Mark one worker with `entry: true` or define a single `@entry` function in Python.
+Mark one worker with `entry: true` or define a single `EntrySpec` in Python.
 See [`examples/`](examples/) for more.
 
 Example worker file (`main.worker`):
@@ -86,7 +86,7 @@ Example manifest:
 | **Neural** | Workers (`.worker` files) | Stochastic, flexible, handles ambiguity |
 | **Symbolic** | Python tools | Deterministic, fast, cheap, testable |
 
-Both share a unified calling convention—`ctx.call(name, input)`—so the VM treats them identically:
+Orchestration uses `ctx.deps.call_agent(...)` to delegate between agents; entry toolsets are invoked via `call_tool("main", ...)`:
 
 ```
 Worker ──calls──▶ Tool ──calls──▶ Worker ──calls──▶ Tool ...
@@ -165,8 +165,8 @@ def build_tools(_ctx):
 
     @tools.tool
     async def analyze_config(ctx: RunContext[WorkerRuntime], raw: str) -> str:
-        """Delegate parsing to a worker."""
-        return await ctx.deps.call("config_parser", {"input": raw})
+        """Delegate parsing to another agent."""
+        return await ctx.deps.call_agent("config_parser", {"input": raw})
 
     return tools
 
@@ -206,16 +206,17 @@ from pathlib import Path
 from llm_do.runtime import RunApprovalPolicy, Runtime, build_entry
 
 project_root = Path(".").resolve()
-entry = build_entry(["main.worker"], ["tools.py"], project_root=project_root)
+entry, registry = build_entry(["main.worker"], ["tools.py"], project_root=project_root)
 runtime = Runtime(
     run_approval_policy=RunApprovalPolicy(mode="approve_all"),
     project_root=project_root,
 )
+runtime.register_agents(registry.agents)
 
 async def main() -> None:
     result, _ctx = await runtime.run_entry(
         entry,
-        "Analyze this data",
+        {"input": "Analyze this data"},
     )
     print(result)
 

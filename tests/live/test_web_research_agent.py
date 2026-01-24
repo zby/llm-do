@@ -108,7 +108,7 @@ def test_web_research_consolidator(
         ],
     }
 
-    entry = build_direct_entry_for_worker(
+    entry, registry = build_direct_entry_for_worker(
         web_research_agent_example / "web_research_consolidator.worker",
         tmp_path,
         model=get_default_model(),
@@ -121,6 +121,7 @@ def test_web_research_consolidator(
         ),
         project_root=web_research_agent_example,
     )
+    runtime.register_agents(registry.agents)
 
     result = asyncio.run(
         runtime.run_entry(

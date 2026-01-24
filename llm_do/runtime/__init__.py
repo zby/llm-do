@@ -15,16 +15,16 @@ from .approval import (
 )
 from .args import Attachment, PromptContent, PromptMessages, WorkerArgs
 from .call import CallScope
-from .contracts import Entry, EventCallback, ModelType
+from .contracts import AgentSpec, EntrySpec, EventCallback, ModelType
 from .deps import WorkerRuntime
 from .discovery import (
+    discover_agents_from_module,
     discover_entries_from_module,
     discover_toolsets_from_module,
-    discover_workers_from_module,
+    load_agents_from_files,
     load_all_from_files,
     load_module,
     load_toolsets_from_files,
-    load_workers_from_files,
 )
 from .manifest import (
     EntryConfig,
@@ -33,15 +33,8 @@ from .manifest import (
     load_manifest,
     resolve_manifest_paths,
 )
-from .registry import EntryRegistry, build_entry
+from .registry import AgentRegistry, build_entry
 from .shared import Runtime
-from .worker import (
-    EntryFunction,
-    ToolsetRef,
-    Worker,
-    WorkerToolset,
-    entry,
-)
 from .worker_file import (
     WorkerDefinition,
     WorkerFileParser,
@@ -54,25 +47,20 @@ __all__ = [
     "Runtime",
     "WorkerRuntime",
     "CallScope",
-    "Entry",
+    "EntrySpec",
+    "AgentSpec",
     "ModelType",
     "EventCallback",
     "ApprovalCallback",
     "RunApprovalPolicy",
     "WorkerApprovalPolicy",
     "resolve_approval_callback",
-    "EntryRegistry",
+    "AgentRegistry",
     "build_entry",
     "Attachment",
     "PromptContent",
     "PromptMessages",
     "WorkerArgs",
-    # Entries
-    "Worker",
-    "WorkerToolset",
-    "EntryFunction",
-    "entry",  # @entry decorator
-    "ToolsetRef",
     # Worker file
     "WorkerDefinition",
     "WorkerFileParser",
@@ -81,10 +69,10 @@ __all__ = [
     # Discovery
     "load_module",
     "discover_toolsets_from_module",
-    "discover_workers_from_module",
+    "discover_agents_from_module",
     "discover_entries_from_module",
     "load_toolsets_from_files",
-    "load_workers_from_files",
+    "load_agents_from_files",
     "load_all_from_files",
     # Manifest
     "ProjectManifest",

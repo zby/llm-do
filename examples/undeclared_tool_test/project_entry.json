@@ -1,8 +1,7 @@
 {
   "version": 1,
   "runtime": {
-    "approval_mode": "approve_all",
-    "model": "anthropic:claude-haiku-4-5"
+    "approval_mode": "approve_all"
   },
   "entry": {
     "name": "entry_calls_tool",

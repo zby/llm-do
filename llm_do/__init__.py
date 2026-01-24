@@ -1,4 +1,4 @@
-"""llm-do: LLM-powered worker runtime.
+"""llm-do: LLM-powered runtime.
 
 This package provides the runtime for LLM workers.
 
@@ -30,7 +30,7 @@ from .models import (
 )
 
 # Re-export from runtime for convenience
-from .runtime import Runtime, Worker, WorkerRuntime
+from .runtime import AgentSpec, EntrySpec, Runtime, WorkerRuntime
 
 __all__ = [
     # Approval handling
@@ -49,7 +49,8 @@ __all__ = [
     # Runtime types
     "WorkerRuntime",
     "Runtime",
-    "Worker",
+    "EntrySpec",
+    "AgentSpec",
     # Version
     "__version__",
 ]

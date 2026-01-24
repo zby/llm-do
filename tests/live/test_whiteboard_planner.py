@@ -84,7 +84,7 @@ def test_whiteboard_planner_directly(
 
     image_path = image_files[0]
 
-    entry = build_direct_entry_for_worker(
+    entry, registry = build_direct_entry_for_worker(
         whiteboard_planner_example / "whiteboard_planner.worker",
         tmp_path,
         model="anthropic:claude-haiku-4-5",
@@ -97,6 +97,7 @@ def test_whiteboard_planner_directly(
         ),
         project_root=whiteboard_planner_example,
     )
+    runtime.register_agents(registry.agents)
 
     result = asyncio.run(
         runtime.run_entry(

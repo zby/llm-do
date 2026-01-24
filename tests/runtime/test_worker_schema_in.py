@@ -1,7 +1,9 @@
 import pytest
+from pydantic_ai.models.test import TestModel
 
-from llm_do.runtime import PromptContent, ToolsetBuildContext, Worker, WorkerArgs
+from llm_do.runtime import AgentSpec, PromptContent, ToolsetBuildContext, WorkerArgs
 from llm_do.runtime.args import normalize_input
+from llm_do.toolsets.agent import agent_as_toolset
 from tests.runtime.helpers import build_runtime_context
 
 
@@ -21,20 +23,21 @@ class TextInput(WorkerArgs):
 
 
 @pytest.mark.anyio
-async def test_worker_tool_schema_uses_schema_in() -> None:
-    worker = Worker(
-        name="topic_worker",
+async def test_agent_tool_schema_uses_schema_in() -> None:
+    spec = AgentSpec(
+        name="topic_agent",
         instructions="Extract topic details.",
+        model=TestModel(),
         schema_in=TopicInput,
     )
     ctx = build_runtime_context(toolsets=[], model="test")
-    run_ctx = ctx._make_run_context(worker.name)
+    run_ctx = ctx._make_run_context("main")
 
-    toolset = worker.as_toolset_spec().factory(
-        ToolsetBuildContext(worker_name=worker.name)
+    toolset = agent_as_toolset(spec).factory(
+        ToolsetBuildContext(worker_name=spec.name)
     )
     tools = await toolset.get_tools(run_ctx)
-    tool_def = tools[worker.name].tool_def
+    tool_def = tools["main"].tool_def
     schema = tool_def.parameters_json_schema
     properties = schema.get("properties", {})
 
@@ -43,20 +46,21 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
 
 
 @pytest.mark.anyio
-async def test_worker_tool_description_prefers_description() -> None:
-    worker = Worker(
-        name="desc_worker",
+async def test_agent_tool_description_prefers_description() -> None:
+    spec = AgentSpec(
+        name="desc_agent",
         instructions="Instructions fallback.",
         description="Short tool summary.",
+        model=TestModel(),
     )
     ctx = build_runtime_context(toolsets=[], model="test")
-    run_ctx = ctx._make_run_context(worker.name)
+    run_ctx = ctx._make_run_context("main")
 
-    toolset = worker.as_toolset_spec().factory(
-        ToolsetBuildContext(worker_name=worker.name)
+    toolset = agent_as_toolset(spec).factory(
+        ToolsetBuildContext(worker_name=spec.name)
     )
     tools = await toolset.get_tools(run_ctx)
-    tool_def = tools[worker.name].tool_def
+    tool_def = tools["main"].tool_def
 
     assert tool_def.description == "Short tool summary."
 

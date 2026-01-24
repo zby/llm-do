@@ -8,7 +8,7 @@ Usage:
 
 The manifest path can be a JSON file or a directory containing project.json.
 The manifest specifies runtime config and file paths; the entry is resolved
-from the file set (worker marked `entry: true` or a single `@entry` function).
+from the file set (worker marked `entry: true` or a single `EntrySpec` in Python).
 CLI input (prompt or --input-json) overrides manifest entry.input when allowed.
 """
 from __future__ import annotations
@@ -25,9 +25,10 @@ from pydantic_ai.messages import ModelMessagesTypeAdapter
 from pydantic_ai_blocking_approval import ApprovalDecision
 
 from ..runtime import (
+    AgentRegistry,
     ApprovalCallback,
     Attachment,
-    Entry,
+    EntrySpec,
     EventCallback,
     PromptContent,
     RunApprovalPolicy,
@@ -95,7 +96,8 @@ async def run(
     approval_callback: ApprovalCallback | None = None,
     approval_cache: dict[Any, ApprovalDecision] | None = None,
     message_history: list[Any] | None = None,
-    entry: Entry | None = None,
+    entry: EntrySpec | None = None,
+    agent_registry: AgentRegistry | None = None,
     runtime: Runtime | None = None,
 ) -> tuple[Any, WorkerRuntime]:
     """Load entries from manifest and run with the given input.
@@ -119,7 +121,7 @@ async def run(
     worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
 
     if entry is None:
-        entry = build_entry(
+        entry, agent_registry = build_entry(
             [str(p) for p in worker_paths],
             [str(p) for p in python_paths],
             project_root=manifest_dir,
@@ -148,6 +150,8 @@ async def run(
             message_log_callback=message_log_callback,
             verbosity=verbosity,
         )
+        if agent_registry is not None:
+            runtime.register_agents(agent_registry.agents)
     else:
         if (
             approval_callback is not None
@@ -156,6 +160,8 @@ async def run(
             or verbosity != 0
         ):
             raise ValueError("runtime provided; do not pass approval/UI overrides")
+        if agent_registry is not None:
+            runtime.register_agents(agent_registry.agents)
 
     return await runtime.run_entry(
         entry,
@@ -167,8 +173,8 @@ async def run(
 def _make_entry_factory(
     manifest: ProjectManifest,
     manifest_dir: Path,
-) -> Callable[[], Entry]:
-    def factory() -> Entry:
+) -> Callable[[], tuple[EntrySpec, AgentRegistry]]:
+    def factory() -> tuple[EntrySpec, AgentRegistry]:
         worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
         return build_entry(
             [str(p) for p in worker_paths],

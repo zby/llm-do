@@ -6,9 +6,9 @@ import pytest
 
 from llm_do.runtime import (
     discover_toolsets_from_module,
+    load_agents_from_files,
     load_module,
     load_toolsets_from_files,
-    load_workers_from_files,
 )
 
 
@@ -101,7 +101,6 @@ class TestLoadToolsetsFromFiles:
         """Test loading toolsets from multiple files."""
         files = []
         try:
-            # Create first file
             with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                 f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
@@ -120,7 +119,6 @@ math_tools = ToolsetSpec(factory=build_math)
 """)
                 files.append(f.name)
 
-            # Create second file
             with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                 f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
@@ -152,7 +150,6 @@ string_tools = ToolsetSpec(factory=build_string)
         """Test that duplicate toolset names raise ValueError."""
         files = []
         try:
-            # Create two files with same toolset name
             for _ in range(2):
                 with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                     f.write("""\
@@ -186,41 +183,41 @@ duplicate_tools = ToolsetSpec(factory=build_tools)
                 os.unlink(f.name)
 
 
-class TestLoadWorkersFromFiles:
-    """Tests for load_workers_from_files."""
+class TestLoadAgentsFromFiles:
+    """Tests for load_agents_from_files."""
 
-    def test_duplicate_worker_name_in_file_raises(self):
-        """Test duplicate Worker names in a single file."""
+    def test_duplicate_agent_name_in_file_raises(self):
+        """Test duplicate AgentSpec names in a single file."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
-from llm_do.runtime import Worker
+from llm_do.runtime import AgentSpec
 
-worker_one = Worker(name="dup", instructions="first")
-worker_two = Worker(name="dup", instructions="second")
+a1 = AgentSpec(name="dup", instructions="first", model="test")
+a2 = AgentSpec(name="dup", instructions="second", model="test")
 """)
             f.flush()
 
             try:
-                with pytest.raises(ValueError, match="Duplicate worker name"):
-                    load_workers_from_files([f.name])
+                with pytest.raises(ValueError, match="Duplicate agent name"):
+                    load_agents_from_files([f.name])
             finally:
                 os.unlink(f.name)
 
-    def test_duplicate_worker_name_across_files_raises(self):
-        """Test duplicate Worker names across multiple files."""
+    def test_duplicate_agent_name_across_files_raises(self):
+        """Test duplicate AgentSpec names across multiple files."""
         files = []
         try:
             for label in ("one", "two"):
                 with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                     f.write(f"""\
-from llm_do.runtime import Worker
+from llm_do.runtime import AgentSpec
 
-worker_{label} = Worker(name="dup", instructions="{label}")
+agent_{label} = AgentSpec(name="dup", instructions="{label}", model="test")
 """)
                     files.append(f.name)
 
-            with pytest.raises(ValueError, match="Duplicate worker name"):
-                load_workers_from_files(files)
+            with pytest.raises(ValueError, match="Duplicate agent name"):
+                load_agents_from_files(files)
         finally:
             for fname in files:
                 os.unlink(fname)

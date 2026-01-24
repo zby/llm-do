@@ -75,7 +75,7 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, 
 
     pdf_path = pdf_files[0]
 
-    entry = build_direct_entry_for_worker(
+    entry, registry = build_direct_entry_for_worker(
         pitchdeck_eval_example / "pitch_evaluator.worker",
         tmp_path,
         model="anthropic:claude-haiku-4-5",
@@ -88,6 +88,7 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, 
         ),
         project_root=pitchdeck_eval_example,
     )
+    runtime.register_agents(registry.agents)
 
     result = asyncio.run(
         runtime.run_entry(

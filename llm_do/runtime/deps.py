@@ -74,7 +74,18 @@ class WorkerRuntime:
     async def call_agent(self, spec_or_name: AgentSpec | str, input_data: Any) -> Any:
         """Invoke a configured agent by spec or name (depth boundary)."""
         if self.frame.config.depth >= self.config.max_depth:
-            raise RuntimeError("max_depth exceeded")
+            caller = self.frame.config.invocation_name or "entry"
+            if isinstance(spec_or_name, AgentSpec):
+                target = spec_or_name.name
+            elif isinstance(spec_or_name, str):
+                target = spec_or_name
+            else:
+                target = type(spec_or_name).__name__
+            raise RuntimeError(
+                "max_depth exceeded "
+                f"(depth={self.frame.config.depth}, max_depth={self.config.max_depth}, "
+                f"caller={caller!r}, attempted={target!r})"
+            )
 
         spec = self._resolve_agent_spec(spec_or_name)
 

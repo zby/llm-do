@@ -80,7 +80,7 @@ def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], N
                 "depth": depth,
                 "message": message,
             }
-            stream.write(json.dumps(record, ensure_ascii=True, indent=2) + "\n")
+            stream.write(json.dumps(record, ensure_ascii=True, separators=(",", ":")) + "\n")
         stream.flush()
 
     return callback

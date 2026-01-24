@@ -128,7 +128,7 @@ from llm_do.runtime.registry import build_entry_registry
 
 runtime = Runtime(cli_model="...", run_approval_policy=RunApprovalPolicy(mode="prompt"))
 registry = build_entry_registry(worker_files=[...], python_files=[...])
-entry = registry.get("main")
+entry = registry.agents["main"]
 result = await runtime.run_entry(entry, {"input": "hello"})
 ```
 

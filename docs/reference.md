@@ -95,8 +95,9 @@ async def main():
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
 - Returns both the result and the runtime context
  
-`build_entry()` returns `(EntrySpec, AgentRegistry)` and requires an explicit `project_root`; pass the same root to `Runtime`
-to keep filesystem toolsets and attachment resolution aligned.
+`build_entry()` returns `(EntrySpec, AgentRegistry)` and requires an explicit `project_root`; `AgentRegistry` is a thin
+container around the `agents` mapping, so pass the same root to `Runtime` and register `registry.agents` to keep
+filesystem toolsets and attachment resolution aligned.
 
 Workers resolve their model at construction (`model` in the worker definition or
 `LLM_DO_MODEL` as a fallback). Entry functions run under NullModel (no toolsets),

@@ -115,6 +115,8 @@ output_type=spec.schema_out or str,
 
 **Recommendation:** Either (a) remove the helpers and make `AgentRegistry` a plain data holder, or (b) update runtime/UI to use `AgentRegistry` so its methods are meaningful. Keeping both adds duplication without behavior.
 
+**Status (2026-01-24):** Removed `.get()`/`.names()`; `AgentRegistry` is now a plain container.
+
 ---
 
 ### 7. `Runtime.run()` sync wrapper - **CONSIDER REMOVAL**
@@ -201,7 +203,7 @@ From `tasks/recurring/find-useless-features.md`:
 ### Consider for Future
 
 1. **Message log buffering** - Make `Runtime.message_log` opt-in or remove if unused
-2. **AgentRegistry helpers** - Remove `.get()`/`.names()` or refactor runtime to use them
+2. **AgentRegistry helpers** - Removed (2026-01-24)
 3. **Runtime.run()** - Remove or add a small test + doc call site
 4. **Approval config location** - Could move worker approval settings closer to AgentToolset
 

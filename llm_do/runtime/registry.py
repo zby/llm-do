@@ -33,18 +33,6 @@ class AgentRegistry:
 
     agents: dict[str, AgentSpec]
 
-    def get(self, name: str) -> AgentSpec:
-        try:
-            return self.agents[name]
-        except KeyError as exc:
-            available = sorted(self.agents.keys())
-            raise ValueError(
-                f"Agent '{name}' not found. Available: {available}"
-            ) from exc
-
-    def names(self) -> list[str]:
-        return sorted(self.agents.keys())
-
 
 @dataclass(slots=True)
 class WorkerSpec:

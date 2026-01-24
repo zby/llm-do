@@ -4,7 +4,7 @@ import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import Runtime, Worker
+from llm_do.runtime import AgentEntry, Runtime
 
 
 def _prompt_echo_model() -> FunctionModel:
@@ -24,7 +24,7 @@ def _prompt_echo_model() -> FunctionModel:
 
 
 async def _run_prompt(input_text: str) -> str:
-    worker = Worker(
+    worker = AgentEntry(
         name="main",
         instructions="Echo the prompt.",
         model=_prompt_echo_model(),

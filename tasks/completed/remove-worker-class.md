@@ -1,10 +1,10 @@
 # Remove Worker Class and Adopt Experiment Runtime
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
-- [ ] none (design locked)
+- [x] none (design locked)
 
 ## Goal
 Remove the `Worker` class from llm-do and make the experiment runtime (`deps`-as-runtime from `experiments/pydanticai-runtime-deps/`) the primary execution surface, with proper lifecycle management via `CallScope` and a unified `Entry` abstraction.
@@ -119,18 +119,18 @@ This is why "Implement `AgentEntry` wrapper" and "Make experiment use existing `
 - [x] Resolve CallScope → use existing `CallScope` from `llm_do/runtime/call.py:85-109`
 - [x] Reconcile spawn semantics → adopt `Runtime` + `CallFrame` + `CallRuntime` with `Runtime.spawn_call_runtime` factory
 - [x] Confirm Entry protocol signature in code (current: `run_turn(runtime, input_data)` in `llm_do/runtime/contracts.py`)
-- [ ] Update Entry protocol signature and implementations to `run_turn(scope, input_data)`
-- [ ] Implement `AgentEntry` wrapper that conforms to `Entry` protocol for PydanticAI agents
-- [ ] Make experiment runtime adopt `CallScope` lifecycle (entry + toolsets + cleanup via async context manager)
-- [ ] Implement `CallScope.call_tool` and remove tool calls from runtime facade
-- [ ] Implement `RunState` for usage + message log aggregation
-- [ ] Integrate model compatibility checks in experiment loader
-- [ ] Wire approval callback to UI queue controller
-- [ ] Create `RuntimeConfig` dataclass for experiment
-- [ ] Migrate unit tests (runtime + entry abstractions)
-- [ ] Migrate integration tests (worker files + approval flow)
-- [ ] Remove Worker class
-- [ ] Rename WorkerRuntime -> CallRuntime (and protocol types)
+- [x] Update Entry protocol signature and implementations to `run_turn(scope, input_data)`
+- [x] Implement `AgentEntry` wrapper that conforms to `Entry` protocol for PydanticAI agents
+- [x] Make experiment runtime adopt `CallScope` lifecycle (entry + toolsets + cleanup via async context manager)
+- [x] Implement `CallScope.call_tool` and remove tool calls from runtime facade
+- [x] Implement `RunState` for usage + message log aggregation
+- [x] Integrate model compatibility checks in experiment loader
+- [x] Wire approval callback to UI queue controller
+- [x] Create `RuntimeConfig` dataclass for experiment
+- [x] Migrate unit tests (runtime + entry abstractions)
+- [x] Migrate integration tests (worker files + approval flow)
+- [x] Remove Worker class
+- [x] Rename WorkerRuntime -> CallRuntime (and protocol types)
 
 ### Ordering / Dependencies
 - Update Entry protocol → Implement `AgentEntry` → Adopt CallScope in experiment runtime
@@ -140,20 +140,7 @@ This is why "Implement `AgentEntry` wrapper" and "Make experiment use existing `
 Prefer renaming **late** (after new architecture is in place) to minimize churn while behavior is still shifting. Revisit only if the type names become a blocker during implementation.
 
 ## Current State
-Analysis complete. The notes document and delta list capture the findings:
-- Worker responsibilities are understood and categorized
-- Design decision made: toolset instantiation in CallScope
-- Gap list established in `runtime-delta-list.md`
-
-Decisions locked in:
-- Adopt `Runtime` + `CallFrame` + `CallRuntime` with `Runtime.spawn_call_runtime` factory
-- `CallFrame.depth` increments on spawn
-- `Entry.run_turn` receives `CallScope` (tool access only via scope)
-
-Reality check:
-- `Entry.run_turn` currently accepts `runtime` (not `CallScope`) in `llm_do/runtime/contracts.py`.
-
-Next step is to update runtime contracts and the experiment runtime to the new call flow (CallRuntime + CallScope.call_tool), then remove Worker usage.
+Completed implementation. Worker has been removed in favor of AgentEntry + CallScope, CallRuntime now backs deps, CallScope owns tool invocation, and tests/examples have been updated to use scope.call_tool.
 
 ## Notes
 - `WorkerRuntime` can remain as a facade wrapping shared run-state (`Runtime`) plus per-call state (`CallFrame`)

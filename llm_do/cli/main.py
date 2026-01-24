@@ -27,12 +27,12 @@ from pydantic_ai_blocking_approval import ApprovalDecision
 from ..runtime import (
     ApprovalCallback,
     Attachment,
+    CallRuntime,
     Entry,
     EventCallback,
     PromptContent,
     RunApprovalPolicy,
     Runtime,
-    WorkerRuntime,
     build_entry,
 )
 from ..runtime.manifest import (
@@ -97,7 +97,7 @@ async def run(
     message_history: list[Any] | None = None,
     entry: Entry | None = None,
     runtime: Runtime | None = None,
-) -> tuple[Any, WorkerRuntime]:
+) -> tuple[Any, CallRuntime]:
     """Load entries from manifest and run with the given input.
 
     Args:

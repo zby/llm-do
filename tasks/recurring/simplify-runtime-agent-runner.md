@@ -25,3 +25,6 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-runtime-agent-runner.md`
 
+## Last Run
+
+2026-01 (reviewed; main simplifications: drop incremental message capture, consolidate tool-event fallback, trim run helper plumbing)

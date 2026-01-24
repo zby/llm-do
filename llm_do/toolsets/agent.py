@@ -27,7 +27,11 @@ class AgentToolset(AbstractToolset[Any]):
     """Adapter that exposes an AgentSpec as a single tool."""
 
     spec: AgentSpec
-    tool_name: str = "main"
+    tool_name: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.tool_name is None:
+            self.tool_name = self.spec.name
 
     @property
     def id(self) -> str | None:
@@ -127,8 +131,11 @@ class AgentToolset(AbstractToolset[Any]):
         return await run_ctx.deps.call_agent(self.spec, tool_args)
 
 
-def agent_as_toolset(spec: AgentSpec, *, tool_name: str = "main") -> ToolsetSpec:
-    """Expose an AgentSpec as a ToolsetSpec with a single tool."""
+def agent_as_toolset(spec: AgentSpec, *, tool_name: str | None = None) -> ToolsetSpec:
+    """Expose an AgentSpec as a ToolsetSpec with a single tool.
+
+    The tool name defaults to spec.name so other agents can call it by name.
+    """
 
     def factory(_ctx: ToolsetBuildContext) -> AbstractToolset[Any]:
         return AgentToolset(spec=spec, tool_name=tool_name)

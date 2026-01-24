@@ -37,7 +37,7 @@ async def test_max_depth_blocks_self_recursion() -> None:
     agent_spec = AgentSpec(
         name="loop",
         instructions="Loop until depth is exceeded.",
-        model=TestModel(call_tools=["main"], custom_output_text="done"),
+        model=TestModel(call_tools=["loop"], custom_output_text="done"),
         toolset_specs=[],
     )
     agent_spec.toolset_specs = [agent_as_toolset(agent_spec)]

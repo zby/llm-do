@@ -37,7 +37,7 @@ async def test_agent_tool_schema_uses_schema_in() -> None:
         ToolsetBuildContext(worker_name=spec.name)
     )
     tools = await toolset.get_tools(run_ctx)
-    tool_def = tools["main"].tool_def
+    tool_def = tools[spec.name].tool_def
     schema = tool_def.parameters_json_schema
     properties = schema.get("properties", {})
 
@@ -60,7 +60,7 @@ async def test_agent_tool_description_prefers_description() -> None:
         ToolsetBuildContext(worker_name=spec.name)
     )
     tools = await toolset.get_tools(run_ctx)
-    tool_def = tools["main"].tool_def
+    tool_def = tools[spec.name].tool_def
 
     assert tool_def.description == "Short tool summary."
 

@@ -47,11 +47,11 @@ def test_agent_toolset_preserves_custom_approval() -> None:
     """AgentToolset respects existing approval config if set before creation."""
     spec = AgentSpec(name="test", instructions="Test agent", model=TestModel())
     toolset = AgentToolset(spec=spec)
-    set_toolset_approval_config(toolset, {"main": {"pre_approved": False}})
+    set_toolset_approval_config(toolset, {spec.name: {"pre_approved": False}})
 
     config = get_toolset_approval_config(toolset)
     assert config is not None
-    assert config["main"]["pre_approved"] is False
+    assert config[spec.name]["pre_approved"] is False
 
 
 @pytest.mark.anyio
@@ -72,9 +72,9 @@ async def test_agent_toolset_get_tools() -> None:
 
     tools = await toolset.get_tools(run_ctx)
 
-    assert "main" in tools
-    tool = tools["main"]
-    assert tool.tool_def.name == "main"
+    assert spec.name in tools
+    tool = tools[spec.name]
+    assert tool.tool_def.name == spec.name
     assert tool.tool_def.description == "Data analyzer"
     assert tool.toolset is toolset
 
@@ -92,7 +92,7 @@ async def test_agent_toolset_truncates_long_description() -> None:
     run_ctx = RunContext(deps=mock_deps, model=mock_model, usage=RunUsage(), prompt="test")
 
     tools = await toolset.get_tools(run_ctx)
-    tool = tools["main"]
+    tool = tools[spec.name]
 
     description = tool.tool_def.description
     assert description is not None
@@ -114,8 +114,8 @@ async def test_agent_toolset_call_delegates_to_call_agent() -> None:
     run_ctx = RunContext(deps=mock_deps, model=mock_model, usage=RunUsage(), prompt="test")
 
     tools = await toolset.get_tools(run_ctx)
-    tool = tools["main"]
-    result = await toolset.call_tool("main", {"input": "hi"}, run_ctx, tool)
+    tool = tools[spec.name]
+    result = await toolset.call_tool(spec.name, {"input": "hi"}, run_ctx, tool)
 
     assert result == "ok"
     mock_deps.call_agent.assert_awaited_once_with(spec, {"input": "hi"})

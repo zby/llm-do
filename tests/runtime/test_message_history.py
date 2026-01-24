@@ -14,9 +14,9 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import Runtime, ToolsetBuildContext, Worker
+from llm_do.runtime import AgentEntry, Runtime, ToolsetBuildContext
 from llm_do.runtime.events import RuntimeEvent
-from tests.runtime.helpers import build_runtime_context
+from tests.runtime.helpers import build_call_scope_from_runtime, build_runtime_context
 
 
 def _count_user_prompts(messages: list[ModelMessage]) -> int:
@@ -48,7 +48,7 @@ async def test_entry_worker_receives_message_history_across_turns() -> None:
     """Entry worker (depth=0) should receive message_history on turn 2+."""
     events: list[RuntimeEvent] = []
 
-    worker = Worker(
+    worker = AgentEntry(
         name="main",
         instructions="Count user prompts in message history.",
         model=_make_prompt_count_model(),
@@ -72,7 +72,7 @@ async def test_nested_worker_call_does_not_inherit_conversation_history() -> Non
     """Nested worker calls should not receive the caller's message history."""
     events: list[RuntimeEvent] = []
 
-    sub_worker = Worker(
+    sub_worker = AgentEntry(
         name="sub",
         instructions="Count user prompts in message history.",
         model=_make_prompt_count_model(),
@@ -97,5 +97,6 @@ async def test_nested_worker_call_does_not_inherit_conversation_history() -> Non
         verbosity=1,
     )
 
-    result = await caller_ctx.call("sub", {"input": "nested call"})
+    scope = build_call_scope_from_runtime(caller_ctx)
+    result = await scope.call_tool("sub", {"input": "nested call"})
     assert result == "user_prompts=1"

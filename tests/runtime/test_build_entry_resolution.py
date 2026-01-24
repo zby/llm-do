@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetBuildContext, Worker, build_entry
-from llm_do.runtime.worker import WorkerToolset
+from llm_do.runtime import AgentEntry, ToolsetBuildContext, build_entry
+from llm_do.runtime.entries import EntryToolset
 from llm_do.toolsets.loader import instantiate_toolsets
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
@@ -24,9 +24,9 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
         python_files,
         project_root=EXAMPLES_DIR / "web_research_agent",
     )
-    assert isinstance(entry, Worker)
+    assert isinstance(entry, AgentEntry)
 
-    # Workers are now wrapped in WorkerToolset adapters
+    # AgentEntries are now wrapped in EntryToolset adapters
     entry_toolsets = instantiate_toolsets(
         entry.toolset_specs,
         entry.toolset_context or ToolsetBuildContext(worker_name=entry.name),
@@ -34,9 +34,9 @@ async def test_build_entry_resolves_nested_worker_toolsets() -> None:
     extractor_toolset = next(
         toolset
         for toolset in entry_toolsets
-        if isinstance(toolset, WorkerToolset) and toolset.worker.name == "web_research_extractor"
+        if isinstance(toolset, EntryToolset) and toolset.entry.name == "web_research_extractor"
     )
-    extractor = extractor_toolset.worker
+    extractor = extractor_toolset.entry
     extractor_toolsets = instantiate_toolsets(
         extractor.toolset_specs,
         extractor.toolset_context or ToolsetBuildContext(worker_name=extractor.name),
@@ -58,7 +58,7 @@ async def test_build_entry_loads_python_modules_once(tmp_path: Path) -> None:
 
     module_path.write_text(
         f"""\
-from llm_do.runtime import ToolsetSpec, WorkerArgs, WorkerRuntime, entry
+from llm_do.runtime import CallScope, ToolsetSpec, WorkerArgs, entry
 from pydantic_ai.toolsets import FunctionToolset
 
 _marker = {marker_literal}
@@ -77,7 +77,7 @@ def build_tools(_ctx):
 tools = ToolsetSpec(factory=build_tools)
 
 @entry()
-async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+async def main(args: WorkerArgs, scope: CallScope) -> str:
     return "ok"
 """
     )
@@ -160,7 +160,7 @@ Instructions.
     )
 
     entry = build_entry([str(worker_path)], [], project_root=tmp_path)
-    assert isinstance(entry, Worker)
+    assert isinstance(entry, AgentEntry)
     assert entry.schema_in is not None
     assert entry.schema_in.__name__ == "NoteInput"
 

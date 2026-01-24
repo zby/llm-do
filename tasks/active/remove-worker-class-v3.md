@@ -1,13 +1,26 @@
 # Remove Worker Class — Toolset-First Design
 
 ## Status
-ready for implementation
+ready for verification
 
 ## Goal
 Remove the `Worker` class and the `Entry` protocol. Replace with a simpler model where:
 - **Toolsets contain functions** (including a `main` function as entry point)
 - **CallScope/CallFrame can invoke any function** in its toolsets
 - **Agents are just toolsets** where `main` wraps `agent.run()`
+
+## Prerequisites
+- [x] none
+
+## Tasks
+- [x] Update runtime contracts + CallScope to EntrySpec/AgentSpec (Phase 1-2)
+- [x] Implement call_agent + agent_as_toolset (Phase 3)
+- [x] Update loaders/registry/discovery and entry selection (Phase 4)
+- [x] Remove worker.py + migrate helpers + update toolset loader (Phase 5)
+- [x] Update tests/examples/docs (Phase 6)
+
+## Current State
+Implementation complete across runtime, registry, tests, examples, and docs. Next step: run lint/typecheck/tests.
 
 ## Design Summary
 

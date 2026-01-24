@@ -1,6 +1,6 @@
-# Simplify: runtime/worker.py
+# Simplify: runtime/agent_runner.py
 
-Periodic simplification review of `llm_do/runtime/worker.py`.
+Periodic simplification review of `llm_do/runtime/agent_runner.py`.
 
 ## Context Gathering
 
@@ -23,8 +23,8 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Output
 
-`docs/notes/reviews/simplify-runtime-worker.md`
+`docs/notes/reviews/simplify-runtime-agent-runner.md`
 
 ## Last Run
 
-2026-01 (tool-event/message-history duplication, redundant _call_internal params, attachment path normalization)
+2026-01 (refactored from worker.py - Worker class removed, now helper functions for PydanticAI agents)

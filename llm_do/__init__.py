@@ -1,10 +1,10 @@
-"""llm-do: LLM-powered worker runtime.
+"""llm-do: LLM-powered entry runtime.
 
-This package provides the runtime for LLM workers.
+This package provides the runtime for LLM entries.
 
 Main entry points:
-- llm-do CLI: Run workers from .worker and .py files
-- runtime module: Programmatic API for running workers
+- llm-do CLI: Run entries from .worker and .py files
+- runtime module: Programmatic API for running entries
 
 Security model: llm-do is designed to run inside a Docker container.
 The container provides the security boundary. Running on bare metal
@@ -30,7 +30,7 @@ from .models import (
 )
 
 # Re-export from runtime for convenience
-from .runtime import Runtime, Worker, WorkerRuntime
+from .runtime import AgentEntry, CallRuntime, Runtime
 
 __all__ = [
     # Approval handling
@@ -47,9 +47,9 @@ __all__ = [
     "ModelCompatibilityError",
     "NoModelError",
     # Runtime types
-    "WorkerRuntime",
+    "CallRuntime",
     "Runtime",
-    "Worker",
+    "AgentEntry",
     # Version
     "__version__",
 ]

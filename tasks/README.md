@@ -25,7 +25,7 @@ Operational documents for tracking work in progress.
 - **Starting work**: Create task in `active/`
 - **Resuming work**: Read task, continue from current state
 - **Finishing work**: Move to `completed/` or delete
-- **Recurring work**: Create in `recurring/` with recurring template; record findings in the output report
+- **Recurring work**: Create in `recurring/` with recurring template; task is read-only during execution, all findings go to the output report
 
 Completed tasks can be purged periodically - permanent decisions belong in AGENTS.md, code comments, or other documentation.
 
@@ -92,6 +92,8 @@ Where things stand right now. Update as work progresses.
 ```
 
 ## Recurring Task Template
+
+Recurring tasks are **read-only** when executed. The task document defines what to review and where to record findings - it should not be modified during execution. All findings, dates, and observations go to the output report file, not the task itself. This avoids committing the task file after every run.
 
 ```markdown
 # Review: Area Name

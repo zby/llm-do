@@ -20,6 +20,8 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
+PROJECT_ROOT = Path(__file__).parent.resolve()
+
 
 def build_pitchdeck_tools():
     pitchdeck_tools = FunctionToolset()
@@ -38,10 +40,17 @@ def build_pitchdeck_tools():
             - output_path: Suggested output path for the evaluation report
         """
         result = []
-        for pdf in sorted(Path(path).glob("*.pdf")):
+        base = (PROJECT_ROOT / path).resolve()
+        if not base.exists():
+            return result
+        for pdf in sorted(base.glob("*.pdf")):
             slug = slugify(pdf.stem)
+            try:
+                rel_path = str(pdf.relative_to(PROJECT_ROOT))
+            except ValueError:
+                rel_path = str(pdf)
             result.append({
-                "file": str(pdf),
+                "file": rel_path,
                 "slug": slug,
                 "output_path": f"evaluations/{slug}.md",
             })

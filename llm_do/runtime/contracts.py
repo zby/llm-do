@@ -60,7 +60,6 @@ class EntrySpec:
 
     main: Callable[[Any, "WorkerRuntimeProtocol"], Awaitable[Any]]
     name: str
-    description: str | None = None
     schema_in: type["WorkerArgs"] | None = None
 
     def __post_init__(self) -> None:

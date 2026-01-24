@@ -226,7 +226,6 @@ def _build_registry_and_entry_spec(
         entry_spec = EntrySpec(
             main=entry_main,
             name=entry_agent.name,
-            description=entry_agent.description,
             schema_in=entry_agent.schema_in,
         )
 

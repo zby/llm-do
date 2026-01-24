@@ -10,13 +10,13 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.usage import RunUsage
 
-from llm_do.runtime import ToolsetBuildContext, load_toolsets_from_files
+from llm_do.runtime import load_toolsets_from_files
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
 
 def _build_toolset(spec):
-    return spec.factory(ToolsetBuildContext(worker_name="test"))
+    return spec.factory()
 
 
 async def _call_tool(toolset, name, args):

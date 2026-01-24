@@ -216,7 +216,7 @@ def set_context(text: str, query: str) -> None:
     env["query"] = query
 
 
-def build_rlm_tools(_ctx):
+def build_rlm_tools():
     tools = FunctionToolset()
 
     @tools.tool

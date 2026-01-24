@@ -73,7 +73,7 @@ async def test_tui_session_approval_cache_persists_across_runs() -> None:
         calls.append(request)
         return ApprovalDecision(approved=True, remember="session")
 
-    probe_spec = ToolsetSpec(factory=lambda _ctx: _ProbeToolset())
+    probe_spec = ToolsetSpec(factory=lambda: _ProbeToolset())
     agent_spec = AgentSpec(
         name="main",
         instructions="Test agent",

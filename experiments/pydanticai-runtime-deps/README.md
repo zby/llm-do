@@ -42,7 +42,7 @@ specialized concerns to helper components.
 ### Toolset flow (per call)
 Toolsets are created **per agent call**, not per agent:
 1. `AgentRuntime.toolsets_for(agent)` resolves toolset specs for the agent name.
-2. `ToolsetResolver` instantiates toolsets using `ToolsetBuildContext`.
+2. `ToolsetResolver` instantiates toolsets by calling each factory.
 3. `ApprovalWrapper` wraps the toolset list if approval is enabled.
 4. The resulting toolsets are passed to `agent.run(...)`.
 

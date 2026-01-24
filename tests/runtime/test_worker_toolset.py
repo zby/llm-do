@@ -5,7 +5,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 
-from llm_do.runtime import AgentSpec, ToolsetBuildContext, ToolsetSpec
+from llm_do.runtime import AgentSpec, ToolsetSpec
 from llm_do.runtime.contracts import WorkerRuntimeProtocol
 from llm_do.toolsets.agent import AgentToolset, agent_as_toolset
 from llm_do.toolsets.approval import (
@@ -29,7 +29,7 @@ def test_agent_as_toolset_spec_method() -> None:
     toolset_spec = agent_as_toolset(spec)
 
     assert isinstance(toolset_spec, ToolsetSpec)
-    toolset = toolset_spec.factory(ToolsetBuildContext(worker_name="test"))
+    toolset = toolset_spec.factory()
     assert isinstance(toolset, AgentToolset)
     assert toolset.spec is spec
 

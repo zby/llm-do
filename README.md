@@ -137,7 +137,7 @@ defined as factories via `ToolsetSpec`, so each call gets its own instance:
 from pydantic_ai.toolsets import FunctionToolset
 from llm_do.runtime import ToolsetSpec
 
-def build_tools(_ctx):
+def build_tools():
     tools = FunctionToolset()
 
     @tools.tool
@@ -160,7 +160,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 from llm_do.runtime import ToolsetSpec, WorkerRuntime
 
-def build_tools(_ctx):
+def build_tools():
     tools = FunctionToolset()
 
     @tools.tool

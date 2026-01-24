@@ -13,11 +13,7 @@ from llm_do.runtime.registry import _build_builtin_tools
 from llm_do.runtime.schema_refs import resolve_schema_ref
 from llm_do.runtime.worker_file import WorkerDefinition, load_worker_file
 from llm_do.toolsets.builtins import build_builtin_toolsets
-from llm_do.toolsets.loader import (
-    ToolsetBuildContext,
-    ToolsetSpec,
-    resolve_toolset_specs,
-)
+from llm_do.toolsets.loader import ToolsetSpec, resolve_toolset_specs
 
 
 @dataclass
@@ -148,11 +144,11 @@ def _resolve_toolsets(
     if not toolset_names:
         return [], delegate_names, unsupported
 
-    context = ToolsetBuildContext(
-        worker_name=definition.name,
+    specs = resolve_toolset_specs(
+        toolset_names,
         available_toolsets=toolset_registry,
+        worker_name=definition.name,
     )
-    specs = resolve_toolset_specs(toolset_names, context)
     return specs, delegate_names, unsupported
 
 

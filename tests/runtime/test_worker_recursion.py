@@ -25,9 +25,7 @@ Call yourself.
 
     agent = registry.agents[entry_spec.name]
     assert agent.toolset_specs
-    ctx = agent.toolset_context
-    assert ctx is not None
-    toolset = agent.toolset_specs[0].factory(ctx)
+    toolset = agent.toolset_specs[0].factory()
     assert isinstance(toolset, AgentToolset)
     assert toolset.spec is agent
 

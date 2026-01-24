@@ -25,7 +25,7 @@ from llm_do.runtime import ToolsetSpec
 
 # tools.py
 
-def build_tools(_ctx):
+def build_tools():
     return MyToolset(config={"base_path": "/data"})
 
 my_tools = ToolsetSpec(factory=build_tools)
@@ -69,7 +69,7 @@ from llm_do.runtime import ToolsetSpec
 # Expensive resource created once at module load
 pool = ConnectionPool(max_connections=10)
 
-def build_database_tools(_ctx):
+def build_database_tools():
     # Each call gets a fresh toolset instance...
     # ...but they all share the same connection pool
     return DatabaseToolset(pool)
@@ -87,7 +87,7 @@ The same pattern works for any expensive-to-create resource:
 # Browser instance shared across calls
 browser = playwright.chromium.launch()
 
-def build_browser_tools(_ctx):
+def build_browser_tools():
     return BrowserToolset(browser)  # Pages map is per-call
 
 browser_tools = ToolsetSpec(factory=build_browser_tools)
@@ -97,7 +97,7 @@ browser_tools = ToolsetSpec(factory=build_browser_tools)
 # HTTP client with connection pooling shared across calls
 http_client = httpx.AsyncClient()
 
-def build_api_tools(_ctx):
+def build_api_tools():
     return ApiToolset(http_client)  # Request state is per-call
 
 api = ToolsetSpec(factory=build_api_tools)

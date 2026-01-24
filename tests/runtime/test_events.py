@@ -72,7 +72,7 @@ async def test_entry_emits_user_message_event() -> None:
 async def test_agent_emits_tool_events() -> None:
     events: list[RuntimeEvent] = []
 
-    def build_toolset(_ctx):
+    def build_toolset():
         toolset = FunctionToolset()
 
         @toolset.tool

@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 
 from llm_do.runtime import (
-    ToolsetBuildContext,
     build_entry,
     load_toolsets_from_files,
     load_worker_file,
@@ -47,7 +46,6 @@ async def test_delegation_example_builds():
     agent = registry.agents[entry_spec.name]
     toolsets = instantiate_toolsets(
         agent.toolset_specs,
-        agent.toolset_context or ToolsetBuildContext(worker_name=agent.name),
     )
     toolset_names = [
         toolset.spec.name for toolset in toolsets if isinstance(toolset, AgentToolset)
@@ -120,7 +118,6 @@ async def test_recursive_summarizer_example_builds():
     agent = registry.agents[entry_spec.name]
     toolsets = instantiate_toolsets(
         agent.toolset_specs,
-        agent.toolset_context or ToolsetBuildContext(worker_name=agent.name),
     )
     toolset_names = [
         toolset.spec.name for toolset in toolsets if isinstance(toolset, AgentToolset)

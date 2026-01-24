@@ -5,7 +5,7 @@ from llm_do.runtime import ToolsetSpec
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 
-def build_calc_tools(_ctx):
+def build_calc_tools():
     calc_tools = FunctionToolset()
 
     @calc_tools.tool

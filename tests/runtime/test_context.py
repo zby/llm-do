@@ -15,7 +15,7 @@ class TestContext:
         """Test that depth increments only for call_agent invocations."""
         seen: dict[str, int] = {}
 
-        def build_toolset(_ctx: object) -> FunctionToolset:
+        def build_toolset() -> FunctionToolset:
             toolset = FunctionToolset()
 
             @toolset.tool

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetBuildContext, build_entry
+from llm_do.runtime import build_entry
 from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.loader import instantiate_toolsets
 
@@ -30,7 +30,6 @@ async def test_build_entry_resolves_nested_agent_toolsets() -> None:
 
     entry_toolsets = instantiate_toolsets(
         entry_agent.toolset_specs,
-        entry_agent.toolset_context or ToolsetBuildContext(worker_name=entry_agent.name),
     )
     extractor_toolset = next(
         toolset
@@ -40,7 +39,6 @@ async def test_build_entry_resolves_nested_agent_toolsets() -> None:
     extractor = extractor_toolset.spec
     extractor_toolsets = instantiate_toolsets(
         extractor.toolset_specs,
-        extractor.toolset_context or ToolsetBuildContext(worker_name=extractor.name),
     )
     function_toolsets = [
         toolset for toolset in extractor_toolsets if isinstance(toolset, FunctionToolset)

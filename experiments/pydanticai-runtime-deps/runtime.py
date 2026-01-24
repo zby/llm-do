@@ -9,11 +9,7 @@ from pydantic_ai import Agent, RunContext
 from pydantic_ai_blocking_approval import ApprovalCallback, ApprovalConfig
 
 from llm_do.runtime.args import PromptContent, PromptMessages, render_prompt
-from llm_do.toolsets.loader import (
-    ToolsetBuildContext,
-    ToolsetSpec,
-    instantiate_toolsets,
-)
+from llm_do.toolsets.loader import ToolsetSpec, instantiate_toolsets
 
 
 @dataclass(frozen=True)
@@ -28,11 +24,7 @@ class ToolsetResolver:
         if agent_name:
             specs = self.toolset_specs.get(agent_name) or []
             if specs:
-                context = ToolsetBuildContext(
-                    worker_name=agent_name,
-                    available_toolsets=self.toolset_registry,
-                )
-                return instantiate_toolsets(specs, context)
+                return instantiate_toolsets(specs)
         return []
 
 

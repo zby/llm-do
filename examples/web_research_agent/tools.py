@@ -241,7 +241,7 @@ def generate_slug(topic: str) -> str:
     return slug or "report"
 
 
-def build_web_research_tools(_ctx):
+def build_web_research_tools():
     tools = FunctionToolset()
     tools.tool(search_web)
     tools.tool(fetch_page)

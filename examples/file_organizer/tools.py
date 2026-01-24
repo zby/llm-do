@@ -12,7 +12,7 @@ from llm_do.runtime import ToolsetSpec
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 
-def build_file_tools(_ctx):
+def build_file_tools():
     file_tools = FunctionToolset()
 
     @file_tools.tool

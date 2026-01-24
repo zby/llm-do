@@ -6,7 +6,7 @@ This module provides a runtime architecture that:
 - Loads tools from Python files and worker declarations
 - Provides the `llm-do` CLI entry point
 """
-from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
+from ..toolsets.loader import ToolsetSpec
 from .approval import (
     ApprovalCallback,
     RunApprovalPolicy,
@@ -81,6 +81,5 @@ __all__ = [
     "load_manifest",
     "resolve_manifest_paths",
     # Toolset factories
-    "ToolsetBuildContext",
     "ToolsetSpec",
 ]

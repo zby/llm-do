@@ -1,12 +1,12 @@
 """Toolset resolution for workers."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
 from pydantic_ai.toolsets import AbstractToolset
 
-ToolsetFactory = Callable[["ToolsetBuildContext"], AbstractToolset[Any]]
+ToolsetFactory = Callable[[], AbstractToolset[Any]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,17 +16,11 @@ class ToolsetSpec:
     factory: ToolsetFactory
 
 
-@dataclass(frozen=True, slots=True)
-class ToolsetBuildContext:
-    """Dependencies and lookup tables for toolset resolution."""
-
-    worker_name: str
-    available_toolsets: Mapping[str, ToolsetSpec] = field(default_factory=dict)
-
-
 def resolve_toolset_specs(
     toolsets_definition: Sequence[str],
-    context: ToolsetBuildContext,
+    *,
+    available_toolsets: Mapping[str, ToolsetSpec],
+    worker_name: str,
 ) -> list[ToolsetSpec]:
     """Resolve toolset specs declared in a worker file.
 
@@ -35,11 +29,11 @@ def resolve_toolset_specs(
     """
     specs: list[ToolsetSpec] = []
     for toolset_name in toolsets_definition:
-        spec = context.available_toolsets.get(toolset_name)
+        spec = available_toolsets.get(toolset_name)
         if spec is None:
-            available = sorted(context.available_toolsets.keys())
+            available = sorted(available_toolsets.keys())
             raise ValueError(
-                f"Unknown toolset {toolset_name!r} for worker {context.worker_name!r}. "
+                f"Unknown toolset {toolset_name!r} for worker {worker_name!r}. "
                 f"Available: {available}"
             )
         specs.append(spec)
@@ -48,12 +42,11 @@ def resolve_toolset_specs(
 
 def instantiate_toolsets(
     toolset_specs: Sequence[ToolsetSpec],
-    context: ToolsetBuildContext,
 ) -> list[AbstractToolset[Any]]:
     """Instantiate toolset specs for a specific call.
     """
     toolsets: list[AbstractToolset[Any]] = []
     for spec in toolset_specs:
-        toolset = spec.factory(context)
+        toolset = spec.factory()
         toolsets.append(toolset)
     return toolsets

@@ -12,7 +12,7 @@ from pydantic_ai_blocking_approval import ApprovalResult
 from ..runtime.args import Attachment, has_attachments, normalize_input
 from ..runtime.contracts import AgentSpec, WorkerRuntimeProtocol
 from ..toolsets.validators import DictValidator
-from .loader import ToolsetBuildContext, ToolsetSpec
+from .loader import ToolsetSpec
 
 
 class _DefaultAgentToolSchema(BaseModel):
@@ -138,7 +138,7 @@ def agent_as_toolset(spec: AgentSpec, *, tool_name: str | None = None) -> Toolse
     The tool name defaults to spec.name so other agents can call it by name.
     """
 
-    def factory(_ctx: ToolsetBuildContext) -> AbstractToolset[Any]:
+    def factory() -> AbstractToolset[Any]:
         return AgentToolset(spec=spec, tool_name=tool_name)
 
     return ToolsetSpec(factory=factory)

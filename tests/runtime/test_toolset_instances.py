@@ -17,7 +17,7 @@ from llm_do.runtime.approval import RunApprovalPolicy
 async def test_recursive_agent_gets_fresh_toolset_instances() -> None:
     instance_ids: list[str] = []
 
-    def build_stateful(_ctx):
+    def build_stateful():
         toolset = FunctionToolset()
         toolset_id = uuid4().hex
         toolset._instance_id = toolset_id
@@ -78,7 +78,7 @@ async def test_agent_toolset_cleanup_runs_per_call() -> None:
         def cleanup(self) -> None:
             cleanup_calls.append(self)
 
-    cleanup_spec = ToolsetSpec(factory=lambda _ctx: CleanupToolset())
+    cleanup_spec = ToolsetSpec(factory=lambda: CleanupToolset())
     agent_spec = AgentSpec(
         name="cleanup_agent",
         instructions="Run cleanup toolset.",
@@ -97,4 +97,3 @@ async def test_agent_toolset_cleanup_runs_per_call() -> None:
     await runtime.run_entry(entry_spec, {"input": "again"})
 
     assert len(cleanup_calls) == 2
-

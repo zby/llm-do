@@ -21,7 +21,7 @@ except ImportError:
     )
 
 
-def build_pitchdeck_tools(_ctx):
+def build_pitchdeck_tools():
     pitchdeck_tools = FunctionToolset()
 
     @pitchdeck_tools.tool

@@ -229,7 +229,7 @@ Think: "deterministic pipeline that uses LLM where judgment is needed."
 from pydantic_ai.toolsets import FunctionToolset
 from llm_do.runtime import ToolsetSpec
 
-def build_tools(_ctx):
+def build_tools():
     tools = FunctionToolset()
 
     @tools.tool
@@ -248,7 +248,7 @@ tools = ToolsetSpec(factory=build_tools)
 from pydantic_ai.tools import RunContext
 from llm_do.runtime import WorkerRuntime
 
-def build_tools(_ctx):
+def build_tools():
     tools = FunctionToolset()
 
     @tools.tool
@@ -264,7 +264,7 @@ def build_tools(_ctx):
 Constrain what tools can do in code, not prompt instructions:
 
 ```python
-def build_tools(_ctx):
+def build_tools():
     tools = FunctionToolset()
 
     @tools.tool

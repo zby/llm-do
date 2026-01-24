@@ -15,7 +15,7 @@ from pydantic_ai.builtin_tools import (
 from ..models import select_model
 from ..toolsets.agent import agent_as_toolset
 from ..toolsets.builtins import build_builtin_toolsets
-from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, resolve_toolset_specs
+from ..toolsets.loader import ToolsetSpec, resolve_toolset_specs
 from .args import WorkerArgs
 from .contracts import AgentSpec, EntrySpec, WorkerRuntimeProtocol
 from .discovery import load_all_from_files
@@ -187,17 +187,13 @@ def _build_registry_and_entry_spec(
 
     for worker_spec in worker_specs.values():
         worker_root = worker_spec.path.parent
-        toolset_context = ToolsetBuildContext(
-            worker_name=worker_spec.name,
-            available_toolsets=all_toolsets,
-        )
         resolved_toolset_specs = resolve_toolset_specs(
             worker_spec.definition.toolsets,
-            toolset_context,
+            available_toolsets=all_toolsets,
+            worker_name=worker_spec.name,
         )
 
         worker_spec.spec.toolset_specs = resolved_toolset_specs
-        worker_spec.spec.toolset_context = toolset_context
 
         if worker_spec.definition.schema_in_ref:
             resolved_schema = resolve_schema_ref(
@@ -209,13 +205,6 @@ def _build_registry_and_entry_spec(
                     "schema_in_ref must resolve to a WorkerArgs subclass"
                 )
             worker_spec.spec.schema_in = cast(type[WorkerArgs], resolved_schema)
-
-    for agent in python_agents.values():
-        if agent.toolset_context is None:
-            agent.toolset_context = ToolsetBuildContext(
-                worker_name=agent.name,
-                available_toolsets=all_toolsets,
-            )
 
     if entry_from_python is None and not entry_worker_names:
         raise ValueError(

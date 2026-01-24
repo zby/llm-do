@@ -153,7 +153,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 from llm_do.runtime import ToolsetSpec, WorkerRuntime
 
-def build_tools(_ctx):
+def build_tools():
     tools = FunctionToolset()
 
     @tools.tool
@@ -276,7 +276,7 @@ The simplest way to create tools. Define functions with the `@tools.tool` decora
 from pydantic_ai.toolsets import FunctionToolset
 from llm_do.runtime import ToolsetSpec
 
-def build_calc_tools(_ctx):
+def build_calc_tools():
     calc_tools = FunctionToolset()
 
     @calc_tools.tool
@@ -308,8 +308,8 @@ toolsets:
 You are a helpful calculator...
 ```
 
-Factories receive a `ToolsetBuildContext` with worker name/path metadata if you
-need to specialize per worker (e.g., base paths).
+Factories take no arguments; close over any configuration you need when
+defining the factory (e.g., base paths).
 
 **Accessing the Runtime:**
 
@@ -320,7 +320,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 from llm_do.runtime import WorkerRuntime
 
-def build_calc_tools(_ctx):
+def build_calc_tools():
     calc_tools = FunctionToolset()
 
     @calc_tools.tool
@@ -406,7 +406,7 @@ Register it with a factory so each call gets a fresh instance:
 ```python
 from llm_do.runtime import ToolsetSpec
 
-def build_my_toolset(_ctx):
+def build_my_toolset():
     return MyToolset(config={"require_approval": True})
 
 my_toolset = ToolsetSpec(factory=build_my_toolset)
@@ -423,10 +423,10 @@ from pydantic_ai.toolsets import FunctionToolset
 from llm_do.runtime import ToolsetSpec
 from llm_do.toolsets import FileSystemToolset
 
-def build_calc_tools(_ctx):
+def build_calc_tools():
     return FunctionToolset()
 
-def build_filesystem(_ctx):
+def build_filesystem():
     return FileSystemToolset(config={"base_path": "./data", "write_approval": True})
 
 calc_tools = ToolsetSpec(factory=build_calc_tools)
@@ -447,7 +447,7 @@ If you need to pre-approve specific tools, attach an approval config dict:
 from pydantic_ai.toolsets import FunctionToolset
 from llm_do.toolsets.approval import set_toolset_approval_config
 
-def build_calc_tools(_ctx):
+def build_calc_tools():
     tools = FunctionToolset()
     set_toolset_approval_config(
         tools,
@@ -462,7 +462,7 @@ def build_calc_tools(_ctx):
 **Dependencies:**
 
 Toolset instances are created per call in Python, so pass any dependencies directly in
-the factory (e.g., base paths, worker metadata, or sandbox handles).
+the factory (e.g., base paths or sandbox handles).
 
 ### Built-in Toolsets
 

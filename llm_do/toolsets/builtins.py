@@ -59,7 +59,7 @@ def build_builtin_toolsets(
         *,
         read_only: bool,
     ) -> ToolsetSpec:
-        def factory(_ctx: Any) -> AbstractToolset[Any]:
+        def factory() -> AbstractToolset[Any]:
             if read_only:
                 return ReadOnlyFileSystemToolset(config=dict(config))
             return FileSystemToolset(config=dict(config))
@@ -67,7 +67,7 @@ def build_builtin_toolsets(
         return ToolsetSpec(factory=factory)
 
     def shell_factory(rules: list[dict[str, Any]]) -> ToolsetSpec:
-        def factory(_ctx: Any) -> AbstractToolset[Any]:
+        def factory() -> AbstractToolset[Any]:
             return ShellToolset(config={"rules": [dict(rule) for rule in rules]})
 
         return ToolsetSpec(factory=factory)

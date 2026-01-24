@@ -39,7 +39,7 @@ def test_wrap_toolsets_preserves_toolset_instances() -> None:
 
 @pytest.mark.anyio
 async def test_agent_tool_calls_can_require_approval() -> None:
-    def build_tools(_ctx: object) -> FunctionToolset:
+    def build_tools() -> FunctionToolset:
         toolset = FunctionToolset()
 
         @toolset.tool

@@ -15,7 +15,7 @@ from pydantic_ai.models import Model  # Used in ModelType
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
 
-from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec
+from ..toolsets.loader import ToolsetSpec
 from .args import WorkerArgs
 from .events import RuntimeEvent
 
@@ -76,7 +76,6 @@ class AgentSpec:
     instructions: str
     model: ModelType
     toolset_specs: list[ToolsetSpec] = field(default_factory=list)
-    toolset_context: ToolsetBuildContext | None = None
     description: str | None = None
     schema_in: type["WorkerArgs"] | None = None
     schema_out: type[BaseModel] | None = None

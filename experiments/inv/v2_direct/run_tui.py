@@ -15,7 +15,7 @@ from typing import Any
 
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, ToolsetSpec, Worker
+from llm_do.runtime import AgentEntry, RunApprovalPolicy, Runtime, ToolsetSpec
 from llm_do.toolsets.filesystem import FileSystemToolset
 from llm_do.ui.app import LlmDoApp
 from llm_do.ui.events import UIEvent
@@ -54,19 +54,19 @@ def load_instructions(name: str) -> str:
     return (HERE / "instructions" / f"{name}.md").read_text()
 
 
-def build_workers() -> tuple[Worker, Worker]:
+def build_workers() -> tuple[AgentEntry, AgentEntry]:
     """Build and return the worker entries."""
     filesystem_spec = ToolsetSpec(
         factory=lambda _ctx: FileSystemToolset(config={"base_path": str(HERE)})
     )
 
-    pitch_evaluator = Worker(
+    pitch_evaluator = AgentEntry(
         name="pitch_evaluator",
         model=MODEL,
         instructions=load_instructions("pitch_evaluator"),
     )
 
-    main = Worker(
+    main = AgentEntry(
         name="main",
         model=MODEL,
         instructions=load_instructions("main"),

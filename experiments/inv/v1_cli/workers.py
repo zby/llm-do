@@ -8,7 +8,7 @@ Run with:
 from pathlib import Path
 
 from llm_do.runtime import ToolsetSpec
-from llm_do.runtime.worker import Worker
+from llm_do.runtime.entries import AgentEntry
 from llm_do.toolsets.filesystem import FileSystemToolset
 
 HERE = Path(__file__).parent
@@ -28,13 +28,13 @@ filesystem_spec = ToolsetSpec(
 )
 
 # Define workers - order matters for references
-pitch_evaluator = Worker(
+pitch_evaluator = AgentEntry(
     name="pitch_evaluator",
     model="anthropic:claude-haiku-4-5",
     instructions=load_instructions("pitch_evaluator"),
 )
 
-main = Worker(
+main = AgentEntry(
     name="main",
     model="anthropic:claude-haiku-4-5",
     instructions=load_instructions("main"),

@@ -11,7 +11,7 @@ from typing import Any, Callable, Literal, Mapping, Sequence, TextIO
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from llm_do.runtime import CallScope, Entry, RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import AgentEntry, CallScope, Entry, RunApprovalPolicy, Runtime
 from llm_do.runtime.contracts import MessageLogCallback
 from llm_do.runtime.events import RuntimeEvent
 
@@ -220,7 +220,7 @@ async def run_tui(
         nonlocal message_history
 
         entry_instance = get_entry_instance()
-        if isinstance(entry_instance, Worker):
+        if isinstance(entry_instance, AgentEntry):
             if chat:
                 if call_scope is None:
                     call_scope = entry_instance.start(

@@ -19,9 +19,9 @@ except ImportError:
     raise ImportError("python-slugify required. Install with: pip install python-slugify")
 
 from llm_do.runtime import (
-    Worker,
+    AgentEntry,
+    CallScope,
     WorkerArgs,
-    WorkerRuntime,
     entry,
 )
 from llm_do.ui import run_ui
@@ -55,10 +55,10 @@ INPUT_DIR = PROJECT_ROOT / "input"
 OUTPUT_DIR = PROJECT_ROOT / "evaluations"
 
 # =============================================================================
-# Worker (global - Workers are reusable across runs)
+# Agent entry (global - entries are reusable across runs)
 # =============================================================================
 
-PITCH_EVALUATOR = Worker(
+PITCH_EVALUATOR = AgentEntry(
     name="pitch_evaluator",
     model=MODEL,
     instructions=(PROJECT_ROOT / "instructions" / "pitch_evaluator.md").read_text(),
@@ -100,7 +100,7 @@ def list_pitchdecks(input_dir: str = "input") -> list[dict]:
 
 
 @entry(toolsets=[PITCH_EVALUATOR.as_toolset_spec()])
-async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+async def main(args: WorkerArgs, scope: CallScope) -> str:
     """Evaluate all pitch decks in input directory.
 
     This is a code entry point that orchestrates the evaluation workflow:
@@ -112,7 +112,7 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
 
     Args:
         args: WorkerArgs input (ignored - workflow is deterministic)
-        runtime: WorkerRuntime for calling workers
+        scope: CallScope for calling tools
     """
     decks = list_pitchdecks()
 
@@ -122,7 +122,7 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     results = []
 
     for deck in decks:
-        report = await runtime.call(
+        report = await scope.call_tool(
             "pitch_evaluator",
             {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]},
         )

@@ -18,9 +18,3 @@ Review `llm_do/` as a whole - SOLID principles require holistic analysis of modu
 
 Record findings in `docs/notes/reviews/review-solid.md`.
 
-## Last Run
-
-2026-01-24 (reviewed; Worker split into agent_runner/deps/registry; UI chat no longer Worker-only; UI events still render-centric; WorkerRuntime remains central)
-2026-01-13 (reviewed; runtime↔UI coupling persists, Worker/Runtime still multi-responsibility, UI events render-centric; LSP issue with Worker-as-toolset now resolved via WorkerToolset adapter)
-2026-01 (2026-01-15 review; runtime/UI coupling persists; Worker scope expanded (attachments, message logging); UI events render-centric; no new LSP issues)
-2026-01-17 (runtime/UI coupling resolved via RuntimeEvent + UI adapter; Worker still multi-responsibility; UI events render-centric; WorkerRuntimeProtocol slimmed; runtime run_entry OCP improved; UI runner chat still Worker-only)

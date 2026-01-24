@@ -2,11 +2,6 @@
 
 Periodic audit for features that add complexity without clear value.
 
-## Previous Runs
-
-- **2026-01-13**: Initial audit - see `docs/notes/reviews/useless-features-audit.md`
-- **2026-01-13**: Follow-up audit - see `docs/notes/reviews/useless-features-audit-2026-01-13.md` (confirmed `schema_out` and `cache_key_fn` still need removal)
-
 ## What Makes a Feature "Useless"
 
 1. **Low/No Usage**: Optional parameters that are rarely or never used in real configs
@@ -20,9 +15,10 @@ Periodic audit for features that add complexity without clear value.
 
 ### Core Classes
 
-- [ ] **Worker class** - Check all optional fields for usage
-- [ ] **Runtime class** - Check configuration options
-- [ ] **EntryFunction** - Optional parameters and their usage
+- [ ] **Runtime class** - Check configuration options in `shared.py`
+- [ ] **AgentRegistry** - Check optional fields and methods in `registry.py`
+- [ ] **CallScope/CallFrame** - Check call handling in `call.py`
+- [ ] **WorkerRuntime** - Check runtime interface in `deps.py`
 - [ ] **ToolsetSpec** - Configuration options
 
 ### Dead Code

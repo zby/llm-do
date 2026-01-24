@@ -25,6 +25,3 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-runtime-call.md`
 
-## Last Run
-
-2026-01 (no code changes; reiterated config helper + CallFrame passthrough removal; flagged CallScope.frame redundancy)

@@ -25,6 +25,3 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-ui-events.md`
 
-## Last Run
-
-(not yet run)

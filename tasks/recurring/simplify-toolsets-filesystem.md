@@ -25,6 +25,3 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-toolsets-filesystem.md`
 
-## Last Run
-
-(not yet run)

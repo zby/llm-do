@@ -25,6 +25,3 @@ Update `docs/notes/type-catalog-review.md` with:
 - Simplification recommendations
 - Open questions for follow-up
 
-## Last Run
-
-2026-01 (type catalog updated; unused shell and OAuth types noted)

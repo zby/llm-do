@@ -22,6 +22,3 @@ Periodic review of UI controller components for bugs, inconsistencies, and impro
 
 Record findings in `docs/notes/reviews/review-ui-controllers.md`.
 
-## Last Run
-
-(not yet run)

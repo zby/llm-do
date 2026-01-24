@@ -25,6 +25,3 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-runtime-deps.md`
 
-## Last Run
-
-2026-01 (pass-throughs, ToolsProxy, tool arg normalization, tool lookup pass)

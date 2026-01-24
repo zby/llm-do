@@ -25,6 +25,3 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-runtime-registry.md`
 
-## Last Run
-
-2026-01 (worker toolset spec helper, entry parsing, toolset context redundancy)

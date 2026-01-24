@@ -23,6 +23,3 @@ Periodic review of toolset implementations for bugs, inconsistencies, and improv
 
 Record findings in `docs/notes/reviews/review-toolsets.md`.
 
-## Last Run
-
-2026-01 (shell_readonly pre-approves find; tool arg validation is lax)

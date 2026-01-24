@@ -25,6 +25,3 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-runtime-contracts.md`
 
-## Last Run
-
-2026-01 (reviewed; main finding: WorkerRuntimeProtocol surface is over-specified)

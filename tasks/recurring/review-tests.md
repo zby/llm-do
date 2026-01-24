@@ -57,6 +57,3 @@ Output format in chat:
 
 Record findings in `docs/notes/reviews/review-tests.md`. Start with inventory + action plan and note that no edits have been made yet if you stop early.
 
-## Last Run
-
-2026-01 (rewrote invocables prompt tests; relaxed truncation assertion; softened headless display assertions; relaxed shell error-string checks; tests run)

@@ -25,6 +25,3 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-runtime-agent-runner.md`
 
-## Last Run
-
-2026-01 (refactored from worker.py - Worker class removed, now helper functions for PydanticAI agents)

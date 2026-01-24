@@ -25,7 +25,7 @@ Operational documents for tracking work in progress.
 - **Starting work**: Create task in `active/`
 - **Resuming work**: Read task, continue from current state
 - **Finishing work**: Move to `completed/` or delete
-- **Recurring work**: Create in `recurring/` with recurring template; update "Last Run" after each run
+- **Recurring work**: Create in `recurring/` with recurring template; record findings in the output report
 
 Completed tasks can be purged periodically - permanent decisions belong in AGENTS.md, code comments, or other documentation.
 
@@ -112,10 +112,6 @@ Brief description of what this review covers.
 ## Output
 
 Record findings in `docs/notes/reviews/review-<area>.md`.
-
-## Last Run
-
-YYYY-MM (brief note about findings)
 ```
 
 ## Guidelines

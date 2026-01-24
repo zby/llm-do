@@ -25,6 +25,3 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-runtime-shared.md`
 
-## Last Run
-
-2026-01 (renamed from runner.py task after runner.py removal)

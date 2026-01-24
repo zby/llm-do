@@ -26,6 +26,3 @@ Periodic review of the UI system for bugs, inconsistencies, and improvements.
 
 Record findings in `docs/notes/reviews/review-ui.md`.
 
-## Last Run
-
-2026-01 (streaming + truncation + literal rendering look consistent; remaining: minor rendering responsibility duplication)

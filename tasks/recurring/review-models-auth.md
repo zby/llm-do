@@ -19,6 +19,3 @@ Periodic review of model selection and authentication modules.
 
 Record findings in `docs/notes/reviews/review-models-auth.md`.
 
-## Last Run
-
-2026-01 (reviewed model selection + OAuth; main gaps: model precedence docs mismatch, OAuth overrides not integrated)

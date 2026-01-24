@@ -25,6 +25,3 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 `docs/notes/reviews/simplify-cli-main.md`
 
-## Last Run
-
-2026-01 (noted unused run(), entry rebuild per chat turn, CLI flag/logging simplifications)

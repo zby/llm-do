@@ -15,7 +15,7 @@ from pydantic_ai_blocking_approval import (
 from pydantic_core import SchemaValidator
 
 from llm_do.runtime import RunApprovalPolicy, Runtime, ToolsetSpec
-from llm_do.runtime.worker import Worker
+from llm_do.runtime.entries import AgentEntry
 
 
 class _ProbeToolset(AbstractToolset[Any]):
@@ -75,7 +75,7 @@ async def test_tui_session_approval_cache_persists_across_runs() -> None:
         return ApprovalDecision(approved=True, remember="session")
 
     probe_spec = ToolsetSpec(factory=lambda _ctx: _ProbeToolset())
-    worker = Worker(
+    worker = AgentEntry(
         name="main",
         instructions="Test worker",
         model=TestModel(call_tools=["probe"], custom_output_text="done"),

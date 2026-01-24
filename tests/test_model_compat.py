@@ -99,7 +99,7 @@ class TestSelectModel:
     """Tests for the model selection function."""
 
     def test_worker_model_takes_precedence_over_env(self, monkeypatch):
-        """Worker model takes precedence over env fallback."""
+        """AgentEntry model takes precedence over env fallback."""
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "env:model")
         model = select_model(
             worker_model="anthropic:claude-haiku-4-5",
@@ -214,12 +214,12 @@ class TestResolutionPrecedence:
 
     def test_precedence_table(self, monkeypatch):
         """Test the resolution precedence as documented:
-        1. Worker model (highest)
+        1. AgentEntry model (highest)
         2. LLM_DO_MODEL env var (lowest)
         """
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "env:model")
 
-        # Worker model overrides all
+        # AgentEntry model overrides all
         assert select_model(
             worker_model="w",
             compatible_models=None

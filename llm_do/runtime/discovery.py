@@ -10,7 +10,7 @@ from typing import Iterable, TypeVar
 from pydantic_ai.toolsets import AbstractToolset
 
 from ..toolsets.loader import ToolsetSpec
-from .worker import EntryFunction, Worker
+from .entries import AgentEntry, EntryFunction
 
 _LOADED_MODULES: dict[Path, ModuleType] = {}
 
@@ -65,8 +65,8 @@ def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetSpec]:
     return toolsets
 
 
-def discover_workers_from_module(module: ModuleType) -> list[Worker]:
-    return _discover_from_module(module, Worker)
+def discover_agents_from_module(module: ModuleType) -> list[AgentEntry]:
+    return _discover_from_module(module, AgentEntry)
 
 
 def discover_entries_from_module(module: ModuleType) -> list[EntryFunction]:
@@ -86,14 +86,14 @@ def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
     return all_toolsets
 
 
-def load_workers_from_files(files: list[str | Path]) -> dict[str, Worker]:
-    all_workers: dict[str, Worker] = {}
+def load_agents_from_files(files: list[str | Path]) -> dict[str, AgentEntry]:
+    all_workers: dict[str, AgentEntry] = {}
     worker_paths: dict[str, Path] = {}
     for file_path in files:
         path = Path(file_path)
         if path.suffix != ".py":
             continue
-        for worker in discover_workers_from_module(load_module(path)):
+        for worker in discover_agents_from_module(load_module(path)):
             if worker.name in all_workers:
                 raise ValueError(f"Duplicate worker name: {worker.name} (from {worker_paths[worker.name]} and {path})")
             all_workers[worker.name] = worker
@@ -103,7 +103,7 @@ def load_workers_from_files(files: list[str | Path]) -> dict[str, Worker]:
 
 def load_all_from_files(
     files: Iterable[str | Path],
-) -> tuple[dict[str, ToolsetSpec], dict[str, Worker], dict[str, EntryFunction]]:
+) -> tuple[dict[str, ToolsetSpec], dict[str, AgentEntry], dict[str, EntryFunction]]:
     """Load toolset specs, workers, and entry functions from Python files.
 
     Performs a single pass through the modules to discover all items.
@@ -115,7 +115,7 @@ def load_all_from_files(
         Tuple of (toolset specs, workers, entries) dictionaries
     """
     toolsets: dict[str, ToolsetSpec] = {}
-    workers: dict[str, Worker] = {}
+    workers: dict[str, AgentEntry] = {}
     entries: dict[str, EntryFunction] = {}
     worker_paths: dict[str, Path] = {}
     entry_paths: dict[str, Path] = {}
@@ -132,7 +132,7 @@ def load_all_from_files(
 
         module = load_module(resolved)
         module_toolsets = discover_toolsets_from_module(module)
-        module_workers = discover_workers_from_module(module)
+        module_workers = discover_agents_from_module(module)
         module_entries = discover_entries_from_module(module)
 
         for name, toolset in module_toolsets.items():

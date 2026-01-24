@@ -7,7 +7,7 @@ This example demonstrates the **code entry point** pattern using `runtime` where
 ```
 tools.py::main() (deterministic code)
     ├── calls list_pitchdecks() directly
-    ├── for each deck: runtime.call("pitch_evaluator", ...)
+    ├── for each deck: scope.call_tool("pitch_evaluator", ...)
     └── writes results directly (Path.write_text)
 
 pitch_evaluator.worker (LLM analysis)
@@ -42,19 +42,19 @@ The LLM is reserved for what it's good at: **evaluating pitch decks**.
 ## How It Works
 
 The `main` entry in `tools.py` uses `@entry` and receives `WorkerArgs` and
-`WorkerRuntime`, so it can call workers/tools by name:
+`CallScope`, so it can call workers/tools by name:
 
 ```python
-from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
+from llm_do.runtime import WorkerArgs, entry
 
 @entry(name="main", toolsets=["pitch_evaluator"])
-async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+async def main(args: WorkerArgs, scope) -> str:
     """Entry point - Python orchestration."""
     decks = list_pitchdecks()
 
     for deck in decks:
-        # Call LLM worker for analysis via runtime.call()
-        report = await runtime.call(
+        # Call LLM worker for analysis via scope.call_tool()
+        report = await scope.call_tool(
             "pitch_evaluator",
             {"input": "Evaluate this pitch deck.", "attachments": [deck["file"]]},
         )
@@ -65,7 +65,7 @@ async def main(args: WorkerArgs, runtime: WorkerRuntime) -> str:
     return f"Evaluated {len(decks)} pitch deck(s)"
 ```
 
-The `runtime.call()` method can invoke:
+The `scope.call_tool()` method can invoke:
 - **Code tools**: Tool functions exposed via toolsets
 - **Worker tools**: `.worker` files (LLM agents)
 

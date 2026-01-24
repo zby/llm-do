@@ -6,9 +6,9 @@ import pytest
 
 from llm_do.runtime import (
     discover_toolsets_from_module,
+    load_agents_from_files,
     load_module,
     load_toolsets_from_files,
-    load_workers_from_files,
 )
 
 
@@ -186,41 +186,43 @@ duplicate_tools = ToolsetSpec(factory=build_tools)
                 os.unlink(f.name)
 
 
-class TestLoadWorkersFromFiles:
-    """Tests for load_workers_from_files."""
+class TestLoadAgentsFromFiles:
+    """Tests for load_agents_from_files."""
 
     def test_duplicate_worker_name_in_file_raises(self):
-        """Test duplicate Worker names in a single file."""
+        """Test duplicate AgentEntry names in a single file."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
-from llm_do.runtime import Worker
+from pydantic_ai.models.test import TestModel
+from llm_do.runtime import AgentEntry
 
-worker_one = Worker(name="dup", instructions="first")
-worker_two = Worker(name="dup", instructions="second")
+worker_one = AgentEntry(name="dup", instructions="first", model=TestModel())
+worker_two = AgentEntry(name="dup", instructions="second", model=TestModel())
 """)
             f.flush()
 
             try:
-                with pytest.raises(ValueError, match="Duplicate worker name"):
-                    load_workers_from_files([f.name])
+                with pytest.raises(ValueError, match="Duplicate entry name"):
+                    load_agents_from_files([f.name])
             finally:
                 os.unlink(f.name)
 
     def test_duplicate_worker_name_across_files_raises(self):
-        """Test duplicate Worker names across multiple files."""
+        """Test duplicate AgentEntry names across multiple files."""
         files = []
         try:
             for label in ("one", "two"):
                 with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                     f.write(f"""\
-from llm_do.runtime import Worker
+from pydantic_ai.models.test import TestModel
+from llm_do.runtime import AgentEntry
 
-worker_{label} = Worker(name="dup", instructions="{label}")
+worker_{label} = AgentEntry(name="dup", instructions="{label}", model=TestModel())
 """)
                     files.append(f.name)
 
-            with pytest.raises(ValueError, match="Duplicate worker name"):
-                load_workers_from_files(files)
+            with pytest.raises(ValueError, match="Duplicate entry name"):
+                load_agents_from_files(files)
         finally:
             for fname in files:
                 os.unlink(fname)

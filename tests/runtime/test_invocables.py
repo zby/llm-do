@@ -4,7 +4,7 @@ import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import Runtime, Worker
+from llm_do.runtime import AgentEntry, Runtime
 
 
 def _prompt_echo_model() -> FunctionModel:
@@ -15,7 +15,6 @@ def _prompt_echo_model() -> FunctionModel:
                     content = part.content
                     if isinstance(content, str):
                         return ModelResponse(parts=[TextPart(content=content)])
-                    # Handle sequence case
                     text = " ".join(str(c) for c in content if isinstance(c, str))
                     return ModelResponse(parts=[TextPart(content=text)])
         return ModelResponse(parts=[TextPart(content="")])
@@ -24,13 +23,13 @@ def _prompt_echo_model() -> FunctionModel:
 
 
 async def _run_prompt(input_text: str) -> str:
-    worker = Worker(
+    entry_instance = AgentEntry(
         name="main",
         instructions="Echo the prompt.",
         model=_prompt_echo_model(),
     )
     runtime = Runtime()
-    result, _ctx = await runtime.run_entry(worker, {"input": input_text})
+    result, _ctx = await runtime.run_entry(entry_instance, {"input": input_text})
     return str(result)
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Pitch deck evaluation by calling a Worker entry directly (no @entry).
+"""Pitch deck evaluation by calling an entry directly (no @entry).
 
 Run with:
     uv run examples/pitchdeck_eval_direct/run_worker_entry.py
@@ -9,7 +9,7 @@ Run with:
 import asyncio
 from pathlib import Path
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import AgentEntry, RunApprovalPolicy, Runtime
 from llm_do.runtime.events import RuntimeEvent
 from llm_do.toolsets.builtins import build_builtin_toolsets
 from llm_do.toolsets.loader import ToolsetBuildContext, resolve_toolset_specs
@@ -34,13 +34,13 @@ INPUT_DIR = PROJECT_ROOT / "input"
 OUTPUT_DIR = PROJECT_ROOT / "evaluations"
 
 # =============================================================================
-# Workers
+# Entries
 # =============================================================================
 
 
-def build_entry_worker() -> Worker:
-    """Build the entry worker and its evaluator tool worker."""
-    pitch_evaluator = Worker(
+def build_entry_worker() -> AgentEntry:
+    """Build the entry and its evaluator tool entry."""
+    pitch_evaluator = AgentEntry(
         name="pitch_evaluator",
         model=MODEL,
         instructions=(INSTRUCTIONS_DIR / "pitch_evaluator.md").read_text(),
@@ -59,7 +59,7 @@ def build_entry_worker() -> Worker:
         toolset_context,
     )
 
-    main_worker = Worker(
+    main_worker = AgentEntry(
         name="main",
         model=MODEL,
         instructions=(INSTRUCTIONS_DIR / "main.md").read_text(),

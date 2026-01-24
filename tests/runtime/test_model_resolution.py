@@ -13,14 +13,14 @@ from pydantic_core import SchemaValidator
 
 from llm_do.models import (
     LLM_DO_MODEL_ENV,
+    InvalidCompatibleModelsError,
     ModelCompatibilityError,
     ModelConfigError,
     NoModelError,
     NullModel,
 )
-from llm_do.runtime import Runtime, entry
-from llm_do.runtime.call import CallConfig, CallFrame
-from llm_do.runtime.worker import Worker
+from llm_do.runtime import AgentEntry, Runtime, entry
+from llm_do.runtime.call import CallConfig, CallFrame, CallScope
 from tests.runtime.helpers import build_runtime_context
 
 
@@ -62,6 +62,28 @@ class CaptureToolset(AbstractToolset[Any]):
         return run_ctx.model
 
 
+class _ScopeEntry:
+    name = "capture"
+
+    @property
+    def toolset_specs(self) -> list[Any]:
+        return []
+
+    @property
+    def schema_in(self):
+        return None
+
+    def start(self, runtime, *, message_history=None):  # pragma: no cover - not used
+        raise NotImplementedError
+
+    async def run_turn(self, scope: CallScope, input_data: Any) -> Any:  # pragma: no cover - not used
+        raise NotImplementedError
+
+
+def _make_scope(runtime, toolsets) -> CallScope:
+    return CallScope(entry=_ScopeEntry(), runtime=runtime, toolsets=toolsets)
+
+
 @pytest.mark.anyio
 async def test_child_context_passes_model_explicitly() -> None:
     """Child context uses the explicitly provided model."""
@@ -72,7 +94,6 @@ async def test_child_context_passes_model_explicitly() -> None:
         model=parent_model,
     )
 
-    # Spawn child with explicit model pass-through
     child = ctx.spawn_child(
         active_toolsets=[toolset],
         model=parent_model,
@@ -80,8 +101,8 @@ async def test_child_context_passes_model_explicitly() -> None:
     )
     assert child.frame.config.model is parent_model
 
-    # Tool call should see the inherited model (resolved to same instance)
-    await child.call("capture", {"value": 1})
+    scope = _make_scope(child, [toolset])
+    await scope.call_tool("capture", {"value": 1})
     assert toolset.seen_model is parent_model
 
 
@@ -96,7 +117,6 @@ async def test_child_context_overrides_parent_model() -> None:
         model=parent_model,
     )
 
-    # Spawn child with model override
     child = ctx.spawn_child(
         active_toolsets=[toolset],
         model=child_model,
@@ -104,8 +124,8 @@ async def test_child_context_overrides_parent_model() -> None:
     )
     assert child.frame.config.model is child_model
 
-    # Tool call should see the overridden model
-    await child.call("capture", {"value": 1})
+    scope = _make_scope(child, [toolset])
+    await scope.call_tool("capture", {"value": 1})
     assert toolset.seen_model is child_model
 
 
@@ -141,21 +161,16 @@ async def test_string_model_resolved_to_model_instance() -> None:
     toolset = CaptureToolset()
     ctx = build_runtime_context(
         toolsets=[toolset],
-        model="test",  # String model name
+        model="test",
     )
 
-    # The context stores the string
     assert ctx.frame.config.model == "test"
 
-    # But when we call a tool, the RunContext should have a resolved Model
-    await ctx.call("capture", {"value": 1})
+    scope = _make_scope(ctx, [toolset])
+    await scope.call_tool("capture", {"value": 1})
 
-    # The model in RunContext should be a TestModel instance (resolved from "test")
     assert toolset.seen_model is not None
     assert isinstance(toolset.seen_model, TestModel)
-
-
-# --- entry function model behavior ---
 
 
 @pytest.mark.anyio
@@ -164,7 +179,7 @@ async def test_entry_function_uses_null_model(monkeypatch) -> None:
     monkeypatch.setenv(LLM_DO_MODEL_ENV, "test")
 
     @entry()
-    async def no_op(_args, _runtime):
+    async def no_op(_args, _scope):
         return "ok"
 
     runtime = Runtime()
@@ -177,7 +192,8 @@ async def test_entry_function_uses_null_model(monkeypatch) -> None:
 async def test_entry_function_null_model_llm_call_raises() -> None:
     """Using NullModel for LLM calls should fail fast."""
     @entry()
-    async def call_llm(_args, runtime):
+    async def call_llm(_args, scope):
+        runtime = scope.runtime
         agent = Agent(
             model=runtime.frame.config.model,
             instructions="test",
@@ -196,47 +212,47 @@ async def test_entry_function_null_model_llm_call_raises() -> None:
 
 def test_worker_resolves_env_model_on_init(monkeypatch) -> None:
     monkeypatch.setenv(LLM_DO_MODEL_ENV, "test")
-    worker = Worker(
+    entry_instance = AgentEntry(
         name="env-backed",
-        instructions="Use env fallback.",
+        instructions="test",
     )
-    assert worker.model == "test"
+    assert entry_instance.model == "test"
 
 
-def test_worker_missing_model_raises(monkeypatch) -> None:
-    monkeypatch.delenv(LLM_DO_MODEL_ENV, raising=False)
-    with pytest.raises(NoModelError, match="No model configured"):
-        Worker(
-            name="missing-model",
-            instructions="Needs a model.",
-        )
-
-
-def test_worker_compatible_models_rejects_env(monkeypatch) -> None:
-    monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")
-    with pytest.raises(ModelCompatibilityError, match="incompatible"):
-        Worker(
-            name="anthropic-only",
-            instructions="Anthropic models only.",
+def test_worker_env_model_must_match_compatible_models(monkeypatch) -> None:
+    monkeypatch.setenv(LLM_DO_MODEL_ENV, "test")
+    with pytest.raises(ModelCompatibilityError):
+        AgentEntry(
+            name="reject",
+            instructions="test",
             compatible_models=["anthropic:*"],
         )
 
 
-def test_worker_model_and_compatible_models_raises() -> None:
-    with pytest.raises(ModelConfigError, match="cannot have both"):
-        Worker(
-            name="strict",
-            instructions="Be strict.",
-            model="test",
-            compatible_models=["test"],
+def test_worker_compatible_models_empty(monkeypatch) -> None:
+    monkeypatch.setenv(LLM_DO_MODEL_ENV, "test")
+    with pytest.raises(InvalidCompatibleModelsError):
+        AgentEntry(
+            name="reject",
+            instructions="test",
+            compatible_models=[],
         )
 
 
-def test_worker_model_object_retained() -> None:
-    model = TestModel(custom_output_text="Hello!")
-    worker = Worker(
-        name="object-model",
-        instructions="Use model object.",
-        model=model,
-    )
-    assert worker.model is model
+def test_worker_model_and_compatible_models_conflict() -> None:
+    with pytest.raises(ModelConfigError):
+        AgentEntry(
+            name="reject",
+            instructions="test",
+            model="test",
+            compatible_models=["*"],
+        )
+
+
+def test_worker_requires_model_or_env(monkeypatch) -> None:
+    monkeypatch.delenv(LLM_DO_MODEL_ENV, raising=False)
+    with pytest.raises(NoModelError):
+        AgentEntry(
+            name="no-model",
+            instructions="test",
+        )

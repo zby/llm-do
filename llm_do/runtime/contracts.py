@@ -10,7 +10,8 @@ from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 
 from pydantic_ai.models import Model  # Used in ModelType
-from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
+from pydantic_ai.toolsets import AbstractToolset  # Used in CallRuntimeProtocol
+from pydantic_ai.usage import RunUsage
 
 from ..toolsets.loader import ToolsetSpec
 from .events import RuntimeEvent
@@ -25,7 +26,7 @@ EventCallback: TypeAlias = Callable[[RuntimeEvent], None]
 MessageLogCallback: TypeAlias = Callable[[str, int, list[Any]], None]
 
 
-class WorkerRuntimeProtocol(Protocol):
+class CallRuntimeProtocol(Protocol):
     """Structural type for the runtime object used as PydanticAI deps.
 
     Minimal surface: config (runtime-scoped settings) + frame (call-scoped state).
@@ -40,19 +41,21 @@ class WorkerRuntimeProtocol(Protocol):
 
     def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None: ...
 
+    def create_usage(self) -> RunUsage: ...
+
     def spawn_child(
         self,
         active_toolsets: Sequence[AbstractToolset[Any]],
         *,
         model: ModelType,
         invocation_name: str,
-    ) -> "WorkerRuntimeProtocol": ...
+    ) -> "CallRuntimeProtocol": ...
 
 
 class Entry(Protocol):
     """Protocol for entries that can be invoked via the runtime dispatcher.
 
-    An entry is a named callable with associated toolset specs. Worker and
+    An entry is a named callable with associated toolset specs. AgentEntry and
     EntryFunction both implement this protocol.
 
     Additional attributes (model, compatible_models) may be accessed via
@@ -63,9 +66,9 @@ class Entry(Protocol):
 
     Note: Entry implementations expose both setup and per-turn execution:
     - Entry.start(runtime) -> CallScope (CallScope.run_turn executes per-turn calls)
-    - Entry.run_turn(runtime, input_data) - per-turn execution within a scope
-    - Worker.call(input_data, run_ctx) - used when a Worker is invoked as a tool
-    - EntryFunction.call(args, messages, runtime) - called with args and messages
+    - Entry.run_turn(scope, input_data) - per-turn execution within a scope
+    - AgentEntry.call(input_data, run_ctx) - used when an entry is invoked as a tool
+    - EntryFunction.call(args, messages, scope) - called with args and messages
 
     Runtime.run_entry() handles the dispatch based on entry type.
     """
@@ -82,7 +85,7 @@ class Entry(Protocol):
 
     async def run_turn(
         self,
-        runtime: WorkerRuntimeProtocol,
+        scope: "CallScope",
         input_data: Any,
     ) -> Any: ...
 

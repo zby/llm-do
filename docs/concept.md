@@ -207,14 +207,16 @@ Rigid code drowning in edge cases? A function full of `if/elif` handling linguis
 Python handles deterministic logic; workers handle judgment:
 
 ```python
-@tools.tool
-async def evaluate_document(ctx: RunContext[WorkerRuntime], path: str) -> dict:
-    content = load_file(path)           # deterministic
+from llm_do.runtime import WorkerArgs, entry
+
+@entry(toolsets=["content_analyzer"])
+async def evaluate_document(args: WorkerArgs, scope) -> dict:
+    content = load_file(args.path)      # deterministic
     if not validate_format(content):    # deterministic
         raise ValueError("Invalid format")
 
     # Stochastic: LLM judgment for analysis
-    analysis = await ctx.deps.call("content_analyzer", {"input": content})
+    analysis = await scope.call_tool("content_analyzer", {"input": content})
 
     return {                            # deterministic
         "score": compute_score(analysis),
@@ -249,15 +251,16 @@ tools = ToolsetSpec(factory=build_tools)
 
 ```python
 from pydantic_ai.tools import RunContext
-from llm_do.runtime import WorkerRuntime
+from llm_do.runtime import CallRuntime
 
 def build_tools(_ctx):
     tools = FunctionToolset()
 
     @tools.tool
-    async def delegate_analysis(ctx: RunContext[WorkerRuntime], text: str) -> str:
-        """Delegate to another worker."""
-        return await ctx.deps.call("analyzer", {"input": text})
+    async def delegate_analysis(ctx: RunContext[CallRuntime], text: str) -> str:
+        """Access runtime metadata while handling text."""
+        depth = ctx.deps.frame.config.depth
+        return f"{depth}:{text}"
 
     return tools
 ```

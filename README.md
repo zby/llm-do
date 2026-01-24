@@ -16,7 +16,7 @@ On top of the VM sits a **harness**—an imperative orchestration layer where yo
 
 | Aspect | Graph DSLs | llm-do Harness |
 |--------|------------|----------------|
-| **Orchestration** | Declarative: define Node A → Node B | Imperative: Worker A calls Worker B as a function |
+| **Orchestration** | Declarative: define Node A → Node B | Imperative: Entry A calls Entry B via a tool call |
 | **State** | Global context passed through graph | Local scope—each worker receives only its arguments |
 | **Approvals** | Checkpoints: serialize graph state, resume after input | Interception: blocking "syscall" at the tool level |
 | **Refactoring** | Redraw edges, update graph definitions | Change code—extract functions, inline workers |
@@ -86,10 +86,10 @@ Example manifest:
 | **Neural** | Workers (`.worker` files) | Stochastic, flexible, handles ambiguity |
 | **Symbolic** | Python tools | Deterministic, fast, cheap, testable |
 
-Both share a unified calling convention—`ctx.call(name, input)`—so the VM treats them identically:
+Entry functions share a unified calling convention—`scope.call_tool(name, input)`—so the VM treats them identically:
 
 ```
-Worker ──calls──▶ Tool ──calls──▶ Worker ──calls──▶ Tool ...
+Entry ──calls──▶ Tool ──calls──▶ Entry ──calls──▶ Tool ...
  neural          symbolic         neural          symbolic
 ```
 
@@ -150,7 +150,7 @@ def build_tools(_ctx):
 tools = ToolsetSpec(factory=build_tools)
 ```
 
-Functions become LLM-callable tools. Reference the toolset name in your worker's `toolsets` config and list `tools.py` in `project.json` under `python_files`.
+Functions become LLM-callable tools. Reference the toolset name in your entry's `toolsets` config and list `tools.py` in `project.json` under `python_files`.
 
 To access runtime context (for calling other tools/workers), accept a `RunContext` and use `ctx.deps`:
 
@@ -158,15 +158,16 @@ To access runtime context (for calling other tools/workers), accept a `RunContex
 # tools.py
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec, WorkerRuntime
+from llm_do.runtime import CallRuntime, ToolsetSpec
 
 def build_tools(_ctx):
     tools = FunctionToolset()
 
     @tools.tool
-    async def analyze_config(ctx: RunContext[WorkerRuntime], raw: str) -> str:
-        """Delegate parsing to a worker."""
-        return await ctx.deps.call("config_parser", {"input": raw})
+    async def analyze_config(ctx: RunContext[CallRuntime], raw: str) -> str:
+        """Analyze a config string with access to runtime metadata."""
+        _ = ctx.deps.frame.config.depth
+        return raw
 
     return tools
 

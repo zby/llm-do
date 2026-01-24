@@ -1,20 +1,20 @@
 # Pitch Deck Evaluation (Direct Python)
 
-This example demonstrates running llm-do workers **directly from Python** without using the `llm-do` CLI (step 3), plus a raw-Python refactor that bypasses the tool plane entirely (step 4). Python handles orchestration while the LLM handles analysis, and you can switch between TUI and headless output for step 3.
+This example demonstrates running llm-do entries **directly from Python** without using the `llm-do` CLI (step 3), plus a raw-Python refactor that bypasses the tool plane entirely (step 4). Python handles orchestration while the LLM handles analysis, and you can switch between TUI and headless output for step 3.
 
 ## The Pattern
 
 ```
 run.py (step 3: tool plane)
     ├── list_pitchdecks() - discover PDFs
-    ├── PITCH_EVALUATOR - create Worker
+    ├── PITCH_EVALUATOR - create AgentEntry
     ├── run_ui() - run entry with TUI or headless UI
     └── write results to disk
 
-run_worker_entry.py (step 3: entry worker, tool plane)
-    ├── build Worker objects directly
-    ├── Runtime.run_entry() on the main worker
-    └── main worker calls pitch_evaluator tool
+run_worker_entry.py (step 3: entry agent, tool plane)
+    ├── build AgentEntry objects directly
+    ├── Runtime.run_entry() on the main entry
+    └── main entry calls pitch_evaluator tool
 
 run_raw.py (step 4: raw Python)
     ├── list_pitchdecks() - discover PDFs
@@ -84,7 +84,7 @@ VERBOSITY = 3  # 0=quiet, 1=progress, 2=I/O details, 3=LLM messages
 pitchdeck_eval_direct/
 ├── run.py                           # Main entry point
 ├── run_raw.py                       # Raw Python refactor (no tool plane)
-├── run_worker_entry.py              # Worker entry (no @entry decorator)
+├── run_worker_entry.py              # Entry (no @entry decorator)
 ├── instructions/
 │   └── main.md                       # Main worker instructions
 │   └── pitch_evaluator.md           # LLM evaluator instructions
@@ -97,11 +97,11 @@ pitchdeck_eval_direct/
 The core pattern for direct Python usage with switchable UI (step 3):
 
 ```python
-from llm_do.runtime import Worker, entry
+from llm_do.runtime import AgentEntry, entry
 from llm_do.ui import run_ui
 
-# Build worker from instructions
-evaluator = Worker(
+# Build entry from instructions
+evaluator = AgentEntry(
     name="pitch_evaluator",
     model="anthropic:claude-haiku-4-5",
     instructions=Path("instructions/pitch_evaluator.md").read_text(),
@@ -124,11 +124,11 @@ print(outcome.result)
 Entry workers can be invoked directly without a decorator (step 3):
 
 ```python
-from llm_do.runtime import RunApprovalPolicy, Runtime, Worker
+from llm_do.runtime import AgentEntry, RunApprovalPolicy, Runtime
 from llm_do.toolsets.builtins import build_builtin_toolsets
 from llm_do.toolsets.loader import ToolsetBuildContext, resolve_toolset_specs
 
-pitch_evaluator = Worker(
+pitch_evaluator = AgentEntry(
     name="pitch_evaluator",
     model="anthropic:claude-haiku-4-5",
     instructions=Path("instructions/pitch_evaluator.md").read_text(),
@@ -139,7 +139,7 @@ available_toolsets = dict(
     pitch_evaluator=pitch_evaluator.as_toolset_spec(),
 )
 toolset_context = ToolsetBuildContext(worker_name="main", available_toolsets=available_toolsets)
-main_worker = Worker(
+main_worker = AgentEntry(
     name="main",
     model="anthropic:claude-haiku-4-5",
     instructions=Path("instructions/main.md").read_text(),

@@ -109,6 +109,7 @@ def _emit_tool_events(
     agent_name: str, messages: list[Any], runtime: WorkerRuntimeProtocol
 ) -> None:
     """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
+    # TODO: Consolidate tool-event fallback with streaming path (see docs/notes/reviews/tool-event-fallback-options.md).
     if runtime.config.on_event is None:
         return
 

@@ -1,4 +1,4 @@
-"""Entry implementations: Worker, WorkerToolset, EntryFunction."""
+"""Entry implementations: AgentEntry, EntryToolset, EntryFunction."""
 from __future__ import annotations
 
 import inspect
@@ -37,8 +37,8 @@ from .args import (
     render_prompt,
 )
 from .call import CallConfig, CallFrame, CallScope
-from .contracts import WorkerRuntimeProtocol
-from .deps import WorkerRuntime
+from .contracts import CallRuntimeProtocol
+from .deps import CallRuntime
 from .events import ToolCallEvent, ToolResultEvent, UserMessageEvent
 from .shared import RuntimeConfig
 
@@ -46,8 +46,8 @@ if TYPE_CHECKING:
     from .shared import Runtime
 
 
-def _should_use_message_history(runtime: WorkerRuntimeProtocol) -> bool:
-    """Only use message history for the top-level worker run."""
+def _should_use_message_history(runtime: CallRuntimeProtocol) -> bool:
+    """Only use message history for the top-level entry run."""
     return runtime.frame.config.depth == 0
 
 
@@ -57,8 +57,8 @@ def _get_all_messages(result: Any) -> list[Any]:
 
 
 def _finalize_messages(
-    worker_name: str,
-    runtime: WorkerRuntimeProtocol,
+    entry_name: str,
+    runtime: CallRuntimeProtocol,
     result: Any,
     *,
     log_messages: bool = True,
@@ -66,7 +66,7 @@ def _finalize_messages(
     """Log and sync message history using a single message snapshot."""
     messages = _get_all_messages(result)
     if log_messages:
-        runtime.log_messages(worker_name, runtime.frame.config.depth, messages)
+        runtime.log_messages(entry_name, runtime.frame.config.depth, messages)
     if _should_use_message_history(runtime):
         runtime.frame.messages[:] = messages
     return messages
@@ -75,16 +75,16 @@ def _finalize_messages(
 class _MessageLogList(list):
     """List that logs new messages as they are appended."""
 
-    def __init__(self, runtime: WorkerRuntimeProtocol, worker_name: str, depth: int) -> None:
+    def __init__(self, runtime: CallRuntimeProtocol, entry_name: str, depth: int) -> None:
         super().__init__()
         self._runtime = runtime
-        self._worker_name = worker_name
+        self._entry_name = entry_name
         self._depth = depth
         self._logged_count = 0
 
     def _log_new_messages(self, start: int) -> None:
         for message in list(self)[start:]:
-            self._runtime.log_messages(self._worker_name, self._depth, [message])
+            self._runtime.log_messages(self._entry_name, self._depth, [message])
         self._logged_count = len(self)
 
     def append(self, item: Any) -> None:  # type: ignore[override]
@@ -100,7 +100,7 @@ class _MessageLogList(list):
 
 @contextmanager
 def _capture_message_log(
-    runtime: WorkerRuntimeProtocol, *, worker_name: str, depth: int
+    runtime: CallRuntimeProtocol, *, entry_name: str, depth: int
 ) -> Any:
     """Capture and log messages as they are appended for this run."""
     from pydantic_ai._agent_graph import capture_run_messages, get_captured_run_messages
@@ -111,45 +111,50 @@ def _capture_message_log(
         except LookupError:
             yield
             return
-        run_messages.messages = _MessageLogList(runtime, worker_name, depth)
+        run_messages.messages = _MessageLogList(runtime, entry_name, depth)
         yield
 
 
-class _DefaultWorkerToolSchema(BaseModel):
-    """Default schema for workers exposed as tools."""
+class _DefaultEntryToolSchema(BaseModel):
+    """Default schema for entries exposed as tools."""
 
     input: str
     attachments: list[str] = []
 
 
-def build_worker_tool(worker: "Worker", toolset: AbstractToolset[Any]) -> ToolsetTool[Any]:
-    """Build a ToolsetTool for exposing a Worker as a callable tool."""
-    desc = worker.description or worker.instructions
+def build_entry_tool(entry: "AgentEntry", toolset: AbstractToolset[Any]) -> ToolsetTool[Any]:
+    """Build a ToolsetTool for exposing an entry as a callable tool."""
+    desc = entry.description or entry.instructions
     desc = desc[:200] + "..." if len(desc) > 200 else desc
-    schema = worker.schema_in or _DefaultWorkerToolSchema
+    schema = entry.schema_in or _DefaultEntryToolSchema
     return ToolsetTool(
         toolset=toolset,
-        tool_def=ToolDefinition(name=worker.name, description=desc, parameters_json_schema=schema.model_json_schema()),
+        tool_def=ToolDefinition(
+            name=entry.name,
+            description=desc,
+            parameters_json_schema=schema.model_json_schema(),
+        ),
         max_retries=0,
         args_validator=DictValidator(schema),
     )
 
 
 @dataclass
-class WorkerToolset(AbstractToolset[Any]):
-    """Adapter that exposes a Worker as a single tool for another agent."""
-    worker: "Worker"
+class EntryToolset(AbstractToolset[Any]):
+    """Adapter that exposes an entry as a single tool for another agent."""
+
+    entry: "AgentEntry"
 
     @property
     def id(self) -> str | None:
-        return self.worker.name
+        return self.entry.name
 
     def _messages_from_args(
         self, tool_args: dict[str, Any]
     ) -> list[PromptContent] | None:
         """Extract prompt messages from tool args, or None if parsing fails."""
         try:
-            _, messages = normalize_input(self.worker.schema_in, tool_args)
+            _, messages = normalize_input(self.entry.schema_in, tool_args)
             return messages
         except Exception:
             return None
@@ -210,14 +215,14 @@ class WorkerToolset(AbstractToolset[Any]):
         attachment_paths = self._get_attachment_paths(tool_args)
         if attachment_paths:
             attachment_list = ", ".join(attachment_paths)
-            return f"Call worker {name} with attachments: {attachment_list}"
-        return f"Call worker {name}"
+            return f"Call entry {name} with attachments: {attachment_list}"
+        return f"Call entry {name}"
 
     async def get_tools(self, run_ctx: RunContext[Any]) -> dict[str, ToolsetTool[Any]]:
-        return {self.worker.name: build_worker_tool(self.worker, self)}
+        return {self.entry.name: build_entry_tool(self.entry, self)}
 
     async def call_tool(self, name: str, tool_args: dict[str, Any], run_ctx: RunContext[Any], tool: ToolsetTool[Any]) -> Any:
-        return await self.worker.call(tool_args, run_ctx)
+        return await self.entry.call(tool_args, run_ctx)
 
 
 ToolsetRef = str | ToolsetSpec
@@ -290,16 +295,17 @@ class EntryFunction:
             config=call_config,
             messages=list(message_history) if message_history else [],
         )
-        call_runtime = WorkerRuntime(runtime=runtime, frame=frame)
+        call_runtime = CallRuntime(runtime=runtime, frame=frame)
         return CallScope(entry=self, runtime=call_runtime, toolsets=toolsets)
 
     async def run_turn(
         self,
-        runtime: WorkerRuntimeProtocol,
+        scope: CallScope,
         input_data: Any,
     ) -> Any:
         input_args, messages = normalize_input(self.schema_in, input_data)
         display_text = get_display_text(messages)
+        runtime = scope.runtime
         runtime.frame.prompt = display_text
         if runtime.config.on_event is not None and runtime.frame.config.depth == 0:
             runtime.config.on_event(
@@ -308,18 +314,17 @@ class EntryFunction:
                     content=display_text,
                 )
             )
-        return await self.call(input_args, messages, runtime)
+        return await self.call(input_args, messages, scope)
 
     async def call(
         self,
         input_args: WorkerArgs | None,
         messages: list[PromptContent],
-        runtime: WorkerRuntimeProtocol,
+        scope: CallScope,
     ) -> Any:
         """Execute the wrapped function."""
-        # Pass structured args if available, otherwise pass messages
         first_arg = input_args if input_args is not None else messages
-        result = self.func(first_arg, runtime)
+        result = self.func(first_arg, scope)
         return await result if inspect.isawaitable(result) else result
 
 
@@ -333,8 +338,9 @@ def entry(
 
 
 @dataclass
-class Worker:
-    """An LLM-powered worker that can be run as an entry point."""
+class AgentEntry:
+    """An LLM-powered entry that can be run as a call scope."""
+
     name: str
     instructions: str
     description: str | None = None
@@ -352,16 +358,16 @@ class Worker:
             raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
         for spec in self.toolset_specs:
             if not isinstance(spec, ToolsetSpec):
-                raise TypeError("Worker toolset_specs must contain ToolsetSpec instances.")
+                raise TypeError("Entry toolset_specs must contain ToolsetSpec instances.")
         self.model = select_model(worker_model=self.model, compatible_models=compatible_models, worker_name=self.name)
 
     def _resolve_toolset_context(self) -> ToolsetBuildContext:
         return self.toolset_context or ToolsetBuildContext(worker_name=self.name)
 
     def as_toolset_spec(self, *, approval_config: dict[str, dict[str, Any]] | None = None) -> ToolsetSpec:
-        """Return a ToolsetSpec that exposes this worker as a tool."""
+        """Return a ToolsetSpec that exposes this entry as a tool."""
         def factory(_ctx: ToolsetBuildContext) -> AbstractToolset[Any]:
-            toolset = WorkerToolset(worker=self)
+            toolset = EntryToolset(entry=self)
             if approval_config is not None:
                 set_toolset_approval_config(toolset, approval_config)
             return toolset
@@ -385,10 +391,10 @@ class Worker:
         *,
         message_history: list[Any] | None = None,
     ) -> CallScope:
-        """Start a top-level call scope for this worker."""
+        """Start a top-level call scope for this entry."""
         resolved_model = self.model
         if resolved_model is None:
-            raise RuntimeError("Worker model is not set")
+            raise RuntimeError("Entry model is not set")
 
         toolsets, wrapped_toolsets = self._build_toolsets(runtime.config)
         call_config = CallConfig.build(
@@ -401,11 +407,11 @@ class Worker:
             config=call_config,
             messages=list(message_history) if message_history else [],
         )
-        call_runtime = WorkerRuntime(runtime=runtime, frame=frame)
+        call_runtime = CallRuntime(runtime=runtime, frame=frame)
         return CallScope(entry=self, runtime=call_runtime, toolsets=toolsets)
 
-    def _start_child(self, parent_runtime: WorkerRuntimeProtocol) -> CallScope:
-        """Start a nested call scope for this worker."""
+    def _start_child(self, parent_runtime: CallRuntimeProtocol) -> CallScope:
+        """Start a nested call scope for this entry."""
         if parent_runtime.frame.config.depth >= parent_runtime.config.max_depth:
             raise RuntimeError(
                 f"Max depth exceeded calling '{self.name}': "
@@ -414,7 +420,7 @@ class Worker:
 
         resolved_model = self.model
         if resolved_model is None:
-            raise RuntimeError("Worker model is not set")
+            raise RuntimeError("Entry model is not set")
 
         toolsets, wrapped_toolsets = self._build_toolsets(parent_runtime.config)
         child_runtime = parent_runtime.spawn_child(
@@ -424,7 +430,7 @@ class Worker:
         )
         return CallScope(entry=self, runtime=child_runtime, toolsets=toolsets)
 
-    def _build_agent(self, resolved_model: str | Model, runtime: WorkerRuntimeProtocol, *, toolsets: list[AbstractToolset[Any]] | None = None) -> Agent[WorkerRuntimeProtocol, Any]:
+    def _build_agent(self, resolved_model: str | Model, runtime: CallRuntimeProtocol, *, toolsets: list[AbstractToolset[Any]] | None = None) -> Agent[CallRuntimeProtocol, Any]:
         """Build a PydanticAI agent with toolsets passed directly."""
         return Agent(
             model=resolved_model, instructions=self.instructions, output_type=self.schema_out or str,
@@ -432,13 +438,12 @@ class Worker:
         )
 
     def _emit_tool_events(
-        self, messages: list[Any], runtime: WorkerRuntimeProtocol
+        self, messages: list[Any], runtime: CallRuntimeProtocol
     ) -> None:
         """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
         if runtime.config.on_event is None:
             return
 
-        # Collect tool calls and their returns
         tool_calls: dict[str, ToolCallPart] = {}
         tool_returns: dict[str, ToolReturnPart] = {}
 
@@ -452,7 +457,6 @@ class Worker:
                     if isinstance(request_part, ToolReturnPart):
                         tool_returns[request_part.tool_call_id] = request_part
 
-        # Emit events for each tool call/result pair
         for call_id, call_part in tool_calls.items():
             runtime.config.on_event(ToolCallEvent(
                 worker=self.name,
@@ -472,8 +476,8 @@ class Worker:
                     content=return_part.content,
                 ))
 
-    async def call(self, input_data: Any, run_ctx: RunContext[WorkerRuntimeProtocol]) -> Any:
-        """Execute the worker with the given input."""
+    async def call(self, input_data: Any, run_ctx: RunContext[CallRuntimeProtocol]) -> Any:
+        """Execute the entry with the given input."""
         scope = self._start_child(run_ctx.deps)
         try:
             return await scope.run_turn(input_data)
@@ -482,13 +486,14 @@ class Worker:
 
     async def run_turn(
         self,
-        runtime: WorkerRuntimeProtocol,
+        scope: CallScope,
         input_data: Any,
     ) -> Any:
         """Run a single turn for an active call scope."""
         _, messages = normalize_input(self.schema_in, input_data)
 
         display_text = get_display_text(messages)
+        runtime = scope.runtime
         runtime.frame.prompt = display_text
         if runtime.config.on_event is not None and runtime.frame.config.depth == 0:
             runtime.config.on_event(
@@ -498,10 +503,9 @@ class Worker:
                 )
             )
 
-        # model is guaranteed non-None after __post_init__ (select_model raises if missing)
         resolved_model = self.model
         if resolved_model is None:
-            raise RuntimeError("Worker model is not set")
+            raise RuntimeError("Entry model is not set")
 
         agent = self._build_agent(
             resolved_model,
@@ -518,7 +522,7 @@ class Worker:
 
         use_incremental_log = runtime.config.message_log_callback is not None
         log_context = (
-            _capture_message_log(runtime, worker_name=self.name, depth=runtime.frame.config.depth)
+            _capture_message_log(runtime, entry_name=self.name, depth=runtime.frame.config.depth)
             if use_incremental_log
             else nullcontext()
         )
@@ -550,8 +554,8 @@ class Worker:
         return output
 
     async def _run_with_event_stream(
-        self, agent: Agent[WorkerRuntimeProtocol, Any], prompt: str | Sequence[UserContent],
-        runtime: WorkerRuntimeProtocol, message_history: list[Any] | None, *, log_messages: bool = True
+        self, agent: Agent[CallRuntimeProtocol, Any], prompt: str | Sequence[UserContent],
+        runtime: CallRuntimeProtocol, message_history: list[Any] | None, *, log_messages: bool = True
     ) -> Any:
         """Run agent with event stream handler for UI updates."""
         from pydantic_ai.messages import PartDeltaEvent
@@ -559,7 +563,7 @@ class Worker:
         from .event_parser import parse_event
         emitted_tool_events = False
 
-        async def event_stream_handler(_: RunContext[WorkerRuntimeProtocol], events: AsyncIterable[Any]) -> None:
+        async def event_stream_handler(_: RunContext[CallRuntimeProtocol], events: AsyncIterable[Any]) -> None:
             nonlocal emitted_tool_events
             async for event in events:
                 if runtime.config.verbosity < 2 and isinstance(event, PartDeltaEvent):

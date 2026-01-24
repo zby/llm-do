@@ -1,4 +1,4 @@
-"""Toolset resolution for workers."""
+"""Toolset resolution for entries."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -24,17 +24,17 @@ class ToolsetBuildContext:
     available_toolsets: Mapping[str, ToolsetSpec] = field(default_factory=dict)
 
 
-def _wrap_worker_as_toolset(toolset: Any) -> AbstractToolset[Any]:
-    """Wrap a Worker in WorkerToolset if needed.
+def _wrap_entry_as_toolset(toolset: Any) -> AbstractToolset[Any]:
+    """Wrap an AgentEntry in EntryToolset if needed.
 
-    Workers are wrapped in WorkerToolset when used as tools for another agent.
-    This makes the "Worker as tool provider" relationship explicit via composition.
+    Agent entries are wrapped in EntryToolset when used as tools for another agent.
+    This makes the \"entry as tool provider\" relationship explicit via composition.
     """
     # Import here to avoid circular imports
-    from ..runtime.worker import Worker, WorkerToolset
+    from ..runtime.worker import AgentEntry, EntryToolset
 
-    if isinstance(toolset, Worker):
-        return WorkerToolset(worker=toolset)
+    if isinstance(toolset, AgentEntry):
+        return EntryToolset(entry=toolset)
     return toolset
 
 
@@ -66,10 +66,10 @@ def instantiate_toolsets(
 ) -> list[AbstractToolset[Any]]:
     """Instantiate toolset specs for a specific call.
 
-    Workers are automatically wrapped in WorkerToolset adapters.
+    Agent entries are automatically wrapped in EntryToolset adapters.
     """
     toolsets: list[AbstractToolset[Any]] = []
     for spec in toolset_specs:
         toolset = spec.factory(context)
-        toolsets.append(_wrap_worker_as_toolset(toolset))
+        toolsets.append(_wrap_entry_as_toolset(toolset))
     return toolsets

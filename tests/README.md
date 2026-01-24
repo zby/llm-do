@@ -6,7 +6,7 @@ This guide documents the testing strategies and patterns used in llm-do. The cod
 
 | Pattern | Use Case | Example |
 |---------|----------|---------|
-| **TestModel** | Test worker definitions, tools, schemas | `Worker(model=test_model)` + `Runtime.run_entry(...)` |
+| **TestModel** | Test agent entries, tools, schemas | `AgentEntry(model=test_model)` + `Runtime.run_entry(...)` |
 | **Custom agent_runner** | Test orchestration logic | `run_worker_async(agent_runner=custom_runner, ...)` |
 | **Real model (integration)** | Verify critical end-to-end flows | Keep minimal |
 
@@ -27,7 +27,7 @@ pytest -m examples
 ### When to Use
 
 Use `TestModel` when you need to test the **full agent behavior** including:
-- Worker definitions load correctly
+- Agent entries load correctly
 - Tools are registered and callable
 - Structured output schemas validate
 - Tool calling behavior works end-to-end
@@ -57,9 +57,9 @@ model = TestModel(seed=42)
 ### Example
 
 ```python
-def test_worker_executes_with_tools(test_model):
-    """Test that worker loads and tools are available."""
-    worker = Worker(
+def test_entry_executes_with_tools(test_model):
+    """Test that entry loads and tools are available."""
+    entry_instance = AgentEntry(
         name="my_worker",
         instructions="Process this",
         model=test_model,  # Uses TestModel from conftest.py fixture
@@ -67,11 +67,11 @@ def test_worker_executes_with_tools(test_model):
     )
     runtime = Runtime()
     result, _ctx = asyncio.run(runtime.run_entry(
-        worker,
+        entry_instance,
         "process this",
     ))
     # Verifies:
-    # - Worker definition loaded
+    # - Entry definition loaded
     # - Tools registered correctly
     # - Output schema validated
     # - No API calls made
@@ -84,8 +84,8 @@ The `test_model` fixture is available in all tests via `tests/conftest.py`:
 ```python
 def test_something(test_model):
     # test_model is a TestModel(seed=42)
-    worker = Worker(name="my_worker", instructions="...", model=test_model)
-    result, _ctx = asyncio.run(Runtime().run_entry(worker, "..."))
+    entry_instance = AgentEntry(name="my_worker", instructions="...", model=test_model)
+    result, _ctx = asyncio.run(Runtime().run_entry(entry_instance, "..."))
 ```
 
 ## Using Custom agent_runner
@@ -123,7 +123,7 @@ def test_model_resolution_prefers_worker_model(monkeypatch):
         agent_runner=custom_runner,
     ))
 
-    assert used_model == "model-a"  # Worker model takes precedence
+    assert used_model == "model-a"  # Entry model takes precedence
 ```
 
 ### Custom Runner Signature
@@ -137,7 +137,7 @@ def agent_runner(
 ) -> tuple[Any, List[Any]]:
     """
     Args:
-        definition: Worker definition with instructions and config
+        definition: Entry definition with instructions and config
         user_input: Input data passed to the worker
         context: WorkerContext with tools, etc.
         output_model: Optional Pydantic model for structured output
@@ -207,7 +207,7 @@ tests/
 ├── test_pydanticai_base.py  # Core runtime and orchestration
 ├── test_pydanticai_cli.py   # CLI interface
 ├── test_pydanticai_integration.py  # Integration tests with real models
-└── test_worker_delegation.py       # Worker delegation and creation
+└── test_worker_delegation.py       # Entry delegation and creation
 ```
 
 ### Naming Conventions
@@ -223,7 +223,7 @@ Shared fixtures live in `conftest.py`:
 
 ## Examples from the Codebase
 
-### Example 1: Testing Worker Definition Loading
+### Example 1: Testing Entry Definition Loading
 
 From `test_prompts.py`:
 
@@ -265,7 +265,7 @@ def test_run_worker_async_applies_model_inheritance(monkeypatch):
         agent_runner=custom_runner,
     ))
 
-    assert result.output == "worker-model"  # Worker model takes precedence
+    assert result.output == "worker-model"  # Entry model takes precedence
 ```
 
 ### Example 3: Testing Approval Flow
@@ -311,8 +311,8 @@ def test_worker(monkeypatch):
 ```python
 # GOOD: Fast, free, deterministic
 def test_worker(test_model):
-    worker = Worker(name="my_worker", instructions="...", model=test_model)
-    result, _ctx = asyncio.run(Runtime().run_entry(worker, "..."))
+    entry_instance = AgentEntry(name="my_worker", instructions="...", model=test_model)
+    result, _ctx = asyncio.run(Runtime().run_entry(entry_instance, "..."))
 ```
 
 ❌ **Don't create premature abstractions**

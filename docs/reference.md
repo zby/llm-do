@@ -20,14 +20,14 @@ Supported forms:
 - `module.Class`
 - `path.py:Class` (relative to the worker file)
 
-Schemas must subclass `WorkerArgs` and implement `prompt_spec()`. Input can be passed in several forms:
+Schemas must subclass `WorkerArgs` and implement `prompt_spec()`. When calling from an entry function, use `scope.call_tool()` (where `scope` is the `CallScope` passed to the entry) with any of the following forms:
 
 ```python
 # Simple string
-runtime.call("worker", "text")
+await scope.call_tool("worker", "text")
 
 # With attachments
-runtime.call("worker", {"input": "text", "attachments": ["file.pdf"]})
+await scope.call_tool("worker", {"input": "text", "attachments": ["file.pdf"]})
 ```
 
 For custom schemas, subclass `WorkerArgs`:
@@ -57,7 +57,7 @@ If multiple candidates exist (or none), loading fails with a descriptive error.
 
 Python code can invoke workers in two contexts:
 1. **From orchestrator scripts** — using `Runtime.run_entry()` to start a run
-2. **From within tools** — using `ctx.deps.call()` during an active run
+2. **From entry functions** — using `CallScope.call_tool()` during an active run
 
 ### From Orchestrator Scripts
 
@@ -118,14 +118,14 @@ For chat-style flows, start a worker call scope and run multiple turns inside it
 ```python
 from pathlib import Path
 
-from llm_do.runtime import Runtime, Worker, build_entry
+from llm_do.runtime import AgentEntry, Runtime, build_entry
 
 async def main():
     project_root = Path(".").resolve()
     entry = build_entry(["assistant.worker"], [], project_root=project_root)
     runtime = Runtime(project_root=project_root)
 
-    assert isinstance(entry, Worker)
+    assert isinstance(entry, AgentEntry)
     async with entry.start(runtime) as scope:
         await scope.run_turn("turn 1")
         await scope.run_turn("turn 2")
@@ -136,25 +136,22 @@ history is stored on `scope.frame.messages` and is reused across turns at depth 
 
 ### From Within Tools
 
-Tools can access the runtime to call other workers or tools. This enables hybrid patterns where deterministic Python code orchestrates LLM reasoning.
+Tools can access runtime metadata via `RunContext[CallRuntime]`. Tool delegation is handled in entry functions via `CallScope.call_tool()`.
 
-**Accepting the Runtime Context:**
-
-To access the runtime, accept `RunContext[WorkerRuntime]` as the first parameter:
+To access the runtime, accept `RunContext[CallRuntime]` as the first parameter:
 
 ```python
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec, WorkerRuntime
+from llm_do.runtime import CallRuntime, ToolsetSpec
 
 def build_tools(_ctx):
     tools = FunctionToolset()
 
     @tools.tool
-    async def my_tool(ctx: RunContext[WorkerRuntime], data: str) -> str:
-        """Tool that can call workers."""
-        result = await ctx.deps.call("worker_name", data)
-        return result
+    async def my_tool(ctx: RunContext[CallRuntime], data: str) -> str:
+        depth = ctx.deps.frame.config.depth
+        return f"{depth}:{data}"
 
     return tools
 
@@ -163,48 +160,6 @@ tools = ToolsetSpec(factory=build_tools)
 
 The `ctx` parameter is automatically injected by PydanticAI and excluded from the tool schema the LLM sees.
 
-**Calling Workers and Tools:**
-
-Use `ctx.deps.call(name, input_data)` to invoke any worker or tool by name:
-
-```python
-@tools.tool
-async def orchestrate(ctx: RunContext[WorkerRuntime], task: str) -> str:
-    # Call an LLM worker
-    analysis = await ctx.deps.call("analyzer", task)
-
-    # Call another Python tool
-    formatted = await ctx.deps.call("formatter", {"text": analysis})
-
-    return formatted
-```
-
-`RunContext.prompt` is derived from `WorkerArgs.prompt_spec().text` for logging/UI
-only; tools should rely on their typed args and use `ctx.deps` only for delegation.
-
-The `input_data` argument can be a string, list (with `Attachment`s), or dict.
-
-**Alternative: Attribute-Style Calls:**
-
-For convenience, you can use attribute-style syntax via `ctx.deps.tools`:
-
-```python
-# These are equivalent:
-result = await ctx.deps.call("analyzer", data)
-result = await ctx.deps.tools.analyzer(input=data)
-```
-
-**Available Runtime State:**
-
-Via `ctx.deps`, tools can access (depth lives at `ctx.deps.frame.depth`, and limits at `ctx.deps.config.max_depth`):
-
-| Property | Description |
-|----------|-------------|
-| `call(name, input_data)` | Invoke a worker or tool by name |
-| `tools.<name>(**kwargs)` | Attribute-style tool invocation |
-| `frame` | Call state (`depth`, `model`, `prompt`, `messages`, `active_toolsets`) |
-| `config` | Runtime config (`max_depth`, approval policy, verbosity, etc.) |
-
 ### Example: Code Entry Point
 
 A common pattern is using a Python function as the entry point for deterministic orchestration. There are two approaches:
@@ -212,17 +167,17 @@ A common pattern is using a Python function as the entry point for deterministic
 **Using @entry decorator (recommended):**
 
 ```python
-from llm_do.runtime import WorkerArgs, WorkerRuntime, entry
+from llm_do.runtime import WorkerArgs, entry
 
 @entry(name="main", toolsets=["filesystem_project", "evaluator"])
-async def process_files(args: WorkerArgs, runtime: WorkerRuntime) -> str:
+async def process_files(args: WorkerArgs, scope) -> str:
     """Orchestrate evaluation of multiple files."""
     files = list(Path("input").glob("*.pdf"))  # deterministic
 
     results = []
     for f in files:
         # LLM worker handles reasoning
-        report = await runtime.call(
+        report = await scope.call_tool(
             "evaluator",
             {"input": "Analyze this file.", "attachments": [str(f)]}
         )
@@ -239,18 +194,18 @@ The `@entry` decorator:
 - Marks a function as an entry point with a name and toolset references
 - Toolsets can be names (resolved during registry linking) or ToolsetSpec factories
 - `schema_in` can specify a `WorkerArgs` subclass for input normalization
-- The function receives `(args, runtime)`:
+- The function receives `(args, scope)`:
   - `args`: `WorkerArgs` instance (normalized input with `prompt_spec()`)
-  - `runtime`: `WorkerRuntime` for calling tools via `runtime.call()`
+  - `scope`: `CallScope` for calling tools via `scope.call_tool()`
 
-Note: `@entry` functions are trusted code, but tool calls from `runtime.call()`
+Note: `@entry` functions are trusted code, but tool calls from `scope.call_tool()`
 still go through approval wrappers and follow the run approval policy. To skip
 prompts, use `approve_all` (or drop to raw Python to bypass the tool plane).
 
 Example with custom input schema:
 
 ```python
-from llm_do.runtime import PromptSpec, WorkerArgs, WorkerRuntime, entry
+from llm_do.runtime import PromptSpec, WorkerArgs, entry
 
 class TaggedInput(WorkerArgs):
     input: str
@@ -260,7 +215,7 @@ class TaggedInput(WorkerArgs):
         return PromptSpec(text=f"{self.input}:{self.tag}")
 
 @entry(name="main", schema_in=TaggedInput)
-async def main(args: TaggedInput, runtime: WorkerRuntime) -> str:
+async def main(args: TaggedInput, _scope) -> str:
     return args.tag
 ```
 
@@ -315,20 +270,20 @@ need to specialize per worker (e.g., base paths).
 
 **Accessing the Runtime:**
 
-To call other workers/tools from your tool, accept `RunContext[WorkerRuntime]`:
+To access runtime metadata from a tool, accept `RunContext[CallRuntime]`:
 
 ```python
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import WorkerRuntime
+from llm_do.runtime import CallRuntime
 
 def build_calc_tools(_ctx):
     calc_tools = FunctionToolset()
 
     @calc_tools.tool
-    async def analyze(ctx: RunContext[WorkerRuntime], text: str) -> str:
-        """Analyze text using another worker."""
-        return await ctx.deps.call("sentiment_analyzer", {"input": text})
+    async def analyze(ctx: RunContext[CallRuntime], text: str) -> str:
+        depth = ctx.deps.frame.config.depth
+        return f"{depth}:{text}"
 
     return calc_tools
 ```
@@ -504,7 +459,7 @@ You have access to filesystem and shell tools.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Worker identifier (used for `ctx.deps.call()`) |
+| `name` | Yes | Worker identifier (used for `scope.call_tool()`) |
 | `description` | No | Tool description when the worker is exposed as a tool (falls back to `instructions`) |
 | `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`); falls back to `LLM_DO_MODEL` if omitted |
 | `compatible_models` | No | List of acceptable model patterns for the `LLM_DO_MODEL` fallback (mutually exclusive with `model`) |

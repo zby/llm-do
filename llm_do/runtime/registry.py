@@ -1,6 +1,6 @@
 """Entry registry and builder utilities.
 
-The registry acts as a symbol table for entry names: resolved workers and
+The registry acts as a symbol table for entry names: resolved agent entries and
 entry functions are bound to names so the runtime can look them up.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ from .args import WorkerArgs
 from .contracts import Entry
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
-from .worker import Worker
+from .worker import AgentEntry
 from .worker_file import (
     WorkerDefinition,
     build_worker_definition,
@@ -50,13 +50,13 @@ class EntryRegistry:
 
 
 @dataclass(slots=True)
-class WorkerSpec:
-    """Per-worker bookkeeping for two-pass registry building."""
+class AgentSpec:
+    """Per-agent bookkeeping for two-pass registry building."""
 
     name: str
     path: Path
     definition: WorkerDefinition
-    stub: Worker
+    stub: AgentEntry
 
 
 # Registry of server-side tool factories
@@ -110,13 +110,13 @@ def _build_registry_and_entry_name(
     """Build the entry symbol table and return the resolved entry name.
 
     This function performs two-pass registry building:
-    1. First pass: Load all Python toolsets, workers, and entry functions;
-       load worker file definitions and create stub Workers.
-    2. Second pass: Resolve toolset references for workers and entry functions.
+    1. First pass: Load all Python toolsets, agents, and entry functions;
+       load worker file definitions and create stub agent entries.
+    2. Second pass: Resolve toolset references for agents and entry functions.
 
     Args:
         worker_files: Paths to .worker files
-        python_files: Paths to .py files with toolsets/workers/entries
+        python_files: Paths to .py files with toolsets/agents/entries
         project_root: Shared project root for filesystem toolsets
     Returns:
         Tuple of (EntryRegistry, entry_name) with entries resolved and ready
@@ -124,10 +124,10 @@ def _build_registry_and_entry_name(
     if project_root is None:
         raise ValueError("project_root is required to build entries")
     project_root_path = Path(project_root).resolve()
-    # Load Python toolsets, workers, and entry functions in a single pass
-    python_toolsets, python_workers, python_entries = load_all_from_files(python_files)
+    # Load Python toolsets, agents, and entry functions in a single pass
+    python_toolsets, python_agents, python_entries = load_all_from_files(python_files)
 
-    if not worker_files and not python_workers and not python_entries:
+    if not worker_files and not python_agents and not python_entries:
         raise ValueError("At least one .worker or .py file with entries required")
 
     entry_func_names = sorted(python_entries.keys())
@@ -138,10 +138,10 @@ def _build_registry_and_entry_name(
         )
     entry_func_name = entry_func_names[0] if entry_func_names else None
 
-    # First pass: load worker definitions and create minimal stub Worker instances
-    worker_specs: dict[str, WorkerSpec] = {}
+    # First pass: load worker definitions and create minimal stub agent entries
+    worker_specs: dict[str, AgentSpec] = {}
     entry_worker_names: list[str] = []
-    reserved_names = set(python_workers.keys()) | set(python_entries.keys())
+    reserved_names = set(python_agents.keys()) | set(python_entries.keys())
 
     for worker_file_path in worker_files:
         resolved_path = Path(worker_file_path).resolve()
@@ -153,11 +153,11 @@ def _build_registry_and_entry_name(
         if name in worker_specs:
             raise ValueError(f"Duplicate worker name: {name}")
 
-        # Check for conflict with Python workers or entries
+        # Check for conflict with Python agents or entries
         if name in reserved_names:
-            if name in python_workers:
+            if name in python_agents:
                 raise ValueError(
-                    f"Worker name '{name}' conflicts with Python worker"
+                    f"Worker name '{name}' conflicts with Python entry"
                 )
             raise ValueError(f"Worker name '{name}' conflicts with Python entry")
         reserved_names.add(name)
@@ -165,7 +165,7 @@ def _build_registry_and_entry_name(
         if worker_def.entry:
             entry_worker_names.append(name)
 
-        stub = Worker(
+        stub = AgentEntry(
             name=name,
             instructions=worker_def.instructions,
             description=worker_def.description,
@@ -174,7 +174,7 @@ def _build_registry_and_entry_name(
             toolset_specs=[],
             builtin_tools=_build_builtin_tools(worker_def.server_side_tools),
         )
-        worker_specs[name] = WorkerSpec(
+        worker_specs[name] = AgentSpec(
             name=name,
             path=resolved_path,
             definition=worker_def,
@@ -199,7 +199,7 @@ def _build_registry_and_entry_name(
     entry_name = entry_func_name or entry_worker_names[0]
 
     # Second pass: resolve toolset specs and fill in worker stubs
-    # Workers are wrapped in WorkerToolset to expose them as tools
+    # Entries are wrapped in EntryToolset to expose them as tools
     available_workers = {
         name: spec.stub.as_toolset_spec() for name, spec in worker_specs.items()
     }
@@ -233,10 +233,10 @@ def _build_registry_and_entry_name(
                 )
             spec.stub.schema_in = cast(type[WorkerArgs], resolved_schema)
 
-    for worker in python_workers.values():
-        if worker.toolset_context is None:
-            worker.toolset_context = ToolsetBuildContext(
-                worker_name=worker.name,
+    for agent in python_agents.values():
+        if agent.toolset_context is None:
+            agent.toolset_context = ToolsetBuildContext(
+                worker_name=agent.name,
                 available_toolsets=all_toolsets,
             )
 
@@ -251,7 +251,7 @@ def _build_registry_and_entry_name(
             entry_func.resolve_toolsets(all_toolsets, toolset_context)
 
     entries: dict[str, Entry] = {}
-    entries.update(python_workers)
+    entries.update(python_agents)
     entries.update(python_entries)
     entries.update({spec.name: spec.stub for spec in worker_specs.values()})
 

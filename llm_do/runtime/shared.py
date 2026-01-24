@@ -13,7 +13,7 @@ from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_call
 from .contracts import Entry, EventCallback, MessageLogCallback
 
 if TYPE_CHECKING:
-    from .deps import WorkerRuntime
+    from .deps import CallRuntime
 
 
 class UsageCollector:
@@ -54,6 +54,26 @@ class MessageAccumulator:
     def for_worker(self, worker_name: str) -> list[Any]:
         with self._lock:
             return [msg for name, _, msg in self._messages if name == worker_name]
+
+
+@dataclass(slots=True)
+class RunState:
+    """Run-scoped state for usage and message log aggregation."""
+
+    usage: UsageCollector = field(default_factory=UsageCollector)
+    message_log: MessageAccumulator = field(default_factory=MessageAccumulator)
+
+    def create_usage(self) -> RunUsage:
+        return self.usage.create()
+
+    def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
+        self.message_log.extend(worker_name, depth, messages)
+
+    def all_usage(self) -> list[RunUsage]:
+        return self.usage.all()
+
+    def all_messages(self) -> list[tuple[str, int, Any]]:
+        return self.message_log.all()
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,8 +147,7 @@ class Runtime:
             message_log_callback=message_log_callback,
             verbosity=verbosity,
         )
-        self._usage = UsageCollector()
-        self._message_log = MessageAccumulator()
+        self._state = RunState()
 
     @property
     def config(self) -> RuntimeConfig:
@@ -144,19 +163,19 @@ class Runtime:
 
     @property
     def usage(self) -> list[RunUsage]:
-        return self._usage.all()
+        return self._state.all_usage()
 
     @property
     def message_log(self) -> list[tuple[str, int, Any]]:
-        return self._message_log.all()
+        return self._state.all_messages()
 
     def _create_usage(self) -> RunUsage:
         """Create a new RunUsage and add it to the shared usage sink."""
-        return self._usage.create()
+        return self._state.create_usage()
 
     def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
         """Record messages for diagnostic logging."""
-        self._message_log.extend(worker_name, depth, messages)
+        self._state.log_messages(worker_name, depth, messages)
         if self._config.message_log_callback is not None:
             self._config.message_log_callback(worker_name, depth, messages)
 
@@ -166,12 +185,12 @@ class Runtime:
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
-    ) -> tuple[Any, WorkerRuntime]:
+    ) -> tuple[Any, CallRuntime]:
         """Run an invocable with this runtime.
 
         Entry implementations handle per-turn prompt handling inside run_turn.
         """
-        from .deps import WorkerRuntime
+        from .deps import CallRuntime
         try:
             scope = invocable.start(self, message_history=message_history)
         except AttributeError as exc:
@@ -179,7 +198,7 @@ class Runtime:
 
         async with scope:
             result = await scope.run_turn(input_data)
-        return result, cast(WorkerRuntime, scope.runtime)
+        return result, cast(CallRuntime, scope.runtime)
 
     def run(
         self,
@@ -187,7 +206,7 @@ class Runtime:
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
-    ) -> tuple[Any, "WorkerRuntime"]:
+    ) -> tuple[Any, "CallRuntime"]:
         """Run an invocable synchronously using asyncio.run()."""
         try:
             asyncio.get_running_loop()

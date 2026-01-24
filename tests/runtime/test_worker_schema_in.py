@@ -1,8 +1,9 @@
 import pytest
+from pydantic_ai.models.test import TestModel
 
-from llm_do.runtime import PromptContent, ToolsetBuildContext, Worker, WorkerArgs
+from llm_do.runtime import AgentEntry, PromptContent, ToolsetBuildContext, WorkerArgs
 from llm_do.runtime.args import normalize_input
-from tests.runtime.helpers import build_runtime_context
+from tests.runtime.helpers import build_call_scope
 
 
 class TopicInput(WorkerArgs):
@@ -21,20 +22,21 @@ class TextInput(WorkerArgs):
 
 
 @pytest.mark.anyio
-async def test_worker_tool_schema_uses_schema_in() -> None:
-    worker = Worker(
-        name="topic_worker",
+async def test_entry_tool_schema_uses_schema_in() -> None:
+    entry_instance = AgentEntry(
+        name="topic_entry",
         instructions="Extract topic details.",
         schema_in=TopicInput,
+        model=TestModel(),
     )
-    ctx = build_runtime_context(toolsets=[], model="test")
-    run_ctx = ctx._make_run_context(worker.name)
+    scope = build_call_scope(toolsets=[], model="test")
+    run_ctx = scope._make_run_context(entry_instance.name)
 
-    toolset = worker.as_toolset_spec().factory(
-        ToolsetBuildContext(worker_name=worker.name)
+    toolset = entry_instance.as_toolset_spec().factory(
+        ToolsetBuildContext(worker_name=entry_instance.name)
     )
     tools = await toolset.get_tools(run_ctx)
-    tool_def = tools[worker.name].tool_def
+    tool_def = tools[entry_instance.name].tool_def
     schema = tool_def.parameters_json_schema
     properties = schema.get("properties", {})
 
@@ -43,20 +45,21 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
 
 
 @pytest.mark.anyio
-async def test_worker_tool_description_prefers_description() -> None:
-    worker = Worker(
-        name="desc_worker",
+async def test_entry_tool_description_prefers_description() -> None:
+    entry_instance = AgentEntry(
+        name="desc_entry",
         instructions="Instructions fallback.",
         description="Short tool summary.",
+        model=TestModel(),
     )
-    ctx = build_runtime_context(toolsets=[], model="test")
-    run_ctx = ctx._make_run_context(worker.name)
+    scope = build_call_scope(toolsets=[], model="test")
+    run_ctx = scope._make_run_context(entry_instance.name)
 
-    toolset = worker.as_toolset_spec().factory(
-        ToolsetBuildContext(worker_name=worker.name)
+    toolset = entry_instance.as_toolset_spec().factory(
+        ToolsetBuildContext(worker_name=entry_instance.name)
     )
     tools = await toolset.get_tools(run_ctx)
-    tool_def = tools[worker.name].tool_def
+    tool_def = tools[entry_instance.name].tool_def
 
     assert tool_def.description == "Short tool summary."
 

@@ -4,7 +4,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import Runtime, ToolsetSpec, Worker
+from llm_do.runtime import AgentEntry, Runtime, ToolsetSpec
 
 
 @pytest.mark.anyio
@@ -31,7 +31,7 @@ async def test_call_scope_reuses_toolsets_and_cleans_up() -> None:
 
         return toolset
 
-    worker = Worker(
+    entry_instance = AgentEntry(
         name="counter",
         instructions="Call the count tool.",
         model=TestModel(call_tools=["count"], custom_output_text="ok"),
@@ -39,7 +39,7 @@ async def test_call_scope_reuses_toolsets_and_cleans_up() -> None:
     )
     runtime = Runtime()
 
-    scope = worker.start(runtime)
+    scope = entry_instance.start(runtime)
     async with scope:
         await scope.run_turn({"input": "first"})
         await scope.run_turn({"input": "second"})

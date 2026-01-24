@@ -10,14 +10,14 @@ from llm_do.runtime import (
     load_toolsets_from_files,
     load_worker_file,
 )
-from llm_do.runtime.worker import WorkerToolset
+from llm_do.runtime.entries import EntryToolset
 from llm_do.toolsets.loader import instantiate_toolsets
 
 
 def _get_toolset_name(toolset):
-    """Get the name of a toolset, handling WorkerToolset wrappers."""
-    if isinstance(toolset, WorkerToolset):
-        return toolset.worker.name
+    """Get the name of a toolset, handling EntryToolset wrappers."""
+    if isinstance(toolset, EntryToolset):
+        return toolset.entry.name
     return getattr(toolset, "name", None)
 
 

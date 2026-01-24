@@ -7,6 +7,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from pydantic_ai import Agent, RunContext
 from runtime import AgentRuntime
 
+from llm_do.models import select_model, validate_model_compatibility
 from llm_do.runtime.args import Attachment, PromptMessages, WorkerArgs
 from llm_do.runtime.discovery import load_toolsets_from_files
 from llm_do.runtime.registry import _build_builtin_tools
@@ -93,10 +94,19 @@ def _build_agents(
     worker_names = set(definitions.keys())
     schema_map = _resolve_worker_schemas(definitions, worker_paths=worker_paths)
     for name, definition in definitions.items():
-        model_name = model_override or definition.model
-        if not model_name:
-            raise ValueError(
-                f"Worker '{name}' has no model. Provide model_override or set model in frontmatter."
+        if model_override is not None:
+            if definition.compatible_models is not None:
+                validate_model_compatibility(
+                    model_override,
+                    definition.compatible_models,
+                    worker_name=name,
+                )
+            model_name = model_override
+        else:
+            model_name = select_model(
+                worker_model=definition.model,
+                compatible_models=definition.compatible_models,
+                worker_name=name,
             )
         specs, delegate_names, unsupported_toolsets = _resolve_toolsets(
             definition,

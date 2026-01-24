@@ -14,7 +14,7 @@ class CustomInput(WorkerArgs):
 @pytest.mark.anyio
 async def test_entry_schema_in_normalizes_input() -> None:
     @entry(schema_in=CustomInput)
-    async def echo(args: WorkerArgs, runtime_ctx) -> str:
+    async def echo(args: WorkerArgs, scope) -> str:
         assert isinstance(args, CustomInput)
         return args.tag
 

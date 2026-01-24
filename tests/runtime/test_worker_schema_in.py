@@ -1,6 +1,6 @@
 import pytest
 
-from llm_do.runtime import PromptContent, ToolsetBuildContext, Worker, WorkerArgs
+from llm_do.runtime import AgentEntry, PromptContent, ToolsetBuildContext, WorkerArgs
 from llm_do.runtime.args import normalize_input
 from tests.runtime.helpers import build_runtime_context
 
@@ -22,7 +22,7 @@ class TextInput(WorkerArgs):
 
 @pytest.mark.anyio
 async def test_worker_tool_schema_uses_schema_in() -> None:
-    worker = Worker(
+    worker = AgentEntry(
         name="topic_worker",
         instructions="Extract topic details.",
         schema_in=TopicInput,
@@ -44,7 +44,7 @@ async def test_worker_tool_schema_uses_schema_in() -> None:
 
 @pytest.mark.anyio
 async def test_worker_tool_description_prefers_description() -> None:
-    worker = Worker(
+    worker = AgentEntry(
         name="desc_worker",
         instructions="Instructions fallback.",
         description="Short tool summary.",

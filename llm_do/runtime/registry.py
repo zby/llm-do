@@ -21,8 +21,8 @@ from ..toolsets.loader import ToolsetBuildContext, ToolsetSpec, resolve_toolset_
 from .args import WorkerArgs
 from .contracts import Entry
 from .discovery import load_all_from_files
+from .entries import AgentEntry
 from .schema_refs import resolve_schema_ref
-from .worker import Worker
 from .worker_file import (
     WorkerDefinition,
     build_worker_definition,
@@ -50,13 +50,13 @@ class EntryRegistry:
 
 
 @dataclass(slots=True)
-class WorkerSpec:
-    """Per-worker bookkeeping for two-pass registry building."""
+class EntrySpec:
+    """Per-entry bookkeeping for two-pass registry building."""
 
     name: str
     path: Path
     definition: WorkerDefinition
-    stub: Worker
+    stub: AgentEntry
 
 
 # Registry of server-side tool factories
@@ -124,7 +124,7 @@ def _build_registry_and_entry_name(
     if project_root is None:
         raise ValueError("project_root is required to build entries")
     project_root_path = Path(project_root).resolve()
-    # Load Python toolsets, workers, and entry functions in a single pass
+    # Load Python toolsets, agents, and entry functions in a single pass
     python_toolsets, python_workers, python_entries = load_all_from_files(python_files)
 
     if not worker_files and not python_workers and not python_entries:
@@ -138,8 +138,8 @@ def _build_registry_and_entry_name(
         )
     entry_func_name = entry_func_names[0] if entry_func_names else None
 
-    # First pass: load worker definitions and create minimal stub Worker instances
-    worker_specs: dict[str, WorkerSpec] = {}
+    # First pass: load worker definitions and create minimal stub AgentEntry instances
+    worker_specs: dict[str, EntrySpec] = {}
     entry_worker_names: list[str] = []
     reserved_names = set(python_workers.keys()) | set(python_entries.keys())
 
@@ -165,7 +165,7 @@ def _build_registry_and_entry_name(
         if worker_def.entry:
             entry_worker_names.append(name)
 
-        stub = Worker(
+        stub = AgentEntry(
             name=name,
             instructions=worker_def.instructions,
             description=worker_def.description,
@@ -174,7 +174,7 @@ def _build_registry_and_entry_name(
             toolset_specs=[],
             builtin_tools=_build_builtin_tools(worker_def.server_side_tools),
         )
-        worker_specs[name] = WorkerSpec(
+        worker_specs[name] = EntrySpec(
             name=name,
             path=resolved_path,
             definition=worker_def,
@@ -198,8 +198,8 @@ def _build_registry_and_entry_name(
 
     entry_name = entry_func_name or entry_worker_names[0]
 
-    # Second pass: resolve toolset specs and fill in worker stubs
-    # Workers are wrapped in WorkerToolset to expose them as tools
+    # Second pass: resolve toolset specs and fill in entry stubs
+    # Entries are wrapped in EntryToolset to expose them as tools
     available_workers = {
         name: spec.stub.as_toolset_spec() for name, spec in worker_specs.items()
     }

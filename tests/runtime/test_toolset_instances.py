@@ -9,8 +9,9 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset, FunctionToolset, ToolsetTool
 
-from llm_do.runtime import Runtime, ToolsetSpec, Worker, WorkerArgs, entry
+from llm_do.runtime import AgentEntry, Runtime, ToolsetSpec, WorkerArgs, entry
 from llm_do.runtime.approval import RunApprovalPolicy
+from tests.runtime.helpers import build_call_scope_from_runtime
 
 
 @pytest.mark.anyio
@@ -28,13 +29,14 @@ async def test_recursive_worker_gets_fresh_toolset_instances() -> None:
             deps = ctx.deps
             assert deps is not None
             if deps.frame.config.depth == 0:
-                await deps.call("recursive", {"input": "nested"})
+                scope = build_call_scope_from_runtime(deps)
+                await scope.call_tool("recursive", {"input": "nested"})
             return toolset._instance_id
 
         return toolset
 
     stateful_spec = ToolsetSpec(factory=build_stateful)
-    worker = Worker(
+    worker = AgentEntry(
         name="recursive",
         instructions="Call recurse tool.",
         model=TestModel(call_tools=["recurse"], custom_output_text="done"),
@@ -74,7 +76,7 @@ async def test_worker_toolset_cleanup_runs_per_call() -> None:
             cleanup_calls.append(self)
 
     cleanup_spec = ToolsetSpec(factory=lambda _ctx: CleanupToolset())
-    worker = Worker(
+    worker = AgentEntry(
         name="cleanup_worker",
         instructions="Run cleanup toolset.",
         model=TestModel(custom_output_text="ok"),
@@ -115,7 +117,7 @@ async def test_entry_function_toolset_cleanup_runs_per_call() -> None:
     cleanup_spec = ToolsetSpec(factory=lambda _ctx: CleanupToolset())
 
     @entry(toolsets=[cleanup_spec])
-    async def main(_args: WorkerArgs, _runtime) -> str:
+    async def main(_args: WorkerArgs, _scope) -> str:
         return "ok"
 
     runtime = Runtime()

@@ -54,8 +54,6 @@ class WorkerRuntimeProtocol(Protocol):
 
     async def call_agent(self, spec_or_name: "AgentSpec | str", input_data: Any) -> Any: ...
 
-    async def _call_tool(self, name: str, input_data: Any) -> Any: ...
-
 
 @dataclass(frozen=True, slots=True)
 class EntrySpec:

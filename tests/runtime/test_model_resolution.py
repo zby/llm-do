@@ -12,7 +12,7 @@ from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_core import SchemaValidator
 
 from llm_do.models import LLM_DO_MODEL_ENV, NullModel
-from llm_do.runtime import EntrySpec, Runtime
+from llm_do.runtime import CallScope, EntrySpec, Runtime
 from llm_do.runtime.call import CallConfig, CallFrame
 from tests.runtime.helpers import build_call_scope, build_runtime_context
 
@@ -72,7 +72,9 @@ async def test_child_context_passes_model_explicitly() -> None:
     )
     assert child.frame.config.model is parent_model
 
-    await child._call_tool("capture", {"value": 1})
+    scope = CallScope(runtime=child, toolsets=[toolset])
+    async with scope:
+        await scope.call_tool("capture", {"value": 1})
     assert toolset.seen_model is parent_model
 
 
@@ -94,7 +96,9 @@ async def test_child_context_overrides_parent_model() -> None:
     )
     assert child.frame.config.model is child_model
 
-    await child._call_tool("capture", {"value": 1})
+    scope = CallScope(runtime=child, toolsets=[toolset])
+    async with scope:
+        await scope.call_tool("capture", {"value": 1})
     assert toolset.seen_model is child_model
 
 

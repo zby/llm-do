@@ -301,3 +301,119 @@ restores the intended dependency direction.
 - `llm_do/runtime/events.py`, `event_parser.py`, `worker.py`, `deps.py`, `shared.py`, `call.py`, `contracts.py`, `toolsets.py`
 - `llm_do/toolsets/loader.py`
 - `llm_do/ui/adapter.py`, `events.py`, `runner.py`, `display.py`
+
+## Review 2026-01-24
+
+### Single Responsibility Principle
+
+**Worker** no longer exists as a monolith, and responsibilities are now spread across:
+- `runtime/agent_runner.py` (agent construction + execution + event streaming)
+- `runtime/deps.py` (call-scoped runtime orchestration)
+- `runtime/worker_file.py` (worker file parsing)
+- `runtime/registry.py` (spec construction + toolset wiring)
+
+This is a clear SRP improvement over the prior all-in-one Worker class.
+
+**WorkerRuntime** (`runtime/deps.py`) is still a "central orchestrator" that owns:
+- tool dispatch + arg validation
+- toolset instantiation + approval wrapping
+- call-frame spawning + depth enforcement
+- event emission for tool calls/results
+- usage + message logging integration
+
+That breadth means many reasons to change live in one class. It is coherent as the
+runtime "engine," but it still blends policy (approval, logging, events) with
+mechanics (tool invocation, call frames).
+
+**AgentRunner** (`runtime/agent_runner.py`) handles:
+- prompt normalization + rendering
+- agent construction
+- event stream parsing + emission
+- message logging (incremental and final)
+
+This is cohesive but still mixes "run the model" with "translate/emit events."
+The fallback tool-event emission logic also duplicates some behavior in
+`WorkerRuntime._call_tool`.
+
+**Runtime** (`runtime/shared.py`) bundles configuration, usage collection, message
+logging, and entry dispatch. That is arguably the right aggregate for a shared
+runtime, but it remains multi-purpose.
+
+### Open/Closed Principle
+
+**Strengths:**
+- `EntrySpec` is now the single entry surface; `Runtime.run_entry()` no longer
+  type-checks concrete entry implementations.
+- `ToolsetSpec` factories allow new toolsets without touching runtime core.
+- `RuntimeEvent` + `ui/adapter.py` provides a clear extension point.
+
+**Weaknesses:**
+- Adding a new render format requires adding methods to `UIEvent` and updating
+  every subclass.
+- `ui/adapter.py` requires updates for every new `RuntimeEvent` type.
+- Built-in tool factories are hard-coded in `runtime/registry.py` — new builtin
+  tool types require modifying core runtime code.
+
+### Liskov Substitution Principle
+
+**No major violations observed.** Adapters preserve expected substitution:
+- `AgentToolset` wraps `AgentSpec` cleanly as a toolset.
+- `ApprovalDeniedResultToolset` preserves the `AbstractToolset` interface.
+
+One caveat: `ApprovalDeniedResultToolset` deliberately converts `PermissionError`
+into a dict result, which changes error semantics. This is intentional but worth
+documenting as a behavioral shift for callers expecting exceptions.
+
+### Interface Segregation Principle
+
+**Improved:**
+- `WorkerRuntimeProtocol` is now genuinely minimal and focused.
+
+**Persistent issues:**
+- `UIEvent` forces all events to implement `render_rich`, `render_text`, and
+  `create_widget`, even when only one backend needs a given method.
+
+### Dependency Inversion Principle
+
+**Resolved at runtime/UI boundary:**
+- Runtime depends only on `RuntimeEvent` types; UI depends on runtime via
+  `ui/adapter.py`.
+
+**Remaining coupling (acceptable but notable):**
+- `runtime/event_parser.py` and `runtime/agent_runner.py` depend directly on
+  PydanticAI event types. Swapping the underlying model library would require
+  changes in runtime core, not just adapters.
+
+### Summary vs Previous Review (2026-01-17)
+
+| Issue | Status |
+|-------|--------|
+| Runtime↔UI coupling (DIP) | **Still resolved** - runtime emits `RuntimeEvent` |
+| Worker multi-responsibility (SRP) | **Improved** - Worker split into smaller modules |
+| UI events render-centric (OCP/ISP) | **Persists** - render methods still on events |
+| WorkerRuntimeProtocol too wide (ISP) | **Still improved** - narrow surface remains |
+| UI runner Worker-only checks (OCP) | **Resolved** - chat path uses EntrySpec |
+
+### Recommendations (2026-01-24)
+
+1. **Split WorkerRuntime responsibilities:** Introduce collaborators for
+   tool invocation (arg validation + event emission) and call lifecycle
+   (toolset instantiation + cleanup). This isolates policy decisions from
+   mechanics. Trade-off: more indirection and objects to wire.
+2. **Centralize tool-event emission:** Move `_emit_tool_events` and
+   `_call_tool` event emission behind a shared event emitter so tool call
+   telemetry has a single source of truth. Trade-off: more coordination
+   between agent runner and runtime.
+3. **Move rendering out of UIEvent:** Use visitor/strategy renderers
+   (`RichRenderer`, `TextRenderer`, `WidgetFactory`) that operate on plain
+   event data. This reduces ISP violations and makes new output formats
+   additive. Trade-off: slightly more boilerplate wiring.
+4. **Make builtin tool factories extensible:** A registry hook or config-driven
+   mapping would allow new builtin tools without editing `runtime/registry.py`.
+   Trade-off: less explicit control and slightly harder tracing.
+
+### Files Reviewed (2026-01-24)
+- `llm_do/runtime/agent_runner.py`, `deps.py`, `shared.py`, `registry.py`, `call.py`, `contracts.py`, `event_parser.py`, `events.py`, `args.py`
+- `llm_do/runtime/worker_file.py`, `discovery.py`
+- `llm_do/toolsets/agent.py`, `toolsets/loader.py`, `toolsets/builtins.py`, `toolsets/approval.py`
+- `llm_do/ui/events.py`, `adapter.py`, `display.py`, `runner.py`, `controllers/worker_runner.py`

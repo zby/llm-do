@@ -1,5 +1,7 @@
 import pytest
 from pydantic_ai.models.test import TestModel
+from pydantic_ai.tools import RunContext
+from pydantic_ai.usage import RunUsage
 
 from llm_do.runtime import AgentSpec, PromptContent, ToolsetBuildContext, WorkerArgs
 from llm_do.runtime.args import normalize_input
@@ -31,7 +33,16 @@ async def test_agent_tool_schema_uses_schema_in() -> None:
         schema_in=TopicInput,
     )
     ctx = build_runtime_context(toolsets=[], model="test")
-    run_ctx = ctx._make_run_context("main")
+    run_ctx = RunContext(
+        deps=ctx,
+        model=TestModel(),
+        usage=RunUsage(),
+        prompt="test",
+        messages=[],
+        run_step=0,
+        retry=0,
+        tool_name="main",
+    )
 
     toolset = agent_as_toolset(spec).factory(
         ToolsetBuildContext(worker_name=spec.name)
@@ -54,7 +65,16 @@ async def test_agent_tool_description_prefers_description() -> None:
         model=TestModel(),
     )
     ctx = build_runtime_context(toolsets=[], model="test")
-    run_ctx = ctx._make_run_context("main")
+    run_ctx = RunContext(
+        deps=ctx,
+        model=TestModel(),
+        usage=RunUsage(),
+        prompt="test",
+        messages=[],
+        run_step=0,
+        retry=0,
+        tool_name="main",
+    )
 
     toolset = agent_as_toolset(spec).factory(
         ToolsetBuildContext(worker_name=spec.name)

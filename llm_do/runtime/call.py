@@ -7,7 +7,9 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from .contracts import ModelType, WorkerRuntimeProtocol
+from ..toolsets.loader import ToolsetBuildContext, instantiate_toolsets
+from .approval import wrap_toolsets_for_approval
+from .contracts import AgentSpec, ModelType, WorkerRuntimeProtocol
 from .toolsets import cleanup_toolsets
 
 
@@ -86,6 +88,24 @@ class CallScope:
     runtime: WorkerRuntimeProtocol
     toolsets: Sequence["AbstractToolset[Any]"]
     _closed: bool = False
+
+    @classmethod
+    def for_agent(cls, parent: WorkerRuntimeProtocol, spec: AgentSpec) -> "CallScope":
+        toolset_context = spec.toolset_context or ToolsetBuildContext(
+            worker_name=spec.name
+        )
+        toolsets = instantiate_toolsets(spec.toolset_specs, toolset_context)
+        wrapped_toolsets = wrap_toolsets_for_approval(
+            toolsets,
+            parent.config.approval_callback,
+            return_permission_errors=parent.config.return_permission_errors,
+        )
+        child_runtime = parent.spawn_child(
+            active_toolsets=wrapped_toolsets,
+            model=spec.model,
+            invocation_name=spec.name,
+        )
+        return cls(runtime=child_runtime, toolsets=toolsets)
 
     async def close(self) -> None:
         if self._closed:

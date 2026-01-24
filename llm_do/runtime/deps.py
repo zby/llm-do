@@ -6,13 +6,10 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from ..toolsets.loader import ToolsetBuildContext, instantiate_toolsets
 from .agent_runner import run_agent
-from .approval import wrap_toolsets_for_approval
-from .call import CallFrame
+from .call import CallFrame, CallScope
 from .contracts import AgentSpec, ModelType
 from .shared import Runtime, RuntimeConfig
-from .toolsets import cleanup_toolsets
 
 
 class WorkerRuntime:
@@ -81,29 +78,14 @@ class WorkerRuntime:
 
         spec = self._resolve_agent_spec(spec_or_name)
 
-        toolset_context = spec.toolset_context or ToolsetBuildContext(
-            worker_name=spec.name
-        )
-        toolsets = instantiate_toolsets(spec.toolset_specs, toolset_context)
-        wrapped_toolsets = wrap_toolsets_for_approval(
-            toolsets,
-            self.config.approval_callback,
-            return_permission_errors=self.config.return_permission_errors,
-        )
-
-        child_runtime = self.spawn_child(
-            active_toolsets=wrapped_toolsets,
-            model=spec.model,
-            invocation_name=spec.name,
-        )
-
+        scope = CallScope.for_agent(self, spec)
         try:
             output, _messages = await run_agent(
                 spec,
-                child_runtime,
+                scope.runtime,
                 input_data,
             )
         finally:
-            await cleanup_toolsets(toolsets)
+            await scope.close()
 
         return output

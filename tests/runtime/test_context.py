@@ -1,16 +1,20 @@
-"""Tests for WorkerRuntime."""
+"""Tests for CallRuntime."""
 import pytest
 from pydantic_ai.exceptions import UserError
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec, Worker, WorkerRuntime
-from tests.runtime.helpers import build_runtime_context, run_entry_test
+from llm_do.runtime import AgentEntry, CallRuntime, ToolsetSpec
+from tests.runtime.helpers import (
+    build_call_scope,
+    build_call_scope_from_runtime,
+    run_entry_test,
+)
 
 
 class TestContext:
-    """Tests for WorkerRuntime class."""
+    """Tests for CallRuntime class."""
 
     @pytest.mark.anyio
     async def test_context_call_tool(self):
@@ -21,16 +25,16 @@ class TestContext:
         def multiply(a: int, b: int) -> int:
             return a * b
 
-        ctx = build_runtime_context(toolsets=[toolset], model="test")
-        result = await ctx.call("multiply", {"a": 3, "b": 4})
+        scope = build_call_scope(toolsets=[toolset], model="test")
+        result = await scope.call_tool("multiply", {"a": 3, "b": 4})
         assert result == 12
 
     @pytest.mark.anyio
     async def test_context_tool_not_found(self):
         """Test that calling unknown tool raises KeyError."""
-        ctx = build_runtime_context(toolsets=[], model="test")
+        scope = build_call_scope(toolsets=[], model="test")
         with pytest.raises(KeyError, match="Tool 'nonexistent' not found"):
-            await ctx.call("nonexistent", {"x": 1})
+            await scope.call_tool("nonexistent", {"x": 1})
 
     @pytest.mark.anyio
     async def test_call_with_kwargs(self):
@@ -41,8 +45,8 @@ class TestContext:
         def greet(name: str) -> str:
             return f"Hello, {name}!"
 
-        ctx = build_runtime_context(toolsets=[toolset], model="test")
-        result = await ctx.call("greet", {"name": "World"})
+        scope = build_call_scope(toolsets=[toolset], model="test")
+        result = await scope.call_tool("greet", {"name": "World"})
         assert result == "Hello, World!"
 
     @pytest.mark.anyio
@@ -59,28 +63,29 @@ class TestContext:
         def clash_b() -> str:
             return "b"
 
-        ctx = build_runtime_context(toolsets=[toolset_a, toolset_b], model="test")
+        scope = build_call_scope(toolsets=[toolset_a, toolset_b], model="test")
         with pytest.raises(UserError, match="conflicts with existing tool"):
-            await ctx.call("clash", {})
+            await scope.call_tool("clash", {})
 
     @pytest.mark.anyio
     async def test_depth_counts_only_workers(self):
-        """Test that depth increments only for worker calls."""
+        """Test that depth increments only for entry calls."""
         seen: dict[str, dict[str, int] | int] = {}
 
         def build_toolset(_ctx: object) -> FunctionToolset:
             toolset = FunctionToolset()
 
             @toolset.tool
-            async def probe(run_ctx: RunContext[WorkerRuntime]) -> int:
+            async def probe(run_ctx: RunContext[CallRuntime]) -> int:
                 depth = run_ctx.deps.frame.config.depth
                 seen["probe"] = depth
                 return depth
 
             @toolset.tool
-            async def call_probe(run_ctx: RunContext[WorkerRuntime]) -> dict[str, int]:
+            async def call_probe(run_ctx: RunContext[CallRuntime]) -> dict[str, int]:
                 before = run_ctx.deps.frame.config.depth
-                probe_depth = await run_ctx.deps.call("probe", {})
+                scope = build_call_scope_from_runtime(run_ctx.deps)
+                probe_depth = await scope.call_tool("probe", {})
                 after = run_ctx.deps.frame.config.depth
                 result: dict[str, int] = {
                     "before": before,
@@ -94,7 +99,7 @@ class TestContext:
 
         toolset_spec = ToolsetSpec(factory=build_toolset)
 
-        worker = Worker(
+        worker = AgentEntry(
             name="depth-checker",
             instructions="Call call_probe.",
             model=TestModel(call_tools=["call_probe"], custom_output_text="done"),

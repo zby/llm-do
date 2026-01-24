@@ -7,19 +7,18 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic_ai.models import Model, infer_model
 from pydantic_ai.tools import RunContext
-from pydantic_ai.toolsets import AbstractToolset, CombinedToolset
+from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
 from .call import CallFrame
-from .contracts import ModelType, WorkerRuntimeProtocol
-from .events import ToolCallEvent, ToolResultEvent
+from .contracts import CallRuntimeProtocol, ModelType
 from .shared import Runtime, RuntimeConfig
 
 
-class WorkerRuntime:
-    """Dispatches tool calls and manages worker runtime state.
+class CallRuntime:
+    """Dispatches tool calls and manages entry runtime state.
 
-    WorkerRuntime is the central orchestrator for executing tools and workers.
+    CallRuntime is the central deps surface for executing tools and entries.
     It holds:
     - runtime (Runtime): shared config and runtime-scoped state
     - frame (CallFrame): per-branch state (prompt/messages + immutable config)
@@ -48,7 +47,7 @@ class WorkerRuntime:
         """Create a new RunUsage and add it to the shared usage sink."""
         return self.runtime._create_usage()
 
-    def _make_run_context(self, tool_name: str) -> RunContext[WorkerRuntimeProtocol]:
+    def _make_run_context(self, tool_name: str) -> RunContext[CallRuntimeProtocol]:
         """Construct a RunContext for direct tool invocation.
 
         RunContext.prompt is derived from WorkerArgs for logging/UI only.
@@ -77,7 +76,7 @@ class WorkerRuntime:
         toolset: AbstractToolset[Any],
         tool: Any,
         input_data: Any,
-        run_ctx: RunContext[WorkerRuntimeProtocol],
+        run_ctx: RunContext[CallRuntimeProtocol],
     ) -> Any:
         """Validate tool args for direct calls to match PydanticAI behavior."""
         from .args import Attachment
@@ -122,9 +121,14 @@ class WorkerRuntime:
         *,
         model: ModelType,
         invocation_name: str,
-    ) -> "WorkerRuntime":
-        """Spawn a child worker runtime with a forked CallFrame (depth+1)."""
-        return WorkerRuntime(
+    ) -> "CallRuntime":
+        """Spawn a child call runtime with a forked CallFrame (depth+1)."""
+        if self.frame.config.depth >= self.config.max_depth:
+            raise RuntimeError(
+                f"Max depth exceeded calling '{invocation_name}': "
+                f"depth {self.frame.config.depth} >= max {self.config.max_depth}"
+            )
+        return CallRuntime(
             runtime=self.runtime,
             frame=self.frame.fork(
                 active_toolsets,
@@ -132,65 +136,3 @@ class WorkerRuntime:
                 invocation_name=invocation_name,
             ),
         )
-
-    async def call(self, name: str, input_data: Any) -> Any:
-        """Call a tool by name (searched across toolsets).
-
-        This enables programmatic tool invocation from code entry points:
-            result = await ctx.deps.call("pitch_evaluator", {"input": "..."})
-
-        Soft policy: tools should use their args, and only use ctx.deps
-        for worker/tool delegation. Tool calls follow the runtime approval
-        policy (entry functions stay in the tool plane).
-        """
-        import uuid
-
-        # Create a temporary run context for get_tools
-        run_ctx = self._make_run_context(name)
-
-        combined_toolset = CombinedToolset(self.frame.config.active_toolsets)
-        tools = await combined_toolset.get_tools(run_ctx)
-        tool = tools.get(name)
-        if tool is None:
-            raise KeyError(f"Tool '{name}' not found. Available: {list(tools.keys())}")
-
-        validated_args = self._validate_tool_args(
-            tool.toolset,
-            tool,
-            input_data,
-            run_ctx,
-        )
-
-        # Generate a unique call ID for event correlation
-        call_id = str(uuid.uuid4())[:8]
-
-        worker_name = self.frame.config.invocation_name or "unknown"
-
-        # Emit ToolCallEvent before execution
-        if self.config.on_event is not None:
-            self.config.on_event(
-                ToolCallEvent(
-                    worker=worker_name,
-                    tool_name=name,
-                    tool_call_id=call_id,
-                    args=validated_args,
-                    depth=self.frame.config.depth,
-                )
-            )
-
-        # Execute the tool
-        result = await combined_toolset.call_tool(name, validated_args, run_ctx, tool)
-
-        # Emit ToolResultEvent after execution
-        if self.config.on_event is not None:
-            self.config.on_event(
-                ToolResultEvent(
-                    worker=worker_name,
-                    depth=self.frame.config.depth,
-                    tool_name=name,
-                    tool_call_id=call_id,
-                    content=result,
-                )
-            )
-
-        return result

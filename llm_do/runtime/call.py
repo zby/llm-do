@@ -1,11 +1,15 @@
 """Per-call scope for entries (config + mutable state)."""
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from .contracts import ModelType, WorkerRuntimeProtocol
+from pydantic_ai.toolsets import CombinedToolset
+
+from .contracts import CallRuntimeProtocol, ModelType
+from .events import ToolCallEvent, ToolResultEvent
 from .toolsets import cleanup_toolsets
 
 if TYPE_CHECKING:
@@ -58,7 +62,7 @@ class CallConfig:
 
 @dataclass(slots=True)
 class CallFrame:
-    """Per-worker call state with immutable config and mutable conversation state."""
+    """Per-entry call state with immutable config and mutable conversation state."""
 
     config: CallConfig
 
@@ -87,14 +91,62 @@ class CallScope:
     """Lifecycle wrapper for an entry call scope (runtime + toolsets)."""
 
     entry: "Entry"
-    runtime: WorkerRuntimeProtocol
+    runtime: CallRuntimeProtocol
     toolsets: Sequence["AbstractToolset[Any]"]
     _closed: bool = False
 
     async def run_turn(self, input_data: Any) -> Any:
         if self._closed:
             raise RuntimeError("CallScope is closed")
-        return await self.entry.run_turn(self.runtime, input_data)
+        return await self.entry.run_turn(self, input_data)
+
+    async def call_tool(self, name: str, input_data: Any) -> Any:
+        """Call a tool by name using this scope's active toolsets."""
+        if self._closed:
+            raise RuntimeError("CallScope is closed")
+
+        run_ctx = self.runtime._make_run_context(name)
+        combined_toolset = CombinedToolset(self.runtime.frame.config.active_toolsets)
+        tools = await combined_toolset.get_tools(run_ctx)
+        tool = tools.get(name)
+        if tool is None:
+            raise KeyError(f"Tool '{name}' not found. Available: {list(tools.keys())}")
+
+        validated_args = self.runtime._validate_tool_args(
+            tool.toolset,
+            tool,
+            input_data,
+            run_ctx,
+        )
+
+        call_id = str(uuid.uuid4())[:8]
+        worker_name = self.runtime.frame.config.invocation_name or "unknown"
+
+        if self.runtime.config.on_event is not None:
+            self.runtime.config.on_event(
+                ToolCallEvent(
+                    worker=worker_name,
+                    tool_name=name,
+                    tool_call_id=call_id,
+                    args=validated_args,
+                    depth=self.runtime.frame.config.depth,
+                )
+            )
+
+        result = await combined_toolset.call_tool(name, validated_args, run_ctx, tool)
+
+        if self.runtime.config.on_event is not None:
+            self.runtime.config.on_event(
+                ToolResultEvent(
+                    worker=worker_name,
+                    depth=self.runtime.frame.config.depth,
+                    tool_name=name,
+                    tool_call_id=call_id,
+                    content=result,
+                )
+            )
+
+        return result
 
     async def close(self) -> None:
         if self._closed:

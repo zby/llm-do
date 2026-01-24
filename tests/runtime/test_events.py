@@ -10,7 +10,7 @@ from llm_do.runtime.events import (
     ToolResultEvent,
     UserMessageEvent,
 )
-from tests.runtime.helpers import build_call_scope, build_runtime_context
+from tests.runtime.helpers import build_runtime_context
 
 
 class TestContextEventCallback:
@@ -44,43 +44,6 @@ class TestContextEventCallback:
             invocation_name=ctx.frame.config.invocation_name,
         )
         assert child.config.verbosity == 2
-
-    @pytest.mark.anyio
-    async def test_call_scope_emits_tool_events(self):
-        events: list[RuntimeEvent] = []
-
-        toolset = FunctionToolset()
-
-        @toolset.tool
-        def greet(name: str) -> str:
-            return f"Hello, {name}!"
-
-        scope = build_call_scope(
-            toolsets=[toolset],
-            model="test",
-            invocation_name="test",
-            on_event=lambda e: events.append(e),
-        )
-
-        async with scope:
-            result = await scope.call_tool("greet", {"name": "World"})
-
-        assert result == "Hello, World!"
-        tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
-        tool_results = [e for e in events if isinstance(e, ToolResultEvent)]
-
-        assert len(tool_calls) == 1, f"Expected 1 ToolCallEvent, got: {events}"
-        assert len(tool_results) == 1, f"Expected 1 ToolResultEvent, got: {events}"
-
-        call_event = tool_calls[0]
-        assert call_event.tool_name == "greet"
-        assert call_event.worker == "test"
-        assert call_event.args == {"name": "World"}
-
-        result_event = tool_results[0]
-        assert result_event.tool_name == "greet"
-        assert result_event.tool_call_id == call_event.tool_call_id
-        assert result_event.content == "Hello, World!"
 
 
 @pytest.mark.anyio

@@ -15,8 +15,8 @@ from .approval import (
 )
 from .args import Attachment, PromptContent, PromptMessages, WorkerArgs
 from .call import CallScope
+from .context import CallContext
 from .contracts import AgentSpec, EntrySpec, EventCallback, ModelType
-from .deps import CallContext
 from .discovery import (
     discover_agents_from_module,
     discover_entries_from_module,
@@ -34,7 +34,7 @@ from .manifest import (
     resolve_manifest_paths,
 )
 from .registry import AgentRegistry, build_entry
-from .shared import Runtime
+from .runtime import Runtime
 from .worker_file import (
     WorkerDefinition,
     WorkerFileParser,

@@ -84,8 +84,8 @@ This separation means:
 Note: `AgentSpec.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what an agent is allowed to use. `CallFrame.config.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
-- `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
-- `llm_do/runtime/deps.py`: `CallContext` (per-call orchestrator)
+- `llm_do/runtime/runtime.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
+- `llm_do/runtime/context.py`: `CallContext` (per-call orchestrator)
 - `llm_do/runtime/call.py`: `CallConfig`, `CallFrame`, `CallScope`
 
 ---

@@ -19,7 +19,7 @@ from .contracts import (
 )
 
 if TYPE_CHECKING:
-    from .deps import CallContext
+    from .context import CallContext
 
 
 class UsageCollector:
@@ -184,7 +184,7 @@ class Runtime:
     ) -> "CallContext":
         """Create a CallContext with a new CallFrame."""
         from .call import CallConfig, CallFrame
-        from .deps import CallContext
+        from .context import CallContext
 
         call_config = CallConfig.build(
             active_toolsets,

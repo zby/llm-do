@@ -21,7 +21,7 @@ from .events import RuntimeEvent
 
 if TYPE_CHECKING:
     from .call import CallFrame
-    from .shared import RuntimeConfig
+    from .runtime import RuntimeConfig
 
 ModelType: TypeAlias = str | Model
 EventCallback: TypeAlias = Callable[[RuntimeEvent], None]

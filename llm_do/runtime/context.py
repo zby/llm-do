@@ -1,4 +1,4 @@
-"""Runtime deps facade for tool execution."""
+"""CallContext deps facade for tool execution."""
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -9,7 +9,7 @@ from pydantic_ai.toolsets import AbstractToolset
 from .agent_runner import run_agent
 from .call import CallFrame, CallScope
 from .contracts import AgentSpec, ModelType
-from .shared import Runtime, RuntimeConfig
+from .runtime import Runtime, RuntimeConfig
 
 
 class CallContext:

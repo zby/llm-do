@@ -14,7 +14,7 @@ from tests.runtime.helpers import build_runtime_context
 
 
 class TestContextEventCallback:
-    """Tests for WorkerRuntime event callback wiring."""
+    """Tests for CallContext event callback wiring."""
 
     def test_child_context_inherits_on_event(self):
         events = []

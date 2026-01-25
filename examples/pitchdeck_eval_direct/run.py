@@ -18,7 +18,7 @@ try:
 except ImportError:
     raise ImportError("python-slugify required. Install with: pip install python-slugify")
 
-from llm_do.runtime import AgentSpec, EntrySpec, WorkerRuntime
+from llm_do.runtime import AgentSpec, CallContext, EntrySpec
 from llm_do.ui import run_ui
 
 # =============================================================================
@@ -94,7 +94,7 @@ def list_pitchdecks(input_dir: str = "input") -> list[dict]:
 # =============================================================================
 
 
-async def main(_input_data, runtime: WorkerRuntime) -> str:
+async def main(_input_data, runtime: CallContext) -> str:
     """Evaluate all pitch decks in input directory.
 
     This is a code entry point that orchestrates the evaluation workflow:

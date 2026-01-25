@@ -9,17 +9,18 @@ Run with:
 """
 
 import asyncio
+
+# Import test utilities
+import sys
 from pathlib import Path
 
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import AgentSpec, EntrySpec, ToolsetSpec, WorkerRuntime
+from llm_do.runtime import AgentSpec, CallContext, EntrySpec, ToolsetSpec
 from llm_do.ui import run_ui
 
-# Import test utilities
-import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
-from conftest_models import Scenario, ToolCall, create_scenario_model, has_tool_results
+from conftest_models import ToolCall  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).parent.resolve()
 
@@ -84,7 +85,7 @@ AGENT = AgentSpec(
 )
 
 
-async def main(_input_data, runtime: WorkerRuntime) -> str:
+async def main(_input_data, runtime: CallContext) -> str:
     """Run the agent that will try to call a non-existent tool."""
     return await runtime.call_agent(AGENT, {"input": "List files in the current directory"})
 

@@ -30,7 +30,7 @@ from .models import (
 )
 
 # Re-export from runtime for convenience
-from .runtime import AgentSpec, EntrySpec, Runtime, WorkerRuntime
+from .runtime import AgentSpec, CallContext, EntrySpec, Runtime
 
 __all__ = [
     # Approval handling
@@ -47,7 +47,7 @@ __all__ = [
     "ModelCompatibilityError",
     "NoModelError",
     # Runtime types
-    "WorkerRuntime",
+    "CallContext",
     "Runtime",
     "EntrySpec",
     "AgentSpec",

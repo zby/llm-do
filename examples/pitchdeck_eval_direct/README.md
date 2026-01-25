@@ -21,7 +21,7 @@ Python main() → runtime.call_agent("pitch_evaluator") → write results
 This is the recommended approach when orchestration is mechanical (list files, loop, write results). Python code is deterministic, testable, and doesn't waste tokens on trivial decisions.
 
 ```python
-from llm_do.runtime import AgentSpec, EntrySpec, WorkerRuntime
+from llm_do.runtime import AgentSpec, EntrySpec, CallContext
 from llm_do.ui import run_ui
 
 EVALUATOR = AgentSpec(
@@ -30,7 +30,7 @@ EVALUATOR = AgentSpec(
     instructions=Path("instructions/pitch_evaluator.md").read_text(),
 )
 
-async def main(_input_data, runtime: WorkerRuntime) -> str:
+async def main(_input_data, runtime: CallContext) -> str:
     for deck in list_pitchdecks():
         report = await runtime.call_agent(EVALUATOR, {
             "input": "Evaluate this pitch deck.",

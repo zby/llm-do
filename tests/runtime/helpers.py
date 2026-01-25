@@ -1,4 +1,4 @@
-"""Helpers for building WorkerRuntime contexts in tests."""
+"""Helpers for building CallContext contexts in tests."""
 from __future__ import annotations
 
 from typing import Any
@@ -7,10 +7,10 @@ from pydantic_ai.toolsets import AbstractToolset
 
 from llm_do.runtime import (
     AgentRegistry,
+    CallContext,
     CallScope,
     EntrySpec,
     Runtime,
-    WorkerRuntime,
 )
 from llm_do.runtime.approval import RunApprovalPolicy, wrap_toolsets_for_approval
 from llm_do.runtime.call import CallConfig, CallFrame
@@ -29,7 +29,7 @@ def build_runtime_context(
     max_depth: int = 5,
     on_event: EventCallback | None = None,
     verbosity: int = 0,
-) -> WorkerRuntime:
+) -> CallContext:
     runtime = Runtime(
         run_approval_policy=run_approval_policy,
         max_depth=max_depth,
@@ -47,7 +47,7 @@ def build_runtime_context(
         prompt=prompt,
         messages=list(messages) if messages else [],
     )
-    return WorkerRuntime(runtime=runtime, frame=frame)
+    return CallContext(runtime=runtime, frame=frame)
 
 
 def build_call_scope(
@@ -91,11 +91,11 @@ async def run_entry_test(
     verbosity: int = 0,
     message_history: list[Any] | None = None,
     agent_registry: AgentRegistry | None = None,
-) -> tuple[Any, WorkerRuntime]:
+) -> tuple[Any, CallContext]:
     """Run an entry for testing, returning result and context.
 
     This is a convenience wrapper around Runtime.run_entry() for tests
-    that need both the result and the WorkerRuntime context.
+    that need both the result and the CallContext context.
     """
     runtime = Runtime(
         run_approval_policy=run_approval_policy,

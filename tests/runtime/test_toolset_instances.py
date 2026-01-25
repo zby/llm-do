@@ -9,7 +9,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset, FunctionToolset, ToolsetTool
 
-from llm_do.runtime import AgentSpec, EntrySpec, Runtime, ToolsetSpec, WorkerRuntime
+from llm_do.runtime import AgentSpec, CallContext, EntrySpec, Runtime, ToolsetSpec
 from llm_do.runtime.approval import RunApprovalPolicy
 
 
@@ -24,7 +24,7 @@ async def test_recursive_agent_gets_fresh_toolset_instances() -> None:
         instance_ids.append(toolset_id)
 
         @toolset.tool
-        async def recurse(ctx: RunContext[WorkerRuntime]) -> str:
+        async def recurse(ctx: RunContext[CallContext]) -> str:
             deps = ctx.deps
             assert deps is not None
             if deps.frame.config.depth == 1:
@@ -41,7 +41,7 @@ async def test_recursive_agent_gets_fresh_toolset_instances() -> None:
         toolset_specs=[stateful_spec],
     )
 
-    async def main(input_data, runtime: WorkerRuntime) -> str:
+    async def main(input_data, runtime: CallContext) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
     entry_spec = EntrySpec(name="entry", main=main)
@@ -86,7 +86,7 @@ async def test_agent_toolset_cleanup_runs_per_call() -> None:
         toolset_specs=[cleanup_spec],
     )
 
-    async def main(input_data, runtime: WorkerRuntime) -> str:
+    async def main(input_data, runtime: CallContext) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
     entry_spec = EntrySpec(name="entry", main=main)

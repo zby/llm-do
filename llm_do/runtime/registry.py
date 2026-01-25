@@ -17,7 +17,7 @@ from ..toolsets.agent import agent_as_toolset
 from ..toolsets.builtins import build_builtin_toolsets
 from ..toolsets.loader import ToolsetSpec, resolve_toolset_specs
 from .args import WorkerArgs
-from .contracts import AgentSpec, EntrySpec, WorkerRuntimeProtocol
+from .contracts import AgentSpec, CallContextProtocol, EntrySpec
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
 from .worker_file import (
@@ -207,7 +207,7 @@ def _build_registry_and_entry_spec(
 
         async def entry_main(
             input_data: Any,
-            runtime: WorkerRuntimeProtocol,
+            runtime: CallContextProtocol,
         ) -> Any:
             return await runtime.call_agent(entry_agent, input_data)
 

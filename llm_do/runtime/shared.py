@@ -19,7 +19,7 @@ from .contracts import (
 )
 
 if TYPE_CHECKING:
-    from .deps import WorkerRuntime
+    from .deps import CallContext
 
 
 class UsageCollector:
@@ -181,10 +181,10 @@ class Runtime:
         model: ModelType,
         invocation_name: str,
         depth: int,
-    ) -> "WorkerRuntime":
-        """Create a WorkerRuntime with a new CallFrame."""
+    ) -> "CallContext":
+        """Create a CallContext with a new CallFrame."""
         from .call import CallConfig, CallFrame
-        from .deps import WorkerRuntime
+        from .deps import CallContext
 
         call_config = CallConfig.build(
             active_toolsets,
@@ -193,7 +193,7 @@ class Runtime:
             invocation_name=invocation_name,
         )
         frame = CallFrame(config=call_config)
-        return WorkerRuntime(runtime=self, frame=frame)
+        return CallContext(runtime=self, frame=frame)
 
     async def run_entry(
         self,
@@ -201,7 +201,7 @@ class Runtime:
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
-    ) -> tuple[Any, WorkerRuntime]:
+    ) -> tuple[Any, CallContext]:
         """Run an entry function with this runtime."""
         from ..models import NULL_MODEL
         from .args import get_display_text, normalize_input
@@ -235,7 +235,7 @@ class Runtime:
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
-    ) -> tuple[Any, "WorkerRuntime"]:
+    ) -> tuple[Any, "CallContext"]:
         """Run an invocable synchronously using asyncio.run()."""
         try:
             asyncio.get_running_loop()

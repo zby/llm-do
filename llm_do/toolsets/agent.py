@@ -10,7 +10,7 @@ from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai_blocking_approval import ApprovalResult
 
 from ..runtime.args import Attachment, has_attachments, normalize_input
-from ..runtime.contracts import AgentSpec, WorkerRuntimeProtocol
+from ..runtime.contracts import AgentSpec, CallContextProtocol
 from ..toolsets.validators import DictValidator
 from .loader import ToolsetSpec
 
@@ -102,7 +102,7 @@ class AgentToolset(AbstractToolset[Any]):
         return f"Call agent {self.spec.name}"
 
     async def get_tools(
-        self, run_ctx: RunContext[WorkerRuntimeProtocol]
+        self, run_ctx: RunContext[CallContextProtocol]
     ) -> dict[str, ToolsetTool[Any]]:
         tool_name = self.tool_name or self.spec.name
         desc = self.spec.description or self.spec.instructions
@@ -126,7 +126,7 @@ class AgentToolset(AbstractToolset[Any]):
         self,
         name: str,
         tool_args: dict[str, Any],
-        run_ctx: RunContext[WorkerRuntimeProtocol],
+        run_ctx: RunContext[CallContextProtocol],
         tool: ToolsetTool[Any],
     ) -> Any:
         return await run_ctx.deps.call_agent(self.spec, tool_args)

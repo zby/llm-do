@@ -18,7 +18,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 
 from .args import get_display_text, normalize_input, render_prompt
-from .contracts import AgentSpec, WorkerRuntimeProtocol
+from .contracts import AgentSpec, CallContextProtocol
 from .event_parser import parse_event
 from .events import ToolCallEvent, ToolResultEvent
 
@@ -30,7 +30,7 @@ def _get_all_messages(result: Any) -> list[Any]:
 
 def _finalize_messages(
     agent_name: str,
-    runtime: WorkerRuntimeProtocol,
+    runtime: CallContextProtocol,
     result: Any,
     *,
     log_messages: bool = True,
@@ -47,7 +47,7 @@ def _finalize_messages(
 class _MessageLogList(list):
     """List that logs new messages as they are appended."""
 
-    def __init__(self, runtime: WorkerRuntimeProtocol, agent_name: str, depth: int) -> None:
+    def __init__(self, runtime: CallContextProtocol, agent_name: str, depth: int) -> None:
         super().__init__()
         self._runtime = runtime
         self._agent_name = agent_name
@@ -72,7 +72,7 @@ class _MessageLogList(list):
 
 @contextmanager
 def _capture_message_log(
-    runtime: WorkerRuntimeProtocol, *, agent_name: str, depth: int
+    runtime: CallContextProtocol, *, agent_name: str, depth: int
 ) -> Any:
     """Capture and log messages as they are appended for this run."""
     from pydantic_ai._agent_graph import capture_run_messages, get_captured_run_messages
@@ -89,10 +89,10 @@ def _capture_message_log(
 
 def _build_agent(
     spec: AgentSpec,
-    runtime: WorkerRuntimeProtocol,
+    runtime: CallContextProtocol,
     *,
     toolsets: Sequence[AbstractToolset[Any]] | None = None,
-) -> Agent[WorkerRuntimeProtocol, Any]:
+) -> Agent[CallContextProtocol, Any]:
     """Build a PydanticAI agent with toolsets passed directly."""
     return Agent(
         model=spec.model,
@@ -106,7 +106,7 @@ def _build_agent(
 
 
 def _emit_tool_events(
-    agent_name: str, messages: list[Any], runtime: WorkerRuntimeProtocol
+    agent_name: str, messages: list[Any], runtime: CallContextProtocol
 ) -> None:
     """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
     # TODO: Consolidate tool-event fallback with streaming path (see docs/notes/reviews/tool-event-fallback-options.md).
@@ -152,9 +152,9 @@ def _emit_tool_events(
 
 async def _run_with_event_stream(
     spec: AgentSpec,
-    agent: Agent[WorkerRuntimeProtocol, Any],
+    agent: Agent[CallContextProtocol, Any],
     prompt: str | Sequence[UserContent],
-    runtime: WorkerRuntimeProtocol,
+    runtime: CallContextProtocol,
     message_history: list[Any] | None,
     *,
     log_messages: bool = True,
@@ -164,7 +164,7 @@ async def _run_with_event_stream(
 
     emitted_tool_events = False
 
-    async def event_stream_handler(_: RunContext[WorkerRuntimeProtocol], events: AsyncIterable[Any]) -> None:
+    async def event_stream_handler(_: RunContext[CallContextProtocol], events: AsyncIterable[Any]) -> None:
         nonlocal emitted_tool_events
         async for event in events:
             if runtime.config.verbosity < 2 and isinstance(event, PartDeltaEvent):
@@ -192,7 +192,7 @@ async def _run_with_event_stream(
 
 async def run_agent(
     spec: AgentSpec,
-    runtime: WorkerRuntimeProtocol,
+    runtime: CallContextProtocol,
     input_data: Any,
     *,
     message_history: list[Any] | None = None,

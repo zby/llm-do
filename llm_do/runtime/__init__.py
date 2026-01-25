@@ -16,7 +16,7 @@ from .approval import (
 from .args import Attachment, PromptContent, PromptMessages, WorkerArgs
 from .call import CallScope
 from .contracts import AgentSpec, EntrySpec, EventCallback, ModelType
-from .deps import WorkerRuntime
+from .deps import CallContext
 from .discovery import (
     discover_agents_from_module,
     discover_entries_from_module,
@@ -45,7 +45,7 @@ from .worker_file import (
 __all__ = [
     # Runtime
     "Runtime",
-    "WorkerRuntime",
+    "CallContext",
     "CallScope",
     "EntrySpec",
     "AgentSpec",

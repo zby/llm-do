@@ -28,12 +28,12 @@ from ..runtime import (
     AgentRegistry,
     ApprovalCallback,
     Attachment,
+    CallContext,
     EntrySpec,
     EventCallback,
     PromptContent,
     RunApprovalPolicy,
     Runtime,
-    WorkerRuntime,
     build_entry,
 )
 from ..runtime.manifest import (
@@ -99,7 +99,7 @@ async def run(
     entry: EntrySpec | None = None,
     agent_registry: AgentRegistry | None = None,
     runtime: Runtime | None = None,
-) -> tuple[Any, WorkerRuntime]:
+) -> tuple[Any, CallContext]:
     """Load entries from manifest and run with the given input.
 
     Args:

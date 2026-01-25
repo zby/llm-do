@@ -55,7 +55,7 @@ Note: `AgentSpec.toolset_specs` are the *declared* toolset factories from config
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
 - `llm_do/runtime/call.py`: `CallConfig`, `CallFrame`, `CallScope`
-- `llm_do/runtime/deps.py`: `WorkerRuntime`, `ToolsProxy`
+- `llm_do/runtime/deps.py`: `CallContext`, `ToolsProxy`
 - `llm_do/runtime/toolsets.py`: toolset lifecycle helpers
 
 ---
@@ -79,7 +79,7 @@ Runtime.run_entry() creates entry runtime (NullModel, no toolsets)
 Entry executes (entry_spec.main(...))
     │
     ├── Entry code calls runtime.call_agent(...)
-    │       → new CallRuntime (depth+1), same Runtime
+    │       → new CallContext (depth+1), same Runtime
     │       → agent runs with its toolsets, returns result
     │
     └── Final output

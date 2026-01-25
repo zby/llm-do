@@ -9,7 +9,7 @@ from pydantic_ai.toolsets import AbstractToolset
 
 from ..toolsets.loader import instantiate_toolsets
 from .approval import wrap_toolsets_for_approval
-from .contracts import AgentSpec, ModelType, WorkerRuntimeProtocol
+from .contracts import AgentSpec, CallContextProtocol, ModelType
 from .toolsets import cleanup_toolsets
 
 
@@ -85,12 +85,12 @@ class CallFrame:
 class CallScope:
     """Lifecycle wrapper for a call scope (runtime + toolsets)."""
 
-    runtime: WorkerRuntimeProtocol
+    runtime: CallContextProtocol
     toolsets: Sequence["AbstractToolset[Any]"]
     _closed: bool = False
 
     @classmethod
-    def for_agent(cls, parent: WorkerRuntimeProtocol, spec: AgentSpec) -> "CallScope":
+    def for_agent(cls, parent: CallContextProtocol, spec: AgentSpec) -> "CallScope":
         toolsets = instantiate_toolsets(spec.toolset_specs)
         wrapped_toolsets = wrap_toolsets_for_approval(
             toolsets,

@@ -45,9 +45,9 @@ The entry function in `tools.py` is exposed via `EntrySpec` and receives a
 runtime handle, so it can call agents by name:
 
 ```python
-from llm_do.runtime import EntrySpec, WorkerRuntime
+from llm_do.runtime import EntrySpec, CallContext
 
-async def main(_input_data, runtime: WorkerRuntime) -> str:
+async def main(_input_data, runtime: CallContext) -> str:
     """Entry point - Python orchestration."""
     decks = list_pitchdecks()
 

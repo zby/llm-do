@@ -147,18 +147,18 @@ Tools can access the runtime to call other agents. This enables hybrid patterns 
 
 **Accepting the Runtime Context:**
 
-To access the runtime, accept `RunContext[WorkerRuntime]` as the first parameter:
+To access the runtime, accept `RunContext[CallContext]` as the first parameter:
 
 ```python
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec, WorkerRuntime
+from llm_do.runtime import ToolsetSpec, CallContext
 
 def build_tools():
     tools = FunctionToolset()
 
     @tools.tool
-    async def my_tool(ctx: RunContext[WorkerRuntime], data: str) -> str:
+    async def my_tool(ctx: RunContext[CallContext], data: str) -> str:
         """Tool that can call agents."""
         result = await ctx.deps.call_agent("worker_name", data)
         return result
@@ -176,7 +176,7 @@ Use `ctx.deps.call_agent(spec_or_name, input_data)` to invoke an agent by name o
 
 ```python
 @tools.tool
-async def orchestrate(ctx: RunContext[WorkerRuntime], task: str) -> str:
+async def orchestrate(ctx: RunContext[CallContext], task: str) -> str:
     # Call an LLM agent
     analysis = await ctx.deps.call_agent("analyzer", task)
     return analysis
@@ -204,9 +204,9 @@ A common pattern is using a Python function as the entry point for deterministic
 ```python
 from pathlib import Path
 
-from llm_do.runtime import EntrySpec, WorkerRuntime
+from llm_do.runtime import EntrySpec, CallContext
 
-async def main(_input_data, runtime: WorkerRuntime) -> str:
+async def main(_input_data, runtime: CallContext) -> str:
     """Orchestrate evaluation of multiple files."""
     files = list(Path("input").glob("*.pdf"))  # deterministic
 
@@ -244,7 +244,7 @@ wrappers and follow the run approval policy. To skip prompts, use `approve_all`
 Example with custom input schema:
 
 ```python
-from llm_do.runtime import EntrySpec, WorkerArgs, PromptContent, WorkerRuntime
+from llm_do.runtime import EntrySpec, WorkerArgs, PromptContent, CallContext
 
 class TaggedInput(WorkerArgs):
     input: str
@@ -253,7 +253,7 @@ class TaggedInput(WorkerArgs):
     def prompt_messages(self) -> list[PromptContent]:
         return [f"{self.input}:{self.tag}"]
 
-async def main(args: TaggedInput, _runtime: WorkerRuntime) -> str:
+async def main(args: TaggedInput, _runtime: CallContext) -> str:
     return args.tag
 
 ENTRY_SPEC = EntrySpec(
@@ -314,18 +314,18 @@ defining the factory (e.g., base paths).
 
 **Accessing the Runtime:**
 
-To call other agents from your tool, accept `RunContext[WorkerRuntime]`:
+To call other agents from your tool, accept `RunContext[CallContext]`:
 
 ```python
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import WorkerRuntime
+from llm_do.runtime import CallContext
 
 def build_calc_tools():
     calc_tools = FunctionToolset()
 
     @calc_tools.tool
-    async def analyze(ctx: RunContext[WorkerRuntime], text: str) -> str:
+    async def analyze(ctx: RunContext[CallContext], text: str) -> str:
         """Analyze text using another agent."""
         return await ctx.deps.call_agent("sentiment_analyzer", {"input": text})
 

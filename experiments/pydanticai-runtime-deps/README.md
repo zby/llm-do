@@ -20,7 +20,7 @@ without custom agent loops:
 
 ## Hypothesis
 A minimal runtime object supplied as `deps` can provide the same delegation semantics
-as llm-do's WorkerRuntime, while relying on PydanticAI's built-in agent loop.
+as llm-do's CallContext, while relying on PydanticAI's built-in agent loop.
 
 ## Current Architecture
 

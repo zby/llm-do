@@ -205,7 +205,7 @@ Python handles deterministic logic; workers handle judgment:
 
 ```python
 @tools.tool
-async def evaluate_document(ctx: RunContext[WorkerRuntime], path: str) -> dict:
+async def evaluate_document(ctx: RunContext[CallContext], path: str) -> dict:
     content = load_file(path)           # deterministic
     if not validate_format(content):    # deterministic
         raise ValueError("Invalid format")
@@ -246,13 +246,13 @@ tools = ToolsetSpec(factory=build_tools)
 
 ```python
 from pydantic_ai.tools import RunContext
-from llm_do.runtime import WorkerRuntime
+from llm_do.runtime import CallContext
 
 def build_tools():
     tools = FunctionToolset()
 
     @tools.tool
-    async def delegate_analysis(ctx: RunContext[WorkerRuntime], text: str) -> str:
+    async def delegate_analysis(ctx: RunContext[CallContext], text: str) -> str:
         """Delegate to another agent."""
         return await ctx.deps.call_agent("analyzer", {"input": text})
 

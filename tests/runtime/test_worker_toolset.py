@@ -6,7 +6,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 
 from llm_do.runtime import AgentSpec, ToolsetSpec
-from llm_do.runtime.contracts import WorkerRuntimeProtocol
+from llm_do.runtime.contracts import CallContextProtocol
 from llm_do.toolsets.agent import AgentToolset, agent_as_toolset
 from llm_do.toolsets.approval import (
     get_toolset_approval_config,
@@ -65,7 +65,7 @@ async def test_agent_toolset_get_tools() -> None:
     )
     toolset = AgentToolset(spec=spec)
 
-    mock_deps = MagicMock(spec=WorkerRuntimeProtocol)
+    mock_deps = MagicMock(spec=CallContextProtocol)
     mock_model = TestModel()
     from pydantic_ai.usage import RunUsage
     run_ctx = RunContext(deps=mock_deps, model=mock_model, usage=RunUsage(), prompt="test")
@@ -86,7 +86,7 @@ async def test_agent_toolset_truncates_long_description() -> None:
     spec = AgentSpec(name="test", instructions=long_text, model=TestModel())
     toolset = AgentToolset(spec=spec)
 
-    mock_deps = MagicMock(spec=WorkerRuntimeProtocol)
+    mock_deps = MagicMock(spec=CallContextProtocol)
     mock_model = TestModel()
     from pydantic_ai.usage import RunUsage
     run_ctx = RunContext(deps=mock_deps, model=mock_model, usage=RunUsage(), prompt="test")
@@ -107,7 +107,7 @@ async def test_agent_toolset_call_delegates_to_call_agent() -> None:
     spec = AgentSpec(name="agent", instructions="Test", model=TestModel())
     toolset = AgentToolset(spec=spec)
 
-    mock_deps = MagicMock(spec=WorkerRuntimeProtocol)
+    mock_deps = MagicMock(spec=CallContextProtocol)
     mock_deps.call_agent = AsyncMock(return_value="ok")
     mock_model = TestModel()
     from pydantic_ai.usage import RunUsage

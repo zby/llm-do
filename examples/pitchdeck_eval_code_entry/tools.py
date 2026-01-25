@@ -25,7 +25,7 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
-from llm_do.runtime import EntrySpec, WorkerRuntime
+from llm_do.runtime import CallContext, EntrySpec
 
 # Project root is the directory containing this file
 PROJECT_ROOT = Path(__file__).parent.resolve()
@@ -56,7 +56,7 @@ def list_pitchdecks(input_dir: str = "input") -> list[dict]:
     return result
 
 
-async def main(_input_data, runtime: WorkerRuntime) -> str:
+async def main(_input_data, runtime: CallContext) -> str:
     """Evaluate all pitch decks in input directory.
 
     This is a code entry point that orchestrates the evaluation workflow:

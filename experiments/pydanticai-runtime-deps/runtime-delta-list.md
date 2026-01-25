@@ -41,7 +41,7 @@ lifecycle boundaries. We still want to split runtime responsibilities.
 **Target location:** `experiments/pydanticai-runtime-deps/runtime.py`
 
 **Approach:**
-- Add a `call_tool(name, args, ctx)` API similar to `llm_do/runtime/deps.py:WorkerRuntime.call`.
+- Add a `call_tool(name, args, ctx)` API similar to `llm_do/runtime/deps.py:CallContext.call`.
 - Validate args and call the tool through the current call scope’s toolsets.
 
 **Why:** llm-do supports a “harness layer” where code can call tools/workers uniformly.

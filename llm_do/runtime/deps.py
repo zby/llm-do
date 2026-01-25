@@ -12,10 +12,10 @@ from .contracts import AgentSpec, ModelType
 from .shared import Runtime, RuntimeConfig
 
 
-class WorkerRuntime:
+class CallContext:
     """Dispatches agent runs, managing call-scoped state.
 
-    WorkerRuntime is the central orchestrator for executing tools and agents.
+    CallContext is the central orchestrator for executing tools and agents.
     It holds:
     - runtime (Runtime): shared config and runtime-scoped state
     - frame (CallFrame): per-branch state (prompt/messages + immutable config)
@@ -46,9 +46,9 @@ class WorkerRuntime:
         *,
         model: ModelType,
         invocation_name: str,
-    ) -> "WorkerRuntime":
+    ) -> "CallContext":
         """Spawn a child worker runtime with a forked CallFrame (depth+1)."""
-        return WorkerRuntime(
+        return CallContext(
             runtime=self.runtime,
             frame=self.frame.fork(
                 active_toolsets,
@@ -73,21 +73,15 @@ class WorkerRuntime:
 
     async def call_agent(self, spec_or_name: AgentSpec | str, input_data: Any) -> Any:
         """Invoke a configured agent by spec or name (depth boundary)."""
+        spec = self._resolve_agent_spec(spec_or_name)
+
         if self.frame.config.depth >= self.config.max_depth:
             caller = self.frame.config.invocation_name or "entry"
-            if isinstance(spec_or_name, AgentSpec):
-                target = spec_or_name.name
-            elif isinstance(spec_or_name, str):
-                target = spec_or_name
-            else:
-                target = type(spec_or_name).__name__
             raise RuntimeError(
                 "max_depth exceeded "
                 f"(depth={self.frame.config.depth}, max_depth={self.config.max_depth}, "
-                f"caller={caller!r}, attempted={target!r})"
+                f"caller={caller!r}, attempted={spec.name!r})"
             )
-
-        spec = self._resolve_agent_spec(spec_or_name)
 
         scope = CallScope.for_agent(self, spec)
         try:

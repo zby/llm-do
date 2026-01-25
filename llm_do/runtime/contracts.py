@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeAlias
 from pydantic import BaseModel
 from pydantic_ai.models import Model  # Used in ModelType
 from pydantic_ai.settings import ModelSettings
-from pydantic_ai.toolsets import AbstractToolset  # Used in WorkerRuntimeProtocol
+from pydantic_ai.toolsets import AbstractToolset  # Used in CallContextProtocol
 
 from ..toolsets.loader import ToolsetSpec
 from .args import WorkerArgs
@@ -28,7 +28,7 @@ EventCallback: TypeAlias = Callable[[RuntimeEvent], None]
 MessageLogCallback: TypeAlias = Callable[[str, int, list[Any]], None]
 
 
-class WorkerRuntimeProtocol(Protocol):
+class CallContextProtocol(Protocol):
     """Structural type for the runtime object used as PydanticAI deps.
 
     Minimal surface: config (runtime-scoped settings) + frame (call-scoped state).
@@ -49,7 +49,7 @@ class WorkerRuntimeProtocol(Protocol):
         *,
         model: ModelType,
         invocation_name: str,
-    ) -> "WorkerRuntimeProtocol": ...
+    ) -> "CallContextProtocol": ...
 
     async def call_agent(self, spec_or_name: "AgentSpec | str", input_data: Any) -> Any: ...
 
@@ -58,7 +58,7 @@ class WorkerRuntimeProtocol(Protocol):
 class EntrySpec:
     """Specification for a root entry invocation."""
 
-    main: Callable[[Any, "WorkerRuntimeProtocol"], Awaitable[Any]]
+    main: Callable[[Any, "CallContextProtocol"], Awaitable[Any]]
     name: str
     schema_in: type["WorkerArgs"] | None = None
 

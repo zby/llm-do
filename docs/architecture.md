@@ -201,8 +201,7 @@ Key points:
 Toolsets are registered as `ToolsetSpec` factories and instantiated per call
 to keep state isolated. The runtime calls
 optional `cleanup()` hooks when the call scope exits to release handle-based
-resources. See [`docs/toolset-state.md`](toolset-state.md)
-for the handle pattern and lifecycle details.
+resources. See [scopes.md](scopes.md) for lifecycle and handle pattern details.
 
 ---
 

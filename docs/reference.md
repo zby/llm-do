@@ -56,12 +56,45 @@ If multiple candidates exist (or none), loading fails with a descriptive error.
 ## Calling Agents from Python
 
 Python code can invoke agents in two contexts:
-1. **From orchestrator scripts** — using `Runtime.run_entry()` to start a run
-2. **From within tools** — using `ctx.deps.call_agent()` during an active run
+1. **From entry functions** — using `ctx.call_agent()` directly on the `CallContext`
+2. **From within tools** — using `ctx.deps.call_agent()` where `ctx.deps` is the `CallContext`
 
-### From Orchestrator Scripts
+### call_agent API
 
-Use `Runtime` to create a shared execution environment and run entries:
+```python
+async def call_agent(spec_or_name: AgentSpec | str, input_data: Any) -> Any
+```
+
+Invokes an agent by name (looked up in the registry) or by `AgentSpec` directly.
+
+**Parameters:**
+- `spec_or_name`: Agent name (string) or `AgentSpec` instance
+- `input_data`: Input payload—can be:
+  - `str`: Simple text input
+  - `dict`: With `"input"` key and optional `"attachments"` list
+  - `list`: Prompt parts (strings and `Attachment` objects)
+  - `WorkerArgs`: Custom schema instance
+
+**Returns:** The agent's output (typically a string)
+
+**Raises:** `RuntimeError` if `max_depth` is exceeded
+
+**Example:**
+```python
+# From entry function
+async def main(input_data, ctx: CallContext) -> str:
+    result = await ctx.call_agent("analyzer", {"input": "data"})
+    return result
+
+# From tool
+@tools.tool
+async def my_tool(ctx: RunContext[CallContext], data: str) -> str:
+    return await ctx.deps.call_agent("analyzer", data)
+```
+
+### Starting a Run (Runtime.run_entry)
+
+Use `Runtime` to create a shared execution environment and run an entry:
 
 ```python
 from pathlib import Path
@@ -160,7 +193,7 @@ def build_tools():
     @tools.tool
     async def my_tool(ctx: RunContext[CallContext], data: str) -> str:
         """Tool that can call agents."""
-        result = await ctx.deps.call_agent("worker_name", data)
+        result = await ctx.deps.call_agent("agent_name", data)
         return result
 
     return tools
@@ -189,13 +222,17 @@ The `input_data` argument can be a string, list (with `Attachment`s), dict, or `
 
 **Available Runtime State:**
 
-Via `ctx.deps`, tools can access (depth lives at `ctx.deps.frame.depth`, and limits at `ctx.deps.config.max_depth`):
+Via `ctx.deps` (a `CallContext`), tools can access:
 
 | Property | Description |
 |----------|-------------|
 | `call_agent(spec_or_name, input_data)` | Invoke an agent by name or `AgentSpec` |
-| `frame` | Call state (`depth`, `model`, `prompt`, `messages`, `active_toolsets`) |
-| `config` | Runtime config (`max_depth`, approval policy, verbosity, etc.) |
+| `frame.config.depth` | Current nesting depth |
+| `frame.config.model` | Model for this call |
+| `frame.prompt` | Current prompt string |
+| `frame.messages` | Conversation history |
+| `config.max_depth` | Maximum allowed depth |
+| `config.project_root` | Project root path |
 
 ### Example: Code Entry Point
 

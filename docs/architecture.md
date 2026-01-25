@@ -26,37 +26,67 @@ Agents can also declare a typed input schema via `schema_in_ref`; schemas must s
 
 ---
 
+## Entry Functions
+
+An **entry function** is the root of execution—a Python function that orchestrates agents. Entry functions:
+
+- Receive input and a `CallContext` for dispatching agent calls
+- Can only call agents via `call_agent()`—they cannot use tools directly
+- Run under `NullModel` with no toolsets (pure orchestration)
+- Are trusted code: no approval needed for the entry itself, but called agents' tool use still flows through approval
+
+```
+Entry main(input, ctx)
+    │
+    ├── ctx.call_agent("analyzer", data)  ──▶ Agent runs with toolsets
+    │
+    ├── ctx.call_agent("formatter", result) ──▶ Agent runs with toolsets
+    │
+    └── return final_result
+```
+
+Entry can be defined as:
+- An agent marked `entry: true` (wrapped automatically)
+- A Python `EntrySpec` with a `main` function
+
+---
+
 ## Runtime: Shared + Per-Call
 
-When an entry runs (usually an agent), it operates within two scopes owned by a **Runtime**:
+When an entry runs (usually an agent), it operates within two scopes:
 
 **Runtime** (process-scoped, shared across runs in a session):
-- Owns a `RuntimeConfig` plus mutable runtime state (usage, message log, approval callback cache)
+- Owns `RuntimeConfig` plus mutable shared state (usage collector, message log, agent registry)
 - Created once per CLI/TUI session or embedding, reused across runs in-process (not persisted beyond the process)
 
 **RuntimeConfig** (immutable policy/config):
 - Approval policy, event callbacks, max depth, verbosity
 - Like a web server's global config
 
-**CallScope** (per-entry call, may span multiple turns in chat for agents):
-- Owns CallFrame + toolset instances for a single entry invocation
-- Cleans up toolsets when the scope exits
+**CallContext** (per-call orchestrator):
+- Holds a reference to the shared `Runtime` plus its own `CallFrame`
+- Central dispatcher for agent runs and tool execution
+- Spawns child contexts with incremented depth for nested agent calls
 
-**CallFrame** (per-entry call state):
-- Current prompt, message history, nesting depth, active toolsets
+**CallFrame** (per-call state):
+- `CallConfig`: immutable config (depth, model, active toolsets)
+- Mutable state: current prompt, message history
 - Like a request context - isolated per call
 
-This separation means:
-- **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
-- **Per-call, no inheritance**: Message history, active toolsets, per-tool approval rules
+**CallScope** (lifecycle wrapper for agent calls):
+- Wraps a `CallContext` + toolset instances for cleanup
+- Ensures toolsets are cleaned up when the scope exits
 
-Note: `AgentSpec.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what an agent is allowed to use. `CallFrame.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
+This separation means:
+- **Shared globally**: Usage tracking, event callbacks, agent registry, approval mode
+- **Per-call, no inheritance**: Message history, active toolsets, nesting depth
+
+Note: `AgentSpec.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what an agent is allowed to use. `CallFrame.config.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
+- `llm_do/runtime/deps.py`: `CallContext` (per-call orchestrator)
 - `llm_do/runtime/call.py`: `CallConfig`, `CallFrame`, `CallScope`
-- `llm_do/runtime/deps.py`: `CallContext`, `ToolsProxy`
-- `llm_do/runtime/toolsets.py`: toolset lifecycle helpers
 
 ---
 
@@ -112,24 +142,13 @@ for the handle pattern and lifecycle details.
 
 ### Trust Boundary
 
-Approval wrapping gates tool calls that require approval, regardless of whether
-they were initiated by an LLM or by trusted code. The trust boundary is who
-decides to invoke tools; the tool plane remains consistent.
-
-- **Agent** (LLM boundary): The LLM decides which tools to call. Toolsets are wrapped with `ApprovalToolset` before the agent runs. This is where approval prompts happen.
-
-- **Entry function**: Developer's Python code decides which agents/tools to call. Agent tool calls still flow through `ApprovalToolset` and follow the run approval policy.
+Approval wrapping gates tool calls that require approval. The LLM decides which
+tools to call; toolsets are wrapped with `ApprovalToolset` before the agent runs.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Tool Plane (approval policy + events)              │
-│  ┌───────────────┐     ┌───────────────┐           │
-│  │ Entry main()  │────▶│ ApprovalToolset│──▶ tool  │
-│  └───────────────┘     └───────────────┘           │
-│  ┌───────────────┐     ┌───────────────┐           │
-│  │ Agent run()   │────▶│ ApprovalToolset│──▶ tool  │
-│  └───────────────┘     └───────────────┘           │
-└─────────────────────────────────────────────────────┘
+Agent run()  ────▶  ApprovalToolset  ────▶  tool execution
+                         │
+                    (approval check)
 ```
 
 ### Approval Modes

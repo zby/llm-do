@@ -8,10 +8,10 @@ Periodic review of runtime infrastructure for bugs, inconsistencies, and overeng
 - `llm_do/runtime/agent_runner.py` - Agent execution helpers
 - `llm_do/runtime/call.py` - Call execution
 - `llm_do/runtime/contracts.py` - Runtime contracts/interfaces
-- `llm_do/runtime/deps.py` - Dependency resolution
+- `llm_do/runtime/context.py` - Dependency resolution
 - `llm_do/runtime/registry.py` - Toolset/agent registry
 - `llm_do/runtime/manifest.py` - Manifest handling
-- `llm_do/runtime/shared.py` - Shared runtime state
+- `llm_do/runtime/runtime.py` - Shared runtime state
 - `llm_do/runtime/args.py` - Argument parsing utilities
 - `llm_do/runtime/schema_refs.py` - Schema reference handling
 - `llm_do/runtime/approval.py` - Approval wrapping
@@ -34,4 +34,3 @@ Periodic review of runtime infrastructure for bugs, inconsistencies, and overeng
 ## Output
 
 Record findings in `docs/notes/reviews/review-ctx-runtime.md`.
-

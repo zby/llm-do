@@ -1,6 +1,6 @@
-# Simplify: runtime/shared.py
+# Simplify: runtime/runtime.py
 
-Periodic simplification review of `llm_do/runtime/shared.py`.
+Periodic simplification review of `llm_do/runtime/runtime.py`.
 
 ## Context Gathering
 
@@ -24,5 +24,4 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Output
 
-`docs/notes/reviews/simplify-runtime-shared.md`
-
+`docs/notes/reviews/simplify-runtime-runtime.md`

@@ -15,10 +15,10 @@ Periodic audit for features that add complexity without clear value.
 
 ### Core Classes
 
-- [ ] **Runtime class** - Check configuration options in `shared.py`
+- [ ] **Runtime class** - Check configuration options in `runtime.py`
 - [ ] **AgentRegistry** - Check optional fields and methods in `registry.py`
 - [ ] **CallScope/CallFrame** - Check call handling in `call.py`
-- [ ] **WorkerRuntime** - Check runtime interface in `deps.py`
+- [ ] **CallContext** - Check runtime interface in `context.py`
 - [ ] **ToolsetSpec** - Configuration options
 
 ### Dead Code

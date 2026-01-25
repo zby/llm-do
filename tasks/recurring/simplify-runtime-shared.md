@@ -18,6 +18,7 @@ Analyze for:
 3. **Unused flexibility** - Options/config never actually used
 4. **Redundant parameters** - Values accessible via other parameters
 5. **Duplicated derived values** - Same computed value in multiple places
+6. **Reorder operations** - Move resolutions/lookups before guards when the resolved value will be needed anyway; simplifies both checks and subsequent logic
 
 Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 

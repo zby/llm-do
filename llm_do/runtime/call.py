@@ -1,6 +1,8 @@
 """Per-call scope for entries (config + mutable state)."""
 from __future__ import annotations
 
+import inspect
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -10,7 +12,8 @@ from pydantic_ai.toolsets import AbstractToolset
 from ..toolsets.loader import instantiate_toolsets
 from .approval import wrap_toolsets_for_approval
 from .contracts import AgentSpec, CallContextProtocol, ModelType
-from .toolsets import cleanup_toolsets
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,7 +111,16 @@ class CallScope:
         if self._closed:
             return
         self._closed = True
-        await cleanup_toolsets(self.toolsets)
+        for toolset in self.toolsets:
+            cleanup = getattr(toolset, "cleanup", None)
+            if cleanup is None:
+                continue
+            try:
+                result = cleanup()
+                if inspect.isawaitable(result):
+                    await result
+            except Exception:
+                logger.exception("Toolset cleanup failed for %r", toolset)
 
     async def __aenter__(self) -> "CallScope":
         return self

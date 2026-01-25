@@ -7,15 +7,15 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 ## Key References
 
 - `README.md` — setup, CLI usage, examples
-- `docs/architecture.md` — internal design, worker delegation, approval system
+- `docs/architecture.md` — internal design, agent delegation, approval system
 - `docs/notes/` — working design documents and explorations (see Notes section)
-- `examples/pitchdeck_eval/` — reference implementation for multi-worker patterns
+- `examples/pitchdeck_eval/` — reference implementation for multi-agent patterns
 
 ---
 
 ## Development
 - For executing python scripts use `.venv/bin/python` - the global environment does not have all dependencies
-- Test worker features by creating example projects in `examples/` and running with `llm-do`
+- Test agent features by creating example projects in `examples/` and running with `llm-do`
 - Do not preserve backwards compatibility; with no external consumers, always prioritize cleaner design over keeping old behavior alive
 - **YAGNI**: Don't implement features that aren't needed yet. If you identify a gap in the spec, create a note in `docs/notes/` instead of implementing it
 - Favor clear architecture over hacks; delete dead code when possible
@@ -23,11 +23,10 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 ---
 
-## Worker Design
+## Agent Design
 
-- Keep each worker focused on a single unit of work; use `worker_call` for sub-tasks
+- Keep each agent focused on a single unit of work; use `call_agent` for sub-tasks
 - Document available tools in `instructions` so models know how to call them
-- Rely on `WorkerCreationDefaults` for shared defaults rather than copying YAML snippets
 
 ---
 

@@ -2,9 +2,9 @@
 
 > How llm-do realizes the hybrid VM model. For the theoretical foundation—probabilistic programs, distribution boundaries, why stabilizing works—see [theory.md](theory.md).
 
-## Workers as Functions
+## Agents as Functions
 
-A **worker** is a prompt + configuration + tools, packaged as an executable unit. Workers are the neural operations of the hybrid VM.
+An **agent** is a prompt + configuration + tools, packaged as an executable unit. Agents are the neural operations of the hybrid VM.
 
 ```yaml
 ---
@@ -16,14 +16,14 @@ You organize files by renaming them to consistent formats.
 Given a filename, return a cleaned version.
 ```
 
-Workers call other workers via `call_agent`, and the LLM can call both tools and other workers through the tool list:
+Agents call other agents via `call_agent`, and the LLM can call both tools and other agents through the tool list:
 
 ```python
 # From Python (inside a tool)
 result = await ctx.deps.call_agent("file_organizer", {"input": filename})
 
-# From another worker (via tool call)
-# The LLM sees both workers and tools as callable functions
+# From another agent (via tool call)
+# The LLM sees both agents and tools as callable functions
 ```
 
 ## Unified Calling Convention
@@ -37,26 +37,26 @@ Theory says: unified calling enables local refactoring when components move acro
 analysis = await ctx.deps.call_agent("sentiment_analyzer", {"input": text})
 ```
 
-**Workers see tools and other workers identically.** When an LLM runs, its available tools include both Python functions and other workers (via the agent-as-toolset adapter). It doesn't know—or need to know—which is which.
+**Agents see tools and other agents identically.** When an LLM runs, its available tools include both Python functions and other agents (via the agent-as-toolset adapter). It doesn't know—or need to know—which is which.
 
-**Stabilizing doesn't change call sites for the LLM.** When `sentiment_analyzer` graduates from a worker to a Python function, the LLM still sees a tool named `sentiment_analyzer`. Python orchestration can call the new function directly while agent calls continue to use `ctx.deps.call_agent(...)` as needed.
+**Stabilizing doesn't change call sites for the LLM.** When `sentiment_analyzer` graduates from an agent to a Python function, the LLM still sees a tool named `sentiment_analyzer`. Python orchestration can call the new function directly while agent calls continue to use `ctx.deps.call_agent(...)` as needed.
 
 ## The Harness Layer
 
 The harness is the orchestration layer sitting on top of the VM. It's imperative—your code owns control flow.
 
 **Key responsibilities:**
-- Dispatch calls to workers or tools
+- Dispatch calls to agents or tools
 - Intercept tool calls for approval
 - Manage execution context and depth limits
-- Track conversation state within worker runs
+- Track conversation state within agent runs
 
 **Harness vs. graph DSLs:**
 
 | Aspect | Graph DSLs | llm-do Harness |
 |--------|------------|----------------|
 | Control flow | DSL constructs | Native Python |
-| State | Global context through graph | Local scope per worker |
+| State | Global context through graph | Local scope per agent |
 | Approvals | Checkpoint/resume | Blocking interception |
 | Refactoring | Redraw edges | Change code |
 
@@ -64,7 +64,7 @@ Need a fixed sequence? Write a loop. Need dynamic routing? Let the LLM decide. S
 
 ## Approvals as Syscalls
 
-Every tool call from an LLM can be intercepted. Think syscalls: when a worker needs to do something potentially dangerous, execution blocks until the harness grants permission.
+Every tool call from an LLM can be intercepted. Think syscalls: when an agent needs to do something potentially dangerous, execution blocks until the harness grants permission.
 
 ```python
 runtime = Runtime(
@@ -94,11 +94,11 @@ Theory identifies mechanisms that shape LLM output distributions. Here's how the
 
 | Theory concept | llm-do surface |
 |----------------|----------------|
-| System prompt | Worker `system_prompt` field, spec body |
-| Few-shot examples | Examples in worker spec |
+| System prompt | Agent `system_prompt` field, spec body |
+| Few-shot examples | Examples in agent spec |
 | Tool definitions | `@tools.tool` decorators, toolset schemas |
 | Output schemas | Pydantic models, structured output config |
-| Temperature / model | Worker config: `model`, `temperature` |
+| Temperature / model | Agent config: `model`, `temperature` |
 
 Each narrows the distribution differently. Schemas constrain structure; examples shift the mode; temperature controls sampling breadth.
 
@@ -108,7 +108,7 @@ Theory says: stabilize stochastic components to deterministic code as patterns e
 
 ### 1. Start stochastic
 
-Worker handles everything with LLM judgment:
+Agent handles everything with LLM judgment:
 
 ```yaml
 ---
@@ -141,7 +141,7 @@ def sanitize_filename(name: str) -> str:
 
 ### 4. Keep stochastic edges
 
-Worker still handles ambiguous cases the code can't:
+Agent still handles ambiguous cases the code can't:
 
 ```yaml
 ---
@@ -201,7 +201,7 @@ Rigid code drowning in edge cases? A function full of `if/elif` handling linguis
 
 ### Hybrid pattern
 
-Python handles deterministic logic; workers handle judgment:
+Python handles deterministic logic; agents handle judgment:
 
 ```python
 @tools.tool
@@ -299,4 +299,4 @@ llm-do can be a component *within* durable workflow systems (Temporal, Prefect),
 **Further reading:**
 - [theory.md](theory.md) — Theoretical foundation: probabilistic programs, distribution boundaries
 - [architecture.md](architecture.md) — Internal structure: runtime scopes, execution flow
-- [reference.md](reference.md) — API reference: worker format, toolset API, runtime methods
+- [reference.md](reference.md) — API reference: agent format, toolset API, runtime methods

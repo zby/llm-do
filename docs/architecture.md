@@ -4,9 +4,9 @@ Internal architecture of llm-do. For high-level concepts, see [concept.md](conce
 
 ---
 
-## Workers
+## Agents
 
-A **worker** is an executable prompt artifact: a `.worker` file that defines how to run an LLM-backed task.
+An **agent** is an executable prompt artifact: a `.worker` file that defines how to run an LLM-backed task. These files are loaded into `AgentSpec` objects and executed as PydanticAI agents.
 
 ```yaml
 ---
@@ -16,19 +16,19 @@ schema_in_ref: schemas.py:PitchInput
 toolsets:
   - shell_readonly
   - filesystem_project
-  - analyzer      # another worker
+  - analyzer      # another agent
 ---
-Instructions for the worker...
+Instructions for the agent...
 ```
 
-Workers can call other workers as tools, forming a call tree. Each worker declares its own toolsets - they're not inherited.
-Workers can also declare a typed input schema via `schema_in_ref`; schemas must subclass `WorkerArgs` and implement `prompt_messages()`. Input can be a string, list (with `Attachment`s), or dict.
+Agents can call other agents as tools, forming a call tree. Each agent declares its own toolsets - they're not inherited.
+Agents can also declare a typed input schema via `schema_in_ref`; schemas must subclass `WorkerArgs` and implement `prompt_messages()`. Input can be a string, list (with `Attachment`s), or dict.
 
 ---
 
 ## Runtime: Shared + Per-Call
 
-When an entry runs (usually a worker), it operates within two scopes owned by a **Runtime**:
+When an entry runs (usually an agent), it operates within two scopes owned by a **Runtime**:
 
 **Runtime** (process-scoped, shared across runs in a session):
 - Owns a `RuntimeConfig` plus mutable runtime state (usage, message log, approval callback cache)
@@ -38,7 +38,7 @@ When an entry runs (usually a worker), it operates within two scopes owned by a 
 - Approval policy, event callbacks, max depth, verbosity
 - Like a web server's global config
 
-**CallScope** (per-entry call, may span multiple turns in chat for workers):
+**CallScope** (per-entry call, may span multiple turns in chat for agents):
 - Owns CallFrame + toolset instances for a single entry invocation
 - Cleans up toolsets when the scope exits
 
@@ -50,7 +50,7 @@ This separation means:
 - **Shared globally**: Usage tracking, event callbacks, the run-level approval mode (approve-all/reject-all/prompt)
 - **Per-call, no inheritance**: Message history, active toolsets, per-tool approval rules
 
-Note: `AgentSpec.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what a worker is allowed to use. `CallFrame.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
+Note: `AgentSpec.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what an agent is allowed to use. `CallFrame.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/shared.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
@@ -86,9 +86,10 @@ Entry executes (entry_spec.main(...))
 ```
 
 Key points:
-- Entry selection requires exactly one candidate: a worker marked `entry: true`
-  or a single `EntrySpec`.
-- Top-level entries (depth 0) keep message history across turns via `message_history`
+- The project manifest (`project.json`) lists which `.worker` and `.py` files to load
+- Entry selection requires exactly one agent marked `entry: true` (in a `.worker` file)
+  or a single `EntrySpec` (in Python)
+- Top-level entries (depth 0) keep message history across turns
 - Child agent calls get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
@@ -152,4 +153,4 @@ Tools requiring approval are wrapped by `ApprovalToolset`:
 - **shell_file_ops**: `ls` (pre-approved) + `mv` (approval required)
 
 Python toolsets are discovered from `.py` files as `ToolsetSpec` factories.
-Workers reference toolsets by name only.
+Agents reference toolsets by name only.

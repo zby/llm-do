@@ -4,9 +4,9 @@ API and usage reference for llm-do. For concepts, see [concept.md](concept.md). 
 
 ---
 
-## Worker Input Schemas
+## Agent Input Schemas
 
-Worker files can declare a Pydantic input schema so worker calls (and tool-call
+Agent files (`.worker`) can declare a Pydantic input schema so agent calls (and tool-call
 planning) use a structured contract:
 
 ```yaml
@@ -18,16 +18,16 @@ schema_in_ref: schemas.py:PitchInput
 
 Supported forms:
 - `module.Class`
-- `path.py:Class` (relative to the worker file)
+- `path.py:Class` (relative to the agent file)
 
 Schemas must subclass `WorkerArgs` and implement `prompt_messages()`. Input can be passed in several forms:
 
 ```python
 # Simple string
-await ctx.deps.call_agent("worker", "text")
+await ctx.deps.call_agent("agent_name", "text")
 
 # With attachments
-await ctx.deps.call_agent("worker", {"input": "text", "attachments": ["file.pdf"]})
+await ctx.deps.call_agent("agent_name", {"input": "text", "attachments": ["file.pdf"]})
 ```
 
 For custom schemas, subclass `WorkerArgs`:
@@ -43,12 +43,12 @@ class PitchInput(WorkerArgs):
         return [f"Evaluate {self.company_name}: {self.input}"]
 ```
 
-This schema shapes tool-call arguments and validates inputs before the worker runs.
+This schema shapes tool-call arguments and validates inputs before the agent runs.
 
 ## Entry Selection
 
 When loading entries from files, there must be exactly one entry candidate:
-- **Worker files**: mark the entry worker with `entry: true` in frontmatter
+- **Agent files**: mark the entry agent with `entry: true` in frontmatter
 - **Python files**: define a single `EntrySpec` instance
 
 If multiple candidates exist (or none), loading fails with a descriptive error.
@@ -99,7 +99,7 @@ async def main():
 container around the `agents` mapping, so pass the same root to `Runtime` and register `registry.agents` to keep
 filesystem toolsets and attachment resolution aligned.
 
-Workers resolve their model at construction (`model` in the worker definition or
+Agents resolve their model at construction (`model` in the agent definition or
 `LLM_DO_MODEL` as a fallback). Entry functions run under NullModel (no toolsets),
 so direct LLM calls from entry code are not allowed.
 
@@ -267,7 +267,7 @@ ENTRY_SPEC = EntrySpec(
 
 ## Writing Toolsets
 
-Toolsets provide tools to workers. There are two approaches:
+Toolsets provide tools to agents. There are two approaches:
 
 ### FunctionToolset (Decorator-Based)
 
@@ -297,7 +297,7 @@ def build_calc_tools():
 calc_tools = ToolsetSpec(factory=build_calc_tools)
 ```
 
-Save as `tools.py` and reference in your worker:
+Save as `tools.py` and reference in your agent:
 
 ```yaml
 ---
@@ -415,7 +415,7 @@ my_toolset = ToolsetSpec(factory=build_my_toolset)
 
 ### Toolset Configuration
 
-Toolset configuration lives in the toolset factory in Python. Worker YAML
+Toolset configuration lives in the toolset factory in Python. Agent YAML
 only references toolset names, so you define any config when building
 the toolset in a `.py` file:
 
@@ -434,7 +434,7 @@ calc_tools = ToolsetSpec(factory=build_calc_tools)
 filesystem_data = ToolsetSpec(factory=build_filesystem)
 ```
 
-Then reference the toolset names in your worker:
+Then reference the toolset names in your agent:
 
 ```yaml
 toolsets:
@@ -481,13 +481,13 @@ directory in the CLI).
 
 ---
 
-## Worker File Format
+## Agent File Format
 
-Workers are defined in `.worker` files with YAML frontmatter:
+Agents are defined in `.worker` files with YAML frontmatter:
 
 ```yaml
 ---
-name: my_worker
+name: my_agent
 model: anthropic:claude-haiku-4-5
 toolsets:
   - filesystem_project
@@ -503,11 +503,11 @@ You have access to filesystem and shell tools.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Worker identifier (used for `ctx.deps.call_agent()`) |
-| `description` | No | Tool description when the worker is exposed as a tool (falls back to `instructions`) |
+| `name` | Yes | Agent identifier (used for `ctx.deps.call_agent()`) |
+| `description` | No | Tool description when the agent is exposed as a tool (falls back to `instructions`) |
 | `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`); falls back to `LLM_DO_MODEL` if omitted |
 | `compatible_models` | No | List of acceptable model patterns for the `LLM_DO_MODEL` fallback (mutually exclusive with `model`) |
-| `schema_in_ref` | No | Input schema reference (see [Worker Input Schemas](#worker-input-schemas)) |
+| `schema_in_ref` | No | Input schema reference (see [Agent Input Schemas](#agent-input-schemas)) |
 | `server_side_tools` | No | Server-side tool configs (e.g., web search) |
 | `toolsets` | No | List of toolset names |
 
@@ -523,11 +523,11 @@ Models use the format `provider:model-name`:
 Toolsets can be specified as:
 - Built-in toolset name (e.g., `filesystem_project`, `shell_readonly`)
 - Toolset instance name from a Python file passed to the CLI
-- Other worker names from `.worker` files (workers act as toolsets)
+- Other agent names from `.worker` files (agents act as toolsets)
 
-**Recursive Workers:**
+**Recursive Agents:**
 
-Workers can opt into recursion by listing themselves in `toolsets`:
+Agents can opt into recursion by listing themselves in `toolsets`:
 
 ```yaml
 ---
@@ -544,7 +544,7 @@ or `Runtime(max_depth=...)` in Python to adjust it.
 
 **Compatible Models:**
 
-Use `compatible_models` when you want the worker to accept the `LLM_DO_MODEL`
+Use `compatible_models` when you want the agent to accept the `LLM_DO_MODEL`
 fallback if it matches a pattern, rather than hardcoding `model`. Patterns use glob matching:
 
 ```yaml
@@ -555,7 +555,7 @@ compatible_models:
 ```
 
 Compatibility checks apply to string model IDs and `Model` objects (Python API),
-and they run once at worker construction time against the env fallback.
+and they run once at agent construction time against the env fallback.
 If you set `compatible_models`, ensure `LLM_DO_MODEL` is set to a compatible value.
 
 `model` and `compatible_models` are mutually exclusive.

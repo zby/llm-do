@@ -1,6 +1,6 @@
 # Reference
 
-API and usage reference for llm-do. For concepts, see [concept.md](concept.md). For internals, see [architecture.md](architecture.md).
+API and usage reference for llm-do. For theory, see [theory.md](theory.md). For internals, see [architecture.md](architecture.md).
 
 ---
 
@@ -299,6 +299,129 @@ ENTRY_SPEC = EntrySpec(
     schema_in=TaggedInput,
 )
 ```
+
+---
+
+## Stabilizing Workflow
+
+Stabilize stochastic components to deterministic code as patterns emerge.
+
+### 1. Start stochastic
+
+Agent handles everything with LLM judgment:
+
+```yaml
+---
+name: filename_cleaner
+model: anthropic:claude-haiku-4-5
+---
+Clean the given filename: remove special characters,
+normalize spacing, ensure valid extension.
+```
+
+### 2. Observe patterns
+
+Run it repeatedly. Watch what the LLM consistently does:
+- Always lowercases
+- Replaces spaces with underscores
+- Strips leading/trailing whitespace
+- Keeps alphanumerics and `.-_`
+
+### 3. Extract to code
+
+Stable patterns become Python:
+
+```python
+@tools.tool
+def sanitize_filename(name: str) -> str:
+    """Remove special characters from filename."""
+    name = name.strip().lower()
+    return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
+```
+
+### 4. Keep stochastic edges
+
+Agent still handles ambiguous cases the code can't:
+
+```yaml
+---
+name: filename_cleaner
+model: anthropic:claude-haiku-4-5
+toolsets: [filename_tools]
+---
+Clean the given filename. Use sanitize_filename for basic cleanup.
+For ambiguous cases (is "2024-03" a date or version?), use judgment
+to pick the most descriptive format.
+```
+
+### What changes when you stabilize
+
+| Aspect | Before (stochastic) | After (deterministic) |
+|--------|---------------------|----------------------|
+| Cost | Per-token API charges | Effectively free |
+| Latency | Network + inference | Microseconds |
+| Reliability | May vary | Identical every time |
+| Testing | Statistical sampling | Assert equality |
+| Approvals | May need user consent | Trusted by default |
+
+### Canonical progression
+
+The pitchdeck examples demonstrate this:
+
+1. **[`pitchdeck_eval/`](../examples/pitchdeck_eval/)** — All LLM: orchestrator decides everything
+2. **[`pitchdeck_eval_stabilized/`](../examples/pitchdeck_eval_stabilized/)** — Extracted `list_pitchdecks()` to Python
+3. **[`pitchdeck_eval_code_entry/`](../examples/pitchdeck_eval_code_entry/)** — Python orchestration, LLM only for analysis
+
+---
+
+## Softening Workflow
+
+Soften deterministic code back to stochastic when edge cases multiply or you need new capability.
+
+### Extension (common)
+
+Need new capability? Write a spec:
+
+```yaml
+---
+name: sentiment_analyzer
+model: anthropic:claude-haiku-4-5
+---
+Analyze the sentiment of the given text.
+Return: positive, negative, or neutral with confidence score.
+```
+
+Now it's callable:
+
+```python
+result = await ctx.deps.call_agent("sentiment_analyzer", {"input": feedback})
+```
+
+### Replacement (rare)
+
+Rigid code drowning in edge cases? A function full of `if/elif` handling linguistic variations might be better as an LLM call that handles the variation naturally.
+
+### Hybrid pattern
+
+Python handles deterministic logic; agents handle judgment:
+
+```python
+@tools.tool
+async def evaluate_document(ctx: RunContext[CallContext], path: str) -> dict:
+    content = load_file(path)           # deterministic
+    if not validate_format(content):    # deterministic
+        raise ValueError("Invalid format")
+
+    # Stochastic: LLM judgment for analysis
+    analysis = await ctx.deps.call_agent("content_analyzer", {"input": content})
+
+    return {                            # deterministic
+        "score": compute_score(analysis),
+        "analysis": analysis
+    }
+```
+
+Think: "deterministic pipeline that uses LLM where judgment is needed."
 
 ---
 

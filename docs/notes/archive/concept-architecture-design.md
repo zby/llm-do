@@ -1,7 +1,7 @@
 # Architecture Design from Concept
 
 ## Context
-Translate the system concept in `docs/concept.md` into a concrete architecture sketch that can guide implementation and documentation.
+Translate the system concept in `docs/theory.md` into a concrete architecture sketch that can guide implementation and documentation.
 
 ## Findings
 The architecture centers on a unified function interface where workers and tools are both callables with identical semantics. A deterministic harness owns orchestration, approvals, and execution guarantees while allowing LLM reasoning to interleave with Python tools.

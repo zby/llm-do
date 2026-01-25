@@ -237,5 +237,5 @@ The paper reinforces llm-do's bidirectional refactoring principle with data-driv
 ## References
 
 - Paper: https://arxiv.org/abs/2512.16301
-- llm-do concept: [concept.md](../concept.md)
+- llm-do theory: [theory.md](../theory.md)
 - llm-do architecture: [architecture.md](../architecture.md)

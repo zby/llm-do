@@ -157,4 +157,4 @@ If you want, I can sketch the directory structure and the minimal Pydantic model
 [1]: https://raw.githubusercontent.com/zby/llm-do/refs/heads/main/README.md "raw.githubusercontent.com"
 [2]: https://arxiv.org/abs/2512.05765 "[2512.05765] The Missing Layer of AGI: From Pattern Alchemy to Coordination Physics"
 [3]: https://raw.githubusercontent.com/zby/llm-do/refs/heads/main/docs/theory.md "raw.githubusercontent.com"
-[4]: https://raw.githubusercontent.com/zby/llm-do/refs/heads/main/docs/concept.md "raw.githubusercontent.com"
+[4]: https://raw.githubusercontent.com/zby/llm-do/refs/heads/main/docs/architecture.md "raw.githubusercontent.com"

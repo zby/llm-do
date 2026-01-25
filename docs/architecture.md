@@ -1,6 +1,6 @@
 # Architecture
 
-Internal architecture of llm-do. For high-level concepts, see [concept.md](concept.md). For API reference, see [reference.md](reference.md).
+Internal architecture of llm-do. For theoretical foundation, see [theory.md](theory.md). For API reference, see [reference.md](reference.md).
 
 ---
 
@@ -48,6 +48,74 @@ Entry main(input, ctx)
 Entry can be defined as:
 - An agent marked `entry: true` (wrapped automatically)
 - A Python `EntrySpec` with a `main` function
+
+---
+
+## Unified Calling Convention
+
+Theory says: unified calling enables local refactoring when components move across the neural-symbolic boundary. Here's how llm-do implements it.
+
+### The Name Registry
+
+Both agents and tools are registered by name into a shared namespace:
+
+```python
+# Agents registered by name (from YAML specs or Python)
+runtime.register_agent("sentiment_analyzer", agent_spec)
+
+# Tools registered by name (via toolsets)
+@tools.tool
+def sentiment_analyzer(text: str) -> dict:
+    ...
+```
+
+The LLM sees a flat list of callable functions. Whether `sentiment_analyzer` is backed by an agent or Python code is invisible at the call site.
+
+### Why Names Matter
+
+**LLMs output strings.** When an agent decides to call another component, it generates a tool name as text. Name-based dispatch is the only way to resolve that string to an implementation.
+
+**Late binding.** Components can be registered after callers are defined. An agent spec can reference `sentiment_analyzer` before that agent exists—resolution happens at call time.
+
+**Swap without rewiring.** Stabilizing an agent to code means registering a function under the same name. No prompt changes, no call site updates.
+
+### Calling Convention
+
+**From Python (inside a tool):**
+
+```python
+# Call by name—works whether target is agent or tool
+analysis = await ctx.deps.call_agent("sentiment_analyzer", {"input": text})
+```
+
+**From another agent (via LLM tool call):**
+
+The LLM sees both agents and tools as callable functions. It doesn't know—or need to know—which is which.
+
+**Stabilizing doesn't change call sites.** When `sentiment_analyzer` graduates from an agent to a Python function, the LLM still sees a tool named `sentiment_analyzer`. Python orchestration can call the new function directly while agent calls continue to use `ctx.deps.call_agent(...)` as needed.
+
+---
+
+## The Harness Layer
+
+The harness is the orchestration layer sitting on top of the VM. It's imperative—your code owns control flow.
+
+**Key responsibilities:**
+- Dispatch calls to agents or tools
+- Intercept tool calls for approval
+- Manage execution context and depth limits
+- Track conversation state within agent runs
+
+**Harness vs. graph DSLs:**
+
+| Aspect | Graph DSLs | llm-do Harness |
+|--------|------------|----------------|
+| Control flow | DSL constructs | Native Python |
+| State | Global context through graph | Local scope per agent |
+| Approvals | Checkpoint/resume | Blocking interception |
+| Refactoring | Redraw edges | Change code |
+
+Need a fixed sequence? Write a loop. Need dynamic routing? Let the LLM decide. Same calling convention for both.
 
 ---
 
@@ -140,10 +208,9 @@ for the handle pattern and lifecycle details.
 
 ## Tool Approval
 
-### Trust Boundary
+### Approvals as Syscalls
 
-Approval wrapping gates tool calls that require approval. The LLM decides which
-tools to call; toolsets are wrapped with `ApprovalToolset` before the agent runs.
+Every tool call from an LLM can be intercepted. Think syscalls: when an agent needs to do something potentially dangerous, execution blocks until the harness grants permission.
 
 ```
 Agent run()  ────▶  ApprovalToolset  ────▶  tool execution
@@ -151,12 +218,27 @@ Agent run()  ────▶  ApprovalToolset  ────▶  tool execution
                     (approval check)
 ```
 
+The LLM decides which tools to call; toolsets are wrapped with `ApprovalToolset` before the agent runs.
+
 ### Approval Modes
 
 Tools requiring approval are wrapped by `ApprovalToolset`:
 - `--approve-all` bypasses prompts (for automation)
 - `--reject-all` denies all approval-required tools
 - Interactive mode prompts user, caches session approvals
+
+**Pattern-based rules** auto-approve safe operations:
+
+```python
+def my_policy(call_info):
+    if call_info.tool_name == "read_file":
+        return "approve"  # Always safe
+    if call_info.tool_name == "delete_file":
+        return "reject"   # Never allow
+    return "prompt"       # Ask for others
+```
+
+**Approvals reduce risk, not eliminate it.** Prompt injection can trick LLMs into misusing approved tools. Treat approvals as one defense layer. For real isolation, use containers.
 
 ---
 

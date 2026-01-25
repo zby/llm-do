@@ -209,7 +209,8 @@ Quick demo: file_organizer or pitchdeck_eval showing the stabilizing progression
 
 - GitHub: [link]
 - theory.md: formal treatment of stochastic computation
-- concept.md: applied design guide
+- architecture.md: internal structure and design
+- reference.md: API and workflows
 - examples/: stabilizing progression demos
 
 ---

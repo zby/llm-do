@@ -22,7 +22,7 @@ On top of the VM sits a **harness**—an imperative orchestration layer where yo
 | **Refactoring** | Redraw edges, update graph definitions | Change code—extract functions, inline agents |
 | **Control flow** | DSL constructs (branches, loops) | Native Python: `if`, `for`, `try/except` |
 
-> For the theoretical foundation, see [`docs/theory.md`](docs/theory.md). For implementation details, see [`docs/concept.md`](docs/concept.md).
+> For the theoretical foundation, see [`docs/theory.md`](docs/theory.md). For implementation details, see [`docs/architecture.md`](docs/architecture.md).
 
 This is the **Unix philosophy for agents**: agents are defined in `.worker` files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
 
@@ -250,10 +250,9 @@ uv run -m experiments.inv.v2_direct.run
 
 ## Documentation
 
-- **[`docs/theory.md`](docs/theory.md)** — Theoretical foundation: probabilistic programs, distribution boundaries
-- **[`docs/concept.md`](docs/concept.md)** — Design and implementation: how llm-do realizes the theory
-- **[`docs/reference.md`](docs/reference.md)** — API reference: calling agents from Python, writing toolsets
-- **[`docs/architecture.md`](docs/architecture.md)** — Internal structure: runtime scopes, execution flow
+- **[`docs/theory.md`](docs/theory.md)** — Theoretical foundation: probabilistic programs, stabilizing/softening, tradeoffs
+- **[`docs/architecture.md`](docs/architecture.md)** — Internal structure: unified calling, harness layer, runtime scopes
+- **[`docs/reference.md`](docs/reference.md)** — API reference: workflows, toolsets, agent format
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference
 - **[`docs/notes/`](docs/notes/)** — Working design notes and explorations
 

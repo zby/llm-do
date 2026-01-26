@@ -45,3 +45,55 @@ What was learned, discovered, or designed.
 - Include "Open Questions" to mark unresolved points
 - Don't let notes become stale — archive or update them
 - Permanent decisions belong in AGENTS.md or code, not notes
+
+---
+
+## Index
+
+### Core Design & Architecture
+- [Worker Design Rationale](worker-design-rationale.md) — opt-in tools, isolation, typed I/O
+- [Compiler Analogy for Worker Scopes](compiler-analogy-worker-scopes.md) — mental model for scoping
+- [Pure Python vs MCP Code Mode](pure-python-vs-mcp-codemode.md) — paradigm comparison
+- [Runtime architecture decomplect review](runtime-architecture-decomplect.md)
+- [llm-do vs vanilla PydanticAI](llm-do-vs-pydanticai-runtime.md) — what the runtime adds
+
+### Approval & Security
+- [Approval System Design](capability-based-approvals.md) — capability-based model
+- [Preapproved Capability Scopes](preapproved-capability-scopes.md) — reducing approval noise
+- [Container Security Boundary](container-security-boundary.md) — future direction
+
+### Execution & UI
+- [Execution Modes: User Stories](execution-modes-user-stories.md) — TUI, headless, chat
+- [Execution Mode Scripting Simplification](execution-mode-scripting-simplification.md)
+- [Event-Stream UI with Blocking Approvals](ui-event-stream-blocking-approvals.md)
+- [Tool Output Rendering Semantics](tool-output-rendering-semantics.md)
+
+### Runtime Internals
+- [Dynamic Workers Runtime Design](dynamic-workers-runtime-design.md) — runtime agent creation
+- [Toolset Instantiation Questions](toolset-instantiation-questions.md)
+- [CallSite vs CallScope (Tool Lifecycle)](callsite-callscope-tool-lifecycle.md)
+- [Unified Entry Function Design](unified-entry-function-design.md)
+- [Message Log Ordering Inconsistency](message-log-ordering.md)
+- [Stabilize Message Capture](stabilize-message-capture.md)
+- [Tool Result Truncation Metadata](tool-result-truncation.md)
+
+### Future Features (Specs & Research)
+- [Library System Specification](library-system-spec.md) — reusable worker libraries
+- [Project Mode and Imports](llm-do-project-mode-and-imports.md) — directory-based projects
+- [Git Integration Research](git-integration-research.md) — Aider/golem-forge patterns
+- [Python Worker Annotation Brainstorm](python-worker-annotation-brainstorm.md)
+- [Agent Skills Standard Unification](agent-skills-unification.md)
+
+### Patterns & Examples
+- [Recursive Problem Patterns](recursive-problem-patterns.md)
+- [Recursive Worker Patterns (Summary)](recursive-patterns-summary.md)
+- [Manual Simplification Examples](simplification-examples.md)
+
+### Upstream Proposals
+- [PydanticAI Runtime Split and Trace Hooks](pydanticai-runtime-trace.md)
+
+### Research & Analysis
+- [Adaptation of Agentic AI (arXiv paper)](adaptation-agentic-ai-analysis.md)
+- [Type Catalog Review](type-catalog-review.md)
+- [Experiment: Runtime without Worker class](experiment-runtime-without-worker.md)
+- [Manifest-Selected Entry Motivation](manifest-selected-entry-motivation.md)

@@ -16,7 +16,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import AbstractToolset  # Used in CallContextProtocol
 
 from ..toolsets.loader import ToolsetSpec
-from .args import WorkerArgs
+from .args import AgentArgs
 from .events import RuntimeEvent
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ class CallContextProtocol(Protocol):
     @property
     def frame(self) -> "CallFrame": ...
 
-    def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None: ...
+    def log_messages(self, agent_name: str, depth: int, messages: list[Any]) -> None: ...
 
     def spawn_child(
         self,
@@ -60,11 +60,11 @@ class EntrySpec:
 
     main: Callable[[Any, "CallContextProtocol"], Awaitable[Any]]
     name: str
-    schema_in: type["WorkerArgs"] | None = None
+    schema_in: type["AgentArgs"] | None = None
 
     def __post_init__(self) -> None:
-        if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
-            raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
+        if self.schema_in is not None and not issubclass(self.schema_in, AgentArgs):
+            raise TypeError(f"schema_in must subclass AgentArgs; got {self.schema_in}")
 
 
 @dataclass(slots=True)
@@ -76,14 +76,14 @@ class AgentSpec:
     model: ModelType
     toolset_specs: list[ToolsetSpec] = field(default_factory=list)
     description: str | None = None
-    schema_in: type["WorkerArgs"] | None = None
+    schema_in: type["AgentArgs"] | None = None
     schema_out: type[BaseModel] | None = None
     model_settings: ModelSettings | None = None
     builtin_tools: list[Any] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if self.schema_in is not None and not issubclass(self.schema_in, WorkerArgs):
-            raise TypeError(f"schema_in must subclass WorkerArgs; got {self.schema_in}")
+        if self.schema_in is not None and not issubclass(self.schema_in, AgentArgs):
+            raise TypeError(f"schema_in must subclass AgentArgs; got {self.schema_in}")
         if self.schema_out is not None and not issubclass(self.schema_out, BaseModel):
             raise TypeError(f"schema_out must subclass BaseModel; got {self.schema_out}")
         for spec in self.toolset_specs:

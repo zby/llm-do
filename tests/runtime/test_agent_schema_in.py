@@ -3,13 +3,13 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.usage import RunUsage
 
-from llm_do.runtime import AgentSpec, PromptContent, WorkerArgs
+from llm_do.runtime import AgentSpec, PromptContent, AgentArgs
 from llm_do.runtime.args import normalize_input
 from llm_do.toolsets.agent import agent_as_toolset
 from tests.runtime.helpers import build_runtime_context
 
 
-class TopicInput(WorkerArgs):
+class TopicInput(AgentArgs):
     topic: str
     limit: int = 3
 
@@ -17,7 +17,7 @@ class TopicInput(WorkerArgs):
         return [f"topic={self.topic}\nlimit={self.limit}"]
 
 
-class TextInput(WorkerArgs):
+class TextInput(AgentArgs):
     input: str
 
     def prompt_messages(self) -> list[PromptContent]:

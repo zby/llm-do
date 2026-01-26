@@ -1,47 +1,47 @@
-"""Tests for worker file parsing."""
+"""Tests for agent file parsing."""
 import pytest
 
-from llm_do.runtime import WorkerDefinition, WorkerFileParser, parse_worker_file
+from llm_do.runtime import AgentDefinition, AgentFileParser, parse_agent_file
 
 
-class TestParseWorkerFile:
-    """Tests for parse_worker_file function."""
+class TestParseAgentFile:
+    """Tests for parse_agent_file function."""
 
-    def test_basic_worker_file(self):
-        """Test parsing a basic worker file."""
+    def test_basic_agent_file(self):
+        """Test parsing a basic agent file."""
         content = """\
 ---
-name: test_worker
+name: test_agent
 model: anthropic:claude-haiku-4-5
 ---
 These are the instructions.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
-        assert result.name == "test_worker"
+        assert result.name == "test_agent"
         assert result.model == "anthropic:claude-haiku-4-5"
         assert result.instructions == "These are the instructions."
         assert result.description is None
         assert result.toolsets == []
 
-    def test_worker_file_with_description(self):
-        """Test parsing a worker file with description."""
+    def test_agent_file_with_description(self):
+        """Test parsing an agent file with description."""
         content = """\
 ---
-name: my_worker
-description: A helpful worker
+name: my_agent
+description: A helpful agent
 model: openai:gpt-4o-mini
 ---
 Instructions here.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
-        assert result.name == "my_worker"
-        assert result.description == "A helpful worker"
+        assert result.name == "my_agent"
+        assert result.description == "A helpful agent"
         assert result.model == "openai:gpt-4o-mini"
 
-    def test_worker_file_with_toolsets(self):
-        """Test parsing a worker file with toolsets section."""
+    def test_agent_file_with_toolsets(self):
+        """Test parsing an agent file with toolsets section."""
         content = """\
 ---
 name: main
@@ -53,15 +53,15 @@ toolsets:
 ---
 You are a helpful assistant.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
         assert result.name == "main"
         assert result.schema_in_ref == "schemas.py:TopicInput"
         assert "shell_readonly" in result.toolsets
         assert "calc_tools" in result.toolsets
 
-    def test_worker_file_with_toolsets_list(self):
-        """Test parsing a worker file with toolsets list."""
+    def test_agent_file_with_toolsets_list(self):
+        """Test parsing an agent file with toolsets list."""
         content = """\
 ---
 name: main
@@ -71,12 +71,12 @@ toolsets:
 ---
 Instructions.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
         assert "my_tools" in result.toolsets
 
-    def test_worker_file_multiline_instructions(self):
-        """Test parsing a worker file with multiline instructions."""
+    def test_agent_file_multiline_instructions(self):
+        """Test parsing an agent file with multiline instructions."""
         content = """\
 ---
 name: main
@@ -88,7 +88,7 @@ Line 2.
 
 Line 3.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
         assert "Line 1." in result.instructions
         assert "Line 2." in result.instructions
@@ -99,7 +99,7 @@ Line 3.
         content = "Just some text without frontmatter."
 
         with pytest.raises(ValueError, match="missing frontmatter"):
-            parse_worker_file(content)
+            parse_agent_file(content)
 
     def test_missing_name_raises(self):
         """Test that missing name field raises ValueError."""
@@ -110,7 +110,7 @@ model: test-model
 Instructions.
 """
         with pytest.raises(ValueError, match="must have a 'name' field"):
-            parse_worker_file(content)
+            parse_agent_file(content)
 
     def test_invalid_frontmatter_raises(self):
         """Test that invalid frontmatter (list instead of mapping) raises ValueError."""
@@ -124,7 +124,7 @@ Instructions.
 """
         # python-frontmatter treats non-dict frontmatter as missing
         with pytest.raises(ValueError, match="missing frontmatter"):
-            parse_worker_file(content)
+            parse_agent_file(content)
 
     def test_invalid_toolsets_raises(self):
         """Test that invalid toolsets section raises ValueError."""
@@ -137,7 +137,7 @@ toolsets:
 Instructions.
 """
         with pytest.raises(ValueError, match="expected YAML list"):
-            parse_worker_file(content)
+            parse_agent_file(content)
 
     def test_invalid_toolset_entry_raises(self):
         """Test that invalid toolset entries raise ValueError."""
@@ -150,7 +150,7 @@ toolsets:
 Instructions.
 """
         with pytest.raises(ValueError, match="expected non-empty string"):
-            parse_worker_file(content)
+            parse_agent_file(content)
 
     def test_duplicate_toolset_entry_raises(self):
         """Test that duplicate toolset entries raise ValueError."""
@@ -164,19 +164,19 @@ toolsets:
 Instructions.
 """
         with pytest.raises(ValueError, match="Duplicate toolset entry"):
-            parse_worker_file(content)
+            parse_agent_file(content)
 
     def test_no_model(self):
-        """Test parsing a worker file without a model."""
+        """Test parsing an agent file without a model."""
         content = """\
 ---
-name: test_worker
+name: test_agent
 ---
 Instructions.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
-        assert result.name == "test_worker"
+        assert result.name == "test_agent"
         assert result.model is None
 
     def test_server_side_tools_web_search(self):
@@ -191,7 +191,7 @@ server_side_tools:
 ---
 Use web search to find information.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
         assert result.name == "searcher"
         assert len(result.server_side_tools) == 1
@@ -211,7 +211,7 @@ server_side_tools:
 ---
 Instructions.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
         assert len(result.server_side_tools) == 1
         tool = result.server_side_tools[0]
@@ -230,7 +230,7 @@ server_side_tools:
 ---
 Instructions.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
         assert len(result.server_side_tools) == 3
         types = [t["tool_type"] for t in result.server_side_tools]
@@ -249,7 +249,7 @@ server_side_tools:
 Instructions.
 """
         with pytest.raises(ValueError, match="expected YAML list"):
-            parse_worker_file(content)
+            parse_agent_file(content)
 
     def test_server_side_tools_defaults_to_empty_list(self):
         """Test that server_side_tools defaults to empty list."""
@@ -259,15 +259,15 @@ name: basic
 ---
 Instructions.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
         assert result.server_side_tools == []
 
     def test_compatible_models(self):
-        """Test parsing compatible_models from worker file."""
+        """Test parsing compatible_models from agent file."""
         content = """\
 ---
-name: strict_worker
+name: strict_agent
 model: anthropic:claude-sonnet-4-20250514
 compatible_models:
   - anthropic:claude-sonnet-4-20250514
@@ -276,7 +276,7 @@ compatible_models:
 ---
 Instructions.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
         assert result.compatible_models == [
             "anthropic:claude-sonnet-4-20250514",
@@ -294,7 +294,7 @@ compatible_models: not-a-list
 Instructions.
 """
         with pytest.raises(ValueError, match="expected YAML list"):
-            parse_worker_file(content)
+            parse_agent_file(content)
 
     def test_schema_in_ref_invalid_format_raises(self):
         """Test that invalid schema_in_ref format raises ValueError."""
@@ -307,7 +307,7 @@ schema_in_ref:
 Instructions.
 """
         with pytest.raises(ValueError, match="schema_in_ref"):
-            parse_worker_file(content)
+            parse_agent_file(content)
 
     def test_compatible_models_defaults_to_none(self):
         """Test that compatible_models defaults to None."""
@@ -317,48 +317,48 @@ name: basic
 ---
 Instructions.
 """
-        result = parse_worker_file(content)
+        result = parse_agent_file(content)
 
         assert result.compatible_models is None
 
 
-class TestWorkerFileParser:
-    """Tests for WorkerFileParser class."""
+class TestAgentFileParser:
+    """Tests for AgentFileParser class."""
 
-    def test_parser_parse_returns_worker_definition(self):
-        """Test that parser.parse() returns a WorkerDefinition."""
-        parser = WorkerFileParser()
+    def test_parser_parse_returns_agent_definition(self):
+        """Test that parser.parse() returns an AgentDefinition."""
+        parser = AgentFileParser()
         content = """\
 ---
-name: test_worker
+name: test_agent
 model: anthropic:claude-haiku-4-5
 ---
 Instructions here.
 """
         result = parser.parse(content)
 
-        assert isinstance(result, WorkerDefinition)
-        assert result.name == "test_worker"
+        assert isinstance(result, AgentDefinition)
+        assert result.name == "test_agent"
         assert result.model == "anthropic:claude-haiku-4-5"
 
     def test_parser_instance_reusable(self):
         """Test that a parser instance can be reused for multiple files."""
-        parser = WorkerFileParser()
+        parser = AgentFileParser()
 
         content1 = """\
 ---
-name: worker1
+name: agent1
 ---
-First worker.
+First agent.
 """
         content2 = """\
 ---
-name: worker2
+name: agent2
 ---
-Second worker.
+Second agent.
 """
         result1 = parser.parse(content1)
         result2 = parser.parse(content2)
 
-        assert result1.name == "worker1"
-        assert result2.name == "worker2"
+        assert result1.name == "agent1"
+        assert result2.name == "agent2"

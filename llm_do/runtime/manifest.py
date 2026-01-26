@@ -16,13 +16,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 ApprovalMode = Literal["prompt", "approve_all", "reject_all"]
 
 
-class WorkerApprovalOverride(BaseModel):
-    """Per-worker approval override configuration."""
+class AgentApprovalOverride(BaseModel):
+    """Per-agent approval override configuration."""
 
     model_config = ConfigDict(extra="forbid")
 
     calls_require_approval: bool | None = None
     attachments_require_approval: bool | None = None
+
+
+# Backwards compatibility alias (deprecated)
+WorkerApprovalOverride = AgentApprovalOverride
 
 
 class ManifestRuntimeConfig(BaseModel):
@@ -33,9 +37,24 @@ class ManifestRuntimeConfig(BaseModel):
     approval_mode: ApprovalMode = "prompt"
     max_depth: int = Field(default=5, ge=1)
     return_permission_errors: bool = False
-    worker_calls_require_approval: bool = False
-    worker_attachments_require_approval: bool = False
-    worker_approval_overrides: dict[str, WorkerApprovalOverride] = Field(default_factory=dict)
+    agent_calls_require_approval: bool = False
+    agent_attachments_require_approval: bool = False
+    agent_approval_overrides: dict[str, AgentApprovalOverride] = Field(default_factory=dict)
+    # Backwards compatibility aliases (deprecated)
+    worker_calls_require_approval: bool | None = None
+    worker_attachments_require_approval: bool | None = None
+    worker_approval_overrides: dict[str, AgentApprovalOverride] | None = None
+
+    @model_validator(mode="after")
+    def migrate_worker_fields(self) -> "ManifestRuntimeConfig":
+        """Migrate deprecated worker_* fields to agent_* fields."""
+        if self.worker_calls_require_approval is not None:
+            object.__setattr__(self, "agent_calls_require_approval", self.worker_calls_require_approval)
+        if self.worker_attachments_require_approval is not None:
+            object.__setattr__(self, "agent_attachments_require_approval", self.worker_attachments_require_approval)
+        if self.worker_approval_overrides is not None:
+            object.__setattr__(self, "agent_approval_overrides", self.worker_approval_overrides)
+        return self
 
 
 class EntryConfig(BaseModel):
@@ -59,8 +78,10 @@ class ProjectManifest(BaseModel):
     runtime: ManifestRuntimeConfig
     allow_cli_input: bool = True
     entry: EntryConfig
-    worker_files: list[str] = Field(default_factory=list)
+    agent_files: list[str] = Field(default_factory=list)
     python_files: list[str] = Field(default_factory=list)
+    # Backwards compatibility alias (deprecated)
+    worker_files: list[str] | None = None
 
     @field_validator("version")
     @classmethod
@@ -69,7 +90,7 @@ class ProjectManifest(BaseModel):
             raise ValueError(f"Unsupported manifest version: {v}. Only version 1 is supported.")
         return v
 
-    @field_validator("worker_files", "python_files")
+    @field_validator("agent_files", "python_files")
     @classmethod
     def validate_file_list(cls, v: list[str]) -> list[str]:
         # Check for empty strings
@@ -89,8 +110,11 @@ class ProjectManifest(BaseModel):
 
     @model_validator(mode="after")
     def validate_has_files(self) -> "ProjectManifest":
-        if not self.worker_files and not self.python_files:
-            raise ValueError("At least one worker_files or python_files entry is required")
+        # Migrate deprecated worker_files to agent_files
+        if self.worker_files is not None:
+            object.__setattr__(self, "agent_files", self.worker_files)
+        if not self.agent_files and not self.python_files:
+            raise ValueError("At least one agent_files or python_files entry is required")
         return self
 
 
@@ -138,19 +162,19 @@ def resolve_manifest_paths(
         manifest_dir: Directory containing the manifest file
 
     Returns:
-        Tuple of (resolved worker file paths, resolved python file paths)
+        Tuple of (resolved agent file paths, resolved python file paths)
 
     Raises:
         FileNotFoundError: If any referenced file does not exist
     """
-    worker_paths: list[Path] = []
+    agent_paths: list[Path] = []
     python_paths: list[Path] = []
 
-    for worker_file in manifest.worker_files:
-        resolved = (manifest_dir / worker_file).resolve()
+    for agent_file in manifest.agent_files:
+        resolved = (manifest_dir / agent_file).resolve()
         if not resolved.exists():
-            raise FileNotFoundError(f"Worker file not found: {worker_file} (resolved: {resolved})")
-        worker_paths.append(resolved)
+            raise FileNotFoundError(f"Agent file not found: {agent_file} (resolved: {resolved})")
+        agent_paths.append(resolved)
 
     for python_file in manifest.python_files:
         resolved = (manifest_dir / python_file).resolve()
@@ -158,4 +182,4 @@ def resolve_manifest_paths(
             raise FileNotFoundError(f"Python file not found: {python_file} (resolved: {resolved})")
         python_paths.append(resolved)
 
-    return worker_paths, python_paths
+    return agent_paths, python_paths

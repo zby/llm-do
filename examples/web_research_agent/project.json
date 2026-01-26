@@ -7,11 +7,11 @@
   "entry": {
     "input": {"input": "Research the current state of large language model agents and their applications"}
   },
-  "worker_files": [
-    "main.worker",
-    "web_research_extractor.worker",
-    "web_research_consolidator.worker",
-    "web_research_reporter.worker"
+  "agent_files": [
+    "main.agent",
+    "web_research_extractor.agent",
+    "web_research_consolidator.agent",
+    "web_research_reporter.agent"
   ],
   "python_files": ["tools.py"]
 }

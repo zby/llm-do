@@ -7,6 +7,6 @@
   "entry": {
     "input": {"input": "Evaluate all pitch decks in the input directory"}
   },
-  "worker_files": ["main.worker", "pitch_evaluator.worker"],
+  "agent_files": ["main.agent", "pitch_evaluator.agent"],
   "python_files": ["tools.py"]
 }

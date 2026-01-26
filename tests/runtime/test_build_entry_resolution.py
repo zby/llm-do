@@ -12,16 +12,16 @@ EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
 @pytest.mark.anyio
 async def test_build_entry_resolves_nested_agent_toolsets() -> None:
-    worker_files = [
-        str(EXAMPLES_DIR / "web_research_agent" / "main.worker"),
-        str(EXAMPLES_DIR / "web_research_agent" / "web_research_extractor.worker"),
-        str(EXAMPLES_DIR / "web_research_agent" / "web_research_consolidator.worker"),
-        str(EXAMPLES_DIR / "web_research_agent" / "web_research_reporter.worker"),
+    agent_files = [
+        str(EXAMPLES_DIR / "web_research_agent" / "main.agent"),
+        str(EXAMPLES_DIR / "web_research_agent" / "web_research_extractor.agent"),
+        str(EXAMPLES_DIR / "web_research_agent" / "web_research_consolidator.agent"),
+        str(EXAMPLES_DIR / "web_research_agent" / "web_research_reporter.agent"),
     ]
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
     entry_spec, registry = build_entry(
-        worker_files,
+        agent_files,
         python_files,
         project_root=EXAMPLES_DIR / "web_research_agent",
     )
@@ -88,13 +88,13 @@ async def test_build_entry_schema_in_ref_reuses_loaded_module(
     marker_literal = repr(str(marker_path))
     schema_path.write_text(
         f"""\
-from llm_do.runtime import PromptContent, WorkerArgs
+from llm_do.runtime import PromptContent, AgentArgs
 
 _marker = {marker_literal}
 with open(_marker, "a", encoding="utf-8") as handle:
     handle.write("x\\n")
 
-class NoteInput(WorkerArgs):
+class NoteInput(AgentArgs):
     input: str
 
     def prompt_messages(self) -> list[PromptContent]:
@@ -102,8 +102,8 @@ class NoteInput(WorkerArgs):
 """,
         encoding="utf-8",
     )
-    worker_path = tmp_path / "main.worker"
-    worker_path.write_text(
+    agent_path = tmp_path / "main.agent"
+    agent_path.write_text(
         """\
 ---
 name: main
@@ -115,7 +115,7 @@ Instructions.
         encoding="utf-8",
     )
 
-    build_entry([str(worker_path)], [str(schema_path)], project_root=tmp_path)
+    build_entry([str(agent_path)], [str(schema_path)], project_root=tmp_path)
 
     lines = marker_path.read_text(encoding="utf-8").splitlines()
     assert lines == ["x"]
@@ -126,10 +126,10 @@ async def test_build_entry_resolves_schema_in_ref(tmp_path: Path) -> None:
     schema_path = tmp_path / "schemas.py"
     schema_path.write_text(
         """\
-from llm_do.runtime import PromptContent, WorkerArgs
+from llm_do.runtime import PromptContent, AgentArgs
 
 
-class NoteInput(WorkerArgs):
+class NoteInput(AgentArgs):
     input: str
 
     def prompt_messages(self) -> list[PromptContent]:
@@ -137,8 +137,8 @@ class NoteInput(WorkerArgs):
 """,
         encoding="utf-8",
     )
-    worker_path = tmp_path / "main.worker"
-    worker_path.write_text(
+    agent_path = tmp_path / "main.agent"
+    agent_path.write_text(
         """\
 ---
 name: main
@@ -150,19 +150,19 @@ Instructions.
         encoding="utf-8",
     )
 
-    entry_spec, _registry = build_entry([str(worker_path)], [], project_root=tmp_path)
+    entry_spec, _registry = build_entry([str(agent_path)], [], project_root=tmp_path)
     assert entry_spec.schema_in is not None
     assert entry_spec.schema_in.__name__ == "NoteInput"
 
 
 @pytest.mark.anyio
 async def test_build_entry_rejects_duplicate_toolset_names(tmp_path: Path) -> None:
-    reserved_worker = tmp_path / "shell_readonly.worker"
+    reserved_worker = tmp_path / "shell_readonly.agent"
     reserved_worker.write_text(
         "---\nname: shell_readonly\n---\nReserved name.\n",
         encoding="utf-8",
     )
-    entry_worker = tmp_path / "main.worker"
+    entry_worker = tmp_path / "main.agent"
     entry_worker.write_text(
         "---\nname: main\nentry: true\n---\nHello.\n",
         encoding="utf-8",

@@ -40,50 +40,54 @@ class UsageCollector:
 
 
 class MessageAccumulator:
-    """Thread-safe sink for capturing messages across workers."""
+    """Thread-safe sink for capturing messages across agents."""
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._messages: list[tuple[str, int, Any]] = []
 
-    def append(self, worker_name: str, depth: int, message: Any) -> None:
+    def append(self, agent_name: str, depth: int, message: Any) -> None:
         with self._lock:
-            self._messages.append((worker_name, depth, message))
+            self._messages.append((agent_name, depth, message))
 
-    def extend(self, worker_name: str, depth: int, messages: list[Any]) -> None:
+    def extend(self, agent_name: str, depth: int, messages: list[Any]) -> None:
         with self._lock:
-            self._messages.extend((worker_name, depth, msg) for msg in messages)
+            self._messages.extend((agent_name, depth, msg) for msg in messages)
 
     def all(self) -> list[tuple[str, int, Any]]:
         with self._lock:
             return list(self._messages)
 
-    def for_worker(self, worker_name: str) -> list[Any]:
+    def for_agent(self, agent_name: str) -> list[Any]:
         with self._lock:
-            return [msg for name, _, msg in self._messages if name == worker_name]
+            return [msg for name, _, msg in self._messages if name == agent_name]
 
 
 @dataclass(frozen=True, slots=True)
-class WorkerApprovalConfig:
-    """Per-worker approval overrides."""
+class AgentApprovalConfig:
+    """Per-agent approval overrides."""
     calls_require_approval: bool | None = None
     attachments_require_approval: bool | None = None
 
 
-def _normalize_worker_approval_overrides(overrides: Mapping[str, Any] | None) -> dict[str, WorkerApprovalConfig]:
+def _normalize_agent_approval_overrides(overrides: Mapping[str, Any] | None) -> dict[str, AgentApprovalConfig]:
     if not overrides:
         return {}
-    normalized: dict[str, WorkerApprovalConfig] = {}
+    normalized: dict[str, AgentApprovalConfig] = {}
     for name, value in overrides.items():
-        if isinstance(value, WorkerApprovalConfig):
+        if isinstance(value, AgentApprovalConfig):
             normalized[name] = value
         elif hasattr(value, "model_dump"):
             value = value.model_dump()
-            normalized[name] = WorkerApprovalConfig(calls_require_approval=value.get("calls_require_approval"), attachments_require_approval=value.get("attachments_require_approval"))
+            normalized[name] = AgentApprovalConfig(calls_require_approval=value.get("calls_require_approval"), attachments_require_approval=value.get("attachments_require_approval"))
         elif isinstance(value, Mapping):
-            normalized[name] = WorkerApprovalConfig(calls_require_approval=value.get("calls_require_approval"), attachments_require_approval=value.get("attachments_require_approval"))
+            normalized[name] = AgentApprovalConfig(calls_require_approval=value.get("calls_require_approval"), attachments_require_approval=value.get("attachments_require_approval"))
         else:
-            raise TypeError("worker_approval_overrides values must be mappings or WorkerApprovalConfig")
+            raise TypeError("agent_approval_overrides values must be mappings or AgentApprovalConfig")
     return normalized
+
+
+# Backwards compatibility alias (deprecated)
+WorkerApprovalConfig = AgentApprovalConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,9 +97,9 @@ class RuntimeConfig:
     project_root: Path | None = None
     return_permission_errors: bool = False
     max_depth: int = 5
-    worker_calls_require_approval: bool = False
-    worker_attachments_require_approval: bool = False
-    worker_approval_overrides: dict[str, WorkerApprovalConfig] = field(default_factory=dict)
+    agent_calls_require_approval: bool = False
+    agent_attachments_require_approval: bool = False
+    agent_approval_overrides: dict[str, AgentApprovalConfig] = field(default_factory=dict)
     on_event: EventCallback | None = None
     message_log_callback: MessageLogCallback | None = None
     verbosity: int = 0
@@ -110,13 +114,25 @@ class Runtime:
         project_root: Path | None = None,
         run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
-        worker_calls_require_approval: bool = False,
-        worker_attachments_require_approval: bool = False,
-        worker_approval_overrides: Mapping[str, Any] | None = None,
+        agent_calls_require_approval: bool = False,
+        agent_attachments_require_approval: bool = False,
+        agent_approval_overrides: Mapping[str, Any] | None = None,
         on_event: EventCallback | None = None,
         message_log_callback: MessageLogCallback | None = None,
         verbosity: int = 0,
+        # Backwards compatibility aliases (deprecated)
+        worker_calls_require_approval: bool | None = None,
+        worker_attachments_require_approval: bool | None = None,
+        worker_approval_overrides: Mapping[str, Any] | None = None,
     ) -> None:
+        # Support deprecated parameter names
+        if worker_calls_require_approval is not None:
+            agent_calls_require_approval = worker_calls_require_approval
+        if worker_attachments_require_approval is not None:
+            agent_attachments_require_approval = worker_attachments_require_approval
+        if worker_approval_overrides is not None:
+            agent_approval_overrides = worker_approval_overrides
+
         policy = run_approval_policy or RunApprovalPolicy(mode="approve_all")
         approval_callback = resolve_approval_callback(policy)
         self._config = RuntimeConfig(
@@ -124,10 +140,10 @@ class Runtime:
             project_root=project_root,
             return_permission_errors=policy.return_permission_errors,
             max_depth=max_depth,
-            worker_calls_require_approval=worker_calls_require_approval,
-            worker_attachments_require_approval=worker_attachments_require_approval,
-            worker_approval_overrides=_normalize_worker_approval_overrides(
-                worker_approval_overrides
+            agent_calls_require_approval=agent_calls_require_approval,
+            agent_attachments_require_approval=agent_attachments_require_approval,
+            agent_approval_overrides=_normalize_agent_approval_overrides(
+                agent_approval_overrides
             ),
             on_event=on_event,
             message_log_callback=message_log_callback,
@@ -168,11 +184,11 @@ class Runtime:
         """Create a new RunUsage and add it to the shared usage sink."""
         return self._usage.create()
 
-    def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
+    def log_messages(self, agent_name: str, depth: int, messages: list[Any]) -> None:
         """Record messages for diagnostic logging."""
-        self._message_log.extend(worker_name, depth, messages)
+        self._message_log.extend(agent_name, depth, messages)
         if self._config.message_log_callback is not None:
-            self._config.message_log_callback(worker_name, depth, messages)
+            self._config.message_log_callback(agent_name, depth, messages)
 
     def spawn_call_runtime(
         self,

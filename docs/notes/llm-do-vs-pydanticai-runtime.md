@@ -27,7 +27,7 @@ what changes in the computational model vs. what is just packaging/convenience?
   in application code.
 
 ### What llm-do adds (concrete behavior)
-- A **runtime registry** that resolves agents and tools by name, with `.worker`
+- A **runtime registry** that resolves agents and tools by name, with `.agent`
   files and `ToolsetSpec` factories loaded from a project manifest.
 - A **unified tool/agent namespace**: agents and tools share names; the LLM sees
   a flat list of callable names, and resolution happens at call time.
@@ -79,6 +79,41 @@ what changes in the computational model vs. what is just packaging/convenience?
   a single call surface where neural and symbolic components can swap without
   changing call sites.
 
+### Comparison: subagents-pydantic-ai (vstorm-co)
+Subagents is a focused delegation toolset for PydanticAI. It adds a `task`
+tool (plus `check_task`, `answer_subagent`, cancellation, etc.) that lets a
+single parent agent spawn named subagents. It supports sync/async/auto execution
+modes, nested subagents, dynamic agent creation, and a pluggable message bus.
+
+Key contrasts with llm-do:
+- **Call surface:** subagents exposes delegation via a *single tool* (`task`)
+  that accepts `subagent_type`. llm-do exposes agents and tools as *peers* in a
+  shared namespace, so the LLM calls the target by name directly.
+- **Async task lifecycle:** subagents provides background task management,
+  status checks, and question/answer flows. llm-do does not provide a built-in
+  task manager or message bus abstraction.
+- **Runtime registry vs toolset add-on:** subagents is a toolset you attach to
+  an existing agent. llm-do provides a registry, entry orchestration, and call
+  scopes as first-class runtime concepts.
+- **Dynamic agent creation:** subagents supports on-the-fly agent creation with
+  a registry and limits. llm-do currently centers on declarative agent specs
+  loaded at startup.
+
+When subagents-pydantic-ai is likely enough:
+- You already have a single PydanticAI parent agent and want a simple way to
+  delegate tasks (including async/background work) without adopting a runtime.
+- You need message-bus style coordination or distributed subagent execution.
+
+When llm-do is still the better fit:
+- You want the **unified tool/agent namespace** so you can swap agents and tools
+  without changing call sites (hybrid VM story).
+- You want deterministic Python entry orchestration and per-call isolation as
+  first-class runtime behavior.
+
+Overlap:
+- Both enable delegation and hierarchical agent structures.
+- Both rely on PydanticAI under the hood and keep tool usage explicit.
+
 ### What is *not* fundamentally new
 - llm-do does not change the underlying LLM semantics. It still uses PydanticAI
   Agents and toolsets under the hood.
@@ -100,7 +135,7 @@ what changes in the computational model vs. what is just packaging/convenience?
   and a CLI/TUI that handles prompting, caching, and logging.
 - You want **uniform composition** where agents and tools are interchangeable,
   enabling progressive stabilization from LLM to code without prompt rewrites.
-- You want **project-level structure**: `.worker` specs, manifest loading,
+- You want **project-level structure**: `.agent` specs, manifest loading,
   standardized toolsets, and centralized runtime configuration.
 - You need **consistent isolation** between agent calls and tool instances,
   including max-depth enforcement and cleanup.
@@ -136,3 +171,6 @@ under the hybrid VM umbrella.
 
 ## References
 - https://ai.pydantic.dev/multi-agent-applications/#agent-delegation-and-dependencies
+- https://github.com/vstorm-co/subagents-pydantic-ai
+- subagents-pydantic-ai/README.md
+- subagents-pydantic-ai/docs/index.md

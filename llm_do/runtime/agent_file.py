@@ -1,6 +1,6 @@
-"""Worker file parsing (.worker format).
+"""Agent file parsing (.agent format).
 
-Worker files use YAML frontmatter followed by markdown instructions:
+Agent files use YAML frontmatter followed by markdown instructions:
 
 ```yaml
 ---
@@ -11,7 +11,7 @@ toolsets:
   - shell_readonly
   - calc_tools
 ---
-Instructions for the worker...
+Instructions for the agent...
 ```
 
 The `toolsets` section is a list of toolset names.
@@ -29,10 +29,10 @@ import frontmatter
 
 
 @dataclass
-class WorkerDefinition:
-    """Parsed worker definition from a .worker file.
+class AgentDefinition:
+    """Parsed agent definition from a .agent file.
 
-    This is the declarative specification extracted from a .worker file,
+    This is the declarative specification extracted from a .agent file,
     containing unresolved toolset references (as strings) that will be
     resolved to ToolsetSpec factories when building an AgentSpec.
     """
@@ -48,7 +48,7 @@ class WorkerDefinition:
 
 
 def _extract_frontmatter_and_instructions(content: str) -> tuple[dict[str, Any], str]:
-    """Extract YAML frontmatter and instructions from worker file content.
+    """Extract YAML frontmatter and instructions from agent file content.
 
     Returns:
         Tuple of (frontmatter dict, instructions string)
@@ -60,23 +60,23 @@ def _extract_frontmatter_and_instructions(content: str) -> tuple[dict[str, Any],
 
     # python-frontmatter returns empty dict for missing/invalid frontmatter
     if not post.metadata:
-        raise ValueError("Invalid worker file format: missing frontmatter")
+        raise ValueError("Invalid agent file format: missing frontmatter")
 
     return dict(post.metadata), post.content.strip()
 
 
-def build_worker_definition(
+def build_agent_definition(
     frontmatter: dict[str, Any],
     instructions: str,
-) -> "WorkerDefinition":
-    """Build a WorkerDefinition from frontmatter and instructions."""
+) -> "AgentDefinition":
+    """Build an AgentDefinition from frontmatter and instructions."""
     fm = frontmatter
 
     name = fm.get("name")
     if not name:
-        raise ValueError("Worker file must have a 'name' field")
+        raise ValueError("Agent file must have a 'name' field")
 
-    return WorkerDefinition(
+    return AgentDefinition(
         name=name,
         description=fm.get("description"),
         instructions=instructions,
@@ -89,8 +89,8 @@ def build_worker_definition(
     )
 
 
-def load_worker_file_parts(path: str | Path) -> tuple[dict[str, Any], str]:
-    """Load a worker file and return raw frontmatter and instructions."""
+def load_agent_file_parts(path: str | Path) -> tuple[dict[str, Any], str]:
+    """Load an agent file and return raw frontmatter and instructions."""
     content = Path(path).read_text(encoding="utf-8")
     return _extract_frontmatter_and_instructions(content)
 
@@ -184,62 +184,62 @@ def _parse_entry(raw: Any) -> bool:
     return raw
 
 
-class WorkerFileParser:
-    """Parser for .worker files.
+class AgentFileParser:
+    """Parser for .agent files.
 
-    Parses YAML frontmatter + Markdown instructions format into WorkerDefinition.
+    Parses YAML frontmatter + Markdown instructions format into AgentDefinition.
     """
 
     def parse(
         self,
         content: str,
-    ) -> WorkerDefinition:
-        """Parse worker file content.
+    ) -> AgentDefinition:
+        """Parse agent file content.
 
         Args:
             content: Raw file content
 
         Returns:
-            Parsed WorkerDefinition
+            Parsed AgentDefinition
 
         Raises:
             ValueError: If file format is invalid
         """
         fm, instructions = _extract_frontmatter_and_instructions(content)
-        return build_worker_definition(fm, instructions)
+        return build_agent_definition(fm, instructions)
 
     def load(
         self,
         path: str | Path,
-    ) -> WorkerDefinition:
-        """Load and parse a worker file from disk.
+    ) -> AgentDefinition:
+        """Load and parse an agent file from disk.
 
         Args:
-            path: Path to worker file
+            path: Path to agent file
 
         Returns:
-            Parsed WorkerDefinition
+            Parsed AgentDefinition
         """
         content = Path(path).read_text(encoding="utf-8")
         return self.parse(content)
 
 
 # Default parser instance
-_default_parser = WorkerFileParser()
+_default_parser = AgentFileParser()
 
 
-def parse_worker_file(
+def parse_agent_file(
     content: str,
-) -> WorkerDefinition:
-    """Parse a worker file with YAML frontmatter and markdown instructions.
+) -> AgentDefinition:
+    """Parse an agent file with YAML frontmatter and markdown instructions.
 
-    This is a convenience function that uses the default WorkerFileParser.
+    This is a convenience function that uses the default AgentFileParser.
 
     Args:
         content: Raw file content
 
     Returns:
-        Parsed WorkerDefinition
+        Parsed AgentDefinition
 
     Raises:
         ValueError: If file format is invalid
@@ -247,17 +247,26 @@ def parse_worker_file(
     return _default_parser.parse(content)
 
 
-def load_worker_file(
+def load_agent_file(
     path: str | Path,
-) -> WorkerDefinition:
-    """Load and parse a worker file from disk.
+) -> AgentDefinition:
+    """Load and parse an agent file from disk.
 
-    This is a convenience function that uses the default WorkerFileParser.
+    This is a convenience function that uses the default AgentFileParser.
 
     Args:
-        path: Path to worker file
+        path: Path to agent file
 
     Returns:
-        Parsed WorkerDefinition
+        Parsed AgentDefinition
     """
     return _default_parser.load(path)
+
+
+# Backwards compatibility aliases (deprecated)
+WorkerDefinition = AgentDefinition
+WorkerFileParser = AgentFileParser
+build_worker_definition = build_agent_definition
+load_worker_file_parts = load_agent_file_parts
+parse_worker_file = parse_agent_file
+load_worker_file = load_agent_file

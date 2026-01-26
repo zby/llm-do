@@ -5,7 +5,7 @@
 
 **Proposed / Design-ready**
 
-This document specifies how `.worker` files, Python tool modules, and projects
+This document specifies how `.agent` files, Python tool modules, and projects
 should be discovered, linked, and executed in `llm-do`, removing the need to
 enumerate every file on the CLI while preserving determinism, security, and
 auditability.
@@ -16,18 +16,18 @@ auditability.
 
 ### Current behavior
 - `llm-do` builds the execution registry from files explicitly passed on the CLI.
-- `.worker` files cannot reference other workers or tools directly.
+- `.agent` files cannot reference other workers or tools directly.
 - Python tools rely on manual CLI inclusion rather than structured discovery.
 
 ### Problems
 - Poor ergonomics for non-trivial projects
-- No dependency closure for `.worker` files
+- No dependency closure for `.agent` files
 - No clear equivalent of Python’s `import` for workers
 - High risk of documentation vs. implementation drift
 
 ### Goals
 1. Run a project by pointing at a directory
-2. Allow `.worker` files to declare dependencies explicitly
+2. Allow `.agent` files to declare dependencies explicitly
 3. Keep execution deterministic and auditable
 4. Preserve existing security guarantees (allowlists, tool approvals)
 
@@ -43,7 +43,7 @@ This spec introduces **two complementary mechanisms**:
 - CLI defaults to project mode when given a directory.
 
 ### B. Worker Imports (Explicit dependency closure)
-- `.worker` files may declare `imports` in front matter.
+- `.agent` files may declare `imports` in front matter.
 - Running a single worker loads its dependency closure without scanning the world.
 
 Both mechanisms coexist:
@@ -95,9 +95,9 @@ project/
 
 ## 5. Worker File Formats
 
-### 5.1 `.worker` format (single file)
+### 5.1 `.agent` format (single file)
 
-A `.worker` file consists of YAML front matter followed by instruction text.
+A `.agent` file consists of YAML front matter followed by instruction text.
 
 ```yaml
 ---
@@ -183,8 +183,8 @@ Worker ID is derived from path under `workers/`:
 
 | File | Worker ID |
 |-----|----------|
-| `workers/evaluator.worker` | `evaluator` |
-| `workers/reports/summarizer.worker` | `reports/summarizer` |
+| `workers/evaluator.agent` | `evaluator` |
+| `workers/reports/summarizer.agent` | `reports/summarizer` |
 
 ---
 
@@ -214,7 +214,7 @@ A worker reference may be:
 1. If ref has an extension:
    - Resolve relative to project root
 2. Else:
-   - Look for `{workers_root}/{id}.worker`
+   - Look for `{workers_root}/{id}.agent`
    - Then `{workers_root}/{id}.yaml`
 3. Error if none found
 4. Error on ambiguity
@@ -278,7 +278,7 @@ entry: pitch_orchestrator
 
 workers:
   root: workers
-  include: ["**/*.worker", "**/*.yaml"]
+  include: ["**/*.agent", "**/*.yaml"]
   exclude: ["**/drafts/**"]
 
 prompts:
@@ -322,7 +322,7 @@ llm-do . --entry pitch_orchestrator "Evaluate all decks"
 ### Worker file invocation
 
 ```bash
-llm-do workers/pitch_orchestrator.worker "Evaluate decks"
+llm-do workers/pitch_orchestrator.agent "Evaluate decks"
 ```
 
 ---
@@ -381,7 +381,7 @@ Defaults:
 
 Minimal changes required:
 
-1. Extend worker loader to support `.worker`
+1. Extend worker loader to support `.agent`
 2. Add `imports` resolution layer
 3. Add canonical worker ID derivation
 4. Generalize tool registration + approval gating

@@ -36,13 +36,13 @@ decomposition.
 - **Dynamic decomposition**: break complex tasks into purpose-built workers
 
 **Required Capabilities**:
-1. **`worker_create(name, instructions, ...)`** - Write a `.worker` file at runtime
+1. **`worker_create(name, instructions, ...)`** - Write a `.agent` file at runtime
 2. **`worker_call(worker, input, ...)`** - Invoke a dynamically created worker
 
 `worker_call` is needed because `ctx.deps.call(name, input)` only works for
 workers resolved at startup. Alternatives:
 - Dynamic re-resolution (complex, may have side effects)
-- Shell workaround: `llm-do new.worker "input"` (works but hacky)
+- Shell workaround: `llm-do new.agent "input"` (works but hacky)
 - PydanticAI `DynamicToolset` exposure (works for *next run step*, but not
   create+call in the same model response due to per-step tool definition caching)
 
@@ -50,7 +50,7 @@ workers resolved at startup. Alternatives:
 
 A new toolset (e.g., `dynamic_workers`) providing:
 
-- `worker_create(name, instructions, description, model?)` - creates `.worker` file
+- `worker_create(name, instructions, description, model?)` - creates `.agent` file
 - `worker_call(worker, input, attachments?)` - invokes the created worker
 
 ### Experimental scope (YAGNI)
@@ -84,7 +84,7 @@ in that same response. This makes `worker_call` a core UX tool, not optional.
 - **Session registry** (runtime-owned state): stores session-created `Worker`s
   and any metadata needed for persistence (path, created_by, etc.).
 - **`dynamic_workers` toolset**: exposes:
-  - `worker_create(...)`: validate name, write `.worker`, load/build `Worker`,
+  - `worker_create(...)`: validate name, write `.agent`, load/build `Worker`,
     wrap its toolsets for approval, then register it in session registry.
   - `worker_call(worker=..., input=..., attachments=...)`: resolve worker from
     session registry and run it immediately.

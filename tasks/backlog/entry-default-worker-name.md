@@ -1,7 +1,7 @@
 # Default Entry Uses Worker Name
 
 ## Idea
-When `--entry` is omitted and exactly one `.worker` file is provided, run that worker by its `name` (instead of assuming `main`), so users don't need `main.worker`.
+When `--entry` is omitted and exactly one `.agent` file is provided, run that worker by its `name` (instead of assuming `main`), so users don't need `main.agent`.
 
 ## Why
 Reduces boilerplate and makes single-worker projects feel more natural when the worker has a descriptive name.

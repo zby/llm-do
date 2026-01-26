@@ -2,7 +2,7 @@
 
 ## Idea
 Reintroduce runtime overrides for worker configuration via a `--set` CLI flag,
-targeting `.worker` definitions and mapping to a clear override syntax.
+targeting `.agent` definitions and mapping to a clear override syntax.
 
 ## Why
 Overrides were removed when the CLI did not expose `--set`. If users need

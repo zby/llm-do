@@ -4,16 +4,16 @@ import asyncio
 
 import pytest
 
-from llm_do.ui.controllers import WorkerRunner
+from llm_do.ui.controllers import AgentRunner
 
 
 @pytest.mark.anyio
-async def test_worker_runner_updates_message_history() -> None:
+async def test_agent_runner_updates_message_history() -> None:
     async def run_turn(prompt: str) -> list[object] | None:
         assert prompt == "hello"
         return ["m1"]
 
-    runner = WorkerRunner(run_turn=run_turn)
+    runner = AgentRunner(run_turn=run_turn)
     task = runner.start_turn_task("hello")
     assert runner.is_running() is True
     await task
@@ -22,14 +22,14 @@ async def test_worker_runner_updates_message_history() -> None:
 
 
 @pytest.mark.anyio
-async def test_worker_runner_rejects_concurrent_turns() -> None:
+async def test_agent_runner_rejects_concurrent_turns() -> None:
     gate = asyncio.Event()
 
     async def run_turn(_: str) -> list[object] | None:
         await gate.wait()
         return ["done"]
 
-    runner = WorkerRunner(run_turn=run_turn)
+    runner = AgentRunner(run_turn=run_turn)
     task = runner.start_turn_task("first")
     with pytest.raises(RuntimeError, match="already running"):
         runner.start_turn_task("second")

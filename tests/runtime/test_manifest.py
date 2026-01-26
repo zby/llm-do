@@ -22,9 +22,9 @@ class TestManifestRuntimeConfig:
         assert config.approval_mode == "prompt"
         assert config.max_depth == 5
         assert config.return_permission_errors is False
-        assert config.worker_calls_require_approval is False
-        assert config.worker_attachments_require_approval is False
-        assert config.worker_approval_overrides == {}
+        assert config.agent_calls_require_approval is False
+        assert config.agent_attachments_require_approval is False
+        assert config.agent_approval_overrides == {}
 
     def test_approval_modes(self):
         """Test valid approval modes."""
@@ -47,11 +47,11 @@ class TestManifestRuntimeConfig:
         with pytest.raises(ValueError):
             ManifestRuntimeConfig(unknown_field="value")
 
-    def test_worker_approval_overrides_reject_extra_fields(self):
-        """Per-worker overrides should forbid unknown fields."""
+    def test_agent_approval_overrides_reject_extra_fields(self):
+        """Per-agent overrides should forbid unknown fields."""
         with pytest.raises(ValueError):
             ManifestRuntimeConfig(
-                worker_approval_overrides={
+                agent_approval_overrides={
                     "summarizer": {"unexpected": True},
                 }
             )
@@ -92,7 +92,7 @@ class TestProjectManifest:
             version=1,
             runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(),
-            worker_files=["main.worker"],
+            agent_files=["main.agent"],
         )
         assert manifest.version == 1
         assert manifest.allow_cli_input is True
@@ -103,7 +103,7 @@ class TestProjectManifest:
             ProjectManifest(
                 runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(),
-                worker_files=["main.worker"],
+                agent_files=["main.agent"],
             )
 
     def test_unsupported_version(self):
@@ -113,7 +113,7 @@ class TestProjectManifest:
                 version=2,
                 runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(),
-                worker_files=["main.worker"],
+                agent_files=["main.agent"],
             )
 
     def test_runtime_required(self):
@@ -122,7 +122,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 entry=EntryConfig(),
-                worker_files=["main.worker"],
+                agent_files=["main.agent"],
             )
 
     def test_entry_required(self):
@@ -131,11 +131,11 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 runtime=ManifestRuntimeConfig(),
-                worker_files=["main.worker"],
+                agent_files=["main.agent"],
             )
 
     def test_requires_at_least_one_file(self):
-        """Test at least one worker_files or python_files required."""
+        """Test at least one agent_files or python_files required."""
         with pytest.raises(ValueError, match="At least one"):
             ProjectManifest(
                 version=1,
@@ -150,7 +150,7 @@ class TestProjectManifest:
                 version=1,
                 runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(),
-                worker_files=[""],
+                agent_files=[""],
             )
 
     def test_duplicate_file_paths_rejected(self):
@@ -160,7 +160,7 @@ class TestProjectManifest:
                 version=1,
                 runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(),
-                worker_files=["main.worker", "main.worker"],
+                agent_files=["main.agent", "main.agent"],
             )
 
     def test_allow_cli_input_default_true(self):
@@ -191,7 +191,7 @@ class TestProjectManifest:
                 version=1,
                 runtime=ManifestRuntimeConfig(),
                 entry=EntryConfig(),
-                worker_files=["main.worker"],
+                agent_files=["main.agent"],
                 unknown_field="value",
             )
 
@@ -205,7 +205,7 @@ class TestLoadManifest:
             "version": 1,
             "runtime": {"approval_mode": "approve_all", "max_depth": 3},
             "entry": {},
-            "worker_files": ["main.worker"],
+            "agent_files": ["main.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
@@ -245,7 +245,7 @@ class TestLoadManifest:
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
             "entry": {},
-            "worker_files": ["main.worker"],
+            "agent_files": ["main.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
@@ -269,8 +269,8 @@ class TestResolveManifestPaths:
     def test_resolve_existing_files(self, tmp_path):
         """Test resolving existing file paths."""
         # Create test files
-        worker = tmp_path / "main.worker"
-        worker.write_text("---\nname: main\n---\nTest")
+        agent = tmp_path / "main.agent"
+        agent.write_text("---\nname: main\n---\nTest")
         python = tmp_path / "tools.py"
         python.write_text("# tools")
 
@@ -278,27 +278,27 @@ class TestResolveManifestPaths:
             version=1,
             runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(),
-            worker_files=["main.worker"],
+            agent_files=["main.agent"],
             python_files=["tools.py"],
         )
 
-        worker_paths, python_paths = resolve_manifest_paths(manifest, tmp_path)
+        agent_paths, python_paths = resolve_manifest_paths(manifest, tmp_path)
 
-        assert len(worker_paths) == 1
+        assert len(agent_paths) == 1
         assert len(python_paths) == 1
-        assert worker_paths[0] == worker.resolve()
+        assert agent_paths[0] == agent.resolve()
         assert python_paths[0] == python.resolve()
 
-    def test_worker_file_not_found(self, tmp_path):
-        """Test missing worker file raises FileNotFoundError."""
+    def test_agent_file_not_found(self, tmp_path):
+        """Test missing agent file raises FileNotFoundError."""
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(),
-            worker_files=["missing.worker"],
+            agent_files=["missing.agent"],
         )
 
-        with pytest.raises(FileNotFoundError, match="Worker file not found"):
+        with pytest.raises(FileNotFoundError, match="Agent file not found"):
             resolve_manifest_paths(manifest, tmp_path)
 
     def test_python_file_not_found(self, tmp_path):
@@ -316,18 +316,18 @@ class TestResolveManifestPaths:
     def test_relative_path_resolution(self, tmp_path):
         """Test paths are resolved relative to manifest directory."""
         # Create nested directory structure
-        subdir = tmp_path / "workers"
+        subdir = tmp_path / "agents"
         subdir.mkdir()
-        worker = subdir / "main.worker"
-        worker.write_text("---\nname: main\n---\nTest")
+        agent = subdir / "main.agent"
+        agent.write_text("---\nname: main\n---\nTest")
 
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
             entry=EntryConfig(),
-            worker_files=["workers/main.worker"],
+            agent_files=["agents/main.agent"],
         )
 
-        worker_paths, _ = resolve_manifest_paths(manifest, tmp_path)
+        agent_paths, _ = resolve_manifest_paths(manifest, tmp_path)
 
-        assert worker_paths[0] == worker.resolve()
+        assert agent_paths[0] == agent.resolve()

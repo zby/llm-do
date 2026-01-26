@@ -1,4 +1,4 @@
-"""Worker lifecycle and chat message history (UI-agnostic)."""
+"""Agent lifecycle and chat message history (UI-agnostic)."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ RunTurnFn = Callable[[str], Awaitable[list[Any] | None]]
 
 
 @dataclass(slots=True)
-class WorkerRunner:
-    """Manages a single in-flight worker task and conversation message history."""
+class AgentRunner:
+    """Manages a single in-flight agent task and conversation message history."""
 
     run_turn: RunTurnFn | None = None
     message_history: list[Any] = field(default_factory=list)
@@ -22,7 +22,7 @@ class WorkerRunner:
 
     def start_background(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
         if self.is_running():
-            raise RuntimeError("Worker task already running")
+            raise RuntimeError("Agent task already running")
         self._task = asyncio.create_task(coro)
         return self._task
 
@@ -39,7 +39,11 @@ class WorkerRunner:
 
     def start_turn_task(self, prompt: str) -> asyncio.Task[list[Any] | None]:
         if self.is_running():
-            raise RuntimeError("Worker task already running")
+            raise RuntimeError("Agent task already running")
         task = asyncio.create_task(self.run_turn_and_update(prompt))
         self._task = task
         return task
+
+
+# Backwards compatibility alias (deprecated)
+WorkerRunner = AgentRunner

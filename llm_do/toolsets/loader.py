@@ -1,4 +1,4 @@
-"""Toolset resolution for workers."""
+"""Toolset resolution for agents."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -20,20 +20,26 @@ def resolve_toolset_specs(
     toolsets_definition: Sequence[str],
     *,
     available_toolsets: Mapping[str, ToolsetSpec],
-    worker_name: str,
+    agent_name: str = "",
+    # Backwards compatibility alias (deprecated)
+    worker_name: str | None = None,
 ) -> list[ToolsetSpec]:
-    """Resolve toolset specs declared in a worker file.
+    """Resolve toolset specs declared in an agent file.
 
-    Toolsets are registered as factories (built-ins, Python toolsets, workers).
-    Worker YAML may only reference toolset names.
+    Toolsets are registered as factories (built-ins, Python toolsets, agents).
+    Agent YAML may only reference toolset names.
     """
+    # Handle deprecated parameter
+    if worker_name is not None:
+        agent_name = worker_name
+
     specs: list[ToolsetSpec] = []
     for toolset_name in toolsets_definition:
         spec = available_toolsets.get(toolset_name)
         if spec is None:
             available = sorted(available_toolsets.keys())
             raise ValueError(
-                f"Unknown toolset {toolset_name!r} for worker {worker_name!r}. "
+                f"Unknown toolset {toolset_name!r} for agent {agent_name!r}. "
                 f"Available: {available}"
             )
         specs.append(spec)

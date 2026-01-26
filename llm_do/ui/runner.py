@@ -82,9 +82,9 @@ def _build_runtime(
     project_root: Path | None,
     run_approval_policy: RunApprovalPolicy,
     max_depth: int,
-    worker_calls_require_approval: bool,
-    worker_attachments_require_approval: bool,
-    worker_approval_overrides: Mapping[str, Any] | None,
+    agent_calls_require_approval: bool,
+    agent_attachments_require_approval: bool,
+    agent_approval_overrides: Mapping[str, Any] | None,
     on_event: RuntimeEventSink | None,
     message_log_callback: MessageLogCallback | None,
     verbosity: int,
@@ -93,9 +93,9 @@ def _build_runtime(
     factory = runtime_factory or Runtime
     return factory(
         project_root=project_root, run_approval_policy=run_approval_policy, max_depth=max_depth,
-        worker_calls_require_approval=worker_calls_require_approval,
-        worker_attachments_require_approval=worker_attachments_require_approval,
-        worker_approval_overrides=worker_approval_overrides, on_event=on_event,
+        agent_calls_require_approval=agent_calls_require_approval,
+        agent_attachments_require_approval=agent_attachments_require_approval,
+        agent_approval_overrides=agent_approval_overrides, on_event=on_event,
         message_log_callback=message_log_callback, verbosity=verbosity,
     )
 
@@ -132,19 +132,34 @@ async def run_tui(
     verbosity: int = 1,
     return_permission_errors: bool = True,
     max_depth: int = 5,
-    worker_calls_require_approval: bool = False,
-    worker_attachments_require_approval: bool = False,
-    worker_approval_overrides: Mapping[str, Any] | None = None,
+    agent_calls_require_approval: bool = False,
+    agent_attachments_require_approval: bool = False,
+    agent_approval_overrides: Mapping[str, Any] | None = None,
     message_log_callback: MessageLogCallback | None = None,
     extra_backends: Sequence[DisplayBackend] | None = None,
     chat: bool = False,
     initial_prompt: str | None = None,
     debug: bool = False,
-    worker_name: str | None = None,
+    agent_name: str | None = None,
     runtime_factory: RuntimeFactory | None = None,
     error_stream: TextIO | None = None,
+    # Backwards compatibility aliases (deprecated)
+    worker_calls_require_approval: bool | None = None,
+    worker_attachments_require_approval: bool | None = None,
+    worker_approval_overrides: Mapping[str, Any] | None = None,
+    worker_name: str | None = None,
 ) -> RunUiResult:
     """Run a single entry with the Textual TUI."""
+    # Handle deprecated parameter names
+    if worker_calls_require_approval is not None:
+        agent_calls_require_approval = worker_calls_require_approval
+    if worker_attachments_require_approval is not None:
+        agent_attachments_require_approval = worker_attachments_require_approval
+    if worker_approval_overrides is not None:
+        agent_approval_overrides = worker_approval_overrides
+    if worker_name is not None:
+        agent_name = worker_name
+
     _ensure_stdout_textual_driver()
     from .app import LlmDoApp
 
@@ -153,7 +168,7 @@ async def run_tui(
     tui_event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
     tui_backend = TextualDisplayBackend(tui_event_queue)
-    entry_name = worker_name or "entry"
+    entry_name = agent_name or "entry"
 
     render_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     backends: list[DisplayBackend] = [tui_backend]
@@ -190,9 +205,9 @@ async def run_tui(
         project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
-        worker_calls_require_approval=worker_calls_require_approval,
-        worker_attachments_require_approval=worker_attachments_require_approval,
-        worker_approval_overrides=worker_approval_overrides,
+        agent_calls_require_approval=agent_calls_require_approval,
+        agent_attachments_require_approval=agent_attachments_require_approval,
+        agent_approval_overrides=agent_approval_overrides,
         on_event=on_event,
         message_log_callback=message_log_callback,
         verbosity=verbosity,
@@ -209,7 +224,7 @@ async def run_tui(
         nonlocal entry_name
         if entry_instance is None:
             entry_instance = entry_factory()
-            entry_name = worker_name or entry_instance[0].name
+            entry_name = agent_name or entry_instance[0].name
         return entry_instance
 
     def emit_error(message: str, error_type: str) -> None:
@@ -310,16 +325,28 @@ async def run_headless(
     verbosity: int = 1,
     return_permission_errors: bool = True,
     max_depth: int = 5,
-    worker_calls_require_approval: bool = False,
-    worker_attachments_require_approval: bool = False,
-    worker_approval_overrides: Mapping[str, Any] | None = None,
+    agent_calls_require_approval: bool = False,
+    agent_attachments_require_approval: bool = False,
+    agent_approval_overrides: Mapping[str, Any] | None = None,
     backends: Sequence[DisplayBackend] | None = None,
     message_log_callback: MessageLogCallback | None = None,
     debug: bool = False,
     runtime_factory: RuntimeFactory | None = None,
     error_stream: TextIO | None = None,
+    # Backwards compatibility aliases (deprecated)
+    worker_calls_require_approval: bool | None = None,
+    worker_attachments_require_approval: bool | None = None,
+    worker_approval_overrides: Mapping[str, Any] | None = None,
 ) -> RunUiResult:
     """Run a single entry with a headless text backend."""
+    # Handle deprecated parameter names
+    if worker_calls_require_approval is not None:
+        agent_calls_require_approval = worker_calls_require_approval
+    if worker_attachments_require_approval is not None:
+        agent_attachments_require_approval = worker_attachments_require_approval
+    if worker_approval_overrides is not None:
+        agent_approval_overrides = worker_approval_overrides
+
     entry_factory = _resolve_entry_factory(entry, entry_factory, agent_registry)
     if backends is None:
         backends = [HeadlessDisplayBackend(stream=sys.stderr, verbosity=verbosity)]
@@ -345,9 +372,9 @@ async def run_headless(
         project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
-        worker_calls_require_approval=worker_calls_require_approval,
-        worker_attachments_require_approval=worker_attachments_require_approval,
-        worker_approval_overrides=worker_approval_overrides,
+        agent_calls_require_approval=agent_calls_require_approval,
+        agent_attachments_require_approval=agent_attachments_require_approval,
+        agent_approval_overrides=agent_approval_overrides,
         on_event=on_event,
         message_log_callback=message_log_callback,
         verbosity=verbosity,
@@ -395,20 +422,35 @@ async def run_ui(
     verbosity: int = 1,
     return_permission_errors: bool = True,
     max_depth: int = 5,
-    worker_calls_require_approval: bool = False,
-    worker_attachments_require_approval: bool = False,
-    worker_approval_overrides: Mapping[str, Any] | None = None,
+    agent_calls_require_approval: bool = False,
+    agent_attachments_require_approval: bool = False,
+    agent_approval_overrides: Mapping[str, Any] | None = None,
     backends: Sequence[DisplayBackend] | None = None,
     extra_backends: Sequence[DisplayBackend] | None = None,
     message_log_callback: MessageLogCallback | None = None,
     chat: bool = False,
     initial_prompt: str | None = None,
     debug: bool = False,
-    worker_name: str | None = None,
+    agent_name: str | None = None,
     runtime_factory: RuntimeFactory | None = None,
     error_stream: TextIO | None = None,
+    # Backwards compatibility aliases (deprecated)
+    worker_calls_require_approval: bool | None = None,
+    worker_attachments_require_approval: bool | None = None,
+    worker_approval_overrides: Mapping[str, Any] | None = None,
+    worker_name: str | None = None,
 ) -> RunUiResult:
     """Run a single entry with either TUI or headless UI."""
+    # Handle deprecated parameter names
+    if worker_calls_require_approval is not None:
+        agent_calls_require_approval = worker_calls_require_approval
+    if worker_attachments_require_approval is not None:
+        agent_attachments_require_approval = worker_attachments_require_approval
+    if worker_approval_overrides is not None:
+        agent_approval_overrides = worker_approval_overrides
+    if worker_name is not None:
+        agent_name = worker_name
+
     if mode == "tui":
         return await run_tui(
             input=input,
@@ -420,15 +462,15 @@ async def run_ui(
             verbosity=verbosity,
             return_permission_errors=return_permission_errors,
             max_depth=max_depth,
-            worker_calls_require_approval=worker_calls_require_approval,
-            worker_attachments_require_approval=worker_attachments_require_approval,
-            worker_approval_overrides=worker_approval_overrides,
+            agent_calls_require_approval=agent_calls_require_approval,
+            agent_attachments_require_approval=agent_attachments_require_approval,
+            agent_approval_overrides=agent_approval_overrides,
             message_log_callback=message_log_callback,
             extra_backends=extra_backends,
             chat=chat,
             initial_prompt=initial_prompt,
             debug=debug,
-            worker_name=worker_name,
+            agent_name=agent_name,
             runtime_factory=runtime_factory,
             error_stream=error_stream,
         )
@@ -443,9 +485,9 @@ async def run_ui(
             verbosity=verbosity,
             return_permission_errors=return_permission_errors,
             max_depth=max_depth,
-            worker_calls_require_approval=worker_calls_require_approval,
-            worker_attachments_require_approval=worker_attachments_require_approval,
-            worker_approval_overrides=worker_approval_overrides,
+            agent_calls_require_approval=agent_calls_require_approval,
+            agent_attachments_require_approval=agent_attachments_require_approval,
+            agent_approval_overrides=agent_approval_overrides,
             backends=backends,
             message_log_callback=message_log_callback,
             debug=debug,

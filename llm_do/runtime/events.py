@@ -9,7 +9,7 @@ from typing import Any
 class RuntimeEvent:
     """Base event for runtime callbacks (no rendering concerns)."""
 
-    worker: str = ""
+    worker: str = ""  # Note: "worker" field name kept for backwards compatibility; represents agent name
     depth: int = 0
 
 

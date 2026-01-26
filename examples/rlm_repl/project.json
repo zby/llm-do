@@ -9,6 +9,6 @@
       "input": "When did Project Zephyr launch and who led it?"
     }
   },
-  "worker_files": ["rlm.worker"],
+  "agent_files": ["rlm.agent"],
   "python_files": ["tools.py"]
 }

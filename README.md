@@ -24,7 +24,7 @@ On top of the VM sits a **harness**—an imperative orchestration layer where yo
 
 > For the theoretical foundation, see [`docs/theory.md`](docs/theory.md). For implementation details, see [`docs/architecture.md`](docs/architecture.md).
 
-This is the **Unix philosophy for agents**: agents are defined in `.worker` files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
+This is the **Unix philosophy for agents**: agents are defined in `.agent` files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
 
 ## Quick Start
 
@@ -48,7 +48,7 @@ llm-do examples/greeter/project.json "Tell me a joke"
 Mark one agent with `entry: true` or define a single `EntrySpec` in Python.
 See [`examples/`](examples/) for more.
 
-Example agent file (`main.worker`):
+Example agent file (`main.agent`):
 
 ```yaml
 ---
@@ -72,7 +72,7 @@ Example manifest:
   "entry": {
     "input": { "input": "Hello!" }
   },
-  "worker_files": ["main.worker"],
+  "agent_files": ["main.agent"],
   "python_files": ["tools.py"]
 }
 ```
@@ -83,7 +83,7 @@ Example manifest:
 
 | Operation Type | Implementation | Characteristics |
 |----------------|----------------|-----------------|
-| **Neural** | Agents (`.worker` files) | Stochastic, flexible, handles ambiguity |
+| **Neural** | Agents (`.agent` files) | Stochastic, flexible, handles ambiguity |
 | **Symbolic** | Python tools | Deterministic, fast, cheap, testable |
 
 Orchestration uses `ctx.deps.call_agent(...)` to delegate between agents; the LLM sees both tools and agents as callable functions:
@@ -102,22 +102,22 @@ Projects grow organically from simple to complex:
 **Minimal** — just an agent:
 ```
 my-project/
-└── orchestrator.worker
+└── orchestrator.agent
 ```
 
 **With helpers** — orchestrator delegates to focused agents:
 ```
 my-project/
-├── orchestrator.worker   # Entry point
-├── analyzer.worker       # Focused agent
-└── formatter.worker      # Another focused agent
+├── orchestrator.agent   # Entry point
+├── analyzer.agent       # Focused agent
+└── formatter.agent      # Another focused agent
 ```
 
 **With stabilized operations** — extract reliable logic to Python:
 ```
 my-project/
-├── orchestrator.worker
-├── analyzer.worker
+├── orchestrator.agent
+├── analyzer.agent
 ├── tools.py              # Shared Python tools
 ├── input/
 └── output/
@@ -204,7 +204,7 @@ from pathlib import Path
 from llm_do.runtime import RunApprovalPolicy, Runtime, build_entry
 
 project_root = Path(".").resolve()
-entry, registry = build_entry(["main.worker"], ["tools.py"], project_root=project_root)
+entry, registry = build_entry(["main.agent"], ["tools.py"], project_root=project_root)
 runtime = Runtime(
     run_approval_policy=RunApprovalPolicy(mode="approve_all"),
     project_root=project_root,

@@ -24,7 +24,7 @@ shared mental model for scoping, tool resolution, and recursion.
 ### Compile/link/run mental model
 
 ```
-Sources (.worker + .py)
+Sources (.agent + .py)
     <- Manifest selects files + entry + runtime config
     -> EntryRegistry (symbol table)
     -> resolve toolset refs (link)

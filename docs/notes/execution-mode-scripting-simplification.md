@@ -6,7 +6,7 @@ Partially implemented. `Worker.call()` provides direct Python embedding; manifes
 ## Context
 - `docs/notes/execution-modes-user-stories.md` outlines goals for TUI-first workflows with a headless escape hatch and predictable approvals/outputs.
 - Direct Python embedding is possible via `Worker.call()` with a `CallContext`.
-- CLI currently requires a JSON manifest; direct `.worker` file execution is a future simplification.
+- CLI currently requires a JSON manifest; direct `.agent` file execution is a future simplification.
 
 ## Findings
 ### Pain points with the current direct-run pattern

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Run an LLM worker using a manifest-driven project configuration.
+"""Run an LLM agent using a manifest-driven project configuration.
 
 Usage:
     llm-do <project-dir> [prompt]
@@ -8,7 +8,7 @@ Usage:
 
 The manifest path can be a JSON file or a directory containing project.json.
 The manifest specifies runtime config and file paths; the entry is resolved
-from the file set (worker marked `entry: true` or a single `EntrySpec` in Python).
+from the file set (agent marked `entry: true` or a single `EntrySpec` in Python).
 CLI input (prompt or --input-json) overrides manifest entry.input when allowed.
 """
 from __future__ import annotations
@@ -62,7 +62,7 @@ def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], N
     """Stream raw model request/response messages as JSONL."""
     counter = itertools.count()
 
-    def callback(worker: str, depth: int, messages: list[Any]) -> None:
+    def callback(agent: str, depth: int, messages: list[Any]) -> None:
         try:
             serialized = ModelMessagesTypeAdapter.dump_python(messages, mode="json")
         except Exception:
@@ -76,7 +76,7 @@ def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], N
         for message in serialized:
             record = {
                 "seq": next(counter),
-                "worker": worker,
+                "agent": agent,
                 "depth": depth,
                 "message": message,
             }
@@ -118,11 +118,11 @@ async def run(
         Tuple of (result, context)
     """
     # Resolve file paths relative to manifest directory
-    worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
+    agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
 
     if entry is None:
         entry, agent_registry = build_entry(
-            [str(p) for p in worker_paths],
+            [str(p) for p in agent_paths],
             [str(p) for p in python_paths],
             project_root=manifest_dir,
         )
@@ -143,9 +143,9 @@ async def run(
             project_root=manifest_dir,
             run_approval_policy=approval_policy,
             max_depth=manifest.runtime.max_depth,
-            worker_calls_require_approval=manifest.runtime.worker_calls_require_approval,
-            worker_attachments_require_approval=manifest.runtime.worker_attachments_require_approval,
-            worker_approval_overrides=manifest.runtime.worker_approval_overrides,
+            agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
+            agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
+            agent_approval_overrides=manifest.runtime.agent_approval_overrides,
             on_event=on_event,
             message_log_callback=message_log_callback,
             verbosity=verbosity,
@@ -175,9 +175,9 @@ def _make_entry_factory(
     manifest_dir: Path,
 ) -> Callable[[], tuple[EntrySpec, AgentRegistry]]:
     def factory() -> tuple[EntrySpec, AgentRegistry]:
-        worker_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
+        agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
         return build_entry(
-            [str(p) for p in worker_paths],
+            [str(p) for p in agent_paths],
             [str(p) for p in python_paths],
             project_root=manifest_dir,
         )
@@ -347,15 +347,15 @@ def main() -> int:
             verbosity=tui_verbosity,
             return_permission_errors=True,
             max_depth=manifest.runtime.max_depth,
-            worker_calls_require_approval=manifest.runtime.worker_calls_require_approval,
-            worker_attachments_require_approval=manifest.runtime.worker_attachments_require_approval,
-            worker_approval_overrides=manifest.runtime.worker_approval_overrides,
+            agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
+            agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
+            agent_approval_overrides=manifest.runtime.agent_approval_overrides,
             message_log_callback=message_log_callback,
             extra_backends=extra_backends,
             chat=args.chat,
             initial_prompt=initial_prompt,
             debug=args.debug,
-            worker_name="worker",
+            agent_name="agent",
             error_stream=error_stream,
         ))
         if outcome.result is not None:
@@ -381,9 +381,9 @@ def main() -> int:
         verbosity=args.verbose,
         return_permission_errors=manifest.runtime.return_permission_errors,
         max_depth=manifest.runtime.max_depth,
-        worker_calls_require_approval=manifest.runtime.worker_calls_require_approval,
-        worker_attachments_require_approval=manifest.runtime.worker_attachments_require_approval,
-        worker_approval_overrides=manifest.runtime.worker_approval_overrides,
+        agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
+        agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
+        agent_approval_overrides=manifest.runtime.agent_approval_overrides,
         backends=backends,
         message_log_callback=message_log_callback,
         debug=args.debug,

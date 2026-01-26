@@ -16,7 +16,7 @@ Enable agents to create and invoke other agents at runtime, supporting bootstrap
 - Decision: output directory configured via manifest field `generated_agents_dir`
 - Rationale: manifest already handles path resolution; natural place for project config
 - Decision: generated agents are NOT auto-discovered on subsequent runs
-- Rationale: user should explicitly promote agents by copying to project and adding to `worker_files`; keeps human in the loop
+- Rationale: user should explicitly promote agents by copying to project and adding to `agent_files`; keeps human in the loop
 - Decision: agents callable only within the session that created them
 - Rationale: session-scoped registry avoids complexity of runtime registry mutation
 - Decision: toolset name `dynamic_agents`
@@ -27,7 +27,7 @@ Enable agents to create and invoke other agents at runtime, supporting bootstrap
 ## Tasks
 - [ ] Add `generated_workers_dir: str | None` field to `ProjectManifest`
 - [ ] Create `dynamic_agents` toolset with:
-  - [ ] `agent_create(name, instructions, description, model?)` - write `.worker` file
+  - [ ] `agent_create(name, instructions, description, model?)` - write `.agent` file
   - [ ] `agent_call(agent, input, attachments?)` - invoke created agent
 - [ ] Session-scoped registry for created agents (in toolset instance)
 - [ ] Parse created agents via existing `load_worker_file()` / `build_worker_definition()`
@@ -55,7 +55,7 @@ class DynamicAgentsToolset(FunctionToolset):
         self._created_agents: dict[str, AgentSpec] = {}  # session-scoped
 
     def agent_create(self, name: str, instructions: str, description: str, model: str | None = None) -> str:
-        # Write .worker file to generated_dir
+        # Write .agent file to generated_dir
         # Parse and build AgentSpec
         # Register in _created_agents
         # Return name

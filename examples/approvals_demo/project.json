@@ -7,5 +7,5 @@
   "entry": {
     "input": {"input": "Add a note: Team meeting scheduled for Friday at 2pm"}
   },
-  "worker_files": ["main.worker"]
+  "agent_files": ["main.agent"]
 }

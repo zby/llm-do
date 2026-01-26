@@ -7,6 +7,6 @@
   "entry": {
     "input": {"input": "Go"}
   },
-  "worker_files": ["pitch_evaluator.worker"],
+  "agent_files": ["pitch_evaluator.agent"],
   "python_files": ["tools.py"]
 }

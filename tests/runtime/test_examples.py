@@ -6,7 +6,7 @@ import pytest
 from llm_do.runtime import (
     build_entry,
     load_toolsets_from_files,
-    load_worker_file,
+    load_agent_file,
 )
 from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.loader import instantiate_toolsets
@@ -16,7 +16,7 @@ EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
 @pytest.mark.anyio
 async def test_single_worker_example_builds():
-    worker_file = load_worker_file(EXAMPLES_DIR / "calculator" / "main.worker")
+    worker_file = load_agent_file(EXAMPLES_DIR / "calculator" / "main.agent")
     assert "calc_tools" in worker_file.toolsets
 
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "calculator" / "tools.py"])
@@ -24,7 +24,7 @@ async def test_single_worker_example_builds():
 
     project_root = EXAMPLES_DIR / "calculator"
     entry_spec, registry = build_entry(
-        [str(project_root / "main.worker")],
+        [str(project_root / "main.agent")],
         [str(project_root / "tools.py")],
         project_root=project_root,
     )
@@ -37,8 +37,8 @@ async def test_delegation_example_builds():
     project_root = EXAMPLES_DIR / "pitchdeck_eval"
     entry_spec, registry = build_entry(
         [
-            str(project_root / "main.worker"),
-            str(project_root / "pitch_evaluator.worker"),
+            str(project_root / "main.agent"),
+            str(project_root / "pitch_evaluator.agent"),
         ],
         [],
         project_root=project_root,
@@ -57,7 +57,7 @@ async def test_delegation_example_builds():
 async def test_code_entry_example_builds():
     project_root = EXAMPLES_DIR / "pitchdeck_eval_code_entry"
     entry_spec, _registry = build_entry(
-        [str(project_root / "pitch_evaluator.worker")],
+        [str(project_root / "pitch_evaluator.agent")],
         [str(project_root / "tools.py")],
         project_root=project_root,
     )
@@ -66,13 +66,13 @@ async def test_code_entry_example_builds():
 
 @pytest.mark.anyio
 async def test_server_side_tools_example_builds():
-    worker_file = load_worker_file(EXAMPLES_DIR / "web_searcher" / "main.worker")
+    worker_file = load_agent_file(EXAMPLES_DIR / "web_searcher" / "main.agent")
     assert len(worker_file.server_side_tools) == 1
     assert worker_file.server_side_tools[0]["tool_type"] == "web_search"
 
     project_root = EXAMPLES_DIR / "web_searcher"
     entry_spec, registry = build_entry(
-        [str(project_root / "main.worker")],
+        [str(project_root / "main.agent")],
         [],
         project_root=project_root,
     )
@@ -83,7 +83,7 @@ async def test_server_side_tools_example_builds():
 @pytest.mark.anyio
 async def test_file_organizer_example_builds():
     """Test file_organizer: stabilizing pattern with semantic/mechanical separation."""
-    worker_file = load_worker_file(EXAMPLES_DIR / "file_organizer" / "main.worker")
+    worker_file = load_agent_file(EXAMPLES_DIR / "file_organizer" / "main.agent")
     assert "file_tools" in worker_file.toolsets
     assert "shell_file_ops" in worker_file.toolsets
 
@@ -92,7 +92,7 @@ async def test_file_organizer_example_builds():
 
     project_root = EXAMPLES_DIR / "file_organizer"
     entry_spec, registry = build_entry(
-        [str(project_root / "main.worker")],
+        [str(project_root / "main.agent")],
         [str(project_root / "tools.py")],
         project_root=project_root,
     )
@@ -102,15 +102,15 @@ async def test_file_organizer_example_builds():
 
 @pytest.mark.anyio
 async def test_recursive_summarizer_example_builds():
-    worker_file = load_worker_file(EXAMPLES_DIR / "recursive_summarizer" / "main.worker")
+    worker_file = load_agent_file(EXAMPLES_DIR / "recursive_summarizer" / "main.agent")
     assert "filesystem_project" in worker_file.toolsets
     assert "summarizer" in worker_file.toolsets
 
     project_root = EXAMPLES_DIR / "recursive_summarizer"
     entry_spec, registry = build_entry(
         [
-            str(project_root / "main.worker"),
-            str(project_root / "summarizer.worker"),
+            str(project_root / "main.agent"),
+            str(project_root / "summarizer.agent"),
         ],
         [],
         project_root=project_root,

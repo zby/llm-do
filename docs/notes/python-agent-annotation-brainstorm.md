@@ -57,8 +57,8 @@ This is a brainstorming document with multiple design variants and tradeoffs.
 - Pros: simple discovery; flexible.
 - Cons: still needs a stable schema for config + prompt.
 
-### H) Auto-Generated .worker (Stabilizing Path)
-- API: `@worker_prompt(..., export=True)` generates a `.worker` file.
+### H) Auto-Generated .agent (Stabilizing Path)
+- API: `@worker_prompt(..., export=True)` generates a `.agent` file.
 - Pros: bridges python-only to standard format; clean diffs.
 - Cons: file generation is another step; needs tooling.
 
@@ -98,13 +98,13 @@ Options:
 - Optional `__all__` or `WORKERS` list for explicit exports.
 
 ### Hybrid
-- Keep `.worker` files supported for compatibility, but add python-only mode.
-- Note: If we pursue "python-only" as the primary path, we could make `.worker` optional.
+- Keep `.agent` files supported for compatibility, but add python-only mode.
+- Note: If we pursue "python-only" as the primary path, we could make `.agent` optional.
 
 ## Migration / Refactoring Flow
 
-- Softening: convert a `.worker` prompt into a decorated python function.
-- Stabilizing: convert a decorated function into a `.worker` file (or vice versa).
+- Softening: convert a `.agent` prompt into a decorated python function.
+- Stabilizing: convert a decorated function into a `.agent` file (or vice versa).
 - A single CLI tool could convert between formats.
 
 ## Risks / Tradeoffs
@@ -120,4 +120,4 @@ Options:
 - Do we require a wrapper template around the prompt?
 - What is the minimal config surface (model/toolsets/output) for v1?
 - How should python-only workers be discovered (scan module vs explicit list)?
-- Do we want auto-export to `.worker` files, or keep everything in Python?
+- Do we want auto-export to `.agent` files, or keep everything in Python?

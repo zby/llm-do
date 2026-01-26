@@ -29,8 +29,8 @@ class RunApprovalPolicy:
 
 
 @dataclass(frozen=True)
-class WorkerApprovalPolicy:
-    """Resolved approval policy for a worker invocation."""
+class AgentApprovalPolicy:
+    """Resolved approval policy for an agent invocation."""
     approval_callback: ApprovalCallback
     return_permission_errors: bool = False
 
@@ -42,6 +42,10 @@ class WorkerApprovalPolicy:
             approved: AbstractToolset[Any] = ApprovalToolset(inner=toolset, approval_callback=self.approval_callback, config=get_toolset_approval_config(toolset))
             wrapped.append(ApprovalDeniedResultToolset(approved) if self.return_permission_errors else approved)
         return wrapped
+
+
+# Backwards compatibility alias (deprecated)
+WorkerApprovalPolicy = AgentApprovalPolicy
 
 
 class ApprovalDeniedResultToolset(AbstractToolset):
@@ -131,4 +135,4 @@ def resolve_approval_callback(policy: RunApprovalPolicy) -> ApprovalCallback:
 
 def wrap_toolsets_for_approval(toolsets: list[AbstractToolset[Any]], approval_callback: ApprovalCallback, *, return_permission_errors: bool = False) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with approval handling."""
-    return WorkerApprovalPolicy(approval_callback=approval_callback, return_permission_errors=return_permission_errors).wrap_toolsets(toolsets)
+    return AgentApprovalPolicy(approval_callback=approval_callback, return_permission_errors=return_permission_errors).wrap_toolsets(toolsets)

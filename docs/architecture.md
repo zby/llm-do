@@ -6,7 +6,7 @@ Internal architecture of llm-do. For theoretical foundation, see [theory.md](the
 
 ## Agents
 
-An **agent** is an executable prompt artifact: a `.worker` file that defines how to run an LLM-backed task. These files are loaded into `AgentSpec` objects and executed as PydanticAI agents.
+An **agent** is an executable prompt artifact: a `.agent` file that defines how to run an LLM-backed task. These files are loaded into `AgentSpec` objects and executed as PydanticAI agents.
 
 ```yaml
 ---
@@ -22,7 +22,7 @@ Instructions for the agent...
 ```
 
 Agents can call other agents as tools, forming a call tree. Each agent declares its own toolsets - they're not inherited.
-Agents can also declare a typed input schema via `schema_in_ref`; schemas must subclass `WorkerArgs` and implement `prompt_messages()`. Input can be a string, list (with `Attachment`s), or dict.
+Agents can also declare a typed input schema via `schema_in_ref`; schemas must subclass `AgentArgs` and implement `prompt_messages()`. Input can be a string, list (with `Attachment`s), or dict.
 
 ---
 
@@ -184,14 +184,14 @@ Entry executes (entry_spec.main(...))
 ```
 
 Key points:
-- The project manifest (`project.json`) lists which `.worker` and `.py` files to load
-- Entry selection requires exactly one agent marked `entry: true` (in a `.worker` file)
+- The project manifest (`project.json`) lists which `.agent` and `.py` files to load
+- Entry selection requires exactly one agent marked `entry: true` (in a `.agent` file)
   or a single `EntrySpec` (in Python)
 - Top-level entries (depth 0) keep message history across turns
 - Child agent calls get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
-- EntrySpec inputs are normalized to `WorkerArgs` (via `schema_in`)
+- EntrySpec inputs are normalized to `AgentArgs` (via `schema_in`)
 - Entry functions are trusted but agent tool calls still go through approval wrappers per run policy
 
 ---

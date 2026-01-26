@@ -7,5 +7,5 @@
   "entry": {
     "input": {"input": "Analyze this codebase. How many Python files are there and what are the main modules?"}
   },
-  "worker_files": ["main.worker"]
+  "agent_files": ["main.agent"]
 }

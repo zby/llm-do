@@ -2,11 +2,11 @@
 
 ## Context
 
-The `.worker` file format is structurally similar to the [Agent Skills](https://agentskills.io/specification) standard (SKILL.md). Both use YAML frontmatter + Markdown instructions. Aligning with the standard could ease adoption.
+The `.agent` file format is structurally similar to the [Agent Skills](https://agentskills.io/specification) standard (SKILL.md). Both use YAML frontmatter + Markdown instructions. Aligning with the standard could ease adoption.
 
 ## Key Differences
 
-| Concept | `.worker` | Agent Skills | Notes |
+| Concept | `.agent` | Agent Skills | Notes |
 |---------|-----------|--------------|-------|
 | Identifier | `name` (any string) | `name` (kebab-case, required) | Skills enforces naming convention |
 | Description | `description` (optional) | `description` (required) | Make required for alignment |
@@ -21,7 +21,7 @@ The `.worker` file format is structurally similar to the [Agent Skills](https://
 
 ### 1. Move `entry` to manifest
 
-Currently `entry: true` is in individual .worker files. Move to project.json:
+Currently `entry: true` is in individual .agent files. Move to project.json:
 
 ```json
 {
@@ -30,7 +30,7 @@ Currently `entry: true` is in individual .worker files. Move to project.json:
     "worker": "main",
     "input": { ... }
   },
-  "worker_files": ["main.worker", "helper.worker"]
+  "agent_files": ["main.agent", "helper.agent"]
 }
 ```
 

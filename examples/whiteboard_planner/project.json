@@ -7,5 +7,5 @@
   "entry": {
     "input": {"input": "Process all whiteboard images in the input directory"}
   },
-  "worker_files": ["main.worker", "whiteboard_planner.worker"]
+  "agent_files": ["main.agent", "whiteboard_planner.agent"]
 }

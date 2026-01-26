@@ -9,7 +9,7 @@ from llm_do.runtime import build_entry
 
 @pytest.mark.anyio
 async def test_build_entry_rejects_unregistered_toolsets(tmp_path: Path) -> None:
-    worker = tmp_path / "main.worker"
+    worker = tmp_path / "main.agent"
     worker.write_text(
         """\
 ---

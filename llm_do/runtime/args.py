@@ -1,4 +1,4 @@
-"""Worker input models and prompt message types."""
+"""Agent input models and prompt message types."""
 
 from __future__ import annotations
 
@@ -89,17 +89,21 @@ def has_attachments(messages: PromptMessages) -> bool:
     return any(isinstance(p, Attachment) for p in messages)
 
 
-class WorkerArgs(BaseModel):
-    """Base class for structured worker input models.
+class AgentArgs(BaseModel):
+    """Base class for structured agent input models.
 
-    Use this when workers need structured input beyond simple text/attachments.
+    Use this when agents need structured input beyond simple text/attachments.
     """
 
     def prompt_messages(self) -> list[PromptContent]:
         """Return prompt content as a list of text/attachment parts."""
         raise NotImplementedError(
-            "WorkerArgs subclasses must implement prompt_messages()."
+            "AgentArgs subclasses must implement prompt_messages()."
         )
+
+
+# Backwards compatibility alias (deprecated)
+WorkerArgs = AgentArgs
 
 
 def _dict_to_messages(data: dict[str, Any]) -> list[PromptContent]:
@@ -113,9 +117,9 @@ def _dict_to_messages(data: dict[str, Any]) -> list[PromptContent]:
 
 
 def normalize_input(
-    schema_in: type[WorkerArgs] | None,
+    schema_in: type[AgentArgs] | None,
     input_data: Any,
-) -> tuple[WorkerArgs | None, list[PromptContent]]:
+) -> tuple[AgentArgs | None, list[PromptContent]]:
     """Normalize raw input into a message list, optionally with structured args.
 
     Returns:
@@ -136,8 +140,8 @@ def normalize_input(
                 )
         return None, input_data
 
-    # Structured WorkerArgs instance
-    if isinstance(input_data, WorkerArgs):
+    # Structured AgentArgs instance
+    if isinstance(input_data, AgentArgs):
         if schema_in is not None and not isinstance(input_data, schema_in):
             raise TypeError(
                 f"Expected {schema_in.__name__}; got {type(input_data).__name__}"
@@ -152,13 +156,13 @@ def normalize_input(
         # No schema: convert dict with 'input'/'attachments' directly
         return None, _dict_to_messages(input_data)
 
-    # Other BaseModel (not WorkerArgs)
+    # Other BaseModel (not AgentArgs)
     if isinstance(input_data, BaseModel):
         raise TypeError(
-            f"Structured inputs must subclass WorkerArgs; got {type(input_data)}"
+            f"Structured inputs must subclass AgentArgs; got {type(input_data)}"
         )
 
     raise TypeError(
-        f"Worker input must be str, list[str | Attachment], dict, or WorkerArgs; "
+        f"Agent input must be str, list[str | Attachment], dict, or AgentArgs; "
         f"got {type(input_data)}"
     )

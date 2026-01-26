@@ -23,7 +23,7 @@ from typing import Any, Callable
 import pytest
 
 from llm_do.models import LLM_DO_MODEL_ENV
-from llm_do.runtime import Runtime, WorkerArgs, build_entry, load_worker_file
+from llm_do.runtime import Runtime, AgentArgs, build_entry, load_agent_file
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
@@ -157,7 +157,7 @@ def build_direct_entry_for_worker(
     model: str | None = None,
 ):
     """Build a code entry that delegates directly to a single worker."""
-    worker_def = load_worker_file(worker_path)
+    worker_def = load_agent_file(worker_path)
     toolset_name = worker_def.name
     entry_path = tmp_path / f"direct_entry_{toolset_name}.py"
     entry_path.write_text(
@@ -189,7 +189,7 @@ def build_direct_entry_for_worker(
 
 async def run_example(
     example_dir: Path,
-    input_data: WorkerArgs,
+    input_data: AgentArgs,
     *,
     model: str | None = None,
     approval_callback: Callable[[Any], Any] | None = None,

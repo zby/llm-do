@@ -17,7 +17,7 @@ Two general modes:
 - **Python embedding**: `Worker.run()` method for direct Python execution
 
 **Future / Not Yet Implemented:**
-- **Direct worker file execution**: `llm-do ./worker.worker "prompt"` without manifest
+- **Direct worker file execution**: `llm-do ./worker.agent "prompt"` without manifest
 - **Worker discovery**: auto-scan project for workers
 - **Remote worker registry**: `--from-url` for fetching workers
 
@@ -25,7 +25,7 @@ Two general modes:
 
 - Removed the package entrypoint mode in favor of running workers as Python scripts, keeping distribution aligned with plain Python.
 - Treat workers like Python functions and package the full program as a Python package.
-- Manifest-based execution is the current approach; direct `.worker` file execution is a future simplification.
+- Manifest-based execution is the current approach; direct `.agent` file execution is a future simplification.
 
 ---
 
@@ -200,7 +200,7 @@ UI can show a "sources" panel and require approvals for any new fetches.
 
 ### Scenario 10: Analyst run with structured output
 ```
-$ llm-do --headless analyst.worker "Summarize ACME Q2 results" --format json
+$ llm-do --headless analyst.agent "Summarize ACME Q2 results" --format json
 {"company": "...", "kpis": [{"name": "revenue", "value": "...", "source": "..."}]}
 ```
 Output needs to be machine-readable and include provenance for each field.
@@ -272,7 +272,7 @@ Rapid iteration during development.
 
 #### Option C: Sub-agent delegation
 ```
-> /load researcher.worker "find sources on topic X"
+> /load researcher.agent "find sources on topic X"
 [Spawns researcher as sub-agent, returns results to parent]
 [Parent continues with results]
 ```
@@ -294,8 +294,8 @@ Rapid iteration during development.
 
 | Command | Behavior |
 |---------|----------|
-| `/load worker.worker` | Replace current agent, offer choice to keep/clear history |
-| `/load worker.worker "task"` | Delegate to sub-agent, return results (requires current worker) |
+| `/load worker.agent` | Replace current agent, offer choice to keep/clear history |
+| `/load worker.agent "task"` | Delegate to sub-agent, return results (requires current worker) |
 | `/load tools.py` | Add tools to current session |
 | `/reload` | Reload current worker (for development) |
 | `/unload tools.py` | Remove tools from session |

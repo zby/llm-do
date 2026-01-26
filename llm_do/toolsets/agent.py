@@ -65,11 +65,12 @@ class AgentToolset(AbstractToolset[Any]):
             return ApprovalResult.needs_approval()
 
         runtime_config = getattr(getattr(ctx, "deps", None), "config", None)
-        require_all = getattr(runtime_config, "worker_calls_require_approval", False)
+        # Support both new (agent_*) and deprecated (worker_*) property names
+        require_all = getattr(runtime_config, "agent_calls_require_approval", False)
         require_attachments = getattr(
-            runtime_config, "worker_attachments_require_approval", False
+            runtime_config, "agent_attachments_require_approval", False
         )
-        overrides = getattr(runtime_config, "worker_approval_overrides", {}) or {}
+        overrides = getattr(runtime_config, "agent_approval_overrides", {}) or {}
         override = overrides.get(self.spec.name)
         if override is not None:
             if override.calls_require_approval is not None:

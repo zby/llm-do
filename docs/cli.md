@@ -1,6 +1,6 @@
 # CLI Reference
 
-The `llm-do` command-line interface executes a manifest-defined project: `.worker` and `.py` files listed in `project.json`, linked into a single entry.
+The `llm-do` command-line interface executes a manifest-defined project: `.agent` and `.py` files listed in `project.json`, linked into a single entry.
 Internally, it follows the same `build_entry(...)` linking flow available to Python callers.
 
 ## Basic Usage
@@ -78,7 +78,7 @@ toolsets:
 Toolset names resolve to:
 - Built-ins: `shell_readonly`, `shell_file_ops`, `filesystem_cwd`, `filesystem_project` (+ `_ro` variants)
 - Python toolsets discovered from passed `.py` files (by variable name)
-- Other worker entries from passed `.worker` files (by `name`)
+- Other worker entries from passed `.agent` files (by `name`)
 
 ## Worker Input Schemas
 
@@ -95,7 +95,7 @@ Supported forms:
 - `module.Class`
 - `path.py:Class` (relative to the worker file)
 
-Schemas must subclass `WorkerArgs` and implement `prompt_messages()`. Input can be passed as:
+Schemas must subclass `AgentArgs` and implement `prompt_messages()`. Input can be passed as:
 
 - Simple string: `"text"`
 - With attachments: `{"input": "text", "attachments": ["file.pdf"]}`

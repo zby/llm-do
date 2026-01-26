@@ -7,6 +7,6 @@
   "entry": {
     "input": {"input": "What is 7 factorial plus the 10th fibonacci number?"}
   },
-  "worker_files": ["main.worker"],
+  "agent_files": ["main.agent"],
   "python_files": ["tools.py"]
 }

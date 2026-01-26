@@ -16,15 +16,15 @@ from ..models import select_model
 from ..toolsets.agent import agent_as_toolset
 from ..toolsets.builtins import build_builtin_toolsets
 from ..toolsets.loader import ToolsetSpec, resolve_toolset_specs
-from .args import WorkerArgs
+from .agent_file import (
+    AgentDefinition,
+    build_agent_definition,
+    load_agent_file_parts,
+)
+from .args import AgentArgs
 from .contracts import AgentSpec, CallContextProtocol, EntrySpec
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
-from .worker_file import (
-    WorkerDefinition,
-    build_worker_definition,
-    load_worker_file_parts,
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,12 +35,12 @@ class AgentRegistry:
 
 
 @dataclass(slots=True)
-class WorkerSpec:
-    """Per-worker bookkeeping for two-pass registry building."""
+class AgentFileSpec:
+    """Per-agent bookkeeping for two-pass registry building."""
 
     name: str
     path: Path
-    definition: WorkerDefinition
+    definition: AgentDefinition
     spec: AgentSpec
 
 
@@ -86,7 +86,7 @@ def _merge_toolsets(
 
 
 def _build_registry_and_entry_spec(
-    worker_files: list[str],
+    agent_files: list[str],
     python_files: list[str],
     *,
     project_root: Path | str,
@@ -97,8 +97,8 @@ def _build_registry_and_entry_spec(
 
     python_toolsets, python_agents, python_entries = load_all_from_files(python_files)
 
-    if not worker_files and not python_agents and not python_entries:
-        raise ValueError("At least one .worker or .py file with entries required")
+    if not agent_files and not python_agents and not python_entries:
+        raise ValueError("At least one .agent or .py file with entries required")
 
     entry_specs = sorted(python_entries.values(), key=lambda e: e.name)
     if len(entry_specs) > 1:
@@ -109,63 +109,63 @@ def _build_registry_and_entry_spec(
         )
     entry_from_python = entry_specs[0] if entry_specs else None
 
-    worker_specs: dict[str, WorkerSpec] = {}
-    entry_worker_names: list[str] = []
+    agent_file_specs: dict[str, AgentFileSpec] = {}
+    entry_agent_names: list[str] = []
     reserved_names = set(python_agents.keys()) | set(python_entries.keys())
 
-    for worker_file_path in worker_files:
-        resolved_path = Path(worker_file_path).resolve()
-        frontmatter, instructions = load_worker_file_parts(resolved_path)
-        worker_def = build_worker_definition(frontmatter, instructions)
-        name = worker_def.name
+    for agent_file_path in agent_files:
+        resolved_path = Path(agent_file_path).resolve()
+        frontmatter, instructions = load_agent_file_parts(resolved_path)
+        agent_def = build_agent_definition(frontmatter, instructions)
+        name = agent_def.name
 
-        if name in worker_specs:
-            raise ValueError(f"Duplicate worker name: {name}")
+        if name in agent_file_specs:
+            raise ValueError(f"Duplicate agent name: {name}")
 
         if name in reserved_names:
             if name in python_agents:
                 raise ValueError(
-                    f"Worker name '{name}' conflicts with Python agent"
+                    f"Agent name '{name}' conflicts with Python agent"
                 )
-            raise ValueError(f"Worker name '{name}' conflicts with Python entry")
+            raise ValueError(f"Agent name '{name}' conflicts with Python entry")
         reserved_names.add(name)
 
-        if worker_def.entry:
-            entry_worker_names.append(name)
+        if agent_def.entry:
+            entry_agent_names.append(name)
 
         resolved_model = select_model(
-            worker_model=worker_def.model,
-            compatible_models=worker_def.compatible_models,
-            worker_name=name,
+            agent_model=agent_def.model,
+            compatible_models=agent_def.compatible_models,
+            agent_name=name,
         )
         spec = AgentSpec(
             name=name,
-            instructions=worker_def.instructions,
-            description=worker_def.description,
+            instructions=agent_def.instructions,
+            description=agent_def.description,
             model=resolved_model,
             toolset_specs=[],
-            builtin_tools=_build_builtin_tools(worker_def.server_side_tools),
+            builtin_tools=_build_builtin_tools(agent_def.server_side_tools),
         )
-        worker_specs[name] = WorkerSpec(
+        agent_file_specs[name] = AgentFileSpec(
             name=name,
             path=resolved_path,
-            definition=worker_def,
+            definition=agent_def,
             spec=spec,
         )
 
-    if entry_from_python and entry_worker_names:
+    if entry_from_python and entry_agent_names:
         raise ValueError(
-            "Entry conflict: found Python EntrySpec and entry worker(s) "
-            f"{sorted(entry_worker_names)}."
+            "Entry conflict: found Python EntrySpec and entry agent(s) "
+            f"{sorted(entry_agent_names)}."
         )
-    if len(entry_worker_names) > 1:
+    if len(entry_agent_names) > 1:
         raise ValueError(
-            "Multiple workers marked entry: "
-            f"{sorted(entry_worker_names)}. Only one entry worker is allowed."
+            "Multiple agents marked entry: "
+            f"{sorted(entry_agent_names)}. Only one entry agent is allowed."
         )
 
     agents: dict[str, AgentSpec] = dict(python_agents)
-    agents.update({spec.name: spec.spec for spec in worker_specs.values()})
+    agents.update({spec.name: spec.spec for spec in agent_file_specs.values()})
 
     builtin_toolsets = build_builtin_toolsets(Path.cwd(), project_root_path)
     agent_toolsets = {
@@ -173,37 +173,37 @@ def _build_registry_and_entry_spec(
     }
     all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, agent_toolsets)
 
-    for worker_spec in worker_specs.values():
-        worker_root = worker_spec.path.parent
+    for agent_file_spec in agent_file_specs.values():
+        agent_root = agent_file_spec.path.parent
         resolved_toolset_specs = resolve_toolset_specs(
-            worker_spec.definition.toolsets,
+            agent_file_spec.definition.toolsets,
             available_toolsets=all_toolsets,
-            worker_name=worker_spec.name,
+            agent_name=agent_file_spec.name,
         )
 
-        worker_spec.spec.toolset_specs = resolved_toolset_specs
+        agent_file_spec.spec.toolset_specs = resolved_toolset_specs
 
-        if worker_spec.definition.schema_in_ref:
+        if agent_file_spec.definition.schema_in_ref:
             resolved_schema = resolve_schema_ref(
-                worker_spec.definition.schema_in_ref,
-                base_path=worker_root,
+                agent_file_spec.definition.schema_in_ref,
+                base_path=agent_root,
             )
-            if not issubclass(resolved_schema, WorkerArgs):
+            if not issubclass(resolved_schema, AgentArgs):
                 raise TypeError(
-                    "schema_in_ref must resolve to a WorkerArgs subclass"
+                    "schema_in_ref must resolve to an AgentArgs subclass"
                 )
-            worker_spec.spec.schema_in = cast(type[WorkerArgs], resolved_schema)
+            agent_file_spec.spec.schema_in = cast(type[AgentArgs], resolved_schema)
 
-    if entry_from_python is None and not entry_worker_names:
+    if entry_from_python is None and not entry_agent_names:
         raise ValueError(
-            "No entry found. Mark one worker with entry: true or "
+            "No entry found. Mark one agent with entry: true or "
             "define a single EntrySpec in Python."
         )
 
     if entry_from_python is not None:
         entry_spec = entry_from_python
     else:
-        entry_agent = agents[entry_worker_names[0]]
+        entry_agent = agents[entry_agent_names[0]]
 
         async def entry_main(
             input_data: Any,
@@ -221,13 +221,13 @@ def _build_registry_and_entry_spec(
 
 
 def build_entry_registry(
-    worker_files: list[str],
+    agent_files: list[str],
     python_files: list[str],
     *,
     project_root: Path | str,
 ) -> AgentRegistry:
     entry_spec, registry = _build_registry_and_entry_spec(
-        worker_files,
+        agent_files,
         python_files,
         project_root=project_root,
     )
@@ -236,14 +236,14 @@ def build_entry_registry(
 
 
 def build_entry(
-    worker_files: list[str],
+    agent_files: list[str],
     python_files: list[str],
     *,
     project_root: Path | str,
 ) -> tuple[EntrySpec, AgentRegistry]:
     """Build and return the resolved entry spec with agent registry."""
     return _build_registry_and_entry_spec(
-        worker_files,
+        agent_files,
         python_files,
         project_root=project_root,
     )

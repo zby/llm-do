@@ -97,7 +97,7 @@ The runtime event stream handler parses raw events into `RuntimeEvent` objects, 
 The default interactive mode uses Textual when stdout is a TTY:
 
 ```
-llm-do main.worker "task"
+llm-do main.agent "task"
 ```
 
 ### Architecture
@@ -145,7 +145,7 @@ Worker Events -> runtime parse_event -> RuntimeEvent -> adapt_event -> UIEvent q
 Use `--chat` to keep the TUI open for multi-turn conversations:
 
 ```
-llm-do main.worker "hello" --chat
+llm-do main.agent "hello" --chat
 ```
 
 Input behavior in chat mode:

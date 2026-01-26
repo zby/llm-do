@@ -36,9 +36,9 @@ class CallContext:
     def config(self) -> RuntimeConfig:
         return self.runtime.config
 
-    def log_messages(self, worker_name: str, depth: int, messages: list[Any]) -> None:
+    def log_messages(self, agent_name: str, depth: int, messages: list[Any]) -> None:
         """Record messages for diagnostic logging."""
-        self.runtime.log_messages(worker_name, depth, messages)
+        self.runtime.log_messages(agent_name, depth, messages)
 
     def spawn_child(
         self,
@@ -47,7 +47,7 @@ class CallContext:
         model: ModelType,
         invocation_name: str,
     ) -> "CallContext":
-        """Spawn a child worker runtime with a forked CallFrame (depth+1)."""
+        """Spawn a child agent runtime with a forked CallFrame (depth+1)."""
         return CallContext(
             runtime=self.runtime,
             frame=self.frame.fork(

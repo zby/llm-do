@@ -102,7 +102,7 @@ This was a semantic change that required evaluating whether the unused flexibili
 **Changes:**
 1. Changed `WorkerDefinition.toolsets` from `dict[str, dict[str, Any]]` to `list[str]`
 2. Simplified `_parse_toolsets()` function accordingly
-3. Updated all example `.worker` files to use list syntax
+3. Updated all example `.agent` files to use list syntax
 4. Also renamed filesystem builtins (`filesystem_rw` → `filesystem_project`, etc.)
 
 **Before (worker file):**

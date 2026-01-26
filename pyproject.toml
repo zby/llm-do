@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "llm-do"
 version = "0.3.0"
-description = "Self-contained prompt workers for LLM orchestration, built on PydanticAI"
+description = "Self-contained prompt agents for LLM orchestration, built on PydanticAI"
 readme = "README.md"
 authors = [{name = "Your Name"}]
 license = {text = "Apache-2.0"}

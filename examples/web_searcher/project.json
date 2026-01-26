@@ -7,5 +7,5 @@
   "entry": {
     "input": {"input": "What are the latest developments in quantum computing?"}
   },
-  "worker_files": ["main.worker"]
+  "agent_files": ["main.agent"]
 }

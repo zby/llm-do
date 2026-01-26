@@ -7,5 +7,5 @@
   "entry": {
     "input": {"input": "Hello! My name is Alex."}
   },
-  "worker_files": ["main.worker"]
+  "agent_files": ["main.agent"]
 }

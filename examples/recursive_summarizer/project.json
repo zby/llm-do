@@ -7,6 +7,6 @@
   "entry": {
     "input": {"input": "sample_input.txt"}
   },
-  "worker_files": ["main.worker", "summarizer.worker"],
+  "agent_files": ["main.agent", "summarizer.agent"],
   "python_files": ["schemas.py"]
 }

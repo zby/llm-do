@@ -8,8 +8,8 @@ from llm_do.toolsets.agent import AgentToolset, agent_as_toolset
 
 @pytest.mark.anyio
 async def test_registry_allows_self_toolset_reference(tmp_path) -> None:
-    worker_path = tmp_path / "recursive.worker"
-    worker_path.write_text(
+    agent_path = tmp_path / "recursive.agent"
+    agent_path.write_text(
         """---
 name: recursive
 entry: true
@@ -21,7 +21,7 @@ Call yourself.
 """
     )
 
-    entry_spec, registry = build_entry([str(worker_path)], [], project_root=tmp_path)
+    entry_spec, registry = build_entry([str(agent_path)], [], project_root=tmp_path)
 
     agent = registry.agents[entry_spec.name]
     assert agent.toolset_specs

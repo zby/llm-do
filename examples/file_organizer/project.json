@@ -7,6 +7,6 @@
   "entry": {
     "input": {"input": "Organize the files in the messy_files directory"}
   },
-  "worker_files": ["main.worker"],
+  "agent_files": ["main.agent"],
   "python_files": ["tools.py"]
 }

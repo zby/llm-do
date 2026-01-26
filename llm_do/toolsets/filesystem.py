@@ -1,4 +1,4 @@
-"""Simple filesystem toolset for llm-do workers."""
+"""Simple filesystem toolset for llm-do agents."""
 from __future__ import annotations
 
 from pathlib import Path

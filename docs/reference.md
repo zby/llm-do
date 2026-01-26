@@ -6,7 +6,7 @@ API and usage reference for llm-do. For theory, see [theory.md](theory.md). For 
 
 ## Agent Input Schemas
 
-Agent files (`.worker`) can declare a Pydantic input schema so agent calls (and tool-call
+Agent files (`.agent`) can declare a Pydantic input schema so agent calls (and tool-call
 planning) use a structured contract:
 
 ```yaml
@@ -20,7 +20,7 @@ Supported forms:
 - `module.Class`
 - `path.py:Class` (relative to the agent file)
 
-Schemas must subclass `WorkerArgs` and implement `prompt_messages()`. Input can be passed in several forms:
+Schemas must subclass `AgentArgs` and implement `prompt_messages()`. Input can be passed in several forms:
 
 ```python
 # Simple string
@@ -30,12 +30,12 @@ await ctx.deps.call_agent("agent_name", "text")
 await ctx.deps.call_agent("agent_name", {"input": "text", "attachments": ["file.pdf"]})
 ```
 
-For custom schemas, subclass `WorkerArgs`:
+For custom schemas, subclass `AgentArgs`:
 
 ```python
-from llm_do.runtime import PromptContent, WorkerArgs
+from llm_do.runtime import PromptContent, AgentArgs
 
-class PitchInput(WorkerArgs):
+class PitchInput(AgentArgs):
     input: str
     company_name: str
 
@@ -73,7 +73,7 @@ Invokes an agent by name (looked up in the registry) or by `AgentSpec` directly.
   - `str`: Simple text input
   - `dict`: With `"input"` key and optional `"attachments"` list
   - `list`: Prompt parts (strings and `Attachment` objects)
-  - `WorkerArgs`: Custom schema instance
+  - `AgentArgs`: Custom schema instance
 
 **Returns:** The agent's output (typically a string)
 
@@ -107,7 +107,7 @@ from llm_do.runtime import (
 
 async def main():
     project_root = Path(".").resolve()
-    entry_spec, registry = build_entry(["analyzer.worker"], [], project_root=project_root)
+    entry_spec, registry = build_entry(["analyzer.agent"], [], project_root=project_root)
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
         project_root=project_root,
@@ -141,7 +141,7 @@ so direct LLM calls from entry code are not allowed.
 | Parameter | Description |
 |-----------|-------------|
 | `entry_spec` | `EntrySpec` to run (plain `main` function) |
-| `input_data` | Input payload (str, list of prompt parts, dict, or `WorkerArgs`) |
+| `input_data` | Input payload (str, list of prompt parts, dict, or `AgentArgs`) |
 | `message_history` | Pre-seed conversation history for the top-level call scope |
 
 Use `Runtime.run()` for sync execution when you already have an entry object.
@@ -157,7 +157,7 @@ from llm_do.runtime import Runtime, build_entry
 
 async def main():
     project_root = Path(".").resolve()
-    entry_spec, registry = build_entry(["assistant.worker"], [], project_root=project_root)
+    entry_spec, registry = build_entry(["assistant.agent"], [], project_root=project_root)
     runtime = Runtime(project_root=project_root)
     runtime.register_agents(registry.agents)
 
@@ -215,10 +215,10 @@ async def orchestrate(ctx: RunContext[CallContext], task: str) -> str:
     return analysis
 ```
 
-`RunContext.prompt` is derived from `WorkerArgs.prompt_messages()` for logging/UI
+`RunContext.prompt` is derived from `AgentArgs.prompt_messages()` for logging/UI
 only; tools should rely on their typed args and use `ctx.deps` only for delegation.
 
-The `input_data` argument can be a string, list (with `Attachment`s), dict, or `WorkerArgs`.
+The `input_data` argument can be a string, list (with `Attachment`s), dict, or `AgentArgs`.
 
 **Available Runtime State:**
 
@@ -262,16 +262,16 @@ async def main(_input_data, runtime: CallContext) -> str:
 ENTRY_SPEC = EntrySpec(name="main", main=main)
 ```
 
-Run with a manifest that includes `tools.py` and `evaluator.worker`, e.g.
+Run with a manifest that includes `tools.py` and `evaluator.agent`, e.g.
 `llm-do project.json "start"` (the single `EntrySpec` is selected automatically).
 
 `EntrySpec` fields:
 - `name`: Entry name for logging/events
 - `main`: Async function called for the entry
-- `schema_in`: Optional `WorkerArgs` subclass for input normalization
+- `schema_in`: Optional `AgentArgs` subclass for input normalization
 
 `main` receives:
-- A `WorkerArgs` instance when `schema_in` is provided
+- A `AgentArgs` instance when `schema_in` is provided
 - Otherwise, a list of prompt parts (`list[PromptContent]`)
 
 Note: Entry functions are trusted code, but agent calls still go through approval
@@ -281,9 +281,9 @@ wrappers and follow the run approval policy. To skip prompts, use `approve_all`
 Example with custom input schema:
 
 ```python
-from llm_do.runtime import EntrySpec, WorkerArgs, PromptContent, CallContext
+from llm_do.runtime import EntrySpec, AgentArgs, PromptContent, CallContext
 
-class TaggedInput(WorkerArgs):
+class TaggedInput(AgentArgs):
     input: str
     tag: str
 
@@ -643,7 +643,7 @@ directory in the CLI).
 
 ## Agent File Format
 
-Agents are defined in `.worker` files with YAML frontmatter:
+Agents are defined in `.agent` files with YAML frontmatter:
 
 ```yaml
 ---
@@ -683,7 +683,7 @@ Models use the format `provider:model-name`:
 Toolsets can be specified as:
 - Built-in toolset name (e.g., `filesystem_project`, `shell_readonly`)
 - Toolset instance name from a Python file passed to the CLI
-- Other agent names from `.worker` files (agents act as toolsets)
+- Other agent names from `.agent` files (agents act as toolsets)
 
 **Recursive Agents:**
 

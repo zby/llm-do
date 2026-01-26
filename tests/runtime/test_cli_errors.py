@@ -17,14 +17,14 @@ def create_test_manifest(tmp_path, **overrides):
         "version": 1,
         "runtime": {"approval_mode": "approve_all"},
         "entry": {},
-        "worker_files": ["test.worker"],
+        "agent_files": ["test.agent"],
         **overrides,
     }
     manifest_file = tmp_path / "project.json"
     manifest_file.write_text(json.dumps(manifest_data))
 
     # Create the worker file
-    worker = tmp_path / "test.worker"
+    worker = tmp_path / "test.agent"
     worker.write_text("""---
 name: main
 entry: true
@@ -77,7 +77,7 @@ class TestCLIManifestErrors:
             "version": 99,
             "runtime": {},
             "entry": {},
-            "worker_files": ["test.worker"],
+            "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
@@ -100,12 +100,12 @@ class TestCLIInputErrors:
             "runtime": {},
             "allow_cli_input": False,
             "entry": {"input": {"input": "default"}},
-            "worker_files": ["test.worker"],
+            "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
-        worker = tmp_path / "test.worker"
+        worker = tmp_path / "test.agent"
         worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         with patch("sys.argv", ["llm-do", str(manifest_file), "override prompt"]):
@@ -157,12 +157,12 @@ class TestCLIInputErrors:
             "version": 1,
             "runtime": {},
             "entry": {},  # No input
-            "worker_files": ["test.worker"],
+            "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
-        worker = tmp_path / "test.worker"
+        worker = tmp_path / "test.agent"
         worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         # Force stdin.isatty() to return True
@@ -221,7 +221,7 @@ class TestCLIRuntimeErrors:
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
             "entry": {},
-            "worker_files": ["missing.worker"],
+            "agent_files": ["missing.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
@@ -240,12 +240,12 @@ class TestCLIRuntimeErrors:
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
             "entry": {},
-            "worker_files": ["test.worker"],
+            "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
-        worker = tmp_path / "test.worker"
+        worker = tmp_path / "test.agent"
         worker.write_text("---\nname: main\n---\nTest")
 
         with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
@@ -333,12 +333,12 @@ class TestCLISuccess:
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
             "entry": {"input": {"input": "manifest prompt"}},
-            "worker_files": ["test.worker"],
+            "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
-        worker = tmp_path / "test.worker"
+        worker = tmp_path / "test.agent"
         worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         mock_ctx = AsyncMock()
@@ -361,12 +361,12 @@ class TestCLISuccess:
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
             "entry": {"input": {"input": "manifest prompt"}},
-            "worker_files": ["test.worker"],
+            "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
-        worker = tmp_path / "test.worker"
+        worker = tmp_path / "test.agent"
         worker.write_text("---\nname: main\nentry: true\n---\nTest")
 
         mock_ctx = AsyncMock()

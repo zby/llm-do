@@ -67,8 +67,8 @@ toolsets:
 
 **B. Twin Workers**: Two identical workers calling each other (works without policy changes).
 ```yaml
-# analyzer_a.worker calls analyzer_b
-# analyzer_b.worker calls analyzer_a
+# analyzer_a.agent calls analyzer_b
+# analyzer_b.agent calls analyzer_a
 ```
 
 **C. Typed Recursion**: Different workers for hierarchy levels.

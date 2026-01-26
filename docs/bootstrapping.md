@@ -27,11 +27,11 @@ mkdir input output
 cp ~/documents/*.pdf input/
 
 # Run the bootstrapper (looks for files in input/, writes to output/)
-llm-do llm_do/workers/worker_bootstrapper.worker --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 \
+llm-do llm_do/workers/worker_bootstrapper.agent --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 \
   "Analyze the PDFs in input/ and write 100-word summaries to output/"
 ```
 
-The bootstrapper worker file lives at `llm_do/workers/worker_bootstrapper.worker` in the repo. Copy it into your project or reference it directly as shown above.
+The bootstrapper worker file lives at `llm_do/workers/worker_bootstrapper.agent` in the repo. Copy it into your project or reference it directly as shown above.
 
 ## How It Works
 
@@ -52,7 +52,7 @@ The bootstrapper worker file lives at `llm_do/workers/worker_bootstrapper.worker
 │ /tmp/llm-do/    │   │ output/         │
 │  generated/     │   │  result.md      │
 │   pdf_analyzer/ │   │                 │
-│    worker.worker│   │                 │
+│    worker.agent│   │                 │
 └─────────────────┘   └─────────────────┘
 ```
 
@@ -62,13 +62,13 @@ for the current session. Copy them into your project to reuse later:
 ```bash
 # Reuse the created worker
 cp -r /tmp/llm-do/generated/pdf_analyzer ./pdf_analyzer
-llm-do ./pdf_analyzer/worker.worker --entry pdf_analyzer "Analyze input/new_file.pdf"
+llm-do ./pdf_analyzer/worker.agent --entry pdf_analyzer "Analyze input/new_file.pdf"
 ```
 
 ## Example Session
 
 ```bash
-$ llm-do llm_do/workers/worker_bootstrapper.worker --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 \
+$ llm-do llm_do/workers/worker_bootstrapper.agent --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 \
   "Analyze the pitch decks in input/ and write 100-word evaluations to output/"
 
 # Bootstrapper:
@@ -102,7 +102,7 @@ Generated workers are written to `/tmp/llm-do/generated/` by default:
 ```
 /tmp/llm-do/generated/
 └── my_analyzer/
-    └── worker.worker
+    └── worker.agent
 ```
 
 **Important:** The bootstrapper operates on normal filesystem paths relative to
@@ -129,7 +129,7 @@ The bootstrapper has these built-in permissions:
 ## Supported File Types
 
 **Text files** (can be read directly):
-- `.md`, `.txt`, `.worker`, `.json`, `.py`
+- `.md`, `.txt`, `.agent`, `.json`, `.py`
 
 **Binary files** (passed as attachments):
 - `.pdf` and other binary formats
@@ -147,7 +147,7 @@ The bootstrapper is already YOLO (LLM creates workers). Add `--approve-all` for 
 
 ```bash
 # Double YOLO: fully autonomous worker creation and execution
-llm-do llm_do/workers/worker_bootstrapper.worker --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 --approve-all \
+llm-do llm_do/workers/worker_bootstrapper.agent --entry worker_bootstrapper --model anthropic:claude-haiku-4-5 --approve-all \
   "Process all documents in input/ and generate 100-word reports to output/"
 ```
 

@@ -69,20 +69,23 @@ def model_matches_pattern(model: str, pattern: str) -> bool:
 
 
 def validate_model_compatibility(
-    model: str | Model, compatible_models: list[str] | None, *, worker_name: str = "worker"
+    model: str | Model, compatible_models: list[str] | None, *, agent_name: str = "agent", worker_name: str | None = None
 ) -> None:
     """Validate model against compatibility patterns. Raises ModelCompatibilityError if invalid."""
+    # Handle deprecated parameter
+    if worker_name is not None:
+        agent_name = worker_name
     if compatible_models is None:
         return
     if not compatible_models:
         raise InvalidCompatibleModelsError(
-            f"Worker '{worker_name}' has empty compatible_models list. Use ['*'] for any model."
+            f"Agent '{agent_name}' has empty compatible_models list. Use ['*'] for any model."
         )
     model_str = get_model_string(model)
     if any(model_matches_pattern(model_str, p) for p in compatible_models):
         return
     patterns = ", ".join(f"'{p}'" for p in compatible_models)
-    raise ModelCompatibilityError(f"Model '{model_str}' incompatible with '{worker_name}'. Patterns: {patterns}")
+    raise ModelCompatibilityError(f"Model '{model_str}' incompatible with '{agent_name}'. Patterns: {patterns}")
 
 
 def get_env_model() -> str | None:
@@ -91,15 +94,23 @@ def get_env_model() -> str | None:
 
 
 def select_model(
-    *, worker_model: str | Model | None, compatible_models: list[str] | None, worker_name: str = "worker"
+    *, agent_model: str | Model | None = None, compatible_models: list[str] | None, agent_name: str = "agent",
+    # Backwards compatibility aliases (deprecated)
+    worker_model: str | Model | None = None, worker_name: str | None = None
 ) -> str | Model:
-    """Select and validate the effective model for a worker (worker_model > LLM_DO_MODEL env)."""
-    if worker_model is not None and compatible_models is not None:
-        raise ModelConfigError(f"Worker '{worker_name}' cannot have both 'model' and 'compatible_models' set.")
+    """Select and validate the effective model for an agent (agent_model > LLM_DO_MODEL env)."""
+    # Handle deprecated parameters
     if worker_model is not None:
-        return worker_model
+        agent_model = worker_model
+    if worker_name is not None:
+        agent_name = worker_name
+
+    if agent_model is not None and compatible_models is not None:
+        raise ModelConfigError(f"Agent '{agent_name}' cannot have both 'model' and 'compatible_models' set.")
+    if agent_model is not None:
+        return agent_model
     env_model = os.environ.get(LLM_DO_MODEL_ENV)
     if env_model is not None:
-        validate_model_compatibility(env_model, compatible_models, worker_name=worker_name)
+        validate_model_compatibility(env_model, compatible_models, agent_name=agent_name)
         return env_model
-    raise NoModelError(f"No model configured for worker '{worker_name}'. Set worker.model or {LLM_DO_MODEL_ENV}.")
+    raise NoModelError(f"No model configured for agent '{agent_name}'. Set agent.model or {LLM_DO_MODEL_ENV}.")

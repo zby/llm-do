@@ -13,7 +13,7 @@ Enable agents to create and invoke other agents at runtime, supporting bootstrap
 - Example use case: `examples/pitchdeck_eval/` - orchestrator creating specialized evaluator agents
 
 ## Decision Record
-- Decision: output directory configured via manifest field `generated_workers_dir`
+- Decision: output directory configured via manifest field `generated_agents_dir`
 - Rationale: manifest already handles path resolution; natural place for project config
 - Decision: generated agents are NOT auto-discovered on subsequent runs
 - Rationale: user should explicitly promote agents by copying to project and adding to `worker_files`; keeps human in the loop

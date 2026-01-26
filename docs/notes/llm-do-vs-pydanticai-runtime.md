@@ -114,6 +114,21 @@ Overlap:
 - Both enable delegation and hierarchical agent structures.
 - Both rely on PydanticAI under the hood and keep tool usage explicit.
 
+### Potentially adoptable ideas from subagents
+- **Async task lifecycle API**: `task/check_task` with explicit states and
+  cancellation could map cleanly onto a future llm-do task manager (if we want
+  background work without forcing a message bus).
+- **Parent/child question flow**: a structured question/answer channel for
+  blocked subagents could become a runtime-level primitive.
+- **Message bus abstraction**: a pluggable bus enables distributed execution,
+  though it introduces complexity and may conflict with llm-do’s “local runtime”
+  framing.
+- **Dynamic agent creation**: runtime agent factories with limits and allowed
+  models could be valuable for bootstrapping, but should respect the unified
+  namespace and approval boundaries.
+- **Auto-mode heuristics**: simple heuristics for sync vs async could be reused
+  if llm-do ever exposes background execution.
+
 ### What is *not* fundamentally new
 - llm-do does not change the underlying LLM semantics. It still uses PydanticAI
   Agents and toolsets under the hood.

@@ -18,6 +18,9 @@ Working documents for exploration, design thinking, and capturing insights.
 
 - `archive/` — resolved or superseded notes (immutable after archiving)
 - `agent-learnings/` — staging area for agent-discovered insights (see its README)
+- `meta/` — upstream proposals and cross-project concerns
+- `research/` — external research analysis and literature review
+- `reviews/` — code review notes and audits
 
 ## Note Template
 
@@ -88,9 +91,6 @@ What was learned, discovered, or designed.
 - [Recursive Problem Patterns](recursive-problem-patterns.md)
 - [Recursive Worker Patterns (Summary)](recursive-patterns-summary.md)
 - [Manual Simplification Examples](simplification-examples.md)
-
-### Upstream Proposals
-- [PydanticAI Runtime Split and Trace Hooks](pydanticai-runtime-trace.md)
 
 ### Research & Analysis
 - [Adaptation of Agentic AI (arXiv paper)](adaptation-agentic-ai-analysis.md)

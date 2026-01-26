@@ -71,6 +71,14 @@ what changes in the computational model vs. what is just packaging/convenience?
    - Entry functions run under a NullModel (no tools, no LLM), making the
      deterministic/stochastic boundary explicit and intentional.
 
+### Messaging emphasis (pragmatic vs conceptual)
+- **Pragmatic emphasis:** the unified tool/agent namespace is the clearest,
+  most stable differentiator to lead with. Approvals are important but still
+  evolving, so we should not anchor the positioning on them.
+- **Conceptual umbrella:** the broader message remains the hybrid VM framing:
+  a single call surface where neural and symbolic components can swap without
+  changing call sites.
+
 ### What is *not* fundamentally new
 - llm-do does not change the underlying LLM semantics. It still uses PydanticAI
   Agents and toolsets under the hood.
@@ -122,6 +130,9 @@ all tool calls. This changes the computational model from "explicit object
 wiring" to "late-bound names with interception". For small apps, vanilla
 PydanticAI is enough; llm-do becomes valuable when you need safe tool execution,
 uniform composition, and a stable refactor path between LLM agents and code.
+For outward messaging, lead with the unified tool/agent namespace; keep
+approvals secondary until that surface is more mature, while framing everything
+under the hybrid VM umbrella.
 
 ## References
 - https://ai.pydantic.dev/multi-agent-applications/#agent-delegation-and-dependencies

@@ -9,7 +9,7 @@ We want to propose changes to PydanticAI to make systems like llm-do easier to b
 - Usage aggregation should be first-class. Add a `UsageCollector`/`UsageRecorder` interface to `Agent.run(...)` or runtime. Each model call emits a `UsageEvent` including `agent_name`, `run_id`, `parent_run_id`, `model`, and `model_settings`, so totals can be aggregated across agents and model settings.
 - Structured message history / trace. Provide a `MessageStore` or `RunTrace` abstraction that captures message parts with metadata (`agent_name`, `depth`, `parent_tool_call_id`, timestamps, tool name), and let `Agent.run(...)` accept and update it. This avoids relying on private hooks like `_agent_graph.capture_run_messages` and makes incremental logging stable.
 - First-class run/call identifiers. Add `run_id` and `parent_run_id` to `RunContext` so traces and usage can be correlated across nested calls and tool invocations.
-- These changes map cleanly to llm-do's runtime model (`llm_do/runtime/shared.py`, `llm_do/runtime/call.py`) and would remove current workarounds for usage logging and message capture.
+- These changes map cleanly to llm-do's runtime model (`llm_do/runtime/runtime.py`, `llm_do/runtime/call.py`) and would remove current workarounds for usage logging and message capture.
 
 ## Open Questions
 - Naming and lifecycle: `Runtime` vs `Session`, and whether it is a context manager or an explicit object passed into `run()`.

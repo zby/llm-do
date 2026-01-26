@@ -25,12 +25,18 @@ How should entry names and toolset names be separated if they share a registry?
 
 Is this a problem? Could cause confusion if a Python toolset has the same name as a worker.
 
-### 3. Per-worker toolset configuration
-Are per-worker toolset overrides or configs expected to grow in importance?
+### 3. Per-worker toolset configuration (**RESOLVED**)
 
-**Current state:**
-- Not supported - toolsets in worker files are just names (`list[str]`)
-- The `dict[str, dict]` → `list[str]` simplification removed this flexibility intentionally
-- If toolset config is needed, users define a Python toolset instance
+**Update (2026-01):** This question is resolved. The architecture now uses `ToolsetSpec` with a factory pattern:
 
-Is this sufficient long-term, or will we need per-worker config (e.g., different shell rules per worker)?
+```python
+# Worker now has:
+toolset_specs: list[ToolsetSpec]
+
+# ToolsetSpec wraps a factory:
+@dataclass(frozen=True, slots=True)
+class ToolsetSpec:
+    factory: ToolsetFactory  # Callable[[ToolsetBuildContext], AbstractToolset]
+```
+
+Per-worker configuration is supported through the factory pattern - each `ToolsetSpec` can capture configuration in its factory closure. Worker files can specify toolsets by name (resolved via `ToolsetBuildContext.available_toolsets`), while programmatic `Worker` construction can pass fully configured `ToolsetSpec` instances directly.

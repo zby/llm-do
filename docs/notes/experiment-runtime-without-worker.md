@@ -2,11 +2,11 @@
 
 ## Context
 We want to remove the `Worker` class and make the experiment runtime (`deps`-as-runtime)
-the primary execution surface. The question is how much `WorkerRuntime`-style deps
+the primary execution surface. The question is how much `CallContext`-style deps
 should absorb and what architecture replaces the Worker responsibilities.
 
 ## Findings
-- `WorkerRuntime` alone does not cover lifecycle, toolset cleanup, or prompt/agent
+- `CallContext` alone does not cover lifecycle, toolset cleanup, or prompt/agent
   orchestration; those behaviors live in `Worker` today.
 - Removing `Worker` means relocating its responsibilities into:
   - a call-scope/lifecycle abstraction (build toolsets per call, run agent, cleanup),
@@ -16,7 +16,7 @@ should absorb and what architecture replaces the Worker responsibilities.
   - run-scoped sinks,
   - call-scope boundaries,
   - entry resolution and model compatibility logic.
-- `WorkerRuntime` can remain a facade as long as it continues to wrap shared run-state
+- `CallContext` can remain a facade as long as it continues to wrap shared run-state
   (`Runtime`) plus per-call state (`CallFrame`); that design still scales if Worker
   goes away.
 

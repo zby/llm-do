@@ -59,7 +59,7 @@ output_type=spec.schema_out or str,
 
 ### 3. Runtime usage collection (`UsageCollector`, `Runtime._create_usage`, `Runtime.usage`) - **REMOVE OR WIRE**
 
-**Location:** `llm_do/runtime/shared.py:20-173`
+**Location:** `llm_do/runtime/runtime.py:20-173`
 
 **Current state:**
 - `UsageCollector` stores `RunUsage` objects
@@ -77,7 +77,7 @@ output_type=spec.schema_out or str,
 
 ### 4. Runtime message log accumulation + `MessageAccumulator.for_worker` - **CONSIDER REMOVAL / LAZY**
 
-**Location:** `llm_do/runtime/shared.py:40-176`
+**Location:** `llm_do/runtime/runtime.py:40-176`
 
 **Current state:**
 - `Runtime.log_messages()` always appends to `MessageAccumulator`
@@ -121,7 +121,7 @@ output_type=spec.schema_out or str,
 
 ### 7. `Runtime.run()` sync wrapper - **CONSIDER REMOVAL**
 
-**Location:** `llm_do/runtime/shared.py:232`
+**Location:** `llm_do/runtime/runtime.py:232`
 
 **Current state:**
 - No call sites in code/tests
@@ -133,7 +133,7 @@ output_type=spec.schema_out or str,
 
 ### 8. Worker Approval Config Tunneling - **CONSIDER SIMPLIFICATION**
 
-**Location:** `llm_do/runtime/shared.py:66-70`, `llm_do/toolsets/agent.py:68-72`
+**Location:** `llm_do/runtime/runtime.py:66-70`, `llm_do/toolsets/agent.py:68-72`
 
 **Current state:**
 Three related fields in RuntimeConfig:
@@ -155,7 +155,7 @@ The codebase underwent significant refactoring:
 
 1. **Worker class removed** - Replaced with `AgentSpec` + `EntrySpec` architecture
 2. **EntryFunction removed** - Replaced with `EntrySpec` (simpler dataclass)
-3. **WorkerRuntime simplified** - Now a thinner protocol implementation
+3. **CallContext simplified** - Now a thinner protocol implementation
 
 These changes align with the audit's goal of reducing unnecessary complexity.
 

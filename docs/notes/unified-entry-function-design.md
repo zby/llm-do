@@ -93,7 +93,7 @@ Entry functions are still trusted code, but their `ctx.call()` usage now follows
 The key architectural insight is separating **tool plane setup** from **execution method**.
 
 **Tool Plane Setup** (same for steps 1-3):
-- CallFrame + WorkerRuntime with resolved toolsets
+- CallFrame + CallContext with resolved toolsets
 - Approval wrapping applied per runtime policy (may be disabled)
 - Depth tracking
 - Event callbacks for observability
@@ -115,7 +115,7 @@ Proposed: One shared environment builder, with execution method as a parameter o
 ## Proposed Architecture Building Blocks
 
 ### 1. Shared Tool Plane Builder
-Build a CallFrame + WorkerRuntime with resolved toolsets, prompt, messages, and approval wrapping. This builder is used by workers, entry functions, and scripts alike - anything that stays in the tool plane.
+Build a CallFrame + CallContext with resolved toolsets, prompt, messages, and approval wrapping. This builder is used by workers, entry functions, and scripts alike - anything that stays in the tool plane.
 
 ### 2. Entry-as-Invocation Pipeline
 Run entry functions through the same invocation path as workers: create a CallFrame for the entry (depth 0 at top level), wrap toolsets for approval, set prompt/messages, then execute the entry. When invoked from another runtime, the entry uses a child CallFrame like any other invocation. This makes entry behavior match the worker "agent runtime" (where tool calls actually happen) without pretending the entry is a tool.
@@ -150,7 +150,7 @@ result = await my_logic(router)
 ```
 
 Prefer passing a small ToolRouter or Services object rather than the full runtime so the function is not tied to PydanticAI types. The caller takes ownership of whether to wrap for approval - you're in the raw Python plane unless you explicitly opt back in.
-For now, passing `WorkerRuntime` directly is acceptable; a minimal ToolRouter can be introduced later once we have more examples and know what is essential.
+For now, passing `CallContext` directly is acceptable; a minimal ToolRouter can be introduced later once we have more examples and know what is essential.
 
 ## Current Architecture Analysis
 
@@ -161,7 +161,7 @@ For now, passing `WorkerRuntime` directly is acceptable; a minimal ToolRouter ca
 | **EntryRegistry** | `dict[str, Entry]` (workers + entry funcs) | Symbol table for lookup; built from .worker/.py files |
 | **Runtime** | RuntimeConfig, UsageCollector, MessageAccumulator | Execution environment; runs entries; no knowledge of registry |
 | **Entry** (Worker/EntryFunction) | name, toolsets, schema_in | Passed to `Runtime.run_entry()` |
-| **WorkerRuntime** | Runtime + CallFrame | Per-call context; can call tools via `active_toolsets` |
+| **CallContext** | Runtime + CallFrame | Per-call context; can call tools via `active_toolsets` |
 | **CallFrame** | depth, model, active_toolsets, prompt, messages | Per-call state |
 
 ### Key Observation
@@ -180,7 +180,7 @@ The entry function declares what it needs upfront. This is explicit and auditabl
 
 ## Implementation Status (v1 parity)
 
-The entry function signature stays the same (declares toolsets, receives WorkerRuntime, calls tools). `Runtime.run_entry()` now keeps entry functions in the tool plane:
+The entry function signature stays the same (declares toolsets, receives CallContext, calls tools). `Runtime.run_entry()` now keeps entry functions in the tool plane:
 
 - Entry toolsets are wrapped for approval per `RunApprovalPolicy` (including `return_permission_errors`)
 - `CallFrame.invocation_name` is set so entry/worker tool events attribute to the invocation name
@@ -190,7 +190,7 @@ The entry function signature stays the same (declares toolsets, receives WorkerR
 
 ```python
 @entry(toolsets=["analyzer", "writer"])
-async def orchestrate(args: WorkerArgs, ctx: WorkerRuntime) -> str:
+async def orchestrate(args: WorkerArgs, ctx: CallContext) -> str:
     # Same signature, same ctx.call() pattern
     result = await ctx.call("analyzer", {"prompt": args.prompt_spec().text})
     return await ctx.call("writer", {"prompt": result})
@@ -198,7 +198,7 @@ async def orchestrate(args: WorkerArgs, ctx: WorkerRuntime) -> str:
 
 ## Post-v1 Cleanup
 
-1. **Shared tool plane builder** - Removed; toolset lifecycle is now owned by `Entry.start()` + `CallScope.close()` with cleanup helpers in `llm_do/runtime/toolsets.py`.
+1. **Shared tool plane builder** - Removed; toolset lifecycle is now owned by `Entry.start()` + `CallScope.close()` with cleanup helpers in `llm_do/runtime/call.py (toolset cleanup inlined)`.
 
 ## Worker Access Model
 
@@ -229,7 +229,7 @@ This is the opt-in model from `worker-design-rationale.md`:
 1. **Per-call toolset instantiation**: Fixed in `tasks/completed/per-call-toolset-instances.md`. Workers now store `toolset_specs` and instantiate per-call in `Worker._call_internal()` with cleanup in finally block.
 2. **Attachment paths**: Resolve relative to a single runtime project root shared across workers (CLI uses manifest dir; scripts pass explicitly, e.g., `Path.cwd()` if desired). Per-worker attachment base paths are removed.
 3. **Toolset build context**: `ToolsetBuildContext` no longer carries `worker_path`/`worker_dir`; toolset factories receive only explicit inputs.
-4. **Step 4 interface**: Allow `WorkerRuntime` as the dependency surface for now; a smaller ToolRouter is deferred until more examples exist.
+4. **Step 4 interface**: Allow `CallContext` as the dependency surface for now; a smaller ToolRouter is deferred until more examples exist.
 5. **Script bootstrap**: Require an EntryRegistry (or pre-resolved Entry) to resolve named toolsets; registry-free mode is deferred.
 6. **Entry tool-plane parity**: Entry toolsets are approval-wrapped per runtime policy; tool events are attributed via `CallFrame.invocation_name`.
 7. **Shared tool plane builder**: Toolset instantiation + approval wrapping happen inside `Entry.start()`; cleanup runs via `CallScope.close()`.

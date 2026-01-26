@@ -1,0 +1,127 @@
+# llm-do vs vanilla PydanticAI: what the runtime adds
+
+## Context
+We need to document (for README and other docs) what llm-do adds on top of plain
+PydanticAI agents, especially around multi-agent delegation and dependencies.
+The PydanticAI docs show agent delegation by calling another agent inside a tool,
+but llm-do introduces a runtime/harness and more structure. The question is:
+what changes in the computational model vs. what is just packaging/convenience?
+
+## Findings
+
+### Baseline: PydanticAI multi-agent patterns
+- PydanticAI supports "agent delegation": one agent calls another inside a tool
+  and then resumes control. The delegate run typically shares usage tracking and
+  receives dependencies from the parent.
+- Delegation is explicit: you create multiple `Agent` objects and call
+  `other_agent.run(...)` inside a tool.
+- Agents are stateless and designed to be global; you typically pass dependencies
+  and usage rather than re-instantiating agents inside tools.
+- Each agent has its own tool list and dependency type. Cross-agent calls require
+  you to pass `deps` and `usage` manually (or construct them) to keep things
+  consistent.
+- Delegate agent dependencies should be the same as (or a subset of) the parent
+  dependencies; otherwise you must build a new deps object inside the tool.
+- PydanticAI itself offers multiple coordination styles (single agent, delegation,
+  programmatic hand-off, graphs, deep agents). You choose the style and wire it
+  in application code.
+
+### What llm-do adds (concrete behavior)
+- A **runtime registry** that resolves agents and tools by name, with `.worker`
+  files and `ToolsetSpec` factories loaded from a project manifest.
+- A **unified tool/agent namespace**: agents and tools share names; the LLM sees
+  a flat list of callable names, and resolution happens at call time.
+- **Entry functions**: deterministic orchestration in Python (no tools, no LLM),
+  which can call agents via a `CallContext`.
+- **Toolset lifecycle management**: toolsets are instantiated per call, cleaned
+  up automatically, and isolated from each other.
+- **Approvals as a first-class policy**: all tool calls can be wrapped with
+  blocking approval checks, defined globally at the run boundary. llm-do wires
+  in `pydantic-ai-blocking-approval` and exposes simple rule configuration.
+- **CLI/TUI harness**: tool approvals, event streams, and run controls are
+  integrated for interactive use (not just library calls).
+
+### What changes in the computational model (vs plain PydanticAI)
+
+1) **Name-based dispatch as the primary call mechanism**
+   - In vanilla PydanticAI, delegation is a direct object call
+     (`other_agent.run(...)`) inside a tool. The action space for an agent is the
+     tools you attach to it.
+   - In llm-do, the action space is a **shared name registry**. The LLM produces
+     a name; the runtime resolves it to either an agent or a tool. This makes
+     the call site **implementation-agnostic** and enables late binding.
+   - Computationally, this is a shift from *"direct reference"* to *"string-named
+     dispatch"* as the core abstraction, which makes refactoring across the
+     neural/symbolic boundary a first-class operation.
+
+2) **A runtime/harness boundary with interception points**
+   - Tool calls are treated as syscalls: the runtime can intercept, approve,
+     reject, or log them. This changes the semantics of a tool call (it can
+     block or be denied).
+   - Even though the blocking logic lives in `pydantic-ai-blocking-approval`,
+     llm-do makes *global* policy resolution the default, not an opt-in pattern.
+
+3) **Explicit call scopes and lifecycle management**
+   - llm-do formalizes per-call state (prompt/messages, active toolsets) and
+     per-runtime state (usage tracking, agent registry, approval cache).
+   - Child agent calls get a fresh call scope; toolsets are not inherited. This
+     makes isolation the default and prevents accidental state leakage.
+
+4) **Deterministic orchestration as a first-class entry**
+   - Entry functions run under a NullModel (no tools, no LLM), making the
+     deterministic/stochastic boundary explicit and intentional.
+
+### What is *not* fundamentally new
+- llm-do does not change the underlying LLM semantics. It still uses PydanticAI
+  Agents and toolsets under the hood.
+- Most features (delegation, dependency passing, approvals) can be reproduced
+  manually in PydanticAI with additional glue code.
+- The blocking approval mechanism itself is not unique to llm-do; the main value
+  is centralized policy wiring and consistent run-level defaults.
+
+### When vanilla PydanticAI is enough
+- Single-agent or small multi-agent apps where wiring explicit `Agent` objects
+  is easy and you do not need a shared registry.
+- You are comfortable passing `deps`/`usage` manually and managing tool lists.
+- You prefer graph/state-machine orchestration (Pydantic Graph) or already have
+  your own runtime/harness layer.
+- You do not need file/shell tools with human approval gating.
+
+### When llm-do is the better fit
+- You want **safe, interactive tool execution** (file/shell ops) with approvals,
+  and a CLI/TUI that handles prompting, caching, and logging.
+- You want **uniform composition** where agents and tools are interchangeable,
+  enabling progressive stabilization from LLM to code without prompt rewrites.
+- You want **project-level structure**: `.worker` specs, manifest loading,
+  standardized toolsets, and centralized runtime configuration.
+- You need **consistent isolation** between agent calls and tool instances,
+  including max-depth enforcement and cleanup.
+- You want deterministic entry points that still orchestrate agents, without
+  introducing a graph DSL.
+
+### Tradeoffs / costs of llm-do
+- More structure than a simple `Agent.run()` call: manifests, runtime config,
+  toolset factories, and registry wiring.
+- Slightly higher conceptual overhead: you adopt the runtime/harness model even
+  for small tasks.
+- If you only need one or two agents, llm-do can feel like extra machinery.
+
+## Open Questions
+- In docs, how strongly should we frame the **unified tool/agent namespace** as
+  the primary computational-model change vs. approvals as the main user-visible
+  difference?
+- Should we position llm-do as a *default harness* for PydanticAI, or as a
+  specialized runtime for certain classes of projects?
+- Do we need a minimal side-by-side example that shows the *minimum* amount of
+  glue code saved by llm-do for delegation + approvals?
+
+## Conclusion
+(Draft) The fundamental addition is not a new LLM capability but a **runtime
+model**: name-based dispatch, explicit call scopes, and a harness that mediates
+all tool calls. This changes the computational model from "explicit object
+wiring" to "late-bound names with interception". For small apps, vanilla
+PydanticAI is enough; llm-do becomes valuable when you need safe tool execution,
+uniform composition, and a stable refactor path between LLM agents and code.
+
+## References
+- https://ai.pydantic.dev/multi-agent-applications/#agent-delegation-and-dependencies

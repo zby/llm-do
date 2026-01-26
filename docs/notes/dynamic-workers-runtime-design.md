@@ -4,8 +4,15 @@ Design note for runtime creation and invocation of workers (`worker_create` /
 `worker_call`).
 
 Related:
-- `tasks/backlog/dynamic-workers.md` (implementation tracking)
+- `tasks/active/dynamic-workers.md` (implementation tracking - has more current decisions)
 - `docs/architecture.md` (run boundary + ApprovalPolicy)
+
+**Note (2026-01):** The active task has resolved many open questions from this design note. Key decisions:
+- Toolset name: `dynamic_agents` (using "agents" terminology)
+- Tool names: `agent_create`, `agent_call`
+- Output directory: configured via manifest `generated_agents_dir`
+- Created agents are session-scoped, NOT auto-discovered on subsequent runs
+- Adding tools mid-session is acceptable; removing is not
 
 ---
 
@@ -112,7 +119,7 @@ dynamic-worker compilation/wrapping through the same approval boundary described
 
 - Should created workers persist across runs or be ephemeral?
 - Where should generated workers be stored? (configurable output directory)
-- Should `worker_call` build a fresh `WorkerRuntime` or reuse the parent's config?
+- Should `worker_call` build a fresh `CallContext` or reuse the parent's config?
 - Do we also expose created workers as normal tools on later steps (DynamicToolset),
   while keeping `worker_call` for create+call-in-one-response?
 - Do we restrict `worker_call` to session-generated workers only?

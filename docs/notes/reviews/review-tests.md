@@ -29,7 +29,7 @@ Runtime tests
 - [A] `tests/runtime/test_manifest.py` — Validates manifest schema defaults, loading, and path resolution; protects project manifest contract.
 - [A] `tests/runtime/test_discovery.py` — Ensures module loading, toolset discovery, and duplicate detection; protects discovery behavior.
 - [C] `tests/runtime/test_tools_unit.py` — Executes example tool functions through runtime context; protects example tool integration.
-- [A] `tests/runtime/test_context.py` — Validates runtime tool calls, proxy access, and depth tracking; protects WorkerRuntime contract.
+- [A] `tests/runtime/test_context.py` — Validates runtime tool calls, proxy access, and depth tracking; protects CallContext contract.
 - [B] `tests/runtime/test_cli_approval_session.py` — Confirms approval cache persists across runs; protects approval workflow behavior.
 - [C] `tests/runtime/test_build_entry_resolution.py` — Builds registry across nested workers and schema refs; protects entry build integration.
 - [C] `tests/runtime/test_examples.py` — Smoke-tests example build/wiring; protects example integrity.

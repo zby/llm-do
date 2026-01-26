@@ -31,7 +31,7 @@ with an eye toward design quality and opportunities to simplify.
 - llm_do/runtime/events.py: RuntimeEvent, InitialRequestEvent, StatusEvent, UserMessageEvent, TextResponseEvent, ToolCallEvent, ToolResultEvent, DeferredToolEvent, CompletionEvent, ErrorEvent (dataclasses)
 - llm_do/runtime/manifest.py: ApprovalMode (TypeAlias); WorkerApprovalOverride, ManifestRuntimeConfig, EntryConfig, ProjectManifest (BaseModel)
 - llm_do/runtime/registry.py: AgentRegistry, WorkerSpec (dataclasses)
-- llm_do/runtime/shared.py: WorkerApprovalConfig, RuntimeConfig (dataclasses)
+- llm_do/runtime/runtime.py: WorkerApprovalConfig, RuntimeConfig (dataclasses)
 - llm_do/runtime/worker_file.py: WorkerDefinition (dataclass)
 - llm_do/toolsets/agent.py: _DefaultAgentToolSchema (BaseModel); AgentToolset (dataclass)
 - llm_do/toolsets/filesystem.py: ReadResult, ReadFileArgs, WriteFileArgs, ListFilesArgs (BaseModel)

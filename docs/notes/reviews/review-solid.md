@@ -1,5 +1,10 @@
 # SOLID Alignment Review
 
+**Note (2026-01-26):** File paths updated for recent refactoring:
+- `runtime/shared.py` → `runtime/runtime.py`
+- `runtime/deps.py` → `runtime/context.py`
+- `WorkerRuntime` → `CallContext`
+
 ## Context
 Periodic review of SOLID alignment across the core runtime (`llm_do/runtime`),
 toolsets (`llm_do/toolsets`), and the UI event/rendering stack (`llm_do/ui`).
@@ -15,7 +20,7 @@ toolsets (`llm_do/toolsets`), and the UI event/rendering stack (`llm_do/ui`).
 - Event emission (`_emit_tool_events`)
 - Toolset adapter (`as_toolset` → `WorkerToolset`)
 
-**Runtime** (`runtime/shared.py`) handles:
+**Runtime** (`runtime/runtime.py`) handles:
 - Configuration management (`RuntimeConfig`)
 - Usage tracking (`UsageCollector`)
 - Message logging (`MessageAccumulator`)
@@ -28,7 +33,7 @@ lifecycle management with runtime execution - cleanup could live in registry
 or entry itself. Additionally, per-entry instantiation breaks isolation for
 recursive worker calls (see `tasks/active/per-call-toolset-instances.md`).
 
-**WorkerRuntime** (`runtime/deps.py`) serves as:
+**CallContext** (`runtime/context.py`) serves as:
 - Tool dispatcher
 - State accessor (messages, prompt, depth)
 - RunContext factory
@@ -81,8 +86,8 @@ inherits from `AbstractToolset`; it uses `WorkerToolset` adapter instead.
 ```
 runtime/contracts.py:15  → from ..ui.events import UIEvent
 runtime/worker.py:37     → from ..ui.events import ToolCallEvent, ToolResultEvent
-runtime/shared.py:14     → from ..ui.events import UserMessageEvent
-runtime/deps.py:212      → from ..ui.events import ToolCallEvent, ToolResultEvent
+runtime/runtime.py:14     → from ..ui.events import UserMessageEvent
+runtime/context.py:212      → from ..ui.events import ToolCallEvent, ToolResultEvent
 ```
 
 High-level runtime modules depend on low-level UI event types. This inverts
@@ -134,13 +139,13 @@ and vice versa.
 - Streaming event handling + fallback tool event emission
 - Message logging (incremental log capture)
 
-**Runtime** (`runtime/shared.py`) still aggregates multiple responsibilities:
+**Runtime** (`runtime/runtime.py`) still aggregates multiple responsibilities:
 - Configuration and policy wiring
 - Usage + message log collection
 - Entry dispatch (`run_entry`)
-- Toolset lifecycle orchestration (call-scope cleanup via `runtime/toolsets.py`)
+- Toolset lifecycle orchestration (call-scope cleanup via `runtime/call.py (toolset cleanup inlined)`)
 
-**WorkerRuntime** (`runtime/deps.py`) continues as the "god object":
+**CallContext** (`runtime/context.py`) continues as the "god object":
 - Tool dispatch + arg validation
 - RunContext construction
 - Usage tracking
@@ -178,9 +183,9 @@ and vice versa.
 
 ```
 runtime/contracts.py → UIEvent (callback type)
-runtime/shared.py    → UserMessageEvent
+runtime/runtime.py    → UserMessageEvent
 runtime/worker.py    → ToolCallEvent, ToolResultEvent, parse_event()
-runtime/deps.py      → ToolCallEvent, ToolResultEvent
+runtime/context.py      → ToolCallEvent, ToolResultEvent
 ```
 
 Runtime layers still import UI types and emit UI-specific events directly.
@@ -222,15 +227,15 @@ keeping UI as a "low-level detail" in core runtime execution.
 - Event streaming + fallback tool event emission
 - Message logging (incremental + final snapshots)
 
-**WorkerRuntime** (`runtime/deps.py`) remains a central orchestrator:
+**CallContext** (`runtime/context.py`) remains a central orchestrator:
 - Tool discovery + dispatch
 - RunContext construction + usage tracking
 - Tool event emission
 - Call-frame state management + child runtime spawning
 
-**Runtime** (`runtime/shared.py`) still aggregates config, usage, message
+**Runtime** (`runtime/runtime.py`) still aggregates config, usage, message
 logging, and entry dispatch. Toolset cleanup is now owned by `CallScope`
-via `runtime/toolsets.py`, which reduces cross-cutting concerns here.
+via `runtime/call.py (toolset cleanup inlined)`, which reduces cross-cutting concerns here.
 
 **UIEvent classes** (`ui/events.py`) continue to mix data + rendering
 (Rich/Text/Textual widget creation).
@@ -290,7 +295,7 @@ restores the intended dependency direction.
 
 1. **Extract Worker concerns:** Move attachments, message logging, and event
    streaming into collaborators (InputNormalizer, AttachmentLoader, StreamHandler).
-2. **Split WorkerRuntime responsibilities:** Separate tool dispatch from runtime
+2. **Split CallContext responsibilities:** Separate tool dispatch from runtime
    state/usage bookkeeping.
 3. **Decouple UI rendering from events:** Shift render logic to backend-specific
    visitors/strategies so new formats don't touch every event class.
@@ -308,13 +313,13 @@ restores the intended dependency direction.
 
 **Worker** no longer exists as a monolith, and responsibilities are now spread across:
 - `runtime/agent_runner.py` (agent construction + execution + event streaming)
-- `runtime/deps.py` (call-scoped runtime orchestration)
+- `runtime/context.py` (call-scoped runtime orchestration)
 - `runtime/worker_file.py` (worker file parsing)
 - `runtime/registry.py` (spec construction + toolset wiring)
 
 This is a clear SRP improvement over the prior all-in-one Worker class.
 
-**WorkerRuntime** (`runtime/deps.py`) is still a "central orchestrator" that owns:
+**CallContext** (`runtime/context.py`) is still a "central orchestrator" that owns:
 - tool dispatch + arg validation
 - toolset instantiation + approval wrapping
 - call-frame spawning + depth enforcement
@@ -333,9 +338,9 @@ mechanics (tool invocation, call frames).
 
 This is cohesive but still mixes "run the model" with "translate/emit events."
 The fallback tool-event emission logic also duplicates some behavior in
-`WorkerRuntime._call_tool`.
+`CallContext._call_tool`.
 
-**Runtime** (`runtime/shared.py`) bundles configuration, usage collection, message
+**Runtime** (`runtime/runtime.py`) bundles configuration, usage collection, message
 logging, and entry dispatch. That is arguably the right aggregate for a shared
 runtime, but it remains multi-purpose.
 
@@ -396,7 +401,7 @@ documenting as a behavioral shift for callers expecting exceptions.
 
 ### Recommendations (2026-01-24)
 
-1. **Split WorkerRuntime responsibilities:** Introduce collaborators for
+1. **Split CallContext responsibilities:** Introduce collaborators for
    tool invocation (arg validation + event emission) and call lifecycle
    (toolset instantiation + cleanup). This isolates policy decisions from
    mechanics. Trade-off: more indirection and objects to wire.

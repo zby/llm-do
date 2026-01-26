@@ -256,20 +256,26 @@ uv run -m experiments.inv.v2_direct.run
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference
 - **[`docs/notes/`](docs/notes/)** — Working design notes and explorations
 
-## What We Add to PydanticAI
+## When to Use llm-do vs Vanilla PydanticAI
 
-llm-do is built on [PydanticAI](https://ai.pydantic.dev/) and extends it with:
+PydanticAI already supports [multi-agent delegation](https://ai.pydantic.dev/multi-agent-applications/)—agents calling agents via tool functions. It works well for many cases.
 
-| Addition | What it enables |
-|----------|-----------------|
-| **Agents as tools** | Agents call other agents using the same interface as tools. The LLM sees a flat namespace of callable functions—it doesn't know which are agents vs. Python code. |
-| **Name-based dispatch** | Components registered by string name, resolved at call time. Swap an agent for a Python function (or vice versa) without changing call sites. |
-| **Blocking approval system** | Tool calls intercepted before execution. Approvals work like syscalls—execution blocks until granted. Built on `pydantic-ai-blocking-approval`. |
-| **Runtime scopes** | Shared `Runtime` (usage tracking, agent registry, config) + per-call `CallContext` (message history, toolsets, depth). Clean separation of process-scoped and call-scoped state. |
-| **Worker file format** | Declarative YAML frontmatter for agent definitions. Toolsets, schemas, and model declared per-agent. |
-| **Harness layer** | Imperative orchestration with native Python control flow. No graph DSL—just functions calling functions. |
+**Use vanilla PydanticAI when:**
+- You have a few agents with fixed relationships
+- You're comfortable writing tool wrapper functions for delegation
+- You don't need human-in-the-loop approval
 
-**The key insight**: PydanticAI gives you excellent single-agent tooling. llm-do adds the multi-agent orchestration layer—agents calling agents, unified namespaces, approval gates—while keeping everything as plain Python.
+**Consider llm-do when:**
+
+| Need | What llm-do provides |
+|------|---------------------|
+| **Human approval gates** | Blocking syscall-style approval before dangerous tool calls. Built on `pydantic-ai-blocking-approval`. |
+| **Declarative agent definitions** | `.worker` files with YAML frontmatter—no Python boilerplate per agent. |
+| **Stabilizing pattern** | Unified calling convention lets you swap an LLM agent for Python code (or vice versa) without changing call sites. Name-based dispatch resolves at runtime. |
+| **Automatic agent-as-tool exposure** | Agents become callable tools automatically—no wrapper functions needed. |
+| **Managed runtime** | Usage tracking, depth limits, and event callbacks across the entire call tree without manual `ctx.usage` passing. |
+
+**The tradeoff**: llm-do adds opinions and structure. If you want full control and don't need the above, vanilla PydanticAI is simpler.
 
 ## Status
 

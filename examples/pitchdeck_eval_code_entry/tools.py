@@ -3,7 +3,7 @@
 This example demonstrates the EntrySpec pattern where Python code is the
 entry point instead of an LLM orchestrator. The main() function handles
 all deterministic orchestration (list files, loop, write results) while
-the pitch_evaluator worker handles the actual LLM analysis.
+the pitch_evaluator agent handles the actual LLM analysis.
 
 Benefits:
 - No token waste on trivial orchestration logic
@@ -61,7 +61,7 @@ async def main(_input_data, runtime: CallContext) -> str:
 
     This is a code entry point that orchestrates the evaluation workflow:
     1. List all pitch deck PDFs (deterministic)
-    2. Call LLM worker for each deck (LLM reasoning)
+    2. Call LLM agent for each deck (LLM reasoning)
     3. Write results to files (deterministic)
 
     File paths are relative to the project root (this file's directory).

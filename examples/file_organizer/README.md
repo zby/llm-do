@@ -39,7 +39,7 @@ current working directory, so `cd` is required.
 ## Files
 
 - `project.json` — Manifest defining entry point, files, and approval mode
-- `main.worker` — Worker prompt and tool configuration
+- `main.agent` — Worker prompt and tool configuration
 - `tools.py` — `sanitize_filename()` function (the stabilized part)
 - `reset.sh` — Recreates sample files for repeatable demos
 - `messy_files/` — Working directory (gitignored)

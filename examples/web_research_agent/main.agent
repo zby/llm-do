@@ -17,9 +17,9 @@ reports to the `reports` directory.
 Available tools (use only these; do not call shell/commands):
 - `search_web(query, num_results=4)` returns [{url, title, snippet}]
 - `generate_slug(topic)` returns a file-safe slug for naming reports
-- `web_research_extractor(input)` - delegate to sub-worker for content extraction
-- `web_research_consolidator(input)` - delegate to sub-worker for merging findings
-- `web_research_reporter(input)` - delegate to sub-worker for report generation
+- `web_research_extractor(input)` - delegate to sub-agent for content extraction
+- `web_research_consolidator(input)` - delegate to sub-agent for merging findings
+- `web_research_reporter(input)` - delegate to sub-agent for report generation
 - `write_file(path, content)` - write files
 
 Process:

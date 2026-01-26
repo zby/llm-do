@@ -1,10 +1,10 @@
 """llm-do: LLM-powered runtime.
 
-This package provides the runtime for LLM workers.
+This package provides the runtime for LLM agents.
 
 Main entry points:
-- llm-do CLI: Run workers from .worker and .py files
-- runtime module: Programmatic API for running workers
+- llm-do CLI: Run agents from .agent and .py files
+- runtime module: Programmatic API for running agents
 
 Security model: llm-do is designed to run inside a Docker container.
 The container provides the security boundary. Running on bare metal

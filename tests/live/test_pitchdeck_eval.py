@@ -15,7 +15,7 @@ import pytest
 
 from llm_do.runtime import RunApprovalPolicy, Runtime
 
-from .conftest import build_direct_entry_for_worker, run_example, skip_no_anthropic
+from .conftest import build_direct_entry_for_agent, run_example, skip_no_anthropic
 
 
 @skip_no_anthropic
@@ -75,8 +75,8 @@ def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, 
 
     pdf_path = pdf_files[0]
 
-    entry, registry = build_direct_entry_for_worker(
-        pitchdeck_eval_example / "pitch_evaluator.worker",
+    entry, registry = build_direct_entry_for_agent(
+        pitchdeck_eval_example / "pitch_evaluator.agent",
         tmp_path,
         model="anthropic:claude-haiku-4-5",
     )

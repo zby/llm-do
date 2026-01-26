@@ -14,13 +14,13 @@ def test_message_log_callback_emits_jsonl_records() -> None:
         ModelRequest(parts=[UserPromptPart(content="world")]),
     ]
 
-    callback("worker", 2, messages)
+    callback("agent", 2, messages)
 
     lines = stream.getvalue().splitlines()
     assert len(lines) == len(messages)
     for idx, line in enumerate(lines):
         record = json.loads(line)
         assert record["seq"] == idx
-        assert record["worker"] == "worker"
+        assert record["agent"] == "agent"
         assert record["depth"] == 2
         assert "message" in record

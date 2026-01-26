@@ -7,7 +7,7 @@ This example demonstrates running llm-do **directly from Python** without the CL
 | Script | Orchestration | Uses llm-do | Tool Plane |
 |--------|---------------|-------------|------------|
 | `run.py` | Python code | Yes | Yes (approvals, events) |
-| `run_worker_entry.py` | LLM agent | Yes | Yes (approvals, events) |
+| `run_agent_entry.py` | LLM agent | Yes | Yes (approvals, events) |
 | `run_raw.py` | Python code | No | No (raw PydanticAI) |
 
 ### run.py - Code Entry with UI
@@ -51,7 +51,7 @@ outcome = await run_ui(
 )
 ```
 
-### run_worker_entry.py - Agent Entry
+### run_agent_entry.py - Agent Entry
 
 An LLM main agent orchestrates, calling pitch_evaluator as a tool. The LLM decides what to do based on its instructions.
 
@@ -115,7 +115,7 @@ print(result.output)
 
 ## What the Tool Plane Provides
 
-When you use llm-do (run.py or run_worker_entry.py), you get:
+When you use llm-do (run.py or run_agent_entry.py), you get:
 
 - **Approvals**: Interactive or policy-based approval of tool calls
 - **Events**: Structured logging of all agent activity
@@ -139,7 +139,7 @@ When you use raw PydanticAI (run_raw.py), you bypass all of this. You're respons
 uv run examples/pitchdeck_eval_direct/run.py
 
 # Agent entry (LLM orchestrates)
-uv run examples/pitchdeck_eval_direct/run_worker_entry.py
+uv run examples/pitchdeck_eval_direct/run_agent_entry.py
 
 # Raw PydanticAI (no llm-do)
 uv run examples/pitchdeck_eval_direct/run_raw.py
@@ -161,10 +161,10 @@ VERBOSITY = 1  # 0=quiet, 1=normal, 2=verbose
 ```
 pitchdeck_eval_direct/
 ├── run.py                  # Code entry with run_ui()
-├── run_worker_entry.py     # Agent entry with Runtime.run_entry()
+├── run_agent_entry.py     # Agent entry with Runtime.run_entry()
 ├── run_raw.py              # Raw PydanticAI
 ├── instructions/
-│   ├── main.md             # Main agent instructions (for run_worker_entry.py)
+│   ├── main.md             # Main agent instructions (for run_agent_entry.py)
 │   └── pitch_evaluator.md  # Evaluator instructions
 ├── input/                  # Drop PDFs here
 └── evaluations/            # Reports written here
@@ -172,5 +172,5 @@ pitchdeck_eval_direct/
 
 ## Compare to CLI-based versions
 
-- `pitchdeck_eval/` - LLM orchestrates via `.worker` files, uses CLI
+- `pitchdeck_eval/` - LLM orchestrates via `.agent` files, uses CLI
 - `pitchdeck_eval_code_entry/` - Python entry via `EntrySpec`, uses CLI

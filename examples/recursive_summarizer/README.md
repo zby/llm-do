@@ -1,13 +1,13 @@
 # Recursive Summarizer Example
 
-Demonstrates self-recursive worker pattern for hierarchical document summarization.
+Demonstrates self-recursive agent pattern for hierarchical document summarization.
 
 ## Key Features
 
 - **Self-recursion**: Worker lists itself in `toolsets` to enable recursive calls
 - **Context cap**: Uses 1000-character limit per call to force chunking
 - **Semantic splitting**: Respects document structure (paragraphs, sentence boundaries)
-- **Offset recursion**: Main worker computes file length; recursive worker advances start/end offsets
+- **Offset recursion**: Main agent computes file length; recursive agent advances start/end offsets
 
 ## Running
 
@@ -16,7 +16,7 @@ llm-do examples/recursive_summarizer/project.json
 ```
 
 The manifest configures `max_depth: 10` and uses `sample_input.txt` as the default input.
-File paths resolve relative to the worker directory via `filesystem_project`.
+File paths resolve relative to the agent directory via `filesystem_project`.
 
 ## Expected Behavior
 

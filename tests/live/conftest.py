@@ -128,9 +128,9 @@ def example_dir_factory(tmp_path, monkeypatch):
 
 
 def _collect_example_files(example_dir: Path) -> tuple[list[str], list[str]]:
-    worker_files = sorted(str(path) for path in example_dir.glob("*.worker"))
+    agent_files = sorted(str(path) for path in example_dir.glob("*.agent"))
     python_files = sorted(str(path) for path in example_dir.glob("tools.py"))
-    return worker_files, python_files
+    return agent_files, python_files
 
 
 def _set_env_model(model: str | None) -> tuple[bool, str | None]:
@@ -150,15 +150,15 @@ def _restore_env_model(changed: bool, previous: str | None) -> None:
         os.environ[LLM_DO_MODEL_ENV] = previous
 
 
-def build_direct_entry_for_worker(
-    worker_path: Path,
+def build_direct_entry_for_agent(
+    agent_path: Path,
     tmp_path: Path,
     *,
     model: str | None = None,
 ):
-    """Build a code entry that delegates directly to a single worker."""
-    worker_def = load_agent_file(worker_path)
-    toolset_name = worker_def.name
+    """Build a code entry that delegates directly to a single agent."""
+    agent_def = load_agent_file(agent_path)
+    toolset_name = agent_def.name
     entry_path = tmp_path / f"direct_entry_{toolset_name}.py"
     entry_path.write_text(
         "\n".join(
@@ -179,9 +179,9 @@ def build_direct_entry_for_worker(
     changed, previous = _set_env_model(model)
     try:
         return build_entry(
-            [str(worker_path)],
+            [str(agent_path)],
             [str(entry_path)],
-            project_root=worker_path.parent,
+            project_root=agent_path.parent,
         )
     finally:
         _restore_env_model(changed, previous)
@@ -200,9 +200,9 @@ async def run_example(
     """Build and run an example entry with approvals wired."""
     changed, previous = _set_env_model(model)
     try:
-        worker_files, python_files = _collect_example_files(example_dir)
+        agent_files, python_files = _collect_example_files(example_dir)
         entry, registry = build_entry(
-            worker_files,
+            agent_files,
             python_files,
             project_root=example_dir,
         )

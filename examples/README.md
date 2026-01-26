@@ -6,7 +6,7 @@ Examples organized by concept, from simple to advanced.
 
 | Example | What it demonstrates |
 |---------|---------------------|
-| [`greeter/`](greeter/) | Minimal single-worker setup—no tools, just a friendly prompt |
+| [`greeter/`](greeter/) | Minimal single-agent setup—no tools, just a friendly prompt |
 
 ## Custom Tools
 
@@ -29,9 +29,9 @@ The pitchdeck examples show the same task at different stabilization levels—a 
 
 | Example | What it demonstrates |
 |---------|---------------------|
-| [`pitchdeck_eval/`](pitchdeck_eval/) | All LLM: multi-worker delegation, PDF attachments, orchestrator pattern |
+| [`pitchdeck_eval/`](pitchdeck_eval/) | All LLM: multi-agent delegation, PDF attachments, orchestrator pattern |
 | [`pitchdeck_eval_stabilized/`](pitchdeck_eval_stabilized/) | Extracted tools: helper toolsets for common file operations |
-| [`pitchdeck_eval_code_entry/`](pitchdeck_eval_code_entry/) | Python entry: orchestration in code, workers handle reasoning |
+| [`pitchdeck_eval_code_entry/`](pitchdeck_eval_code_entry/) | Python entry: orchestration in code, agents handle reasoning |
 | [`pitchdeck_eval_direct/`](pitchdeck_eval_direct/) | Direct API: three abstraction levels without CLI |
 
 ## Recursive Patterns
@@ -46,7 +46,7 @@ The pitchdeck examples show the same task at different stabilization levels—a 
 | Example | What it demonstrates |
 |---------|---------------------|
 | [`web_searcher/`](web_searcher/) | Server-side tools (native web_search) for live data |
-| [`web_research_agent/`](web_research_agent/) | Multi-worker research pipeline: search → extract → consolidate → report |
+| [`web_research_agent/`](web_research_agent/) | Multi-agent research pipeline: search → extract → consolidate → report |
 
 ## Advanced Patterns
 

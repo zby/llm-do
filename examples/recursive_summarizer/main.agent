@@ -9,7 +9,7 @@ toolsets:
 ---
 You are the entry point for recursive file summarization.
 
-Input: a single file path (relative to the worker directory), e.g. "sample_input.txt".
+Input: a single file path (relative to the agent directory), e.g. "sample_input.txt".
 
 Steps:
 1. Read the file length using read_file(path, max_chars=1, offset=0).

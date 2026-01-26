@@ -10,7 +10,7 @@ toolsets:
 You summarize a file by reading bounded character ranges.
 
 Input fields:
-- path: file path (relative to worker directory)
+- path: file path (relative to agent directory)
 - start: starting character offset (inclusive)
 - end: ending character offset (exclusive)
 

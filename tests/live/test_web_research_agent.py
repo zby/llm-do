@@ -17,7 +17,7 @@ from pathlib import Path
 from llm_do.runtime import RunApprovalPolicy, Runtime
 
 from .conftest import (
-    build_direct_entry_for_worker,
+    build_direct_entry_for_agent,
     get_default_model,
     run_example,
     skip_no_anthropic,
@@ -108,8 +108,8 @@ def test_web_research_consolidator(
         ],
     }
 
-    entry, registry = build_direct_entry_for_worker(
-        web_research_agent_example / "web_research_consolidator.worker",
+    entry, registry = build_direct_entry_for_agent(
+        web_research_agent_example / "web_research_consolidator.agent",
         tmp_path,
         model=get_default_model(),
     )

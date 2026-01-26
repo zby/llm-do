@@ -10,15 +10,15 @@ tools.py::ENTRY_SPEC (deterministic code)
     ├── for each deck: runtime.call_agent("pitch_evaluator", ...)
     └── writes results directly (Path.write_text)
 
-pitch_evaluator.worker (LLM analysis)
+pitch_evaluator.agent (LLM analysis)
 ```
 
 Compare to the LLM-orchestrated version (`examples/pitchdeck_eval/`):
 
 ```
-main.worker (LLM orchestrator)
+main.agent (LLM orchestrator)
     ├── calls list_files() tool
-    ├── for each deck: calls pitch_evaluator worker
+    ├── for each deck: calls pitch_evaluator agent
     └── writes results via filesystem tool
 ```
 
@@ -67,7 +67,7 @@ ENTRY_SPEC = EntrySpec(name="main", main=main)
 ```
 
 The `runtime.call_agent()` method accepts either:
-- An agent name (string) - looks up the agent in the registry (populated from `.worker` files)
+- An agent name (string) - looks up the agent in the registry (populated from `.agent` files)
 - An `AgentSpec` instance - invokes the agent directly
 
 Entry functions are trusted code, but agent calls still go through the tool
@@ -93,9 +93,9 @@ uv run llm-do examples/pitchdeck_eval_code_entry/project.json
 ```
 
 File paths (`input/`, `evaluations/`) resolve relative to where `tools.py` lives,
-matching how `filesystem_project` works for worker files.
+matching how `filesystem_project` works for agent files.
 
-To use a different model, edit the `model:` field in `pitch_evaluator.worker` (must support PDF/vision).
+To use a different model, edit the `model:` field in `pitch_evaluator.agent` (must support PDF/vision).
 
 ## Files
 
@@ -103,7 +103,7 @@ To use a different model, edit the `model:` field in `pitch_evaluator.worker` (m
 pitchdeck_eval_code_entry/
 ├── project.json           # Manifest defining entry point and files
 ├── tools.py               # Code entry point: main() + list_pitchdecks()
-├── pitch_evaluator.worker # LLM evaluator
+├── pitch_evaluator.agent # LLM evaluator
 ├── input/                 # Drop PDFs here
 └── evaluations/           # Reports written here
 ```

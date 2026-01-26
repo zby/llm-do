@@ -31,7 +31,7 @@ You have access to exactly two directories:
 2. **Process Each Image**:
    - For each image found (e.g., `white_board_plan.png`):
      - Determine a "slug" for the filename (e.g., `white_board_plan`).
-    - Call the `whiteboard_planner` worker:
+    - Call the `whiteboard_planner` agent:
       - `attachments`: ["input/white_board_plan.png"]
       - `input`: '{"original_filename": "white_board_plan.png"}'
 3. **Save the Plan**:

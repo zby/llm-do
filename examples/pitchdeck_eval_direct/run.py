@@ -99,7 +99,7 @@ async def main(_input_data, runtime: CallContext) -> str:
 
     This is a code entry point that orchestrates the evaluation workflow:
     1. List all pitch deck PDFs (deterministic)
-    2. Call LLM worker for each deck (LLM reasoning)
+    2. Call LLM agent for each deck (LLM reasoning)
     3. Write results to files (deterministic)
 
     File paths are relative to the project root (this file's directory).

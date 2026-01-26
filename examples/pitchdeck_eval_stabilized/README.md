@@ -1,6 +1,6 @@
 # Pitch Deck Evaluation (Stabilized Tools)
 
-This example keeps orchestration in a worker but moves deterministic steps
+This example keeps orchestration in a agent but moves deterministic steps
 into Python tools (file discovery + slug generation).
 
 ## Path Resolution

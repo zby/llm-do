@@ -2,8 +2,8 @@
 """Pitch deck evaluation by calling an agent entry directly (no code entry toolset).
 
 Run with:
-    uv run examples/pitchdeck_eval_direct/run_worker_entry.py
-    python examples/pitchdeck_eval_direct/run_worker_entry.py
+    uv run examples/pitchdeck_eval_direct/run_agent_entry.py
+    python examples/pitchdeck_eval_direct/run_agent_entry.py
 """
 
 import asyncio
@@ -98,13 +98,13 @@ def build_runtime(verbosity: int) -> Runtime:
     )
 
 
-async def run_entry_worker() -> str:
-    """Run the entry worker, which calls the evaluator as a tool."""
+async def run_entry_agent() -> str:
+    """Run the entry agent, which calls the evaluator as a tool."""
     entry_spec = build_entry_spec()
     runtime = build_runtime(VERBOSITY)
     result, _ctx = await runtime.run_entry(
         entry_spec,
-        "",  # Empty prompt - worker handles file discovery
+        "",  # Empty prompt - agent handles file discovery
     )
     return result
 
@@ -119,7 +119,7 @@ def cli_main() -> None:
     print(f"Output directory: {OUTPUT_DIR}")
     print("-" * 60)
 
-    outcome = asyncio.run(run_entry_worker())
+    outcome = asyncio.run(run_entry_agent())
     print(outcome)
 
 

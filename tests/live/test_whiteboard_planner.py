@@ -15,7 +15,7 @@ import pytest
 
 from llm_do.runtime import RunApprovalPolicy, Runtime
 
-from .conftest import build_direct_entry_for_worker, run_example, skip_no_anthropic
+from .conftest import build_direct_entry_for_agent, run_example, skip_no_anthropic
 
 
 @skip_no_anthropic
@@ -84,8 +84,8 @@ def test_whiteboard_planner_directly(
 
     image_path = image_files[0]
 
-    entry, registry = build_direct_entry_for_worker(
-        whiteboard_planner_example / "whiteboard_planner.worker",
+    entry, registry = build_direct_entry_for_agent(
+        whiteboard_planner_example / "whiteboard_planner.agent",
         tmp_path,
         model="anthropic:claude-haiku-4-5",
     )

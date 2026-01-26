@@ -67,7 +67,7 @@ class DynamicAgentsToolset(FunctionToolset):
 ```
 
 ### Toolset Resolution for Created Agents
-Created agents can only use toolsets already registered in the project. The `agent_create` tool should validate that any toolsets referenced in the worker spec exist.
+Created agents can only use toolsets already registered in the project. The `agent_create` tool should validate that any toolsets referenced in the agent spec exist.
 
 ### Tool Schema Injection
 Calling a newly generated agent by name requires the orchestrator to have the tool schema for that agent injected into the message history. Adding tools mid-session is acceptable, but removing tools is not because it would impair the model's ability to interpret past tool calls. The dynamic agent flow should:

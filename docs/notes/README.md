@@ -92,8 +92,8 @@ What was learned, discovered, or designed.
 - [Recursive Worker Patterns (Summary)](recursive-patterns-summary.md)
 - [Manual Simplification Examples](simplification-examples.md)
 
-### Research & Analysis
-- [Adaptation of Agentic AI (arXiv paper)](adaptation-agentic-ai-analysis.md)
-- [Type Catalog Review](type-catalog-review.md)
-- [Experiment: Runtime without Worker class](experiment-runtime-without-worker.md)
-- [Manifest-Selected Entry Motivation](manifest-selected-entry-motivation.md)
+### Research & Analysis (`research/`)
+- [Adaptation of Agentic AI (arXiv paper)](research/adaptation-agentic-ai-analysis.md)
+- [Type Catalog Review](research/type-catalog-review.md)
+- [Experiment: Runtime without Worker class](research/experiment-runtime-without-worker.md)
+- [Manifest-Selected Entry Motivation](research/manifest-selected-entry-motivation.md)

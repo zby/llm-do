@@ -11,15 +11,14 @@ what changes in the computational model vs. what is just packaging/convenience?
 
 ### Baseline: PydanticAI multi-agent patterns
 - PydanticAI supports "agent delegation": one agent calls another inside a tool
-  and then resumes control. The delegate run typically shares usage tracking and
-  receives dependencies from the parent.
+  and then resumes control. The delegate run typically receives dependencies
+  from the parent.
 - Delegation is explicit: you create multiple `Agent` objects and call
   `other_agent.run(...)` inside a tool.
 - Agents are stateless and designed to be global; you typically pass dependencies
-  and usage rather than re-instantiating agents inside tools.
+  rather than re-instantiating agents inside tools.
 - Each agent has its own tool list and dependency type. Cross-agent calls require
-  you to pass `deps` and `usage` manually (or construct them) to keep things
-  consistent.
+  you to pass `deps` manually (or construct them) to keep things consistent.
 - Delegate agent dependencies should be the same as (or a subset of) the parent
   dependencies; otherwise you must build a new deps object inside the tool.
 - PydanticAI itself offers multiple coordination styles (single agent, delegation,
@@ -27,10 +26,11 @@ what changes in the computational model vs. what is just packaging/convenience?
   in application code.
 
 ### What llm-do adds (concrete behavior)
-- A **runtime registry** that resolves agents and tools by name, with `.agent`
+- A **runtime registry** that resolves agents and toolsets by name, with `.agent`
   files and `ToolsetSpec` factories loaded from a project manifest.
-- A **unified tool/agent namespace**: agents and tools share names; the LLM sees
-  a flat list of callable names, and resolution happens at call time.
+- A **unified tool/agent namespace**: agents are exposed as tools and live in
+  the same global registry as toolsets, but each agent declares a *subset* of
+  toolsets to include. The LLM only sees a per-agent tool list.
 - **Entry functions**: deterministic orchestration in Python (no tools, no LLM),
   which can call agents via a `CallContext`.
 - **Toolset lifecycle management**: toolsets are instantiated per call, cleaned
@@ -43,13 +43,15 @@ what changes in the computational model vs. what is just packaging/convenience?
 
 ### What changes in the computational model (vs plain PydanticAI)
 
-1) **Name-based dispatch as the primary call mechanism**
+1) **Name-based dispatch with a global registry + per-agent action space**
    - In vanilla PydanticAI, delegation is a direct object call
      (`other_agent.run(...)`) inside a tool. The action space for an agent is the
      tools you attach to it.
-   - In llm-do, the action space is a **shared name registry**. The LLM produces
-     a name; the runtime resolves it to either an agent or a tool. This makes
-     the call site **implementation-agnostic** and enables late binding.
+   - In llm-do, names live in a **shared registry** (tools + agents-as-tools),
+     but each agent selects which toolsets to include via frontmatter. The LLM
+     only sees that per-agent tool list; PydanticAI dispatches tool calls by
+     name within it. This keeps the call site **implementation-agnostic** and
+     enables late binding without bloating context.
    - Computationally, this is a shift from *"direct reference"* to *"string-named
      dispatch"* as the core abstraction, which makes refactoring across the
      neural/symbolic boundary a first-class operation.
@@ -63,7 +65,7 @@ what changes in the computational model vs. what is just packaging/convenience?
 
 3) **Explicit call scopes and lifecycle management**
    - llm-do formalizes per-call state (prompt/messages, active toolsets) and
-     per-runtime state (usage tracking, agent registry, approval cache).
+     per-runtime state (agent registry, approval policy/callback).
    - Child agent calls get a fresh call scope; toolsets are not inherited. This
      makes isolation the default and prevents accidental state leakage.
 
@@ -140,7 +142,7 @@ Overlap:
 ### When vanilla PydanticAI is enough
 - Single-agent or small multi-agent apps where wiring explicit `Agent` objects
   is easy and you do not need a shared registry.
-- You are comfortable passing `deps`/`usage` manually and managing tool lists.
+- You are comfortable passing `deps` manually and managing tool lists.
 - You prefer graph/state-machine orchestration (Pydantic Graph) or already have
   your own runtime/harness layer.
 - You do not need file/shell tools with human approval gating.

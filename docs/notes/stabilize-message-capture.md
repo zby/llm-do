@@ -1,7 +1,7 @@
 # Stabilize Message Capture Without Private _agent_graph
 
 ## Context
-We currently rely on `pydantic_ai._agent_graph` in `llm_do/runtime/worker.py` to capture messages incrementally for `message_log_callback`. That import reaches into a private module and mutates `_RunMessages.messages` so we can log as messages are appended. The comment about stability risk is accurate: upstream changes to internal names or message capture flow will break this path.
+We currently rely on `pydantic_ai._agent_graph` in `llm_do/runtime/agent_runner.py` to capture messages incrementally for `message_log_callback`. That import reaches into a private module and mutates `_RunMessages.messages` so we can log as messages are appended. The comment about stability risk is accurate: upstream changes to internal names or message capture flow will break this path.
 
 This is also entangled with nested worker runs. `capture_run_messages()` reuses a context-var when already present. Our `_capture_message_log()` replaces the shared `.messages` list with a custom logger, but the replacement is not stacked/restored. That means a child worker can overwrite the parent's logger, and subsequent messages in the parent run are logged under the wrong worker/depth. In other words: the current implementation is brittle even before upstream changes.
 

@@ -57,7 +57,6 @@ What was learned, discovered, or designed.
 - [Worker Design Rationale](worker-design-rationale.md) — opt-in tools, isolation, typed I/O
 - [Compiler Analogy for Worker Scopes](compiler-analogy-worker-scopes.md) — mental model for scoping
 - [Pure Python vs MCP Code Mode](pure-python-vs-mcp-codemode.md) — paradigm comparison
-- [Runtime architecture decomplect review](runtime-architecture-decomplect.md)
 - [llm-do vs vanilla PydanticAI](llm-do-vs-pydanticai-runtime.md) — what the runtime adds
 
 ### Approval & Security
@@ -76,8 +75,7 @@ What was learned, discovered, or designed.
 - [Toolset Instantiation Questions](toolset-instantiation-questions.md)
 - [CallSite vs CallScope (Tool Lifecycle)](callsite-callscope-tool-lifecycle.md)
 - [Unified Entry Function Design](unified-entry-function-design.md)
-- [Message Log Ordering Inconsistency](message-log-ordering.md)
-- [Stabilize Message Capture](stabilize-message-capture.md)
+- [Stabilize Message Capture](stabilize-message-capture.md) — removing private API dependency
 - [Tool Result Truncation Metadata](tool-result-truncation.md)
 
 ### Future Features (Specs & Research)
@@ -90,7 +88,6 @@ What was learned, discovered, or designed.
 ### Patterns & Examples
 - [Recursive Problem Patterns](recursive-problem-patterns.md)
 - [Recursive Worker Patterns (Summary)](recursive-patterns-summary.md)
-- [Manual Simplification Examples](simplification-examples.md)
 
 ### Research & Analysis (`research/`)
 - [Adaptation of Agentic AI (arXiv paper)](research/adaptation-agentic-ai-analysis.md)

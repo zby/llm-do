@@ -256,6 +256,21 @@ uv run -m experiments.inv.v2_direct.run
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference
 - **[`docs/notes/`](docs/notes/)** — Working design notes and explorations
 
+## What We Add to PydanticAI
+
+llm-do is built on [PydanticAI](https://ai.pydantic.dev/) and extends it with:
+
+| Addition | What it enables |
+|----------|-----------------|
+| **Agents as tools** | Agents call other agents using the same interface as tools. The LLM sees a flat namespace of callable functions—it doesn't know which are agents vs. Python code. |
+| **Name-based dispatch** | Components registered by string name, resolved at call time. Swap an agent for a Python function (or vice versa) without changing call sites. |
+| **Blocking approval system** | Tool calls intercepted before execution. Approvals work like syscalls—execution blocks until granted. Built on `pydantic-ai-blocking-approval`. |
+| **Runtime scopes** | Shared `Runtime` (usage tracking, agent registry, config) + per-call `CallContext` (message history, toolsets, depth). Clean separation of process-scoped and call-scoped state. |
+| **Worker file format** | Declarative YAML frontmatter for agent definitions. Toolsets, schemas, and model declared per-agent. |
+| **Harness layer** | Imperative orchestration with native Python control flow. No graph DSL—just functions calling functions. |
+
+**The key insight**: PydanticAI gives you excellent single-agent tooling. llm-do adds the multi-agent orchestration layer—agents calling agents, unified namespaces, approval gates—while keeping everything as plain Python.
+
 ## Status
 
 **Experimental** — Built on [PydanticAI](https://ai.pydantic.dev/). APIs may change.

@@ -1,7 +1,8 @@
 """Tests for display backends (headless, etc.)."""
 import io
 
-from llm_do.runtime.event_parser import parse_event
+from llm_do.runtime.events import RuntimeEvent
+from llm_do.runtime.events import UserMessageEvent as RuntimeUserMessageEvent
 from llm_do.ui.adapter import adapt_event
 from llm_do.ui.display import HeadlessDisplayBackend
 from llm_do.ui.events import (
@@ -11,6 +12,7 @@ from llm_do.ui.events import (
     TextResponseEvent,
     ToolCallEvent,
     ToolResultEvent,
+    UserMessageEvent,
 )
 
 
@@ -187,69 +189,36 @@ class TestHeadlessDisplayBackend:
         assert "Line 3" in output
 
 
-class TestParseEvent:
-    """Tests for the parse_event function."""
+class TestAdaptEvent:
+    """Tests for the runtime -> UI event adapter."""
 
-    def test_parse_initial_request(self):
-        """Parser converts initial_request payload to InitialRequestEvent."""
-        payload = {
-            "worker": "test",
-            "initial_request": {
-                "instructions": "Do something",
-                "user_input": "Hello",
-                "attachments": [],
-            },
-        }
-        event = adapt_event(parse_event(payload))
-        assert isinstance(event, InitialRequestEvent)
-        assert event.worker == "test"
-        assert event.instructions == "Do something"
-        assert event.user_input == "Hello"
-
-    def test_parse_status_dict(self):
-        """Parser converts status dict to StatusEvent."""
-        payload = {
-            "worker": "main",
-            "status": {
-                "phase": "processing",
-                "state": "running",
-                "model": "claude",
-            },
-        }
-        event = adapt_event(parse_event(payload))
-        assert isinstance(event, StatusEvent)
-        assert event.phase == "processing"
-        assert event.state == "running"
-        assert event.model == "claude"
-
-    def test_parse_status_string(self):
-        """Parser converts status string to StatusEvent."""
-        payload = {
-            "worker": "main",
-            "status": "Waiting",
-        }
-        event = adapt_event(parse_event(payload))
-        assert isinstance(event, StatusEvent)
-        assert event.phase == "Waiting"
+    def test_parse_user_message_event(self):
+        """Adapter converts user message system events to UI events."""
+        runtime_event = RuntimeEvent(
+            worker="main",
+            depth=0,
+            event=RuntimeUserMessageEvent(content="Hello"),
+        )
+        event = adapt_event(runtime_event)
+        assert isinstance(event, UserMessageEvent)
+        assert event.worker == "main"
+        assert event.content == "Hello"
 
     def test_parse_text_part_event(self):
-        """Parser converts PartEndEvent with TextPart to TextResponseEvent."""
+        """Adapter converts PartEndEvent with TextPart to TextResponseEvent."""
         from pydantic_ai.messages import PartEndEvent, TextPart
 
         text_part = TextPart(content="Hello response")
         raw_event = PartEndEvent(index=0, part=text_part)
 
-        payload = {
-            "worker": "assistant",
-            "event": raw_event,
-        }
-        event = adapt_event(parse_event(payload))
+        runtime_event = RuntimeEvent(worker="assistant", depth=0, event=raw_event)
+        event = adapt_event(runtime_event)
         assert isinstance(event, TextResponseEvent)
         assert event.content == "Hello response"
         assert event.is_complete is True
 
     def test_parse_tool_call_event(self):
-        """Parser converts FunctionToolCallEvent to ToolCallEvent."""
+        """Adapter converts FunctionToolCallEvent to ToolCallEvent."""
         from pydantic_ai.messages import FunctionToolCallEvent, ToolCallPart
 
         tool_part = ToolCallPart(
@@ -259,17 +228,14 @@ class TestParseEvent:
         )
         raw_event = FunctionToolCallEvent(part=tool_part)
 
-        payload = {
-            "worker": "main",
-            "event": raw_event,
-        }
-        event = adapt_event(parse_event(payload))
+        runtime_event = RuntimeEvent(worker="main", depth=0, event=raw_event)
+        event = adapt_event(runtime_event)
         assert isinstance(event, ToolCallEvent)
         assert event.tool_name == "read_file"
         assert event.args == {"path": "/tmp/test"}
 
     def test_parse_tool_result_event(self):
-        """Parser converts FunctionToolResultEvent to ToolResultEvent."""
+        """Adapter converts FunctionToolResultEvent to ToolResultEvent."""
         from pydantic_ai.messages import FunctionToolResultEvent, ToolReturnPart
 
         result_part = ToolReturnPart(
@@ -279,18 +245,21 @@ class TestParseEvent:
         )
         raw_event = FunctionToolResultEvent(result=result_part)
 
-        payload = {
-            "worker": "main",
-            "event": raw_event,
-        }
-        event = adapt_event(parse_event(payload))
+        runtime_event = RuntimeEvent(worker="main", depth=0, event=raw_event)
+        event = adapt_event(runtime_event)
         assert isinstance(event, ToolResultEvent)
         assert event.tool_name == "read_file"
         assert event.content == "File contents"
 
     def test_parse_unknown_payload(self):
-        """Parser returns StatusEvent for unknown payloads."""
-        payload = {"worker": "main"}
-        event = adapt_event(parse_event(payload))
-        assert isinstance(event, StatusEvent)
-        assert event.worker == "main"
+        """Adapter ignores events it doesn't map."""
+        from pydantic_ai.messages import PartStartEvent, ToolCallPart
+
+        tool_part = ToolCallPart(
+            tool_name="read_file",
+            args={"path": "/tmp/test"},
+            tool_call_id="call_123",
+        )
+        raw_event = PartStartEvent(index=0, part=tool_part)
+        runtime_event = RuntimeEvent(worker="main", depth=0, event=raw_event)
+        assert adapt_event(runtime_event) is None

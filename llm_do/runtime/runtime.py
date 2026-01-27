@@ -221,13 +221,17 @@ class Runtime:
         """Run an entry function with this runtime."""
         from ..models import NULL_MODEL
         from .args import get_display_text, normalize_input
-        from .events import UserMessageEvent
+        from .events import RuntimeEvent, UserMessageEvent
 
         input_args, messages = normalize_input(entry_spec.schema_in, input_data)
         display_text = get_display_text(messages)
         if self.config.on_event is not None:
             self.config.on_event(
-                UserMessageEvent(worker=entry_spec.name, content=display_text)
+                RuntimeEvent(
+                    worker=entry_spec.name,
+                    depth=0,
+                    event=UserMessageEvent(content=display_text),
+                )
             )
 
         call_runtime = self.spawn_call_runtime(

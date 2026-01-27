@@ -1,15 +1,11 @@
 """Tests for event emission in runtime."""
 import pytest
+from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
 from llm_do.runtime import AgentSpec, EntrySpec, Runtime, ToolsetSpec
-from llm_do.runtime.events import (
-    RuntimeEvent,
-    ToolCallEvent,
-    ToolResultEvent,
-    UserMessageEvent,
-)
+from llm_do.runtime.events import RuntimeEvent, UserMessageEvent
 from tests.runtime.helpers import build_runtime_context
 
 
@@ -63,9 +59,9 @@ async def test_entry_emits_user_message_event() -> None:
     result, _ctx = await runtime.run_entry(entry_spec, {"input": "hello"})
 
     assert result == "hello"
-    user_events = [e for e in events if isinstance(e, UserMessageEvent)]
+    user_events = [e for e in events if isinstance(e.event, UserMessageEvent)]
     assert user_events
-    assert user_events[0].content == "hello"
+    assert user_events[0].event.content == "hello"
 
 
 @pytest.mark.anyio
@@ -97,10 +93,10 @@ async def test_agent_emits_tool_events() -> None:
     runtime.register_agents({agent_spec.name: agent_spec})
     await runtime.run_entry(entry_spec, {"input": "go"})
 
-    tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
-    tool_results = [e for e in events if isinstance(e, ToolResultEvent)]
+    tool_calls = [e for e in events if isinstance(e.event, FunctionToolCallEvent)]
+    tool_results = [e for e in events if isinstance(e.event, FunctionToolResultEvent)]
 
     assert tool_calls
     assert tool_results
-    assert tool_calls[0].tool_name == "add"
-    assert tool_results[0].tool_name == "add"
+    assert tool_calls[0].event.part.tool_name == "add"
+    assert tool_results[0].event.result.tool_name == "add"

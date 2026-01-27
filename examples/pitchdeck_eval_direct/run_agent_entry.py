@@ -86,7 +86,9 @@ def build_runtime(verbosity: int) -> Runtime:
         backend = HeadlessDisplayBackend(verbosity=verbosity)
 
         def on_event_callback(event: RuntimeEvent) -> None:
-            backend.display(adapt_event(event))
+            ui_event = adapt_event(event)
+            if ui_event is not None:
+                backend.display(ui_event)
 
         on_event = on_event_callback
 

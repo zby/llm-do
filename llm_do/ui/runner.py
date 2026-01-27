@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, Sequence, TextIO
 
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
+from pydantic_ai.messages import PartDeltaEvent
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
 from llm_do.runtime import AgentRegistry, EntrySpec, RunApprovalPolicy, Runtime
@@ -82,6 +83,7 @@ def _build_runtime(
     project_root: Path | None,
     run_approval_policy: RunApprovalPolicy,
     max_depth: int,
+    generated_agents_dir: Path | None,
     agent_calls_require_approval: bool,
     agent_attachments_require_approval: bool,
     agent_approval_overrides: Mapping[str, Any] | None,
@@ -93,6 +95,7 @@ def _build_runtime(
     factory = runtime_factory or Runtime
     return factory(
         project_root=project_root, run_approval_policy=run_approval_policy, max_depth=max_depth,
+        generated_agents_dir=generated_agents_dir,
         agent_calls_require_approval=agent_calls_require_approval,
         agent_attachments_require_approval=agent_attachments_require_approval,
         agent_approval_overrides=agent_approval_overrides, on_event=on_event,
@@ -132,6 +135,7 @@ async def run_tui(
     verbosity: int = 1,
     return_permission_errors: bool = True,
     max_depth: int = 5,
+    generated_agents_dir: Path | None = None,
     agent_calls_require_approval: bool = False,
     agent_attachments_require_approval: bool = False,
     agent_approval_overrides: Mapping[str, Any] | None = None,
@@ -187,7 +191,11 @@ async def run_tui(
         render_queue.put_nowait(event)
 
     def on_event(event: RuntimeEvent) -> None:
-        render_queue.put_nowait(adapt_event(event))
+        if verbosity < 2 and isinstance(event.event, PartDeltaEvent):
+            return
+        ui_event = adapt_event(event)
+        if ui_event is not None:
+            render_queue.put_nowait(ui_event)
 
     async def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
         approval_event = parse_approval_request(request)
@@ -205,6 +213,7 @@ async def run_tui(
         project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
+        generated_agents_dir=generated_agents_dir,
         agent_calls_require_approval=agent_calls_require_approval,
         agent_attachments_require_approval=agent_attachments_require_approval,
         agent_approval_overrides=agent_approval_overrides,
@@ -241,7 +250,7 @@ async def run_tui(
         nonlocal message_history
 
         entry_spec, registry = get_entry_instance()
-        runtime.register_agents(registry.agents)
+        runtime.register_registry(registry)
 
         result, ctx = await runtime.run_entry(
             entry_spec,
@@ -325,6 +334,7 @@ async def run_headless(
     verbosity: int = 1,
     return_permission_errors: bool = True,
     max_depth: int = 5,
+    generated_agents_dir: Path | None = None,
     agent_calls_require_approval: bool = False,
     agent_attachments_require_approval: bool = False,
     agent_approval_overrides: Mapping[str, Any] | None = None,
@@ -358,7 +368,11 @@ async def run_headless(
         render_queue = asyncio.Queue()
 
         def on_event_callback(event: RuntimeEvent) -> None:
-            render_queue.put_nowait(adapt_event(event))
+            if verbosity < 2 and isinstance(event.event, PartDeltaEvent):
+                return
+            ui_event = adapt_event(event)
+            if ui_event is not None:
+                render_queue.put_nowait(ui_event)
 
         on_event = on_event_callback
         render_task = asyncio.create_task(_render_loop(render_queue, list(backends)))
@@ -372,6 +386,7 @@ async def run_headless(
         project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
+        generated_agents_dir=generated_agents_dir,
         agent_calls_require_approval=agent_calls_require_approval,
         agent_attachments_require_approval=agent_attachments_require_approval,
         agent_approval_overrides=agent_approval_overrides,
@@ -391,7 +406,7 @@ async def run_headless(
                 "Headless mode cannot prompt for approvals; use approve_all or reject_all."
             )
         entry_spec, registry = entry_factory()
-        runtime.register_agents(registry.agents)
+        runtime.register_registry(registry)
         result, _ctx = await runtime.run_entry(entry_spec, input)
     except KeyboardInterrupt as exc:
         exit_code = 1
@@ -422,6 +437,7 @@ async def run_ui(
     verbosity: int = 1,
     return_permission_errors: bool = True,
     max_depth: int = 5,
+    generated_agents_dir: Path | None = None,
     agent_calls_require_approval: bool = False,
     agent_attachments_require_approval: bool = False,
     agent_approval_overrides: Mapping[str, Any] | None = None,
@@ -462,6 +478,7 @@ async def run_ui(
             verbosity=verbosity,
             return_permission_errors=return_permission_errors,
             max_depth=max_depth,
+            generated_agents_dir=generated_agents_dir,
             agent_calls_require_approval=agent_calls_require_approval,
             agent_attachments_require_approval=agent_attachments_require_approval,
             agent_approval_overrides=agent_approval_overrides,
@@ -485,6 +502,7 @@ async def run_ui(
             verbosity=verbosity,
             return_permission_errors=return_permission_errors,
             max_depth=max_depth,
+            generated_agents_dir=generated_agents_dir,
             agent_calls_require_approval=agent_calls_require_approval,
             agent_attachments_require_approval=agent_attachments_require_approval,
             agent_approval_overrides=agent_approval_overrides,

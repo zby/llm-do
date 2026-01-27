@@ -19,8 +19,7 @@ from pydantic_ai.toolsets import AbstractToolset
 
 from .args import get_display_text, normalize_input, render_prompt
 from .contracts import AgentSpec, CallContextProtocol
-from .event_parser import parse_event
-from .events import ToolCallEvent, ToolResultEvent
+from .events import RuntimeEvent
 
 
 def _get_all_messages(result: Any) -> list[Any]:
@@ -108,10 +107,12 @@ def _build_agent(
 def _emit_tool_events(
     agent_name: str, messages: list[Any], runtime: CallContextProtocol
 ) -> None:
-    """Emit ToolCallEvent/ToolResultEvent for tool calls in messages."""
+    """Emit raw tool call/result events from message history."""
     # TODO: Consolidate tool-event fallback with streaming path (see docs/notes/reviews/tool-event-fallback-options.md).
     if runtime.config.on_event is None:
         return
+
+    from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
 
     tool_calls: dict[str, ToolCallPart] = {}
     tool_returns: dict[str, ToolReturnPart] = {}
@@ -128,24 +129,20 @@ def _emit_tool_events(
 
     for call_id, call_part in tool_calls.items():
         runtime.config.on_event(
-            ToolCallEvent(
+            RuntimeEvent(
                 worker=agent_name,
-                tool_name=call_part.tool_name,
-                tool_call_id=call_id,
-                args_json=call_part.args_as_json_str(),
                 depth=runtime.frame.config.depth,
+                event=FunctionToolCallEvent(part=call_part),
             )
         )
 
         return_part = tool_returns.get(call_id)
         if return_part:
             runtime.config.on_event(
-                ToolResultEvent(
+                RuntimeEvent(
                     worker=agent_name,
                     depth=runtime.frame.config.depth,
-                    tool_name=call_part.tool_name,
-                    tool_call_id=call_id,
-                    content=return_part.content,
+                    event=FunctionToolResultEvent(result=return_part),
                 )
             )
 
@@ -160,22 +157,36 @@ async def _run_with_event_stream(
     log_messages: bool = True,
 ) -> tuple[Any, list[Any]]:
     """Run agent with event stream handler for UI updates."""
-    from pydantic_ai.messages import PartDeltaEvent
+    from pydantic_ai.messages import (
+        BuiltinToolCallEvent,
+        BuiltinToolResultEvent,
+        FunctionToolCallEvent,
+        FunctionToolResultEvent,
+    )
 
     emitted_tool_events = False
 
     async def event_stream_handler(_: RunContext[CallContextProtocol], events: AsyncIterable[Any]) -> None:
         nonlocal emitted_tool_events
         async for event in events:
-            if runtime.config.verbosity < 2 and isinstance(event, PartDeltaEvent):
-                continue
-            runtime_event = parse_event(
-                {"worker": spec.name, "event": event, "depth": runtime.frame.config.depth}
-            )
-            if isinstance(runtime_event, (ToolCallEvent, ToolResultEvent)):
-                emitted_tool_events = True
             if runtime.config.on_event is not None:
-                runtime.config.on_event(runtime_event)
+                runtime.config.on_event(
+                    RuntimeEvent(
+                        worker=spec.name,
+                        depth=runtime.frame.config.depth,
+                        event=event,
+                    )
+                )
+            if isinstance(
+                event,
+                (
+                    FunctionToolCallEvent,
+                    FunctionToolResultEvent,
+                    BuiltinToolCallEvent,
+                    BuiltinToolResultEvent,
+                ),
+            ):
+                emitted_tool_events = True
 
     result = await agent.run(
         prompt,

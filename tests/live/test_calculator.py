@@ -13,8 +13,7 @@ Run:
 import asyncio
 
 import pytest
-
-from llm_do.runtime.events import ToolCallEvent, ToolResultEvent
+from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
 
 from .conftest import run_example, skip_no_llm
 
@@ -56,10 +55,10 @@ async def test_calculator_verbosity_2(calculator_example, default_model):
     tool_results = []
 
     def on_event(event):
-        if isinstance(event, ToolCallEvent):
-            tool_calls.append(event.tool_name)
-        elif isinstance(event, ToolResultEvent):
-            tool_results.append(event.tool_name)
+        if isinstance(event.event, FunctionToolCallEvent):
+            tool_calls.append(event.event.part.tool_name)
+        elif isinstance(event.event, FunctionToolResultEvent):
+            tool_results.append(event.event.result.tool_name)
 
     result = await run_example(
         calculator_example,

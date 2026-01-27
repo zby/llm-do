@@ -1,8 +1,7 @@
 import json
 
 import pytest
-
-from llm_do.runtime.events import ToolCallEvent, ToolResultEvent
+from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
 
 from .conftest import skip_no_llm
 
@@ -26,26 +25,26 @@ async def test_recursive_summarizer_runs(recursive_summarizer_example, default_m
         split_index = 0
         merge_index = 0
 
-        def _parse_args(event):
-            if isinstance(event.args, dict):
-                return event.args
-            if isinstance(event.args, str):
+        def _parse_args(tool_part):
+            if isinstance(tool_part.args, dict):
+                return tool_part.args
+            if isinstance(tool_part.args, str):
                 try:
-                    return json.loads(event.args)
+                    return json.loads(tool_part.args)
                 except json.JSONDecodeError:
                     return {}
-            if event.args_json:
+            if hasattr(tool_part, "args_as_json_str"):
                 try:
-                    return json.loads(event.args_json)
+                    return json.loads(tool_part.args_as_json_str())
                 except json.JSONDecodeError:
                     return {}
             return {}
 
         def on_event(event):
             nonlocal split_index, merge_index
-            if isinstance(event, ToolCallEvent) and event.tool_name == "summarizer":
+            if isinstance(event.event, FunctionToolCallEvent) and event.event.part.tool_name == "summarizer":
                 split_index += 1
-                args = _parse_args(event)
+                args = _parse_args(event.event.part)
                 path = args.get("path", "")
                 start = args.get("start")
                 end = args.get("end")
@@ -53,9 +52,9 @@ async def test_recursive_summarizer_runs(recursive_summarizer_example, default_m
                 if isinstance(start, int) and isinstance(end, int):
                     span = end - start
                 print(f"[split {split_index}] path={path} start={start} end={end} span={span}")
-            elif isinstance(event, ToolResultEvent) and event.tool_name == "summarizer":
+            elif isinstance(event.event, FunctionToolResultEvent) and event.event.result.tool_name == "summarizer":
                 merge_index += 1
-                output_text = str(event.content)
+                output_text = str(event.event.result.content)
                 char_count = len(output_text)
                 word_count = len(output_text.split())
                 preview = _preview_words(output_text)

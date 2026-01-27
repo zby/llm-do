@@ -104,7 +104,7 @@ async def run_entry_test(
         verbosity=verbosity,
     )
     if agent_registry is not None:
-        runtime.register_agents(agent_registry.agents)
+        runtime.register_registry(agent_registry)
     return await runtime.run_entry(
         entry,
         input_data,

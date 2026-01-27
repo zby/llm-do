@@ -78,6 +78,7 @@ class ProjectManifest(BaseModel):
     runtime: ManifestRuntimeConfig
     allow_cli_input: bool = True
     entry: EntryConfig
+    generated_agents_dir: str | None = None
     agent_files: list[str] = Field(default_factory=list)
     python_files: list[str] = Field(default_factory=list)
     # Backwards compatibility alias (deprecated)
@@ -106,6 +107,15 @@ class ProjectManifest(BaseModel):
                     duplicates.append(path)
                 seen.add(path)
             raise ValueError(f"Duplicate file paths: {duplicates}")
+        return v
+
+    @field_validator("generated_agents_dir")
+    @classmethod
+    def validate_generated_agents_dir(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if not v.strip():
+            raise ValueError("generated_agents_dir must be a non-empty string")
         return v
 
     @model_validator(mode="after")
@@ -183,3 +193,16 @@ def resolve_manifest_paths(
         python_paths.append(resolved)
 
     return agent_paths, python_paths
+
+
+def resolve_generated_agents_dir(
+    manifest: ProjectManifest,
+    manifest_dir: Path,
+) -> Path | None:
+    """Resolve generated_agents_dir relative to the manifest directory."""
+    if manifest.generated_agents_dir is None:
+        return None
+    path = Path(manifest.generated_agents_dir).expanduser()
+    if not path.is_absolute():
+        return (manifest_dir / path).resolve()
+    return path.resolve()

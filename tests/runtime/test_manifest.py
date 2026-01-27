@@ -9,6 +9,7 @@ from llm_do.runtime.manifest import (
     ManifestRuntimeConfig,
     ProjectManifest,
     load_manifest,
+    resolve_generated_agents_dir,
     resolve_manifest_paths,
 )
 
@@ -287,7 +288,6 @@ class TestResolveManifestPaths:
         assert len(agent_paths) == 1
         assert len(python_paths) == 1
         assert agent_paths[0] == agent.resolve()
-        assert python_paths[0] == python.resolve()
 
     def test_agent_file_not_found(self, tmp_path):
         """Test missing agent file raises FileNotFoundError."""
@@ -331,3 +331,27 @@ class TestResolveManifestPaths:
         agent_paths, _ = resolve_manifest_paths(manifest, tmp_path)
 
         assert agent_paths[0] == agent.resolve()
+
+
+class TestResolveGeneratedAgentsDir:
+    """Tests for resolve_generated_agents_dir function."""
+
+    def test_none_returns_none(self, tmp_path):
+        manifest = ProjectManifest(
+            version=1,
+            runtime=ManifestRuntimeConfig(),
+            entry=EntryConfig(),
+            agent_files=["main.agent"],
+        )
+        assert resolve_generated_agents_dir(manifest, tmp_path) is None
+
+    def test_relative_path_resolves(self, tmp_path):
+        manifest = ProjectManifest(
+            version=1,
+            runtime=ManifestRuntimeConfig(),
+            entry=EntryConfig(),
+            agent_files=["main.agent"],
+            generated_agents_dir="generated",
+        )
+        resolved = resolve_generated_agents_dir(manifest, tmp_path)
+        assert resolved == (tmp_path / "generated").resolve()

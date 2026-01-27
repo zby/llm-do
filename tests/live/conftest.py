@@ -23,7 +23,7 @@ from typing import Any, Callable
 import pytest
 
 from llm_do.models import LLM_DO_MODEL_ENV
-from llm_do.runtime import Runtime, AgentArgs, build_entry, load_agent_file
+from llm_do.runtime import AgentArgs, Runtime, build_entry, load_agent_file
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
@@ -196,6 +196,7 @@ async def run_example(
     max_depth: int | None = None,
     on_event: Callable[[Any], Any] | None = None,
     verbosity: int = 0,
+    generated_agents_dir: Path | None = None,
 ) -> Any:
     """Build and run an example entry with approvals wired."""
     changed, previous = _set_env_model(model)
@@ -218,8 +219,9 @@ async def run_example(
             on_event=on_event,
             verbosity=verbosity,
             project_root=example_dir,
+            generated_agents_dir=generated_agents_dir,
         )
-        runtime.register_agents(registry.agents)
+        runtime.register_registry(registry)
         result, _ctx = await runtime.run_entry(entry, input_data)
         return result
     finally:

@@ -1,6 +1,6 @@
 """Live tests for the pitchdeck_eval example.
 
-Tests attachment handling, vision capabilities, and worker delegation.
+Tests attachment handling, vision capabilities, and dynamic agent creation.
 
 Run:
     pytest tests/live/test_pitchdeck_eval.py -v
@@ -13,9 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import RunApprovalPolicy, Runtime
-
-from .conftest import build_direct_entry_for_agent, run_example, skip_no_anthropic
+from .conftest import run_example, skip_no_anthropic
 
 
 @skip_no_anthropic
@@ -25,7 +23,8 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
     This is the main integration test for the pitchdeck_eval example.
     It tests:
     - File listing (finding PDFs in input/)
-    - Worker delegation (calling pitch_evaluator)
+    - Dynamic agent creation (agent_create)
+    - Dynamic agent invocation (agent_call)
     - Attachment passing (PDF files)
     - Vision/PDF reading capabilities
     - File writing (saving reports)
@@ -50,6 +49,7 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
             "Process the pitch decks in input/ and write evaluations.",
             model="anthropic:claude-haiku-4-5",
             approval_callback=approve_all_callback,
+            generated_agents_dir=pitchdeck_eval_example / "generated",
         )
     )
 
@@ -58,43 +58,6 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
     # Check that evaluation files were written
     written_files = list(evaluations_dir.glob("*.md"))
     assert len(written_files) > 0, "Orchestrator should have written at least one evaluation"
-
-
-@skip_no_anthropic
-def test_pitch_evaluator_directly(pitchdeck_eval_example, approve_all_callback, tmp_path):
-    """Test calling the pitch_evaluator worker directly with an attachment.
-
-    This tests the attachment handling without the orchestrator.
-    """
-    # Check for PDF files
-    input_dir = Path("input")
-    pdf_files = list(input_dir.glob("*.pdf")) if input_dir.exists() else []
-
-    if not pdf_files:
-        pytest.skip("No PDF files in input/ directory")
-
-    pdf_path = pdf_files[0]
-
-    entry, registry = build_direct_entry_for_agent(
-        pitchdeck_eval_example / "pitch_evaluator.agent",
-        tmp_path,
-        model="anthropic:claude-haiku-4-5",
-    )
-
-    runtime = Runtime(
-        run_approval_policy=RunApprovalPolicy(
-            mode="prompt",
-            approval_callback=approve_all_callback,
-        ),
-        project_root=pitchdeck_eval_example,
-    )
-    runtime.register_agents(registry.agents)
-
-    result = asyncio.run(
-        runtime.run_entry(
-            entry,
-            {"input": "Evaluate this pitch deck.", "attachments": [str(pdf_path)]},
-        )
-    )
-
-    assert result is not None
+    # Check that the dynamic agent was generated for this session
+    generated_agent = Path("generated") / "pitch_evaluator.agent"
+    assert generated_agent.exists(), "Dynamic agent should be written to generated/"

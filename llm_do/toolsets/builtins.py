@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
+from .dynamic_agents import DynamicAgentsToolset
 from .filesystem import FileSystemToolset, ReadOnlyFileSystemToolset
 from .loader import ToolsetSpec
 from .shell import ShellToolset
@@ -79,4 +80,5 @@ def build_builtin_toolsets(
         "filesystem_project_ro": filesystem_factory(project_config, read_only=True),
         "shell_readonly": shell_factory(_SHELL_READONLY_RULES),
         "shell_file_ops": shell_factory(_SHELL_FILE_OPS_RULES),
+        "dynamic_agents": ToolsetSpec(factory=lambda: DynamicAgentsToolset()),
     }

@@ -53,6 +53,15 @@ class CallContextProtocol(Protocol):
 
     async def call_agent(self, spec_or_name: "AgentSpec | str", input_data: Any) -> Any: ...
 
+    @property
+    def agent_registry(self) -> dict[str, "AgentSpec"]: ...
+
+    @property
+    def toolset_registry(self) -> dict[str, ToolsetSpec]: ...
+
+    @property
+    def dynamic_agents(self) -> dict[str, "AgentSpec"]: ...
+
 
 @dataclass(frozen=True, slots=True)
 class EntrySpec:

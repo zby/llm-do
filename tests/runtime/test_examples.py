@@ -5,10 +5,11 @@ import pytest
 
 from llm_do.runtime import (
     build_entry,
-    load_toolsets_from_files,
     load_agent_file,
+    load_toolsets_from_files,
 )
 from llm_do.toolsets.agent import AgentToolset
+from llm_do.toolsets.dynamic_agents import DynamicAgentsToolset
 from llm_do.toolsets.loader import instantiate_toolsets
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
@@ -38,7 +39,6 @@ async def test_delegation_example_builds():
     entry_spec, registry = build_entry(
         [
             str(project_root / "main.agent"),
-            str(project_root / "pitch_evaluator.agent"),
         ],
         [],
         project_root=project_root,
@@ -47,10 +47,7 @@ async def test_delegation_example_builds():
     toolsets = instantiate_toolsets(
         agent.toolset_specs,
     )
-    toolset_names = [
-        toolset.spec.name for toolset in toolsets if isinstance(toolset, AgentToolset)
-    ]
-    assert "pitch_evaluator" in toolset_names
+    assert any(isinstance(toolset, DynamicAgentsToolset) for toolset in toolsets)
 
 
 @pytest.mark.anyio

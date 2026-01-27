@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from pydantic_ai.usage import RunUsage
 
+from ..toolsets.loader import ToolsetSpec
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .contracts import (
     AgentSpec,
@@ -20,6 +21,7 @@ from .contracts import (
 
 if TYPE_CHECKING:
     from .context import CallContext
+    from .registry import AgentRegistry
 
 
 class UsageCollector:
@@ -86,6 +88,19 @@ def _normalize_agent_approval_overrides(overrides: Mapping[str, Any] | None) -> 
     return normalized
 
 
+def _resolve_generated_agents_dir(
+    value: str | Path | None,
+    project_root: Path | None,
+) -> Path | None:
+    if value is None:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        base = project_root or Path.cwd()
+        return (base / path).resolve()
+    return path.resolve()
+
+
 # Backwards compatibility alias (deprecated)
 WorkerApprovalConfig = AgentApprovalConfig
 
@@ -97,6 +112,7 @@ class RuntimeConfig:
     project_root: Path | None = None
     return_permission_errors: bool = False
     max_depth: int = 5
+    generated_agents_dir: Path | None = None
     agent_calls_require_approval: bool = False
     agent_attachments_require_approval: bool = False
     agent_approval_overrides: dict[str, AgentApprovalConfig] = field(default_factory=dict)
@@ -114,6 +130,7 @@ class Runtime:
         project_root: Path | None = None,
         run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
+        generated_agents_dir: str | Path | None = None,
         agent_calls_require_approval: bool = False,
         agent_attachments_require_approval: bool = False,
         agent_approval_overrides: Mapping[str, Any] | None = None,
@@ -134,12 +151,16 @@ class Runtime:
             agent_approval_overrides = worker_approval_overrides
 
         policy = run_approval_policy or RunApprovalPolicy(mode="approve_all")
+        resolved_generated_dir = _resolve_generated_agents_dir(
+            generated_agents_dir, project_root
+        )
         approval_callback = resolve_approval_callback(policy)
         self._config = RuntimeConfig(
             approval_callback=approval_callback,
             project_root=project_root,
             return_permission_errors=policy.return_permission_errors,
             max_depth=max_depth,
+            generated_agents_dir=resolved_generated_dir,
             agent_calls_require_approval=agent_calls_require_approval,
             agent_attachments_require_approval=agent_attachments_require_approval,
             agent_approval_overrides=_normalize_agent_approval_overrides(
@@ -152,6 +173,8 @@ class Runtime:
         self._usage = UsageCollector()
         self._message_log = MessageAccumulator()
         self._agent_registry: dict[str, AgentSpec] = {}
+        self._toolset_registry: dict[str, ToolsetSpec] = {}
+        self._dynamic_agents: dict[str, AgentSpec] = {}
 
     @property
     def config(self) -> RuntimeConfig:
@@ -177,8 +200,23 @@ class Runtime:
     def agent_registry(self) -> dict[str, AgentSpec]:
         return self._agent_registry
 
+    @property
+    def toolset_registry(self) -> dict[str, ToolsetSpec]:
+        return self._toolset_registry
+
+    @property
+    def dynamic_agents(self) -> dict[str, AgentSpec]:
+        return self._dynamic_agents
+
     def register_agents(self, agents: Mapping[str, AgentSpec]) -> None:
         self._agent_registry = dict(agents)
+
+    def register_toolsets(self, toolsets: Mapping[str, ToolsetSpec]) -> None:
+        self._toolset_registry = dict(toolsets)
+
+    def register_registry(self, registry: "AgentRegistry") -> None:
+        self.register_agents(registry.agents)
+        self.register_toolsets(registry.toolsets)
 
     def _create_usage(self) -> RunUsage:
         """Create a new RunUsage and add it to the shared usage sink."""

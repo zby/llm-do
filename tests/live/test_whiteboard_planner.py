@@ -97,7 +97,7 @@ def test_whiteboard_planner_directly(
         ),
         project_root=whiteboard_planner_example,
     )
-    runtime.register_agents(registry.agents)
+    runtime.register_registry(registry)
 
     result = asyncio.run(
         runtime.run_entry(

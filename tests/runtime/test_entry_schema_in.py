@@ -1,6 +1,6 @@
 import pytest
 
-from llm_do.runtime import EntrySpec, PromptContent, Runtime, AgentArgs
+from llm_do.runtime import AgentArgs, EntrySpec, PromptContent, Runtime
 
 
 class CustomInput(AgentArgs):

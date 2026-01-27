@@ -13,7 +13,7 @@ Enable agents to create and invoke other agents at runtime, supporting bootstrap
 - Example use case: `examples/pitchdeck_eval/` - orchestrator creating specialized evaluator agents
 
 ## Decision Record
-- Decision: output directory configured via manifest field `generated_agents_dir`
+- Decision: output directory configured via manifest field `generated_agents_dir` (defaults to `/tmp/llm-do/generated` if unset)
 - Rationale: manifest already handles path resolution; natural place for project config
 - Decision: generated agents are NOT auto-discovered on subsequent runs
 - Rationale: user should explicitly promote agents by copying to project and adding to `agent_files`; keeps human in the loop
@@ -23,19 +23,26 @@ Enable agents to create and invoke other agents at runtime, supporting bootstrap
 - Decision: adding tools during a session is acceptable (but removing tools is not)
 - Rationale: expanding tool availability doesn't break interpretation of past messages; removing tools would
   invalidate previously logged tool calls
+- Decision: `agent_create` accepts optional `toolsets` list (validated against project toolsets)
+- Decision: `agent_create` defaults model via `LLM_DO_MODEL` unless explicitly set
 
 ## Tasks
-- [ ] Add `generated_workers_dir: str | None` field to `ProjectManifest`
-- [ ] Create `dynamic_agents` toolset with:
-  - [ ] `agent_create(name, instructions, description, model?)` - write `.agent` file
-  - [ ] `agent_call(agent, input, attachments?)` - invoke created agent
-- [ ] Session-scoped registry for created agents (in toolset instance)
-- [ ] Parse created agents via existing `load_worker_file()` / `build_worker_definition()`
-- [ ] Resolve toolsets via existing `resolve_toolset_specs()`
-- [ ] Invoke via existing agent execution path
-- [ ] Error if `generated_workers_dir` not configured when `agent_create` called
-- [ ] Tests for create/call lifecycle
-- [ ] Update/create bootstrapping example
+- [x] Add `generated_agents_dir: str | None` field to `ProjectManifest`
+- [x] Create `dynamic_agents` toolset with:
+  - [x] `agent_create(name, instructions, description, model?, toolsets?)` - write `.agent` file
+  - [x] `agent_call(agent, input, attachments?)` - invoke created agent
+- [x] Session-scoped registry for created agents (stored on Runtime)
+- [x] Parse created agents via existing `load_worker_file()` / `build_worker_definition()`
+- [x] Resolve toolsets via existing `resolve_toolset_specs()`
+- [x] Invoke via existing agent execution path
+- [x] Default to `/tmp/llm-do/generated` if `generated_agents_dir` not configured
+- [x] Tests for create/call lifecycle
+- [x] Update/create bootstrapping example
+
+## Current State
+- Dynamic agent creation and calling implemented; runtime now tracks dynamic agents + toolset registry.
+- Manifest supports `generated_agents_dir` with default fallback, CLI/UI pass through.
+- `pitchdeck_eval` updated to create analyzer agent on the fly; tests adjusted.
 
 ## Implementation Notes
 

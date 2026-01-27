@@ -121,7 +121,7 @@ def test_web_research_consolidator(
         ),
         project_root=web_research_agent_example,
     )
-    runtime.register_agents(registry.agents)
+    runtime.register_registry(registry)
 
     result = asyncio.run(
         runtime.run_entry(

@@ -1,7 +1,7 @@
 """Entry/agent registry and builder utilities."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
@@ -32,6 +32,7 @@ class AgentRegistry:
     """Symbol table mapping agent names to AgentSpec instances."""
 
     agents: dict[str, AgentSpec]
+    toolsets: dict[str, ToolsetSpec] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -217,7 +218,7 @@ def _build_registry_and_entry_spec(
             schema_in=entry_agent.schema_in,
         )
 
-    return entry_spec, AgentRegistry(agents=agents)
+    return entry_spec, AgentRegistry(agents=agents, toolsets=all_toolsets)
 
 
 def build_entry_registry(

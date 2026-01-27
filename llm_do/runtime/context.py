@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
+from ..toolsets.loader import ToolsetSpec
 from .agent_runner import run_agent
 from .call import CallFrame, CallScope
 from .contracts import AgentSpec, ModelType
@@ -35,6 +36,18 @@ class CallContext:
     @property
     def config(self) -> RuntimeConfig:
         return self.runtime.config
+
+    @property
+    def agent_registry(self) -> dict[str, AgentSpec]:
+        return self.runtime.agent_registry
+
+    @property
+    def toolset_registry(self) -> dict[str, ToolsetSpec]:
+        return self.runtime.toolset_registry
+
+    @property
+    def dynamic_agents(self) -> dict[str, AgentSpec]:
+        return self.runtime.dynamic_agents
 
     def log_messages(self, agent_name: str, depth: int, messages: list[Any]) -> None:
         """Record messages for diagnostic logging."""

@@ -10,21 +10,21 @@ from ..toolsets.loader import ToolsetSpec
 from .agent_file import (
     AgentDefinition,
     AgentFileParser,
-    load_agent_file,
-    parse_agent_file,
     # Backwards compatibility aliases (deprecated)
     WorkerDefinition,
     WorkerFileParser,
+    load_agent_file,
     load_worker_file,
+    parse_agent_file,
     parse_worker_file,
 )
 from .approval import (
     AgentApprovalPolicy,
     ApprovalCallback,
     RunApprovalPolicy,
-    resolve_approval_callback,
     # Backwards compatibility alias (deprecated)
     WorkerApprovalPolicy,
+    resolve_approval_callback,
 )
 from .args import AgentArgs, Attachment, PromptContent, PromptMessages, WorkerArgs
 from .call import CallScope
@@ -44,6 +44,7 @@ from .manifest import (
     ManifestRuntimeConfig,
     ProjectManifest,
     load_manifest,
+    resolve_generated_agents_dir,
     resolve_manifest_paths,
 )
 from .registry import AgentRegistry, build_entry
@@ -94,6 +95,7 @@ __all__ = [
     "EntryConfig",
     "load_manifest",
     "resolve_manifest_paths",
+    "resolve_generated_agents_dir",
     # Toolset factories
     "ToolsetSpec",
 ]

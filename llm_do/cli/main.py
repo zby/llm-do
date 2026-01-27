@@ -39,6 +39,7 @@ from ..runtime import (
 from ..runtime.manifest import (
     ProjectManifest,
     load_manifest,
+    resolve_generated_agents_dir,
     resolve_manifest_paths,
 )
 from ..ui import HeadlessDisplayBackend, run_headless, run_tui
@@ -127,6 +128,7 @@ async def run(
             project_root=manifest_dir,
         )
 
+    generated_agents_dir = resolve_generated_agents_dir(manifest, manifest_dir)
     if runtime is None:
         approval_mode: Literal["prompt", "approve_all", "reject_all"] = manifest.runtime.approval_mode
 
@@ -143,6 +145,7 @@ async def run(
             project_root=manifest_dir,
             run_approval_policy=approval_policy,
             max_depth=manifest.runtime.max_depth,
+            generated_agents_dir=generated_agents_dir,
             agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
             agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
             agent_approval_overrides=manifest.runtime.agent_approval_overrides,
@@ -151,7 +154,7 @@ async def run(
             verbosity=verbosity,
         )
         if agent_registry is not None:
-            runtime.register_agents(agent_registry.agents)
+            runtime.register_registry(agent_registry)
     else:
         if (
             approval_callback is not None
@@ -161,7 +164,7 @@ async def run(
         ):
             raise ValueError("runtime provided; do not pass approval/UI overrides")
         if agent_registry is not None:
-            runtime.register_agents(agent_registry.agents)
+            runtime.register_registry(agent_registry)
 
     return await runtime.run_entry(
         entry,
@@ -325,6 +328,7 @@ def main() -> int:
         print("Chat mode requires TUI (--tui or a TTY).", file=sys.stderr)
         return 1
 
+    generated_agents_dir = resolve_generated_agents_dir(manifest, manifest_dir)
     if use_tui:
         tui_verbosity = args.verbose if args.verbose > 0 else 1
         log_verbosity = args.verbose
@@ -347,6 +351,7 @@ def main() -> int:
             verbosity=tui_verbosity,
             return_permission_errors=True,
             max_depth=manifest.runtime.max_depth,
+            generated_agents_dir=generated_agents_dir,
             agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
             agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
             agent_approval_overrides=manifest.runtime.agent_approval_overrides,
@@ -381,6 +386,7 @@ def main() -> int:
         verbosity=args.verbose,
         return_permission_errors=manifest.runtime.return_permission_errors,
         max_depth=manifest.runtime.max_depth,
+        generated_agents_dir=generated_agents_dir,
         agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
         agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
         agent_approval_overrides=manifest.runtime.agent_approval_overrides,

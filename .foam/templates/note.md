@@ -2,10 +2,9 @@
 foam_template:
   filepath: "docs/notes/$FOAM_TITLE.md"
   name: New Note
-  description: Create a new note in docs/notes/
 ---
 ---
-description: $FOAM_TITLE
+description:
 ---
 
 # $FOAM_TITLE
@@ -15,4 +14,3 @@ description: $FOAM_TITLE
 ## Findings
 
 ## Open Questions
-

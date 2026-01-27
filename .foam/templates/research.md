@@ -2,10 +2,9 @@
 foam_template:
   filepath: "docs/notes/research/$FOAM_TITLE.md"
   name: Research Note
-  description: Create a research note in docs/notes/research/
 ---
 ---
-description: $FOAM_TITLE
+description:
 ---
 
 # $FOAM_TITLE
@@ -17,4 +16,3 @@ Source:
 ## Key Points
 
 ## Implications for llm-do
-

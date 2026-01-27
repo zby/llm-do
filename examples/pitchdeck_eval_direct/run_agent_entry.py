@@ -9,7 +9,7 @@ Run with:
 import asyncio
 from pathlib import Path
 
-from llm_do.runtime import AgentSpec, EntrySpec, RunApprovalPolicy, Runtime
+from llm_do.runtime import AgentSpec, FunctionEntry, RunApprovalPolicy, Runtime
 from llm_do.runtime.events import RuntimeEvent
 from llm_do.toolsets.agent import agent_as_toolset
 from llm_do.toolsets.builtins import build_builtin_toolsets
@@ -38,8 +38,8 @@ OUTPUT_DIR = PROJECT_ROOT / "evaluations"
 # =============================================================================
 
 
-def build_entry_spec() -> EntrySpec:
-    """Build the entry spec and its evaluator agent."""
+def build_entry() -> FunctionEntry:
+    """Build the entry and its evaluator agent."""
     pitch_evaluator = AgentSpec(
         name="pitch_evaluator",
         model=MODEL,
@@ -62,10 +62,9 @@ def build_entry_spec() -> EntrySpec:
     async def main(input_data, runtime) -> str:
         return await runtime.call_agent(main_agent, input_data)
 
-    return EntrySpec(
-        main=main,
+    return FunctionEntry(
         name=main_agent.name,
-        description=main_agent.description,
+        main=main,
         schema_in=main_agent.schema_in,
     )
 
@@ -102,10 +101,10 @@ def build_runtime(verbosity: int) -> Runtime:
 
 async def run_entry_agent() -> str:
     """Run the entry agent, which calls the evaluator as a tool."""
-    entry_spec = build_entry_spec()
+    entry = build_entry()
     runtime = build_runtime(VERBOSITY)
     result, _ctx = await runtime.run_entry(
-        entry_spec,
+        entry,
         "",  # Empty prompt - agent handles file discovery
     )
     return result

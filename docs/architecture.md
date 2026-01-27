@@ -46,8 +46,8 @@ Entry main(input, ctx)
 ```
 
 Entry can be defined as:
-- An agent marked `entry: true` (wrapped automatically)
-- A Python `EntrySpec` with a `main` function
+- An agent marked `entry: true` (runs as an AgentEntry)
+- A Python `FunctionEntry` with a `main` function
 
 ---
 
@@ -160,8 +160,8 @@ Implementation layout mirrors the scopes:
 
 ## Execution Flow
 
-Entry linking resolves toolset specs for agents and produces a single `EntrySpec`
-with a plain `main` function. Internally, a registry maps agent names to `AgentSpec`
+Entry linking resolves toolset specs for agents and produces a single `Entry`
+(either AgentEntry or FunctionEntry). Internally, a registry maps agent names to `AgentSpec`
 instances during the link step.
 
 ```
@@ -174,7 +174,7 @@ Build entry (link step resolves agent toolset specs)
 Runtime.run_entry() creates entry runtime (NullModel, no toolsets)
     │
     ▼
-Entry executes (entry_spec.main(...))
+Entry executes (`entry.run(...)`)
     │
     ├── Entry code calls runtime.call_agent(...)
     │       → new CallContext (depth+1), same Runtime
@@ -186,12 +186,12 @@ Entry executes (entry_spec.main(...))
 Key points:
 - The project manifest (`project.json`) lists which `.agent` and `.py` files to load
 - Entry selection requires exactly one agent marked `entry: true` (in a `.agent` file)
-  or a single `EntrySpec` (in Python)
+  or a single `FunctionEntry` (in Python)
 - Top-level entries (depth 0) keep message history across turns
 - Child agent calls get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
-- EntrySpec inputs are normalized to `AgentArgs` (via `schema_in`)
+- Entry inputs are normalized to `AgentArgs` (via `schema_in`)
 - Entry functions are trusted but agent tool calls still go through approval wrappers per run policy
 
 ---

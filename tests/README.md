@@ -6,7 +6,7 @@ This guide documents the testing strategies and patterns used in llm-do. The cod
 
 | Pattern | Use Case | Example |
 |---------|----------|---------|
-| **TestModel** | End-to-end agent flow without API calls | `AgentSpec(...)` + `EntrySpec(...)` + `Runtime.run_entry(...)` |
+| **TestModel** | End-to-end agent flow without API calls | `AgentSpec(...)` + `FunctionEntry(...)` + `Runtime.run_entry(...)` |
 | **ToolCallingModel** | Deterministic tool-call sequences | `ToolCallingModel(tool_calls=...)` + toolset assertions |
 | **Real model (integration)** | Verify critical end-to-end flows | `tests/live/` (marked) |
 
@@ -32,7 +32,7 @@ Use `TestModel` when you need to test the **full agent behavior** including:
 ```python
 from pydantic_ai.models.test import TestModel
 
-from llm_do.runtime import AgentSpec, EntrySpec, Runtime
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime
 
 
 async def main(input_data, runtime):
@@ -41,7 +41,7 @@ async def main(input_data, runtime):
 
 async def test_agent_executes_with_tools(test_model: TestModel):
     agent = AgentSpec(name="my_agent", instructions="Process this", model=test_model)
-    entry = EntrySpec(name="main", main=main)
+    entry = FunctionEntry(name="main", main=main)
 
     runtime = Runtime()
     runtime.register_agents({"my_agent": agent})
@@ -60,7 +60,7 @@ assert tool wiring or approval behavior without relying on LLM reasoning.
 ### Example
 
 ```python
-from llm_do.runtime import AgentSpec, EntrySpec, Runtime, ToolsetSpec
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, ToolsetSpec
 from tests.tool_calling_model import ToolCallingModel
 
 
@@ -81,7 +81,7 @@ async def main(input_data, runtime):
 async def test_tool_call_flow():
     model = ToolCallingModel(tool_calls=[{"name": "add", "args": {"a": 1, "b": 2}}])
     agent = AgentSpec(name="calc", instructions="Use tools", model=model, toolset_specs=[ToolsetSpec(factory=build_tools)])
-    entry = EntrySpec(name="main", main=main)
+    entry = FunctionEntry(name="main", main=main)
 
     runtime = Runtime()
     runtime.register_agents({"calc": agent})

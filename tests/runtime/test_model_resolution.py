@@ -7,7 +7,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
 
 from llm_do.models import LLM_DO_MODEL_ENV, NullModel
-from llm_do.runtime import EntrySpec, Runtime
+from llm_do.runtime import FunctionEntry, Runtime
 from llm_do.runtime.call import CallConfig, CallFrame
 from tests.runtime.helpers import build_runtime_context
 
@@ -81,10 +81,10 @@ async def test_entry_uses_null_model(monkeypatch) -> None:
         assert isinstance(runtime.frame.config.model, NullModel)
         return "ok"
 
-    entry_spec = EntrySpec(name="entry", main=main)
+    entry = FunctionEntry(name="entry", main=main)
 
     runtime = Runtime()
-    result, _ctx = await runtime.run_entry(entry_spec, {"input": "hi"})
+    result, _ctx = await runtime.run_entry(entry, {"input": "hi"})
     assert result == "ok"
 
 
@@ -100,8 +100,8 @@ async def test_entry_null_model_llm_call_raises() -> None:
         await agent.run("hi", deps=runtime)
         return "ok"
 
-    entry_spec = EntrySpec(name="entry", main=main)
+    entry = FunctionEntry(name="entry", main=main)
 
     runtime = Runtime()
     with pytest.raises(RuntimeError, match="NullModel cannot be used"):
-        await runtime.run_entry(entry_spec, {"input": "hi"})
+        await runtime.run_entry(entry, {"input": "hi"})

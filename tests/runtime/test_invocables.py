@@ -4,7 +4,7 @@ import pytest
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import AgentSpec, EntrySpec, Runtime
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime
 
 
 def _prompt_echo_model() -> FunctionModel:
@@ -32,11 +32,11 @@ async def _run_prompt(input_text: str) -> str:
     async def main(input_data, runtime):
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry_spec = EntrySpec(name="main", main=main)
+    entry = FunctionEntry(name="main", main=main)
 
     runtime = Runtime()
     runtime.register_agents({agent_spec.name: agent_spec})
-    result, _ctx = await runtime.run_entry(entry_spec, {"input": input_text})
+    result, _ctx = await runtime.run_entry(entry, {"input": input_text})
     return str(result)
 
 

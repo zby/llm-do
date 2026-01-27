@@ -20,13 +20,13 @@ async def test_build_entry_resolves_nested_agent_toolsets() -> None:
     ]
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
-    entry_spec, registry = build_entry(
+    entry, registry = build_entry(
         agent_files,
         python_files,
         project_root=EXAMPLES_DIR / "web_research_agent",
     )
 
-    entry_agent = registry.agents[entry_spec.name]
+    entry_agent = registry.agents[entry.name]
 
     entry_toolsets = instantiate_toolsets(
         entry_agent.toolset_specs,
@@ -57,7 +57,7 @@ async def test_build_entry_loads_python_modules_once(tmp_path: Path) -> None:
 
     module_path.write_text(
         f"""\
-from llm_do.runtime import EntrySpec
+from llm_do.runtime import FunctionEntry
 
 _marker = {marker_literal}
 with open(_marker, "a", encoding="utf-8") as handle:
@@ -66,7 +66,7 @@ with open(_marker, "a", encoding="utf-8") as handle:
 async def main(_input, _runtime):
     return "ok"
 
-ENTRY = EntrySpec(
+ENTRY = FunctionEntry(
     name="main",
     main=main,
 )
@@ -150,9 +150,9 @@ Instructions.
         encoding="utf-8",
     )
 
-    entry_spec, _registry = build_entry([str(agent_path)], [], project_root=tmp_path)
-    assert entry_spec.schema_in is not None
-    assert entry_spec.schema_in.__name__ == "NoteInput"
+    entry, _registry = build_entry([str(agent_path)], [], project_root=tmp_path)
+    assert entry.schema_in is not None
+    assert entry.schema_in.__name__ == "NoteInput"
 
 
 @pytest.mark.anyio

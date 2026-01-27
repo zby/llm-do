@@ -4,7 +4,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import AgentSpec, CallContext, EntrySpec, Runtime, ToolsetSpec
+from llm_do.runtime import AgentSpec, CallContext, FunctionEntry, Runtime, ToolsetSpec
 
 
 class TestContext:
@@ -39,10 +39,10 @@ class TestContext:
             seen["entry_depth"] = runtime.frame.config.depth
             return await runtime.call_agent(agent_spec, input_data)
 
-        entry_spec = EntrySpec(name="entry", main=main)
+        entry = FunctionEntry(name="entry", main=main)
 
         runtime = Runtime()
-        await runtime.run_entry(entry_spec, {"input": "go"})
+        await runtime.run_entry(entry, {"input": "go"})
 
         assert seen["entry_depth"] == 0
         assert seen["probe_depth"] == 1

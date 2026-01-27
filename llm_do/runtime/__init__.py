@@ -29,7 +29,14 @@ from .approval import (
 from .args import AgentArgs, Attachment, PromptContent, PromptMessages, WorkerArgs
 from .call import CallScope
 from .context import CallContext
-from .contracts import AgentSpec, EntrySpec, EventCallback, ModelType
+from .contracts import (
+    AgentEntry,
+    AgentSpec,
+    Entry,
+    EventCallback,
+    FunctionEntry,
+    ModelType,
+)
 from .discovery import (
     discover_agents_from_module,
     discover_entries_from_module,
@@ -55,7 +62,9 @@ __all__ = [
     "Runtime",
     "CallContext",
     "CallScope",
-    "EntrySpec",
+    "Entry",
+    "FunctionEntry",
+    "AgentEntry",
     "AgentSpec",
     "ModelType",
     "EventCallback",

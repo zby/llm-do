@@ -1,6 +1,6 @@
 import pytest
 
-from llm_do.runtime import AgentArgs, EntrySpec, PromptContent, Runtime
+from llm_do.runtime import AgentArgs, FunctionEntry, PromptContent, Runtime
 
 
 class CustomInput(AgentArgs):
@@ -16,11 +16,11 @@ async def test_entry_schema_in_normalizes_input() -> None:
     async def main(args: CustomInput, _runtime) -> str:
         return args.tag
 
-    entry_spec = EntrySpec(name="echo", main=main, schema_in=CustomInput)
+    entry = FunctionEntry(name="echo", main=main, schema_in=CustomInput)
 
     runtime = Runtime()
     result, ctx = await runtime.run_entry(
-        entry_spec,
+        entry,
         {"input": "hi", "tag": "t1"},
     )
 

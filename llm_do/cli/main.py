@@ -8,7 +8,7 @@ Usage:
 
 The manifest path can be a JSON file or a directory containing project.json.
 The manifest specifies runtime config and file paths; the entry is resolved
-from the file set (agent marked `entry: true` or a single `EntrySpec` in Python).
+from the file set (agent marked `entry: true` or a single `FunctionEntry` in Python).
 CLI input (prompt or --input-json) overrides manifest entry.input when allowed.
 """
 from __future__ import annotations
@@ -29,7 +29,7 @@ from ..runtime import (
     ApprovalCallback,
     Attachment,
     CallContext,
-    EntrySpec,
+    Entry,
     EventCallback,
     PromptContent,
     RunApprovalPolicy,
@@ -97,7 +97,7 @@ async def run(
     approval_callback: ApprovalCallback | None = None,
     approval_cache: dict[Any, ApprovalDecision] | None = None,
     message_history: list[Any] | None = None,
-    entry: EntrySpec | None = None,
+    entry: Entry | None = None,
     agent_registry: AgentRegistry | None = None,
     runtime: Runtime | None = None,
 ) -> tuple[Any, CallContext]:
@@ -176,8 +176,8 @@ async def run(
 def _make_entry_factory(
     manifest: ProjectManifest,
     manifest_dir: Path,
-) -> Callable[[], tuple[EntrySpec, AgentRegistry]]:
-    def factory() -> tuple[EntrySpec, AgentRegistry]:
+) -> Callable[[], tuple[Entry, AgentRegistry]]:
+    def factory() -> tuple[Entry, AgentRegistry]:
         agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
         return build_entry(
             [str(p) for p in agent_paths],

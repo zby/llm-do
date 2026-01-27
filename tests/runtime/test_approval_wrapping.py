@@ -3,7 +3,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 
-from llm_do.runtime import AgentSpec, EntrySpec, Runtime, ToolsetSpec
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, ToolsetSpec
 from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
 from llm_do.toolsets.filesystem import FileSystemToolset
 
@@ -58,7 +58,7 @@ async def test_agent_tool_calls_can_require_approval() -> None:
     async def main(input_data, runtime) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry_spec = EntrySpec(name="entry", main=main)
+    entry = FunctionEntry(name="entry", main=main)
 
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="reject_all"),
@@ -66,4 +66,4 @@ async def test_agent_tool_calls_can_require_approval() -> None:
     )
 
     with pytest.raises(PermissionError):
-        await runtime.run_entry(entry_spec, {"input": "go"})
+        await runtime.run_entry(entry, {"input": "go"})

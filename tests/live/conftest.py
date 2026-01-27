@@ -163,12 +163,12 @@ def build_direct_entry_for_agent(
     entry_path.write_text(
         "\n".join(
             [
-                "from llm_do.runtime import EntrySpec",
+                "from llm_do.runtime import FunctionEntry",
                 "",
                 "async def main(input_data, runtime) -> str:",
                 f"    return await runtime.call_agent(\"{toolset_name}\", input_data)",
                 "",
-                "ENTRY = EntrySpec(",
+                "ENTRY = FunctionEntry(",
                 "    name=\"main\",",
                 "    main=main,",
                 ")",

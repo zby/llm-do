@@ -63,17 +63,31 @@ class CallContextProtocol(Protocol):
     def dynamic_agents(self) -> dict[str, "AgentSpec"]: ...
 
 
-@dataclass(frozen=True, slots=True)
-class EntrySpec:
-    """Specification for a root entry invocation."""
+class Entry:
+    """Root entry invocation interface."""
 
-    main: Callable[[Any, "CallContextProtocol"], Awaitable[Any]]
     name: str
+    schema_in: type["AgentArgs"] | None
+
+    async def run(self, input_data: Any, runtime: "CallContextProtocol") -> Any:
+        """Execute the entry."""
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionEntry(Entry):
+    """Entry backed by a plain async function."""
+
+    name: str
+    main: Callable[[Any, "CallContextProtocol"], Awaitable[Any]]
     schema_in: type["AgentArgs"] | None = None
 
     def __post_init__(self) -> None:
         if self.schema_in is not None and not issubclass(self.schema_in, AgentArgs):
             raise TypeError(f"schema_in must subclass AgentArgs; got {self.schema_in}")
+
+    async def run(self, input_data: Any, runtime: "CallContextProtocol") -> Any:
+        return await self.main(input_data, runtime)
 
 
 @dataclass(slots=True)
@@ -98,3 +112,21 @@ class AgentSpec:
         for spec in self.toolset_specs:
             if not isinstance(spec, ToolsetSpec):
                 raise TypeError("Agent toolset_specs must contain ToolsetSpec instances.")
+
+
+@dataclass(frozen=True, slots=True)
+class AgentEntry(Entry):
+    """Entry backed by an AgentSpec."""
+
+    spec: AgentSpec
+    name: str = field(init=False)
+    schema_in: type[AgentArgs] | None = field(init=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.spec, AgentSpec):
+            raise TypeError("AgentEntry spec must be an AgentSpec instance.")
+        object.__setattr__(self, "name", self.spec.name)
+        object.__setattr__(self, "schema_in", self.spec.schema_in)
+
+    async def run(self, input_data: Any, runtime: "CallContextProtocol") -> Any:
+        return await runtime.call_agent(self.spec, input_data)

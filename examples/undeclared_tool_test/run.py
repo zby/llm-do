@@ -16,7 +16,7 @@ from pathlib import Path
 
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import AgentSpec, CallContext, EntrySpec, ToolsetSpec
+from llm_do.runtime import AgentSpec, CallContext, FunctionEntry, ToolsetSpec
 from llm_do.ui import run_ui
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
@@ -90,7 +90,7 @@ async def main(_input_data, runtime: CallContext) -> str:
     return await runtime.call_agent(AGENT, {"input": "List files in the current directory"})
 
 
-ENTRY_SPEC = EntrySpec(name="main", main=main)
+ENTRY = FunctionEntry(name="main", main=main)
 
 
 def cli_main():
@@ -103,7 +103,7 @@ def cli_main():
     print()
 
     outcome = asyncio.run(run_ui(
-        entry=ENTRY_SPEC,
+        entry=ENTRY,
         input={"input": ""},
         project_root=PROJECT_ROOT,
         approval_mode="approve_all",

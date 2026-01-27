@@ -4,7 +4,7 @@ from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import AgentSpec, EntrySpec, Runtime, ToolsetSpec
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, ToolsetSpec
 from llm_do.runtime.events import RuntimeEvent, UserMessageEvent
 from tests.runtime.helpers import build_runtime_context
 
@@ -53,10 +53,10 @@ async def test_entry_emits_user_message_event() -> None:
             return get_display_text(input_data)
         return input_data
 
-    entry_spec = EntrySpec(name="entry", main=main)
+    entry = FunctionEntry(name="entry", main=main)
 
     runtime = Runtime(on_event=events.append)
-    result, _ctx = await runtime.run_entry(entry_spec, {"input": "hello"})
+    result, _ctx = await runtime.run_entry(entry, {"input": "hello"})
 
     assert result == "hello"
     user_events = [e for e in events if isinstance(e.event, UserMessageEvent)]
@@ -87,11 +87,11 @@ async def test_agent_emits_tool_events() -> None:
     async def entry_main(input_data, runtime):
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry_spec = EntrySpec(name="entry", main=entry_main)
+    entry = FunctionEntry(name="entry", main=entry_main)
 
     runtime = Runtime(on_event=events.append)
     runtime.register_agents({agent_spec.name: agent_spec})
-    await runtime.run_entry(entry_spec, {"input": "go"})
+    await runtime.run_entry(entry, {"input": "go"})
 
     tool_calls = [e for e in events if isinstance(e.event, FunctionToolCallEvent)]
     tool_results = [e for e in events if isinstance(e.event, FunctionToolResultEvent)]

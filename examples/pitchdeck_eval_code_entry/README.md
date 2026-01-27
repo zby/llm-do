@@ -5,7 +5,7 @@ This example demonstrates the **code entry point** pattern using `runtime` where
 ## The Pattern
 
 ```
-tools.py::ENTRY_SPEC (deterministic code)
+tools.py::ENTRY (deterministic code)
     ├── calls list_pitchdecks() directly
     ├── for each deck: runtime.call_agent("pitch_evaluator", ...)
     └── writes results directly (Path.write_text)
@@ -41,11 +41,11 @@ The LLM is reserved for what it's good at: **evaluating pitch decks**.
 
 ## How It Works
 
-The entry function in `tools.py` is exposed via `EntrySpec` and receives a
+The entry function in `tools.py` is exposed via `FunctionEntry` and receives a
 runtime handle, so it can call agents by name:
 
 ```python
-from llm_do.runtime import EntrySpec, CallContext
+from llm_do.runtime import FunctionEntry, CallContext
 
 async def main(_input_data, runtime: CallContext) -> str:
     """Entry point - Python orchestration."""
@@ -63,7 +63,7 @@ async def main(_input_data, runtime: CallContext) -> str:
 
     return f"Evaluated {len(decks)} pitch deck(s)"
 
-ENTRY_SPEC = EntrySpec(name="main", main=main)
+ENTRY = FunctionEntry(name="main", main=main)
 ```
 
 The `runtime.call_agent()` method accepts either:

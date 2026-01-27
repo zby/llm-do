@@ -9,7 +9,7 @@ from llm_do.runtime import (
     AgentRegistry,
     CallContext,
     CallScope,
-    EntrySpec,
+    Entry,
     Runtime,
 )
 from llm_do.runtime.approval import RunApprovalPolicy, wrap_toolsets_for_approval
@@ -82,7 +82,7 @@ def build_call_scope(
 
 
 async def run_entry_test(
-    entry: EntrySpec,
+    entry: Entry,
     input_data: Any,
     *,
     run_approval_policy: RunApprovalPolicy | None = None,

@@ -9,7 +9,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset, FunctionToolset, ToolsetTool
 
-from llm_do.runtime import AgentSpec, CallContext, EntrySpec, Runtime, ToolsetSpec
+from llm_do.runtime import AgentSpec, CallContext, FunctionEntry, Runtime, ToolsetSpec
 from llm_do.runtime.approval import RunApprovalPolicy
 
 
@@ -44,11 +44,11 @@ async def test_recursive_agent_gets_fresh_toolset_instances() -> None:
     async def main(input_data, runtime: CallContext) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry_spec = EntrySpec(name="entry", main=main)
+    entry = FunctionEntry(name="entry", main=main)
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
     runtime.register_agents({agent_spec.name: agent_spec})
-    await runtime.run_entry(entry_spec, {"input": "go"})
+    await runtime.run_entry(entry, {"input": "go"})
 
     assert len(instance_ids) == 2
     assert instance_ids[0] != instance_ids[1]
@@ -89,11 +89,11 @@ async def test_agent_toolset_cleanup_runs_per_call() -> None:
     async def main(input_data, runtime: CallContext) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry_spec = EntrySpec(name="entry", main=main)
+    entry = FunctionEntry(name="entry", main=main)
 
     runtime = Runtime()
     runtime.register_agents({agent_spec.name: agent_spec})
-    await runtime.run_entry(entry_spec, {"input": "go"})
-    await runtime.run_entry(entry_spec, {"input": "again"})
+    await runtime.run_entry(entry, {"input": "go"})
+    await runtime.run_entry(entry, {"input": "again"})
 
     assert len(cleanup_calls) == 2

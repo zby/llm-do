@@ -49,7 +49,7 @@ This schema shapes tool-call arguments and validates inputs before the agent run
 
 When loading entries from files, there must be exactly one entry candidate:
 - **Agent files**: mark the entry agent with `entry: true` in frontmatter
-- **Python files**: define a single `EntrySpec` instance
+- **Python files**: define a single `FunctionEntry` instance
 
 If multiple candidates exist (or none), loading fails with a descriptive error.
 
@@ -107,7 +107,7 @@ from llm_do.runtime import (
 
 async def main():
     project_root = Path(".").resolve()
-    entry_spec, registry = build_entry(["analyzer.agent"], [], project_root=project_root)
+    entry, registry = build_entry(["analyzer.agent"], [], project_root=project_root)
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
         project_root=project_root,
@@ -115,7 +115,7 @@ async def main():
     runtime.register_agents(registry.agents)
 
     result, ctx = await runtime.run_entry(
-        entry_spec,
+        entry,
         input_data="Analyze this data",
     )
 
@@ -128,7 +128,7 @@ async def main():
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
 - Returns both the result and the runtime context
  
-`build_entry()` returns `(EntrySpec, AgentRegistry)` and requires an explicit `project_root`; `AgentRegistry` is a thin
+`build_entry()` returns `(Entry, AgentRegistry)` and requires an explicit `project_root`; `AgentRegistry` is a thin
 container around the `agents` mapping, so pass the same root to `Runtime` and register `registry.agents` to keep
 filesystem toolsets and attachment resolution aligned.
 
@@ -140,7 +140,7 @@ so direct LLM calls from entry code are not allowed.
 
 | Parameter | Description |
 |-----------|-------------|
-| `entry_spec` | `EntrySpec` to run (plain `main` function) |
+| `entry` | `Entry` to run (AgentEntry or FunctionEntry) |
 | `input_data` | Input payload (str, list of prompt parts, dict, or `AgentArgs`) |
 | `message_history` | Pre-seed conversation history for the top-level call scope |
 
@@ -157,16 +157,16 @@ from llm_do.runtime import Runtime, build_entry
 
 async def main():
     project_root = Path(".").resolve()
-    entry_spec, registry = build_entry(["assistant.agent"], [], project_root=project_root)
+    entry, registry = build_entry(["assistant.agent"], [], project_root=project_root)
     runtime = Runtime(project_root=project_root)
     runtime.register_agents(registry.agents)
 
     message_history = None
-    result, ctx = await runtime.run_entry(entry_spec, {"input": "turn 1"})
+    result, ctx = await runtime.run_entry(entry, {"input": "turn 1"})
     message_history = list(ctx.frame.messages)
 
     result, ctx = await runtime.run_entry(
-        entry_spec,
+        entry,
         {"input": "turn 2"},
         message_history=message_history,
     )
@@ -241,7 +241,7 @@ A common pattern is using a Python function as the entry point for deterministic
 ```python
 from pathlib import Path
 
-from llm_do.runtime import EntrySpec, CallContext
+from llm_do.runtime import FunctionEntry, CallContext
 
 async def main(_input_data, runtime: CallContext) -> str:
     """Orchestrate evaluation of multiple files."""
@@ -259,13 +259,13 @@ async def main(_input_data, runtime: CallContext) -> str:
 
     return f"Processed {len(results)} files"
 
-ENTRY_SPEC = EntrySpec(name="main", main=main)
+ENTRY = FunctionEntry(name="main", main=main)
 ```
 
 Run with a manifest that includes `tools.py` and `evaluator.agent`, e.g.
-`llm-do project.json "start"` (the single `EntrySpec` is selected automatically).
+`llm-do project.json "start"` (the single `FunctionEntry` is selected automatically).
 
-`EntrySpec` fields:
+`FunctionEntry` fields:
 - `name`: Entry name for logging/events
 - `main`: Async function called for the entry
 - `schema_in`: Optional `AgentArgs` subclass for input normalization
@@ -281,7 +281,7 @@ wrappers and follow the run approval policy. To skip prompts, use `approve_all`
 Example with custom input schema:
 
 ```python
-from llm_do.runtime import EntrySpec, AgentArgs, PromptContent, CallContext
+from llm_do.runtime import FunctionEntry, AgentArgs, PromptContent, CallContext
 
 class TaggedInput(AgentArgs):
     input: str
@@ -293,7 +293,7 @@ class TaggedInput(AgentArgs):
 async def main(args: TaggedInput, _runtime: CallContext) -> str:
     return args.tag
 
-ENTRY_SPEC = EntrySpec(
+ENTRY = FunctionEntry(
     name="main",
     main=main,
     schema_in=TaggedInput,

@@ -14,7 +14,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from llm_do.runtime import AgentSpec, EntrySpec, Runtime
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime
 from tests.runtime.helpers import build_runtime_context
 
 
@@ -55,16 +55,16 @@ async def test_entry_agent_does_not_receive_message_history_across_turns() -> No
     async def main(input_data, runtime) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry_spec = EntrySpec(name="main", main=main)
+    entry = FunctionEntry(name="main", main=main)
 
     runtime = Runtime(verbosity=1)
     runtime.register_agents({agent_spec.name: agent_spec})
 
-    out1, ctx1 = await runtime.run_entry(entry_spec, {"input": "turn 1"})
+    out1, ctx1 = await runtime.run_entry(entry, {"input": "turn 1"})
     assert out1 == "user_prompts=1"
 
     out2, _ctx2 = await runtime.run_entry(
-        entry_spec,
+        entry,
         {"input": "turn 2"},
         message_history=ctx1.frame.messages,
     )

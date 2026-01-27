@@ -21,7 +21,7 @@ Python main() → runtime.call_agent("pitch_evaluator") → write results
 This is the recommended approach when orchestration is mechanical (list files, loop, write results). Python code is deterministic, testable, and doesn't waste tokens on trivial decisions.
 
 ```python
-from llm_do.runtime import AgentSpec, EntrySpec, CallContext
+from llm_do.runtime import AgentSpec, FunctionEntry, CallContext
 from llm_do.ui import run_ui
 
 EVALUATOR = AgentSpec(
@@ -39,11 +39,11 @@ async def main(_input_data, runtime: CallContext) -> str:
         Path(deck["output_path"]).write_text(report)
     return "Done"
 
-ENTRY_SPEC = EntrySpec(name="main", main=main)
+ENTRY = FunctionEntry(name="main", main=main)
 
 # Run with TUI or headless output
 outcome = await run_ui(
-    entry=ENTRY_SPEC,
+    entry=ENTRY,
     input={"input": ""},
     project_root=Path(__file__).parent,
     approval_mode="approve_all",  # or "prompt" for interactive
@@ -62,7 +62,7 @@ Python → Runtime.run_entry() → LLM main agent → pitch_evaluator tool
 Use this when orchestration requires judgment or flexibility that benefits from LLM reasoning. The main agent can adapt to unexpected situations, handle errors creatively, or make decisions about which files to process.
 
 ```python
-from llm_do.runtime import AgentSpec, EntrySpec, RunApprovalPolicy, Runtime
+from llm_do.runtime import AgentSpec, FunctionEntry, RunApprovalPolicy, Runtime
 from llm_do.toolsets.agent import agent_as_toolset
 from llm_do.toolsets.builtins import build_builtin_toolsets
 
@@ -81,9 +81,9 @@ main_agent = AgentSpec(
 async def main(input_data, runtime):
     return await runtime.call_agent(main_agent, input_data)
 
-entry_spec = EntrySpec(name="main", main=main)
+entry = FunctionEntry(name="main", main=main)
 runtime = Runtime(project_root=Path("."), run_approval_policy=policy)
-result, _ctx = await runtime.run_entry(entry_spec, "")
+result, _ctx = await runtime.run_entry(entry, "")
 ```
 
 ### run_raw.py - Raw PydanticAI
@@ -173,4 +173,4 @@ pitchdeck_eval_direct/
 ## Compare to CLI-based versions
 
 - `pitchdeck_eval/` - LLM orchestrates via `.agent` files, uses CLI
-- `pitchdeck_eval_code_entry/` - Python entry via `EntrySpec`, uses CLI
+- `pitchdeck_eval_code_entry/` - Python entry via `FunctionEntry`, uses CLI

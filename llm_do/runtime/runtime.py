@@ -13,7 +13,7 @@ from ..toolsets.loader import ToolsetSpec
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .contracts import (
     AgentSpec,
-    EntrySpec,
+    Entry,
     EventCallback,
     MessageLogCallback,
     ModelType,
@@ -251,22 +251,22 @@ class Runtime:
 
     async def run_entry(
         self,
-        entry_spec: EntrySpec,
+        entry: Entry,
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
     ) -> tuple[Any, CallContext]:
-        """Run an entry function with this runtime."""
+        """Run an entry with this runtime."""
         from ..models import NULL_MODEL
         from .args import get_display_text, normalize_input
         from .events import RuntimeEvent, UserMessageEvent
 
-        input_args, messages = normalize_input(entry_spec.schema_in, input_data)
+        input_args, messages = normalize_input(entry.schema_in, input_data)
         display_text = get_display_text(messages)
         if self.config.on_event is not None:
             self.config.on_event(
                 RuntimeEvent(
-                    worker=entry_spec.name,
+                    worker=entry.name,
                     depth=0,
                     event=UserMessageEvent(content=display_text),
                 )
@@ -275,7 +275,7 @@ class Runtime:
         call_runtime = self.spawn_call_runtime(
             active_toolsets=[],
             model=NULL_MODEL,
-            invocation_name=entry_spec.name,
+            invocation_name=entry.name,
             depth=0,
         )
         if message_history:
@@ -283,13 +283,13 @@ class Runtime:
         call_runtime.frame.prompt = display_text
 
         entry_input = input_args if input_args is not None else messages
-        result = await entry_spec.main(entry_input, call_runtime)
+        result = await entry.run(entry_input, call_runtime)
 
         return result, call_runtime
 
     def run(
         self,
-        entry_spec: EntrySpec,
+        entry: Entry,
         input_data: Any,
         *,
         message_history: list[Any] | None = None,
@@ -307,7 +307,7 @@ class Runtime:
 
         return asyncio.run(
             self.run_entry(
-                entry_spec,
+                entry,
                 input_data,
                 message_history=message_history,
             )

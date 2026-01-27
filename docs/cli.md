@@ -57,7 +57,7 @@ export OPENAI_API_KEY=sk-...
 
 Exactly one entry candidate must exist in the file set:
 - **Worker files**: mark the entry worker with `entry: true` in frontmatter.
-- **Python files**: define a single `EntrySpec` instance.
+- **Python files**: define a single `FunctionEntry` instance.
 - If multiple candidates exist (or none), loading fails with a descriptive error.
 
 ## Worker File Toolsets

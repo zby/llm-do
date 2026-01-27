@@ -45,7 +45,7 @@ llm-do examples/greeter/project.json "Tell me a joke"
 ```
 
 `llm-do` reads `project.json`, links the listed files, and runs the single entry.
-Mark one agent with `entry: true` or define a single `EntrySpec` in Python.
+Mark one agent with `entry: true` or define a single `FunctionEntry` in Python.
 See [`examples/`](examples/) for more.
 
 Example agent file (`main.agent`):

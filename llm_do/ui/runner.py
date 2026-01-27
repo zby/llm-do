@@ -12,7 +12,7 @@ from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, User
 from pydantic_ai.messages import PartDeltaEvent
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from llm_do.runtime import AgentRegistry, EntrySpec, RunApprovalPolicy, Runtime
+from llm_do.runtime import AgentRegistry, Entry, RunApprovalPolicy, Runtime
 from llm_do.runtime.contracts import MessageLogCallback
 from llm_do.runtime.events import RuntimeEvent
 
@@ -25,7 +25,7 @@ UiMode = Literal["tui", "headless"]
 ApprovalMode = Literal["prompt", "approve_all", "reject_all"]
 UiEventSink = Callable[[UIEvent], None]
 RuntimeEventSink = Callable[[RuntimeEvent], None]
-EntryFactory = Callable[[], tuple[EntrySpec, AgentRegistry]]
+EntryFactory = Callable[[], tuple[Entry, AgentRegistry]]
 RuntimeFactory = Callable[..., Runtime]
 
 
@@ -64,7 +64,7 @@ def _format_run_error_message(exc: BaseException) -> str:
 
 
 def _resolve_entry_factory(
-    entry: EntrySpec | None,
+    entry: Entry | None,
     entry_factory: EntryFactory | None,
     agent_registry: AgentRegistry | None,
 ) -> EntryFactory:
@@ -127,7 +127,7 @@ async def _render_loop(
 async def run_tui(
     *,
     input: Any,
-    entry: EntrySpec | None = None,
+    entry: Entry | None = None,
     entry_factory: EntryFactory | None = None,
     agent_registry: AgentRegistry | None = None,
     project_root: Path | None = None,
@@ -225,10 +225,10 @@ async def run_tui(
 
     result_holder: list[Any] = []
     exit_code = 0
-    entry_instance: tuple[EntrySpec, AgentRegistry] | None = None
+    entry_instance: tuple[Entry, AgentRegistry] | None = None
     message_history: list[Any] | None = None
 
-    def get_entry_instance() -> tuple[EntrySpec, AgentRegistry]:
+    def get_entry_instance() -> tuple[Entry, AgentRegistry]:
         nonlocal entry_instance
         nonlocal entry_name
         if entry_instance is None:
@@ -249,11 +249,11 @@ async def run_tui(
     ) -> list[Any] | None:
         nonlocal message_history
 
-        entry_spec, registry = get_entry_instance()
+        entry, registry = get_entry_instance()
         runtime.register_registry(registry)
 
         result, ctx = await runtime.run_entry(
-            entry_spec,
+            entry,
             input_data,
             message_history=message_history,
         )
@@ -326,7 +326,7 @@ async def run_tui(
 async def run_headless(
     *,
     input: Any,
-    entry: EntrySpec | None = None,
+    entry: Entry | None = None,
     entry_factory: EntryFactory | None = None,
     agent_registry: AgentRegistry | None = None,
     project_root: Path | None = None,
@@ -405,9 +405,9 @@ async def run_headless(
             raise ValueError(
                 "Headless mode cannot prompt for approvals; use approve_all or reject_all."
             )
-        entry_spec, registry = entry_factory()
+        entry, registry = entry_factory()
         runtime.register_registry(registry)
-        result, _ctx = await runtime.run_entry(entry_spec, input)
+        result, _ctx = await runtime.run_entry(entry, input)
     except KeyboardInterrupt as exc:
         exit_code = 1
         print(f"\n{_format_run_error_message(exc)}", file=error_stream)
@@ -428,7 +428,7 @@ async def run_headless(
 async def run_ui(
     *,
     input: Any,
-    entry: EntrySpec | None = None,
+    entry: Entry | None = None,
     entry_factory: EntryFactory | None = None,
     agent_registry: AgentRegistry | None = None,
     mode: UiMode = "tui",

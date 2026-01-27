@@ -14,7 +14,13 @@ from pydantic_ai_blocking_approval import (
 )
 from pydantic_core import SchemaValidator
 
-from llm_do.runtime import AgentSpec, EntrySpec, RunApprovalPolicy, Runtime, ToolsetSpec
+from llm_do.runtime import (
+    AgentSpec,
+    FunctionEntry,
+    RunApprovalPolicy,
+    Runtime,
+    ToolsetSpec,
+)
 
 
 class _ProbeToolset(AbstractToolset[Any]):
@@ -84,7 +90,7 @@ async def test_tui_session_approval_cache_persists_across_runs() -> None:
     async def main(input_data, runtime) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry_spec = EntrySpec(name="entry", main=main)
+    entry = FunctionEntry(name="entry", main=main)
 
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(
@@ -93,7 +99,7 @@ async def test_tui_session_approval_cache_persists_across_runs() -> None:
         )
     )
     runtime.register_agents({agent_spec.name: agent_spec})
-    await runtime.run_entry(entry_spec, {"input": "First turn"})
-    await runtime.run_entry(entry_spec, {"input": "Second turn"})
+    await runtime.run_entry(entry, {"input": "First turn"})
+    await runtime.run_entry(entry, {"input": "Second turn"})
 
     assert len(calls) == 1

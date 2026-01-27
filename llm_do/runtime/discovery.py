@@ -10,7 +10,7 @@ from typing import Iterable, TypeVar
 from pydantic_ai.toolsets import AbstractToolset
 
 from ..toolsets.loader import ToolsetSpec
-from .contracts import AgentSpec, EntrySpec
+from .contracts import AgentSpec, Entry
 
 _LOADED_MODULES: dict[Path, ModuleType] = {}
 
@@ -69,8 +69,8 @@ def discover_agents_from_module(module: ModuleType) -> list[AgentSpec]:
     return _discover_from_module(module, AgentSpec)
 
 
-def discover_entries_from_module(module: ModuleType) -> list[EntrySpec]:
-    return _discover_from_module(module, EntrySpec)
+def discover_entries_from_module(module: ModuleType) -> list[Entry]:
+    return _discover_from_module(module, Entry)
 
 
 def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
@@ -105,8 +105,8 @@ def load_agents_from_files(files: list[str | Path]) -> dict[str, AgentSpec]:
 
 def load_all_from_files(
     files: Iterable[str | Path],
-) -> tuple[dict[str, ToolsetSpec], dict[str, AgentSpec], dict[str, EntrySpec]]:
-    """Load toolset specs, agents, and entry specs from Python files.
+) -> tuple[dict[str, ToolsetSpec], dict[str, AgentSpec], dict[str, Entry]]:
+    """Load toolset specs, agents, and entries from Python files.
 
     Performs a single pass through the modules to discover all items.
 
@@ -118,7 +118,7 @@ def load_all_from_files(
     """
     toolsets: dict[str, ToolsetSpec] = {}
     agents: dict[str, AgentSpec] = {}
-    entries: dict[str, EntrySpec] = {}
+    entries: dict[str, Entry] = {}
     agent_paths: dict[str, Path] = {}
     entry_paths: dict[str, Path] = {}
     loaded_paths: set[Path] = set()

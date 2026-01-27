@@ -18,7 +18,7 @@ try:
 except ImportError:
     raise ImportError("python-slugify required. Install with: pip install python-slugify")
 
-from llm_do.runtime import AgentSpec, CallContext, EntrySpec
+from llm_do.runtime import AgentSpec, CallContext, FunctionEntry
 from llm_do.ui import run_ui
 
 # =============================================================================
@@ -126,7 +126,7 @@ async def main(_input_data, runtime: CallContext) -> str:
     return f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}"
 
 
-ENTRY_SPEC = EntrySpec(name="main", main=main)
+ENTRY = FunctionEntry(name="main", main=main)
 
 
 def cli_main():
@@ -137,7 +137,7 @@ def cli_main():
     print("-" * 60)
 
     outcome = asyncio.run(run_ui(
-        entry=ENTRY_SPEC,
+        entry=ENTRY,
         input={"input": ""},
         project_root=PROJECT_ROOT,
         approval_mode=APPROVAL_MODE,

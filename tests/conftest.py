@@ -89,7 +89,7 @@ def test_model():
             agent = AgentSpec(name="my_agent", instructions="...", model=test_model)
             async def main(input_data, runtime):
                 return await runtime.call_agent(agent, input_data)
-            entry = EntrySpec(name="main", main=main)
+            entry = FunctionEntry(name="main", main=main)
             result, _ctx = asyncio.run(Runtime().run_entry(entry, {"input": "..."}))
             # Verifies tools are registered and output schema works
 

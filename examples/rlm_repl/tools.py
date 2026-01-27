@@ -18,7 +18,7 @@ from RestrictedPython import (
 from RestrictedPython.Guards import guarded_iter_unpack_sequence, safer_getattr
 from RestrictedPython.PrintCollector import PrintCollector
 
-from llm_do.runtime import CallContext, EntrySpec, ToolsetSpec
+from llm_do.runtime import CallContext, FunctionEntry, ToolsetSpec
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 _STATE: dict[str, Any] = {
@@ -259,4 +259,4 @@ async def main(input_data, runtime: CallContext) -> str:
     return await runtime.call_agent("rlm", query)
 
 
-ENTRY_SPEC = EntrySpec(name="main", main=main)
+ENTRY = FunctionEntry(name="main", main=main)

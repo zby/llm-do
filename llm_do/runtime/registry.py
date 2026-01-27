@@ -22,7 +22,7 @@ from .agent_file import (
     load_agent_file_parts,
 )
 from .args import AgentArgs
-from .contracts import AgentSpec, CallContextProtocol, EntrySpec
+from .contracts import AgentEntry, AgentSpec, Entry
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
 
@@ -86,12 +86,12 @@ def _merge_toolsets(
     return merged
 
 
-def _build_registry_and_entry_spec(
+def _build_registry_and_entry(
     agent_files: list[str],
     python_files: list[str],
     *,
     project_root: Path | str,
-) -> tuple[EntrySpec, AgentRegistry]:
+) -> tuple[Entry, AgentRegistry]:
     if project_root is None:
         raise ValueError("project_root is required to build entries")
     project_root_path = Path(project_root).resolve()
@@ -101,14 +101,14 @@ def _build_registry_and_entry_spec(
     if not agent_files and not python_agents and not python_entries:
         raise ValueError("At least one .agent or .py file with entries required")
 
-    entry_specs = sorted(python_entries.values(), key=lambda e: e.name)
-    if len(entry_specs) > 1:
-        entry_names = [entry.name for entry in entry_specs]
+    entry_candidates = sorted(python_entries.values(), key=lambda e: e.name)
+    if len(entry_candidates) > 1:
+        entry_names = [entry.name for entry in entry_candidates]
         raise ValueError(
-            "Multiple EntrySpec instances found: "
+            "Multiple Entry instances found: "
             f"{entry_names}. Only one entry is allowed."
         )
-    entry_from_python = entry_specs[0] if entry_specs else None
+    entry_from_python = entry_candidates[0] if entry_candidates else None
 
     agent_file_specs: dict[str, AgentFileSpec] = {}
     entry_agent_names: list[str] = []
@@ -156,7 +156,7 @@ def _build_registry_and_entry_spec(
 
     if entry_from_python and entry_agent_names:
         raise ValueError(
-            "Entry conflict: found Python EntrySpec and entry agent(s) "
+            "Entry conflict: found Python entry and entry agent(s) "
             f"{sorted(entry_agent_names)}."
         )
     if len(entry_agent_names) > 1:
@@ -198,27 +198,19 @@ def _build_registry_and_entry_spec(
     if entry_from_python is None and not entry_agent_names:
         raise ValueError(
             "No entry found. Mark one agent with entry: true or "
-            "define a single EntrySpec in Python."
+            "define a single FunctionEntry in Python."
         )
 
     if entry_from_python is not None:
-        entry_spec = entry_from_python
+        entry = entry_from_python
     else:
         entry_agent = agents[entry_agent_names[0]]
+        entry = AgentEntry(spec=entry_agent)
 
-        async def entry_main(
-            input_data: Any,
-            runtime: CallContextProtocol,
-        ) -> Any:
-            return await runtime.call_agent(entry_agent, input_data)
+    if not isinstance(entry, Entry):
+        raise TypeError("Entry must be an Entry instance.")
 
-        entry_spec = EntrySpec(
-            main=entry_main,
-            name=entry_agent.name,
-            schema_in=entry_agent.schema_in,
-        )
-
-    return entry_spec, AgentRegistry(agents=agents, toolsets=all_toolsets)
+    return entry, AgentRegistry(agents=agents, toolsets=all_toolsets)
 
 
 def build_entry_registry(
@@ -227,12 +219,12 @@ def build_entry_registry(
     *,
     project_root: Path | str,
 ) -> AgentRegistry:
-    entry_spec, registry = _build_registry_and_entry_spec(
+    entry, registry = _build_registry_and_entry(
         agent_files,
         python_files,
         project_root=project_root,
     )
-    _ = entry_spec
+    _ = entry
     return registry
 
 
@@ -241,9 +233,9 @@ def build_entry(
     python_files: list[str],
     *,
     project_root: Path | str,
-) -> tuple[EntrySpec, AgentRegistry]:
-    """Build and return the resolved entry spec with agent registry."""
-    return _build_registry_and_entry_spec(
+) -> tuple[Entry, AgentRegistry]:
+    """Build and return the resolved entry with agent registry."""
+    return _build_registry_and_entry(
         agent_files,
         python_files,
         project_root=project_root,

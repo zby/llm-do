@@ -1,7 +1,7 @@
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from llm_do.runtime import AgentSpec, EntrySpec, Runtime, build_entry
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, build_entry
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.toolsets.agent import AgentToolset, agent_as_toolset
 
@@ -21,9 +21,9 @@ Call yourself.
 """
     )
 
-    entry_spec, registry = build_entry([str(agent_path)], [], project_root=tmp_path)
+    entry, registry = build_entry([str(agent_path)], [], project_root=tmp_path)
 
-    agent = registry.agents[entry_spec.name]
+    agent = registry.agents[entry.name]
     assert agent.toolset_specs
     toolset = agent.toolset_specs[0].factory()
     assert isinstance(toolset, AgentToolset)
@@ -43,7 +43,7 @@ async def test_max_depth_blocks_self_recursion() -> None:
     async def main(input_data, runtime):
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry_spec = EntrySpec(name="entry", main=main, schema_in=None)
+    entry = FunctionEntry(name="entry", main=main, schema_in=None)
 
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
@@ -52,4 +52,4 @@ async def test_max_depth_blocks_self_recursion() -> None:
     runtime.register_agents({agent_spec.name: agent_spec})
 
     with pytest.raises(RuntimeError, match="max_depth exceeded"):
-        await runtime.run_entry(entry_spec, {"input": "go"})
+        await runtime.run_entry(entry, {"input": "go"})

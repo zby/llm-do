@@ -87,3 +87,4 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [Experiment runtime without Worker class](research/experiment-runtime-without-worker.md) — Exploring runtime design without the Worker class
 - [Manifest-Selected Entry Motivation](research/manifest-selected-entry-motivation.md) — Motivation for moving entry selection from worker to manifest
 - [Type Catalog Review](research/type-catalog-review.md) — Review of type surface with simplification recommendations
+- [What Survives in Multi-Agent Systems](research/voooooogel-multi-agent-future.md) — Analysis of what multi-agent patterns will survive stronger models

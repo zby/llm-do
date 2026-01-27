@@ -51,7 +51,6 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 
 - [Agent Design Rationale](agent-design-rationale.md) — Core design decisions for opt-in tools, isolation, and typed I/O
 - [Agent Skills Standard Unification](agent-skills-unification.md) — Aligning .agent format with Agent Skills standard specification
-- [CallSite vs CallScope (Tool Lifecycle)](callsite-callscope-tool-lifecycle.md) — Tool lifecycle management between CallSite and CallScope abstractions
 - [Approval System Design](capability-based-approvals.md) — Capability-based approval system design for tool execution control
 - [Compiler Analogy for Worker Scopes](compiler-analogy-agent-scopes.md) — Compiler/runtime mental model for worker scopes and tool resolution
 - [Container Security Boundary](container-security-boundary.md) — Using Docker containers as security boundary for tool execution

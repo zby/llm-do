@@ -1,3 +1,7 @@
+---
+description: Proposed PydanticAI changes for runtime/session split and tracing
+---
+
 # PydanticAI Runtime Split and Trace Hooks
 
 ## Context

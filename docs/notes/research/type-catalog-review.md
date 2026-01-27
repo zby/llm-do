@@ -1,3 +1,7 @@
+---
+description: Review of type surface with simplification recommendations
+---
+
 # Type Catalog Review
 
 ## Context

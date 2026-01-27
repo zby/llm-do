@@ -1,3 +1,7 @@
+---
+description: Removing private PydanticAI dependency for message capture
+---
+
 # Stabilize Message Capture Without Private _agent_graph
 
 ## Context

@@ -1,3 +1,7 @@
+---
+description: Approval broker design for event-stream UI with blocking approvals
+---
+
 # Event-Stream UI with Blocking Approvals
 
 ## Context

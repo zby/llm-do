@@ -1,3 +1,7 @@
+---
+description: Catalog of 15 problem types benefiting from recursive LLM workers
+---
+
 # Recursive Problem Patterns for LLM Workers
 
 > **TL;DR**: See [recursive-patterns-summary.md](recursive-patterns-summary.md) for a condensed version with one representative example.

@@ -1,3 +1,7 @@
+---
+description: Open questions on per-worker vs shared toolset instances
+---
+
 # Toolset Instantiation Questions
 
 ## Context

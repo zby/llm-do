@@ -1,3 +1,7 @@
+---
+description: User stories for TUI, headless, and chat execution modes
+---
+
 # Execution Modes: User Stories
 
 ## Mode Philosophy

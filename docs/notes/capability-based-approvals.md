@@ -1,3 +1,7 @@
+---
+description: Capability-based approval system design for tool execution control
+---
+
 # Approval System Design
 
 ## Why Isolation, Not In-Process Security

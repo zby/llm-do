@@ -1,3 +1,7 @@
+---
+description: Semantic render hints for structured tool output display
+---
+
 # Tool Output Rendering Semantics
 
 ## Context

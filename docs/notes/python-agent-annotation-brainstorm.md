@@ -1,3 +1,7 @@
+---
+description: Brainstorm for Python-only worker definitions via decorators
+---
+
 # Python Worker Annotation Brainstorm
 
 ## Context

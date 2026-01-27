@@ -1,3 +1,7 @@
+---
+description: Design for runtime creation and invocation of dynamic workers
+---
+
 # Dynamic Workers Runtime Design
 
 Design note for runtime creation and invocation of workers (`worker_create` /

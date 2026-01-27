@@ -1,3 +1,7 @@
+---
+description: Design for unified tool plane across workers and entry functions
+---
+
 # Unified Entry Function Design
 
 ## Status

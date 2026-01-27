@@ -1,3 +1,7 @@
+---
+description: Standardizing truncation metadata for tool results
+---
+
 # Tool Result Truncation Metadata
 
 ## Context

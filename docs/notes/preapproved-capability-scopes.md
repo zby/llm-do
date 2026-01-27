@@ -1,3 +1,7 @@
+---
+description: Path-scoped preapproval policies for reducing approval prompts
+---
+
 # Preapproved Capability Scopes
 
 ## Context

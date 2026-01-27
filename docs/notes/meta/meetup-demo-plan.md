@@ -1,3 +1,7 @@
+---
+description: 5-minute demo plan showing progressive stabilization workflow
+---
+
 # llm-do 5-Minute Meetup Demo Plan
 
 ## Title

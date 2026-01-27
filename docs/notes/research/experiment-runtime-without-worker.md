@@ -1,3 +1,7 @@
+---
+description: Exploring runtime design without the Worker class
+---
+
 # Experiment runtime without Worker class
 
 ## Context

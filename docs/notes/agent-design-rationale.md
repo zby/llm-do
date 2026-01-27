@@ -1,6 +1,10 @@
-# Worker Design Rationale
+---
+description: Core design decisions for opt-in tools, isolation, and typed I/O
+---
 
-Captures the core design decisions that shaped llm-do's worker model.
+# Agent Design Rationale
+
+Captures the core design decisions that shaped llm-do's agent model.
 
 ## Claude Code Extension Mechanisms (Reference)
 

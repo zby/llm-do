@@ -1,3 +1,7 @@
+---
+description: Aligning .agent format with Agent Skills standard specification
+---
+
 # Agent Skills Standard Unification
 
 ## Context

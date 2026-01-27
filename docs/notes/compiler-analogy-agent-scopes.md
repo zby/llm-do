@@ -1,3 +1,7 @@
+---
+description: Compiler/runtime mental model for worker scopes and tool resolution
+---
+
 # Compiler Analogy for Worker Scopes
 
 ## Context

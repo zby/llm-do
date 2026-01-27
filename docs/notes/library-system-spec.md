@@ -1,3 +1,7 @@
+---
+description: Specification for reusable worker and tool libraries
+---
+
 # Library System Specification
 
 **Status**: Draft

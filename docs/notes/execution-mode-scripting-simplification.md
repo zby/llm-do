@@ -1,3 +1,7 @@
+---
+description: Simplifying Python embedding with quick_run and Runner helpers
+---
+
 # Execution Mode Scripting Simplification
 
 ## Status

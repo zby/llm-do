@@ -1,3 +1,7 @@
+---
+description: Summary of recursive worker patterns for context-limited tasks
+---
+
 # Recursive Worker Patterns (Summary)
 
 > For the full catalog of 15 problem types with detailed examples, see [recursive-problem-patterns.md](recursive-problem-patterns.md).

@@ -1,3 +1,7 @@
+---
+description: Motivation for moving entry selection from worker to manifest
+---
+
 # Manifest-Selected Entry Motivation
 
 ## Context

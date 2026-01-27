@@ -1,3 +1,7 @@
+---
+description: Analysis of agentic AI adaptation paper and llm-do implications
+---
+
 # Analysis: Adaptation of Agentic AI (arXiv:2512.16301)
 
 This note analyzes the paper "Adaptation of Agentic AI" and explores how its framework could inform llm-do's design and potential extensions.

@@ -1,3 +1,7 @@
+---
+description: Spec for project mode discovery, worker imports, and tool linking
+---
+
 # llm-do Project Mode, Worker Imports, and Tool Linking
 **Specification**
 

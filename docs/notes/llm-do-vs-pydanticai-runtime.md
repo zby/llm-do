@@ -1,3 +1,7 @@
+---
+description: What llm-do adds on top of vanilla PydanticAI agents
+---
+
 # llm-do vs vanilla PydanticAI: what the runtime adds
 
 ## Context

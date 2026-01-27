@@ -1,4 +1,6 @@
-### Description
+---
+description: Proposal for deferred_tool_handler enabling blocking approvals
+---
 
 # Deferred Handler Minimal-Core Proposal Draft
 

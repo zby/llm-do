@@ -1,3 +1,7 @@
+---
+description: LLM Day 2026 Warsaw conference presentation proposal
+---
+
 # LLM Day 2026 Warsaw - Presentation Proposal
 
 ---

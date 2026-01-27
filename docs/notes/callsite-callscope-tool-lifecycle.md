@@ -1,3 +1,7 @@
+---
+description: Tool lifecycle management between CallSite and CallScope abstractions
+---
+
 # CallSite vs CallScope (Tool Lifecycle)
 
 ## Context

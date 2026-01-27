@@ -1,3 +1,7 @@
+---
+description: Research on git integration patterns from Aider and golem-forge
+---
+
 # Git Integration Research
 
 ## Context

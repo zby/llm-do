@@ -71,7 +71,7 @@ how much will this change if we get continual learning? well, it's hard to predi
 
 ### Opportunities
 
-1. **Subagent onboarding protocol**
+1. **[[subagent-onboarding-protocol]]**
    - Instead of single-shot `agent_create(instructions=...)`, enable bidirectional setup
    - Spawned agent asks clarifying questions before starting work
    - Parent provides context interactively

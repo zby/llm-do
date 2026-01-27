@@ -1,6 +1,6 @@
 ---
 foam_template:
-  filepath: "docs/notes/research/$FOAM_TITLE.md"
+  filepath: "docs/notes/research/$FOAM_TITLE_SLUG.md"
   name: Research Note
 ---
 ---

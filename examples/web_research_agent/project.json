@@ -5,7 +5,7 @@
     "max_depth": 5
   },
   "entry": {
-    "input": {"input": "Research the current state of large language model agents and their applications"}
+    "args": {"input": "Research the current state of large language model agents and their applications"}
   },
   "agent_files": [
     "main.agent",

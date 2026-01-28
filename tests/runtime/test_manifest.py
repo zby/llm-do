@@ -69,14 +69,14 @@ class TestEntryConfig:
     def test_defaults(self):
         """Test defaults."""
         entry = EntryConfig()
-        assert entry.input is None
+        assert entry.args is None
 
-    def test_with_input(self):
-        """Test entry with input."""
+    def test_with_args(self):
+        """Test entry with args."""
         entry = EntryConfig(
-            input={"input": "Hello"},
+            args={"input": "Hello"},
         )
-        assert entry.input == {"input": "Hello"}
+        assert entry.args == {"input": "Hello"}
 
     def test_model_field_rejected(self):
         """Test model field is not allowed."""

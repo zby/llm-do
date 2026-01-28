@@ -5,7 +5,7 @@
     "max_depth": 5
   },
   "entry": {
-    "input": {"input": "Analyze this codebase. How many Python files are there and what are the main modules?"}
+    "args": {"input": "Analyze this codebase. How many Python files are there and what are the main modules?"}
   },
   "agent_files": ["main.agent"]
 }

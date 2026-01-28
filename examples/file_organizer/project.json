@@ -5,7 +5,7 @@
     "max_depth": 5
   },
   "entry": {
-    "input": {"input": "Organize the files in the messy_files directory"}
+    "args": {"input": "Organize the files in the messy_files directory"}
   },
   "agent_files": ["main.agent"],
   "python_files": ["tools.py"]

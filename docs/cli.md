@@ -9,7 +9,7 @@ Internally, it follows the same `build_entry(...)` linking flow available to Pyt
 # Run a project via manifest
 llm-do project.json "input message"
 
-# Use manifest default input (entry.input)
+# Use manifest default input (entry.args)
 llm-do project.json
 
 # Provide JSON input
@@ -119,7 +119,7 @@ NullModel (no LLM calls allowed); configure models on workers.
 
 ## Input Overrides
 
-The manifest can provide default input via `entry.input`. CLI input (prompt or
+The manifest can provide default input via `entry.args`. CLI input (prompt or
 `--input-json`) overrides it when `allow_cli_input` is true.
 
 If `allow_cli_input` is false and a prompt is provided, the CLI exits with an error.

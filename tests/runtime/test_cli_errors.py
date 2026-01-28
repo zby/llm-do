@@ -99,7 +99,7 @@ class TestCLIInputErrors:
             "version": 1,
             "runtime": {},
             "allow_cli_input": False,
-            "entry": {"input": {"input": "default"}},
+            "entry": {"args": {"input": "default"}},
             "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
@@ -328,11 +328,11 @@ class TestCLISuccess:
         assert captured.out.strip() == "Success!"
 
     def test_input_from_manifest(self, tmp_path, capsys):
-        """Test using input from manifest entry.input."""
+        """Test using input from manifest entry.args."""
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {"input": {"input": "manifest prompt"}},
+            "entry": {"args": {"input": "manifest prompt"}},
             "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
@@ -356,11 +356,11 @@ class TestCLISuccess:
         assert call_args.args[1] == ["manifest prompt"]
 
     def test_input_json_override(self, tmp_path, capsys):
-        """Test --input-json overrides manifest entry.input."""
+        """Test --input-json overrides manifest entry.args."""
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {"input": {"input": "manifest prompt"}},
+            "entry": {"args": {"input": "manifest prompt"}},
             "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"

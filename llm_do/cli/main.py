@@ -9,7 +9,7 @@ Usage:
 The manifest path can be a JSON file or a directory containing project.json.
 The manifest specifies runtime config and file paths; the entry is resolved
 from the file set (agent marked `entry: true` or a single `FunctionEntry` in Python).
-CLI input (prompt or --input-json) overrides manifest entry.input when allowed.
+CLI input (prompt or --input-json) overrides manifest entry.args when allowed.
 """
 from __future__ import annotations
 
@@ -205,12 +205,12 @@ def main() -> int:
     parser.add_argument(
         "prompt",
         nargs="?",
-        help="Prompt for the LLM (overrides manifest entry.input)",
+        help="Prompt for the LLM (overrides manifest entry.args)",
     )
     parser.add_argument(
         "--input-json",
         dest="input_json",
-        help="Input as inline JSON (overrides manifest entry.input)",
+        help="Input as inline JSON (overrides manifest entry.args)",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -288,8 +288,8 @@ def main() -> int:
             return 1
     elif args.prompt is not None:
         raw_input = args.prompt
-    elif manifest.entry.input is not None:
-        raw_input = manifest.entry.input
+    elif manifest.entry.args is not None:
+        raw_input = manifest.entry.args
     else:
         # Try reading from stdin if not a TTY
         if not sys.stdin.isatty():
@@ -298,13 +298,13 @@ def main() -> int:
                 raw_input = stdin_input
             else:
                 print(
-                    "Error: No input provided (use prompt argument, --input-json, or manifest entry.input)",
+                    "Error: No input provided (use prompt argument, --input-json, or manifest entry.args)",
                     file=sys.stderr,
                 )
                 return 1
         else:
             print(
-                "Error: No input provided (use prompt argument, --input-json, or manifest entry.input)",
+                "Error: No input provided (use prompt argument, --input-json, or manifest entry.args)",
                 file=sys.stderr,
             )
             return 1

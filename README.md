@@ -206,7 +206,7 @@ You can also use:
 # Run a project via manifest
 llm-do project.json "input message"
 
-# Use manifest default input (entry.input)
+# Use manifest default input (entry.args)
 llm-do project.json
 
 # Provide JSON input

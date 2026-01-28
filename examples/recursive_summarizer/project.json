@@ -5,7 +5,7 @@
     "max_depth": 10
   },
   "entry": {
-    "input": {"input": "sample_input.txt"}
+    "args": {"input": "sample_input.txt"}
   },
   "agent_files": ["main.agent", "summarizer.agent"],
   "python_files": ["schemas.py"]

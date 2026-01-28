@@ -5,7 +5,7 @@
     "max_depth": 5
   },
   "entry": {
-    "input": {"input": "What is 7 factorial plus the 10th fibonacci number?"}
+    "args": {"input": "What is 7 factorial plus the 10th fibonacci number?"}
   },
   "agent_files": ["main.agent"],
   "python_files": ["tools.py"]

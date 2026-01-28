@@ -5,7 +5,7 @@
     "max_depth": 5
   },
   "entry": {
-    "input": {"input": "Process all whiteboard images in the input directory"}
+    "args": {"input": "Process all whiteboard images in the input directory"}
   },
   "agent_files": ["main.agent", "whiteboard_planner.agent"]
 }

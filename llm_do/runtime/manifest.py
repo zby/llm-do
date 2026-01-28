@@ -62,7 +62,7 @@ class EntryConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    input: dict[str, Any] | None = None
+    args: dict[str, Any] | None = None
 
 
 class ProjectManifest(BaseModel):

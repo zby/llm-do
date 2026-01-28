@@ -1,9 +1,9 @@
-"""Live tests for the pitchdeck_eval example.
+"""Live tests for the bootstrapping example.
 
-Tests attachment handling and vision capabilities with static agent definitions.
+Tests dynamic agent creation and invocation at runtime.
 
 Run:
-    pytest tests/live/test_pitchdeck_eval.py -v
+    pytest tests/live/test_bootstrapping.py -v
 
 Note: Requires a model with PDF/vision support (e.g., Claude, GPT-4 Turbo).
 """
@@ -17,13 +17,14 @@ from .conftest import run_example, skip_no_anthropic
 
 
 @skip_no_anthropic
-def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_all_callback):
-    """Test that the main orchestrator can process PDF pitch decks.
+def test_bootstrapping_creates_dynamic_agent(bootstrapping_example, approve_all_callback):
+    """Test that the orchestrator can dynamically create and use agents.
 
-    This is the main integration test for the pitchdeck_eval example.
+    This is the main integration test for the bootstrapping example.
     It tests:
     - File listing (finding PDFs in input/)
-    - Static agent invocation (pitch_evaluator)
+    - Dynamic agent creation (agent_create)
+    - Dynamic agent invocation (agent_call)
     - Attachment passing (PDF files)
     - Vision/PDF reading capabilities
     - File writing (saving reports)
@@ -44,10 +45,11 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
 
     result = asyncio.run(
         run_example(
-            pitchdeck_eval_example,
+            bootstrapping_example,
             "Process the pitch decks in input/ and write evaluations.",
             model="anthropic:claude-haiku-4-5",
             approval_callback=approve_all_callback,
+            generated_agents_dir=bootstrapping_example / "generated",
         )
     )
 
@@ -56,3 +58,7 @@ def test_pitchdeck_orchestrator_processes_pdfs(pitchdeck_eval_example, approve_a
     # Check that evaluation files were written
     written_files = list(evaluations_dir.glob("*.md"))
     assert len(written_files) > 0, "Orchestrator should have written at least one evaluation"
+
+    # Check that the dynamic agent was generated for this session
+    generated_agent = Path("generated") / "pitch_evaluator.agent"
+    assert generated_agent.exists(), "Dynamic agent should be written to generated/"

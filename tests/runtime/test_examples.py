@@ -35,7 +35,27 @@ async def test_single_worker_example_builds():
 
 @pytest.mark.anyio
 async def test_delegation_example_builds():
+    """Test pitchdeck_eval: static agent delegation pattern."""
     project_root = EXAMPLES_DIR / "pitchdeck_eval"
+    entry_spec, registry = build_entry(
+        [
+            str(project_root / "main.agent"),
+            str(project_root / "pitch_evaluator.agent"),
+        ],
+        [],
+        project_root=project_root,
+    )
+    agent = registry.agents[entry_spec.name]
+    toolsets = instantiate_toolsets(
+        agent.toolset_specs,
+    )
+    assert any(isinstance(toolset, AgentToolset) for toolset in toolsets)
+
+
+@pytest.mark.anyio
+async def test_bootstrapping_example_builds():
+    """Test bootstrapping: dynamic agent creation pattern."""
+    project_root = EXAMPLES_DIR / "bootstrapping"
     entry_spec, registry = build_entry(
         [
             str(project_root / "main.agent"),

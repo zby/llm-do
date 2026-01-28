@@ -259,6 +259,12 @@ def pitchdeck_eval_example(example_dir_factory):
 
 
 @pytest.fixture
+def bootstrapping_example(example_dir_factory):
+    """Example directory for bootstrapping (dynamic agents)."""
+    return example_dir_factory("bootstrapping")
+
+
+@pytest.fixture
 def web_research_agent_example(example_dir_factory):
     """Example directory for web_research_agent."""
     return example_dir_factory("web_research_agent")

@@ -62,7 +62,24 @@ class EntryConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    agent: str | None = None
+    function: str | None = None
     args: dict[str, Any] | None = None
+
+    @field_validator("agent", "function")
+    @classmethod
+    def validate_entry_target(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError("entry target must be a non-empty string")
+        return v
+
+    @model_validator(mode="after")
+    def validate_entry_target_set(self) -> "EntryConfig":
+        if bool(self.agent) == bool(self.function):
+            raise ValueError("entry must define exactly one of 'agent' or 'function'")
+        return self
 
 
 class ProjectManifest(BaseModel):

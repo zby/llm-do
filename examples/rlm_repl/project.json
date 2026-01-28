@@ -5,10 +5,15 @@
     "max_depth": 8
   },
   "entry": {
+    "agent": "rlm",
     "args": {
       "input": "When did Project Zephyr launch and who led it?"
     }
   },
-  "agent_files": ["rlm.agent"],
-  "python_files": ["tools.py"]
+  "agent_files": [
+    "rlm.agent"
+  ],
+  "python_files": [
+    "tools.py"
+  ]
 }

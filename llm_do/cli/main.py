@@ -7,8 +7,7 @@ Usage:
     llm-do project.json --input-json '{"input": "Your prompt"}'
 
 The manifest path can be a JSON file or a directory containing project.json.
-The manifest specifies runtime config and file paths; the entry is resolved
-from the file set (agent marked `entry: true` or a single `FunctionEntry` in Python).
+The manifest specifies runtime config, entry selection, and file paths.
 CLI input (prompt or --input-json) overrides manifest entry.args when allowed.
 """
 from __future__ import annotations
@@ -34,7 +33,8 @@ from ..runtime import (
     PromptContent,
     RunApprovalPolicy,
     Runtime,
-    build_entry,
+    build_registry,
+    resolve_entry,
 )
 from ..runtime.manifest import (
     ProjectManifest,
@@ -122,10 +122,16 @@ async def run(
     agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
 
     if entry is None:
-        entry, agent_registry = build_entry(
+        agent_registry = build_registry(
             [str(p) for p in agent_paths],
             [str(p) for p in python_paths],
             project_root=manifest_dir,
+        )
+        entry = resolve_entry(
+            manifest.entry,
+            agent_registry,
+            python_files=python_paths,
+            base_path=manifest_dir,
         )
 
     generated_agents_dir = resolve_generated_agents_dir(manifest, manifest_dir)
@@ -179,11 +185,18 @@ def _make_entry_factory(
 ) -> Callable[[], tuple[Entry, AgentRegistry]]:
     def factory() -> tuple[Entry, AgentRegistry]:
         agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
-        return build_entry(
+        registry = build_registry(
             [str(p) for p in agent_paths],
             [str(p) for p in python_paths],
             project_root=manifest_dir,
         )
+        entry = resolve_entry(
+            manifest.entry,
+            registry,
+            python_files=python_paths,
+            base_path=manifest_dir,
+        )
+        return entry, registry
 
     return factory
 

@@ -47,11 +47,11 @@ This schema shapes tool-call arguments and validates inputs before the agent run
 
 ## Entry Selection
 
-When loading entries from files, there must be exactly one entry candidate:
-- **Agent files**: mark the entry agent with `entry: true` in frontmatter
-- **Python files**: define a single `FunctionEntry` instance
+Entry selection is explicit in the manifest:
+- `entry.agent` selects an agent name from `.agent` files (runs as an AgentEntry)
+- `entry.function` selects a Python function via `path.py:function` (must be listed in `python_files`) and wraps it as a FunctionEntry
 
-If multiple candidates exist (or none), loading fails with a descriptive error.
+If the target cannot be resolved, loading fails with a descriptive error.
 
 ## Calling Agents from Python
 
@@ -100,14 +100,26 @@ Use `Runtime` to create a shared execution environment and run an entry:
 from pathlib import Path
 
 from llm_do.runtime import (
+    EntryConfig,
     Runtime,
     RunApprovalPolicy,
-    build_entry,
+    build_registry,
+    resolve_entry,
 )
 
 async def main():
     project_root = Path(".").resolve()
-    entry, registry = build_entry(["analyzer.agent"], [], project_root=project_root)
+    registry = build_registry(
+        ["analyzer.agent"],
+        [],
+        project_root=project_root,
+    )
+    entry = resolve_entry(
+        EntryConfig(agent="analyzer"),
+        registry,
+        python_files=[],
+        base_path=project_root,
+    )
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),
         project_root=project_root,
@@ -128,7 +140,7 @@ async def main():
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
 - Returns both the result and the runtime context
  
-`build_entry()` returns `(Entry, AgentRegistry)` and requires an explicit `project_root`; `AgentRegistry` is a thin
+`build_registry()` returns an `AgentRegistry` and requires an explicit `project_root`; `AgentRegistry` is a thin
 container around the `agents` mapping, so pass the same root to `Runtime` and register `registry.agents` to keep
 filesystem toolsets and attachment resolution aligned.
 
@@ -153,11 +165,21 @@ For chat-style flows, carry forward `message_history` between turns:
 ```python
 from pathlib import Path
 
-from llm_do.runtime import Runtime, build_entry
+from llm_do.runtime import EntryConfig, Runtime, build_registry, resolve_entry
 
 async def main():
     project_root = Path(".").resolve()
-    entry, registry = build_entry(["assistant.agent"], [], project_root=project_root)
+    registry = build_registry(
+        ["assistant.agent"],
+        [],
+        project_root=project_root,
+    )
+    entry = resolve_entry(
+        EntryConfig(agent="assistant"),
+        registry,
+        python_files=[],
+        base_path=project_root,
+    )
     runtime = Runtime(project_root=project_root)
     runtime.register_agents(registry.agents)
 
@@ -241,7 +263,7 @@ A common pattern is using a Python function as the entry point for deterministic
 ```python
 from pathlib import Path
 
-from llm_do.runtime import FunctionEntry, CallContext
+from llm_do.runtime import CallContext
 
 async def main(_input_data, runtime: CallContext) -> str:
     """Orchestrate evaluation of multiple files."""
@@ -259,11 +281,13 @@ async def main(_input_data, runtime: CallContext) -> str:
 
     return f"Processed {len(results)} files"
 
-ENTRY = FunctionEntry(name="main", fn=main)
 ```
 
-Run with a manifest that includes `tools.py` and `evaluator.agent`, e.g.
-`llm-do project.json "start"` (the single `FunctionEntry` is selected automatically).
+Run with a manifest that includes `tools.py` and `evaluator.agent`, and set:
+`entry.function: "tools.py:main"` in `project.json`.
+
+If you want to create the entry manually (outside the manifest flow), wrap it:
+`FunctionEntry(name="main", fn=main)`.
 
 `FunctionEntry` fields:
 - `name`: Entry name for logging/events
@@ -630,7 +654,7 @@ the factory (e.g., base paths or sandbox handles).
 
 ### Built-in Toolsets
 
-`filesystem_project` uses the project root passed to `build_entry` (the manifest
+`filesystem_project` uses the project root passed to `build_registry` (the manifest
 directory in the CLI).
 
 | Name | Class | Tools |

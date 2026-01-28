@@ -44,8 +44,8 @@ export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
 llm-do examples/greeter/project.json "Tell me a joke"
 ```
 
-`llm-do` reads `project.json`, links the listed files, and runs the single entry.
-Mark one agent with `entry: true` or define a single `FunctionEntry` in Python.
+`llm-do` reads `project.json`, links the listed files, and runs the selected entry.
+Declare the entry in the manifest (`entry.agent` or `entry.function`) to pick an agent or a Python function.
 See [`examples/`](examples/) for more.
 
 Example agent file (`main.agent`):
@@ -53,7 +53,6 @@ Example agent file (`main.agent`):
 ```yaml
 ---
 name: main
-entry: true
 ---
 You are a friendly greeter. Respond to the user with a warm, personalized greeting.
 Keep your responses brief and cheerful.
@@ -69,7 +68,8 @@ Example manifest:
     "max_depth": 5
   },
   "entry": {
-    "input": { "input": "Hello!" }
+    "agent": "main",
+    "args": { "input": "Hello!" }
   },
   "agent_files": ["main.agent"],
   "python_files": ["tools.py"]
@@ -223,10 +223,26 @@ If you're orchestrating from Python, link a single entry from files and run it:
 import asyncio
 from pathlib import Path
 
-from llm_do.runtime import RunApprovalPolicy, Runtime, build_entry
+from llm_do.runtime import (
+    EntryConfig,
+    RunApprovalPolicy,
+    Runtime,
+    build_registry,
+    resolve_entry,
+)
 
 project_root = Path(".").resolve()
-entry, registry = build_entry(["main.agent"], ["tools.py"], project_root=project_root)
+registry = build_registry(
+    ["main.agent"],
+    ["tools.py"],
+    project_root=project_root,
+)
+entry = resolve_entry(
+    EntryConfig(agent="main"),
+    registry,
+    python_files=["tools.py"],
+    base_path=project_root,
+)
 runtime = Runtime(
     run_approval_policy=RunApprovalPolicy(mode="approve_all"),
     project_root=project_root,
@@ -244,7 +260,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-`build_entry()` requires an explicit `project_root`; pass the same root to `Runtime`
+`build_registry()` requires an explicit `project_root`; pass the same root to `Runtime`
 to keep filesystem toolsets and attachment resolution aligned.
 
 ## Examples

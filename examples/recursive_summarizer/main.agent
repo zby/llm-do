@@ -1,6 +1,5 @@
 ---
 name: main
-entry: true
 description: Entry point for recursive file summarization
 toolsets:
   - filesystem_project

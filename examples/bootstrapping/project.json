@@ -6,7 +6,12 @@
   },
   "generated_agents_dir": "generated",
   "entry": {
-    "args": {"input": "Evaluate all pitch decks in the input directory"}
+    "agent": "main",
+    "args": {
+      "input": "Evaluate all pitch decks in the input directory"
+    }
   },
-  "agent_files": ["main.agent"]
+  "agent_files": [
+    "main.agent"
+  ]
 }

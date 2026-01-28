@@ -1,6 +1,5 @@
 ---
 name: main
-entry: true
 description: Organize messy filenames into consistent formats
 toolsets:
   - file_tools

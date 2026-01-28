@@ -39,13 +39,13 @@ from .contracts import (
 )
 from .discovery import (
     discover_agents_from_module,
-    discover_entries_from_module,
     discover_toolsets_from_module,
     load_agents_from_files,
     load_all_from_files,
     load_module,
     load_toolsets_from_files,
 )
+from .entry_resolver import resolve_entry
 from .manifest import (
     EntryConfig,
     ManifestRuntimeConfig,
@@ -54,7 +54,7 @@ from .manifest import (
     resolve_generated_agents_dir,
     resolve_manifest_paths,
 )
-from .registry import AgentRegistry, build_entry
+from .registry import AgentRegistry, build_registry
 from .runtime import Runtime
 
 __all__ = [
@@ -74,7 +74,7 @@ __all__ = [
     "WorkerApprovalPolicy",  # Deprecated alias
     "resolve_approval_callback",
     "AgentRegistry",
-    "build_entry",
+    "build_registry",
     "Attachment",
     "PromptContent",
     "PromptMessages",
@@ -94,7 +94,7 @@ __all__ = [
     "load_module",
     "discover_toolsets_from_module",
     "discover_agents_from_module",
-    "discover_entries_from_module",
+    "resolve_entry",
     "load_toolsets_from_files",
     "load_agents_from_files",
     "load_all_from_files",

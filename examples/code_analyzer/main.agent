@@ -1,6 +1,5 @@
 ---
 name: main
-entry: true
 description: Analyze codebases using safe shell commands (wc, find, grep, etc.)
 toolsets:
   - shell_readonly

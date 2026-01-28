@@ -1,6 +1,5 @@
 ---
 name: main
-entry: true
 description: Orchestrate live web research, extraction, consolidation, and reporting.
 toolsets:
   - web_research_extractor

@@ -4,15 +4,35 @@ from pathlib import Path
 import pytest
 
 from llm_do.runtime import (
-    build_entry,
+    build_registry,
     load_agent_file,
+    load_manifest,
     load_toolsets_from_files,
+    resolve_entry,
+    resolve_manifest_paths,
 )
 from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.dynamic_agents import DynamicAgentsToolset
 from llm_do.toolsets.loader import instantiate_toolsets
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
+
+
+def _build_example(example_name: str):
+    manifest, manifest_dir = load_manifest(EXAMPLES_DIR / example_name / "project.json")
+    agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
+    registry = build_registry(
+        [str(path) for path in agent_paths],
+        [str(path) for path in python_paths],
+        project_root=manifest_dir,
+    )
+    entry = resolve_entry(
+        manifest.entry,
+        registry,
+        python_files=python_paths,
+        base_path=manifest_dir,
+    )
+    return entry, registry, manifest
 
 
 @pytest.mark.anyio
@@ -23,29 +43,16 @@ async def test_single_worker_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "calculator" / "tools.py"])
     assert "calc_tools" in toolsets
 
-    project_root = EXAMPLES_DIR / "calculator"
-    entry_spec, registry = build_entry(
-        [str(project_root / "main.agent")],
-        [str(project_root / "tools.py")],
-        project_root=project_root,
-    )
-    agent = registry.agents[entry_spec.name]
+    entry, registry, _manifest = _build_example("calculator")
+    agent = registry.agents[entry.name]
     assert len(agent.toolset_specs) == 1
 
 
 @pytest.mark.anyio
 async def test_delegation_example_builds():
     """Test pitchdeck_eval: static agent delegation pattern."""
-    project_root = EXAMPLES_DIR / "pitchdeck_eval"
-    entry_spec, registry = build_entry(
-        [
-            str(project_root / "main.agent"),
-            str(project_root / "pitch_evaluator.agent"),
-        ],
-        [],
-        project_root=project_root,
-    )
-    agent = registry.agents[entry_spec.name]
+    entry, registry, _manifest = _build_example("pitchdeck_eval")
+    agent = registry.agents[entry.name]
     toolsets = instantiate_toolsets(
         agent.toolset_specs,
     )
@@ -55,15 +62,8 @@ async def test_delegation_example_builds():
 @pytest.mark.anyio
 async def test_bootstrapping_example_builds():
     """Test bootstrapping: dynamic agent creation pattern."""
-    project_root = EXAMPLES_DIR / "bootstrapping"
-    entry_spec, registry = build_entry(
-        [
-            str(project_root / "main.agent"),
-        ],
-        [],
-        project_root=project_root,
-    )
-    agent = registry.agents[entry_spec.name]
+    entry, registry, _manifest = _build_example("bootstrapping")
+    agent = registry.agents[entry.name]
     toolsets = instantiate_toolsets(
         agent.toolset_specs,
     )
@@ -72,13 +72,8 @@ async def test_bootstrapping_example_builds():
 
 @pytest.mark.anyio
 async def test_code_entry_example_builds():
-    project_root = EXAMPLES_DIR / "pitchdeck_eval_code_entry"
-    entry_spec, _registry = build_entry(
-        [str(project_root / "pitch_evaluator.agent")],
-        [str(project_root / "tools.py")],
-        project_root=project_root,
-    )
-    assert entry_spec.name
+    entry, _registry, _manifest = _build_example("pitchdeck_eval_code_entry")
+    assert entry.name
 
 
 @pytest.mark.anyio
@@ -87,13 +82,8 @@ async def test_server_side_tools_example_builds():
     assert len(worker_file.server_side_tools) == 1
     assert worker_file.server_side_tools[0]["tool_type"] == "web_search"
 
-    project_root = EXAMPLES_DIR / "web_searcher"
-    entry_spec, registry = build_entry(
-        [str(project_root / "main.agent")],
-        [],
-        project_root=project_root,
-    )
-    agent = registry.agents[entry_spec.name]
+    entry, registry, _manifest = _build_example("web_searcher")
+    agent = registry.agents[entry.name]
     assert len(agent.builtin_tools) == 1
 
 
@@ -107,13 +97,8 @@ async def test_file_organizer_example_builds():
     toolsets = load_toolsets_from_files([EXAMPLES_DIR / "file_organizer" / "tools.py"])
     assert "file_tools" in toolsets
 
-    project_root = EXAMPLES_DIR / "file_organizer"
-    entry_spec, registry = build_entry(
-        [str(project_root / "main.agent")],
-        [str(project_root / "tools.py")],
-        project_root=project_root,
-    )
-    agent = registry.agents[entry_spec.name]
+    entry, registry, _manifest = _build_example("file_organizer")
+    agent = registry.agents[entry.name]
     assert len(agent.toolset_specs) == 2  # file_tools + shell_file_ops
 
 
@@ -123,16 +108,8 @@ async def test_recursive_summarizer_example_builds():
     assert "filesystem_project" in worker_file.toolsets
     assert "summarizer" in worker_file.toolsets
 
-    project_root = EXAMPLES_DIR / "recursive_summarizer"
-    entry_spec, registry = build_entry(
-        [
-            str(project_root / "main.agent"),
-            str(project_root / "summarizer.agent"),
-        ],
-        [],
-        project_root=project_root,
-    )
-    agent = registry.agents[entry_spec.name]
+    entry, registry, _manifest = _build_example("recursive_summarizer")
+    agent = registry.agents[entry.name]
     toolsets = instantiate_toolsets(
         agent.toolset_specs,
     )

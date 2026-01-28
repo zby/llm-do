@@ -4,17 +4,16 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import build_entry
+from llm_do.runtime import build_registry
 
 
 @pytest.mark.anyio
-async def test_build_entry_rejects_unregistered_toolsets(tmp_path: Path) -> None:
+async def test_build_registry_rejects_unregistered_toolsets(tmp_path: Path) -> None:
     worker = tmp_path / "main.agent"
     worker.write_text(
         """\
 ---
 name: main
-entry: true
 toolsets:
   - unknown_toolset
 ---
@@ -23,7 +22,7 @@ Hello
     )
 
     with pytest.raises(ValueError, match="Unknown toolset"):
-        build_entry(
+        build_registry(
             [str(worker)],
             [],
             project_root=tmp_path,

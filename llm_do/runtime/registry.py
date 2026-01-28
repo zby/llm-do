@@ -1,4 +1,4 @@
-"""Entry/agent registry and builder utilities."""
+"""Agent registry and builder utilities."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,13 +16,9 @@ from ..models import select_model
 from ..toolsets.agent import agent_as_toolset
 from ..toolsets.builtins import build_builtin_toolsets
 from ..toolsets.loader import ToolsetSpec, resolve_toolset_specs
-from .agent_file import (
-    AgentDefinition,
-    build_agent_definition,
-    load_agent_file_parts,
-)
+from .agent_file import AgentDefinition, build_agent_definition, load_agent_file_parts
 from .args import AgentArgs
-from .contracts import AgentEntry, AgentSpec, Entry
+from .contracts import AgentSpec
 from .discovery import load_all_from_files
 from .schema_refs import resolve_schema_ref
 
@@ -86,33 +82,23 @@ def _merge_toolsets(
     return merged
 
 
-def _build_registry_and_entry(
+def build_registry(
     agent_files: list[str],
     python_files: list[str],
     *,
     project_root: Path | str,
-) -> tuple[Entry, AgentRegistry]:
+) -> AgentRegistry:
     if project_root is None:
-        raise ValueError("project_root is required to build entries")
+        raise ValueError("project_root is required to build registry")
     project_root_path = Path(project_root).resolve()
 
-    python_toolsets, python_agents, python_entries = load_all_from_files(python_files)
+    python_toolsets, python_agents = load_all_from_files(python_files)
 
-    if not agent_files and not python_agents and not python_entries:
-        raise ValueError("At least one .agent or .py file with entries required")
-
-    entry_candidates = sorted(python_entries.values(), key=lambda e: e.name)
-    if len(entry_candidates) > 1:
-        entry_names = [entry.name for entry in entry_candidates]
-        raise ValueError(
-            "Multiple Entry instances found: "
-            f"{entry_names}. Only one entry is allowed."
-        )
-    entry_from_python = entry_candidates[0] if entry_candidates else None
+    if not agent_files and not python_files:
+        raise ValueError("At least one agent_files or python_files entry is required")
 
     agent_file_specs: dict[str, AgentFileSpec] = {}
-    entry_agent_names: list[str] = []
-    reserved_names = set(python_agents.keys()) | set(python_entries.keys())
+    reserved_names = set(python_agents.keys())
 
     for agent_file_path in agent_files:
         resolved_path = Path(agent_file_path).resolve()
@@ -124,15 +110,10 @@ def _build_registry_and_entry(
             raise ValueError(f"Duplicate agent name: {name}")
 
         if name in reserved_names:
-            if name in python_agents:
-                raise ValueError(
-                    f"Agent name '{name}' conflicts with Python agent"
-                )
-            raise ValueError(f"Agent name '{name}' conflicts with Python entry")
+            raise ValueError(
+                f"Agent name '{name}' conflicts with Python agent"
+            )
         reserved_names.add(name)
-
-        if agent_def.entry:
-            entry_agent_names.append(name)
 
         resolved_model = select_model(
             agent_model=agent_def.model,
@@ -152,17 +133,6 @@ def _build_registry_and_entry(
             path=resolved_path,
             definition=agent_def,
             spec=spec,
-        )
-
-    if entry_from_python and entry_agent_names:
-        raise ValueError(
-            "Entry conflict: found Python entry and entry agent(s) "
-            f"{sorted(entry_agent_names)}."
-        )
-    if len(entry_agent_names) > 1:
-        raise ValueError(
-            "Multiple agents marked entry: "
-            f"{sorted(entry_agent_names)}. Only one entry agent is allowed."
         )
 
     agents: dict[str, AgentSpec] = dict(python_agents)
@@ -195,48 +165,4 @@ def _build_registry_and_entry(
                 )
             agent_file_spec.spec.schema_in = cast(type[AgentArgs], resolved_schema)
 
-    if entry_from_python is None and not entry_agent_names:
-        raise ValueError(
-            "No entry found. Mark one agent with entry: true or "
-            "define a single FunctionEntry in Python."
-        )
-
-    if entry_from_python is not None:
-        entry = entry_from_python
-    else:
-        entry_agent = agents[entry_agent_names[0]]
-        entry = AgentEntry(spec=entry_agent)
-
-    if not isinstance(entry, Entry):
-        raise TypeError("Entry must be an Entry instance.")
-
-    return entry, AgentRegistry(agents=agents, toolsets=all_toolsets)
-
-
-def build_entry_registry(
-    agent_files: list[str],
-    python_files: list[str],
-    *,
-    project_root: Path | str,
-) -> AgentRegistry:
-    entry, registry = _build_registry_and_entry(
-        agent_files,
-        python_files,
-        project_root=project_root,
-    )
-    _ = entry
-    return registry
-
-
-def build_entry(
-    agent_files: list[str],
-    python_files: list[str],
-    *,
-    project_root: Path | str,
-) -> tuple[Entry, AgentRegistry]:
-    """Build and return the resolved entry with agent registry."""
-    return _build_registry_and_entry(
-        agent_files,
-        python_files,
-        project_root=project_root,
-    )
+    return AgentRegistry(agents=agents, toolsets=all_toolsets)

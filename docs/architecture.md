@@ -46,8 +46,8 @@ Entry main(input, ctx)
 ```
 
 Entry can be defined as:
-- An agent marked `entry: true` (runs as an AgentEntry)
-- A Python `FunctionEntry` with a `main` function
+- An agent selected by manifest `entry.agent` (runs as an AgentEntry)
+- A Python function selected by manifest `entry.function` (wrapped as a FunctionEntry)
 
 ---
 
@@ -185,8 +185,8 @@ Entry executes (`entry.run(...)`)
 
 Key points:
 - The project manifest (`project.json`) lists which `.agent` and `.py` files to load
-- Entry selection requires exactly one agent marked `entry: true` (in a `.agent` file)
-  or a single `FunctionEntry` (in Python)
+- Entry selection is declared in the manifest (`entry.agent` or `entry.function`) and resolves to either
+  an agent or a Python function
 - Top-level entries (depth 0) keep message history across turns
 - Child agent calls get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not

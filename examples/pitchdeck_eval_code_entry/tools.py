@@ -1,7 +1,7 @@
 """Code entry point for pitch deck evaluation using runtime.
 
-This example demonstrates the FunctionEntry pattern where Python code is the
-entry point instead of an LLM orchestrator. The main() function handles
+This example demonstrates a manifest-selected Python entry function where code
+is the entry point instead of an LLM orchestrator. The main() function handles
 all deterministic orchestration (list files, loop, write results) while
 the pitch_evaluator agent handles the actual LLM analysis.
 
@@ -25,7 +25,7 @@ except ImportError:
         "python-slugify required. Install with: pip install python-slugify"
     )
 
-from llm_do.runtime import CallContext, FunctionEntry
+from llm_do.runtime import CallContext
 
 # Project root is the directory containing this file
 PROJECT_ROOT = Path(__file__).parent.resolve()
@@ -87,5 +87,3 @@ async def main(_input_data, runtime: CallContext) -> str:
 
     return f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}"
 
-
-ENTRY = FunctionEntry(name="main", fn=main)

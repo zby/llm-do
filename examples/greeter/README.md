@@ -24,5 +24,5 @@ greeter/
 ## Key Concepts
 
 - **Minimal setup**: Just one agent file and a manifest
-- **Entry agent**: Marked with `entry: true` in the frontmatter
+- **Entry agent**: Selected in `project.json` via `entry.agent`
 - **No tools**: Pure LLM conversation without tool calls

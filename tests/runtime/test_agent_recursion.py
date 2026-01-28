@@ -1,7 +1,14 @@
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, build_entry
+from llm_do.runtime import (
+    AgentSpec,
+    EntryConfig,
+    FunctionEntry,
+    Runtime,
+    build_registry,
+    resolve_entry,
+)
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.toolsets.agent import AgentToolset, agent_as_toolset
 
@@ -12,7 +19,6 @@ async def test_registry_allows_self_toolset_reference(tmp_path) -> None:
     agent_path.write_text(
         """---
 name: recursive
-entry: true
 model: test
 toolsets:
   - recursive
@@ -21,7 +27,17 @@ Call yourself.
 """
     )
 
-    entry, registry = build_entry([str(agent_path)], [], project_root=tmp_path)
+    registry = build_registry(
+        [str(agent_path)],
+        [],
+        project_root=tmp_path,
+    )
+    entry = resolve_entry(
+        EntryConfig(agent="recursive"),
+        registry,
+        python_files=[],
+        base_path=tmp_path,
+    )
 
     agent = registry.agents[entry.name]
     assert agent.toolset_specs

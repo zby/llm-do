@@ -9,6 +9,7 @@ Run with:
 import asyncio
 import json
 import mimetypes
+import os
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -30,8 +31,6 @@ from pydantic_ai.messages import BinaryContent, UserContent
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-
-import os
 
 MODEL = os.environ.get("LLM_DO_MODEL")
 if not MODEL:

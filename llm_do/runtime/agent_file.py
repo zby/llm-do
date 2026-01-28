@@ -5,7 +5,6 @@ Agent files use YAML frontmatter followed by markdown instructions:
 ```yaml
 ---
 name: main
-entry: true
 model: anthropic:claude-haiku-4-5
 toolsets:
   - shell_readonly
@@ -42,7 +41,6 @@ class AgentDefinition:
     model: str | None = None
     compatible_models: list[str] | None = None
     schema_in_ref: str | None = None
-    entry: bool = False
     toolsets: list[str] = field(default_factory=list)
     server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
 
@@ -75,6 +73,11 @@ def build_agent_definition(
     name = fm.get("name")
     if not name:
         raise ValueError("Agent file must have a 'name' field")
+    if "entry" in fm:
+        raise ValueError(
+            "Agent file must not declare 'entry'. "
+            "Select the entry in project.json."
+        )
 
     return AgentDefinition(
         name=name,
@@ -83,7 +86,6 @@ def build_agent_definition(
         model=fm.get("model"),
         compatible_models=_parse_compatible_models(fm.get("compatible_models")),
         schema_in_ref=_parse_schema_ref(fm.get("schema_in_ref")),
-        entry=_parse_entry(fm.get("entry")),
         toolsets=_parse_toolsets(fm.get("toolsets")),
         server_side_tools=_parse_server_side_tools(fm.get("server_side_tools")),
     )
@@ -172,15 +174,6 @@ def _parse_schema_ref(raw: Any) -> str | None:
         raise ValueError("Invalid schema_in_ref: expected string")
     if not raw.strip():
         raise ValueError("Invalid schema_in_ref: must not be empty")
-    return raw
-
-
-def _parse_entry(raw: Any) -> bool:
-    """Parse and validate the entry marker."""
-    if raw is None:
-        return False
-    if not isinstance(raw, bool):
-        raise ValueError("Invalid entry: expected boolean")
     return raw
 
 

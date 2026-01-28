@@ -23,7 +23,16 @@ from typing import Any, Callable
 import pytest
 
 from llm_do.models import LLM_DO_MODEL_ENV
-from llm_do.runtime import AgentArgs, Runtime, build_entry, load_agent_file
+from llm_do.runtime import (
+    AgentArgs,
+    EntryConfig,
+    Runtime,
+    build_registry,
+    load_agent_file,
+    load_manifest,
+    resolve_entry,
+    resolve_manifest_paths,
+)
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,
@@ -127,12 +136,6 @@ def example_dir_factory(tmp_path, monkeypatch):
     return _create_example_dir
 
 
-def _collect_example_files(example_dir: Path) -> tuple[list[str], list[str]]:
-    agent_files = sorted(str(path) for path in example_dir.glob("*.agent"))
-    python_files = sorted(str(path) for path in example_dir.glob("tools.py"))
-    return agent_files, python_files
-
-
 def _set_env_model(model: str | None) -> tuple[bool, str | None]:
     if model is None:
         return False, None
@@ -163,26 +166,26 @@ def build_direct_entry_for_agent(
     entry_path.write_text(
         "\n".join(
             [
-                "from llm_do.runtime import FunctionEntry",
-                "",
                 "async def main(input_data, runtime) -> str:",
                 f"    return await runtime.call_agent(\"{toolset_name}\", input_data)",
-                "",
-                "ENTRY = FunctionEntry(",
-                "    name=\"main\",",
-                "    fn=main,",
-                ")",
             ]
         ),
         encoding="utf-8",
     )
     changed, previous = _set_env_model(model)
     try:
-        return build_entry(
+        registry = build_registry(
             [str(agent_path)],
             [str(entry_path)],
             project_root=agent_path.parent,
         )
+        entry = resolve_entry(
+            EntryConfig(function=f"{entry_path}:main"),
+            registry,
+            python_files=[entry_path],
+            base_path=agent_path.parent,
+        )
+        return entry, registry
     finally:
         _restore_env_model(changed, previous)
 
@@ -201,11 +204,18 @@ async def run_example(
     """Build and run an example entry with approvals wired."""
     changed, previous = _set_env_model(model)
     try:
-        agent_files, python_files = _collect_example_files(example_dir)
-        entry, registry = build_entry(
-            agent_files,
-            python_files,
-            project_root=example_dir,
+        manifest, manifest_dir = load_manifest(example_dir)
+        agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
+        registry = build_registry(
+            [str(path) for path in agent_paths],
+            [str(path) for path in python_paths],
+            project_root=manifest_dir,
+        )
+        entry = resolve_entry(
+            manifest.entry,
+            registry,
+            python_files=python_paths,
+            base_path=manifest_dir,
         )
 
         approval_policy = RunApprovalPolicy(

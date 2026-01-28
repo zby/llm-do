@@ -1,6 +1,5 @@
 ---
 name: main
-entry: true
 description: Orchestrate whiteboard -> project plan generation for all images in input/
 toolsets:
   - whiteboard_planner

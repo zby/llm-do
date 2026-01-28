@@ -1,6 +1,5 @@
 ---
 name: main
-entry: true
 description: Save a timestamped note to a log file
 toolsets:
   - filesystem_project

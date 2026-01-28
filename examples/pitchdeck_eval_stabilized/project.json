@@ -5,8 +5,16 @@
     "max_depth": 5
   },
   "entry": {
-    "args": {"input": "Evaluate all pitch decks in the input directory"}
+    "agent": "main",
+    "args": {
+      "input": "Evaluate all pitch decks in the input directory"
+    }
   },
-  "agent_files": ["main.agent", "pitch_evaluator.agent"],
-  "python_files": ["tools.py"]
+  "agent_files": [
+    "main.agent",
+    "pitch_evaluator.agent"
+  ],
+  "python_files": [
+    "tools.py"
+  ]
 }

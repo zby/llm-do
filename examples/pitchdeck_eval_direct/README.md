@@ -173,4 +173,4 @@ pitchdeck_eval_direct/
 ## Compare to CLI-based versions
 
 - `pitchdeck_eval/` - LLM orchestrates via `.agent` files, uses CLI
-- `pitchdeck_eval_code_entry/` - Python entry via `FunctionEntry`, uses CLI
+- `pitchdeck_eval_code_entry/` - Python entry via `entry.function`, uses CLI

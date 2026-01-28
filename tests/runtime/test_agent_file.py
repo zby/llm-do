@@ -112,6 +112,18 @@ Instructions.
         with pytest.raises(ValueError, match="must have a 'name' field"):
             parse_agent_file(content)
 
+    def test_entry_field_rejected(self):
+        """Test that entry field is rejected."""
+        content = """\
+---
+name: main
+entry: true
+---
+Instructions.
+"""
+        with pytest.raises(ValueError, match="must not declare 'entry'"):
+            parse_agent_file(content)
+
     def test_invalid_frontmatter_raises(self):
         """Test that invalid frontmatter (list instead of mapping) raises ValueError."""
         content = """\

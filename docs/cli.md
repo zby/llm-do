@@ -1,7 +1,7 @@
 # CLI Reference
 
 The `llm-do` command-line interface executes a manifest-defined project: `.agent` and `.py` files listed in `project.json`, linked into a single entry.
-Internally, it follows the same `build_entry(...)` linking flow available to Python callers.
+Internally, it builds the agent registry and resolves the entry declared in the manifest.
 
 ## Basic Usage
 
@@ -55,10 +55,10 @@ export OPENAI_API_KEY=sk-...
 
 ## Entry Resolution
 
-Exactly one entry candidate must exist in the file set:
-- **Worker files**: mark the entry worker with `entry: true` in frontmatter.
-- **Python files**: define a single `FunctionEntry` instance.
-- If multiple candidates exist (or none), loading fails with a descriptive error.
+Entry selection is explicit in the manifest:
+- `entry.agent` selects an agent name from `.agent` files.
+- `entry.function` selects a Python function via `path.py:function` (must be listed in `python_files`).
+- If the target cannot be resolved, loading fails with a descriptive error.
 
 ## Worker File Toolsets
 

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import build_entry
+from llm_do.runtime import EntryConfig, build_registry, resolve_entry
 from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.loader import instantiate_toolsets
 
@@ -11,7 +11,7 @@ EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
 
 @pytest.mark.anyio
-async def test_build_entry_resolves_nested_agent_toolsets() -> None:
+async def test_build_registry_resolves_nested_agent_toolsets() -> None:
     agent_files = [
         str(EXAMPLES_DIR / "web_research_agent" / "main.agent"),
         str(EXAMPLES_DIR / "web_research_agent" / "web_research_extractor.agent"),
@@ -20,10 +20,16 @@ async def test_build_entry_resolves_nested_agent_toolsets() -> None:
     ]
     python_files = [str(EXAMPLES_DIR / "web_research_agent" / "tools.py")]
 
-    entry, registry = build_entry(
+    registry = build_registry(
         agent_files,
         python_files,
         project_root=EXAMPLES_DIR / "web_research_agent",
+    )
+    entry = resolve_entry(
+        EntryConfig(agent="main"),
+        registry,
+        python_files=python_files,
+        base_path=EXAMPLES_DIR / "web_research_agent",
     )
 
     entry_agent = registry.agents[entry.name]
@@ -50,7 +56,7 @@ async def test_build_entry_resolves_nested_agent_toolsets() -> None:
 
 
 @pytest.mark.anyio
-async def test_build_entry_loads_python_modules_once(tmp_path: Path) -> None:
+async def test_build_registry_loads_python_modules_once(tmp_path: Path) -> None:
     marker_path = tmp_path / "marker.txt"
     module_path = tmp_path / "entry.py"
     marker_literal = repr(str(marker_path))
@@ -73,14 +79,20 @@ ENTRY = FunctionEntry(
 """
     )
 
-    build_entry([], [str(module_path)], project_root=tmp_path)
+    registry = build_registry([], [str(module_path)], project_root=tmp_path)
+    resolve_entry(
+        EntryConfig(function=f"{module_path}:main"),
+        registry,
+        python_files=[module_path],
+        base_path=tmp_path,
+    )
 
     lines = marker_path.read_text(encoding="utf-8").splitlines()
     assert lines == ["x"]
 
 
 @pytest.mark.anyio
-async def test_build_entry_schema_in_ref_reuses_loaded_module(
+async def test_build_registry_schema_in_ref_reuses_loaded_module(
     tmp_path: Path,
 ) -> None:
     marker_path = tmp_path / "marker.txt"
@@ -107,7 +119,6 @@ class NoteInput(AgentArgs):
         """\
 ---
 name: main
-entry: true
 schema_in_ref: schemas.py:NoteInput
 ---
 Instructions.
@@ -115,14 +126,24 @@ Instructions.
         encoding="utf-8",
     )
 
-    build_entry([str(agent_path)], [str(schema_path)], project_root=tmp_path)
+    registry = build_registry(
+        [str(agent_path)],
+        [str(schema_path)],
+        project_root=tmp_path,
+    )
+    resolve_entry(
+        EntryConfig(agent="main"),
+        registry,
+        python_files=[schema_path],
+        base_path=tmp_path,
+    )
 
     lines = marker_path.read_text(encoding="utf-8").splitlines()
     assert lines == ["x"]
 
 
 @pytest.mark.anyio
-async def test_build_entry_resolves_schema_in_ref(tmp_path: Path) -> None:
+async def test_build_registry_resolves_schema_in_ref(tmp_path: Path) -> None:
     schema_path = tmp_path / "schemas.py"
     schema_path.write_text(
         """\
@@ -142,7 +163,6 @@ class NoteInput(AgentArgs):
         """\
 ---
 name: main
-entry: true
 schema_in_ref: schemas.py:NoteInput
 ---
 Instructions.
@@ -150,13 +170,23 @@ Instructions.
         encoding="utf-8",
     )
 
-    entry, _registry = build_entry([str(agent_path)], [], project_root=tmp_path)
+    registry = build_registry(
+        [str(agent_path)],
+        [],
+        project_root=tmp_path,
+    )
+    entry = resolve_entry(
+        EntryConfig(agent="main"),
+        registry,
+        python_files=[],
+        base_path=tmp_path,
+    )
     assert entry.schema_in is not None
     assert entry.schema_in.__name__ == "NoteInput"
 
 
 @pytest.mark.anyio
-async def test_build_entry_rejects_duplicate_toolset_names(tmp_path: Path) -> None:
+async def test_build_registry_rejects_duplicate_toolset_names(tmp_path: Path) -> None:
     reserved_worker = tmp_path / "shell_readonly.agent"
     reserved_worker.write_text(
         "---\nname: shell_readonly\n---\nReserved name.\n",
@@ -164,9 +194,13 @@ async def test_build_entry_rejects_duplicate_toolset_names(tmp_path: Path) -> No
     )
     entry_worker = tmp_path / "main.agent"
     entry_worker.write_text(
-        "---\nname: main\nentry: true\n---\nHello.\n",
+        "---\nname: main\n---\nHello.\n",
         encoding="utf-8",
     )
 
     with pytest.raises(ValueError, match="Duplicate toolset name: shell_readonly"):
-        build_entry([str(reserved_worker), str(entry_worker)], [], project_root=tmp_path)
+        build_registry(
+            [str(reserved_worker), str(entry_worker)],
+            [],
+            project_root=tmp_path,
+        )

@@ -16,7 +16,7 @@ def create_test_manifest(tmp_path, **overrides):
     manifest_data = {
         "version": 1,
         "runtime": {"approval_mode": "approve_all"},
-        "entry": {},
+        "entry": {"agent": "main"},
         "agent_files": ["test.agent"],
         **overrides,
     }
@@ -27,7 +27,6 @@ def create_test_manifest(tmp_path, **overrides):
     worker = tmp_path / "test.agent"
     worker.write_text("""---
 name: main
-entry: true
 ---
 Test worker
 """)
@@ -76,7 +75,7 @@ class TestCLIManifestErrors:
         manifest_data = {
             "version": 99,
             "runtime": {},
-            "entry": {},
+            "entry": {"agent": "main"},
             "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
@@ -99,14 +98,14 @@ class TestCLIInputErrors:
             "version": 1,
             "runtime": {},
             "allow_cli_input": False,
-            "entry": {"args": {"input": "default"}},
+            "entry": {"agent": "main", "args": {"input": "default"}},
             "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
         worker = tmp_path / "test.agent"
-        worker.write_text("---\nname: main\nentry: true\n---\nTest")
+        worker.write_text("---\nname: main\n---\nTest")
 
         with patch("sys.argv", ["llm-do", str(manifest_file), "override prompt"]):
             exit_code = main()
@@ -156,14 +155,14 @@ class TestCLIInputErrors:
         manifest_data = {
             "version": 1,
             "runtime": {},
-            "entry": {},  # No input
+            "entry": {"agent": "main"},  # No input
             "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
         worker = tmp_path / "test.agent"
-        worker.write_text("---\nname: main\nentry: true\n---\nTest")
+        worker.write_text("---\nname: main\n---\nTest")
 
         # Force stdin.isatty() to return True
         with patch("sys.argv", ["llm-do", str(manifest_file)]):
@@ -220,7 +219,7 @@ class TestCLIRuntimeErrors:
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {},
+            "entry": {"agent": "main"},
             "agent_files": ["missing.agent"],
         }
         manifest_file = tmp_path / "project.json"
@@ -234,12 +233,12 @@ class TestCLIRuntimeErrors:
         assert exit_code == 1
         assert "not found" in captured.err.lower()
 
-    def test_missing_entry_marker_error(self, tmp_path, capsys):
-        """Test that missing entry marker shows helpful error."""
+    def test_entry_agent_not_found_error(self, tmp_path, capsys):
+        """Test that missing entry agent shows helpful error."""
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {},
+            "entry": {"agent": "missing"},
             "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
@@ -254,7 +253,7 @@ class TestCLIRuntimeErrors:
 
         captured = capsys.readouterr()
         assert exit_code == 1
-        assert "No entry found" in captured.err
+        assert "Entry agent 'missing' not found" in captured.err
 
     def test_keyboard_interrupt_handled(self, tmp_path, capsys):
         """Test that KeyboardInterrupt is handled gracefully."""
@@ -332,14 +331,14 @@ class TestCLISuccess:
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {"args": {"input": "manifest prompt"}},
+            "entry": {"agent": "main", "args": {"input": "manifest prompt"}},
             "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
         worker = tmp_path / "test.agent"
-        worker.write_text("---\nname: main\nentry: true\n---\nTest")
+        worker.write_text("---\nname: main\n---\nTest")
 
         mock_ctx = AsyncMock()
         with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
@@ -360,14 +359,14 @@ class TestCLISuccess:
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {"args": {"input": "manifest prompt"}},
+            "entry": {"agent": "main", "args": {"input": "manifest prompt"}},
             "agent_files": ["test.agent"],
         }
         manifest_file = tmp_path / "project.json"
         manifest_file.write_text(json.dumps(manifest_data))
 
         worker = tmp_path / "test.agent"
-        worker.write_text("---\nname: main\nentry: true\n---\nTest")
+        worker.write_text("---\nname: main\n---\nTest")
 
         mock_ctx = AsyncMock()
         with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:

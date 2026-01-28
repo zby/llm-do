@@ -1,6 +1,5 @@
 ---
 name: main
-entry: true
 toolsets:
   - calc_tools
 ---

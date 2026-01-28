@@ -5,8 +5,16 @@
     "max_depth": 10
   },
   "entry": {
-    "args": {"input": "TASK: Plan a 2-day onboarding workshop for new backend engineers\nCONTEXT: Remote team, 15 attendees, limited to 4 hours per day, include a hands-on lab\nREMAINING_DEPTH: 2"}
+    "agent": "main",
+    "args": {
+      "input": "TASK: Plan a 2-day onboarding workshop for new backend engineers\nCONTEXT: Remote team, 15 attendees, limited to 4 hours per day, include a hands-on lab\nREMAINING_DEPTH: 2"
+    }
   },
-  "agent_files": ["main.agent", "planner.agent"],
-  "python_files": ["schemas.py"]
+  "agent_files": [
+    "main.agent",
+    "planner.agent"
+  ],
+  "python_files": [
+    "schemas.py"
+  ]
 }

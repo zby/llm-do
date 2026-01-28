@@ -66,22 +66,37 @@ class TestManifestRuntimeConfig:
 class TestEntryConfig:
     """Tests for EntryConfig schema."""
 
-    def test_defaults(self):
-        """Test defaults."""
-        entry = EntryConfig()
-        assert entry.args is None
+    def test_requires_target(self):
+        """Test agent or function is required."""
+        with pytest.raises(ValueError):
+            EntryConfig()
 
     def test_with_args(self):
         """Test entry with args."""
         entry = EntryConfig(
+            agent="main",
             args={"input": "Hello"},
         )
+        assert entry.agent == "main"
         assert entry.args == {"input": "Hello"}
+
+    def test_function_entry(self):
+        """Test entry with function."""
+        entry = EntryConfig(
+            function="tools.py:main",
+            args={"input": "Hello"},
+        )
+        assert entry.function == "tools.py:main"
+
+    def test_rejects_multiple_targets(self):
+        """Test both agent and function set raises error."""
+        with pytest.raises(ValueError):
+            EntryConfig(agent="main", function="tools.py:main")
 
     def test_model_field_rejected(self):
         """Test model field is not allowed."""
         with pytest.raises(ValueError):
-            EntryConfig(model="gpt-4")
+            EntryConfig(agent="main", model="gpt-4")
 
 
 class TestProjectManifest:
@@ -92,7 +107,7 @@ class TestProjectManifest:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(),
+            entry=EntryConfig(agent="main"),
             agent_files=["main.agent"],
         )
         assert manifest.version == 1
@@ -103,7 +118,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError):
             ProjectManifest(
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(),
+                entry=EntryConfig(agent="main"),
                 agent_files=["main.agent"],
             )
 
@@ -113,7 +128,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=2,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(),
+                entry=EntryConfig(agent="main"),
                 agent_files=["main.agent"],
             )
 
@@ -122,7 +137,7 @@ class TestProjectManifest:
         with pytest.raises(ValueError):
             ProjectManifest(
                 version=1,
-                entry=EntryConfig(),
+                entry=EntryConfig(agent="main"),
                 agent_files=["main.agent"],
             )
 
@@ -141,7 +156,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(),
+                entry=EntryConfig(agent="main"),
             )
 
     def test_empty_file_path_rejected(self):
@@ -150,7 +165,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(),
+                entry=EntryConfig(agent="main"),
                 agent_files=[""],
             )
 
@@ -160,7 +175,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(),
+                entry=EntryConfig(agent="main"),
                 agent_files=["main.agent", "main.agent"],
             )
 
@@ -169,7 +184,7 @@ class TestProjectManifest:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(),
+            entry=EntryConfig(agent="main"),
             python_files=["tools.py"],
         )
         assert manifest.allow_cli_input is True
@@ -179,7 +194,7 @@ class TestProjectManifest:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(),
+            entry=EntryConfig(agent="main"),
             allow_cli_input=False,
             python_files=["tools.py"],
         )
@@ -191,7 +206,7 @@ class TestProjectManifest:
             ProjectManifest(
                 version=1,
                 runtime=ManifestRuntimeConfig(),
-                entry=EntryConfig(),
+                entry=EntryConfig(agent="main"),
                 agent_files=["main.agent"],
                 unknown_field="value",
             )
@@ -205,7 +220,7 @@ class TestLoadManifest:
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all", "max_depth": 3},
-            "entry": {},
+            "entry": {"agent": "main"},
             "agent_files": ["main.agent"],
         }
         manifest_file = tmp_path / "project.json"
@@ -245,7 +260,7 @@ class TestLoadManifest:
         manifest_data = {
             "version": 1,
             "runtime": {"approval_mode": "approve_all"},
-            "entry": {},
+            "entry": {"agent": "main"},
             "agent_files": ["main.agent"],
         }
         manifest_file = tmp_path / "project.json"
@@ -278,7 +293,7 @@ class TestResolveManifestPaths:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(),
+            entry=EntryConfig(agent="main"),
             agent_files=["main.agent"],
             python_files=["tools.py"],
         )
@@ -294,7 +309,7 @@ class TestResolveManifestPaths:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(),
+            entry=EntryConfig(agent="main"),
             agent_files=["missing.agent"],
         )
 
@@ -306,7 +321,7 @@ class TestResolveManifestPaths:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(),
+            entry=EntryConfig(agent="main"),
             python_files=["missing.py"],
         )
 
@@ -324,7 +339,7 @@ class TestResolveManifestPaths:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(),
+            entry=EntryConfig(agent="main"),
             agent_files=["agents/main.agent"],
         )
 
@@ -340,7 +355,7 @@ class TestResolveGeneratedAgentsDir:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(),
+            entry=EntryConfig(agent="main"),
             agent_files=["main.agent"],
         )
         assert resolve_generated_agents_dir(manifest, tmp_path) is None
@@ -349,7 +364,7 @@ class TestResolveGeneratedAgentsDir:
         manifest = ProjectManifest(
             version=1,
             runtime=ManifestRuntimeConfig(),
-            entry=EntryConfig(),
+            entry=EntryConfig(agent="main"),
             agent_files=["main.agent"],
             generated_agents_dir="generated",
         )

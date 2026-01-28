@@ -7,6 +7,7 @@ Run with:
 """
 
 import asyncio
+import os
 from pathlib import Path
 
 from llm_do.runtime import AgentSpec, FunctionEntry, RunApprovalPolicy, Runtime
@@ -19,8 +20,6 @@ from llm_do.ui.display import HeadlessDisplayBackend
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-
-import os
 
 MODEL = os.environ.get("LLM_DO_MODEL")
 if not MODEL:

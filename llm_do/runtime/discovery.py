@@ -10,7 +10,7 @@ from typing import Iterable, TypeVar
 from pydantic_ai.toolsets import AbstractToolset
 
 from ..toolsets.loader import ToolsetSpec
-from .contracts import AgentSpec, Entry
+from .contracts import AgentSpec
 
 _LOADED_MODULES: dict[Path, ModuleType] = {}
 
@@ -69,10 +69,6 @@ def discover_agents_from_module(module: ModuleType) -> list[AgentSpec]:
     return _discover_from_module(module, AgentSpec)
 
 
-def discover_entries_from_module(module: ModuleType) -> list[Entry]:
-    return _discover_from_module(module, Entry)
-
-
 def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
     all_toolsets: dict[str, ToolsetSpec] = {}
     for file_path in files:
@@ -105,8 +101,8 @@ def load_agents_from_files(files: list[str | Path]) -> dict[str, AgentSpec]:
 
 def load_all_from_files(
     files: Iterable[str | Path],
-) -> tuple[dict[str, ToolsetSpec], dict[str, AgentSpec], dict[str, Entry]]:
-    """Load toolset specs, agents, and entries from Python files.
+) -> tuple[dict[str, ToolsetSpec], dict[str, AgentSpec]]:
+    """Load toolset specs and agents from Python files.
 
     Performs a single pass through the modules to discover all items.
 
@@ -114,13 +110,11 @@ def load_all_from_files(
         files: Paths to Python files
 
     Returns:
-        Tuple of (toolset specs, agents, entries) dictionaries
+        Tuple of (toolset specs, agents) dictionaries
     """
     toolsets: dict[str, ToolsetSpec] = {}
     agents: dict[str, AgentSpec] = {}
-    entries: dict[str, Entry] = {}
     agent_paths: dict[str, Path] = {}
-    entry_paths: dict[str, Path] = {}
     loaded_paths: set[Path] = set()
 
     for file_path in files:
@@ -135,7 +129,6 @@ def load_all_from_files(
         module = load_module(resolved)
         module_toolsets = discover_toolsets_from_module(module)
         module_agents = discover_agents_from_module(module)
-        module_entries = discover_entries_from_module(module)
 
         for name, toolset in module_toolsets.items():
             if name in toolsets:
@@ -152,14 +145,4 @@ def load_all_from_files(
             agents[agent.name] = agent
             agent_paths[agent.name] = resolved
 
-        for entry in module_entries:
-            if entry.name in entries:
-                existing_path = entry_paths[entry.name]
-                raise ValueError(
-                    f"Duplicate entry name: {entry.name} "
-                    f"(from {existing_path} and {resolved})"
-                )
-            entries[entry.name] = entry
-            entry_paths[entry.name] = resolved
-
-    return toolsets, agents, entries
+    return toolsets, agents

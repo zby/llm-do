@@ -1,4 +1,4 @@
-"""RLM-style REPL tooling and entry point."""
+"""RLM-style REPL tooling."""
 from __future__ import annotations
 
 import io
@@ -18,7 +18,7 @@ from RestrictedPython import (
 from RestrictedPython.Guards import guarded_iter_unpack_sequence, safer_getattr
 from RestrictedPython.PrintCollector import PrintCollector
 
-from llm_do.runtime import CallContext, FunctionEntry, ToolsetSpec
+from llm_do.runtime import CallContext, ToolsetSpec
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 _STATE: dict[str, Any] = {
@@ -257,6 +257,3 @@ async def main(input_data, runtime: CallContext) -> str:
     query = query.strip() or "Summarize the context."
     set_context(CONTEXT_PATH.read_text(encoding="utf-8"), query)
     return await runtime.call_agent("rlm", query)
-
-
-ENTRY = FunctionEntry(name="main", fn=main)

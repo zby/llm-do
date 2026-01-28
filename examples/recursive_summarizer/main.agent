@@ -2,7 +2,6 @@
 name: main
 entry: true
 description: Entry point for recursive file summarization
-model: anthropic:claude-haiku-4-5
 toolsets:
   - filesystem_project
   - summarizer

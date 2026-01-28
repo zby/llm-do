@@ -25,10 +25,10 @@ from llm_do.ui import run_ui
 # CONFIGURATION - Edit these constants to experiment
 # =============================================================================
 
-# Model selection
-MODEL = "anthropic:claude-haiku-4-5"
-# MODEL = "openai:gpt-4o-mini"
-# MODEL = "anthropic:claude-sonnet-4-20250514"
+# Model selection from LLM_DO_MODEL env var (required)
+MODEL = os.environ.get("LLM_DO_MODEL")
+if not MODEL:
+    raise RuntimeError("LLM_DO_MODEL environment variable is required")
 
 # UI mode: "tui" or "headless"
 UI_MODE = os.environ.get("LLM_DO_UI_MODE", "tui")
@@ -126,7 +126,7 @@ async def main(_input_data, runtime: CallContext) -> str:
     return f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}"
 
 
-ENTRY = FunctionEntry(name="main", main=main)
+ENTRY = FunctionEntry(name="main", fn=main)
 
 
 def cli_main():

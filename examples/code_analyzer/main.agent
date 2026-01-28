@@ -2,7 +2,6 @@
 name: main
 entry: true
 description: Analyze codebases using safe shell commands (wc, find, grep, etc.)
-model: anthropic:claude-haiku-4-5
 toolsets:
   - shell_readonly
 ---

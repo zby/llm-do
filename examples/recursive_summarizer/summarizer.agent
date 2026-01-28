@@ -1,7 +1,6 @@
 ---
 name: summarizer
 description: Recursively summarize a file range with offsets
-model: anthropic:claude-haiku-4-5
 schema_in_ref: schemas.py:SummarizerInput
 toolsets:
   - filesystem_project

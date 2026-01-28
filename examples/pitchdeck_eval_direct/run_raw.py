@@ -31,7 +31,11 @@ from pydantic_ai.messages import BinaryContent, UserContent
 # CONFIGURATION
 # =============================================================================
 
-MODEL = "anthropic:claude-haiku-4-5"
+import os
+
+MODEL = os.environ.get("LLM_DO_MODEL")
+if not MODEL:
+    raise RuntimeError("LLM_DO_MODEL environment variable is required")
 # 0=quiet, 1=progress, 2=I/O details, 3=LLM messages
 VERBOSITY = 3
 

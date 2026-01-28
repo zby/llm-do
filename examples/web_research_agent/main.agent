@@ -2,7 +2,6 @@
 name: main
 entry: true
 description: Orchestrate live web research, extraction, consolidation, and reporting.
-model: anthropic:claude-sonnet-4-20250514
 toolsets:
   - web_research_extractor
   - web_research_consolidator

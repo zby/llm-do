@@ -1,7 +1,6 @@
 ---
 name: rlm
 description: RLM-style recursive agent with REPL access to external context
-model: anthropic:claude-haiku-4-5
 toolsets:
   - rlm_tools
   - rlm

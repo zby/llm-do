@@ -1,7 +1,13 @@
 ---
 name: pitch_evaluator
 description: Analyze a PDF pitch deck and return a markdown evaluation report.
-model: anthropic:claude-sonnet-4-20250514
+compatible_models:  # Requires vision-capable model (reads PDF attachments)
+  - "anthropic:claude-*"
+  - "openai:gpt-4o*"
+  - "openai:gpt-4-turbo*"
+  - "openai:gpt-5*"
+  - "google-gla:gemini-*"
+  - "google-vertex:gemini-*"
 toolsets: []
 ---
 

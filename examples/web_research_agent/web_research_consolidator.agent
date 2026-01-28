@@ -1,7 +1,6 @@
 ---
 name: web_research_consolidator
 description: Merge extracted insights across sources and rank importance.
-model: anthropic:claude-sonnet-4-20250514
 toolsets: []
 ---
 

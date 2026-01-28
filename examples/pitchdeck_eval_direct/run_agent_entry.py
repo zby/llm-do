@@ -20,7 +20,11 @@ from llm_do.ui.display import HeadlessDisplayBackend
 # CONFIGURATION
 # =============================================================================
 
-MODEL = "anthropic:claude-haiku-4-5"
+import os
+
+MODEL = os.environ.get("LLM_DO_MODEL")
+if not MODEL:
+    raise RuntimeError("LLM_DO_MODEL environment variable is required")
 APPROVAL_MODE = "approve_all"  # "approve_all" or "reject_all"
 VERBOSITY = 1  # 0=quiet, 1=normal, 2=stream
 
@@ -64,7 +68,7 @@ def build_entry() -> FunctionEntry:
 
     return FunctionEntry(
         name=main_agent.name,
-        main=main,
+        fn=main,
         schema_in=main_agent.schema_in,
     )
 

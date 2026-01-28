@@ -37,7 +37,7 @@ uv pip install -e .  # or: pip install -e .
 # Set your API key
 export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 
-# Optional default model (used when an agent omits model)
+# Set the default model (recommended approach—see Model Configuration)
 export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
 
 # Run a project via manifest
@@ -54,7 +54,6 @@ Example agent file (`main.agent`):
 ---
 name: main
 entry: true
-model: anthropic:claude-haiku-4-5
 ---
 You are a friendly greeter. Respond to the user with a warm, personalized greeting.
 Keep your responses brief and cheerful.
@@ -125,6 +124,33 @@ my-project/
 
 This progression reflects **moving computation within the VM**: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability. The operation migrates from neural to symbolic without changing how callers invoke it. See the pitchdeck examples for a concrete progression: [`pitchdeck_eval`](examples/pitchdeck_eval/) (all LLM) → [`pitchdeck_eval_stabilized`](examples/pitchdeck_eval_stabilized/) (extracted tools) → [`pitchdeck_eval_code_entry`](examples/pitchdeck_eval_code_entry/) (Python orchestration).
 
+## Model Configuration
+
+**Recommended approach**: Set the `LLM_DO_MODEL` environment variable as your project-wide default:
+
+```bash
+export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
+```
+
+This keeps model configuration external to your agent definitions, making it easy to switch models across your entire project or between environments (dev/prod).
+
+**Per-agent override**: Only specify `model` in an `.agent` file when that agent genuinely requires a different model than the project default:
+
+```yaml
+---
+name: complex_analyzer
+model: anthropic:claude-sonnet-4-20250514  # Needs stronger reasoning
+---
+You analyze complex documents...
+```
+
+**Resolution order**:
+1. Agent's explicit `model` field (highest priority)
+2. `LLM_DO_MODEL` environment variable (recommended default)
+3. Error if neither is set
+
+**Model format**: Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/)—`provider:model_name` (e.g., `anthropic:claude-haiku-4-5`, `openai:gpt-4o-mini`).
+
 ## Custom Tools
 
 Add custom tools by creating `tools.py` in your project root. Toolsets are
@@ -187,11 +213,7 @@ llm-do project.json
 llm-do project.json --input-json '{"input":"Hello"}'
 ```
 
-Common flags: `--headless`, `--tui`, `--chat`, `-v/-vv/-vvv`, `--input-json`, `--debug`. See [`docs/cli.md`](docs/cli.md) for details.
-
-Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/) (e.g., `anthropic:claude-sonnet-4-20250514`, `openai:gpt-4o-mini`).
-
-See [`docs/cli.md`](docs/cli.md) for full reference.
+Common flags: `--headless`, `--tui`, `--chat`, `-v/-vv/-vvv`, `--input-json`, `--debug`. See [`docs/cli.md`](docs/cli.md) for full reference.
 
 ## Python Entry Build
 

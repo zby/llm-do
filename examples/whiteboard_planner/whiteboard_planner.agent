@@ -1,7 +1,13 @@
 ---
 name: whiteboard_planner
 description: Interpret a whiteboard photo and produce a structured project plan
-model: anthropic:claude-haiku-4-5
+compatible_models:  # Requires vision-capable model (reads image attachments)
+  - "anthropic:claude-*"
+  - "openai:gpt-4o*"
+  - "openai:gpt-4-turbo*"
+  - "openai:gpt-5*"
+  - "google-gla:gemini-*"
+  - "google-vertex:gemini-*"
 toolsets: []
 ---
 

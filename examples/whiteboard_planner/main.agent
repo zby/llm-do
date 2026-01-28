@@ -2,7 +2,6 @@
 name: main
 entry: true
 description: Orchestrate whiteboard -> project plan generation for all images in input/
-model: anthropic:claude-haiku-4-5
 toolsets:
   - whiteboard_planner
   - filesystem_project

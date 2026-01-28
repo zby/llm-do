@@ -16,7 +16,7 @@ async def test_entry_schema_in_normalizes_input() -> None:
     async def main(args: CustomInput, _runtime) -> str:
         return args.tag
 
-    entry = FunctionEntry(name="echo", main=main, schema_in=CustomInput)
+    entry = FunctionEntry(name="echo", fn=main, schema_in=CustomInput)
 
     runtime = Runtime()
     result, ctx = await runtime.run_entry(

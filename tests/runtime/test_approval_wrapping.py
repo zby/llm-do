@@ -58,7 +58,7 @@ async def test_agent_tool_calls_can_require_approval() -> None:
     async def main(input_data, runtime) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry = FunctionEntry(name="entry", main=main)
+    entry = FunctionEntry(name="entry", fn=main)
 
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="reject_all"),

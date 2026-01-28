@@ -259,4 +259,4 @@ async def main(input_data, runtime: CallContext) -> str:
     return await runtime.call_agent("rlm", query)
 
 
-ENTRY = FunctionEntry(name="main", main=main)
+ENTRY = FunctionEntry(name="main", fn=main)

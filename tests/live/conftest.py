@@ -170,7 +170,7 @@ def build_direct_entry_for_agent(
                 "",
                 "ENTRY = FunctionEntry(",
                 "    name=\"main\",",
-                "    main=main,",
+                "    fn=main,",
                 ")",
             ]
         ),

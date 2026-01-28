@@ -41,7 +41,7 @@ async def main(input_data, runtime):
 
 async def test_agent_executes_with_tools(test_model: TestModel):
     agent = AgentSpec(name="my_agent", instructions="Process this", model=test_model)
-    entry = FunctionEntry(name="main", main=main)
+    entry = FunctionEntry(name="main", fn=main)
 
     runtime = Runtime()
     runtime.register_agents({"my_agent": agent})
@@ -81,7 +81,7 @@ async def main(input_data, runtime):
 async def test_tool_call_flow():
     model = ToolCallingModel(tool_calls=[{"name": "add", "args": {"a": 1, "b": 2}}])
     agent = AgentSpec(name="calc", instructions="Use tools", model=model, toolset_specs=[ToolsetSpec(factory=build_tools)])
-    entry = FunctionEntry(name="main", main=main)
+    entry = FunctionEntry(name="main", fn=main)
 
     runtime = Runtime()
     runtime.register_agents({"calc": agent})

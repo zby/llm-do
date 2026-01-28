@@ -55,7 +55,7 @@ async def test_entry_agent_does_not_receive_message_history_across_turns() -> No
     async def main(input_data, runtime) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry = FunctionEntry(name="main", main=main)
+    entry = FunctionEntry(name="main", fn=main)
 
     runtime = Runtime(verbosity=1)
     runtime.register_agents({agent_spec.name: agent_spec})

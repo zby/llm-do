@@ -90,7 +90,7 @@ async def main(_input_data, runtime: CallContext) -> str:
     return await runtime.call_agent(AGENT, {"input": "List files in the current directory"})
 
 
-ENTRY = FunctionEntry(name="main", main=main)
+ENTRY = FunctionEntry(name="main", fn=main)
 
 
 def cli_main():

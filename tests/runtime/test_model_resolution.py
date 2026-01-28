@@ -81,7 +81,7 @@ async def test_entry_uses_null_model(monkeypatch) -> None:
         assert isinstance(runtime.frame.config.model, NullModel)
         return "ok"
 
-    entry = FunctionEntry(name="entry", main=main)
+    entry = FunctionEntry(name="entry", fn=main)
 
     runtime = Runtime()
     result, _ctx = await runtime.run_entry(entry, {"input": "hi"})
@@ -100,7 +100,7 @@ async def test_entry_null_model_llm_call_raises() -> None:
         await agent.run("hi", deps=runtime)
         return "ok"
 
-    entry = FunctionEntry(name="entry", main=main)
+    entry = FunctionEntry(name="entry", fn=main)
 
     runtime = Runtime()
     with pytest.raises(RuntimeError, match="NullModel cannot be used"):

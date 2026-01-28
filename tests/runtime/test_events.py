@@ -53,7 +53,7 @@ async def test_entry_emits_user_message_event() -> None:
             return get_display_text(input_data)
         return input_data
 
-    entry = FunctionEntry(name="entry", main=main)
+    entry = FunctionEntry(name="entry", fn=main)
 
     runtime = Runtime(on_event=events.append)
     result, _ctx = await runtime.run_entry(entry, {"input": "hello"})
@@ -87,7 +87,7 @@ async def test_agent_emits_tool_events() -> None:
     async def entry_main(input_data, runtime):
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry = FunctionEntry(name="entry", main=entry_main)
+    entry = FunctionEntry(name="entry", fn=entry_main)
 
     runtime = Runtime(on_event=events.append)
     runtime.register_agents({agent_spec.name: agent_spec})

@@ -88,4 +88,4 @@ async def main(_input_data, runtime: CallContext) -> str:
     return f"Evaluated {len(results)} pitch deck(s): {', '.join(results)}"
 
 
-ENTRY = FunctionEntry(name="main", main=main)
+ENTRY = FunctionEntry(name="main", fn=main)

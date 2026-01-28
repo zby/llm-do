@@ -44,7 +44,7 @@ async def test_recursive_agent_gets_fresh_toolset_instances() -> None:
     async def main(input_data, runtime: CallContext) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry = FunctionEntry(name="entry", main=main)
+    entry = FunctionEntry(name="entry", fn=main)
 
     runtime = Runtime(run_approval_policy=RunApprovalPolicy(mode="approve_all"))
     runtime.register_agents({agent_spec.name: agent_spec})
@@ -89,7 +89,7 @@ async def test_agent_toolset_cleanup_runs_per_call() -> None:
     async def main(input_data, runtime: CallContext) -> str:
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry = FunctionEntry(name="entry", main=main)
+    entry = FunctionEntry(name="entry", fn=main)
 
     runtime = Runtime()
     runtime.register_agents({agent_spec.name: agent_spec})

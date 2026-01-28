@@ -43,7 +43,7 @@ async def test_max_depth_blocks_self_recursion() -> None:
     async def main(input_data, runtime):
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry = FunctionEntry(name="entry", main=main, schema_in=None)
+    entry = FunctionEntry(name="entry", fn=main, schema_in=None)
 
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="approve_all"),

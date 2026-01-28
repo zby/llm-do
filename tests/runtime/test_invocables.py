@@ -32,12 +32,22 @@ async def _run_prompt(input_text: str) -> str:
     async def main(input_data, runtime):
         return await runtime.call_agent(agent_spec, input_data)
 
-    entry = FunctionEntry(name="main", main=main)
+    entry = FunctionEntry(name="main", fn=main)
 
     runtime = Runtime()
     runtime.register_agents({agent_spec.name: agent_spec})
     result, _ctx = await runtime.run_entry(entry, {"input": input_text})
     return str(result)
+
+
+def test_function_entry_from_function_uses_function_name() -> None:
+    async def orchestrate(_input_data, _runtime):
+        return "ok"
+
+    entry = FunctionEntry.from_function(orchestrate)
+
+    assert entry.name == "orchestrate"
+    assert entry.fn is orchestrate
 
 
 @pytest.mark.anyio

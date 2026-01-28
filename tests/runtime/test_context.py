@@ -39,7 +39,7 @@ class TestContext:
             seen["entry_depth"] = runtime.frame.config.depth
             return await runtime.call_agent(agent_spec, input_data)
 
-        entry = FunctionEntry(name="entry", main=main)
+        entry = FunctionEntry(name="entry", fn=main)
 
         runtime = Runtime()
         await runtime.run_entry(entry, {"input": "go"})

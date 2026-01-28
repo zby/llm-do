@@ -79,15 +79,23 @@ class FunctionEntry(Entry):
     """Entry backed by a plain async function."""
 
     name: str
-    main: Callable[[Any, "CallContextProtocol"], Awaitable[Any]]
+    fn: Callable[[Any, "CallContextProtocol"], Awaitable[Any]]
     schema_in: type["AgentArgs"] | None = None
 
     def __post_init__(self) -> None:
         if self.schema_in is not None and not issubclass(self.schema_in, AgentArgs):
             raise TypeError(f"schema_in must subclass AgentArgs; got {self.schema_in}")
 
+    @classmethod
+    def from_function(
+        cls,
+        fn: Callable[[Any, "CallContextProtocol"], Awaitable[Any]],
+    ) -> "FunctionEntry":
+        """Create a FunctionEntry using the function name as the entry name."""
+        return cls(name=fn.__name__, fn=fn)
+
     async def run(self, input_data: Any, runtime: "CallContextProtocol") -> Any:
-        return await self.main(input_data, runtime)
+        return await self.fn(input_data, runtime)
 
 
 @dataclass(slots=True)

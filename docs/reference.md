@@ -259,7 +259,7 @@ async def main(_input_data, runtime: CallContext) -> str:
 
     return f"Processed {len(results)} files"
 
-ENTRY = FunctionEntry(name="main", main=main)
+ENTRY = FunctionEntry(name="main", fn=main)
 ```
 
 Run with a manifest that includes `tools.py` and `evaluator.agent`, e.g.
@@ -267,10 +267,13 @@ Run with a manifest that includes `tools.py` and `evaluator.agent`, e.g.
 
 `FunctionEntry` fields:
 - `name`: Entry name for logging/events
-- `main`: Async function called for the entry
+- `fn`: Async function called for the entry
 - `schema_in`: Optional `AgentArgs` subclass for input normalization
 
-`main` receives:
+Convenience helper:
+- `FunctionEntry.from_function(fn)` creates an entry using `fn.__name__` as the name.
+
+The entry function receives:
 - A `AgentArgs` instance when `schema_in` is provided
 - Otherwise, a list of prompt parts (`list[PromptContent]`)
 
@@ -295,7 +298,7 @@ async def main(args: TaggedInput, _runtime: CallContext) -> str:
 
 ENTRY = FunctionEntry(
     name="main",
-    main=main,
+    fn=main,
     schema_in=TaggedInput,
 )
 ```

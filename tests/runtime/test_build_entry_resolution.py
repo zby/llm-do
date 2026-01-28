@@ -68,7 +68,7 @@ async def main(_input, _runtime):
 
 ENTRY = FunctionEntry(
     name="main",
-    main=main,
+    fn=main,
 )
 """
     )

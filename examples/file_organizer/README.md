@@ -24,9 +24,10 @@ The LLM passes human-readable names like "Meeting Notes.docx" to `sanitize_filen
 - The semantic decision (what to call it) stays with the LLM
 - The mechanical decision (how to format it) is deterministic Python
 
-## Usage
+## Running
 
 ```bash
+export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
 cd examples/file_organizer              # Required: shell commands run from cwd
 ./reset.sh                              # Create sample files
 llm-do project.json                     # Run organizer (uses default prompt)

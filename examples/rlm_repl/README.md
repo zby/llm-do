@@ -23,13 +23,14 @@ pip install RestrictedPython
 ## Running
 
 ```bash
-llm-do examples/rlm_repl/project.json
+export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
+llm-do examples/rlm_repl
 ```
 
 Override the default query:
 
 ```bash
-llm-do examples/rlm_repl/project.json "What is the objective of Project Nimbus?"
+llm-do examples/rlm_repl "What is the objective of Project Nimbus?"
 ```
 
 Edit `context.txt` to swap in your own corpus.

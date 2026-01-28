@@ -63,7 +63,7 @@ async def main(_input_data, runtime: CallContext) -> str:
 
     return f"Evaluated {len(decks)} pitch deck(s)"
 
-ENTRY = FunctionEntry(name="main", main=main)
+ENTRY = FunctionEntry(name="main", fn=main)
 ```
 
 The `runtime.call_agent()` method accepts either:

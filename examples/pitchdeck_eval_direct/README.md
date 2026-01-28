@@ -39,7 +39,7 @@ async def main(_input_data, runtime: CallContext) -> str:
         Path(deck["output_path"]).write_text(report)
     return "Done"
 
-ENTRY = FunctionEntry(name="main", main=main)
+ENTRY = FunctionEntry(name="main", fn=main)
 
 # Run with TUI or headless output
 outcome = await run_ui(
@@ -81,7 +81,7 @@ main_agent = AgentSpec(
 async def main(input_data, runtime):
     return await runtime.call_agent(main_agent, input_data)
 
-entry = FunctionEntry(name="main", main=main)
+entry = FunctionEntry(name="main", fn=main)
 runtime = Runtime(project_root=Path("."), run_approval_policy=policy)
 result, _ctx = await runtime.run_entry(entry, "")
 ```

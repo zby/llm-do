@@ -12,7 +12,8 @@ recursively expanding the non-atomic ones, and merging results into a cohesive p
 ## Running
 
 ```bash
-llm-do examples/recursive_task_decomposer/project.json
+export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
+llm-do examples/recursive_task_decomposer
 ```
 
 The manifest configures `max_depth: 10` and includes a default input for the sample task.

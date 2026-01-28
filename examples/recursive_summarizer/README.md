@@ -12,7 +12,8 @@ Demonstrates self-recursive agent pattern for hierarchical document summarizatio
 ## Running
 
 ```bash
-llm-do examples/recursive_summarizer/project.json
+export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
+llm-do examples/recursive_summarizer
 ```
 
 The manifest configures `max_depth: 10` and uses `sample_input.txt` as the default input.

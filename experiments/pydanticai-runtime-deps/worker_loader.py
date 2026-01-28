@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-from llm_do.runtime.worker_file import WorkerDefinition, load_worker_file
 from pydantic_ai import Agent, RunContext
 from runtime import AgentRuntime
 
@@ -12,6 +11,7 @@ from llm_do.runtime.args import Attachment, PromptMessages, WorkerArgs
 from llm_do.runtime.discovery import load_toolsets_from_files
 from llm_do.runtime.registry import _build_builtin_tools
 from llm_do.runtime.schema_refs import resolve_schema_ref
+from llm_do.runtime.worker_file import WorkerDefinition, load_worker_file
 from llm_do.toolsets.builtins import build_builtin_toolsets
 from llm_do.toolsets.loader import ToolsetSpec, resolve_toolset_specs
 

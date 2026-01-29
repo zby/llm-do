@@ -227,6 +227,7 @@ async def run_tui(
     exit_code = 0
     entry_instance: tuple[Entry, AgentRegistry] | None = None
     message_history: list[Any] | None = None
+    last_error_line: str | None = None
 
     def get_entry_instance() -> tuple[Entry, AgentRegistry]:
         nonlocal entry_instance
@@ -238,8 +239,10 @@ async def run_tui(
 
     def emit_error(message: str, error_type: str) -> None:
         nonlocal exit_code
+        nonlocal last_error_line
+        last_error_line = f"[{entry_name}] ERROR ({error_type}): {message}"
         if error_stream is not None:
-            print(f"[{entry_name}] ERROR ({error_type}): {message}", file=error_stream, flush=True)
+            print(last_error_line, file=error_stream, flush=True)
         from .events import ErrorEvent
         emit_ui_event(ErrorEvent(worker=entry_name, message=message, error_type=error_type))
         exit_code = 1
@@ -320,6 +323,8 @@ async def run_tui(
         if not render_task.done():
             await render_task
     result = result_holder[0] if result_holder else None
+    if last_error_line and (error_stream is None or error_stream is sys.stderr):
+        print(last_error_line, file=sys.stderr, flush=True)
     return RunUiResult(result=result, exit_code=exit_code)
 
 

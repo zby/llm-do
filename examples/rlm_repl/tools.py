@@ -250,10 +250,7 @@ async def main(input_data, runtime: CallContext) -> str:
     """Load context and run the RLM agent with the user query."""
     from llm_do.runtime.args import get_display_text
 
-    if isinstance(input_data, list):
-        query = get_display_text(input_data)
-    else:
-        query = str(input_data)
+    query = get_display_text(input_data.prompt_messages())
     query = query.strip() or "Summarize the context."
     set_context(CONTEXT_PATH.read_text(encoding="utf-8"), query)
-    return await runtime.call_agent("rlm", query)
+    return await runtime.call_agent("rlm", {"input": query})

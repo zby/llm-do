@@ -22,7 +22,7 @@ Instructions for the agent...
 ```
 
 Agents can call other agents as tools, forming a call tree. Each agent declares its own toolsets - they're not inherited.
-Agents can also declare a typed input model via `input_model_ref`; models must subclass `AgentArgs` and implement `prompt_messages()`. Input can be a string, list (with `Attachment`s), or dict.
+Agents can also declare a typed input model via `input_model_ref`; models must subclass `AgentArgs` and implement `prompt_messages()`. Input is provided as a dict (validated into the input model) or as an `AgentArgs` instance.
 
 ---
 

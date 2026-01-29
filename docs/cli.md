@@ -80,9 +80,9 @@ Toolset names resolve to:
 - Python toolsets discovered from passed `.py` files (by variable name)
 - Other worker entries from passed `.agent` files (by `name`)
 
-## Worker Input Schemas
+## Worker Input Models
 
-Worker frontmatter can declare a Pydantic input schema for tool calls:
+Worker frontmatter can declare a Pydantic input model for tool calls:
 
 ```yaml
 ---
@@ -95,9 +95,9 @@ Supported forms:
 - `module.Class`
 - `path.py:Class` (relative to the worker file)
 
-Schemas must subclass `AgentArgs` and implement `prompt_messages()`. Input can be passed as:
+Input models must subclass `AgentArgs` and implement `prompt_messages()`. Input is passed as a dict
+validated into the input model (default expects `"input"` plus optional `"attachments"`):
 
-- Simple string: `"text"`
 - With attachments: `{"input": "text", "attachments": ["file.pdf"]}`
 
 Use `input_model_ref` for custom validation or typed tool-call structure.

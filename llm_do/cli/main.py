@@ -26,11 +26,9 @@ from pydantic_ai_blocking_approval import ApprovalDecision
 from ..runtime import (
     AgentRegistry,
     ApprovalCallback,
-    Attachment,
     CallContext,
     Entry,
     EventCallback,
-    PromptContent,
     RunApprovalPolicy,
     Runtime,
     build_registry,
@@ -45,18 +43,13 @@ from ..runtime.manifest import (
 from ..ui import HeadlessDisplayBackend, run_headless, run_tui
 
 
-def _input_to_messages(data: dict[str, Any] | str) -> list[PromptContent]:
-    """Convert CLI input (dict or string) to a message list."""
+def _input_to_args(data: dict[str, Any] | str) -> dict[str, Any]:
+    """Convert CLI input (dict or string) to a dict for runtime validation."""
     if isinstance(data, str):
-        return [data]
+        return {"input": data}
     if not isinstance(data, dict):
         raise TypeError(f"Input must be str or dict, got {type(data)}")
-    if "input" not in data:
-        raise ValueError("Dict input must have an 'input' field")
-    messages: list[PromptContent] = [data["input"]]
-    for path in data.get("attachments") or []:
-        messages.append(Attachment(path))
-    return messages
+    return dict(data)
 
 
 def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], None]:
@@ -322,9 +315,9 @@ def main() -> int:
             )
             return 1
 
-    # Convert to message list (canonical internal format)
+    # Convert to dict input for runtime validation
     try:
-        input_messages = _input_to_messages(raw_input)
+        input_data = _input_to_args(raw_input)
     except (TypeError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -354,10 +347,13 @@ def main() -> int:
             extra_backends = [HeadlessDisplayBackend(sys.stderr, verbosity=log_verbosity)]
 
         error_stream = sys.stderr if extra_backends is None else None
-        # Extract text for initial prompt display
-        initial_prompt = next((m for m in input_messages if isinstance(m, str)), "")
+        initial_prompt = None
+        if isinstance(input_data, dict):
+            raw_prompt = input_data.get("input")
+            if isinstance(raw_prompt, str):
+                initial_prompt = raw_prompt
         outcome = asyncio.run(run_tui(
-            input=input_messages,
+            input=input_data,
             entry_factory=entry_factory,
             project_root=manifest_dir,
             approval_mode=manifest.runtime.approval_mode,
@@ -392,7 +388,7 @@ def main() -> int:
         message_log_callback = _make_message_log_callback(sys.stderr)
 
     outcome = asyncio.run(run_headless(
-        input=input_messages,
+        input=input_data,
         entry_factory=entry_factory,
         project_root=manifest_dir,
         approval_mode=manifest.runtime.approval_mode,

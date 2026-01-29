@@ -89,7 +89,7 @@ async def main(input_data, runtime):
 
 entry = FunctionEntry(name="main", fn=main)
 runtime = Runtime(project_root=Path("."), run_approval_policy=policy)
-result, _ctx = await runtime.run_entry(entry, "")
+result, _ctx = await runtime.run_entry(entry, {"input": ""})
 ```
 
 ### run_raw.py - Raw PydanticAI

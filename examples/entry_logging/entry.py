@@ -11,8 +11,8 @@ LOG_FILE = Path(__file__).parent / "messages.log"
 
 async def main(input_data, runtime):
     """Log the user message and forward to the greeter agent."""
-    # input_data is always a list of str | Attachment items
-    text = get_display_text(input_data)
+    messages = input_data.prompt_messages()
+    text = get_display_text(messages)
 
     # Log with timestamp
     timestamp = datetime.now().isoformat()

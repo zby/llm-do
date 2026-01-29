@@ -19,7 +19,7 @@ from .approval import (
     RunApprovalPolicy,
     resolve_approval_callback,
 )
-from .args import AgentArgs, Attachment, PromptContent, PromptMessages
+from .args import AgentArgs, Attachment, PromptContent, PromptInput, PromptMessages
 from .call import CallScope
 from .context import CallContext
 from .contracts import (
@@ -71,6 +71,7 @@ __all__ = [
     "PromptContent",
     "PromptMessages",
     "AgentArgs",
+    "PromptInput",
     # Agent file
     "AgentDefinition",
     "AgentFileParser",

@@ -16,7 +16,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import AbstractToolset  # Used in CallContextProtocol
 
 from ..toolsets.loader import ToolsetSpec
-from .args import AgentArgs
+from .args import AgentArgs, PromptInput
 from .events import RuntimeEvent
 
 if TYPE_CHECKING:
@@ -80,7 +80,7 @@ class FunctionEntry(Entry):
 
     name: str
     fn: Callable[[Any, "CallContextProtocol"], Awaitable[Any]]
-    input_model: type["AgentArgs"] | None = None
+    input_model: type["AgentArgs"] | None = PromptInput
 
     def __post_init__(self) -> None:
         if self.input_model is not None and not issubclass(self.input_model, AgentArgs):
@@ -109,7 +109,7 @@ class AgentSpec:
     model: ModelType
     toolset_specs: list[ToolsetSpec] = field(default_factory=list)
     description: str | None = None
-    input_model: type["AgentArgs"] | None = None
+    input_model: type["AgentArgs"] | None = PromptInput
     output_model: type[BaseModel] | None = None
     model_settings: ModelSettings | None = None
     builtin_tools: list[Any] = field(default_factory=list)

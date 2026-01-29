@@ -49,9 +49,7 @@ async def test_entry_emits_user_message_event() -> None:
     async def main(input_data, _runtime):
         from llm_do.runtime.args import get_display_text
 
-        if isinstance(input_data, list):
-            return get_display_text(input_data)
-        return input_data
+        return get_display_text(input_data.prompt_messages())
 
     entry = FunctionEntry(name="entry", fn=main)
 

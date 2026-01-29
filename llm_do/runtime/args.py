@@ -6,7 +6,7 @@ import mimetypes
 from pathlib import Path
 from typing import Any, Sequence
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_ai.messages import BinaryContent, UserContent
 
 
@@ -102,63 +102,46 @@ class AgentArgs(BaseModel):
         )
 
 
-def _dict_to_messages(data: dict[str, Any]) -> list[PromptContent]:
-    """Convert a dict with 'input' and optional 'attachments' to messages."""
-    if "input" not in data:
-        raise TypeError("Dict input must have an 'input' field")
-    parts: list[PromptContent] = [data["input"]]
-    for path in data.get("attachments") or []:
-        parts.append(Attachment(path))
-    return parts
+class PromptInput(AgentArgs):
+    """Default input model: text plus optional attachment paths."""
+
+    input: str
+    attachments: list[str] = Field(default_factory=list)
+
+    def prompt_messages(self) -> list[PromptContent]:
+        parts: list[PromptContent] = [self.input]
+        for path in self.attachments:
+            parts.append(Attachment(path))
+        return parts
 
 
 def normalize_input(
     input_model: type[AgentArgs] | None,
     input_data: Any,
-) -> tuple[AgentArgs | None, list[PromptContent]]:
-    """Normalize raw input into a message list, optionally with structured args.
+) -> tuple[AgentArgs, list[PromptContent]]:
+    """Normalize raw input into AgentArgs + prompt messages.
 
     Returns:
-        Tuple of (structured_args, messages). structured_args is None for
-        simple string or list inputs.
+        Tuple of (args, messages).
     """
-    # Direct string -> single-element list
-    if isinstance(input_data, str):
-        return None, [input_data]
+    model = input_model or PromptInput
 
-    # Already a message list
-    if isinstance(input_data, list):
-        # Validate contents
-        for item in input_data:
-            if not isinstance(item, (str, Attachment)):
-                raise TypeError(
-                    f"Message list items must be str or Attachment; got {type(item)}"
-                )
-        return None, input_data
-
-    # Structured AgentArgs instance
     if isinstance(input_data, AgentArgs):
-        if input_model is not None and not isinstance(input_data, input_model):
+        if type(input_data) is not model:
             raise TypeError(
-                f"Expected {input_model.__name__}; got {type(input_data).__name__}"
+                f"Expected {model.__name__}; got {type(input_data).__name__}"
             )
-        return input_data, input_data.prompt_messages()
-
-    # Dict -> validate with schema or convert directly to messages
-    if isinstance(input_data, dict):
-        if input_model is not None:
-            args = input_model.model_validate(input_data)
-            return args, args.prompt_messages()
-        # No schema: convert dict with 'input'/'attachments' directly
-        return None, _dict_to_messages(input_data)
-
-    # Other BaseModel (not AgentArgs)
-    if isinstance(input_data, BaseModel):
+        args = input_data
+    elif isinstance(input_data, dict):
+        args = model.model_validate(input_data)
+    elif isinstance(input_data, BaseModel):
         raise TypeError(
             f"Structured inputs must subclass AgentArgs; got {type(input_data)}"
         )
+    else:
+        raise TypeError(
+            "Agent input must be a dict or AgentArgs instance; "
+            f"got {type(input_data)}"
+        )
 
-    raise TypeError(
-        f"Agent input must be str, list[str | Attachment], dict, or AgentArgs; "
-        f"got {type(input_data)}"
-    )
+    return args, args.prompt_messages()

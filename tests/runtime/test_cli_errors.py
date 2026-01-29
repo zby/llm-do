@@ -350,9 +350,9 @@ class TestCLISuccess:
                     exit_code = main()
 
         assert exit_code == 0
-        # Verify the input data passed to run() is a message list
+        # Verify the input data passed to run() is a dict
         call_args = mock_run.call_args
-        assert call_args.args[1] == ["manifest prompt"]
+        assert call_args.args[1] == {"input": "manifest prompt"}
 
     def test_input_json_override(self, tmp_path, capsys):
         """Test --input-json overrides manifest entry.args."""
@@ -381,9 +381,9 @@ class TestCLISuccess:
                     exit_code = main()
 
         assert exit_code == 0
-        # Input is converted to message list
+        # Input is passed as dict payload
         call_args = mock_run.call_args
-        assert call_args.args[1] == ["json override"]
+        assert call_args.args[1] == {"input": "json override"}
 
 
 class TestCLIDebugFlag:

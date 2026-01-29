@@ -3,7 +3,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.usage import RunUsage
 
-from llm_do.runtime import AgentArgs, AgentSpec, PromptContent
+from llm_do.runtime import AgentArgs, AgentSpec, PromptContent, PromptInput
 from llm_do.runtime.args import normalize_input
 from llm_do.toolsets.agent import agent_as_toolset
 from tests.runtime.helpers import build_runtime_context
@@ -18,6 +18,13 @@ class TopicInput(AgentArgs):
 
 
 class TextInput(AgentArgs):
+    input: str
+
+    def prompt_messages(self) -> list[PromptContent]:
+        return [self.input]
+
+
+class OtherInput(AgentArgs):
     input: str
 
     def prompt_messages(self) -> list[PromptContent]:
@@ -82,11 +89,17 @@ async def test_agent_tool_description_prefers_description() -> None:
 
 
 @pytest.mark.anyio
-async def test_normalize_input_accepts_string() -> None:
-    """Simple strings are accepted directly without a schema."""
-    args, messages = normalize_input(None, "hello")
-    assert args is None
-    assert messages == ["hello"]
+async def test_normalize_input_rejects_string() -> None:
+    """Raw strings are rejected; inputs must be dict or AgentArgs."""
+    with pytest.raises(TypeError, match="dict or AgentArgs"):
+        normalize_input(None, "hello")
+
+
+@pytest.mark.anyio
+async def test_normalize_input_rejects_list() -> None:
+    """Raw message lists are rejected; inputs must be dict or AgentArgs."""
+    with pytest.raises(TypeError, match="dict or AgentArgs"):
+        normalize_input(None, ["hello"])
 
 
 @pytest.mark.anyio
@@ -95,3 +108,17 @@ async def test_normalize_input_accepts_dict_with_input_model() -> None:
     args, messages = normalize_input(TextInput, {"input": "hello"})
     assert isinstance(args, TextInput)
     assert messages == ["hello"]
+
+
+@pytest.mark.anyio
+async def test_normalize_input_defaults_to_prompt_input() -> None:
+    args, messages = normalize_input(None, {"input": "hello"})
+    assert isinstance(args, PromptInput)
+    assert messages == ["hello"]
+
+
+@pytest.mark.anyio
+async def test_normalize_input_rejects_wrong_agent_args() -> None:
+    args = OtherInput(input="hello")
+    with pytest.raises(TypeError, match="Expected TextInput"):
+        normalize_input(TextInput, args)

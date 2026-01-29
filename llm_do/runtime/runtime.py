@@ -267,8 +267,7 @@ class Runtime:
             call_runtime.frame.messages[:] = list(message_history)
         call_runtime.frame.prompt = display_text
 
-        entry_input = input_args if input_args is not None else messages
-        result = await entry.run(entry_input, call_runtime)
+        result = await entry.run(input_args, call_runtime)
 
         return result, call_runtime
 

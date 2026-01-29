@@ -110,7 +110,7 @@ async def run_entry_agent() -> str:
     runtime = build_runtime(VERBOSITY)
     result, _ctx = await runtime.run_entry(
         entry,
-        "",  # Empty prompt - agent handles file discovery
+        {"input": ""},  # Empty prompt - agent handles file discovery
     )
     return result
 

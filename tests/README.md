@@ -46,7 +46,7 @@ async def test_agent_executes_with_tools(test_model: TestModel):
     runtime = Runtime()
     runtime.register_agents({"my_agent": agent})
 
-    result, _ctx = await runtime.run_entry(entry, "process this")
+    result, _ctx = await runtime.run_entry(entry, {"input": "process this"})
     assert result is not None
 ```
 
@@ -86,7 +86,7 @@ async def test_tool_call_flow():
     runtime = Runtime()
     runtime.register_agents({"calc": agent})
 
-    result, _ctx = await runtime.run_entry(entry, "go")
+    result, _ctx = await runtime.run_entry(entry, {"input": "go"})
     assert result is not None
 ```
 
@@ -101,7 +101,7 @@ async def test_tool_call_flow():
 ❌ **Don't use real models in unit tests**
 ```python
 # BAD: slow, costs money, non-deterministic
-result = await runtime.run_entry(entry, "...")
+result = await runtime.run_entry(entry, {"input": "..."})
 ```
 
 ✅ **Use TestModel or ToolCallingModel**

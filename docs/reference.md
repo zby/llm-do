@@ -4,7 +4,7 @@ API and usage reference for llm-do. For theory, see [theory.md](theory.md). For 
 
 ---
 
-## Agent Input Schemas
+## Agent Input Models
 
 Agent files (`.agent`) can declare a Pydantic input model so agent calls (and tool-call
 planning) use a structured contract:
@@ -20,17 +20,17 @@ Supported forms:
 - `module.Class`
 - `path.py:Class` (relative to the agent file)
 
-Schemas must subclass `AgentArgs` and implement `prompt_messages()`. Input can be passed in several forms:
+Input models must subclass `AgentArgs` and implement `prompt_messages()`. Input is passed as
+a dict (validated into the input model) or as an `AgentArgs` instance:
 
 ```python
-# Simple string
-await ctx.deps.call_agent("agent_name", "text")
-
 # With attachments
 await ctx.deps.call_agent("agent_name", {"input": "text", "attachments": ["file.pdf"]})
 ```
 
-For custom schemas, subclass `AgentArgs`:
+If no input model is declared, the default is `PromptInput` (`input` + optional `attachments`).
+
+For custom input models, subclass `AgentArgs`:
 
 ```python
 from llm_do.runtime import PromptContent, AgentArgs
@@ -43,7 +43,7 @@ class PitchInput(AgentArgs):
         return [f"Evaluate {self.company_name}: {self.input}"]
 ```
 
-This schema shapes tool-call arguments and validates inputs before the agent runs.
+This input model shapes tool-call arguments and validates inputs before the agent runs.
 
 ## Entry Selection
 
@@ -70,9 +70,7 @@ Invokes an agent by name (looked up in the registry) or by `AgentSpec` directly.
 **Parameters:**
 - `spec_or_name`: Agent name (string) or `AgentSpec` instance
 - `input_data`: Input payload—can be:
-  - `str`: Simple text input
-  - `dict`: With `"input"` key and optional `"attachments"` list
-  - `list`: Prompt parts (strings and `Attachment` objects)
+  - `dict`: Validated into the agent's input model (default expects `"input"` plus optional `"attachments"`)
   - `AgentArgs`: Custom schema instance
 
 **Returns:** The agent's output (typically a string)
@@ -89,7 +87,7 @@ async def main(input_data, ctx: CallContext) -> str:
 # From tool
 @tools.tool
 async def my_tool(ctx: RunContext[CallContext], data: str) -> str:
-    return await ctx.deps.call_agent("analyzer", data)
+    return await ctx.deps.call_agent("analyzer", {"input": data})
 ```
 
 If you pass an `AgentSpec` directly, its `model` must already be a resolved `Model`
@@ -104,7 +102,7 @@ spec = AgentSpec(
     instructions="Analyze input.",
     model=resolve_model("anthropic:claude-haiku-4-5"),
 )
-result = await ctx.deps.call_agent(spec, "input text")
+result = await ctx.deps.call_agent(spec, {"input": "input text"})
 ```
 
 ### Starting a Run (Runtime.run_entry)
@@ -143,7 +141,7 @@ async def main():
 
     result, ctx = await runtime.run_entry(
         entry,
-        input_data="Analyze this data",
+        input_data={"input": "Analyze this data"},
     )
 
     print(result)
@@ -169,7 +167,7 @@ code are not allowed.
 | Parameter | Description |
 |-----------|-------------|
 | `entry` | `Entry` to run (AgentEntry or FunctionEntry) |
-| `input_data` | Input payload (str, list of prompt parts, dict, or `AgentArgs`) |
+| `input_data` | Input payload (dict validated into the input model, or `AgentArgs`) |
 | `message_history` | Pre-seed conversation history for the top-level call scope |
 
 Use `Runtime.run()` for sync execution when you already have an entry object.
@@ -231,7 +229,7 @@ def build_tools():
     @tools.tool
     async def my_tool(ctx: RunContext[CallContext], data: str) -> str:
         """Tool that can call agents."""
-        result = await ctx.deps.call_agent("agent_name", data)
+        result = await ctx.deps.call_agent("agent_name", {"input": data})
         return result
 
     return tools
@@ -249,14 +247,14 @@ Use `ctx.deps.call_agent(spec_or_name, input_data)` to invoke an agent by name o
 @tools.tool
 async def orchestrate(ctx: RunContext[CallContext], task: str) -> str:
     # Call an LLM agent
-    analysis = await ctx.deps.call_agent("analyzer", task)
+    analysis = await ctx.deps.call_agent("analyzer", {"input": task})
     return analysis
 ```
 
 `RunContext.prompt` is derived from `AgentArgs.prompt_messages()` for logging/UI
 only; tools should rely on their typed args and use `ctx.deps` only for delegation.
 
-The `input_data` argument can be a string, list (with `Attachment`s), dict, or `AgentArgs`.
+The `input_data` argument can be a dict (validated into the input model) or an `AgentArgs` instance.
 
 **Available Runtime State:**
 
@@ -308,20 +306,20 @@ If you want to create the entry manually (outside the manifest flow), wrap it:
 `FunctionEntry` fields:
 - `name`: Entry name for logging/events
 - `fn`: Async function called for the entry
-- `input_model`: Optional `AgentArgs` subclass for input normalization
+- `input_model`: `AgentArgs` subclass for input normalization (defaults to `PromptInput`)
 
 Convenience helper:
 - `FunctionEntry.from_function(fn)` creates an entry using `fn.__name__` as the name.
 
 The entry function receives:
-- A `AgentArgs` instance when `input_model` is provided
-- Otherwise, a list of prompt parts (`list[PromptContent]`)
+- An `AgentArgs` instance validated against the entry's `input_model`
+  (default: `PromptInput`)
 
 Note: Entry functions are trusted code, but agent calls still go through approval
 wrappers and follow the run approval policy. To skip prompts, use `approve_all`
 (or drop to raw Python to bypass the tool plane).
 
-Example with custom input schema:
+Example with custom input model:
 
 ```python
 from llm_do.runtime import FunctionEntry, AgentArgs, PromptContent, CallContext
@@ -710,7 +708,7 @@ You have access to filesystem and shell tools.
 | `description` | No | Tool description when the agent is exposed as a tool (falls back to `instructions`) |
 | `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`), resolved on load; falls back to `LLM_DO_MODEL` if omitted |
 | `compatible_models` | No | List of acceptable model patterns for the `LLM_DO_MODEL` fallback (mutually exclusive with `model`) |
-| `input_model_ref` | No | Input model reference (see [Agent Input Schemas](#agent-input-schemas)) |
+| `input_model_ref` | No | Input model reference (see [Agent Input Models](#agent-input-models)) |
 | `server_side_tools` | No | Server-side tool configs (e.g., web search) |
 | `toolsets` | No | List of toolset names |
 

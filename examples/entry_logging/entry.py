@@ -3,19 +3,16 @@
 from datetime import datetime
 from pathlib import Path
 
+from llm_do.runtime.args import get_display_text
+
 # Log file in the same directory as this script
 LOG_FILE = Path(__file__).parent / "messages.log"
 
 
 async def main(input_data, runtime):
     """Log the user message and forward to the greeter agent."""
-    # Extract text from input
-    if isinstance(input_data, list):
-        from llm_do.runtime.args import get_display_text
-
-        text = get_display_text(input_data)
-    else:
-        text = str(input_data)
+    # input_data is always a list of str | Attachment items
+    text = get_display_text(input_data)
 
     # Log with timestamp
     timestamp = datetime.now().isoformat()

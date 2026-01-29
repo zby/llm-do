@@ -16,11 +16,11 @@ from textual.containers import Vertical
 from textual.widgets import Footer, Header, TextArea
 
 from .controllers import (
+    AgentRunner,
     ApprovalWorkflowController,
     ExitConfirmationController,
     ExitDecision,
     InputHistoryController,
-    WorkerRunner,
 )
 from .events import (
     ApprovalRequestEvent,
@@ -94,7 +94,7 @@ class LlmDoApp(App[None]):
         self._approval_response_queue = approval_response_queue
         self._worker_coro = worker_coro
         self._auto_quit = auto_quit
-        self._runner = WorkerRunner(run_turn=run_turn)
+        self._runner = AgentRunner(run_turn=run_turn)
         self._approvals = ApprovalWorkflowController()
         self._approval_panel: ApprovalPanel | None = None
         self._done = False

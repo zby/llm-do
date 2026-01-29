@@ -194,7 +194,7 @@ The entry function signature stays the same (declares toolsets, receives CallCon
 
 ```python
 @entry(toolsets=["analyzer", "writer"])
-async def orchestrate(args: WorkerArgs, ctx: CallContext) -> str:
+async def orchestrate(args: AgentArgs, ctx: CallContext) -> str:
     # Same signature, same ctx.call() pattern
     result = await ctx.call("analyzer", {"prompt": args.prompt_spec().text})
     return await ctx.call("writer", {"prompt": result})

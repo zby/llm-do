@@ -91,7 +91,7 @@ The runtime event stream handler forwards raw PydanticAI stream events inside a
 - `ApprovalWorkflowController` — approval queue + batch numbering
 - `InputHistoryController` — input history navigation and draft preservation
 - `ExitConfirmationController` — double-quit confirmation state
-- `WorkerRunner` — background task tracking + message history storage
+- `AgentRunner` — background task tracking + message history storage
 
 ## Textual TUI
 

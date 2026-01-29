@@ -255,11 +255,3 @@ def load_agent_file(
     """
     return _default_parser.load(path)
 
-
-# Backwards compatibility aliases (deprecated)
-WorkerDefinition = AgentDefinition
-WorkerFileParser = AgentFileParser
-build_worker_definition = build_agent_definition
-load_worker_file_parts = load_agent_file_parts
-parse_worker_file = parse_agent_file
-load_worker_file = load_agent_file

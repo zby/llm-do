@@ -76,12 +76,9 @@ def model_matches_pattern(model: str, pattern: str) -> bool:
 
 
 def validate_model_compatibility(
-    model: str | Model, compatible_models: list[str] | None, *, agent_name: str = "agent", worker_name: str | None = None
+    model: str | Model, compatible_models: list[str] | None, *, agent_name: str = "agent"
 ) -> None:
     """Validate model against compatibility patterns. Raises ModelCompatibilityError if invalid."""
-    # Handle deprecated parameter
-    if worker_name is not None:
-        agent_name = worker_name
     if compatible_models is None:
         return
     if not compatible_models:
@@ -127,17 +124,9 @@ def resolve_model(model: ModelInput) -> Model:
 
 
 def select_model(
-    *, agent_model: str | Model | None = None, compatible_models: list[str] | None, agent_name: str = "agent",
-    # Backwards compatibility aliases (deprecated)
-    worker_model: str | Model | None = None, worker_name: str | None = None
+    *, agent_model: str | Model | None = None, compatible_models: list[str] | None, agent_name: str = "agent"
 ) -> Model:
     """Select and validate the effective model for an agent (agent_model > LLM_DO_MODEL env)."""
-    # Handle deprecated parameters
-    if worker_model is not None:
-        agent_model = worker_model
-    if worker_name is not None:
-        agent_name = worker_name
-
     if agent_model is not None and compatible_models is not None:
         raise ModelConfigError(f"Agent '{agent_name}' cannot have both 'model' and 'compatible_models' set.")
     if agent_model is not None:

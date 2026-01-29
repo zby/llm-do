@@ -1,9 +1,9 @@
 from pydantic import Field
 
-from llm_do.runtime import PromptContent, WorkerArgs
+from llm_do.runtime import AgentArgs, PromptContent
 
 
-class SummarizerInput(WorkerArgs):
+class SummarizerInput(AgentArgs):
     """Input schema for recursive summarizer ranges."""
 
     path: str = Field(..., description="Path to the file (relative to agent directory)")

@@ -140,16 +140,16 @@ Approvals are configured in the manifest via `runtime.approval_mode`:
 
 Approvals apply only to LLM-invoked actions; user-invoked top-level entries are not gated.
 
-Worker tool approvals are controlled separately:
-- `runtime.worker_calls_require_approval` (default: false) prompts on every worker tool call.
-- `runtime.worker_attachments_require_approval` (default: false) prompts only when a worker tool call includes attachments.
-- `runtime.worker_approval_overrides` can override those settings per worker name.
+Agent tool approvals are controlled separately:
+- `runtime.agent_calls_require_approval` (default: false) prompts on every agent tool call.
+- `runtime.agent_attachments_require_approval` (default: false) prompts only when an agent tool call includes attachments.
+- `runtime.agent_approval_overrides` can override those settings per agent name.
 
 Example:
 ```json
 {
   "runtime": {
-    "worker_approval_overrides": {
+    "agent_approval_overrides": {
       "summarizer": {"calls_require_approval": true},
       "analyzer": {"attachments_require_approval": true}
     }

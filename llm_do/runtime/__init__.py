@@ -10,23 +10,16 @@ from ..toolsets.loader import ToolsetSpec
 from .agent_file import (
     AgentDefinition,
     AgentFileParser,
-    # Backwards compatibility aliases (deprecated)
-    WorkerDefinition,
-    WorkerFileParser,
     load_agent_file,
-    load_worker_file,
     parse_agent_file,
-    parse_worker_file,
 )
 from .approval import (
     AgentApprovalPolicy,
     ApprovalCallback,
     RunApprovalPolicy,
-    # Backwards compatibility alias (deprecated)
-    WorkerApprovalPolicy,
     resolve_approval_callback,
 )
-from .args import AgentArgs, Attachment, PromptContent, PromptMessages, WorkerArgs
+from .args import AgentArgs, Attachment, PromptContent, PromptMessages
 from .call import CallScope
 from .context import CallContext
 from .contracts import (
@@ -71,7 +64,6 @@ __all__ = [
     "ApprovalCallback",
     "RunApprovalPolicy",
     "AgentApprovalPolicy",
-    "WorkerApprovalPolicy",  # Deprecated alias
     "resolve_approval_callback",
     "AgentRegistry",
     "build_registry",
@@ -79,17 +71,11 @@ __all__ = [
     "PromptContent",
     "PromptMessages",
     "AgentArgs",
-    "WorkerArgs",  # Deprecated alias
     # Agent file
     "AgentDefinition",
     "AgentFileParser",
     "parse_agent_file",
     "load_agent_file",
-    # Deprecated aliases
-    "WorkerDefinition",
-    "WorkerFileParser",
-    "parse_worker_file",
-    "load_worker_file",
     # Discovery
     "load_module",
     "discover_toolsets_from_module",

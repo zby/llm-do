@@ -21,18 +21,12 @@ def resolve_toolset_specs(
     *,
     available_toolsets: Mapping[str, ToolsetSpec],
     agent_name: str = "",
-    # Backwards compatibility alias (deprecated)
-    worker_name: str | None = None,
 ) -> list[ToolsetSpec]:
     """Resolve toolset specs declared in an agent file.
 
     Toolsets are registered as factories (built-ins, Python toolsets, agents).
     Agent YAML may only reference toolset names.
     """
-    # Handle deprecated parameter
-    if worker_name is not None:
-        agent_name = worker_name
-
     specs: list[ToolsetSpec] = []
     for toolset_name in toolsets_definition:
         spec = available_toolsets.get(toolset_name)

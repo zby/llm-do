@@ -147,23 +147,8 @@ async def run_tui(
     agent_name: str | None = None,
     runtime_factory: RuntimeFactory | None = None,
     error_stream: TextIO | None = None,
-    # Backwards compatibility aliases (deprecated)
-    worker_calls_require_approval: bool | None = None,
-    worker_attachments_require_approval: bool | None = None,
-    worker_approval_overrides: Mapping[str, Any] | None = None,
-    worker_name: str | None = None,
 ) -> RunUiResult:
     """Run a single entry with the Textual TUI."""
-    # Handle deprecated parameter names
-    if worker_calls_require_approval is not None:
-        agent_calls_require_approval = worker_calls_require_approval
-    if worker_attachments_require_approval is not None:
-        agent_attachments_require_approval = worker_attachments_require_approval
-    if worker_approval_overrides is not None:
-        agent_approval_overrides = worker_approval_overrides
-    if worker_name is not None:
-        agent_name = worker_name
-
     _ensure_stdout_textual_driver()
     from .app import LlmDoApp
 
@@ -348,20 +333,8 @@ async def run_headless(
     debug: bool = False,
     runtime_factory: RuntimeFactory | None = None,
     error_stream: TextIO | None = None,
-    # Backwards compatibility aliases (deprecated)
-    worker_calls_require_approval: bool | None = None,
-    worker_attachments_require_approval: bool | None = None,
-    worker_approval_overrides: Mapping[str, Any] | None = None,
 ) -> RunUiResult:
     """Run a single entry with a headless text backend."""
-    # Handle deprecated parameter names
-    if worker_calls_require_approval is not None:
-        agent_calls_require_approval = worker_calls_require_approval
-    if worker_attachments_require_approval is not None:
-        agent_attachments_require_approval = worker_attachments_require_approval
-    if worker_approval_overrides is not None:
-        agent_approval_overrides = worker_approval_overrides
-
     entry_factory = _resolve_entry_factory(entry, entry_factory, agent_registry)
     if backends is None:
         backends = [HeadlessDisplayBackend(stream=sys.stderr, verbosity=verbosity)]
@@ -455,23 +428,8 @@ async def run_ui(
     agent_name: str | None = None,
     runtime_factory: RuntimeFactory | None = None,
     error_stream: TextIO | None = None,
-    # Backwards compatibility aliases (deprecated)
-    worker_calls_require_approval: bool | None = None,
-    worker_attachments_require_approval: bool | None = None,
-    worker_approval_overrides: Mapping[str, Any] | None = None,
-    worker_name: str | None = None,
 ) -> RunUiResult:
     """Run a single entry with either TUI or headless UI."""
-    # Handle deprecated parameter names
-    if worker_calls_require_approval is not None:
-        agent_calls_require_approval = worker_calls_require_approval
-    if worker_attachments_require_approval is not None:
-        agent_attachments_require_approval = worker_attachments_require_approval
-    if worker_approval_overrides is not None:
-        agent_approval_overrides = worker_approval_overrides
-    if worker_name is not None:
-        agent_name = worker_name
-
     if mode == "tui":
         return await run_tui(
             input=input,

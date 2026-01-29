@@ -65,7 +65,6 @@ class AgentToolset(AbstractToolset[Any]):
             return ApprovalResult.needs_approval()
 
         runtime_config = getattr(getattr(ctx, "deps", None), "config", None)
-        # Support both new (agent_*) and deprecated (worker_*) property names
         require_all = getattr(runtime_config, "agent_calls_require_approval", False)
         require_attachments = getattr(
             runtime_config, "agent_attachments_require_approval", False

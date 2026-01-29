@@ -44,10 +44,6 @@ class AgentApprovalPolicy:
         return wrapped
 
 
-# Backwards compatibility alias (deprecated)
-WorkerApprovalPolicy = AgentApprovalPolicy
-
-
 class ApprovalDeniedResultToolset(AbstractToolset):
     """Return a tool result when a PermissionError occurs."""
     def __init__(self, inner: AbstractToolset):

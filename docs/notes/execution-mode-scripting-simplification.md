@@ -58,7 +58,7 @@ Partially implemented. `Worker.call()` provides direct Python embedding; manifes
 - What defaults should `quick_run` choose for output format—plain text vs JSON envelope?
 - Should approval presets allow scoped grants (per tool/directory) to mirror future CLI ergonomics, or is global approve/prompt enough for now?
 - How do we expose citation/source metadata consistently across chat/headless/script outputs without bloating simple runs?
-- Does `Runner` become a new helper (wrapping `Worker.call()` + display/approval defaults), or should we extend `WorkerRunner` to serve both TUI and headless scenarios?
+- Does `Runner` become a new helper (wrapping `Worker.call()` + display/approval defaults), or should we extend `AgentRunner` to serve both TUI and headless scenarios?
 
 ## Conclusion
 A thin `quick_run` + `Runner` layer, paired with an opt-in `load_workers_from_dir` helper and output/approval presets, would collapse most of the boilerplate in `experiments/inv/v2_direct/run.py` while aligning direct Python runs with the expectations in the execution-mode user stories. The same worker artifacts could then serve chat, headless CLI, and embedded scripts with consistent safety and output defaults without introducing a separate manifest format.

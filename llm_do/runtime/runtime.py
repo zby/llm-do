@@ -101,10 +101,6 @@ def _resolve_generated_agents_dir(
     return path.resolve()
 
 
-# Backwards compatibility alias (deprecated)
-WorkerApprovalConfig = AgentApprovalConfig
-
-
 @dataclass(frozen=True, slots=True)
 class RuntimeConfig:
     """Shared runtime configuration."""
@@ -137,19 +133,7 @@ class Runtime:
         on_event: EventCallback | None = None,
         message_log_callback: MessageLogCallback | None = None,
         verbosity: int = 0,
-        # Backwards compatibility aliases (deprecated)
-        worker_calls_require_approval: bool | None = None,
-        worker_attachments_require_approval: bool | None = None,
-        worker_approval_overrides: Mapping[str, Any] | None = None,
     ) -> None:
-        # Support deprecated parameter names
-        if worker_calls_require_approval is not None:
-            agent_calls_require_approval = worker_calls_require_approval
-        if worker_attachments_require_approval is not None:
-            agent_attachments_require_approval = worker_attachments_require_approval
-        if worker_approval_overrides is not None:
-            agent_approval_overrides = worker_approval_overrides
-
         policy = run_approval_policy or RunApprovalPolicy(mode="approve_all")
         resolved_generated_dir = _resolve_generated_agents_dir(
             generated_agents_dir, project_root

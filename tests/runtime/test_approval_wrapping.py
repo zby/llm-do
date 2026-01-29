@@ -4,7 +4,7 @@ from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 
 from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, ToolsetSpec
-from llm_do.runtime.approval import RunApprovalPolicy, WorkerApprovalPolicy
+from llm_do.runtime.approval import AgentApprovalPolicy, RunApprovalPolicy
 from llm_do.toolsets.filesystem import FileSystemToolset
 
 
@@ -13,7 +13,7 @@ def _approve_all(_request):
 
 
 def test_wrap_toolsets_rejects_pre_wrapped() -> None:
-    policy = WorkerApprovalPolicy(approval_callback=_approve_all)
+    policy = AgentApprovalPolicy(approval_callback=_approve_all)
     pre_wrapped = ApprovalToolset(
         inner=FileSystemToolset(config={}),
         approval_callback=_approve_all,
@@ -24,7 +24,7 @@ def test_wrap_toolsets_rejects_pre_wrapped() -> None:
 
 
 def test_wrap_toolsets_preserves_toolset_instances() -> None:
-    policy = WorkerApprovalPolicy(approval_callback=_approve_all)
+    policy = AgentApprovalPolicy(approval_callback=_approve_all)
     toolset = FunctionToolset()
     toolset.marker = "keep"  # type: ignore[attr-defined]
 
@@ -62,7 +62,7 @@ async def test_agent_tool_calls_can_require_approval() -> None:
 
     runtime = Runtime(
         run_approval_policy=RunApprovalPolicy(mode="reject_all"),
-        worker_calls_require_approval=True,
+        agent_calls_require_approval=True,
     )
 
     with pytest.raises(PermissionError):

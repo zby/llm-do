@@ -1,10 +1,10 @@
 from pydantic import Field
 from pydantic_ai import BinaryContent
 
-from llm_do.runtime import PromptContent, WorkerArgs
+from llm_do.runtime import AgentArgs, PromptContent
 
 
-class PlannerInput(WorkerArgs):
+class PlannerInput(AgentArgs):
     """Input schema for recursive task planning."""
 
     task: str = Field(..., min_length=1, description="Goal to plan")

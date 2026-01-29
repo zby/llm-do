@@ -5,7 +5,7 @@ without depending on Textual, so they can be unit tested and reused by other
 frontends.
 """
 
-from .agent_runner import AgentRunner, RunTurnFn, WorkerRunner
+from .agent_runner import AgentRunner, RunTurnFn
 from .approval_workflow import ApprovalWorkflowController, PendingApproval
 from .exit_confirmation import ExitConfirmationController, ExitDecision
 from .input_history import HistoryNavigation, InputHistoryController
@@ -18,6 +18,5 @@ __all__ = [
     "InputHistoryController",
     "HistoryNavigation",
     "AgentRunner",
-    "WorkerRunner",  # Deprecated alias
     "RunTurnFn",
 ]

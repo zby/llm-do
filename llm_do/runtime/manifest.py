@@ -25,10 +25,6 @@ class AgentApprovalOverride(BaseModel):
     attachments_require_approval: bool | None = None
 
 
-# Backwards compatibility alias (deprecated)
-WorkerApprovalOverride = AgentApprovalOverride
-
-
 class ManifestRuntimeConfig(BaseModel):
     """Runtime configuration from manifest."""
 
@@ -40,21 +36,6 @@ class ManifestRuntimeConfig(BaseModel):
     agent_calls_require_approval: bool = False
     agent_attachments_require_approval: bool = False
     agent_approval_overrides: dict[str, AgentApprovalOverride] = Field(default_factory=dict)
-    # Backwards compatibility aliases (deprecated)
-    worker_calls_require_approval: bool | None = None
-    worker_attachments_require_approval: bool | None = None
-    worker_approval_overrides: dict[str, AgentApprovalOverride] | None = None
-
-    @model_validator(mode="after")
-    def migrate_worker_fields(self) -> "ManifestRuntimeConfig":
-        """Migrate deprecated worker_* fields to agent_* fields."""
-        if self.worker_calls_require_approval is not None:
-            object.__setattr__(self, "agent_calls_require_approval", self.worker_calls_require_approval)
-        if self.worker_attachments_require_approval is not None:
-            object.__setattr__(self, "agent_attachments_require_approval", self.worker_attachments_require_approval)
-        if self.worker_approval_overrides is not None:
-            object.__setattr__(self, "agent_approval_overrides", self.worker_approval_overrides)
-        return self
 
 
 class EntryConfig(BaseModel):
@@ -98,8 +79,6 @@ class ProjectManifest(BaseModel):
     generated_agents_dir: str | None = None
     agent_files: list[str] = Field(default_factory=list)
     python_files: list[str] = Field(default_factory=list)
-    # Backwards compatibility alias (deprecated)
-    worker_files: list[str] | None = None
 
     @field_validator("version")
     @classmethod
@@ -137,9 +116,6 @@ class ProjectManifest(BaseModel):
 
     @model_validator(mode="after")
     def validate_has_files(self) -> "ProjectManifest":
-        # Migrate deprecated worker_files to agent_files
-        if self.worker_files is not None:
-            object.__setattr__(self, "agent_files", self.worker_files)
         if not self.agent_files and not self.python_files:
             raise ValueError("At least one agent_files or python_files entry is required")
         return self

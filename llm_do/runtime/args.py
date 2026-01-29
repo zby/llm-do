@@ -102,10 +102,6 @@ class AgentArgs(BaseModel):
         )
 
 
-# Backwards compatibility alias (deprecated)
-WorkerArgs = AgentArgs
-
-
 def _dict_to_messages(data: dict[str, Any]) -> list[PromptContent]:
     """Convert a dict with 'input' and optional 'attachments' to messages."""
     if "input" not in data:

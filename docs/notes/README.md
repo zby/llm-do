@@ -67,9 +67,11 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [Recursive Worker Patterns (Summary)](recursive-patterns-summary.md) — Summary of recursive worker patterns for context-limited tasks
 - [Recursive Problem Patterns for LLM Workers](recursive-problem-patterns.md) — Catalog of 15 problem types benefiting from recursive LLM workers
 - [Stabilize Message Capture Without Private _agent_graph](stabilize-message-capture.md) — Removing private PydanticAI dependency for message capture
+- [Subagent Onboarding Protocol](subagent-onboarding-protocol.md) — Bidirectional setup conversation before subagent starts work
 - [Tool Output Rendering Semantics](tool-output-rendering-semantics.md) — Semantic render hints for structured tool output display
 - [Tool Result Truncation Metadata](tool-result-truncation.md) — Standardizing truncation metadata for tool results
 - [Toolset Instantiation Questions](toolset-instantiation-questions.md) — Open questions on per-worker vs shared toolset instances
+- [Type Catalog Review](type-catalog-review.md) — Current review of llm_do type surface with simplification candidates (2026-01-29)
 - [Event-Stream UI with Blocking Approvals](ui-event-stream-blocking-approvals.md) — Approval broker design for event-stream UI with blocking approvals
 - [Unified Entry Function Design](unified-entry-function-design.md) — Design for unified tool plane across workers and entry functions
 
@@ -87,3 +89,4 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [Manifest-Selected Entry Motivation](research/manifest-selected-entry-motivation.md) — Motivation for moving entry selection from worker to manifest
 - [Type Catalog Review](research/type-catalog-review.md) — Review of type surface with simplification recommendations
 - [What Survives in Multi-Agent Systems](research/voooooogel-multi-agent-future.md) — Analysis of what multi-agent patterns will survive stronger models
+

@@ -44,6 +44,3 @@ class AgentRunner:
         self._task = task
         return task
 
-
-# Backwards compatibility alias (deprecated)
-WorkerRunner = AgentRunner

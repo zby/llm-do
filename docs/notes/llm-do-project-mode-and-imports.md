@@ -107,7 +107,7 @@ A `.agent` file consists of YAML front matter followed by instruction text.
 ---
 name: pitch_evaluator
 model: anthropic:claude-sonnet-4
-schema_in_ref: schemas.py:PitchInput
+input_model_ref: schemas.py:PitchInput
 imports:
   workers:
     - reports/summarizer
@@ -126,7 +126,7 @@ Rules:
 - YAML front matter is between the first two `---` lines
 - Everything after is `instructions`
 - If Jinja syntax is detected, render using the prompts root
-- `schema_in_ref` (optional) points to a Pydantic `BaseModel` input schema
+- `input_model_ref` (optional) points to a Pydantic `BaseModel` input schema
   - Supported forms: `module.Class` or `path.py:Class` (relative to the worker file)
 
 ---

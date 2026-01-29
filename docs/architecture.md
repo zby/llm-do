@@ -12,7 +12,7 @@ An **agent** is an executable prompt artifact: a `.agent` file that defines how 
 ---
 name: main
 model: anthropic:claude-haiku-4-5
-schema_in_ref: schemas.py:PitchInput
+input_model_ref: schemas.py:PitchInput
 toolsets:
   - shell_readonly
   - filesystem_project
@@ -22,7 +22,7 @@ Instructions for the agent...
 ```
 
 Agents can call other agents as tools, forming a call tree. Each agent declares its own toolsets - they're not inherited.
-Agents can also declare a typed input schema via `schema_in_ref`; schemas must subclass `AgentArgs` and implement `prompt_messages()`. Input can be a string, list (with `Attachment`s), or dict.
+Agents can also declare a typed input model via `input_model_ref`; models must subclass `AgentArgs` and implement `prompt_messages()`. Input can be a string, list (with `Attachment`s), or dict.
 
 ---
 
@@ -191,7 +191,7 @@ Key points:
 - Child agent calls get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
 - Max nesting depth prevents infinite recursion (default: 5)
-- Entry inputs are normalized to `AgentArgs` (via `schema_in`)
+- Entry inputs are normalized to `AgentArgs` (via `input_model`)
 - Entry functions are trusted but agent tool calls still go through approval wrappers per run policy
 
 ---

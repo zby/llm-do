@@ -70,7 +70,7 @@ def build_entry() -> FunctionEntry:
     return FunctionEntry(
         name=main_agent.name,
         fn=main,
-        schema_in=main_agent.schema_in,
+        input_model=main_agent.input_model,
     )
 
 

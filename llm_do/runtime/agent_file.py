@@ -40,7 +40,7 @@ class AgentDefinition:
     instructions: str
     model: str | None = None
     compatible_models: list[str] | None = None
-    schema_in_ref: str | None = None
+    input_model_ref: str | None = None
     toolsets: list[str] = field(default_factory=list)
     server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
 
@@ -78,6 +78,10 @@ def build_agent_definition(
             "Agent file must not declare 'entry'. "
             "Select the entry in project.json."
         )
+    if "schema_in_ref" in fm:
+        raise ValueError(
+            "Agent file uses deprecated 'schema_in_ref'. Use 'input_model_ref' instead."
+        )
 
     return AgentDefinition(
         name=name,
@@ -85,7 +89,7 @@ def build_agent_definition(
         instructions=instructions,
         model=fm.get("model"),
         compatible_models=_parse_compatible_models(fm.get("compatible_models")),
-        schema_in_ref=_parse_schema_ref(fm.get("schema_in_ref")),
+        input_model_ref=_parse_input_model_ref(fm.get("input_model_ref")),
         toolsets=_parse_toolsets(fm.get("toolsets")),
         server_side_tools=_parse_server_side_tools(fm.get("server_side_tools")),
     )
@@ -166,14 +170,14 @@ def _parse_compatible_models(raw: Any) -> list[str] | None:
     return raw
 
 
-def _parse_schema_ref(raw: Any) -> str | None:
-    """Parse and validate a schema reference."""
+def _parse_input_model_ref(raw: Any) -> str | None:
+    """Parse and validate an input model reference."""
     if raw is None:
         return None
     if not isinstance(raw, str):
-        raise ValueError("Invalid schema_in_ref: expected string")
+        raise ValueError("Invalid input_model_ref: expected string")
     if not raw.strip():
-        raise ValueError("Invalid schema_in_ref: must not be empty")
+        raise ValueError("Invalid input_model_ref: must not be empty")
     return raw
 
 
@@ -254,4 +258,3 @@ def load_agent_file(
         Parsed AgentDefinition
     """
     return _default_parser.load(path)
-

@@ -87,7 +87,7 @@ Worker frontmatter can declare a Pydantic input schema for tool calls:
 ```yaml
 ---
 name: main
-schema_in_ref: schemas.py:PitchInput
+input_model_ref: schemas.py:PitchInput
 ---
 ```
 
@@ -100,7 +100,7 @@ Schemas must subclass `AgentArgs` and implement `prompt_messages()`. Input can b
 - Simple string: `"text"`
 - With attachments: `{"input": "text", "attachments": ["file.pdf"]}`
 
-Use `schema_in_ref` for custom validation or typed tool-call structure.
+Use `input_model_ref` for custom validation or typed tool-call structure.
 
 `prompt_messages()` is used to build the LLM prompt (and `RunContext.prompt`
 for logging/UI only). Tools should use their typed args, not prompt text.

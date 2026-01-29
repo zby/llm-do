@@ -96,7 +96,7 @@ def _build_agent(
     return Agent(
         model=spec.model,
         instructions=spec.instructions,
-        output_type=spec.schema_out or str,
+        output_type=spec.output_model or str,
         deps_type=type(runtime),
         toolsets=list(toolsets) if toolsets else None,
         builtin_tools=spec.builtin_tools,
@@ -209,7 +209,7 @@ async def run_agent(
     message_history: list[Any] | None = None,
 ) -> tuple[Any, list[Any]]:
     """Run an agent for a single turn, returning output and messages."""
-    _input_args, messages = normalize_input(spec.schema_in, input_data)
+    _input_args, messages = normalize_input(spec.input_model, input_data)
     runtime.frame.prompt = get_display_text(messages)
 
     agent = _build_agent(

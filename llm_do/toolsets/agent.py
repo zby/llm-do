@@ -39,7 +39,7 @@ class AgentToolset(AbstractToolset[Any]):
 
     def _messages_from_args(self, tool_args: dict[str, Any]) -> list[Any] | None:
         try:
-            _, messages = normalize_input(self.spec.schema_in, tool_args)
+            _, messages = normalize_input(self.spec.input_model, tool_args)
             return messages
         except Exception:
             return None
@@ -107,7 +107,7 @@ class AgentToolset(AbstractToolset[Any]):
         tool_name = self.tool_name or self.spec.name
         desc = self.spec.description or self.spec.instructions
         desc = desc[:200] + "..." if len(desc) > 200 else desc
-        schema = self.spec.schema_in or _DefaultAgentToolSchema
+        schema = self.spec.input_model or _DefaultAgentToolSchema
         tool_def = ToolDefinition(
             name=tool_name,
             description=desc,

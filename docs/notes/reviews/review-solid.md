@@ -71,7 +71,7 @@ inherits from `AbstractToolset`; it uses `WorkerToolset` adapter instead.
 ### Interface Segregation Principle
 
 **Strengths:**
-- `Entry` protocol is minimal (name, toolsets, schema_in)
+- `Entry` protocol is minimal (name, toolsets, input_model)
 - `DisplayBackend` is focused (display, start, stop)
 - Controllers are narrowly scoped
 

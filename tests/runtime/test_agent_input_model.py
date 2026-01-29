@@ -25,12 +25,12 @@ class TextInput(AgentArgs):
 
 
 @pytest.mark.anyio
-async def test_agent_tool_schema_uses_schema_in() -> None:
+async def test_agent_tool_schema_uses_input_model() -> None:
     spec = AgentSpec(
         name="topic_agent",
         instructions="Extract topic details.",
         model=TestModel(),
-        schema_in=TopicInput,
+        input_model=TopicInput,
     )
     ctx = build_runtime_context(toolsets=[], model="test")
     run_ctx = RunContext(
@@ -90,8 +90,8 @@ async def test_normalize_input_accepts_string() -> None:
 
 
 @pytest.mark.anyio
-async def test_normalize_input_accepts_dict_with_schema() -> None:
-    """Dict input with a schema returns structured args."""
+async def test_normalize_input_accepts_dict_with_input_model() -> None:
+    """Dict input with an input model returns structured args."""
     args, messages = normalize_input(TextInput, {"input": "hello"})
     assert isinstance(args, TextInput)
     assert messages == ["hello"]

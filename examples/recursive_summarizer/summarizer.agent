@@ -1,7 +1,7 @@
 ---
 name: summarizer
 description: Recursively summarize a file range with offsets
-schema_in_ref: schemas.py:SummarizerInput
+input_model_ref: schemas.py:SummarizerInput
 toolsets:
   - filesystem_project
   - summarizer

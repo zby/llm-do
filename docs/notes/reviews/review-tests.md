@@ -36,13 +36,13 @@ Runtime tests
 - [B] `tests/runtime/test_events.py` — User/tool events emitted with callback wiring; protects event stream behavior.
 - [B] `tests/runtime/test_approval_wrappers.py` — Approval callback wrappers and denial payloads; protects approval policy behavior.
 - [B] `tests/runtime/test_invocables.py` — FunctionEntry helpers and non-empty prompt fallback; protects prompt behavior.
-- [A] `tests/runtime/test_entry_schema_in.py` — Entry schema_in normalizes inputs/prompt; protects entry invocation contract.
+- [A] `tests/runtime/test_entry_input_model.py` — Entry input_model normalizes inputs/prompt; protects entry invocation contract.
 - [B] `tests/runtime/test_call_scope.py` — CallScope cleanup on exit; protects runtime lifecycle behavior.
 - [C] `tests/runtime/test_tools_unit.py` — Example tool functions exercised via toolset call path; protects example integration.
 - [C] `tests/runtime/test_build_entry_resolution.py` — Registry build resolves nested agent toolsets/schema refs; protects entry build integration.
 - [B] `tests/runtime/test_cli_logging.py` — Message log callback emits JSONL per message; protects CLI logging behavior.
 - [A] `tests/runtime/test_model_resolution.py` — CallContext model propagation and NullModel behavior; protects model resolution contract.
-- [A] `tests/runtime/test_agent_schema_in.py` — Agent schema_in shapes tool schemas/normalize_input; protects agent input contract.
+- [A] `tests/runtime/test_agent_input_model.py` — Agent input_model shapes tool schemas/normalize_input; protects agent input contract.
 - [B] `tests/runtime/test_agent_recursion.py` — Self-toolset recursion and max_depth enforcement; protects recursion safety behavior.
 - [A] `tests/runtime/test_attachment_path.py` — Attachment path resolution/media types + project_root config; protects attachment contract.
 - [B] `tests/runtime/test_dynamic_agents.py` — Dynamic agent create/call and toolset validation; protects dynamic agent behavior.

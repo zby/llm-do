@@ -85,7 +85,7 @@ summarizer("500 page document")
 name: planner
 description: Decompose complex tasks into actionable plans
 model: anthropic:claude-haiku-4-5
-schema_out_ref: schemas.py:Plan
+output_model_ref: schemas.py:Plan
 toolsets:
   - planner  # Self-reference for subtask decomposition
 ---
@@ -245,7 +245,7 @@ Cite sources. Flag uncertainty. Distinguish fact from inference.
 name: debate_analyzer
 description: Analyze arguments through recursive adversarial examination
 model: anthropic:claude-haiku-4-5
-schema_out_ref: schemas.py:ArgumentAnalysis
+output_model_ref: schemas.py:ArgumentAnalysis
 toolsets:
   - debate_analyzer  # Self-reference for analyzing counterarguments
 ---
@@ -404,7 +404,7 @@ Given CODE_PATH:
 name: kg_builder
 description: Build knowledge graphs from text recursively
 model: anthropic:claude-haiku-4-5
-schema_out_ref: schemas.py:KnowledgeFragment
+output_model_ref: schemas.py:KnowledgeFragment
 toolsets:
   - kg_builder  # Self-reference for expanding entity references
 server_side_tools:
@@ -515,7 +515,7 @@ Track: terms requiring consistency, cultural adaptations made, uncertain transla
 name: game_ai
 description: Explore game trees for optimal decisions
 model: anthropic:claude-haiku-4-5
-schema_out_ref: schemas.py:GameAnalysis
+output_model_ref: schemas.py:GameAnalysis
 toolsets:
   - game_ai  # Self-reference for exploring future states
 ---
@@ -656,7 +656,7 @@ Pass explicit depth parameter, decrement on each call.
 
 ```yaml
 # recursive_analyzer.worker
-schema_in_ref: schemas.py:RecursiveInput
+input_model_ref: schemas.py:RecursiveInput
 
 # schemas.py
 class RecursiveInput(BaseModel):

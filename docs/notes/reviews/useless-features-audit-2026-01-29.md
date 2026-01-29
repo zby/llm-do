@@ -8,16 +8,16 @@ description: Periodic audit of low-value or unused features in runtime/toolset/c
 Periodic audit for features that add complexity without clear value. Scope: runtime core (`llm_do/runtime/*`), toolset specs, registry, manifest/runtime config surfaces, and legacy compatibility aliases.
 
 ## Summary
-- Unused or un-wired API remains: `AgentSpec.schema_out`, `UsageCollector`/`Runtime.usage`, `Runtime.message_log`/`MessageAccumulator`, and `Runtime.run`.
+- Unused or un-wired API remains: `AgentSpec.output_model`, `UsageCollector`/`Runtime.usage`, `Runtime.message_log`/`MessageAccumulator`, and `Runtime.run`.
 - Legacy `worker_*` aliases persist across runtime, manifest, models, args, loader, UI runner, and docs/tests; this duplicates the `agent_*` surface and conflicts with the "no backcompat" policy.
 - No new dead code surfaced beyond prior audit; dynamic agents and `server_side_tools` are exercised in examples/tests.
 
 ## Findings
 
-### 1) `AgentSpec.schema_out` remains dead (half-implemented)
+### 1) `AgentSpec.output_model` remains dead (half-implemented)
 **Evidence**
-- Only referenced in `llm_do/runtime/agent_runner.py` as `output_type=spec.schema_out or str`.
-- No assignments found in code/tests; `rg -n "schema_out" llm_do tests` hits only definitions and that usage.
+- Only referenced in `llm_do/runtime/agent_runner.py` as `output_type=spec.output_model or str`.
+- No assignments found in code/tests; `rg -n "output_model" llm_do tests` hits only definitions and that usage.
 
 **Why it matters**
 - The field implies output typing is supported but there is no config path for `.agent` or dynamic agents.
@@ -28,7 +28,7 @@ Periodic audit for features that add complexity without clear value. Scope: runt
 - Keeping it could support the active `tasks/active/schema-composition.md` work, but only if that work lands soon and includes a real configuration path.
 
 **Recommendation**
-- Remove now (YAGNI) and reintroduce alongside schema-composition with a concrete `schema_out_ref` pipeline and tests, or explicitly wire it for Python-only AgentSpec creation.
+- Remove now (YAGNI) and reintroduce alongside schema-composition with a concrete `output_model_ref` pipeline and tests, or explicitly wire it for Python-only AgentSpec creation.
 
 ### 2) Usage collection API is un-wired
 **Evidence**
@@ -97,13 +97,13 @@ Periodic audit for features that add complexity without clear value. Scope: runt
 
 ## Checklist Status (2026-01-29)
 - **Core classes**: Runtime, AgentRegistry, CallScope/CallFrame, CallContext, ToolsetSpec reviewed.
-- **Dead code**: `schema_out`, `UsageCollector`/`Runtime.usage`, `Runtime.message_log`, `MessageAccumulator.for_agent`, `Runtime.run`.
+- **Dead code**: `output_model`, `UsageCollector`/`Runtime.usage`, `Runtime.message_log`, `MessageAccumulator.for_agent`, `Runtime.run`.
 - **Config/registry**: `worker_*` backcompat remains the largest redundant surface.
 - **Recent additions**: No new dead features observed since 2026-01-24.
 
 ## Open Questions
 - Do we want to drop all `worker_*` aliases immediately, or keep a short, explicit deprecation window?
-- Should `schema_out` be removed until schema-composition ships, or should we implement `schema_out_ref` now?
+- Should `output_model` be removed until schema-composition ships, or should we implement `output_model_ref` now?
 - If usage/message accumulation stays, what is the exact public contract and who consumes it?
 
 ## Conclusion

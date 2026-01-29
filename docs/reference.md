@@ -6,13 +6,13 @@ API and usage reference for llm-do. For theory, see [theory.md](theory.md). For 
 
 ## Agent Input Schemas
 
-Agent files (`.agent`) can declare a Pydantic input schema so agent calls (and tool-call
+Agent files (`.agent`) can declare a Pydantic input model so agent calls (and tool-call
 planning) use a structured contract:
 
 ```yaml
 ---
 name: evaluator
-schema_in_ref: schemas.py:PitchInput
+input_model_ref: schemas.py:PitchInput
 ---
 ```
 
@@ -308,13 +308,13 @@ If you want to create the entry manually (outside the manifest flow), wrap it:
 `FunctionEntry` fields:
 - `name`: Entry name for logging/events
 - `fn`: Async function called for the entry
-- `schema_in`: Optional `AgentArgs` subclass for input normalization
+- `input_model`: Optional `AgentArgs` subclass for input normalization
 
 Convenience helper:
 - `FunctionEntry.from_function(fn)` creates an entry using `fn.__name__` as the name.
 
 The entry function receives:
-- A `AgentArgs` instance when `schema_in` is provided
+- A `AgentArgs` instance when `input_model` is provided
 - Otherwise, a list of prompt parts (`list[PromptContent]`)
 
 Note: Entry functions are trusted code, but agent calls still go through approval
@@ -339,7 +339,7 @@ async def main(args: TaggedInput, _runtime: CallContext) -> str:
 ENTRY = FunctionEntry(
     name="main",
     fn=main,
-    schema_in=TaggedInput,
+    input_model=TaggedInput,
 )
 ```
 
@@ -710,7 +710,7 @@ You have access to filesystem and shell tools.
 | `description` | No | Tool description when the agent is exposed as a tool (falls back to `instructions`) |
 | `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`), resolved on load; falls back to `LLM_DO_MODEL` if omitted |
 | `compatible_models` | No | List of acceptable model patterns for the `LLM_DO_MODEL` fallback (mutually exclusive with `model`) |
-| `schema_in_ref` | No | Input schema reference (see [Agent Input Schemas](#agent-input-schemas)) |
+| `input_model_ref` | No | Input model reference (see [Agent Input Schemas](#agent-input-schemas)) |
 | `server_side_tools` | No | Server-side tool configs (e.g., web search) |
 | `toolsets` | No | List of toolset names |
 

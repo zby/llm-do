@@ -92,7 +92,7 @@ ENTRY = FunctionEntry(
 
 
 @pytest.mark.anyio
-async def test_build_registry_schema_in_ref_reuses_loaded_module(
+async def test_build_registry_input_model_ref_reuses_loaded_module(
     tmp_path: Path,
 ) -> None:
     marker_path = tmp_path / "marker.txt"
@@ -119,7 +119,7 @@ class NoteInput(AgentArgs):
         """\
 ---
 name: main
-schema_in_ref: schemas.py:NoteInput
+input_model_ref: schemas.py:NoteInput
 ---
 Instructions.
 """,
@@ -143,7 +143,7 @@ Instructions.
 
 
 @pytest.mark.anyio
-async def test_build_registry_resolves_schema_in_ref(tmp_path: Path) -> None:
+async def test_build_registry_resolves_input_model_ref(tmp_path: Path) -> None:
     schema_path = tmp_path / "schemas.py"
     schema_path.write_text(
         """\
@@ -163,7 +163,7 @@ class NoteInput(AgentArgs):
         """\
 ---
 name: main
-schema_in_ref: schemas.py:NoteInput
+input_model_ref: schemas.py:NoteInput
 ---
 Instructions.
 """,
@@ -181,8 +181,8 @@ Instructions.
         python_files=[],
         base_path=tmp_path,
     )
-    assert entry.schema_in is not None
-    assert entry.schema_in.__name__ == "NoteInput"
+    assert entry.input_model is not None
+    assert entry.input_model.__name__ == "NoteInput"
 
 
 @pytest.mark.anyio

@@ -113,7 +113,7 @@ def _dict_to_messages(data: dict[str, Any]) -> list[PromptContent]:
 
 
 def normalize_input(
-    schema_in: type[AgentArgs] | None,
+    input_model: type[AgentArgs] | None,
     input_data: Any,
 ) -> tuple[AgentArgs | None, list[PromptContent]]:
     """Normalize raw input into a message list, optionally with structured args.
@@ -138,16 +138,16 @@ def normalize_input(
 
     # Structured AgentArgs instance
     if isinstance(input_data, AgentArgs):
-        if schema_in is not None and not isinstance(input_data, schema_in):
+        if input_model is not None and not isinstance(input_data, input_model):
             raise TypeError(
-                f"Expected {schema_in.__name__}; got {type(input_data).__name__}"
+                f"Expected {input_model.__name__}; got {type(input_data).__name__}"
             )
         return input_data, input_data.prompt_messages()
 
     # Dict -> validate with schema or convert directly to messages
     if isinstance(input_data, dict):
-        if schema_in is not None:
-            args = schema_in.model_validate(input_data)
+        if input_model is not None:
+            args = input_model.model_validate(input_data)
             return args, args.prompt_messages()
         # No schema: convert dict with 'input'/'attachments' directly
         return None, _dict_to_messages(input_data)

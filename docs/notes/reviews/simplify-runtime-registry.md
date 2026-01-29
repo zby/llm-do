@@ -4,7 +4,7 @@
 Simplification review of `llm_do/runtime/registry.py` plus its internal
 dependencies (`llm_do/toolsets/*`, `llm_do/runtime/worker.py`,
 `llm_do/runtime/worker_file.py`, `llm_do/runtime/discovery.py`,
-`llm_do/runtime/schema_refs.py`, `llm_do/runtime/args.py`,
+`llm_do/runtime/input_model_refs.py`, `llm_do/runtime/args.py`,
 `llm_do/runtime/contracts.py`, and `llm_do/config.py`) to reduce duplicate
 registry wiring and tighten entry/toolset linking rules.
 

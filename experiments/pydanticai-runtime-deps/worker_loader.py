@@ -9,8 +9,8 @@ from runtime import AgentRuntime
 
 from llm_do.runtime.args import Attachment, PromptMessages, WorkerArgs
 from llm_do.runtime.discovery import load_toolsets_from_files
+from llm_do.runtime.input_model_refs import resolve_input_model_ref
 from llm_do.runtime.registry import _build_builtin_tools
-from llm_do.runtime.schema_refs import resolve_schema_ref
 from llm_do.runtime.worker_file import WorkerDefinition, load_worker_file
 from llm_do.toolsets.builtins import build_builtin_toolsets
 from llm_do.toolsets.loader import ToolsetSpec, resolve_toolset_specs
@@ -242,7 +242,7 @@ def _resolve_worker_schemas(
             continue
         worker_path = worker_paths.get(name)
         base_path = worker_path.parent if worker_path is not None else None
-        resolved = resolve_schema_ref(
+        resolved = resolve_input_model_ref(
             definition.schema_in_ref,
             base_path=base_path,
         )

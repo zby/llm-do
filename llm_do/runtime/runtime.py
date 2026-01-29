@@ -246,7 +246,7 @@ class Runtime:
         from .args import get_display_text, normalize_input
         from .events import RuntimeEvent, UserMessageEvent
 
-        input_args, messages = normalize_input(entry.schema_in, input_data)
+        input_args, messages = normalize_input(entry.input_model, input_data)
         display_text = get_display_text(messages)
         if self.config.on_event is not None:
             self.config.on_event(

@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Decompose complex tasks into actionable plans
-schema_in_ref: schemas.py:PlannerInput
+input_model_ref: schemas.py:PlannerInput
 toolsets:
   - planner
 ---

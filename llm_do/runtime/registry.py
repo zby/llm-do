@@ -20,7 +20,7 @@ from .agent_file import AgentDefinition, build_agent_definition, load_agent_file
 from .args import AgentArgs
 from .contracts import AgentSpec
 from .discovery import load_all_from_files
-from .schema_refs import resolve_schema_ref
+from .input_model_refs import resolve_input_model_ref
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,15 +154,17 @@ def build_registry(
 
         agent_file_spec.spec.toolset_specs = resolved_toolset_specs
 
-        if agent_file_spec.definition.schema_in_ref:
-            resolved_schema = resolve_schema_ref(
-                agent_file_spec.definition.schema_in_ref,
+        if agent_file_spec.definition.input_model_ref:
+            resolved_input_model = resolve_input_model_ref(
+                agent_file_spec.definition.input_model_ref,
                 base_path=agent_root,
             )
-            if not issubclass(resolved_schema, AgentArgs):
+            if not issubclass(resolved_input_model, AgentArgs):
                 raise TypeError(
-                    "schema_in_ref must resolve to an AgentArgs subclass"
+                    "input_model_ref must resolve to an AgentArgs subclass"
                 )
-            agent_file_spec.spec.schema_in = cast(type[AgentArgs], resolved_schema)
+            agent_file_spec.spec.input_model = cast(
+                type[AgentArgs], resolved_input_model
+            )
 
     return AgentRegistry(agents=agents, toolsets=all_toolsets)

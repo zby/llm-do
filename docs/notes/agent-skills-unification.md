@@ -17,7 +17,7 @@ The `.agent` file format is structurally similar to the [Agent Skills](https://a
 | Model/Runtime | `model`, `compatible_models` | `compatibility` (string) | Different semantics |
 | Tools | `toolsets`, `server_side_tools` | `allowed-tools` | Different approach |
 | Entry point | `entry: true` | N/A | .worker-specific (multi-agent) |
-| Input schema | `schema_in_ref` | N/A | .worker-specific |
+| Input schema | `input_model_ref` | N/A | .worker-specific |
 | License | N/A | `license` | Skills-specific |
 | Metadata | N/A | `metadata` | Skills-specific |
 

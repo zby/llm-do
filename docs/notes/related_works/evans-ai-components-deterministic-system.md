@@ -35,7 +35,7 @@ Evans' framework maps directly to llm-do's core philosophy:
 |----------------|-------------------|
 | Modeling (exploratory) | LLM workers exploring options |
 | Classification (repeatable) | Extracted Python tools |
-| Frozen taxonomy | Schemas (`schema_in_ref`, `schema_out_ref`) |
+| Frozen taxonomy | Schemas (`input_model_ref`, `output_model_ref`) |
 | "Stabilize the categories" | "Extend with LLMs, stabilize with code" |
 
 The unified calling convention in llm-do means transitioning from modeling to classification is local—callers don't change when a worker becomes a tool.
@@ -43,7 +43,7 @@ The unified calling convention in llm-do means transitioning from modeling to cl
 ### Schema-Driven Design
 
 llm-do already supports Evans' "canonical categories first" via:
-- `schema_in_ref` / `schema_out_ref` in worker frontmatter
+- `input_model_ref` / `output_model_ref` in worker frontmatter
 - Pydantic models as frozen contracts
 - Validation at trust boundaries
 

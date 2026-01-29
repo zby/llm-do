@@ -164,7 +164,7 @@ For now, passing `CallContext` directly is acceptable; a minimal ToolRouter can 
 |-----------|---------------|--------------|
 | **EntryRegistry** | `dict[str, Entry]` (workers + entry funcs) | Symbol table for lookup; built from .worker/.py files |
 | **Runtime** | RuntimeConfig, UsageCollector, MessageAccumulator | Execution environment; runs entries; no knowledge of registry |
-| **Entry** (Worker/EntryFunction) | name, toolsets, schema_in | Passed to `Runtime.run_entry()` |
+| **Entry** (Worker/EntryFunction) | name, toolsets, input_model | Passed to `Runtime.run_entry()` |
 | **CallContext** | Runtime + CallFrame | Per-call context; can call tools via `active_toolsets` |
 | **CallFrame** | depth, model, active_toolsets, prompt, messages | Per-call state |
 

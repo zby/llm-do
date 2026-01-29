@@ -67,7 +67,7 @@ class Entry:
     """Root entry invocation interface."""
 
     name: str
-    schema_in: type["AgentArgs"] | None
+    input_model: type["AgentArgs"] | None
 
     async def run(self, input_data: Any, runtime: "CallContextProtocol") -> Any:
         """Execute the entry."""
@@ -80,11 +80,13 @@ class FunctionEntry(Entry):
 
     name: str
     fn: Callable[[Any, "CallContextProtocol"], Awaitable[Any]]
-    schema_in: type["AgentArgs"] | None = None
+    input_model: type["AgentArgs"] | None = None
 
     def __post_init__(self) -> None:
-        if self.schema_in is not None and not issubclass(self.schema_in, AgentArgs):
-            raise TypeError(f"schema_in must subclass AgentArgs; got {self.schema_in}")
+        if self.input_model is not None and not issubclass(self.input_model, AgentArgs):
+            raise TypeError(
+                f"input_model must subclass AgentArgs; got {self.input_model}"
+            )
 
     @classmethod
     def from_function(
@@ -107,16 +109,22 @@ class AgentSpec:
     model: ModelType
     toolset_specs: list[ToolsetSpec] = field(default_factory=list)
     description: str | None = None
-    schema_in: type["AgentArgs"] | None = None
-    schema_out: type[BaseModel] | None = None
+    input_model: type["AgentArgs"] | None = None
+    output_model: type[BaseModel] | None = None
     model_settings: ModelSettings | None = None
     builtin_tools: list[Any] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if self.schema_in is not None and not issubclass(self.schema_in, AgentArgs):
-            raise TypeError(f"schema_in must subclass AgentArgs; got {self.schema_in}")
-        if self.schema_out is not None and not issubclass(self.schema_out, BaseModel):
-            raise TypeError(f"schema_out must subclass BaseModel; got {self.schema_out}")
+        if self.input_model is not None and not issubclass(self.input_model, AgentArgs):
+            raise TypeError(
+                f"input_model must subclass AgentArgs; got {self.input_model}"
+            )
+        if self.output_model is not None and not issubclass(
+            self.output_model, BaseModel
+        ):
+            raise TypeError(
+                f"output_model must subclass BaseModel; got {self.output_model}"
+            )
         if not isinstance(self.model, Model):
             raise TypeError("AgentSpec.model must be a Model instance.")
         for spec in self.toolset_specs:
@@ -130,13 +138,13 @@ class AgentEntry(Entry):
 
     spec: AgentSpec
     name: str = field(init=False)
-    schema_in: type[AgentArgs] | None = field(init=False)
+    input_model: type[AgentArgs] | None = field(init=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.spec, AgentSpec):
             raise TypeError("AgentEntry spec must be an AgentSpec instance.")
         object.__setattr__(self, "name", self.spec.name)
-        object.__setattr__(self, "schema_in", self.spec.schema_in)
+        object.__setattr__(self, "input_model", self.spec.input_model)
 
     async def run(self, input_data: Any, runtime: "CallContextProtocol") -> Any:
         return await runtime.call_agent(self.spec, input_data)

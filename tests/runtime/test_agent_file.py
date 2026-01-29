@@ -46,7 +46,7 @@ Instructions here.
 ---
 name: main
 model: anthropic:claude-haiku-4-5
-schema_in_ref: schemas.py:TopicInput
+input_model_ref: schemas.py:TopicInput
 toolsets:
   - shell_readonly
   - calc_tools
@@ -56,7 +56,7 @@ You are a helpful assistant.
         result = parse_agent_file(content)
 
         assert result.name == "main"
-        assert result.schema_in_ref == "schemas.py:TopicInput"
+        assert result.input_model_ref == "schemas.py:TopicInput"
         assert "shell_readonly" in result.toolsets
         assert "calc_tools" in result.toolsets
 
@@ -308,17 +308,17 @@ Instructions.
         with pytest.raises(ValueError, match="expected YAML list"):
             parse_agent_file(content)
 
-    def test_schema_in_ref_invalid_format_raises(self):
-        """Test that invalid schema_in_ref format raises ValueError."""
+    def test_input_model_ref_invalid_format_raises(self):
+        """Test that invalid input_model_ref format raises ValueError."""
         content = """\
 ---
 name: main
-schema_in_ref:
+input_model_ref:
   - not-a-string
 ---
 Instructions.
 """
-        with pytest.raises(ValueError, match="schema_in_ref"):
+        with pytest.raises(ValueError, match="input_model_ref"):
             parse_agent_file(content)
 
     def test_compatible_models_defaults_to_none(self):

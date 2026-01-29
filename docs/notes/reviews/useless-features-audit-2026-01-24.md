@@ -12,34 +12,34 @@ This audit reviews the codebase for features that add complexity without clear v
 
 | Feature | Previous Status | Current Status | Action |
 |---------|-----------------|----------------|--------|
-| `schema_out` | Remove (deferred) | **Still present on AgentSpec** | Remove |
+| `output_model` | Remove (deferred) | **Still present on AgentSpec** | Remove |
 | `cache_key_fn` | Remove | **Removed** | None |
 | `model_settings` | Keep for programmatic use | **Still present on AgentSpec** | Keep |
 | `toolset.id` | Keep (documented) | Present | None |
 
 ## Current Findings
 
-### 1. `schema_out` on AgentSpec - **REMOVE**
+### 1. `output_model` on AgentSpec - **REMOVE**
 
 **Location:** `llm_do/runtime/contracts.py:82`
 
 **Current state:**
 - Field exists on the new `AgentSpec` class (line 82)
 - Validation exists in `__post_init__` (lines 89-90)
-- Used in `agent_runner.py:100`: `output_type=spec.schema_out or str`
-- **No code anywhere sets `schema_out=` to a non-None value**
-- Grep search: `schema_out=` returns 0 matches in source code
+- Used in `agent_runner.py:100`: `output_type=spec.output_model or str`
+- **No code anywhere sets `output_model=` to a non-None value**
+- Grep search: `output_model=` returns 0 matches in source code
 
 **Evidence:**
 ```python
 # contracts.py:82
-schema_out: type[BaseModel] | None = None
+output_model: type[BaseModel] | None = None
 
 # agent_runner.py:100 - only usage
-output_type=spec.schema_out or str,
+output_type=spec.output_model or str,
 ```
 
-**Recommendation:** Remove. This field has survived three audits (initial + two follow-ups) and remains unimplemented. The validation code (lines 89-90) suggests it was meant to work like `schema_in`, but no parsing or configuration mechanism exists.
+**Recommendation:** Remove. This field has survived three audits (initial + two follow-ups) and remains unimplemented. The validation code (lines 89-90) suggests it was meant to work like `input_model`, but no parsing or configuration mechanism exists.
 
 ---
 
@@ -53,7 +53,7 @@ output_type=spec.schema_out or str,
 - Cannot be set from worker files (no parsing support)
 - Could be useful for programmatic agent construction
 
-**Recommendation:** Keep. Unlike `schema_out`, this field has a working implementation path - it's passed to PydanticAI and would work if set. It's available for programmatic use.
+**Recommendation:** Keep. Unlike `output_model`, this field has a working implementation path - it's passed to PydanticAI and would work if set. It's available for programmatic use.
 
 ---
 
@@ -174,7 +174,7 @@ From `tasks/recurring/find-useless-features.md`:
 ### Dead Code
 - [x] Functions/methods with no callers - `Runtime._create_usage`, `Runtime.usage`, `Runtime.message_log`, `MessageAccumulator.for_worker`, `AgentRegistry.get`, `AgentRegistry.names`, `Runtime.run`
 - [x] Conditionals that always evaluate same way - None found
-- [x] Parameters never overridden - `schema_out` never set; `EntrySpec.description` never read
+- [x] Parameters never overridden - `output_model` never set; `EntrySpec.description` never read
 
 ### Configuration/Registry
 - [x] `RunApprovalPolicy` - Clean after `cache_key_fn` removal
@@ -190,7 +190,7 @@ From `tasks/recurring/find-useless-features.md`:
 
 ### Immediate Action
 
-1. **Remove `schema_out`** from `AgentSpec`
+1. **Remove `output_model`** from `AgentSpec`
    - Delete field from `llm_do/runtime/contracts.py:82`
    - Delete validation from `llm_do/runtime/contracts.py:89-90`
    - Update `llm_do/runtime/agent_runner.py:100` to always use `str` output type
@@ -211,7 +211,7 @@ From `tasks/recurring/find-useless-features.md`:
 
 ## Impact Assessment
 
-Removing `schema_out` would:
+Removing `output_model` would:
 - Remove 4 lines of dead code
 - Remove untested validation path
 - Clarify actual API surface vs aspirational features
@@ -227,6 +227,6 @@ Removing `UsageCollector` / `Runtime.usage` would:
 ## Notes
 
 - The Worker class refactor (commits since 2026-01-13) addressed many complexity concerns
-- `schema_out` has persisted through three audits - time to remove it
+- `output_model` has persisted through three audits - time to remove it
 - The codebase is cleaner than the last audit due to architectural simplification
 - ToolsetFactory context parameter is already removed; earlier concern is now resolved

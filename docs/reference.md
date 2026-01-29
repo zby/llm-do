@@ -705,6 +705,37 @@ Models use the format `provider:model-name`:
 - `openai:gpt-4o-mini`
 - `ollama:llama3`
 
+**Custom Providers:**
+
+To use a custom provider with `LLM_DO_MODEL`, register a model factory in a Python file that gets
+imported when your project loads (e.g., add it to `python_files` in `project.json`):
+
+```python
+# providers.py
+from pydantic_ai.models.openai import OpenAIChatModel
+
+from llm_do import register_model_factory
+from llm_do.providers import OpenAICompatibleProvider
+
+class AcmeProvider(OpenAICompatibleProvider):
+    def __init__(self) -> None:
+        super().__init__(
+            base_url="http://127.0.0.1:11434/v1",
+            name="acme",
+        )
+
+def build_acme(model_name: str) -> OpenAIChatModel:
+    return OpenAIChatModel(model_name, provider=AcmeProvider())
+
+register_model_factory("acme", build_acme)
+```
+
+Then set:
+
+```bash
+export LLM_DO_MODEL="acme:my-model"
+```
+
 **Toolset References:**
 
 Toolsets can be specified as:

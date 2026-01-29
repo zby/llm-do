@@ -34,7 +34,7 @@ async def test_dynamic_agent_create_and_call(tmp_path):
             name="sample_agent",
             instructions="Return OK.",
             description="test agent",
-            model="test:model",
+            model="test",
         ),
     )
 
@@ -71,7 +71,7 @@ async def test_dynamic_agent_create_validates_toolsets(tmp_path):
             name="with_tools",
             instructions="Return OK.",
             description="toolset agent",
-            model="test:model",
+            model="test",
             toolsets=["filesystem_project"],
         ),
     )
@@ -84,7 +84,7 @@ async def test_dynamic_agent_create_validates_toolsets(tmp_path):
                 name="bad_tools",
                 instructions="Return OK.",
                 description="bad tools",
-                model="test:model",
+                model="test",
                 toolsets=["nope_toolset"],
             ),
         )

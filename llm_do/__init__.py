@@ -27,6 +27,8 @@ from .models import (
     InvalidCompatibleModelsError,
     ModelCompatibilityError,
     NoModelError,
+    register_model_factory,
+    resolve_model,
 )
 
 # Re-export from runtime for convenience
@@ -53,6 +55,8 @@ __all__ = [
     "InvalidCompatibleModelsError",
     "ModelCompatibilityError",
     "NoModelError",
+    "register_model_factory",
+    "resolve_model",
     # Runtime types
     "CallContext",
     "Runtime",

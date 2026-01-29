@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import fnmatch
 import os
+from collections.abc import Callable
 from typing import Any
 
 from pydantic_ai.models import (
@@ -10,6 +11,7 @@ from pydantic_ai.models import (
     ModelMessage,
     ModelRequestParameters,
     ModelResponse,
+    infer_model,
 )
 
 LLM_DO_MODEL_ENV = "LLM_DO_MODEL"
@@ -54,6 +56,9 @@ class NullModel(Model):
 
 NULL_MODEL = NullModel()
 
+ModelFactory = Callable[[str], Model]
+_MODEL_FACTORIES: dict[str, ModelFactory] = {}
+
 
 def get_model_string(model: str | Model) -> str:
     """Get canonical string representation (provider:model_name)."""
@@ -91,6 +96,32 @@ def validate_model_compatibility(
 def get_env_model() -> str | None:
     """Get the default model from LLM_DO_MODEL environment variable."""
     return os.environ.get(LLM_DO_MODEL_ENV)
+
+
+def register_model_factory(provider: str, factory: ModelFactory, *, replace: bool = False) -> None:
+    """Register a custom model factory for a provider prefix."""
+    provider = provider.strip()
+    if not provider:
+        raise ValueError("Provider name must be non-empty.")
+    if ":" in provider:
+        raise ValueError("Provider name must not include ':'. Use the prefix only.")
+    if provider in _MODEL_FACTORIES and not replace:
+        raise ValueError(f"Model factory already registered for provider '{provider}'.")
+    _MODEL_FACTORIES[provider] = factory
+
+
+def resolve_model(model: str | Model) -> Model:
+    """Resolve a model identifier into a Model instance, honoring custom factories."""
+    if isinstance(model, Model):
+        return model
+    if not isinstance(model, str):
+        raise TypeError("Model must be a string or Model instance.")
+    if ":" in model:
+        provider, model_name = model.split(":", 1)
+        factory = _MODEL_FACTORIES.get(provider)
+        if factory is not None:
+            return factory(model_name)
+    return infer_model(model)
 
 
 def select_model(

@@ -15,6 +15,7 @@ from pydantic_ai.models import Model  # Used in ModelType
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import AbstractToolset  # Used in CallContextProtocol
 
+from ..models import resolve_model
 from ..toolsets.loader import ToolsetSpec
 from .args import AgentArgs
 from .events import RuntimeEvent
@@ -117,6 +118,8 @@ class AgentSpec:
             raise TypeError(f"schema_in must subclass AgentArgs; got {self.schema_in}")
         if self.schema_out is not None and not issubclass(self.schema_out, BaseModel):
             raise TypeError(f"schema_out must subclass BaseModel; got {self.schema_out}")
+        if isinstance(self.model, str):
+            self.model = resolve_model(self.model)
         for spec in self.toolset_specs:
             if not isinstance(spec, ToolsetSpec):
                 raise TypeError("Agent toolset_specs must contain ToolsetSpec instances.")

@@ -226,7 +226,7 @@ class TestCLIRuntimeErrors:
         manifest_file.write_text(json.dumps(manifest_data))
 
         with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
-            with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+            with patch.dict("os.environ", {"LLM_DO_MODEL": "test"}):
                 exit_code = main()
 
         captured = capsys.readouterr()
@@ -248,7 +248,7 @@ class TestCLIRuntimeErrors:
         worker.write_text("---\nname: main\n---\nTest")
 
         with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
-            with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+            with patch.dict("os.environ", {"LLM_DO_MODEL": "test"}):
                 exit_code = main()
 
         captured = capsys.readouterr()
@@ -263,7 +263,7 @@ class TestCLIRuntimeErrors:
             mock_run.side_effect = KeyboardInterrupt()
 
             with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test"}):
                     exit_code = main()
 
         captured = capsys.readouterr()
@@ -278,7 +278,7 @@ class TestCLIRuntimeErrors:
             mock_run.side_effect = PermissionError("Tool 'write_file' requires approval")
 
             with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test"}):
                     exit_code = main()
 
         captured = capsys.readouterr()
@@ -294,12 +294,12 @@ class TestCLIRuntimeErrors:
         with patch("llm_do.ui.runner.Runtime.run_entry", new_callable=AsyncMock) as mock_run:
             mock_run.side_effect = ModelHTTPError(
                 status_code=401,
-                model_name="test-model",
+                model_name="test",
                 body={"error": {"message": "Invalid API key"}},
             )
 
             with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test"}):
                     exit_code = main()
 
         captured = capsys.readouterr()
@@ -319,7 +319,7 @@ class TestCLISuccess:
             mock_run.return_value = ("Success!", mock_ctx)
 
             with patch("sys.argv", ["llm-do", str(manifest_file), "hello"]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test"}):
                     exit_code = main()
 
         captured = capsys.readouterr()
@@ -346,7 +346,7 @@ class TestCLISuccess:
 
             # No prompt argument - should use manifest input
             with patch("sys.argv", ["llm-do", str(manifest_file)]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test"}):
                     exit_code = main()
 
         assert exit_code == 0
@@ -377,7 +377,7 @@ class TestCLISuccess:
                 "llm-do", str(manifest_file),
                 "--input-json", '{"input": "json override"}'
             ]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test"}):
                     exit_code = main()
 
         assert exit_code == 0
@@ -397,6 +397,6 @@ class TestCLIDebugFlag:
             mock_run.side_effect = ValueError("Test error")
 
             with patch("sys.argv", ["llm-do", str(manifest_file), "hello", "--debug"]):
-                with patch.dict("os.environ", {"LLM_DO_MODEL": "test-model"}):
+                with patch.dict("os.environ", {"LLM_DO_MODEL": "test"}):
                     with pytest.raises(ValueError, match="Test error"):
                         main()

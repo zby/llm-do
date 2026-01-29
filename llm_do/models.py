@@ -128,7 +128,7 @@ def select_model(
     *, agent_model: str | Model | None = None, compatible_models: list[str] | None, agent_name: str = "agent",
     # Backwards compatibility aliases (deprecated)
     worker_model: str | Model | None = None, worker_name: str | None = None
-) -> str | Model:
+) -> Model:
     """Select and validate the effective model for an agent (agent_model > LLM_DO_MODEL env)."""
     # Handle deprecated parameters
     if worker_model is not None:
@@ -139,9 +139,9 @@ def select_model(
     if agent_model is not None and compatible_models is not None:
         raise ModelConfigError(f"Agent '{agent_name}' cannot have both 'model' and 'compatible_models' set.")
     if agent_model is not None:
-        return agent_model
+        return resolve_model(agent_model)
     env_model = os.environ.get(LLM_DO_MODEL_ENV)
     if env_model is not None:
         validate_model_compatibility(env_model, compatible_models, agent_name=agent_name)
-        return env_model
+        return resolve_model(env_model)
     raise NoModelError(f"No model configured for agent '{agent_name}'. Set agent.model or {LLM_DO_MODEL_ENV}.")

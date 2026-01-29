@@ -1,5 +1,6 @@
 """Tests for model compatibility checking."""
 import pytest
+from pydantic_ai.models.test import TestModel
 
 from llm_do.models import (
     LLM_DO_MODEL_ENV,
@@ -100,20 +101,22 @@ class TestSelectModel:
 
     def test_worker_model_takes_precedence_over_env(self, monkeypatch):
         """Worker model takes precedence over env fallback."""
-        monkeypatch.setenv(LLM_DO_MODEL_ENV, "env:model")
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "test")
+        worker_model = TestModel(custom_output_text="worker")
         model = select_model(
-            worker_model="anthropic:claude-haiku-4-5",
+            worker_model=worker_model,
             compatible_models=None,
         )
-        assert model == "anthropic:claude-haiku-4-5"
+        assert model is worker_model
 
     def test_worker_model_when_no_env(self, monkeypatch):
         monkeypatch.delenv(LLM_DO_MODEL_ENV, raising=False)
+        worker_model = TestModel(custom_output_text="worker")
         model = select_model(
-            worker_model="anthropic:claude-haiku-4-5",
+            worker_model=worker_model,
             compatible_models=None,
         )
-        assert model == "anthropic:claude-haiku-4-5"
+        assert model is worker_model
 
     def test_no_model_raises(self, monkeypatch):
         monkeypatch.delenv(LLM_DO_MODEL_ENV, raising=False)
@@ -125,11 +128,12 @@ class TestSelectModel:
 
     def test_env_model_validated_against_compatible(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-testing")
         model = select_model(
             worker_model=None,
             compatible_models=["anthropic:*"],
         )
-        assert model == "anthropic:claude-haiku-4-5"
+        assert get_model_string(model) == "anthropic:claude-haiku-4-5"
 
     def test_env_model_incompatible_raises(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")
@@ -143,7 +147,7 @@ class TestSelectModel:
         """Cannot have both model and compatible_models set"""
         with pytest.raises(ModelConfigError, match="cannot have both"):
             select_model(
-                worker_model="anthropic:claude-haiku-4-5",
+                worker_model=TestModel(),
                 compatible_models=["anthropic:*"],
             )
 
@@ -178,27 +182,31 @@ class TestEnvVarModel:
 
     def test_env_var_used_as_fallback(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-testing")
         model = select_model(
             worker_model=None,
             compatible_models=None,
         )
-        assert model == "anthropic:claude-haiku-4-5"
+        assert get_model_string(model) == "anthropic:claude-haiku-4-5"
 
     def test_worker_overrides_env_var(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-testing")
+        monkeypatch.setenv("OPENAI_API_KEY", "fake-key-for-testing")
         model = select_model(
             worker_model="openai:gpt-4o",
             compatible_models=None,
         )
-        assert model == "openai:gpt-4o"
+        assert get_model_string(model) == "openai:gpt-4o"
 
     def test_env_var_validated_against_compatible(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "anthropic:claude-haiku-4-5")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "fake-key-for-testing")
         model = select_model(
             worker_model=None,
             compatible_models=["anthropic:*"],
         )
-        assert model == "anthropic:claude-haiku-4-5"
+        assert get_model_string(model) == "anthropic:claude-haiku-4-5"
 
     def test_env_var_incompatible_raises(self, monkeypatch):
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")
@@ -217,38 +225,42 @@ class TestResolutionPrecedence:
         1. Worker model (highest)
         2. LLM_DO_MODEL env var (lowest)
         """
-        monkeypatch.setenv(LLM_DO_MODEL_ENV, "env:model")
+        monkeypatch.setenv(LLM_DO_MODEL_ENV, "test")
 
         # Worker model overrides all
+        worker_model = TestModel(custom_output_text="worker")
         assert select_model(
-            worker_model="w",
-            compatible_models=None
-        ) == "w"
+            worker_model=worker_model,
+            compatible_models=None,
+        ) is worker_model
 
         # Env var last
-        assert select_model(
+        model = select_model(
             worker_model=None,
             compatible_models=None
-        ) == "env:model"
+        )
+        assert isinstance(model, TestModel)
 
     def test_validation_scenarios(self, monkeypatch):
         """Test validation matrix from discussion."""
         compatible = ["anthropic:claude-haiku-4-5", "openai:gpt-4o-mini"]
 
         # None compatible_models means any worker model works
+        worker_model = TestModel(custom_output_text="worker")
         result = select_model(
-            worker_model="random:model",
+            worker_model=worker_model,
             compatible_models=None,
         )
-        assert result == "random:model"
+        assert result is worker_model
 
         # Env model in compatible list - succeeds
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o-mini")
+        monkeypatch.setenv("OPENAI_API_KEY", "fake-key-for-testing")
         result = select_model(
             worker_model=None,
             compatible_models=compatible,
         )
-        assert result == "openai:gpt-4o-mini"
+        assert get_model_string(result) == "openai:gpt-4o-mini"
 
         # Env model not in compatible list - fails
         monkeypatch.setenv(LLM_DO_MODEL_ENV, "openai:gpt-4o")

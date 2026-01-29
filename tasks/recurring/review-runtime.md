@@ -16,10 +16,9 @@ Periodic review of runtime infrastructure for bugs, inconsistencies, and overeng
 - `llm_do/runtime/schema_refs.py` - Schema reference handling
 - `llm_do/runtime/approval.py` - Approval wrapping
 - `llm_do/runtime/discovery.py` - Module discovery
-- `llm_do/runtime/worker_file.py` - Agent file handling
+- `llm_do/runtime/agent_file.py` - Agent file parsing
 - `llm_do/runtime/events.py` - Runtime event types
-- `llm_do/runtime/event_parser.py` - Event stream parsing
-- `llm_do/runtime/toolsets.py` - Runtime toolset handling
+- `llm_do/runtime/entry_resolver.py` - Entry resolution from manifest
 
 ## Checklist
 

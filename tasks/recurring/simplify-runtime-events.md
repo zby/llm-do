@@ -1,6 +1,6 @@
-# Simplify: runtime/event_parser.py
+# Simplify: runtime/events.py
 
-Periodic simplification review of `llm_do/runtime/event_parser.py`.
+Periodic simplification review of `llm_do/runtime/events.py`.
 
 ## Context Gathering
 
@@ -24,5 +24,5 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Output
 
-`docs/notes/reviews/simplify-runtime-event-parser.md`
+`docs/notes/reviews/simplify-runtime-events.md`
 

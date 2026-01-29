@@ -5,7 +5,7 @@ Periodic review of UI controller components for bugs, inconsistencies, and impro
 ## Scope
 
 - `llm_do/ui/controllers/approval_workflow.py` - Approval flow management
-- `llm_do/ui/controllers/worker_runner.py` - Worker execution coordination
+- `llm_do/ui/controllers/agent_runner.py` - Agent execution coordination
 - `llm_do/ui/controllers/input_history.py` - Input history tracking
 - `llm_do/ui/controllers/exit_confirmation.py` - Exit confirmation handling
 

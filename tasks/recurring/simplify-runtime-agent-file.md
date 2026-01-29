@@ -1,6 +1,6 @@
-# Simplify: runtime/worker_file.py
+# Simplify: runtime/agent_file.py
 
-Periodic simplification review of `llm_do/runtime/worker_file.py`.
+Periodic simplification review of `llm_do/runtime/agent_file.py`.
 
 ## Context Gathering
 
@@ -24,5 +24,5 @@ Prioritize: Remove code, reduce concept duplication, make bugs impossible.
 
 ## Output
 
-`docs/notes/reviews/simplify-runtime-worker-file.md`
+`docs/notes/reviews/simplify-runtime-agent-file.md`
 

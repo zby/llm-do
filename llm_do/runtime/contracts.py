@@ -67,7 +67,7 @@ class Entry:
     """Root entry invocation interface."""
 
     name: str
-    input_model: type["AgentArgs"] | None
+    input_model: type["AgentArgs"]
 
     async def run(self, input_data: Any, runtime: "CallContextProtocol") -> Any:
         """Execute the entry."""
@@ -80,10 +80,12 @@ class FunctionEntry(Entry):
 
     name: str
     fn: Callable[[Any, "CallContextProtocol"], Awaitable[Any]]
-    input_model: type["AgentArgs"] | None = PromptInput
+    input_model: type["AgentArgs"] = PromptInput
 
     def __post_init__(self) -> None:
-        if self.input_model is not None and not issubclass(self.input_model, AgentArgs):
+        if self.input_model is None:
+            raise TypeError("input_model cannot be None; use PromptInput")
+        if not issubclass(self.input_model, AgentArgs):
             raise TypeError(
                 f"input_model must subclass AgentArgs; got {self.input_model}"
             )
@@ -109,13 +111,15 @@ class AgentSpec:
     model: ModelType
     toolset_specs: list[ToolsetSpec] = field(default_factory=list)
     description: str | None = None
-    input_model: type["AgentArgs"] | None = PromptInput
+    input_model: type["AgentArgs"] = PromptInput
     output_model: type[BaseModel] | None = None
     model_settings: ModelSettings | None = None
     builtin_tools: list[Any] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if self.input_model is not None and not issubclass(self.input_model, AgentArgs):
+        if self.input_model is None:
+            raise TypeError("input_model cannot be None; use PromptInput")
+        if not issubclass(self.input_model, AgentArgs):
             raise TypeError(
                 f"input_model must subclass AgentArgs; got {self.input_model}"
             )
@@ -138,7 +142,7 @@ class AgentEntry(Entry):
 
     spec: AgentSpec
     name: str = field(init=False)
-    input_model: type[AgentArgs] | None = field(init=False)
+    input_model: type[AgentArgs] = field(init=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.spec, AgentSpec):

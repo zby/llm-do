@@ -92,14 +92,14 @@ async def test_agent_tool_description_prefers_description() -> None:
 async def test_normalize_input_rejects_string() -> None:
     """Raw strings are rejected; inputs must be dict or AgentArgs."""
     with pytest.raises(TypeError, match="dict or AgentArgs"):
-        normalize_input(None, "hello")
+        normalize_input(PromptInput, "hello")
 
 
 @pytest.mark.anyio
 async def test_normalize_input_rejects_list() -> None:
     """Raw message lists are rejected; inputs must be dict or AgentArgs."""
     with pytest.raises(TypeError, match="dict or AgentArgs"):
-        normalize_input(None, ["hello"])
+        normalize_input(PromptInput, ["hello"])
 
 
 @pytest.mark.anyio
@@ -111,10 +111,13 @@ async def test_normalize_input_accepts_dict_with_input_model() -> None:
 
 
 @pytest.mark.anyio
-async def test_normalize_input_defaults_to_prompt_input() -> None:
-    args, messages = normalize_input(None, {"input": "hello"})
-    assert isinstance(args, PromptInput)
-    assert messages == ["hello"]
+async def test_agent_spec_defaults_to_prompt_input() -> None:
+    spec = AgentSpec(
+        name="default_agent",
+        instructions="Defaults",
+        model=TestModel(),
+    )
+    assert spec.input_model is PromptInput
 
 
 @pytest.mark.anyio
@@ -122,3 +125,10 @@ async def test_normalize_input_rejects_wrong_agent_args() -> None:
     args = OtherInput(input="hello")
     with pytest.raises(TypeError, match="Expected TextInput"):
         normalize_input(TextInput, args)
+
+
+@pytest.mark.anyio
+async def test_normalize_input_accepts_prompt_input() -> None:
+    args, messages = normalize_input(PromptInput, {"input": "hello"})
+    assert isinstance(args, PromptInput)
+    assert messages == ["hello"]

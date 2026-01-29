@@ -116,7 +116,7 @@ class PromptInput(AgentArgs):
 
 
 def normalize_input(
-    input_model: type[AgentArgs] | None,
+    input_model: type[AgentArgs],
     input_data: Any,
 ) -> tuple[AgentArgs, list[PromptContent]]:
     """Normalize raw input into AgentArgs + prompt messages.
@@ -124,16 +124,14 @@ def normalize_input(
     Returns:
         Tuple of (args, messages).
     """
-    model = input_model or PromptInput
-
     if isinstance(input_data, AgentArgs):
-        if type(input_data) is not model:
+        if type(input_data) is not input_model:
             raise TypeError(
-                f"Expected {model.__name__}; got {type(input_data).__name__}"
+                f"Expected {input_model.__name__}; got {type(input_data).__name__}"
             )
         args = input_data
     elif isinstance(input_data, dict):
-        args = model.model_validate(input_data)
+        args = input_model.model_validate(input_data)
     elif isinstance(input_data, BaseModel):
         raise TypeError(
             f"Structured inputs must subclass AgentArgs; got {type(input_data)}"

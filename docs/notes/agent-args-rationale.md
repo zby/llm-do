@@ -35,5 +35,5 @@ Keep `AgentArgs` as the public, structured input contract. Treat prompt parts as
 - Prompt parts remain an internal boundary that agents can change without breaking call sites.
 
 ## Open Questions
-- Should we introduce a default `AgentArgs` (e.g., `input` + `attachments`) to eliminate `input_model=None` paths?
+- We introduced a default `PromptInput` (`input` + `attachments`) to eliminate `input_model=None` paths.
 - Do we need a canonical, JSON‑friendly `PromptPart` model for tool calls that require ordered multimodal content?

@@ -8,7 +8,7 @@ from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai_blocking_approval import ApprovalResult
 
-from ..runtime.args import Attachment, PromptInput, has_attachments, normalize_input
+from ..runtime.args import Attachment, has_attachments, normalize_input
 from ..runtime.contracts import AgentSpec, CallContextProtocol
 from ..toolsets.validators import DictValidator
 from .loader import ToolsetSpec
@@ -99,7 +99,7 @@ class AgentToolset(AbstractToolset[Any]):
         tool_name = self.tool_name or self.spec.name
         desc = self.spec.description or self.spec.instructions
         desc = desc[:200] + "..." if len(desc) > 200 else desc
-        schema = self.spec.input_model or PromptInput
+        schema = self.spec.input_model
         tool_def = ToolDefinition(
             name=tool_name,
             description=desc,

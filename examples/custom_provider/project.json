@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "runtime": {
+    "approval_mode": "approve_all",
+    "max_depth": 5
+  },
+  "entry": {
+    "agent": "main",
+    "args": {
+      "input": "Hello! My name is Alex."
+    }
+  },
+  "agent_files": [
+    "main.agent"
+  ],
+  "python_files": [
+    "providers.py"
+  ]
+}

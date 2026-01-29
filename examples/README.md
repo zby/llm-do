@@ -15,6 +15,12 @@ Examples organized by concept, from simple to advanced.
 | [`calculator/`](calculator/) | Python tools for math operations (factorial, fibonacci, add, multiply) |
 | [`data_processor/`](data_processor/) | Data transformation tools (CSV formatting, statistics) |
 
+## Custom Providers
+
+| Example | What it demonstrates |
+|---------|---------------------|
+| [`custom_provider/`](custom_provider/) | Register a custom provider for use with `LLM_DO_MODEL` |
+
 ## File Operations & Approvals
 
 | Example | What it demonstrates |

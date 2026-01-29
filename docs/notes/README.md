@@ -52,6 +52,7 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [AgentArgs Rationale](agent-args-rationale.md) — Why llm-do keeps AgentArgs instead of exposing raw prompt parts as the public input type.
 - [Agent Design Rationale](agent-design-rationale.md) — Core design decisions for opt-in tools, isolation, and typed I/O
 - [Agent Skills Standard Unification](agent-skills-unification.md) — Aligning .agent format with Agent Skills standard specification
+- [Approval Override Rationale](approval-override-rationale.md) — Why per-agent approval overrides exist and when we might remove them
 - [Approval System Design](capability-based-approvals.md) — Capability-based approval system design for tool execution control
 - [Compiler Analogy for Worker Scopes](compiler-analogy-agent-scopes.md) — Compiler/runtime mental model for worker scopes and tool resolution
 - [Container Security Boundary](container-security-boundary.md) — Using Docker containers as security boundary for tool execution
@@ -90,4 +91,3 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [Manifest-Selected Entry Motivation](research/manifest-selected-entry-motivation.md) — Motivation for moving entry selection from worker to manifest
 - [Type Catalog Review](research/type-catalog-review.md) — Review of type surface with simplification recommendations
 - [What Survives in Multi-Agent Systems](research/voooooogel-multi-agent-future.md) — Analysis of what multi-agent patterns will survive stronger models
-

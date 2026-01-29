@@ -49,6 +49,7 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 
 ## Index
 
+- [AgentArgs Rationale](agent-args-rationale.md) — Why llm-do keeps AgentArgs instead of exposing raw prompt parts as the public input type.
 - [Agent Design Rationale](agent-design-rationale.md) — Core design decisions for opt-in tools, isolation, and typed I/O
 - [Agent Skills Standard Unification](agent-skills-unification.md) — Aligning .agent format with Agent Skills standard specification
 - [Approval System Design](capability-based-approvals.md) — Capability-based approval system design for tool execution control

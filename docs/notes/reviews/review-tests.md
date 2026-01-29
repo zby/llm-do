@@ -2,106 +2,105 @@
 
 ## Context
 Review of tests to keep them aligned with current llm-do behavior and public contracts.
-Inventory and plan were captured first; changes applied are noted below.
+
+## Run Log
+- 2026-01-29: Inventory + action plan captured. No code changes yet.
 
 ## Inventory
 
 Core tests
-- [A] `tests/test_toolset_args_validation.py` — Validates tool arg schemas and defaults for shell/filesystem/attachments; protects tool input validation contracts.
-- [B] `tests/test_display_backends.py` — Verifies headless/JSON output formatting and event parsing; protects user-visible display behavior.
-- [A] `tests/test_oauth_storage.py` — Ensures OAuth credential storage and refresh behavior; protects token persistence contract.
-- [A] `tests/test_model_compat.py` — Covers model selection, compatibility patterns, and error cases; protects model resolution contract.
-- [A] `tests/test_oauth_anthropic.py` — Tests Anthropic OAuth login/refresh and header overrides; protects provider auth integration contract.
-- [A] `tests/test_config_overrides.py` — Validates `--set` parsing/apply semantics; protects CLI override contract.
-- [A] `tests/test_shell.py` — Tests shell parsing, metachar blocking, rules, and execution outcomes; protects shell toolset safety/behavior.
-- [D] `tests/test_scenario_models.py` — Validates test-only scenario/streaming models; protects test harness utilities rather than library contract.
+- [A] `tests/test_model_registry.py` — Registers custom model factories and rejects duplicates; protects model factory registration contract.
+- [D] `tests/test_scenario_models.py` — Validates scenario/calculator/conversation test models and streaming paths; protects test harness utilities.
+- [A] `tests/test_filesystem.py` — FileSystemToolset approval short-circuiting and unknown tool behavior; protects tool approval contract.
+- [A] `tests/test_toolset_args_validation.py` — Shell/FileSystem arg validators enforce required fields and defaults; protects tool schema contract.
+- [A] `tests/test_oauth_storage.py` — OAuth credential save/load/refresh flow; protects OAuth storage contract.
+- [A] `tests/test_shell.py` — Shell parsing, metachar blocking, rule matching, and execution outcomes; protects shell tool safety contract.
+- [A] `tests/test_oauth_anthropic.py` — Anthropic OAuth login/refresh and header overrides; protects provider OAuth integration.
+- [A] `tests/test_model_compat.py` — Model pattern matching, compatibility validation, env fallback; protects model selection contract.
+- [B] `tests/test_display_backends.py` — Headless display formatting + runtime->UI event adaptation; protects user-visible output mapping.
 
 Runtime tests
-- [A] `tests/runtime/test_cli_errors.py` — Exercises manifest/flag/input error handling and exit codes; protects CLI error contract.
-- [B] `tests/runtime/test_events.py` — Ensures UI events are emitted correctly during calls/streaming; protects observable runtime event behavior.
-- [A] `tests/runtime/test_worker_toolset.py` — Validates Worker-as-tool adapter, approval behavior, and depth limits; protects delegation contract.
-- [A] `tests/runtime/test_worker_schema_in.py` — Verifies schema_in affects tool schemas and worker arg validation; protects schema input contract.
-- [A] `tests/runtime/test_model_resolution.py` — Covers model inheritance and compatible_models enforcement; protects model selection contract.
-- [A] `tests/runtime/test_approval_wrappers.py` — Tests approval callback wrappers and session caching; protects approval wiring contract.
-- [A] `tests/runtime/test_toolset_classpath_loading.py` — Ensures unknown toolsets are rejected at registry build; protects config validation.
-- [B] `tests/runtime/test_invocables.py` — Ensures empty/whitespace inputs still produce a non-empty prompt via runtime path; protects prompt fallback behavior.
-- [A] `tests/runtime/test_worker_file.py` — Parses worker frontmatter, toolsets, server-side tools, and schema refs; protects worker file schema contract.
-- [A] `tests/runtime/test_manifest.py` — Validates manifest schema defaults, loading, and path resolution; protects project manifest contract.
-- [A] `tests/runtime/test_discovery.py` — Ensures module loading, toolset discovery, and duplicate detection; protects discovery behavior.
-- [C] `tests/runtime/test_tools_unit.py` — Executes example tool functions through runtime context; protects example tool integration.
-- [A] `tests/runtime/test_context.py` — Validates runtime tool calls, proxy access, and depth tracking; protects CallContext contract.
-- [B] `tests/runtime/test_cli_approval_session.py` — Confirms approval cache persists across runs; protects approval workflow behavior.
-- [C] `tests/runtime/test_build_entry_resolution.py` — Builds registry across nested workers and schema refs; protects entry build integration.
-- [C] `tests/runtime/test_examples.py` — Smoke-tests example build/wiring; protects example integrity.
-- [A] `tests/runtime/test_entry_schema_in.py` — Ensures entry schema_in normalizes inputs and prompt specs; protects entry invocation contract.
-- [B] `tests/runtime/test_message_history.py` — Verifies message history behavior across turns/nested calls; protects conversation semantics.
-- [A] `tests/runtime/test_approval_wrapping.py` — Tests approval wrapping, bulk approvals, and entry behavior; protects approval gating contract.
-- [A] `tests/runtime/test_toolset_approval_config.py` — Validates approval config attribute access; protects toolset approval config contract.
-- [A] `tests/runtime/test_worker_recursion.py` — Ensures self-toolset resolution and max-depth enforcement; protects recursion safety contract.
+- [B] `tests/runtime/test_context.py` — Call depth increments only on call_agent; protects runtime context depth semantics.
+- [B] `tests/runtime/test_approval_wrapping.py` — Approval wrapping rejects pre-wrapped toolsets and enforces approvals; protects approval gating behavior.
+- [B] `tests/runtime/test_agent_toolset.py` — AgentToolset creation/description truncation/call delegation; protects agent-as-tool behavior.
+- [B] `tests/runtime/test_toolset_classpath_loading.py` — Registry rejects unknown toolset names in agent files; protects config validation.
+- [D] `tests/runtime/test_toolset_approval_config.py` — Approval config metadata must be a dict; protects internal toolset config invariant.
+- [A] `tests/runtime/test_manifest.py` — Manifest schema defaults, validation, load/resolve paths; protects project manifest contract.
+- [B] `tests/runtime/test_discovery.py` — Module loading/toolset discovery/duplicate detection; protects discovery behavior.
+- [A] `tests/runtime/test_agent_file.py` — Agent frontmatter parsing for toolsets/server_side_tools/schema refs; protects agent file schema contract.
+- [C] `tests/runtime/test_examples.py` — Example projects build/wiring smoke tests; protects example integrity.
+- [B] `tests/runtime/test_message_history.py` — Message history isolation across turns/nested calls; protects conversation semantics.
+- [B] `tests/runtime/test_toolset_instances.py` — Per-call toolset instantiation and cleanup; protects runtime lifecycle behavior.
+- [A] `tests/runtime/test_cli_errors.py` — CLI error handling, exit codes, input validation; protects CLI contract.
+- [B] `tests/runtime/test_cli_approval_session.py` — Approval cache persists across runs; protects approval workflow behavior.
+- [B] `tests/runtime/test_events.py` — User/tool events emitted with callback wiring; protects event stream behavior.
+- [B] `tests/runtime/test_approval_wrappers.py` — Approval callback wrappers and denial payloads; protects approval policy behavior.
+- [B] `tests/runtime/test_invocables.py` — FunctionEntry helpers and non-empty prompt fallback; protects prompt behavior.
+- [A] `tests/runtime/test_entry_schema_in.py` — Entry schema_in normalizes inputs/prompt; protects entry invocation contract.
+- [B] `tests/runtime/test_call_scope.py` — CallScope cleanup on exit; protects runtime lifecycle behavior.
+- [C] `tests/runtime/test_tools_unit.py` — Example tool functions exercised via toolset call path; protects example integration.
+- [C] `tests/runtime/test_build_entry_resolution.py` — Registry build resolves nested agent toolsets/schema refs; protects entry build integration.
+- [B] `tests/runtime/test_cli_logging.py` — Message log callback emits JSONL per message; protects CLI logging behavior.
+- [A] `tests/runtime/test_model_resolution.py` — CallContext model propagation and NullModel behavior; protects model resolution contract.
+- [A] `tests/runtime/test_agent_schema_in.py` — Agent schema_in shapes tool schemas/normalize_input; protects agent input contract.
+- [B] `tests/runtime/test_agent_recursion.py` — Self-toolset recursion and max_depth enforcement; protects recursion safety behavior.
+- [A] `tests/runtime/test_attachment_path.py` — Attachment path resolution/media types + project_root config; protects attachment contract.
+- [B] `tests/runtime/test_dynamic_agents.py` — Dynamic agent create/call and toolset validation; protects dynamic agent behavior.
 
 UI tests
-- [B] `tests/ui/test_exit_confirmation_controller.py` — Verifies exit confirmation flow; protects UI exit behavior.
-- [B] `tests/ui/test_input_history_controller.py` — Validates history navigation/draft restoration; protects input UX behavior.
-- [B] `tests/ui/test_approval_workflow_controller.py` — Ensures approval queue batching/indices; protects approval UI workflow.
-- [B] `tests/ui/test_worker_runner.py` — Ensures turn concurrency rules and message history updates; protects UI orchestration behavior.
+- [B] `tests/ui/test_exit_confirmation_controller.py` — Two-step exit confirmation and reset; protects UI exit behavior.
+- [B] `tests/ui/test_agent_runner.py` — Runner concurrency guard and message history updates; protects UI controller behavior.
+- [B] `tests/ui/test_approval_workflow_controller.py` — Approval queue batching/indices and reset; protects approval UI workflow.
+- [B] `tests/ui/test_input_history_controller.py` — Input history navigation and draft restore; protects input UX behavior.
+- [B] `tests/ui/test_events_truncate.py` — truncate_text/lines suffix and line limits; protects UI formatting behavior.
 
 Live integration tests
-- [C] `tests/live/test_greeter.py` — End-to-end LLM sanity check for greeter.
-- [C] `tests/live/test_calculator.py` — End-to-end tool calling + streaming regression for calculator.
-- [C] `tests/live/test_code_analyzer.py` — End-to-end shell tool usage with approvals.
-- [C] `tests/live/test_web_searcher.py` — End-to-end server-side web search integration.
-- [C] `tests/live/test_pitchdeck_eval.py` — End-to-end attachments/vision + delegation.
-- [C] `tests/live/test_web_research_agent.py` — Multi-worker orchestration + web tools.
-- [C] `tests/live/test_whiteboard_planner.py` — Vision + nested worker delegation.
-- [C] `tests/live/test_recursive_summarizer.py` — Recursive worker behavior with depth control.
+- [C] `tests/live/test_greeter.py` — Greeter example runs with real LLM; basic integration coverage.
+- [C] `tests/live/test_calculator.py` — Tool-calling + streaming regression with real LLM; integration coverage.
+- [C] `tests/live/test_code_analyzer.py` — Shell tool usage with approvals; integration coverage.
+- [C] `tests/live/test_web_searcher.py` — Server-side web search integration coverage.
+- [C] `tests/live/test_pitchdeck_eval.py` — PDF/vision attachments + delegation; integration coverage.
+- [C] `tests/live/test_web_research_agent.py` — Multi-worker orchestration with web tools; integration coverage.
+- [C] `tests/live/test_whiteboard_planner.py` — Vision + nested delegation; integration coverage.
+- [C] `tests/live/test_recursive_summarizer.py` — Recursive summarizer workflow; integration coverage.
+- [C] `tests/live/test_bootstrapping.py` — Dynamic agent creation in example; integration coverage.
 
-Support modules (test infrastructure)
-- [D] `tests/conftest.py` — Shared fixtures and asyncio warning suppression for tests.
-- [D] `tests/conftest_models.py` — Scenario/streaming model utilities used by tests.
-- [D] `tests/tool_calling_model.py` — Deterministic tool-call model used in tests.
-- [D] `tests/runtime/helpers.py` — Runtime test helpers.
-- [D] `tests/live/conftest.py` — Live-test fixtures, env gating, and run helper.
+Support modules and docs
+- [D] `tests/conftest.py` — Global fixtures and asyncio warning suppression; test infra.
+- [D] `tests/conftest_models.py` — Scenario models and streaming helpers; test infra.
+- [D] `tests/tool_calling_model.py` — Deterministic tool-call mock model; test infra.
+- [D] `tests/runtime/helpers.py` — Runtime test helpers for contexts/scopes; test infra.
+- [D] `tests/live/conftest.py` — Live test fixtures, env gating, run_example helper; test infra.
+- [D] `tests/__init__.py` — Test package marker.
+- [D] `tests/runtime/__init__.py` — Runtime test package marker.
+- [D] `tests/live/__init__.py` — Live test package marker.
+- [D] `tests/README.md` — Testing patterns and fixture guidance.
+- [D] `tests/live/README.md` — Live test instructions and env requirements.
 
-## Obsolescence Detection
-- Resolved: `tests/runtime/test_invocables.py` now checks empty/whitespace prompts through the public runtime path.
-- Resolved: `tests/runtime/test_worker_toolset.py` truncation assertion no longer hardcodes exact length.
-- Resolved: headless display formatting treated as unstable; tests now assert on essential content only.
-- Resolved: shell metacharacter tests no longer assert on exact error strings.
+## Obsolescence Scan
+- No references to removed APIs or deprecated flags found.
+- Potential brittleness: CLI tests assert on error message substrings; confirm whether those strings are part of the stable CLI contract.
+- Potential brittleness: `tests/test_shell.py::test_command_not_found` asserts "not found" in stderr, which can vary by platform/shell.
+- Model name drift risk: several tests hardcode provider model strings (e.g., anthropic:claude-haiku-4-5); update if providers rename/deprecate.
+- Live web-search tests depend on provider server-side web search availability; update if provider behavior changes.
 
 ## Action Plan
 
-KEEP (low risk)
-- Keep public contract tests across config/model selection/OAuth, manifest/worker file parsing, approvals, runtime context, and UI flows. These align with current intended behavior and surface area.
+KEEP (must-have)
+- Keep all A/B tests; they map to public contracts and user-visible behaviors.
+- Keep C integration tests; they guard example wiring and end-to-end flows.
 
-REWRITE (low risk)
-- `tests/runtime/test_invocables.py`: Reframe to use `Runtime.run_invocable` (or `WorkerInput`) and assert non-empty prompt via public runtime state, avoiding private `_build_user_prompt`.
-- `tests/runtime/test_worker_toolset.py` (truncation test): Relax to assert truncation and ellipsis without hardcoding the exact length.
+REWRITE (nice-to-have)
+- `tests/test_shell.py`: relax "not found" assertion to check non-zero exit and non-empty stderr for portability.
+- `tests/runtime/test_cli_errors.py`: if CLI error text is not intended as a stable contract, relax to error categories/exit codes.
 
 CONSOLIDATE
-- None planned.
+- None.
 
 DELETE
-- None planned.
-
-## Needs Human Review
 - None.
 
-## Changes Applied
-- Rewrote `tests/runtime/test_invocables.py` to exercise empty/whitespace prompts via `Runtime.run_invocable` instead of the private `_build_user_prompt`.
-- Relaxed `tests/runtime/test_worker_toolset.py` truncation assertions to avoid hardcoding the exact length.
-- Relaxed `tests/test_display_backends.py` headless output assertions to avoid enforcing exact formatting.
-- Relaxed `tests/test_shell.py` metacharacter assertions to avoid exact error strings.
+NEEDS HUMAN REVIEW
+- Decide whether CLI error message text is a stable contract or should be treated as incidental formatting.
+- Confirm provider model strings used in tests remain the intended defaults.
 
-## Summary (Counts)
-- Kept: 0 (no keep-only changes; remaining tests unchanged)
-- Rewritten: 4
-- Deleted: 0
-
-## Contracts Covered (Now)
-- Empty or whitespace input still yields a non-empty prompt for model calls.
-- Worker-as-tool descriptions truncate long instructions with a stable prefix and ellipsis.
-- Headless output includes essential content (worker, tool names, and message content) without enforcing exact formatting.
-- CLI overrides, model selection, runtime approvals, worker file parsing, and UI controllers remain covered by existing tests.
-
-## Gaps / Follow-ups
-- None.

@@ -422,3 +422,121 @@ documenting as a behavioral shift for callers expecting exceptions.
 - `llm_do/runtime/worker_file.py`, `discovery.py`
 - `llm_do/toolsets/agent.py`, `toolsets/loader.py`, `toolsets/builtins.py`, `toolsets/approval.py`
 - `llm_do/ui/events.py`, `adapter.py`, `display.py`, `runner.py`, `controllers/worker_runner.py`
+
+## Review 2026-01-29
+
+### Single Responsibility Principle
+
+**AgentSpec** (`runtime/contracts.py`) is now a clean configuration dataclass:
+- Stores agent configuration (name, instructions, model, toolsets)
+- Validation in `__post_init__`
+- No execution logic
+
+**Call State Hierarchy** (`runtime/call.py`) shows excellent separation:
+- `CallConfig` — immutable per-call configuration
+- `CallFrame` — mutable call-scoped state (prompt, messages)
+- `CallScope` — lifecycle management (toolset instantiation, cleanup)
+
+**CallContext** (`runtime/context.py`) remains the central orchestrator:
+- Tool dispatch + arg validation
+- RunContext construction + usage tracking
+- Event emission
+- Child runtime spawning
+
+This breadth is intentional as the runtime "engine," but blends policy
+(approval, logging, events) with mechanics (tool invocation, frames).
+
+**Runtime** (`runtime/runtime.py`) aggregates:
+- Configuration management (`RuntimeConfig`)
+- Thread-safe usage tracking (`UsageCollector`)
+- Thread-safe message logging (`MessageAccumulator`)
+- Entry dispatch orchestration
+
+**AgentRunner** (`runtime/agent_runner.py`) handles:
+- Agent construction via PydanticAI
+- Event stream parsing + emission
+- Message logging
+
+### Open/Closed Principle
+
+**Strengths:**
+- `Entry` hierarchy (Entry → FunctionEntry/AgentEntry) allows new entry types
+  without modifying runtime core
+- `ToolsetSpec` factories enable new toolsets via `AbstractToolset` inheritance
+- `register_model_factory()` in `models.py` allows custom provider registration
+- Approval callbacks are pluggable strategies
+- `RuntimeEvent` + `ui/adapter.py` provides clear extension point
+
+**Weaknesses:**
+- Adding new render format requires modifying all `UIEvent` subclasses
+- `ui/adapter.py` requires updates for every new `RuntimeEvent` type
+- Built-in tool factories are hard-coded in `toolsets/builtins.py`
+
+### Liskov Substitution Principle
+
+**No major violations observed.**
+- `FunctionEntry` and `AgentEntry` satisfy `Entry.run()` contract equally
+- `ReadOnlyFileSystemToolset` properly specializes `FileSystemToolset`
+- All `AbstractToolset` implementations are interchangeable
+- `AgentToolset` correctly adapts `AgentSpec` for toolset contexts
+- `ApprovalDeniedResultToolset` preserves `AbstractToolset` interface
+
+### Interface Segregation Principle
+
+**Strengths:**
+- `CallContextProtocol` is minimal (config, frame, log_messages, spawn_child, call_agent)
+- Approval-related types segregated in `runtime/approval.py`
+- Separate types for runtime vs. manifest config
+
+**Weaknesses:**
+- `AbstractToolset` has a broad interface (get_tools, call_tool, needs_approval,
+  get_approval_description, get_capabilities)
+- `UIEvent` mandates all render methods even if a backend never uses them
+
+### Dependency Inversion Principle
+
+**Resolved at runtime/UI boundary:**
+- Runtime depends only on `RuntimeEvent` types (`runtime/events.py`)
+- UI depends on runtime via `ui/adapter.py`
+- Runtime no longer imports `ui.*`
+
+**Good practices observed:**
+- `CallContextProtocol` allows depending on abstraction, not concrete `CallContext`
+- Approval callbacks are function-based (not tied to implementations)
+- Toolsets depend on `AbstractToolset` abstraction
+- Forward declarations via `TYPE_CHECKING` avoid circular dependencies
+
+**Remaining coupling (acceptable):**
+- `runtime/agent_runner.py` depends on PydanticAI event types directly
+
+### Summary vs Previous Review (2026-01-24)
+
+| Issue | Status |
+|-------|--------|
+| UI events render-centric (OCP/ISP) | **Persists** - render methods still on events |
+| CallContext multi-responsibility (SRP) | **Persists** - policy + mechanics combined |
+
+### Recommendations (2026-01-29)
+
+1. **Split CallContext responsibilities:** Extract tool invocation mechanics
+   (arg validation, dispatch) from policy decisions (approval, event emission).
+   Trade-off: more indirection.
+
+2. **Move rendering out of UIEvent:** Use visitor/strategy renderers so new
+   output formats don't touch every event class. Trade-off: more wiring.
+
+3. **Make builtin toolsets extensible:** Registry hook or plugin pattern for
+   `toolsets/builtins.py`. Trade-off: less explicit control.
+
+4. **Consider narrowing AbstractToolset:** Split into focused interfaces
+   (ToolProvider, ApprovalChecker, CapabilityDescriber). Trade-off: more types
+   to manage.
+
+### Files Reviewed (2026-01-29)
+- `llm_do/runtime/contracts.py`, `runtime.py`, `context.py`, `call.py`, `agent_runner.py`
+- `llm_do/runtime/approval.py`, `registry.py`, `discovery.py`, `entry_resolver.py`, `manifest.py`
+- `llm_do/runtime/agent_file.py`, `args.py`, `events.py`
+- `llm_do/toolsets/loader.py`, `builtins.py`, `filesystem.py`, `shell/toolset.py`
+- `llm_do/toolsets/agent.py`, `dynamic_agents.py`, `approval.py`
+- `llm_do/models.py`
+- `llm_do/ui/events.py`, `adapter.py`

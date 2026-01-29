@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from pydantic_ai.usage import RunUsage
 
+from ..models import ModelInput, resolve_model
 from ..toolsets.loader import ToolsetSpec
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .contracts import (
@@ -16,7 +17,6 @@ from .contracts import (
     Entry,
     EventCallback,
     MessageLogCallback,
-    ModelType,
 )
 
 if TYPE_CHECKING:
@@ -232,7 +232,7 @@ class Runtime:
         self,
         active_toolsets: Sequence[Any],
         *,
-        model: ModelType,
+        model: ModelInput,
         invocation_name: str,
         depth: int,
     ) -> "CallContext":
@@ -240,9 +240,10 @@ class Runtime:
         from .call import CallConfig, CallFrame
         from .context import CallContext
 
+        resolved_model = resolve_model(model)
         call_config = CallConfig.build(
             active_toolsets,
-            model=model,
+            model=resolved_model,
             depth=depth,
             invocation_name=invocation_name,
         )

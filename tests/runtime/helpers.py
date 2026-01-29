@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
+from llm_do.models import ModelInput, resolve_model
 from llm_do.runtime import (
     AgentRegistry,
     CallContext,
@@ -14,13 +15,13 @@ from llm_do.runtime import (
 )
 from llm_do.runtime.approval import RunApprovalPolicy, wrap_toolsets_for_approval
 from llm_do.runtime.call import CallConfig, CallFrame
-from llm_do.runtime.contracts import EventCallback, ModelType
+from llm_do.runtime.contracts import EventCallback
 
 
 def build_runtime_context(
     *,
     toolsets: list[AbstractToolset[Any]] | None = None,
-    model: ModelType = "test",
+    model: ModelInput = "test",
     depth: int = 0,
     invocation_name: str = "test",
     prompt: str = "",
@@ -36,9 +37,10 @@ def build_runtime_context(
         on_event=on_event,
         verbosity=verbosity,
     )
+    resolved_model = resolve_model(model)
     call_config = CallConfig.build(
         toolsets or [],
-        model=model,
+        model=resolved_model,
         depth=depth,
         invocation_name=invocation_name,
     )
@@ -53,7 +55,7 @@ def build_runtime_context(
 def build_call_scope(
     *,
     toolsets: list[AbstractToolset[Any]],
-    model: ModelType = "test",
+    model: ModelInput = "test",
     depth: int = 0,
     invocation_name: str = "test",
     run_approval_policy: RunApprovalPolicy | None = None,
@@ -74,7 +76,7 @@ def build_call_scope(
     )
     call_runtime = runtime.spawn_call_runtime(
         wrapped_toolsets,
-        model=model,
+        model=resolve_model(model),
         invocation_name=invocation_name,
         depth=depth,
     )

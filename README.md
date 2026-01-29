@@ -150,6 +150,8 @@ You analyze complex documents...
 3. Error if neither is set
 
 **Model format**: Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/)—`provider:model_name` (e.g., `anthropic:claude-haiku-4-5`, `openai:gpt-4o-mini`).
+When constructing `AgentSpec` in Python, pass a resolved `Model` instance (use
+`resolve_model("provider:model")`).
 
 ## Custom Tools
 

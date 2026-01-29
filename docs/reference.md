@@ -92,6 +92,21 @@ async def my_tool(ctx: RunContext[CallContext], data: str) -> str:
     return await ctx.deps.call_agent("analyzer", data)
 ```
 
+If you pass an `AgentSpec` directly, its `model` must already be a resolved `Model`
+instance. Use `resolve_model(...)` (or pass a PydanticAI model object):
+
+```python
+from llm_do import resolve_model
+from llm_do.runtime import AgentSpec
+
+spec = AgentSpec(
+    name="analyzer",
+    instructions="Analyze input.",
+    model=resolve_model("anthropic:claude-haiku-4-5"),
+)
+result = await ctx.deps.call_agent(spec, "input text")
+```
+
 ### Starting a Run (Runtime.run_entry)
 
 Use `Runtime` to create a shared execution environment and run an entry:
@@ -144,9 +159,10 @@ async def main():
 container around the `agents` mapping, so pass the same root to `Runtime` and register `registry.agents` to keep
 filesystem toolsets and attachment resolution aligned.
 
-Agents resolve their model at construction (`model` in the agent definition or
-`LLM_DO_MODEL` as a fallback). Entry functions run under NullModel (no toolsets),
-so direct LLM calls from entry code are not allowed.
+Agent files resolve model identifiers when building the registry (or when dynamic
+agents are created). `AgentSpec.model` always stores a resolved `Model` instance.
+Entry functions run under NullModel (no toolsets), so direct LLM calls from entry
+code are not allowed.
 
 **Parameters:**
 
@@ -250,7 +266,7 @@ Via `ctx.deps` (a `CallContext`), tools can access:
 |----------|-------------|
 | `call_agent(spec_or_name, input_data)` | Invoke an agent by name or `AgentSpec` |
 | `frame.config.depth` | Current nesting depth |
-| `frame.config.model` | Model for this call |
+| `frame.config.model` | Resolved `Model` instance for this call |
 | `frame.prompt` | Current prompt string |
 | `frame.messages` | Conversation history |
 | `config.max_depth` | Maximum allowed depth |
@@ -692,7 +708,7 @@ You have access to filesystem and shell tools.
 |-------|----------|-------------|
 | `name` | Yes | Agent identifier (used for `ctx.deps.call_agent()`) |
 | `description` | No | Tool description when the agent is exposed as a tool (falls back to `instructions`) |
-| `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`); falls back to `LLM_DO_MODEL` if omitted |
+| `model` | No | Model identifier (e.g., `anthropic:claude-haiku-4-5`), resolved on load; falls back to `LLM_DO_MODEL` if omitted |
 | `compatible_models` | No | List of acceptable model patterns for the `LLM_DO_MODEL` fallback (mutually exclusive with `model`) |
 | `schema_in_ref` | No | Input schema reference (see [Agent Input Schemas](#agent-input-schemas)) |
 | `server_side_tools` | No | Server-side tool configs (e.g., web search) |
@@ -704,6 +720,9 @@ Models use the format `provider:model-name`:
 - `anthropic:claude-haiku-4-5`
 - `openai:gpt-4o-mini`
 - `ollama:llama3`
+
+When constructing `AgentSpec` in Python, use `resolve_model("provider:model-name")`
+to turn these identifiers into `Model` instances.
 
 **Custom Providers:**
 
@@ -772,9 +791,10 @@ compatible_models:
   - "anthropic:claude-haiku-*"  # any Claude Haiku variant
 ```
 
-Compatibility checks apply to string model IDs and `Model` objects (Python API),
-and they run once at agent construction time against the env fallback.
-If you set `compatible_models`, ensure `LLM_DO_MODEL` is set to a compatible value.
+Compatibility checks run when resolving the `LLM_DO_MODEL` fallback during
+`.agent`/dynamic agent creation. If you build `AgentSpec` in Python, call
+`select_model(...)` yourself if you want compatibility validation. If you set
+`compatible_models`, ensure `LLM_DO_MODEL` is set to a compatible value.
 
 `model` and `compatible_models` are mutually exclusive.
 

@@ -26,6 +26,7 @@ from pydantic_ai_blocking_approval import (
 from .models import (
     InvalidCompatibleModelsError,
     ModelCompatibilityError,
+    ModelInput,
     NoModelError,
     register_model_factory,
     resolve_model,
@@ -55,6 +56,7 @@ __all__ = [
     "InvalidCompatibleModelsError",
     "ModelCompatibilityError",
     "NoModelError",
+    "ModelInput",
     "register_model_factory",
     "resolve_model",
     # Runtime types

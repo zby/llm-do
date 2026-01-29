@@ -4,7 +4,7 @@ from __future__ import annotations
 import fnmatch
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeAlias
 
 from pydantic_ai.models import (
     Model,
@@ -15,6 +15,8 @@ from pydantic_ai.models import (
 )
 
 LLM_DO_MODEL_ENV = "LLM_DO_MODEL"
+
+ModelInput: TypeAlias = str | Model
 
 
 class ModelError(ValueError):
@@ -110,7 +112,7 @@ def register_model_factory(provider: str, factory: ModelFactory, *, replace: boo
     _MODEL_FACTORIES[provider] = factory
 
 
-def resolve_model(model: str | Model) -> Model:
+def resolve_model(model: ModelInput) -> Model:
     """Resolve a model identifier into a Model instance, honoring custom factories."""
     if isinstance(model, Model):
         return model

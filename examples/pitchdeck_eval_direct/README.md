@@ -21,12 +21,16 @@ Python main() → runtime.call_agent("pitch_evaluator") → write results
 This is the recommended approach when orchestration is mechanical (list files, loop, write results). Python code is deterministic, testable, and doesn't waste tokens on trivial decisions.
 
 ```python
+import os
+
+from llm_do.models import resolve_model
 from llm_do.runtime import AgentSpec, FunctionEntry, CallContext
 from llm_do.ui import run_ui
 
+MODEL = resolve_model("anthropic:claude-haiku-4-5")
 EVALUATOR = AgentSpec(
     name="pitch_evaluator",
-    model="anthropic:claude-haiku-4-5",
+    model=MODEL,
     instructions=Path("instructions/pitch_evaluator.md").read_text(),
 )
 
@@ -62,10 +66,12 @@ Python → Runtime.run_entry() → LLM main agent → pitch_evaluator tool
 Use this when orchestration requires judgment or flexibility that benefits from LLM reasoning. The main agent can adapt to unexpected situations, handle errors creatively, or make decisions about which files to process.
 
 ```python
+from llm_do.models import resolve_model
 from llm_do.runtime import AgentSpec, FunctionEntry, RunApprovalPolicy, Runtime
 from llm_do.toolsets.agent import agent_as_toolset
 from llm_do.toolsets.builtins import build_builtin_toolsets
 
+MODEL = resolve_model(os.environ["LLM_DO_MODEL"])
 # Build agents and wire toolsets
 pitch_evaluator = AgentSpec(name="pitch_evaluator", model=MODEL, instructions=...)
 main_agent = AgentSpec(

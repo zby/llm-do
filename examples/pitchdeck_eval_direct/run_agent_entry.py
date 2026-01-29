@@ -10,6 +10,7 @@ import asyncio
 import os
 from pathlib import Path
 
+from llm_do.models import resolve_model
 from llm_do.runtime import AgentSpec, FunctionEntry, RunApprovalPolicy, Runtime
 from llm_do.runtime.events import RuntimeEvent
 from llm_do.toolsets.agent import agent_as_toolset
@@ -24,6 +25,7 @@ from llm_do.ui.display import HeadlessDisplayBackend
 MODEL = os.environ.get("LLM_DO_MODEL")
 if not MODEL:
     raise RuntimeError("LLM_DO_MODEL environment variable is required")
+RESOLVED_MODEL = resolve_model(MODEL)
 APPROVAL_MODE = "approve_all"  # "approve_all" or "reject_all"
 VERBOSITY = 1  # 0=quiet, 1=normal, 2=stream
 
@@ -45,7 +47,7 @@ def build_entry() -> FunctionEntry:
     """Build the entry and its evaluator agent."""
     pitch_evaluator = AgentSpec(
         name="pitch_evaluator",
-        model=MODEL,
+        model=RESOLVED_MODEL,
         instructions=(INSTRUCTIONS_DIR / "pitch_evaluator.md").read_text(),
     )
 
@@ -57,7 +59,7 @@ def build_entry() -> FunctionEntry:
 
     main_agent = AgentSpec(
         name="main",
-        model=MODEL,
+        model=RESOLVED_MODEL,
         instructions=(INSTRUCTIONS_DIR / "main.md").read_text(),
         toolset_specs=toolset_specs,
     )

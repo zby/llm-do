@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import httpx
 from openai import AsyncOpenAI
-
 from pydantic_ai.models import cached_async_http_client
 from pydantic_ai.providers import Provider
 

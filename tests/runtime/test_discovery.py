@@ -190,10 +190,11 @@ class TestLoadAgentsFromFiles:
         """Test duplicate AgentSpec names in a single file."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
+from pydantic_ai.models.test import TestModel
 from llm_do.runtime import AgentSpec
 
-a1 = AgentSpec(name="dup", instructions="first", model="test")
-a2 = AgentSpec(name="dup", instructions="second", model="test")
+a1 = AgentSpec(name="dup", instructions="first", model=TestModel())
+a2 = AgentSpec(name="dup", instructions="second", model=TestModel())
 """)
             f.flush()
 
@@ -210,9 +211,10 @@ a2 = AgentSpec(name="dup", instructions="second", model="test")
             for label in ("one", "two"):
                 with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                     f.write(f"""\
+from pydantic_ai.models.test import TestModel
 from llm_do.runtime import AgentSpec
 
-agent_{label} = AgentSpec(name="dup", instructions="{label}", model="test")
+agent_{label} = AgentSpec(name="dup", instructions="{label}", model=TestModel())
 """)
                     files.append(f.name)
 

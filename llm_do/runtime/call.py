@@ -9,7 +9,6 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from ..models import resolve_model
 from ..toolsets.loader import instantiate_toolsets
 from .approval import wrap_toolsets_for_approval
 from .contracts import AgentSpec, CallContextProtocol, ModelType
@@ -38,7 +37,7 @@ class CallConfig:
         """Normalize toolsets and construct a CallConfig."""
         return cls(
             active_toolsets=tuple(active_toolsets),
-            model=resolve_model(model),
+            model=model,
             depth=depth,
             invocation_name=invocation_name,
         )

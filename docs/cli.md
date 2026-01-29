@@ -108,11 +108,15 @@ for logging/UI only). Tools should use their typed args, not prompt text.
 ## Model Selection
 
 Model resolution happens when agents are constructed:
-1. `model` in the worker definition (or Python `AgentSpec` constructor)
+1. `model` in the worker definition (string in `.agent`) or a `Model` instance in a Python `AgentSpec`
 2. `LLM_DO_MODEL` environment variable (fallback)
 
-`compatible_models` is only checked against the env fallback at construction time.
-If you use `compatible_models`, set `LLM_DO_MODEL` to a compatible value.
+When building `AgentSpec` in Python, pass a resolved `Model` (use `resolve_model("provider:model")` or a
+PydanticAI model instance).
+
+`compatible_models` is only checked against the env fallback for `.agent`/dynamic agents.
+If you use `compatible_models`, set `LLM_DO_MODEL` to a compatible value. For Python `AgentSpec`, call
+`select_model(...)` yourself if you want compatibility validation.
 
 Workers do not inherit models from callers. Entry functions always use
 NullModel (no LLM calls allowed); configure models on workers.

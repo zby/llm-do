@@ -18,6 +18,7 @@ try:
 except ImportError:
     raise ImportError("python-slugify required. Install with: pip install python-slugify")
 
+from llm_do.models import resolve_model
 from llm_do.runtime import AgentSpec, CallContext, FunctionEntry
 from llm_do.ui import run_ui
 
@@ -29,6 +30,7 @@ from llm_do.ui import run_ui
 MODEL = os.environ.get("LLM_DO_MODEL")
 if not MODEL:
     raise RuntimeError("LLM_DO_MODEL environment variable is required")
+RESOLVED_MODEL = resolve_model(MODEL)
 
 # UI mode: "tui" or "headless"
 UI_MODE = os.environ.get("LLM_DO_UI_MODE", "tui")
@@ -55,7 +57,7 @@ OUTPUT_DIR = PROJECT_ROOT / "evaluations"
 
 PITCH_EVALUATOR = AgentSpec(
     name="pitch_evaluator",
-    model=MODEL,
+    model=RESOLVED_MODEL,
     instructions=(PROJECT_ROOT / "instructions" / "pitch_evaluator.md").read_text(),
 )
 

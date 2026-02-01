@@ -35,6 +35,25 @@ class RunUiResult:
     exit_code: int
 
 
+@dataclass
+class RenderLoopState:
+    queue: asyncio.Queue[UIEvent | None]
+    task: asyncio.Task[None]
+    on_event: RuntimeEventSink
+    closed: bool = False
+
+    def emit(self, event: UIEvent) -> None:
+        self.queue.put_nowait(event)
+
+    async def close(self) -> None:
+        if self.closed:
+            return
+        self.closed = True
+        self.queue.put_nowait(None)
+        if not self.task.done():
+            await self.task
+
+
 def _ensure_stdout_textual_driver() -> None:
     if sys.platform.startswith("win") or os.environ.get("TEXTUAL_DRIVER"):
         return
@@ -124,6 +143,33 @@ async def _render_loop(
             await backend.stop()
 
 
+def _start_render_loop(
+    backends: Sequence[DisplayBackend],
+    *,
+    verbosity: int,
+    on_close: Callable[[], None] | None = None,
+) -> RenderLoopState | None:
+    if not backends:
+        return None
+    render_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
+    render_task = asyncio.create_task(
+        _render_loop(
+            render_queue,
+            backends,
+            on_close=on_close,
+        )
+    )
+
+    def on_event(event: RuntimeEvent) -> None:
+        if verbosity < 2 and isinstance(event.event, PartDeltaEvent):
+            return
+        ui_event = adapt_event(event)
+        if ui_event is not None:
+            render_queue.put_nowait(ui_event)
+
+    return RenderLoopState(queue=render_queue, task=render_task, on_event=on_event)
+
+
 async def run_tui(
     *,
     input: Any,
@@ -159,32 +205,23 @@ async def run_tui(
     tui_backend = TextualDisplayBackend(tui_event_queue)
     entry_name = agent_name or "entry"
 
-    render_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     backends: list[DisplayBackend] = [tui_backend]
     if extra_backends:
         backends.extend(extra_backends)
-    render_task = asyncio.create_task(
-        _render_loop(
-            render_queue,
-            backends,
-            on_close=lambda: tui_event_queue.put_nowait(None),
-        )
+    render_state = _start_render_loop(
+        backends,
+        verbosity=verbosity,
+        on_close=lambda: tui_event_queue.put_nowait(None),
     )
-    render_closed = False
+    if render_state is None:
+        raise RuntimeError("Render loop unavailable for TUI mode.")
 
     def emit_ui_event(event: UIEvent) -> None:
-        render_queue.put_nowait(event)
-
-    def on_event(event: RuntimeEvent) -> None:
-        if verbosity < 2 and isinstance(event.event, PartDeltaEvent):
-            return
-        ui_event = adapt_event(event)
-        if ui_event is not None:
-            render_queue.put_nowait(ui_event)
+        render_state.emit(event)
 
     async def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
         approval_event = parse_approval_request(request, agent=entry_name)
-        render_queue.put_nowait(approval_event)
+        render_state.emit(approval_event)
         return await approval_queue.get()
 
     approval_callback = prompt_approval if approval_mode == "prompt" else None
@@ -202,7 +239,7 @@ async def run_tui(
         agent_calls_require_approval=agent_calls_require_approval,
         agent_attachments_require_approval=agent_attachments_require_approval,
         agent_approval_overrides=agent_approval_overrides,
-        on_event=on_event,
+        on_event=render_state.on_event,
         message_log_callback=message_log_callback,
         verbosity=verbosity,
         runtime_factory=runtime_factory,
@@ -271,14 +308,10 @@ async def run_tui(
     use_prompt_input = chat or initial_prompt is not None
     if use_prompt_input and not initial_prompt:
         emit_error("No input prompt provided", "ValueError")
-        if render_task and not render_task.done():
-            render_queue.put_nowait(None)
-            render_closed = True
-            await render_task
+        await render_state.close()
         return RunUiResult(result=None, exit_code=1)
 
     async def run_agent() -> int:
-        nonlocal render_closed
         history: list[Any] | None
         if use_prompt_input:
             history = await run_with_input({"input": initial_prompt})
@@ -287,8 +320,7 @@ async def run_tui(
         if history is not None and app is not None:
             app.set_message_history(history)
         if not chat:
-            render_queue.put_nowait(None)
-            render_closed = True
+            await render_state.close()
         return exit_code
 
     app = LlmDoApp(
@@ -302,11 +334,7 @@ async def run_tui(
     try:
         await app.run_async(mouse=False)
     finally:
-        if not render_closed:
-            render_queue.put_nowait(None)
-            render_closed = True
-        if not render_task.done():
-            await render_task
+        await render_state.close()
     result = result_holder[0] if result_holder else None
     if last_error_line and (error_stream is None or error_stream is sys.stderr):
         print(last_error_line, file=sys.stderr, flush=True)
@@ -338,22 +366,8 @@ async def run_headless(
     entry_factory = _resolve_entry_factory(entry, entry_factory, agent_registry)
     if backends is None:
         backends = [HeadlessDisplayBackend(stream=sys.stderr, verbosity=verbosity)]
-    render_task: asyncio.Task[None] | None = None
-    render_queue: asyncio.Queue[UIEvent | None] | None = None
-    on_event: RuntimeEventSink | None = None
-
-    if backends:
-        render_queue = asyncio.Queue()
-
-        def on_event_callback(event: RuntimeEvent) -> None:
-            if verbosity < 2 and isinstance(event.event, PartDeltaEvent):
-                return
-            ui_event = adapt_event(event)
-            if ui_event is not None:
-                render_queue.put_nowait(ui_event)
-
-        on_event = on_event_callback
-        render_task = asyncio.create_task(_render_loop(render_queue, list(backends)))
+    render_state = _start_render_loop(list(backends), verbosity=verbosity) if backends else None
+    on_event = render_state.on_event if render_state is not None else None
 
     approval_policy = RunApprovalPolicy(
         mode=approval_mode,
@@ -395,10 +409,8 @@ async def run_headless(
         if debug:
             raise
     finally:
-        if render_queue is not None:
-            render_queue.put_nowait(None)
-            if render_task is not None and not render_task.done():
-                await render_task
+        if render_state is not None:
+            await render_state.close()
 
     return RunUiResult(result=result, exit_code=exit_code)
 

@@ -6,7 +6,9 @@ Review of TUI/headless run orchestration helpers.
 ## Findings
 - `run_tui()` and `run_headless()` share substantial logic (runtime creation,
   event adaptation, render loop wiring). Extract common pieces to reduce
-  parallel code paths.
+  parallel code paths. Done: render loop + event adaptation now shared via
+  `_start_render_loop`; remaining duplication is in run flow and error
+  handling.
 - `run_tui()` nests many small helpers (`emit_error`, `run_entry`,
   `run_with_input`, `run_turn`). Pulling these into a small helper class or
   module-level functions would simplify control flow.

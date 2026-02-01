@@ -38,4 +38,4 @@ The `background/` subdirectory contains supporting context that informed decisio
 
 ## Index
 
-_No ADRs yet._
+- [ADR-001: Thin Custom Prefix Adapter + OAuth Gating](001-thin-custom-prefix-adapter-and-oauth-gating.md)

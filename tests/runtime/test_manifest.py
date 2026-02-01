@@ -21,6 +21,7 @@ class TestManifestRuntimeConfig:
         """Test default values."""
         config = ManifestRuntimeConfig()
         assert config.approval_mode == "prompt"
+        assert config.auth_mode == "oauth_off"
         assert config.max_depth == 5
         assert config.return_permission_errors is False
         assert config.agent_calls_require_approval is False
@@ -37,6 +38,17 @@ class TestManifestRuntimeConfig:
         """Test invalid approval mode raises error."""
         with pytest.raises(ValueError):
             ManifestRuntimeConfig(approval_mode="invalid")
+
+    def test_auth_modes(self):
+        """Test valid auth modes."""
+        for mode in ("oauth_off", "oauth_auto", "oauth_required"):
+            config = ManifestRuntimeConfig(auth_mode=mode)
+            assert config.auth_mode == mode
+
+    def test_invalid_auth_mode(self):
+        """Test invalid auth mode raises error."""
+        with pytest.raises(ValueError):
+            ManifestRuntimeConfig(auth_mode="invalid")
 
     def test_max_depth_minimum(self):
         """Test max_depth must be >= 1."""

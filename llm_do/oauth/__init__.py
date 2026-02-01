@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional, Tuple
+
+from pydantic_ai.settings import ModelSettings
 
 from .anthropic import login_anthropic, refresh_anthropic_token
 from .storage import (
@@ -26,7 +28,7 @@ ANTHROPIC_OAUTH_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI f
 @dataclass(frozen=True)
 class OAuthModelOverrides:
     model: Any
-    model_settings: Optional[Dict[str, Any]]
+    model_settings: ModelSettings | None
     system_prompt: Optional[str]
 
 
@@ -117,7 +119,7 @@ async def resolve_oauth_overrides(
 
     oauth_model = _build_anthropic_oauth_model(model_name, token)
     beta_flags = ",".join((ANTHROPIC_OAUTH_BETA, *ANTHROPIC_OAUTH_BETA_FEATURES))
-    model_settings = {
+    model_settings: ModelSettings = {
         "extra_headers": {
             "accept": ANTHROPIC_OAUTH_ACCEPT,
             "anthropic-beta": beta_flags,

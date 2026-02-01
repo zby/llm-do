@@ -13,6 +13,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .auth import AuthMode
+
 ApprovalMode = Literal["prompt", "approve_all", "reject_all"]
 
 
@@ -31,6 +33,7 @@ class ManifestRuntimeConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     approval_mode: ApprovalMode = "prompt"
+    auth_mode: AuthMode = "oauth_off"
     max_depth: int = Field(default=5, ge=1)
     return_permission_errors: bool = False
     agent_calls_require_approval: bool = False

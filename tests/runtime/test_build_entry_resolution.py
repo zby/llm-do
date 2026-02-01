@@ -1,13 +1,38 @@
 from pathlib import Path
 
 import pytest
+from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
+from llm_do import register_model_factory
 from llm_do.runtime import EntryConfig, build_registry, resolve_entry
 from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.loader import instantiate_toolsets
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
+
+
+def test_build_registry_records_model_id(tmp_path: Path) -> None:
+    def factory(model_name: str) -> TestModel:
+        return TestModel(custom_output_text=model_name)
+
+    register_model_factory("custom_model_id_test", factory)
+
+    agent_path = tmp_path / "main.agent"
+    agent_path.write_text(
+        """\
+---
+name: main
+model: custom_model_id_test:demo
+---
+Hello
+""",
+        encoding="utf-8",
+    )
+
+    registry = build_registry([str(agent_path)], [], project_root=tmp_path)
+    spec = registry.agents["main"]
+    assert spec.model_id == "custom_model_id_test:demo"
 
 
 @pytest.mark.anyio

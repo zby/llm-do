@@ -16,7 +16,7 @@ from pydantic_ai_blocking_approval import (
     needs_approval_from_config,
 )
 
-from ..models import select_model
+from ..models import select_model_with_id
 from ..runtime.agent_file import build_agent_definition, load_agent_file_parts
 from ..runtime.contracts import AgentSpec, CallContextProtocol
 from ..toolsets.loader import resolve_toolset_specs
@@ -218,7 +218,7 @@ class DynamicAgentsToolset(AbstractToolset[Any]):
                     available_toolsets=available_toolsets,
                     agent_name=agent_def.name,
                 )
-            resolved_model = select_model(
+            selection = select_model_with_id(
                 agent_model=agent_def.model,
                 compatible_models=agent_def.compatible_models,
                 agent_name=agent_def.name,
@@ -227,7 +227,8 @@ class DynamicAgentsToolset(AbstractToolset[Any]):
                 name=agent_def.name,
                 instructions=agent_def.instructions,
                 description=agent_def.description,
-                model=resolved_model,
+                model=selection.model,
+                model_id=selection.model_id,
                 toolset_specs=toolset_specs,
             )
         except Exception:

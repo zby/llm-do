@@ -109,6 +109,7 @@ class AgentSpec:
     name: str
     instructions: str
     model: ModelType
+    model_id: str | None = None
     toolset_specs: list[ToolsetSpec] = field(default_factory=list)
     description: str | None = None
     input_model: type["AgentArgs"] = PromptInput

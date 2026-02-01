@@ -27,3 +27,11 @@ def test_register_model_factory_duplicate_raises() -> None:
 
     with pytest.raises(ValueError, match="already registered"):
         register_model_factory("custom_provider_dup_test", factory)
+
+
+def test_register_model_factory_rejects_reserved_prefix() -> None:
+    def factory(model_name: str) -> TestModel:
+        return TestModel(custom_output_text=model_name)
+
+    with pytest.raises(ValueError, match="reserved"):
+        register_model_factory("openai", factory)

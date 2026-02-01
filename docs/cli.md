@@ -159,6 +159,15 @@ Example:
 
 In headless mode, `prompt` will fail when a tool requires approval (unless you set `return_permission_errors` in the manifest to return errors instead).
 
+## OAuth
+
+OAuth usage is controlled by `runtime.auth_mode`:
+- `oauth_off` (default): never use OAuth credentials.
+- `oauth_auto`: use OAuth when valid credentials exist, otherwise fall back.
+- `oauth_required`: require OAuth for supported providers and fail if not logged in.
+
+Use `llm-do-oauth login --provider anthropic` to store credentials before running with OAuth enabled.
+
 ## Depth Limits
 
 Set `runtime.max_depth` in the manifest to cap worker nesting depth (default: 5).

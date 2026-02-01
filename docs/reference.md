@@ -727,6 +727,9 @@ to turn these identifiers into `Model` instances.
 To use a custom provider with `LLM_DO_MODEL`, register a model factory in a Python file that gets
 imported when your project loads (e.g., add it to `python_files` in `project.json`):
 
+Custom prefixes are only for non-standard providers. Built-in PydanticAI provider prefixes
+(`openai`, `anthropic`, `ollama`, etc.) are resolved by PydanticAI directly and cannot be registered.
+
 ```python
 # providers.py
 from pydantic_ai.models.openai import OpenAIChatModel

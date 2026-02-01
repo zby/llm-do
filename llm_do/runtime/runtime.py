@@ -12,6 +12,7 @@ from pydantic_ai.usage import RunUsage
 from ..models import ModelInput, resolve_model
 from ..toolsets.loader import ToolsetSpec
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
+from .auth import AuthMode
 from .contracts import (
     AgentSpec,
     Entry,
@@ -108,6 +109,7 @@ class RuntimeConfig:
     project_root: Path | None = None
     return_permission_errors: bool = False
     max_depth: int = 5
+    auth_mode: AuthMode = "oauth_off"
     generated_agents_dir: Path | None = None
     agent_calls_require_approval: bool = False
     agent_attachments_require_approval: bool = False
@@ -126,6 +128,7 @@ class Runtime:
         project_root: Path | None = None,
         run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
+        auth_mode: AuthMode = "oauth_off",
         generated_agents_dir: str | Path | None = None,
         agent_calls_require_approval: bool = False,
         agent_attachments_require_approval: bool = False,
@@ -144,6 +147,7 @@ class Runtime:
             project_root=project_root,
             return_permission_errors=policy.return_permission_errors,
             max_depth=max_depth,
+            auth_mode=auth_mode,
             generated_agents_dir=resolved_generated_dir,
             agent_calls_require_approval=agent_calls_require_approval,
             agent_attachments_require_approval=agent_attachments_require_approval,

@@ -144,6 +144,7 @@ async def run(
             project_root=manifest_dir,
             run_approval_policy=approval_policy,
             max_depth=manifest.runtime.max_depth,
+            auth_mode=manifest.runtime.auth_mode,
             generated_agents_dir=generated_agents_dir,
             agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
             agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,

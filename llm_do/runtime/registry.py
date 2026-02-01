@@ -12,7 +12,7 @@ from pydantic_ai.builtin_tools import (
     WebSearchTool,
 )
 
-from ..models import select_model
+from ..models import select_model_with_id
 from ..toolsets.agent import agent_as_toolset
 from ..toolsets.builtins import build_builtin_toolsets
 from ..toolsets.loader import ToolsetSpec, resolve_toolset_specs
@@ -115,7 +115,7 @@ def build_registry(
             )
         reserved_names.add(name)
 
-        resolved_model = select_model(
+        selection = select_model_with_id(
             agent_model=agent_def.model,
             compatible_models=agent_def.compatible_models,
             agent_name=name,
@@ -124,7 +124,8 @@ def build_registry(
             name=name,
             instructions=agent_def.instructions,
             description=agent_def.description,
-            model=resolved_model,
+            model=selection.model,
+            model_id=selection.model_id,
             toolset_specs=[],
             builtin_tools=_build_builtin_tools(agent_def.server_side_tools),
         )

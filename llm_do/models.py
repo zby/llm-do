@@ -131,7 +131,7 @@ def select_model(
         raise ModelConfigError(f"Agent '{agent_name}' cannot have both 'model' and 'compatible_models' set.")
     if agent_model is not None:
         return resolve_model(agent_model)
-    env_model = os.environ.get(LLM_DO_MODEL_ENV)
+    env_model = get_env_model()
     if env_model is not None:
         validate_model_compatibility(env_model, compatible_models, agent_name=agent_name)
         return resolve_model(env_model)

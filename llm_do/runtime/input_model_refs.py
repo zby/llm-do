@@ -8,43 +8,37 @@ from types import ModuleType
 from pydantic import BaseModel
 
 from .discovery import load_module
+from .path_refs import is_path_ref, resolve_path_ref, split_ref
 
 
 def _split_input_model_ref(model_ref: str) -> tuple[str, str]:
     if ":" in model_ref:
-        module_ref, class_name = model_ref.rsplit(":", 1)
+        module_ref, class_name = split_ref(
+            model_ref,
+            delimiter=":",
+            error_message="input_model_ref must use 'module.Class' or 'path.py:Class' syntax",
+        )
     else:
         if "." not in model_ref:
             raise ValueError(
                 "input_model_ref must use 'module.Class' or 'path.py:Class' syntax"
             )
-        module_ref, class_name = model_ref.rsplit(".", 1)
-
-    module_ref = module_ref.strip()
-    class_name = class_name.strip()
-    if not module_ref or not class_name:
-        raise ValueError(
-            "input_model_ref must use 'module.Class' or 'path.py:Class' syntax"
+        module_ref, class_name = split_ref(
+            model_ref,
+            delimiter=".",
+            error_message="input_model_ref must use 'module.Class' or 'path.py:Class' syntax",
         )
 
     return module_ref, class_name
 
 
 def _load_model_module(module_ref: str, base_path: Path | None) -> ModuleType:
-    is_path_ref = (
-        module_ref.endswith(".py")
-        or "/" in module_ref
-        or "\\" in module_ref
-        or module_ref.startswith((".", "~"))
-    )
-    if is_path_ref:
-        path = Path(module_ref).expanduser()
-        if not path.is_absolute():
-            if base_path is None:
-                raise ValueError(
-                    "input_model_ref uses a relative path but no base path was provided"
-                )
-            path = (base_path / path).resolve()
+    if is_path_ref(module_ref):
+        path = resolve_path_ref(
+            module_ref,
+            base_path=base_path,
+            error_message="input_model_ref uses a relative path but no base path was provided",
+        )
         return load_module(path)
 
     return importlib.import_module(module_ref)

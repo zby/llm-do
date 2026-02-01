@@ -8,6 +8,7 @@ from typing import Iterable
 from .contracts import AgentEntry, Entry, FunctionEntry
 from .discovery import load_module
 from .manifest import EntryConfig
+from .path_refs import is_path_ref, resolve_path_ref, split_ref
 from .registry import AgentRegistry
 
 
@@ -44,16 +45,11 @@ def _resolve_agent_entry(name: str, registry: AgentRegistry) -> Entry:
 
 
 def _split_function_ref(function_ref: str) -> tuple[str, str]:
-    if ":" not in function_ref:
-        raise ValueError(
-            "entry.function must use 'path.py:function' syntax"
-        )
-    module_ref, function_name = function_ref.rsplit(":", 1)
-    module_ref = module_ref.strip()
-    function_name = function_name.strip()
-    if not module_ref or not function_name:
-        raise ValueError("entry.function must use 'path.py:function' syntax")
-    return module_ref, function_name
+    return split_ref(
+        function_ref,
+        delimiter=":",
+        error_message="entry.function must use 'path.py:function' syntax",
+    )
 
 
 def _normalize_python_paths(
@@ -62,10 +58,11 @@ def _normalize_python_paths(
 ) -> set[Path]:
     resolved: set[Path] = set()
     for path in python_files:
-        path_obj = Path(path)
-        if not path_obj.is_absolute() and base_path is not None:
-            path_obj = (base_path / path_obj)
-        resolved_path = path_obj.resolve()
+        resolved_path = resolve_path_ref(
+            str(path),
+            base_path=base_path,
+            allow_cwd_fallback=True,
+        )
         if resolved_path.suffix != ".py":
             continue
         resolved.add(resolved_path)
@@ -79,18 +76,13 @@ def _resolve_function_entry(
     base_path: Path | None,
 ) -> FunctionEntry:
     module_ref, function_name = _split_function_ref(function_ref)
-    if not _is_path_ref(module_ref):
+    if not is_path_ref(module_ref):
         raise ValueError("entry.function must use 'path.py:function' syntax")
-
-    path = Path(module_ref).expanduser()
-    if not path.is_absolute():
-        if base_path is None:
-            raise ValueError(
-                "entry.function uses a relative path but no base path was provided"
-            )
-        path = (base_path / path).resolve()
-    else:
-        path = path.resolve()
+    path = resolve_path_ref(
+        module_ref,
+        base_path=base_path,
+        error_message="entry.function uses a relative path but no base path was provided",
+    )
 
     allowed_paths = _normalize_python_paths(python_files, base_path)
     if path not in allowed_paths:
@@ -118,12 +110,3 @@ def _resolve_function_entry(
         )
 
     return FunctionEntry(name=function_name, fn=value)
-
-
-def _is_path_ref(module_ref: str) -> bool:
-    return (
-        module_ref.endswith(".py")
-        or "/" in module_ref
-        or "\\" in module_ref
-        or module_ref.startswith((".", "~"))
-    )

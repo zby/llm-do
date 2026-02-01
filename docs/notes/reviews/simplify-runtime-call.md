@@ -41,3 +41,15 @@ duplicated construction logic.
 `runtime/call.py` is already lean. The main simplification levers are reducing
 the duplicate config surface on `CallFrame` and centralizing `CallConfig`
 construction so tuple normalization and depth increments live in one place.
+
+## 2026-02-01 Review
+
+- `CallScope` already implements `__aenter__/__aexit__` but call sites manually
+  call `close()`. Switching to `async with CallScope.for_agent(...)` would
+  remove boilerplate and ensure cleanup paths stay consistent.
+- `CallScope` keeps both wrapped toolsets (via runtime) and unwrapped toolsets
+  (for cleanup). If cleanup must always run on the original toolsets, consider
+  storing only the cleanup callables to reduce retained state.
+- `CallConfig.build()` is a thin wrapper around tuple conversion. If the
+  classmethod is not used outside tests, prefer direct construction to reduce
+  helper surface.

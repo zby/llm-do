@@ -32,3 +32,25 @@ dependencies (`llm_do.runtime.*`, `llm_do.ui.*`).
   exclusivity could simplify checks.
 - Should `return_permission_errors` be manifest-driven for both headless and
   TUI, or always-on in TUI (and removed from the manifest surface)?
+
+## 2026-02-01 Review
+
+- `run()` is still unused outside this module (no imports found). Consider
+  removing it or moving it into a public runtime helper to reduce CLI surface.
+- Entry building is duplicated: `run()` builds registry + entry, and
+  `_make_entry_factory()` does the same per call. If hot reload is not needed
+  for chat, build once and pass `entry=`/`agent_registry=` into UI runners.
+- Input selection duplicates error paths (TTY vs non-TTY) and the
+  "no input provided" message is repeated; a small helper can centralize
+  input acquisition + errors.
+- Message-log callback and backend wiring is repeated in TUI vs headless
+  branches. A shared helper (or `run_ui`) would shrink branching.
+- TUI always sets `return_permission_errors=True`, ignoring the manifest
+  setting. Either honor it or remove it from the TUI path to cut unused
+  flexibility.
+
+## Open Questions (2026-02-01)
+- Do we still need `run()` as a public helper, or can the CLI exclusively use
+  `run_tui`/`run_headless`?
+- Is entry rebuild per chat turn intentional (hot reload), or can we cache the
+  entry/registry for the session?

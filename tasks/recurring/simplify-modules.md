@@ -21,7 +21,6 @@ Periodic simplification review of core modules using subagents. Each module is r
 - `llm_do/runtime/discovery.py` -> `docs/notes/reviews/simplify-runtime-discovery.md` - discovery logic
 - `llm_do/runtime/entry_resolver.py` -> `docs/notes/reviews/simplify-runtime-entry-resolver.md` - entry resolution
 - `llm_do/runtime/events.py` -> `docs/notes/reviews/simplify-runtime-events.md` - event stream/types
-- `llm_do/runtime/event_parser.py` -> `docs/notes/reviews/simplify-runtime-event-parser.md` - event parsing
 - `llm_do/runtime/input_model_refs.py` -> `docs/notes/reviews/simplify-runtime-input-model-refs.md` - input model refs
 - `llm_do/runtime/manifest.py` -> `docs/notes/reviews/simplify-runtime-manifest.md` - manifest handling
 - `llm_do/runtime/registry.py` -> `docs/notes/reviews/simplify-runtime-registry.md` - registry logic

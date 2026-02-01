@@ -50,3 +50,18 @@ The largest simplification win is removing the incremental message-capture path
 and its private API dependency. Next is collapsing tool-event handling to a
 single source of truth. The remaining cleanups are small parameter/guard
 reductions that make the run flow more direct.
+
+## 2026-02-01 Review
+
+- Incremental message capture still relies on private PydanticAI
+  `_agent_graph` APIs. Removing `_MessageLogList` + `_capture_message_log`
+  and always using `_finalize_messages` would simplify and avoid private
+  dependency risk.
+- `_build_agent()` is only used by `run_agent()`. Inline it to avoid a
+  one-off helper that only forwards parameters.
+- Tool-event fallback (`_emit_tool_events`) re-parses messages and can diverge
+  from event-stream behavior. Either drop the fallback or centralize tool-event
+  construction in one helper to remove duplicated logic and args handling.
+- `run_agent()` has two code paths (with/without `on_event`) that repeat
+  message finalization and output extraction. A small helper that accepts an
+  optional event handler could reduce branching.

@@ -64,3 +64,15 @@ duplicate worker-toolset wiring, eliminating redundant `toolset_context`
 assignment, and collapsing repeated frontmatter validation into a single parse
 path. Tightening `_merge_toolsets()` and deferring `entries` assembly are
 secondary cleanups that clarify intent without changing behavior.
+
+## 2026-02-01 Review
+
+- `build_registry()` always creates agent toolsets for every agent, even if
+  no agent references them. Consider lazy creation or only building agent
+  toolsets when referenced to reduce unused toolset specs.
+- Agent-file parsing and spec construction is split across several steps
+  (parse frontmatter, build AgentSpec, then resolve toolsets and input models).
+  A single `build_agent_spec()` helper could reduce the multi-pass flow.
+- `_merge_toolsets()` already enforces unique names; `reserved_names` also
+  tracks conflicts. Consider unifying duplicate checks so conflict logic lives
+  in one place.

@@ -6,9 +6,6 @@
      factories, and runtime creation with repeated branching. A shared helper
      (or a single `run_ui` path) would cut repetition. Render loop wiring is
      now shared; remaining duplication is mostly in CLI branching.
-2) **Consolidate path-ref parsing**
-   - `runtime/entry_resolver.py` and `runtime/input_model_refs.py` both parse
-     path refs and resolve base paths. A shared helper would reduce drift.
 
 ## Cross-Module Themes
 - Formatting and rendering logic is duplicated between `ui/events.py` and

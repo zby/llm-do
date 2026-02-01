@@ -42,3 +42,5 @@ The `background/` subdirectory contains supporting context that informed decisio
 - [ADR-002: AgentArgs as Public Input Contract](002-agent-args-as-public-input-contract.md)
 - [ADR-003: Opt-In Tool Model for Agents](003-opt-in-tool-model.md)
 - [ADR-004: Unified Tool Plane for Agents and Entry Functions](004-unified-tool-plane.md)
+- [ADR-005: Runner Harness vs PydanticAI CLAI](005-runner-harness-vs-clai.md)
+- [ADR-006: Runtime Core vs Simpler Runtime](006-runtime-core-vs-simpler-runtime.md)

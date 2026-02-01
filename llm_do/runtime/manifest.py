@@ -13,9 +13,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .auth import AuthMode
-
 ApprovalMode = Literal["prompt", "approve_all", "reject_all"]
+AuthMode = Literal["oauth_off", "oauth_auto", "oauth_required"]
 
 
 class AgentApprovalOverride(BaseModel):

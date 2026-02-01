@@ -36,7 +36,7 @@ Runtime callbacks carry raw PydanticAI events (plus a small set of system events
 and the UI adapter converts them to UI events for display:
 - `llm_do/runtime/events.py` -> `RuntimeEvent` envelope (worker/depth + event)
 - `llm_do/ui/adapter.py` -> `adapt_event(runtime_event)` returns `UIEvent`
-- Approval requests use `llm_do/ui/parser.py` -> `parse_approval_request(request)`
+- Approval requests use `llm_do/ui/parser.py` -> `parse_approval_request(request, agent=...)`
 
 ### DisplayBackend
 

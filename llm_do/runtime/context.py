@@ -96,14 +96,10 @@ class CallContext:
                 f"caller={caller!r}, attempted={spec.name!r})"
             )
 
-        scope = CallScope.for_agent(self, spec)
-        try:
+        async with CallScope.for_agent(self, spec) as scope:
             output, _messages = await run_agent(
                 spec,
                 scope.runtime,
                 input_data,
             )
-        finally:
-            await scope.close()
-
-        return output
+            return output

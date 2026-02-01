@@ -183,7 +183,7 @@ async def run_tui(
             render_queue.put_nowait(ui_event)
 
     async def prompt_approval(request: ApprovalRequest) -> ApprovalDecision:
-        approval_event = parse_approval_request(request)
+        approval_event = parse_approval_request(request, agent=entry_name)
         render_queue.put_nowait(approval_event)
         return await approval_queue.get()
 

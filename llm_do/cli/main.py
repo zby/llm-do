@@ -349,10 +349,9 @@ def main() -> int:
 
         error_stream = sys.stderr if extra_backends is None else None
         initial_prompt = None
-        if isinstance(input_data, dict):
-            raw_prompt = input_data.get("input")
-            if isinstance(raw_prompt, str):
-                initial_prompt = raw_prompt
+        raw_prompt = input_data.get("input")
+        if isinstance(raw_prompt, str):
+            initial_prompt = raw_prompt
         outcome = asyncio.run(run_tui(
             input=input_data,
             entry_factory=entry_factory,

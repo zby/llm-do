@@ -50,10 +50,12 @@ class Attachment:
 PromptContent = str | Attachment
 PromptMessages = Sequence[PromptContent]
 
+_EMPTY_INPUT = "(no input)"
+
 
 def _normalize_text(text: str) -> str:
     """Normalize empty/whitespace text to a placeholder."""
-    return text if text.strip() else "(no input)"
+    return text if text.strip() else _EMPTY_INPUT
 
 
 def render_prompt(
@@ -79,9 +81,9 @@ def get_display_text(messages: PromptMessages) -> str:
     """Extract display-safe text from prompt messages."""
     text_parts = [p for p in messages if isinstance(p, str)]
     if not text_parts:
-        return "(no input)"
+        return _EMPTY_INPUT
     text = " ".join(text_parts)
-    return text if text.strip() else "(no input)"
+    return _normalize_text(text)
 
 
 def has_attachments(messages: PromptMessages) -> bool:

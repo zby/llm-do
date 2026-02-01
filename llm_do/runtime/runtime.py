@@ -5,14 +5,13 @@ import asyncio
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence
 
 from pydantic_ai.usage import RunUsage
 
 from ..models import ModelInput, resolve_model
 from ..toolsets.loader import ToolsetSpec
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
-from .auth import AuthMode
 from .contracts import (
     AgentSpec,
     Entry,
@@ -23,6 +22,8 @@ from .contracts import (
 if TYPE_CHECKING:
     from .context import CallContext
     from .registry import AgentRegistry
+
+AuthMode = Literal["oauth_off", "oauth_auto", "oauth_required"]
 
 
 class UsageCollector:

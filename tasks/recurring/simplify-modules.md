@@ -15,6 +15,7 @@ Periodic simplification review of core modules using subagents. Each module is r
 - `llm_do/runtime/agent_runner.py` -> `docs/notes/reviews/simplify-runtime-agent-runner.md` - agent execution flow
 - `llm_do/runtime/approval.py` -> `docs/notes/reviews/simplify-runtime-approval.md` - approval workflow
 - `llm_do/runtime/args.py` -> `docs/notes/reviews/simplify-runtime-args.md` - runtime args
+- `llm_do/runtime/auth.py` -> `docs/notes/reviews/simplify-runtime-auth.md` - auth config types
 - `llm_do/runtime/call.py` -> `docs/notes/reviews/simplify-runtime-call.md` - call orchestration
 - `llm_do/runtime/context.py` -> `docs/notes/reviews/simplify-runtime-context.md` - runtime context
 - `llm_do/runtime/contracts.py` -> `docs/notes/reviews/simplify-runtime-contracts.md` - runtime contracts

@@ -10,5 +10,5 @@ Review of UI event classes and rendering helpers.
 - `TextResponseEvent` encodes three states (start, delta, complete) in one
   class, leading to branching in renderers. Consider separate event types for
   start/delta/complete to simplify logic.
-- `worker_tag` always formats `[worker:depth]` even when worker is empty. A
+- `agent_tag` always formats `[agent:depth]` even when agent is empty. A
   guard could avoid noisy tags in headless output.

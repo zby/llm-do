@@ -39,3 +39,6 @@ The `background/` subdirectory contains supporting context that informed decisio
 ## Index
 
 - [ADR-001: Thin Custom Prefix Adapter + OAuth Gating](001-thin-custom-prefix-adapter-and-oauth-gating.md)
+- [ADR-002: AgentArgs as Public Input Contract](002-agent-args-as-public-input-contract.md)
+- [ADR-003: Opt-In Tool Model for Agents](003-opt-in-tool-model.md)
+- [ADR-004: Unified Tool Plane for Agents and Entry Functions](004-unified-tool-plane.md)

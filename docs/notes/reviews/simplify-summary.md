@@ -5,6 +5,9 @@
    - `runtime/agent_runner.py` relies on private `_agent_graph` APIs and
      duplicates tool-event parsing. Consolidate to a single event-stream path
      and remove incremental logging plumbing.
+5) **Fold tiny auth config module**
+   - `runtime/auth.py` only defines a `Literal` alias. Consider inlining into a
+     larger config module to reduce file count.
 2) **Centralize agent-call approval policy**
    - Approval logic is duplicated in `toolsets/agent.py` and
      `toolsets/dynamic_agents.py`. A shared helper would keep policy consistent
@@ -26,7 +29,4 @@
   vs registry, approval rules across toolsets).
 
 ## Scope Gaps / Stale Items
-- `runtime/event_parser.py` is referenced in the simplify scope but does not
-  exist in the tree.
-- `docs/notes/reviews/simplify-runtime-worker.md` references
-  `runtime/worker.py`, which no longer exists. Consider archiving or updating.
+- None currently; stale worker-era notes and missing modules have been removed.

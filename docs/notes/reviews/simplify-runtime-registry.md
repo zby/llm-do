@@ -1,78 +1,46 @@
-# Simplify runtime/registry.py
+# Simplify: runtime/registry.py
 
 ## Context
-Simplification review of `llm_do/runtime/registry.py` plus its internal
-dependencies (`llm_do/toolsets/*`, `llm_do/runtime/worker.py`,
-`llm_do/runtime/worker_file.py`, `llm_do/runtime/discovery.py`,
-`llm_do/runtime/input_model_refs.py`, `llm_do/runtime/args.py`,
-`llm_do/runtime/contracts.py`, and `llm_do/config.py`) to reduce duplicate
-registry wiring and tighten entry/toolset linking rules.
+Simplification review of `llm_do/runtime/registry.py` and its internal
+dependencies (`llm_do/toolsets/*`, `llm_do/runtime/agent_file.py`,
+`llm_do/runtime/discovery.py`, `llm_do/runtime/input_model_refs.py`,
+`llm_do/runtime/contracts.py`, `llm_do/models.py`).
 
 ## Findings
-- **Worker toolset spec helper duplicates `Worker.as_toolset_spec()`**
-  - Pattern: duplicated derived values / over-specified interface.
-  - Registry defines `_worker_toolset_spec()` to wrap a `Worker` in
-    `WorkerToolset`, but `Worker.as_toolset_spec()` already centralizes this.
-  - Simplify by building `available_workers` via
-    `spec.stub.as_toolset_spec()` and delete the helper.
-  - Tradeoff: none; it keeps worker toolset creation in one place if approval
-    config behavior evolves.
+- **Always builds agent toolsets, even if unused**
+  - Pattern: unused flexibility / redundant work.
+  - `agent_toolsets` are created for every agent regardless of whether any
+    agent references them as a toolset.
+  - Simplify by building agent toolsets lazily or only when referenced in a
+    toolset list.
 
-- **`EntryFunction.toolset_context` is assigned twice**
-  - Pattern: redundant derived values.
-  - `EntryFunction.resolve_toolsets()` already sets `toolset_context`, but
-    registry reassigns it immediately after calling `resolve_toolsets()`.
-  - Simplify by removing the extra assignment.
+- **Multi-pass agent file parsing adds indirection**
+  - Pattern: over-specified interface.
+  - Agent files are parsed into `AgentFileSpec`, then resolved again for
+    toolsets/input models in a second pass.
+  - Simplify by adding a `build_agent_spec()` helper that returns an
+    `AgentSpec` with resolved toolsets/input model in one pass.
+  - Tradeoff: slightly more coupling to `resolve_toolset_specs()` and
+    `resolve_input_model_ref()` in the helper.
 
-- **Entry/name validation is duplicated across registry and worker parsing**
+- **Duplicate conflict checks**
+  - Pattern: duplicated validation.
+  - `reserved_names` enforces uniqueness vs python agents, while
+    `_merge_toolsets()` enforces uniqueness across toolsets. Consider a single
+    conflict-checking helper to avoid drift between these checks.
+
+- **Manifest file validation duplicates runtime guard**
   - Pattern: redundant validation.
-  - Registry validates `name` and `entry` from raw frontmatter, then
-    `build_worker_definition()` validates the same fields again.
-  - Simplify by parsing a `WorkerDefinition` first (no overrides), using
-    `worker_def.name` / `worker_def.entry` for conflict checks, and only
-    re-parsing with overrides for the entry worker if needed.
-  - Alternative: expose a shared `parse_entry` helper from `worker_file`.
-  - Tradeoff: slightly more control flow, but removes duplication and keeps
-    entry parsing rules in one place.
-
-- **`_merge_toolsets()` allows identical-object duplicates**
-  - Pattern: unused flexibility.
-  - Current behavior only errors if the duplicate name maps to a different
-    object, but call sites never merge the same object from multiple sources.
-  - Simplify by always raising on duplicate keys to make conflicts explicit.
-  - Tradeoff: loses the (currently unused) ability to pass the same mapping
-    twice without error.
-
-- **`entries` is built incrementally for conflict checks**
-  - Pattern: duplicated derived values.
-  - The dict is assembled early just to check `.worker` name conflicts, then
-    rebuilt again with worker stubs.
-  - Simplify by tracking a `reserved_names` set for conflict checks and
-    constructing the final `entries` dict once at the end.
-  - Tradeoff: a small refactor, but the flow reads more linearly.
+  - `build_registry()` raises if no `agent_files` or `python_files`, but
+    `ProjectManifest` already enforces this. If manifest validation is the
+    sole entry point, drop the extra guard.
 
 ## Open Questions
-- Do we ever want duplicate toolset names across sources to be allowed if they
-  are the same `ToolsetSpec` instance, or should duplicates always be errors?
-- Is the "overrides only apply to entry worker" rule permanent? If it is, the
-  parse-once + optional rebuild approach stays clean; if not, entry selection
-  needs a different mechanism.
+- Do we want agent toolsets to exist only when explicitly referenced, or should
+  every agent always be callable as a tool by default?
 
 ## Conclusion
-`runtime/registry.py` is mostly lean. The biggest simplifications are removing
-duplicate worker-toolset wiring, eliminating redundant `toolset_context`
-assignment, and collapsing repeated frontmatter validation into a single parse
-path. Tightening `_merge_toolsets()` and deferring `entries` assembly are
-secondary cleanups that clarify intent without changing behavior.
-
-## 2026-02-01 Review
-
-- `build_registry()` always creates agent toolsets for every agent, even if
-  no agent references them. Consider lazy creation or only building agent
-  toolsets when referenced to reduce unused toolset specs.
-- Agent-file parsing and spec construction is split across several steps
-  (parse frontmatter, build AgentSpec, then resolve toolsets and input models).
-  A single `build_agent_spec()` helper could reduce the multi-pass flow.
-- `_merge_toolsets()` already enforces unique names; `reserved_names` also
-  tracks conflicts. Consider unifying duplicate checks so conflict logic lives
-  in one place.
+The registry flow is clear but still does some work unconditionally (agent
+toolsets, repeated parsing). A small refactor to build agent specs in one pass
+and lazily materialize agent toolsets would reduce surface area without
+changing behavior.

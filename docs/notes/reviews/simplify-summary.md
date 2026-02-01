@@ -1,15 +1,11 @@
 # Simplify Summary (2026-02-01)
 
 ## Priority Candidates
-1) **Centralize agent-call approval policy**
-   - Approval logic is duplicated in `toolsets/agent.py` and
-     `toolsets/dynamic_agents.py`. A shared helper would keep policy consistent
-     and reduce duplicated config extraction.
-2) **Reduce CLI/UI runner duplication**
+1) **Reduce CLI/UI runner duplication**
    - `cli/main.py` and `ui/runner.py` both wire message-log callbacks, entry
      factories, and runtime creation with repeated branching. A shared helper
      (or a single `run_ui` path) would cut repetition.
-3) **Consolidate path-ref parsing**
+2) **Consolidate path-ref parsing**
    - `runtime/entry_resolver.py` and `runtime/input_model_refs.py` both parse
      path refs and resolve base paths. A shared helper would reduce drift.
 

@@ -18,6 +18,7 @@ from pydantic_ai_blocking_approval import (
 
 from ..models import select_model_with_id
 from ..runtime.agent_file import build_agent_definition, load_agent_file_parts
+from ..runtime.approval import resolve_agent_call_approval
 from ..runtime.contracts import AgentSpec, CallContextProtocol
 from ..toolsets.loader import resolve_toolset_specs
 from ..toolsets.validators import DictValidator
@@ -79,22 +80,11 @@ class DynamicAgentsToolset(AbstractToolset[Any]):
 
         if name == "agent_call":
             runtime_config = getattr(getattr(ctx, "deps", None), "config", None)
-            require_all = getattr(runtime_config, "agent_calls_require_approval", False)
-            require_attachments = getattr(
-                runtime_config, "agent_attachments_require_approval", False
+            return resolve_agent_call_approval(
+                runtime_config,
+                tool_args.get("agent", ""),
+                has_attachments=bool(tool_args.get("attachments")),
             )
-            overrides = getattr(runtime_config, "agent_approval_overrides", {}) or {}
-            override = overrides.get(tool_args.get("agent", ""))
-            if override is not None:
-                if override.calls_require_approval is not None:
-                    require_all = override.calls_require_approval
-                if override.attachments_require_approval is not None:
-                    require_attachments = override.attachments_require_approval
-            if require_all:
-                return ApprovalResult.needs_approval()
-            if tool_args.get("attachments") and require_attachments:
-                return ApprovalResult.needs_approval()
-            return ApprovalResult.pre_approved()
 
         return ApprovalResult.needs_approval()
 

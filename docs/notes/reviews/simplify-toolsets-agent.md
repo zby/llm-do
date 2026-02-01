@@ -6,7 +6,8 @@ Review of the AgentToolset wrapper that exposes AgentSpec as a tool.
 ## Findings
 - Approval logic for agent calls duplicates the logic in
   `DynamicAgentsToolset.needs_approval()`. Consider a shared helper to compute
-  approval decisions for agent calls to keep policy consistent.
+  approval decisions for agent calls to keep policy consistent. Done: shared
+  helper added in `runtime/approval.py` and used by both toolsets.
 - `_messages_from_args()` and `_get_attachment_paths()` re-parse inputs. When
   both approval and description need attachments, consider parsing once and
   passing messages/attachments through to avoid duplicate work.

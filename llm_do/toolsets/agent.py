@@ -8,6 +8,7 @@ from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
 from pydantic_ai_blocking_approval import ApprovalResult
 
+from ..runtime.approval import resolve_agent_call_approval
 from ..runtime.args import Attachment, has_attachments, normalize_input
 from ..runtime.contracts import AgentSpec, CallContextProtocol
 from ..toolsets.validators import DictValidator
@@ -56,30 +57,16 @@ class AgentToolset(AbstractToolset[Any]):
                 return ApprovalResult.pre_approved()
             return ApprovalResult.needs_approval()
 
-        runtime_config = getattr(getattr(ctx, "deps", None), "config", None)
-        require_all = getattr(runtime_config, "agent_calls_require_approval", False)
-        require_attachments = getattr(
-            runtime_config, "agent_attachments_require_approval", False
-        )
-        overrides = getattr(runtime_config, "agent_approval_overrides", {}) or {}
-        override = overrides.get(self.spec.name)
-        if override is not None:
-            if override.calls_require_approval is not None:
-                require_all = override.calls_require_approval
-            if override.attachments_require_approval is not None:
-                require_attachments = override.attachments_require_approval
-        if require_all:
-            return ApprovalResult.needs_approval()
-
         messages = self._messages_from_args(tool_args)
-        has_attach = (
-            has_attachments(messages)
-            if messages is not None
-            else bool(tool_args.get("attachments"))
+        has_attach = has_attachments(messages) if messages is not None else bool(
+            tool_args.get("attachments")
         )
-        if has_attach and require_attachments:
-            return ApprovalResult.needs_approval()
-        return ApprovalResult.pre_approved()
+        runtime_config = getattr(getattr(ctx, "deps", None), "config", None)
+        return resolve_agent_call_approval(
+            runtime_config,
+            self.spec.name,
+            has_attachments=has_attach,
+        )
 
     def get_approval_description(
         self,

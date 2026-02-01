@@ -11,6 +11,7 @@ from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai_blocking_approval import (
     ApprovalDecision,
     ApprovalRequest,
+    ApprovalResult,
     ApprovalToolset,
 )
 
@@ -132,3 +133,28 @@ def resolve_approval_callback(policy: RunApprovalPolicy) -> ApprovalCallback:
 def wrap_toolsets_for_approval(toolsets: list[AbstractToolset[Any]], approval_callback: ApprovalCallback, *, return_permission_errors: bool = False) -> list[AbstractToolset[Any]]:
     """Wrap toolsets with approval handling."""
     return AgentApprovalPolicy(approval_callback=approval_callback, return_permission_errors=return_permission_errors).wrap_toolsets(toolsets)
+
+
+def resolve_agent_call_approval(
+    runtime_config: Any,
+    agent_name: str,
+    *,
+    has_attachments: bool,
+) -> ApprovalResult:
+    """Compute whether an agent call should require approval."""
+    require_all = getattr(runtime_config, "agent_calls_require_approval", False)
+    require_attachments = getattr(
+        runtime_config, "agent_attachments_require_approval", False
+    )
+    overrides = getattr(runtime_config, "agent_approval_overrides", {}) or {}
+    override = overrides.get(agent_name)
+    if override is not None:
+        if override.calls_require_approval is not None:
+            require_all = override.calls_require_approval
+        if override.attachments_require_approval is not None:
+            require_attachments = override.attachments_require_approval
+    if require_all:
+        return ApprovalResult.needs_approval()
+    if has_attachments and require_attachments:
+        return ApprovalResult.needs_approval()
+    return ApprovalResult.pre_approved()

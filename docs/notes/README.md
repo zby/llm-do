@@ -11,6 +11,7 @@ Working documents for exploration, design thinking, and capturing insights.
 ## Usage
 
 - **Creating**: Add to `docs/notes/` with YAML frontmatter (see below)
+- **Promoting**: Move to `docs/adr/background/` when a note becomes foundational to a design decision
 - **Archiving**: Move to `archive/` when resolved or no longer relevant
 - **Referencing**: Link from AGENTS.md or tasks when the note informs decisions
 
@@ -49,12 +50,9 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 
 ## Index
 
-- [AgentArgs Rationale](agent-args-rationale.md) — Why llm-do keeps AgentArgs instead of exposing raw prompt parts as the public input type.
-- [Agent Design Rationale](agent-design-rationale.md) — Core design decisions for opt-in tools, isolation, and typed I/O
 - [Agent Skills Standard Unification](agent-skills-unification.md) — Aligning .agent format with Agent Skills standard specification
 - [Approval Override Rationale](approval-override-rationale.md) — Why per-agent approval overrides exist and when we might remove them
 - [Approval System Design](capability-based-approvals.md) — Capability-based approval system design for tool execution control
-- [Compiler Analogy for Worker Scopes](compiler-analogy-agent-scopes.md) — Compiler/runtime mental model for worker scopes and tool resolution
 - [Container Security Boundary](container-security-boundary.md) — Using Docker containers as security boundary for tool execution
 - [Dynamic Workers Runtime Design](dynamic-agents-runtime-design.md) — Design for runtime creation and invocation of dynamic workers
 - [Execution Mode Scripting Simplification](execution-mode-scripting-simplification.md) — Simplifying Python embedding with quick_run and Runner helpers
@@ -66,8 +64,6 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [Preapproved Capability Scopes](preapproved-capability-scopes.md) — Path-scoped preapproval policies for reducing approval prompts
 - [Pure Python vs MCP Code Mode](pure-python-vs-mcp-codemode.md) — Comparing MCP code mode with llm-do pure Python composite tools
 - [Python Worker Annotation Brainstorm](python-agent-annotation-brainstorm.md) — Brainstorm for Python-only worker definitions via decorators
-- [Recursive Worker Patterns (Summary)](recursive-patterns-summary.md) — Summary of recursive worker patterns for context-limited tasks
-- [Recursive Problem Patterns for LLM Workers](recursive-problem-patterns.md) — Catalog of 15 problem types benefiting from recursive LLM workers
 - [Stabilize Message Capture Without Private _agent_graph](stabilize-message-capture.md) — Removing private PydanticAI dependency for message capture
 - [Subagent Onboarding Protocol](subagent-onboarding-protocol.md) — Bidirectional setup conversation before subagent starts work
 - [Tool Output Rendering Semantics](tool-output-rendering-semantics.md) — Semantic render hints for structured tool output display
@@ -75,8 +71,6 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [Toolset Instantiation Questions](toolset-instantiation-questions.md) — Open questions on per-worker vs shared toolset instances
 - [Type Catalog Review](type-catalog-review.md) — Current review of llm_do type surface with simplification candidates (2026-01-29)
 - [Event-Stream UI with Blocking Approvals](ui-event-stream-blocking-approvals.md) — Approval broker design for event-stream UI with blocking approvals
-- [Unified Entry Function Design](unified-entry-function-design.md) — Design for unified tool plane across workers and entry functions
-
 ### Meta
 
 - [Deferred Handler Minimal-Core Proposal Draft](meta/blocking_approvals.md) — Proposal for deferred_tool_handler enabling blocking approvals

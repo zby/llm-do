@@ -29,7 +29,7 @@ from ..runtime.manifest import (
     resolve_generated_agents_dir,
     resolve_manifest_paths,
 )
-from ..ui import HeadlessDisplayBackend, run_headless, run_tui
+from ..ui import HeadlessDisplayBackend, run_ui
 
 
 def _input_to_args(data: dict[str, Any] | str) -> dict[str, Any]:
@@ -232,72 +232,54 @@ def main() -> int:
         return 1
 
     generated_agents_dir = resolve_generated_agents_dir(manifest, manifest_dir)
+    log_verbosity = args.verbose
+    message_log_callback = None
+    if log_verbosity >= 3:
+        message_log_callback = _make_message_log_callback(sys.stderr)
+
+    backends: list[Any] = []
+    extra_backends: list[Any] | None = None
+    if 0 < log_verbosity < 3:
+        backend = HeadlessDisplayBackend(sys.stderr, verbosity=log_verbosity)
+        if use_tui:
+            extra_backends = [backend]
+        else:
+            backends = [backend]
+
+    run_verbosity = args.verbose
+    if use_tui and run_verbosity == 0:
+        run_verbosity = 1
+
+    initial_prompt = None
     if use_tui:
-        tui_verbosity = args.verbose if args.verbose > 0 else 1
-        log_verbosity = args.verbose
-        message_log_callback = None
-        if log_verbosity >= 3:
-            message_log_callback = _make_message_log_callback(sys.stderr)
-
-        extra_backends = None
-        if 0 < log_verbosity < 3:
-            extra_backends = [HeadlessDisplayBackend(sys.stderr, verbosity=log_verbosity)]
-
-        error_stream = sys.stderr if extra_backends is None else None
-        initial_prompt = None
         raw_prompt = input_data.get("input")
         if isinstance(raw_prompt, str):
             initial_prompt = raw_prompt
-        outcome = asyncio.run(run_tui(
-            input=input_data,
-            entry_factory=entry_factory,
-            project_root=manifest_dir,
-            approval_mode=manifest.runtime.approval_mode,
-            verbosity=tui_verbosity,
-            return_permission_errors=True,
-            max_depth=manifest.runtime.max_depth,
-            generated_agents_dir=generated_agents_dir,
-            agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
-            agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
-            agent_approval_overrides=manifest.runtime.agent_approval_overrides,
-            message_log_callback=message_log_callback,
-            extra_backends=extra_backends,
-            chat=args.chat,
-            initial_prompt=initial_prompt,
-            debug=args.debug,
-            agent_name="agent",
-            error_stream=error_stream,
-        ))
-        if outcome.result is not None:
-            print(outcome.result)
-        return outcome.exit_code
 
-    # Headless mode: set up display backend based on flags
-    backends: list[Any]
-    if 0 < args.verbose < 3:
-        backends = [HeadlessDisplayBackend(stream=sys.stderr, verbosity=args.verbose)]
-    else:
-        backends = []
+    error_stream = sys.stderr if use_tui and extra_backends is None else None
+    return_permission_errors = True if use_tui else manifest.runtime.return_permission_errors
 
-    message_log_callback = None
-    if args.verbose >= 3:
-        message_log_callback = _make_message_log_callback(sys.stderr)
-
-    outcome = asyncio.run(run_headless(
+    outcome = asyncio.run(run_ui(
         input=input_data,
         entry_factory=entry_factory,
         project_root=manifest_dir,
+        mode="tui" if use_tui else "headless",
         approval_mode=manifest.runtime.approval_mode,
-        verbosity=args.verbose,
-        return_permission_errors=manifest.runtime.return_permission_errors,
+        verbosity=run_verbosity,
+        return_permission_errors=return_permission_errors,
         max_depth=manifest.runtime.max_depth,
         generated_agents_dir=generated_agents_dir,
         agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
         agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
         agent_approval_overrides=manifest.runtime.agent_approval_overrides,
         backends=backends,
+        extra_backends=extra_backends,
         message_log_callback=message_log_callback,
+        chat=args.chat,
+        initial_prompt=initial_prompt,
         debug=args.debug,
+        agent_name="agent",
+        error_stream=error_stream,
     ))
     if outcome.result is not None:
         print(outcome.result)

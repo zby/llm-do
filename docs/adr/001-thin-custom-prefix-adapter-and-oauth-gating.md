@@ -6,13 +6,37 @@
 
 ## Context
 
-`llm-do` currently supports custom model prefixes via a local registry (`register_model_factory`), while
-PydanticAI already provides model inference for all built-in providers. We want to:
+### Why String-Based Model Selection?
 
-- Rely on PydanticAI for standard provider resolution.
-- Keep only a minimal extension hook for non-standard prefixes.
-- Add an explicit, manifest-driven switch for OAuth usage so projects opt in and examples stay stable.
-- Validate this approach in `llm-do` before proposing an upstream extension API in PydanticAI.
+PydanticAI allows users to configure model objects directly in code:
+
+```python
+from pydantic_ai.models.anthropic import AnthropicModel
+
+model = AnthropicModel("claude-3-5-haiku-latest", api_key="...")
+agent = Agent(model=model, ...)
+```
+
+However, llm-do is a **library/CLI tool** where we want simple, declarative configuration. We chose string-based model selectors (e.g., `anthropic:claude-haiku-4-5`) that can be:
+- Passed via the `LLM_DO_MODEL` environment variable
+- Specified in `.agent` files or `project.json`
+- Overridden at runtime without code changes
+
+This simplicity creates a need: **how do we support custom providers** (e.g., a company's internal API gateway, a local model server) that aren't in PydanticAI's built-in provider list?
+
+### The Extension Problem
+
+PydanticAI's `infer_model()` handles built-in providers (`anthropic:`, `openai:`, `gemini:`, etc.) but has no extension mechanism for custom prefixes. We need a way to register custom providers while:
+- Relying on PydanticAI for standard providers (no duplication)
+- Keeping the extension surface minimal
+- Preventing accidental shadowing of built-in providers
+
+### OAuth Complexity
+
+Some custom providers require OAuth authentication. We want OAuth to be:
+- Explicit and opt-in (not silently enabled)
+- Project-level policy (in manifest), not per-agent
+- Isolated from the core runtime
 
 ## Decision
 

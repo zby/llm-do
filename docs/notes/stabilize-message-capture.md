@@ -5,7 +5,7 @@ description: Removing private PydanticAI dependency for message capture
 # Stabilize Message Capture Without Private _agent_graph
 
 ## Context
-We currently rely on `pydantic_ai._agent_graph` in `llm_do/runtime/agent_runner.py` to capture messages incrementally for `message_log_callback`. That import reaches into a private module and mutates `_RunMessages.messages` so we can log as messages are appended. The comment about stability risk is accurate: upstream changes to internal names or message capture flow will break this path.
+We previously relied on `pydantic_ai._agent_graph` in `llm_do/runtime/agent_runner.py` to capture messages incrementally for `message_log_callback`. That import reached into a private module and mutated `_RunMessages.messages` so we could log as messages were appended. The comment about stability risk was accurate: upstream changes to internal names or message capture flow would break this path.
 
 This is also entangled with nested worker runs. `capture_run_messages()` reuses a context-var when already present. Our `_capture_message_log()` replaces the shared `.messages` list with a custom logger, but the replacement is not stacked/restored. That means a child worker can overwrite the parent's logger, and subsequent messages in the parent run are logged under the wrong worker/depth. In other words: the current implementation is brittle even before upstream changes.
 
@@ -29,8 +29,11 @@ This is also entangled with nested worker runs. `capture_run_messages()` reuses 
    - Use event stream events to construct `ModelResponse` parts and append them to a local list, then flush completed messages to the callback.
    - This is complex, will likely differ from PydanticAI’s internal message structure, and still won’t capture request messages faithfully unless we recreate them from inputs. It should be a last resort.
 
+## Status (2026-02-01)
+Implemented approach (1): removed incremental capture, so `message_log_callback`
+now emits end-of-run snapshots and the private `_agent_graph` dependency is gone.
+
 ## Open Questions
 - Do we still need incremental `message_log_callback` output, or is a post-run snapshot sufficient for CLI/debugging?
 - Are we willing to change `-vvv` output format to events instead of serialized `ModelMessage` objects?
 - If we keep event-based logs, should `message_log_callback` be replaced or renamed to avoid implying message-level objects?
-

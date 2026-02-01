@@ -56,7 +56,8 @@ reductions that make the run flow more direct.
 - Incremental message capture still relies on private PydanticAI
   `_agent_graph` APIs. Removing `_MessageLogList` + `_capture_message_log`
   and always using `_finalize_messages` would simplify and avoid private
-  dependency risk.
+  dependency risk. Done: incremental capture removed; logging now uses
+  end-of-run snapshots.
 - `_build_agent()` is only used by `run_agent()`. Inline it to avoid a
   one-off helper that only forwards parameters.
 - Tool-event fallback (`_emit_tool_events`) re-parses messages and can diverge

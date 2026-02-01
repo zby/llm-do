@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterable, Sequence
-from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -33,13 +32,10 @@ def _finalize_messages(
     agent_name: str,
     runtime: CallContextProtocol,
     result: Any,
-    *,
-    log_messages: bool = True,
 ) -> list[Any]:
     """Log and sync message history using a single message snapshot."""
     messages = _get_all_messages(result)
-    if log_messages:
-        runtime.log_messages(agent_name, runtime.frame.config.depth, messages)
+    runtime.log_messages(agent_name, runtime.frame.config.depth, messages)
     if runtime.frame.config.depth == 0:
         runtime.frame.messages[:] = messages
     return messages
@@ -50,49 +46,6 @@ def _split_model_identifier(model_id: str) -> tuple[str | None, str]:
         return None, model_id
     provider, name = model_id.split(":", 1)
     return provider, name
-
-
-class _MessageLogList(list):
-    """List that logs new messages as they are appended."""
-
-    def __init__(self, runtime: CallContextProtocol, agent_name: str, depth: int) -> None:
-        super().__init__()
-        self._runtime = runtime
-        self._agent_name = agent_name
-        self._depth = depth
-        self._logged_count = 0
-
-    def _log_new_messages(self, start: int) -> None:
-        for message in list(self)[start:]:
-            self._runtime.log_messages(self._agent_name, self._depth, [message])
-        self._logged_count = len(self)
-
-    def append(self, item: Any) -> None:  # type: ignore[override]
-        super().append(item)
-        self._log_new_messages(self._logged_count)
-
-    def extend(self, items: list[Any]) -> None:  # type: ignore[override]
-        start = len(self)
-        super().extend(items)
-        if len(self) > start:
-            self._log_new_messages(start)
-
-
-@contextmanager
-def _capture_message_log(
-    runtime: CallContextProtocol, *, agent_name: str, depth: int
-) -> Any:
-    """Capture and log messages as they are appended for this run."""
-    from pydantic_ai._agent_graph import capture_run_messages, get_captured_run_messages
-
-    with capture_run_messages():
-        try:
-            run_messages = get_captured_run_messages()
-        except LookupError:
-            yield
-            return
-        run_messages.messages = _MessageLogList(runtime, agent_name, depth)
-        yield
 
 
 def _build_agent(
@@ -168,8 +121,6 @@ async def _run_with_event_stream(
     runtime: CallContextProtocol,
     message_history: list[Any] | None,
     model_settings: ModelSettings | None,
-    *,
-    log_messages: bool = True,
 ) -> tuple[Any, list[Any]]:
     """Run agent with event stream handler for UI updates."""
     from pydantic_ai.messages import (
@@ -210,7 +161,7 @@ async def _run_with_event_stream(
         event_stream_handler=event_stream_handler,
         message_history=message_history,
     )
-    messages = _finalize_messages(spec.name, runtime, result, log_messages=log_messages)
+    messages = _finalize_messages(spec.name, runtime, result)
     if runtime.config.on_event is not None and not emitted_tool_events:
         _emit_tool_events(spec.name, result.new_messages(), runtime)
     return result.output, messages
@@ -278,39 +229,27 @@ async def run_agent(
     base_path = runtime.config.project_root or Path.cwd()
     prompt = render_prompt(messages, base_path)
 
-    use_incremental_log = runtime.config.message_log_callback is not None
-    log_context = (
-        _capture_message_log(
-            runtime, agent_name=spec.name, depth=runtime.frame.config.depth
+    if runtime.config.on_event is not None:
+        output, run_messages = await _run_with_event_stream(
+            spec,
+            agent,
+            prompt,
+            runtime,
+            message_history,
+            model_settings,
         )
-        if use_incremental_log
-        else nullcontext()
-    )
-
-    with log_context:
-        if runtime.config.on_event is not None:
-            output, run_messages = await _run_with_event_stream(
-                spec,
-                agent,
-                prompt,
-                runtime,
-                message_history,
-                model_settings,
-                log_messages=not use_incremental_log,
-            )
-        else:
-            result = await agent.run(
-                prompt,
-                deps=runtime,
-                model_settings=model_settings,
-                message_history=message_history,
-            )
-            run_messages = _finalize_messages(
-                spec.name,
-                runtime,
-                result,
-                log_messages=not use_incremental_log,
-            )
-            output = result.output
+    else:
+        result = await agent.run(
+            prompt,
+            deps=runtime,
+            model_settings=model_settings,
+            message_history=message_history,
+        )
+        run_messages = _finalize_messages(
+            spec.name,
+            runtime,
+            result,
+        )
+        output = result.output
 
     return output, run_messages

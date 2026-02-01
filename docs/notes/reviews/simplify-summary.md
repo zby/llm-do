@@ -1,10 +1,10 @@
 # Simplify Summary (2026-02-01)
 
 ## Priority Candidates
-1) **Remove private PydanticAI message capture and tool-event fallback**
-   - `runtime/agent_runner.py` relies on private `_agent_graph` APIs and
-     duplicates tool-event parsing. Consolidate to a single event-stream path
-     and remove incremental logging plumbing.
+1) **Remove tool-event fallback in agent runner**
+   - Incremental message capture (private `_agent_graph`) is now removed.
+     The remaining complexity is the tool-event fallback that re-parses
+     messages instead of relying solely on the event stream.
 5) **Fold tiny auth config module**
    - `runtime/auth.py` only defines a `Literal` alias. Consider inlining into a
      larger config module to reduce file count.

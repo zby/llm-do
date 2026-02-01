@@ -52,4 +52,4 @@ construction so tuple normalization and depth increments live in one place.
   storing only the cleanup callables to reduce retained state.
 - `CallConfig.build()` is a thin wrapper around tuple conversion. If the
   classmethod is not used outside tests, prefer direct construction to reduce
-  helper surface.
+  helper surface. Done: removed in `c1d9471`.

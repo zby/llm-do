@@ -63,6 +63,7 @@ reductions that make the run flow more direct.
 - Tool-event fallback (`_emit_tool_events`) re-parses messages and can diverge
   from event-stream behavior. Either drop the fallback or centralize tool-event
   construction in one helper to remove duplicated logic and args handling.
+  Done: fallback removed in favor of event stream only.
 - `run_agent()` has two code paths (with/without `on_event`) that repeat
   message finalization and output extraction. A small helper that accepts an
   optional event handler could reduce branching.

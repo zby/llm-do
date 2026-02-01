@@ -6,13 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic_ai import Agent
-from pydantic_ai.messages import (
-    ModelRequest,
-    ModelResponse,
-    ToolCallPart,
-    ToolReturnPart,
-    UserContent,
-)
+from pydantic_ai.messages import UserContent
 from pydantic_ai.settings import ModelSettings, merge_model_settings
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
@@ -71,49 +65,6 @@ def _build_agent(
     )
 
 
-def _emit_tool_events(
-    agent_name: str, messages: list[Any], runtime: CallContextProtocol
-) -> None:
-    """Emit raw tool call/result events from message history."""
-    # TODO: Consolidate tool-event fallback with streaming path (see docs/notes/reviews/tool-event-fallback-options.md).
-    if runtime.config.on_event is None:
-        return
-
-    from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
-
-    tool_calls: dict[str, ToolCallPart] = {}
-    tool_returns: dict[str, ToolReturnPart] = {}
-
-    for msg in messages:
-        if isinstance(msg, ModelResponse):
-            for response_part in msg.parts:
-                if isinstance(response_part, ToolCallPart):
-                    tool_calls[response_part.tool_call_id] = response_part
-        elif isinstance(msg, ModelRequest):
-            for request_part in msg.parts:
-                if isinstance(request_part, ToolReturnPart):
-                    tool_returns[request_part.tool_call_id] = request_part
-
-    for call_id, call_part in tool_calls.items():
-        runtime.config.on_event(
-            RuntimeEvent(
-                agent=agent_name,
-                depth=runtime.frame.config.depth,
-                event=FunctionToolCallEvent(part=call_part),
-            )
-        )
-
-        return_part = tool_returns.get(call_id)
-        if return_part:
-            runtime.config.on_event(
-                RuntimeEvent(
-                    agent=agent_name,
-                    depth=runtime.frame.config.depth,
-                    event=FunctionToolResultEvent(result=return_part),
-                )
-            )
-
-
 async def _run_with_event_stream(
     spec: AgentSpec,
     agent: Agent[CallContextProtocol, Any],
@@ -123,36 +74,18 @@ async def _run_with_event_stream(
     model_settings: ModelSettings | None,
 ) -> tuple[Any, list[Any]]:
     """Run agent with event stream handler for UI updates."""
-    from pydantic_ai.messages import (
-        BuiltinToolCallEvent,
-        BuiltinToolResultEvent,
-        FunctionToolCallEvent,
-        FunctionToolResultEvent,
-    )
-
-    emitted_tool_events = False
+    on_event = runtime.config.on_event
+    assert on_event is not None
 
     async def event_stream_handler(_: RunContext[CallContextProtocol], events: AsyncIterable[Any]) -> None:
-        nonlocal emitted_tool_events
         async for event in events:
-            if runtime.config.on_event is not None:
-                runtime.config.on_event(
-                    RuntimeEvent(
-                        agent=spec.name,
-                        depth=runtime.frame.config.depth,
-                        event=event,
-                    )
+            on_event(
+                RuntimeEvent(
+                    agent=spec.name,
+                    depth=runtime.frame.config.depth,
+                    event=event,
                 )
-            if isinstance(
-                event,
-                (
-                    FunctionToolCallEvent,
-                    FunctionToolResultEvent,
-                    BuiltinToolCallEvent,
-                    BuiltinToolResultEvent,
-                ),
-            ):
-                emitted_tool_events = True
+            )
 
     result = await agent.run(
         prompt,
@@ -162,8 +95,6 @@ async def _run_with_event_stream(
         message_history=message_history,
     )
     messages = _finalize_messages(spec.name, runtime, result)
-    if runtime.config.on_event is not None and not emitted_tool_events:
-        _emit_tool_events(spec.name, result.new_messages(), runtime)
     return result.output, messages
 
 

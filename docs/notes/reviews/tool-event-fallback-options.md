@@ -41,3 +41,7 @@ This creates duplicated logic and inconsistent `ToolCallEvent` payloads
   provides the most robust behavior.
 - Should we standardize on `args_json` and treat `args` as optional to avoid
   duplication?
+
+## Status (2026-02-01)
+Implemented Option 3: removed the fallback and rely solely on event-stream
+tool events.

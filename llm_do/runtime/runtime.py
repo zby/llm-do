@@ -226,8 +226,8 @@ class Runtime:
         from .context import CallContext
 
         resolved_model = resolve_model(model)
-        call_config = CallConfig.build(
-            active_toolsets,
+        call_config = CallConfig(
+            active_toolsets=tuple(active_toolsets),
             model=resolved_model,
             depth=depth,
             invocation_name=invocation_name,

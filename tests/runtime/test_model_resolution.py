@@ -61,8 +61,8 @@ def test_spawn_child_requires_args() -> None:
 def test_callframe_fork_requires_args() -> None:
     """CallFrame.fork requires explicit toolsets, model, and invocation name."""
     frame = CallFrame(
-        config=CallConfig.build(
-            [],
+        config=CallConfig(
+            active_toolsets=tuple(),
             model="test",
             depth=0,
             invocation_name="parent",

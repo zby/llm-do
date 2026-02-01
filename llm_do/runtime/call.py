@@ -25,23 +25,6 @@ class CallConfig:
     depth: int = 0
     invocation_name: str = ""
 
-    @classmethod
-    def build(
-        cls,
-        active_toolsets: Sequence[AbstractToolset[Any]],
-        *,
-        model: ModelType,
-        depth: int,
-        invocation_name: str,
-    ) -> "CallConfig":
-        """Normalize toolsets and construct a CallConfig."""
-        return cls(
-            active_toolsets=tuple(active_toolsets),
-            model=model,
-            depth=depth,
-            invocation_name=invocation_name,
-        )
-
     def fork(
         self,
         active_toolsets: Sequence[AbstractToolset[Any]],
@@ -50,8 +33,8 @@ class CallConfig:
         invocation_name: str,
     ) -> "CallConfig":
         """Create a child config with incremented depth."""
-        return self.build(
-            active_toolsets,
+        return CallConfig(
+            active_toolsets=tuple(active_toolsets),
             model=model,
             depth=self.depth + 1,
             invocation_name=invocation_name,

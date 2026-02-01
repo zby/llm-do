@@ -38,8 +38,8 @@ def build_runtime_context(
         verbosity=verbosity,
     )
     resolved_model = resolve_model(model)
-    call_config = CallConfig.build(
-        toolsets or [],
+    call_config = CallConfig(
+        active_toolsets=tuple(toolsets or []),
         model=resolved_model,
         depth=depth,
         invocation_name=invocation_name,

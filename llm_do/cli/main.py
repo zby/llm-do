@@ -250,12 +250,6 @@ def main() -> int:
     if use_tui and run_verbosity == 0:
         run_verbosity = 1
 
-    initial_prompt = None
-    if use_tui:
-        raw_prompt = input_data.get("input")
-        if isinstance(raw_prompt, str):
-            initial_prompt = raw_prompt
-
     error_stream = sys.stderr if use_tui and extra_backends is None else None
     return_permission_errors = True if use_tui else manifest.runtime.return_permission_errors
 
@@ -276,7 +270,6 @@ def main() -> int:
         extra_backends=extra_backends,
         message_log_callback=message_log_callback,
         chat=args.chat,
-        initial_prompt=initial_prompt,
         debug=args.debug,
         agent_name="agent",
         error_stream=error_stream,

@@ -251,6 +251,15 @@ async def run_tui(
     message_history: list[Any] | None = None
     last_error_line: str | None = None
 
+    resolved_initial_prompt = initial_prompt
+    if resolved_initial_prompt is None:
+        if isinstance(input, dict):
+            raw_prompt = input.get("input")
+            if isinstance(raw_prompt, str):
+                resolved_initial_prompt = raw_prompt
+        elif isinstance(input, str):
+            resolved_initial_prompt = input
+
     def get_entry_instance() -> tuple[Entry, AgentRegistry]:
         nonlocal entry_instance
         nonlocal entry_name
@@ -305,8 +314,8 @@ async def run_tui(
     ) -> list[Any] | None:
         return await run_with_input({"input": user_prompt})
 
-    use_prompt_input = chat or initial_prompt is not None
-    if use_prompt_input and not initial_prompt:
+    use_prompt_input = chat or resolved_initial_prompt is not None
+    if use_prompt_input and not resolved_initial_prompt:
         emit_error("No input prompt provided", "ValueError")
         await render_state.close()
         return RunUiResult(result=None, exit_code=1)
@@ -314,7 +323,7 @@ async def run_tui(
     async def run_agent() -> int:
         history: list[Any] | None
         if use_prompt_input:
-            history = await run_with_input({"input": initial_prompt})
+            history = await run_with_input({"input": resolved_initial_prompt})
         else:
             history = await run_with_input(input)
         if history is not None and app is not None:

@@ -60,7 +60,7 @@ class CallConfig:
 
 @dataclass(slots=True)
 class CallFrame:
-    """Per-worker call state with immutable config and mutable conversation state."""
+    """Per-agent call state with immutable config and mutable conversation state."""
 
     config: CallConfig
 

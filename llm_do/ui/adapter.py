@@ -37,7 +37,7 @@ def adapt_event(event: runtime.RuntimeEvent) -> ui.UIEvent | None:
 
     if isinstance(payload, runtime.UserMessageEvent):
         return ui.UserMessageEvent(
-            worker=event.worker,
+            agent=event.agent,
             depth=event.depth,
             content=payload.content,
         )
@@ -45,7 +45,7 @@ def adapt_event(event: runtime.RuntimeEvent) -> ui.UIEvent | None:
     if isinstance(payload, PartStartEvent):
         if isinstance(payload.part, TextPart):
             return ui.TextResponseEvent(
-                worker=event.worker,
+                agent=event.agent,
                 depth=event.depth,
                 is_complete=False,
             )
@@ -55,7 +55,7 @@ def adapt_event(event: runtime.RuntimeEvent) -> ui.UIEvent | None:
         delta = _extract_delta_content(payload)
         if delta:
             return ui.TextResponseEvent(
-                worker=event.worker,
+                agent=event.agent,
                 depth=event.depth,
                 content=delta,
                 is_delta=True,
@@ -65,7 +65,7 @@ def adapt_event(event: runtime.RuntimeEvent) -> ui.UIEvent | None:
     if isinstance(payload, PartEndEvent):
         if isinstance(payload.part, TextPart):
             return ui.TextResponseEvent(
-                worker=event.worker,
+                agent=event.agent,
                 depth=event.depth,
                 content=payload.part.content,
                 is_complete=True,
@@ -75,7 +75,7 @@ def adapt_event(event: runtime.RuntimeEvent) -> ui.UIEvent | None:
     if isinstance(payload, (FunctionToolCallEvent, BuiltinToolCallEvent)):
         tool_part = payload.part
         return ui.ToolCallEvent(
-            worker=event.worker,
+            agent=event.agent,
             depth=event.depth,
             tool_name=getattr(tool_part, "tool_name", "tool"),
             tool_call_id=getattr(tool_part, "tool_call_id", ""),
@@ -86,7 +86,7 @@ def adapt_event(event: runtime.RuntimeEvent) -> ui.UIEvent | None:
     if isinstance(payload, (FunctionToolResultEvent, BuiltinToolResultEvent)):
         tool_result = payload.result
         return ui.ToolResultEvent(
-            worker=event.worker,
+            agent=event.agent,
             depth=event.depth,
             tool_name=getattr(tool_result, "tool_name", "tool"),
             tool_call_id=getattr(tool_result, "tool_call_id", ""),
@@ -95,6 +95,6 @@ def adapt_event(event: runtime.RuntimeEvent) -> ui.UIEvent | None:
         )
 
     if isinstance(payload, FinalResultEvent):
-        return ui.CompletionEvent(worker=event.worker, depth=event.depth)
+        return ui.CompletionEvent(agent=event.agent, depth=event.depth)
 
     return None

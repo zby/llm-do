@@ -251,7 +251,7 @@ class Runtime:
         if self.config.on_event is not None:
             self.config.on_event(
                 RuntimeEvent(
-                    worker=entry.name,
+                    agent=entry.name,
                     depth=0,
                     event=UserMessageEvent(content=display_text),
                 )

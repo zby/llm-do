@@ -229,7 +229,7 @@ async def run_tui(
         if error_stream is not None:
             print(last_error_line, file=error_stream, flush=True)
         from .events import ErrorEvent
-        emit_ui_event(ErrorEvent(worker=entry_name, message=message, error_type=error_type))
+        emit_ui_event(ErrorEvent(agent=entry_name, message=message, error_type=error_type))
         exit_code = 1
 
     async def run_entry(
@@ -277,7 +277,7 @@ async def run_tui(
             await render_task
         return RunUiResult(result=None, exit_code=1)
 
-    async def run_worker() -> int:
+    async def run_agent() -> int:
         nonlocal render_closed
         history: list[Any] | None
         if use_prompt_input:
@@ -294,7 +294,7 @@ async def run_tui(
     app = LlmDoApp(
         tui_event_queue,
         approval_queue,
-        worker_coro=run_worker(),
+        agent_coro=run_agent(),
         run_turn=run_turn if chat else None,
         auto_quit=not chat,
     )

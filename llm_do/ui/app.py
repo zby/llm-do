@@ -82,7 +82,7 @@ class LlmDoApp(App[None]):
         self,
         event_queue: asyncio.Queue[UIEvent | None],
         approval_response_queue: asyncio.Queue[ApprovalDecision] | None = None,
-        worker_coro: Coroutine[Any, Any, Any] | None = None,
+        agent_coro: Coroutine[Any, Any, Any] | None = None,
         run_turn: Callable[
             [str],
             Coroutine[Any, Any, list[Any] | None],
@@ -92,7 +92,7 @@ class LlmDoApp(App[None]):
         super().__init__()
         self._event_queue = event_queue
         self._approval_response_queue = approval_response_queue
-        self._worker_coro = worker_coro
+        self._agent_coro = agent_coro
         self._auto_quit = auto_quit
         self._runner = AgentRunner(run_turn=run_turn)
         self._approvals = ApprovalWorkflowController()
@@ -122,10 +122,10 @@ class LlmDoApp(App[None]):
         yield Footer()
 
     async def on_mount(self) -> None:
-        """Start the event consumer and worker when app mounts."""
+        """Start the event consumer and agent when app mounts."""
         self._event_task = asyncio.create_task(self._consume_events())
-        if self._worker_coro is not None:
-            self._runner.start_background(self._worker_coro)
+        if self._agent_coro is not None:
+            self._runner.start_background(self._agent_coro)
         if not self._auto_quit:
             user_input = self.query_one("#user-input", TextArea)
             user_input.disabled = False
@@ -156,7 +156,7 @@ class LlmDoApp(App[None]):
                 break
 
             if event is None:
-                # Sentinel - worker done
+                # Sentinel - agent done
                 self._done = True
                 # Capture final result for display after exit
                 if self._messages:

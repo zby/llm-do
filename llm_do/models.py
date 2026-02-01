@@ -1,4 +1,4 @@
-"""Model compatibility checking and resolution for workers."""
+"""Model compatibility checking and resolution for agents."""
 from __future__ import annotations
 
 import fnmatch
@@ -24,11 +24,11 @@ class ModelError(ValueError):
 
 
 class ModelCompatibilityError(ModelError):
-    """Model is incompatible with worker requirements."""
+    """Model is incompatible with agent requirements."""
 
 
 class NoModelError(ModelError):
-    """No model is available for a worker."""
+    """No model is available for an agent."""
 
 
 class InvalidCompatibleModelsError(ModelError):
@@ -53,7 +53,7 @@ class NullModel(Model):
     async def request(
         self, messages: list[ModelMessage], model_settings: Any, model_request_parameters: ModelRequestParameters
     ) -> ModelResponse:
-        raise RuntimeError("NullModel cannot be used for LLM calls; configure a worker model instead.")
+        raise RuntimeError("NullModel cannot be used for LLM calls; configure an agent model instead.")
 
 
 NULL_MODEL = NullModel()

@@ -24,12 +24,12 @@ class TestHeadlessDisplayBackend:
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
         event = InitialRequestEvent(
-            worker="test_worker",
+            agent="test_agent",
             user_input="hello",
         )
         backend.display(event)
         output = stream.getvalue()
-        assert "test_worker" in output
+        assert "test_agent" in output
         assert "hello" in output
 
     def test_handles_status_event(self):
@@ -37,7 +37,7 @@ class TestHeadlessDisplayBackend:
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
         event = StatusEvent(
-            worker="analyzer",
+            agent="analyzer",
             phase="processing",
             state="running",
             model="claude-haiku",
@@ -54,7 +54,7 @@ class TestHeadlessDisplayBackend:
         backend = HeadlessDisplayBackend(stream=stream)
 
         event = TextResponseEvent(
-            worker="assistant",
+            agent="assistant",
             content="Hello, this is the response.",
             is_complete=True,
         )
@@ -69,7 +69,7 @@ class TestHeadlessDisplayBackend:
         backend = HeadlessDisplayBackend(stream=stream, verbosity=2)
 
         event = TextResponseEvent(
-            worker="assistant",
+            agent="assistant",
             content="Hello",
             is_complete=False,
             is_delta=True,
@@ -84,7 +84,7 @@ class TestHeadlessDisplayBackend:
         backend = HeadlessDisplayBackend(stream=stream)
 
         event = ToolCallEvent(
-            worker="main",
+            agent="main",
             tool_name="read_file",
             args={"path": "/tmp/test.txt"},
             tool_call_id="call_123",
@@ -101,7 +101,7 @@ class TestHeadlessDisplayBackend:
         backend = HeadlessDisplayBackend(stream=stream)
 
         event = ToolResultEvent(
-            worker="main",
+            agent="main",
             tool_name="read_file",
             content="File contents here",
             tool_call_id="call_123",
@@ -118,7 +118,7 @@ class TestHeadlessDisplayBackend:
 
         long_content = "x" * 500
         event = ToolCallEvent(
-            worker="main",
+            agent="main",
             tool_name="write_file",
             args={"content": long_content},
             args_json=str({"content": long_content}),
@@ -137,7 +137,7 @@ class TestHeadlessDisplayBackend:
 
         long_content = "line\n" * 100  # 100 lines
         event = ToolResultEvent(
-            worker="main",
+            agent="main",
             tool_name="read_file",
             content=long_content,
             tool_call_id="call_123",
@@ -153,7 +153,7 @@ class TestHeadlessDisplayBackend:
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
         event = DeferredToolEvent(
-            worker="main",
+            agent="main",
             tool_name="slow_operation",
             status="pending",
         )
@@ -166,7 +166,7 @@ class TestHeadlessDisplayBackend:
         """Backend handles empty status event gracefully."""
         stream = io.StringIO()
         backend = HeadlessDisplayBackend(stream=stream)
-        event = StatusEvent(worker="main", phase="", state="")
+        event = StatusEvent(agent="main", phase="", state="")
         backend.display(event)
         # Should not crash, output should be minimal (None returned from render)
         assert stream.getvalue() == ""
@@ -177,7 +177,7 @@ class TestHeadlessDisplayBackend:
         backend = HeadlessDisplayBackend(stream=stream)
 
         event = TextResponseEvent(
-            worker="main",
+            agent="main",
             content="Line 1\nLine 2\nLine 3",
             is_complete=True,
         )
@@ -195,13 +195,13 @@ class TestAdaptEvent:
     def test_parse_user_message_event(self):
         """Adapter converts user message system events to UI events."""
         runtime_event = RuntimeEvent(
-            worker="main",
+            agent="main",
             depth=0,
             event=RuntimeUserMessageEvent(content="Hello"),
         )
         event = adapt_event(runtime_event)
         assert isinstance(event, UserMessageEvent)
-        assert event.worker == "main"
+        assert event.agent == "main"
         assert event.content == "Hello"
 
     def test_parse_text_part_event(self):
@@ -211,7 +211,7 @@ class TestAdaptEvent:
         text_part = TextPart(content="Hello response")
         raw_event = PartEndEvent(index=0, part=text_part)
 
-        runtime_event = RuntimeEvent(worker="assistant", depth=0, event=raw_event)
+        runtime_event = RuntimeEvent(agent="assistant", depth=0, event=raw_event)
         event = adapt_event(runtime_event)
         assert isinstance(event, TextResponseEvent)
         assert event.content == "Hello response"
@@ -228,7 +228,7 @@ class TestAdaptEvent:
         )
         raw_event = FunctionToolCallEvent(part=tool_part)
 
-        runtime_event = RuntimeEvent(worker="main", depth=0, event=raw_event)
+        runtime_event = RuntimeEvent(agent="main", depth=0, event=raw_event)
         event = adapt_event(runtime_event)
         assert isinstance(event, ToolCallEvent)
         assert event.tool_name == "read_file"
@@ -245,7 +245,7 @@ class TestAdaptEvent:
         )
         raw_event = FunctionToolResultEvent(result=result_part)
 
-        runtime_event = RuntimeEvent(worker="main", depth=0, event=raw_event)
+        runtime_event = RuntimeEvent(agent="main", depth=0, event=raw_event)
         event = adapt_event(runtime_event)
         assert isinstance(event, ToolResultEvent)
         assert event.tool_name == "read_file"
@@ -261,5 +261,5 @@ class TestAdaptEvent:
             tool_call_id="call_123",
         )
         raw_event = PartStartEvent(index=0, part=tool_part)
-        runtime_event = RuntimeEvent(worker="main", depth=0, event=raw_event)
+        runtime_event = RuntimeEvent(agent="main", depth=0, event=raw_event)
         assert adapt_event(runtime_event) is None

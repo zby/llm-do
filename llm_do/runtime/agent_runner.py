@@ -130,7 +130,7 @@ def _emit_tool_events(
     for call_id, call_part in tool_calls.items():
         runtime.config.on_event(
             RuntimeEvent(
-                worker=agent_name,
+                agent=agent_name,
                 depth=runtime.frame.config.depth,
                 event=FunctionToolCallEvent(part=call_part),
             )
@@ -140,7 +140,7 @@ def _emit_tool_events(
         if return_part:
             runtime.config.on_event(
                 RuntimeEvent(
-                    worker=agent_name,
+                    agent=agent_name,
                     depth=runtime.frame.config.depth,
                     event=FunctionToolResultEvent(result=return_part),
                 )
@@ -172,7 +172,7 @@ async def _run_with_event_stream(
             if runtime.config.on_event is not None:
                 runtime.config.on_event(
                     RuntimeEvent(
-                        worker=spec.name,
+                        agent=spec.name,
                         depth=runtime.frame.config.depth,
                         event=event,
                     )

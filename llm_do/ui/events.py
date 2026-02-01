@@ -33,12 +33,12 @@ def _rich_label_value(label: str, value: str, label_style: str = "dim") -> "Text
 class UIEvent(ABC):
     """Base class for all UI events."""
 
-    worker: str = ""
+    agent: str = ""
     depth: int = 0
 
     @property
-    def worker_tag(self) -> str:
-        return f"[{self.worker}:{self.depth}]"
+    def agent_tag(self) -> str:
+        return f"[{self.agent}:{self.depth}]"
 
     @abstractmethod
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None": ...
@@ -52,7 +52,7 @@ class UIEvent(ABC):
 
 @dataclass
 class InitialRequestEvent(UIEvent):
-    """Event emitted when worker receives initial request."""
+    """Event emitted when agent receives initial request."""
     instructions: str = ""
     user_input: str = ""
     attachments: list[str] = field(default_factory=list)
@@ -75,14 +75,14 @@ class InitialRequestEvent(UIEvent):
         return items
 
     def _build_lines(self) -> list[str]:
-        lines = [f"{self.worker_tag} Starting..."]
+        lines = [f"{self.agent_tag} Starting..."]
         for label, value in self._detail_items():
             lines.append(f"  {label}: {value}")
         return lines
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
-        parts = [_rich_text((f"{self.worker_tag} ", "bold cyan"), ("Starting...", None))]
+        parts = [_rich_text((f"{self.agent_tag} ", "bold cyan"), ("Starting...", None))]
         for label, value in self._detail_items():
             parts.append(_rich_label_value(f"  {label}: ", value))
         return Group(*parts)
@@ -106,7 +106,7 @@ class StatusEvent(UIEvent):
     def _format(self, with_tag: bool = True) -> str | None:
         if not self.phase:
             return None
-        parts = [f"{self.worker_tag} " if with_tag else "", f"{self.phase} {self.state}"]
+        parts = [f"{self.agent_tag} " if with_tag else "", f"{self.phase} {self.state}"]
         if self.model:
             parts.append(f" ({self.model})")
         if self.duration_sec is not None:
@@ -116,7 +116,7 @@ class StatusEvent(UIEvent):
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
         if not self.phase:
             return None
-        text = _rich_text((f"{self.worker_tag} ", "dim"), (f"{self.phase} {self.state}", None))
+        text = _rich_text((f"{self.agent_tag} ", "dim"), (f"{self.phase} {self.state}", None))
         if self.model:
             text.append(f" ({self.model})", style="dim")
         if self.duration_sec is not None:
@@ -142,7 +142,7 @@ class UserMessageEvent(UIEvent):
         return Text(self.render_text(verbosity) or "")
 
     def render_text(self, verbosity: int = 0) -> str | None:
-        return f"{self.worker_tag} You: {self.content}"
+        return f"{self.agent_tag} You: {self.content}"
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import UserMessage
@@ -170,7 +170,7 @@ class TextResponseEvent(UIEvent):
         # Complete responses
         if self.is_complete:
             header = (
-                Text(f"\n{self.worker_tag} ", style="bold green")
+                Text(f"\n{self.agent_tag} ", style="bold green")
                 + Text("Response:")
             )
             content = Text("\n".join(f"  {line}" for line in self.content.split("\n")))
@@ -179,7 +179,7 @@ class TextResponseEvent(UIEvent):
         # Start of streaming (verbosity >= 1)
         if verbosity >= 1:
             return (
-                Text(f"{self.worker_tag} ", style="dim")
+                Text(f"{self.agent_tag} ", style="dim")
                 + Text("Generating response...", style="dim")
             )
         return None
@@ -188,11 +188,11 @@ class TextResponseEvent(UIEvent):
         if self.is_delta:
             return self.content if verbosity >= 2 else None
         if self.is_complete:
-            lines = [f"\n{self.worker_tag} Response:"]
+            lines = [f"\n{self.agent_tag} Response:"]
             lines.extend(f"  {line}" for line in self.content.split("\n"))
             return "\n".join(lines)
         if verbosity >= 1:
-            return f"{self.worker_tag} Generating response..."
+            return f"{self.agent_tag} Generating response..."
         return None
 
     def create_widget(self) -> "Widget | None":
@@ -215,7 +215,7 @@ class ToolCallEvent(UIEvent):
         return truncate_text(self.args_json or str(self.args), self.MAX_ARGS_DISPLAY)
 
     def _build_lines(self) -> list[str]:
-        lines = [f"\n{self.worker_tag} Tool call: {self.tool_name}"]
+        lines = [f"\n{self.agent_tag} Tool call: {self.tool_name}"]
         args_display = self._args_display()
         if args_display:
             lines.append(f"  Args: {args_display}")
@@ -224,7 +224,7 @@ class ToolCallEvent(UIEvent):
     def render_rich(self, verbosity: int = 0) -> "RenderableType":
         from rich.console import Group
         header = _rich_text(
-            (f"\n{self.worker_tag} ", "bold yellow"),
+            (f"\n{self.agent_tag} ", "bold yellow"),
             ("Tool call: ", None),
             (self.tool_name, "yellow"),
         )
@@ -239,7 +239,7 @@ class ToolCallEvent(UIEvent):
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ToolCallMessage
-        return ToolCallMessage(self.tool_name, self.args, self.args_json, self.worker_tag)
+        return ToolCallMessage(self.tool_name, self.args, self.args_json, self.agent_tag)
 
 
 @dataclass
@@ -270,7 +270,7 @@ class ToolResultEvent(UIEvent):
 
     def _build_lines(self) -> list[str]:
         label = "Tool error" if self.is_error else "Tool result"
-        lines = [f"\n{self.worker_tag} {label}: {self.tool_name}"]
+        lines = [f"\n{self.agent_tag} {label}: {self.tool_name}"]
         lines.extend(f"  {line}" for line in self._content_lines())
         return lines
 
@@ -279,7 +279,7 @@ class ToolResultEvent(UIEvent):
         style = "red" if self.is_error else "blue"
         label = "Tool error" if self.is_error else "Tool result"
         header = _rich_text(
-            (f"\n{self.worker_tag} ", f"bold {style}"),
+            (f"\n{self.agent_tag} ", f"bold {style}"),
             (f"{label}: ", None),
             (self.tool_name, style),
         )
@@ -292,7 +292,7 @@ class ToolResultEvent(UIEvent):
 
     def create_widget(self) -> "Widget":
         from llm_do.ui.widgets.messages import ToolResultMessage
-        return ToolResultMessage(self.tool_name, self._content_as_str(), self.is_error, self.worker_tag)
+        return ToolResultMessage(self.tool_name, self._content_as_str(), self.is_error, self.agent_tag)
 
 
 @dataclass
@@ -325,15 +325,15 @@ class DeferredToolEvent(UIEvent):
 
 @dataclass
 class CompletionEvent(UIEvent):
-    """Event emitted when worker completes successfully."""
+    """Event emitted when agent completes successfully."""
 
     def render_rich(self, verbosity: int = 0) -> "RenderableType | None":
         if verbosity >= 1:
-            return _rich_text((f"{self.worker_tag} ", "dim"), ("[OK] Complete", "green"))
+            return _rich_text((f"{self.agent_tag} ", "dim"), ("[OK] Complete", "green"))
         return None
 
     def render_text(self, verbosity: int = 0) -> str | None:
-        return f"{self.worker_tag} [OK] Complete" if verbosity >= 1 else None
+        return f"{self.agent_tag} [OK] Complete" if verbosity >= 1 else None
 
     def create_widget(self) -> "Widget | None":
         return None
@@ -355,7 +355,7 @@ class ErrorEvent(UIEvent):
         return Panel(content, title=f"ERROR: {self.error_type}", border_style="red")
 
     def render_text(self, verbosity: int = 0) -> str:
-        lines = [f"{self.worker_tag} ERROR ({self.error_type}): {self.message}"]
+        lines = [f"{self.agent_tag} ERROR ({self.error_type}): {self.message}"]
         if verbosity >= 2 and self.traceback:
             lines.append(self.traceback)
         return "\n".join(lines)

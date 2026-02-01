@@ -19,6 +19,6 @@ class UserMessageEvent:
 class RuntimeEvent:
     """Envelope for runtime callbacks (raw PydanticAI + system events)."""
 
-    worker: str  # agent name
+    agent: str  # agent name
     depth: int
     event: AgentStreamEvent | UserMessageEvent

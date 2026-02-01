@@ -16,7 +16,7 @@ def parse_approval_request(request: Any) -> ApprovalRequestEvent:
         ApprovalRequestEvent ready for display
     """
     return ApprovalRequestEvent(
-        worker="worker",
+        agent="agent",
         tool_name=getattr(request, "tool_name", ""),
         reason=getattr(request, "description", ""),
         args=getattr(request, "tool_args", {}),

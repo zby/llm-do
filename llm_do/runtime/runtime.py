@@ -61,10 +61,6 @@ class MessageAccumulator:
         with self._lock:
             return list(self._messages)
 
-    def for_agent(self, agent_name: str) -> list[Any]:
-        with self._lock:
-            return [msg for name, _, msg in self._messages if name == agent_name]
-
 
 @dataclass(frozen=True, slots=True)
 class AgentApprovalConfig:

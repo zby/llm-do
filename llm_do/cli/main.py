@@ -18,22 +18,11 @@ import itertools
 import json
 import sys
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Callable
 
 from pydantic_ai.messages import ModelMessagesTypeAdapter
-from pydantic_ai_blocking_approval import ApprovalDecision
 
-from ..runtime import (
-    AgentRegistry,
-    ApprovalCallback,
-    CallContext,
-    Entry,
-    EventCallback,
-    RunApprovalPolicy,
-    Runtime,
-    build_registry,
-    resolve_entry,
-)
+from ..runtime import AgentRegistry, Entry, build_registry, resolve_entry
 from ..runtime.manifest import (
     ProjectManifest,
     load_manifest,
@@ -78,99 +67,6 @@ def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], N
         stream.flush()
 
     return callback
-
-
-async def run(
-    manifest: ProjectManifest,
-    manifest_dir: Path,
-    input_data: dict[str, Any],
-    *,
-    on_event: EventCallback | None = None,
-    verbosity: int = 0,
-    approval_callback: ApprovalCallback | None = None,
-    approval_cache: dict[Any, ApprovalDecision] | None = None,
-    message_history: list[Any] | None = None,
-    entry: Entry | None = None,
-    agent_registry: AgentRegistry | None = None,
-    runtime: Runtime | None = None,
-) -> tuple[Any, CallContext]:
-    """Load entries from manifest and run with the given input.
-
-    Args:
-        manifest: The validated project manifest
-        manifest_dir: Directory containing the manifest file
-        input_data: Input data for the entry point
-        on_event: Optional callback for runtime events (tool calls, streaming text)
-        verbosity: Verbosity level (0=quiet, 1=progress, 2=streaming)
-        approval_callback: Optional interactive approval callback (TUI mode)
-        approval_cache: Optional shared cache for remember="session" approvals
-        message_history: Optional prior messages for multi-turn conversations
-        entry: Optional pre-built entry (skips entry build if provided)
-        runtime: Optional pre-built runtime (skips approval/UI wiring if provided)
-
-    Returns:
-        Tuple of (result, context)
-    """
-    # Resolve file paths relative to manifest directory
-    agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
-
-    if entry is None:
-        agent_registry = build_registry(
-            [str(p) for p in agent_paths],
-            [str(p) for p in python_paths],
-            project_root=manifest_dir,
-        )
-        entry = resolve_entry(
-            manifest.entry,
-            agent_registry,
-            python_files=python_paths,
-            base_path=manifest_dir,
-        )
-
-    generated_agents_dir = resolve_generated_agents_dir(manifest, manifest_dir)
-    if runtime is None:
-        approval_mode: Literal["prompt", "approve_all", "reject_all"] = manifest.runtime.approval_mode
-
-        approval_policy = RunApprovalPolicy(
-            mode=approval_mode,
-            approval_callback=approval_callback,
-            cache=approval_cache,
-            return_permission_errors=manifest.runtime.return_permission_errors,
-        )
-        message_log_callback = None
-        if verbosity >= 3:
-            message_log_callback = _make_message_log_callback(sys.stderr)
-        runtime = Runtime(
-            project_root=manifest_dir,
-            run_approval_policy=approval_policy,
-            max_depth=manifest.runtime.max_depth,
-            auth_mode=manifest.runtime.auth_mode,
-            generated_agents_dir=generated_agents_dir,
-            agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
-            agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
-            agent_approval_overrides=manifest.runtime.agent_approval_overrides,
-            on_event=on_event,
-            message_log_callback=message_log_callback,
-            verbosity=verbosity,
-        )
-        if agent_registry is not None:
-            runtime.register_registry(agent_registry)
-    else:
-        if (
-            approval_callback is not None
-            or approval_cache is not None
-            or on_event is not None
-            or verbosity != 0
-        ):
-            raise ValueError("runtime provided; do not pass approval/UI overrides")
-        if agent_registry is not None:
-            runtime.register_registry(agent_registry)
-
-    return await runtime.run_entry(
-        entry,
-        input_data,
-        message_history=message_history,
-    )
 
 
 def _make_entry_factory(

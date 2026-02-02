@@ -35,6 +35,6 @@ calculator/
 
 ## Key Concepts
 
-- **Custom toolsets**: Define tools in Python via `ToolsetSpec`
+- **Custom toolsets**: Define tools in Python via the `TOOLSETS` registry
 - **Tool delegation**: Agent uses tools for calculations rather than guessing
 - **Deterministic operations**: Math operations are reliable Python code

@@ -78,7 +78,7 @@ main_agent = AgentSpec(
     name="main",
     model=MODEL,
     instructions=Path("instructions/main.md").read_text(),
-    toolset_specs=[
+    toolsets=[
         builtin_toolsets["filesystem_project"],
         agent_as_toolset(pitch_evaluator, tool_name="pitch_evaluator"),
     ],

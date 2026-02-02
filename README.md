@@ -10,6 +10,10 @@ LLM reasoning and Python code share a unified execution model. Call an agent (LL
 
 The boundary is movable. What's neural today can be symbolic tomorrow—and vice versa.
 
+> For the theoretical foundation, see [`docs/theory.md`](docs/theory.md). For implementation details, see [`docs/architecture.md`](docs/architecture.md).
+
+This is the **Unix philosophy for agents**: agents are defined in `.agent` files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
+
 ## The Harness Layer
 
 On top of the VM sits a **harness**—an imperative orchestration layer where your code owns control flow. Think syscalls, not state machines.
@@ -21,10 +25,6 @@ On top of the VM sits a **harness**—an imperative orchestration layer where yo
 | **Approvals** | Checkpoints: serialize graph state, resume after input | Interception: blocking "syscall" at the tool level |
 | **Refactoring** | Redraw edges, update graph definitions | Change code—extract functions, inline agents |
 | **Control flow** | DSL constructs (branches, loops) | Native Python: `if`, `for`, `try/except` |
-
-> For the theoretical foundation, see [`docs/theory.md`](docs/theory.md). For implementation details, see [`docs/architecture.md`](docs/architecture.md).
-
-This is the **Unix philosophy for agents**: agents are defined in `.agent` files, dangerous operations are gated syscalls, composition happens through code—not a DSL.
 
 ## Quick Start
 
@@ -44,11 +44,17 @@ export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
 llm-do examples/greeter/project.json "Tell me a joke"
 ```
 
-`llm-do` reads `project.json`, links the listed files, and runs the selected entry.
-Declare the entry in the manifest (`entry.agent` or `entry.function`) to pick an agent or a Python function.
-See [`examples/`](examples/) for more.
+A project is defined by a **manifest** (`project.json`) that lists agent files and declares an entry point:
 
-Example agent file (`main.agent`):
+```json
+{
+  "version": 1,
+  "entry": { "agent": "main" },
+  "agent_files": ["main.agent"]
+}
+```
+
+Agents are defined in `.agent` files—YAML frontmatter plus a system prompt:
 
 ```yaml
 ---
@@ -58,23 +64,8 @@ You are a friendly greeter. Respond to the user with a warm, personalized greeti
 Keep your responses brief and cheerful.
 ```
 
-Example manifest:
-
-```json
-{
-  "version": 1,
-  "runtime": {
-    "approval_mode": "prompt",
-    "max_depth": 5
-  },
-  "entry": {
-    "agent": "main",
-    "args": { "input": "Hello!" }
-  },
-  "agent_files": ["main.agent"],
-  "python_files": ["tools.py"]
-}
-```
+`llm-do` reads the manifest, links the listed files, and runs the entry agent.
+See [`examples/`](examples/) for more.
 
 ## Core Concepts
 
@@ -85,7 +76,7 @@ Example manifest:
 | **Neural** | Agents (`.agent` files) | Stochastic, flexible, handles ambiguity |
 | **Symbolic** | Python tools | Deterministic, fast, cheap, testable |
 
-Orchestration uses `ctx.deps.call_agent(...)` to delegate between agents; the LLM sees both tools and agents as callable functions:
+Both are callable. An agent can invoke a Python tool or delegate to another agent—the LLM sees them as functions:
 
 ```
 Agent ──calls──▶ Tool ──calls──▶ Agent ──calls──▶ Tool ...
@@ -176,6 +167,8 @@ def build_tools():
 tools = ToolsetSpec(factory=build_tools)
 ```
 
+> **Note:** This is more verbose than PydanticAI's `@agent.tool` decorator. The factory pattern ensures each run gets a fresh toolset instance—useful for stateful tools, but admittedly boilerplate for simple cases.
+
 Functions become LLM-callable tools. Reference the toolset name in your agent's `toolsets` config and list `tools.py` in `project.json` under `python_files`.
 
 To access runtime context (for calling other tools/agents), accept a `RunContext` and use `ctx.deps`:
@@ -217,53 +210,9 @@ llm-do project.json --input-json '{"input":"Hello"}'
 
 Common flags: `--headless`, `--tui`, `--chat`, `-v/-vv/-vvv`, `--input-json`, `--debug`. See [`docs/cli.md`](docs/cli.md) for full reference.
 
-## Python Entry Build
+## Python Entry Point
 
-If you're orchestrating from Python, link a single entry from files and run it:
-
-```python
-import asyncio
-from pathlib import Path
-
-from llm_do.runtime import (
-    EntryConfig,
-    RunApprovalPolicy,
-    Runtime,
-    build_registry,
-    resolve_entry,
-)
-
-project_root = Path(".").resolve()
-registry = build_registry(
-    ["main.agent"],
-    ["tools.py"],
-    project_root=project_root,
-)
-entry = resolve_entry(
-    EntryConfig(agent="main"),
-    registry,
-    python_files=["tools.py"],
-    base_path=project_root,
-)
-runtime = Runtime(
-    run_approval_policy=RunApprovalPolicy(mode="approve_all"),
-    project_root=project_root,
-)
-runtime.register_agents(registry.agents)
-
-async def main() -> None:
-    result, _ctx = await runtime.run_entry(
-        entry,
-        {"input": "Analyze this data"},
-    )
-    print(result)
-
-
-asyncio.run(main())
-```
-
-`build_registry()` requires an explicit `project_root`; pass the same root to `Runtime`
-to keep filesystem toolsets and attachment resolution aligned.
+For Python-driven orchestration (instead of agent-first), see [`pitchdeck_eval_code_entry/`](examples/pitchdeck_eval_code_entry/) which demonstrates using a Python function as the entry point.
 
 ## Examples
 
@@ -279,15 +228,6 @@ to keep filesystem toolsets and attachment resolution aligned.
 | [`code_analyzer/`](examples/code_analyzer/) | Shell commands with approval rules |
 | [`web_searcher/`](examples/web_searcher/) | Server-side tools (web search) |
 
-### Running Python Scripts Directly
-
-Some experiments include standalone Python entry points. Run them from the repo root so imports resolve:
-
-```bash
-uv run experiments/inv/v2_direct/run.py
-uv run -m experiments.inv.v2_direct.run
-```
-
 ## Documentation
 
 - **[`docs/theory.md`](docs/theory.md)** — Theoretical foundation: probabilistic programs, stabilizing/softening, tradeoffs
@@ -296,17 +236,13 @@ uv run -m experiments.inv.v2_direct.run
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference
 - **[`docs/notes/`](docs/notes/)** — Working design notes and explorations
 
-## Status
+## Status & Tradeoffs
 
 **Experimental** — Built on [PydanticAI](https://ai.pydantic.dev/). APIs may change.
 
-**Working:** Agent resolution, agent delegation, approvals, custom tools.
+llm-do excels at normal-code control flow and progressive stabilization. It's not a durable workflow engine—no built-in checkpointing or replay. For that, use llm-do as a component within Temporal, Prefect, or similar.
 
-**TUI:** The interactive terminal UI (Textual-based) is experimental. Use `--chat` to keep it open for multi-turn input, or `--headless` for non-interactive mode.
-
-## Tradeoffs
-
-llm-do excels at normal-code control flow and progressive stabilizing. It's not a durable workflow engine—no built-in checkpointing or replay. For that, use llm-do as a component within Temporal, Prefect, or similar.
+The TUI is experimental. Use `--headless` for non-interactive mode or `--chat` for multi-turn input.
 
 ## Security
 

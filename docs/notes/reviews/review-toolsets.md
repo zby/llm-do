@@ -1,3 +1,7 @@
+---
+description: Periodic review findings for toolsets.
+---
+
 # Toolsets Review
 
 ## Context
@@ -36,3 +40,20 @@ Core toolsets are consistent, but the biggest correctness gap is the
 `shell_readonly` whitelist allowing `find` to execute or delete files without
 approval. Tool arg validation and shell config validation are the next cleanup
 targets to avoid silent runtime failures.
+
+## Review 2026-02-01
+
+### Findings
+- **Shell metacharacter blocking is only enforced in approval path:** `ShellToolset.call_tool()` executes `execute_shell()` without calling `check_metacharacters()`. If a toolset is used without the approval wrapper, blocked metacharacters can run. Add a defense-in-depth check in `call_tool` or `execute_shell`. (`llm_do/toolsets/shell/toolset.py`, `llm_do/toolsets/shell/execution.py`)
+- **Shell rules still accept raw dicts:** `ShellRule`/`ShellDefault` models exist but config is unvalidated; malformed rule entries will surface as runtime attribute errors. (`llm_do/toolsets/shell/types.py`, `llm_do/toolsets/shell/toolset.py`, `llm_do/toolsets/shell/execution.py`)
+
+### Resolved Since Prior Review
+- **`shell_readonly` now requires approval for dangerous `find` flags:** built-in rules use `approval_required_if_args` for `-exec`, `-execdir`, and `-delete`. (`llm_do/toolsets/builtins.py`, `llm_do/toolsets/shell/execution.py`)
+- **Tool arg validation uses typed schemas:** toolsets now validate args with Pydantic models via `DictValidator`. (`llm_do/toolsets/filesystem.py`, `llm_do/toolsets/shell/toolset.py`)
+
+### Open Questions
+- Should `execute_shell` always enforce metacharacter blocking even when approval is disabled?
+- Should toolset config be validated at instantiation (using `ShellRule`/`ShellDefault`) to fail fast on invalid YAML?
+
+### Conclusion
+Shell safety still relies on the approval wrapper for enforcement; add defense-in-depth and config validation to tighten the toolset boundary.

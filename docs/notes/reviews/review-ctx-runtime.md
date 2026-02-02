@@ -36,3 +36,15 @@ Ctx runtime is stable; remaining issues are schema-ref double-import risk, max-d
 ### Open Questions
 - Should entry agents start receiving `message_history` (depth 0), or should docs state history is UI-only until runtime owns sync?
 - Should schema ref resolution reuse the discovery cache for dotted module refs, or should docs steer users to path-based schema refs to avoid duplicate imports?
+
+## Review 2026-02-01
+
+### Findings
+- **`allow_cli_input` does not guard stdin:** the CLI only checks prompt/`--input-json`; piped stdin is still accepted even when the manifest sets `allow_cli_input=false`. (`llm_do/cli/main.py`, `llm_do/runtime/manifest.py`)
+- **Message history still not plumbed to entry agents:** `Runtime.run_entry` seeds `CallFrame.messages`, but `call_agent` never forwards history into `run_agent`; chat turns remain stateless. (`llm_do/runtime/runtime.py`, `llm_do/runtime/context.py`, `llm_do/runtime/agent_runner.py`, `llm_do/ui/runner.py`)
+- **Module discovery cache never invalidates:** `load_module` caches by resolved path and never reloads, which can surprise long-lived sessions that expect file edits to take effect. (`llm_do/runtime/discovery.py`)
+
+### Open Questions
+- Should stdin be treated as CLI input and blocked when `allow_cli_input=false`?
+- Should runtime own message_history and pass it to depth-0 agents?
+- Do we want a cache-busting path (or opt-out) for `load_module` in dev workflows?

@@ -1,3 +1,7 @@
+---
+description: Periodic review findings for config and auth modules.
+---
+
 # Config and Auth Review
 
 ## Context
@@ -36,3 +40,16 @@ Review of config and auth modules for bugs, inconsistencies, and overengineering
 Config override ergonomics are in good shape, and OAuth storage is reasonably
 safe, but the model-selection docs are inconsistent and OAuth integration into
 the main runtime appears incomplete.
+
+## Review 2026-02-01
+
+### Findings
+- **Empty LLM_DO_MODEL treated as a real model id:** `get_env_model()` returns the raw env value; if it's empty/whitespace, `select_model_with_id()` treats it as a model id and defers failure to `infer_model`, yielding confusing errors. Normalize empty values or raise a targeted error. (`llm_do/models.py`)
+- **OAuth auto requires explicit provider prefixes:** `resolve_oauth_overrides()` only triggers for `provider:model` strings. In `oauth_auto` mode a model like `claude-3-5` won't use OAuth, and in `oauth_required` it raises "model has no provider prefix" even when Anthropic is the implicit default. (`llm_do/runtime/agent_runner.py`, `llm_do/oauth/__init__.py`)
+
+### Open Questions
+- Should OAuth inference treat bare Anthropic model names as `anthropic:<model>` for oauth_auto/required?
+- Should `LLM_DO_MODEL` be normalized (strip + empty -> None) at the config boundary?
+
+### Conclusion
+OAuth support is functional but still assumes explicit provider prefixes; env-model normalization is the main ergonomics footgun.

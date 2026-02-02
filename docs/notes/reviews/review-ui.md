@@ -1,3 +1,7 @@
+---
+description: Periodic review findings for the UI system.
+---
+
 # UI System Review
 
 ## Context
@@ -37,3 +41,16 @@ Review of the UI system for bugs, inconsistencies, and overengineering.
 UI is in a healthier state: streaming, truncation, and literal rendering are
 aligned across backends, and TUI state is split into small controllers. Remaining
 work is mostly about simplifying the rendering responsibility boundaries.
+
+## Review 2026-02-01
+
+### Findings
+- **Chat history is not applied to runtime:** TUI collects `message_history` between turns, but `Runtime.run_entry` never forwards that history into the entry agent. Chat turns are effectively stateless even though the UI shows a conversation. (`llm_do/ui/runner.py`, `llm_do/runtime/runtime.py`, `llm_do/runtime/context.py`)
+- **Chat mode requires an initial prompt:** `run_tui` errors if `chat=True` and no initial prompt is provided, which blocks starting an empty chat session. (`llm_do/ui/runner.py`)
+
+### Open Questions
+- Should chat mode allow a blank initial prompt (start idle and wait for user input)?
+- Should message history be owned by the runtime (and always forwarded), or stay UI-only until a runtime-level sync model exists?
+
+### Conclusion
+Chat UX still diverges from multi-turn expectations; history plumbing and initial-prompt rules need a decision.

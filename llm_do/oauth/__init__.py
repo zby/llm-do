@@ -22,14 +22,12 @@ ANTHROPIC_OAUTH_BETA = "oauth-2025-04-20"
 ANTHROPIC_OAUTH_BETA_FEATURES = ("fine-grained-tool-streaming-2025-05-14",)
 ANTHROPIC_OAUTH_ACCEPT = "application/json"
 ANTHROPIC_OAUTH_DANGEROUS_HEADER = "anthropic-dangerous-direct-browser-access"
-ANTHROPIC_OAUTH_SYSTEM_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude."
 
 
 @dataclass(frozen=True)
 class OAuthModelOverrides:
     model: Any
     model_settings: ModelSettings | None
-    system_prompt: Optional[str]
 
 
 def _split_model_identifier(model: str) -> Tuple[Optional[str], str]:
@@ -129,7 +127,6 @@ async def resolve_oauth_overrides(
     return OAuthModelOverrides(
         model=oauth_model,
         model_settings=model_settings,
-        system_prompt=ANTHROPIC_OAUTH_SYSTEM_PROMPT,
     )
 
 
@@ -138,7 +135,6 @@ __all__ = [
     "ANTHROPIC_OAUTH_BETA",
     "ANTHROPIC_OAUTH_BETA_FEATURES",
     "ANTHROPIC_OAUTH_DANGEROUS_HEADER",
-    "ANTHROPIC_OAUTH_SYSTEM_PROMPT",
     "OAuthCredentials",
     "OAuthProvider",
     "OAuthStorage",

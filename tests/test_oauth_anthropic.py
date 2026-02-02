@@ -9,7 +9,6 @@ from llm_do.oauth import (
     ANTHROPIC_OAUTH_BETA,
     ANTHROPIC_OAUTH_BETA_FEATURES,
     ANTHROPIC_OAUTH_DANGEROUS_HEADER,
-    ANTHROPIC_OAUTH_SYSTEM_PROMPT,
     resolve_oauth_overrides,
 )
 from llm_do.oauth import anthropic as oauth_anthropic
@@ -154,7 +153,6 @@ def test_resolve_oauth_overrides(memory_storage):
         resolve_oauth_overrides("anthropic:claude-sonnet-4", storage=memory_storage)
     )
     assert overrides is not None
-    assert overrides.system_prompt == ANTHROPIC_OAUTH_SYSTEM_PROMPT
     assert overrides.model_settings is not None
     assert overrides.model_settings["extra_headers"]["accept"] == ANTHROPIC_OAUTH_ACCEPT
     beta_header = overrides.model_settings["extra_headers"]["anthropic-beta"]

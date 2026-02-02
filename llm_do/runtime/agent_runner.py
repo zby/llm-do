@@ -48,6 +48,8 @@ def _build_agent(
     *,
     toolsets: Sequence[AbstractToolset[Any]] | None = None,
     model: Any | None = None,
+    # system_prompt is intentionally kept for future use (e.g., per-call prompt
+    # injection). Not currently wired from run_agent but part of PydanticAI's API.
     system_prompt: str | Sequence[str] | None = None,
 ) -> Agent[CallContextProtocol, Any]:
     """Build a PydanticAI agent with toolsets passed directly."""
@@ -111,7 +113,6 @@ async def run_agent(
 
     model = spec.model
     model_settings = spec.model_settings
-    system_prompt: str | Sequence[str] | None = None
 
     auth_mode = runtime.config.auth_mode
     if auth_mode != "oauth_off":
@@ -148,14 +149,12 @@ async def run_agent(
                         model_settings,
                         overrides.model_settings,
                     )
-                    system_prompt = overrides.system_prompt
 
     agent = _build_agent(
         spec,
         runtime,
         toolsets=list(runtime.frame.config.active_toolsets),
         model=model,
-        system_prompt=system_prompt,
     )
     base_path = runtime.config.project_root or Path.cwd()
     prompt = render_prompt(messages, base_path)

@@ -62,6 +62,7 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [llm-do Project Mode, Worker Imports, and Tool Linking](llm-do-project-mode-and-imports.md) — Spec for project mode discovery, worker imports, and tool linking
 - [llm-do vs vanilla PydanticAI: what the runtime adds](llm-do-vs-pydanticai-runtime.md) — What llm-do adds on top of vanilla PydanticAI agents
 - [Preapproved Capability Scopes](preapproved-capability-scopes.md) — Path-scoped preapproval policies for reducing approval prompts
+- [Pure Dynamic Tools](pure-dynamic-tools.md) — LLM-authored tools that can only call agents, enabling safe dynamic orchestration
 - [Pure Python vs MCP Code Mode](pure-python-vs-mcp-codemode.md) — Comparing MCP code mode with llm-do pure Python composite tools
 - [Python Worker Annotation Brainstorm](python-agent-annotation-brainstorm.md) — Brainstorm for Python-only worker definitions via decorators
 - [Stabilize Message Capture Without Private _agent_graph](stabilize-message-capture.md) — Removing private PydanticAI dependency for message capture

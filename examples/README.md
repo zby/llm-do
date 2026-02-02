@@ -54,6 +54,12 @@ The pitchdeck examples show the same task at different stabilization levels—a 
 | [`web_searcher/`](web_searcher/) | Server-side tools (native web_search) for live data |
 | [`web_research_agent/`](web_research_agent/) | Multi-agent research pipeline: search → extract → consolidate → report |
 
+## Orchestration Patterns
+
+| Example | What it demonstrates |
+|---------|---------------------|
+| [`orchestrating_tool/`](orchestrating_tool/) | Tool that orchestrates agents—encapsulates multi-agent pipelines in Python |
+
 ## Advanced Patterns
 
 | Example | What it demonstrates |

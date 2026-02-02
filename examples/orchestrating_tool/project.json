@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "runtime": {
+    "approval_mode": "prompt",
+    "agent_calls_require_approval": false
+  },
+  "entry": {
+    "agent": "main"
+  },
+  "agent_files": [
+    "main.agent",
+    "query_expander.agent",
+    "searcher.agent",
+    "synthesizer.agent"
+  ],
+  "python_files": ["tools.py"]
+}

@@ -290,3 +290,9 @@ def whiteboard_planner_example(example_dir_factory):
 def recursive_summarizer_example(example_dir_factory):
     """Example directory for recursive_summarizer."""
     return example_dir_factory("recursive_summarizer")
+
+
+@pytest.fixture
+def orchestrating_tool_example(example_dir_factory):
+    """Example directory for orchestrating_tool."""
+    return example_dir_factory("orchestrating_tool")

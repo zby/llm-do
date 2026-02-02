@@ -3,11 +3,13 @@
 These tests verify that individual tool functions work correctly,
 independent of the LLM/worker infrastructure.
 """
+import inspect
 from pathlib import Path
 
 import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
+from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
 from llm_do.runtime import load_toolsets_from_files
@@ -15,8 +17,22 @@ from llm_do.runtime import load_toolsets_from_files
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
 
-def _build_toolset(spec):
-    return spec.factory()
+def _build_toolset(toolset_def):
+    if isinstance(toolset_def, AbstractToolset):
+        return toolset_def
+    run_ctx = RunContext(
+        deps=None,
+        model=TestModel(),
+        usage=RunUsage(),
+        prompt="test",
+        messages=[],
+        run_step=0,
+        retry=0,
+    )
+    toolset = toolset_def(run_ctx)
+    if inspect.isawaitable(toolset):
+        raise RuntimeError("Async toolset factories not supported in this test helper")
+    return toolset
 
 
 async def _call_tool(toolset, name, args):

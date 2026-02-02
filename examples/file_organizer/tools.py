@@ -6,13 +6,14 @@ handled by deterministic Python code (no LLM variability).
 """
 import re
 
+from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec
+from llm_do.runtime import CallContext
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 
-def build_file_tools():
+def build_file_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     file_tools = FunctionToolset()
 
     @file_tools.tool
@@ -72,4 +73,4 @@ def build_file_tools():
     return file_tools
 
 
-file_tools = ToolsetSpec(factory=build_file_tools)
+TOOLSETS = {"file_tools": build_file_tools}

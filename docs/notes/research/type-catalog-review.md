@@ -39,7 +39,7 @@ with an eye toward design quality and opportunities to simplify.
 - llm_do/runtime/worker_file.py: WorkerDefinition (dataclass)
 - llm_do/toolsets/agent.py: _DefaultAgentToolSchema (BaseModel); AgentToolset (dataclass)
 - llm_do/toolsets/filesystem.py: ReadResult, ReadFileArgs, WriteFileArgs, ListFilesArgs (BaseModel)
-- llm_do/toolsets/loader.py: ToolsetFactory (TypeAlias); ToolsetSpec (dataclass)
+- llm_do/toolsets/loader.py: ToolDef, ToolsetDef (TypeAlias)
 - llm_do/toolsets/shell/execution.py: ShellError, ShellBlockedError (exceptions)
 - llm_do/toolsets/shell/types.py: ShellResult, ShellRule, ShellDefault (BaseModel)
 - llm_do/toolsets/shell/toolset.py: ShellArgs (BaseModel)

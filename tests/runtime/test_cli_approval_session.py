@@ -19,7 +19,6 @@ from llm_do.runtime import (
     FunctionEntry,
     RunApprovalPolicy,
     Runtime,
-    ToolsetSpec,
 )
 
 
@@ -79,12 +78,11 @@ async def test_tui_session_approval_cache_persists_across_runs() -> None:
         calls.append(request)
         return ApprovalDecision(approved=True, remember="session")
 
-    probe_spec = ToolsetSpec(factory=lambda: _ProbeToolset())
     agent_spec = AgentSpec(
         name="main",
         instructions="Test agent",
         model=TestModel(call_tools=["probe"], custom_output_text="done"),
-        toolset_specs=[probe_spec],
+        toolsets=[_ProbeToolset()],
     )
 
     async def main(input_data, runtime) -> str:

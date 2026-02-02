@@ -6,7 +6,7 @@ from pydantic_ai.usage import RunUsage
 from llm_do.runtime import AgentArgs, AgentSpec, PromptContent, PromptInput
 from llm_do.runtime.args import normalize_input
 from llm_do.toolsets.agent import agent_as_toolset
-from tests.runtime.helpers import build_runtime_context
+from tests.runtime.helpers import build_runtime_context, materialize_toolset_def
 
 
 class TopicInput(AgentArgs):
@@ -51,7 +51,7 @@ async def test_agent_tool_schema_uses_input_model() -> None:
         tool_name="main",
     )
 
-    toolset = agent_as_toolset(spec).factory()
+    toolset = await materialize_toolset_def(agent_as_toolset(spec), ctx)
     tools = await toolset.get_tools(run_ctx)
     tool_def = tools[spec.name].tool_def
     schema = tool_def.parameters_json_schema
@@ -81,7 +81,7 @@ async def test_agent_tool_description_prefers_description() -> None:
         tool_name="main",
     )
 
-    toolset = agent_as_toolset(spec).factory()
+    toolset = await materialize_toolset_def(agent_as_toolset(spec), ctx)
     tools = await toolset.get_tools(run_ctx)
     tool_def = tools[spec.name].tool_def
 

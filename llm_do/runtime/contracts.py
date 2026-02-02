@@ -15,7 +15,7 @@ from pydantic_ai.models import Model  # Used in ModelType
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import AbstractToolset  # Used in CallContextProtocol
 
-from ..toolsets.loader import ToolsetSpec
+from ..toolsets.loader import ToolDef, ToolsetDef, is_tool_def, is_toolset_def
 from .args import AgentArgs, PromptInput
 from .events import RuntimeEvent
 
@@ -57,7 +57,10 @@ class CallContextProtocol(Protocol):
     def agent_registry(self) -> dict[str, "AgentSpec"]: ...
 
     @property
-    def toolset_registry(self) -> dict[str, ToolsetSpec]: ...
+    def tool_registry(self) -> dict[str, ToolDef]: ...
+
+    @property
+    def toolset_registry(self) -> dict[str, ToolsetDef]: ...
 
     @property
     def dynamic_agents(self) -> dict[str, "AgentSpec"]: ...
@@ -110,7 +113,8 @@ class AgentSpec:
     instructions: str
     model: ModelType
     model_id: str | None = None
-    toolset_specs: list[ToolsetSpec] = field(default_factory=list)
+    tools: list[ToolDef] = field(default_factory=list)
+    toolsets: list[ToolsetDef] = field(default_factory=list)
     description: str | None = None
     input_model: type["AgentArgs"] = PromptInput
     output_model: type[BaseModel] | None = None
@@ -132,9 +136,14 @@ class AgentSpec:
             )
         if not isinstance(self.model, Model):
             raise TypeError("AgentSpec.model must be a Model instance.")
-        for spec in self.toolset_specs:
-            if not isinstance(spec, ToolsetSpec):
-                raise TypeError("Agent toolset_specs must contain ToolsetSpec instances.")
+        for tool in self.tools:
+            if not is_tool_def(tool) or isinstance(tool, AbstractToolset):
+                raise TypeError("Agent tools must contain Tool or callable definitions.")
+        for toolset in self.toolsets:
+            if not is_toolset_def(toolset):
+                raise TypeError(
+                    "Agent toolsets must contain AbstractToolset or ToolsetFunc definitions."
+                )
 
 
 @dataclass(frozen=True, slots=True)

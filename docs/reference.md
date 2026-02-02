@@ -221,9 +221,9 @@ To access the runtime, accept `RunContext[CallContext]` as the first parameter:
 ```python
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec, CallContext
+from llm_do.runtime import CallContext
 
-def build_tools():
+def build_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     tools = FunctionToolset()
 
     @tools.tool
@@ -234,7 +234,7 @@ def build_tools():
 
     return tools
 
-tools = ToolsetSpec(factory=build_tools)
+TOOLSETS = {"tools": build_tools}
 ```
 
 The `ctx` parameter is automatically injected by PydanticAI and excluded from the tool schema the LLM sees.
@@ -475,10 +475,11 @@ Toolsets provide tools to agents. There are two approaches:
 The simplest way to create tools. Define functions with the `@tools.tool` decorator:
 
 ```python
+from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec
+from llm_do.runtime import CallContext
 
-def build_calc_tools():
+def build_calc_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     calc_tools = FunctionToolset()
 
     @calc_tools.tool
@@ -495,7 +496,7 @@ def build_calc_tools():
 
     return calc_tools
 
-calc_tools = ToolsetSpec(factory=build_calc_tools)
+TOOLSETS = {"calc_tools": build_calc_tools}
 ```
 
 Save as `tools.py` and reference in your agent:
@@ -510,8 +511,9 @@ toolsets:
 You are a helpful calculator...
 ```
 
-Factories take no arguments; close over any configuration you need when
-defining the factory (e.g., base paths).
+Factories accept a `RunContext` (you can ignore it) and are called once per
+agent run; close over any configuration you need when defining the factory
+(e.g., base paths).
 
 **Accessing the Runtime:**
 
@@ -522,7 +524,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 from llm_do.runtime import CallContext
 
-def build_calc_tools():
+def build_calc_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     calc_tools = FunctionToolset()
 
     @calc_tools.tool
@@ -606,12 +608,13 @@ class MyToolset(AbstractToolset[Any]):
 Register it with a factory so each call gets a fresh instance:
 
 ```python
-from llm_do.runtime import ToolsetSpec
+from pydantic_ai.tools import RunContext
+from llm_do.runtime import CallContext
 
-def build_my_toolset():
+def build_my_toolset(_ctx: RunContext[CallContext]) -> MyToolset:
     return MyToolset(config={"require_approval": True})
 
-my_toolset = ToolsetSpec(factory=build_my_toolset)
+TOOLSETS = {"my_toolset": build_my_toolset}
 ```
 
 ### Toolset Configuration
@@ -621,18 +624,21 @@ only references toolset names, so you define any config when building
 the toolset in a `.py` file:
 
 ```python
+from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec
+from llm_do.runtime import CallContext
 from llm_do.toolsets import FileSystemToolset
 
-def build_calc_tools():
+def build_calc_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     return FunctionToolset()
 
-def build_filesystem():
+def build_filesystem(_ctx: RunContext[CallContext]) -> FileSystemToolset:
     return FileSystemToolset(config={"base_path": "./data", "write_approval": True})
 
-calc_tools = ToolsetSpec(factory=build_calc_tools)
-filesystem_data = ToolsetSpec(factory=build_filesystem)
+TOOLSETS = {
+    "calc_tools": build_calc_tools,
+    "filesystem_data": build_filesystem,
+}
 ```
 
 Then reference the toolset names in your agent:
@@ -690,6 +696,8 @@ Agents are defined in `.agent` files with YAML frontmatter:
 ---
 name: my_agent
 model: anthropic:claude-haiku-4-5
+tools:
+  - normalize_path
 toolsets:
   - filesystem_project
   - shell_readonly
@@ -710,6 +718,7 @@ You have access to filesystem and shell tools.
 | `compatible_models` | No | List of acceptable model patterns for the `LLM_DO_MODEL` fallback (mutually exclusive with `model`) |
 | `input_model_ref` | No | Input model reference (see [Agent Input Models](#agent-input-models)) |
 | `server_side_tools` | No | Server-side tool configs (e.g., web search) |
+| `tools` | No | List of tool names |
 | `toolsets` | No | List of toolset names |
 
 **Model Format:**
@@ -756,11 +765,14 @@ Then set:
 export LLM_DO_MODEL="acme:my-model"
 ```
 
-**Toolset References:**
+**Tool & Toolset References:**
+
+Tools can be specified as:
+- Tool names exported via `TOOLS` (dict or list) or `__all__` in Python files
 
 Toolsets can be specified as:
 - Built-in toolset name (e.g., `filesystem_project`, `shell_readonly`)
-- Toolset instance name from a Python file passed to the CLI
+- Toolset name exported via `TOOLSETS` (dict or list), or module-level `AbstractToolset` instances
 - Other agent names from `.agent` files (agents act as toolsets)
 
 **Recursive Agents:**

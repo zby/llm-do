@@ -4,7 +4,7 @@ from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, ToolsetSpec
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime
 from llm_do.runtime.events import RuntimeEvent, UserMessageEvent
 from tests.runtime.helpers import build_runtime_context
 
@@ -66,7 +66,7 @@ async def test_entry_emits_user_message_event() -> None:
 async def test_agent_emits_tool_events() -> None:
     events: list[RuntimeEvent] = []
 
-    def build_toolset():
+    def build_toolset(_ctx):
         toolset = FunctionToolset()
 
         @toolset.tool
@@ -79,7 +79,7 @@ async def test_agent_emits_tool_events() -> None:
         name="calculator",
         instructions="Use add tool.",
         model=TestModel(call_tools=["add"], custom_output_text="done"),
-        toolset_specs=[ToolsetSpec(factory=build_toolset)],
+        toolsets=[build_toolset],
     )
 
     async def entry_main(input_data, runtime):

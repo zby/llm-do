@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence
 from pydantic_ai.usage import RunUsage
 
 from ..models import ModelInput, resolve_model
-from ..toolsets.loader import ToolsetSpec
+from ..toolsets.loader import ToolDef, ToolsetDef
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .contracts import (
     AgentSpec,
@@ -158,7 +158,8 @@ class Runtime:
         self._usage = UsageCollector()
         self._message_log = MessageAccumulator()
         self._agent_registry: dict[str, AgentSpec] = {}
-        self._toolset_registry: dict[str, ToolsetSpec] = {}
+        self._tool_registry: dict[str, ToolDef] = {}
+        self._toolset_registry: dict[str, ToolsetDef] = {}
         self._dynamic_agents: dict[str, AgentSpec] = {}
 
     @property
@@ -186,7 +187,11 @@ class Runtime:
         return self._agent_registry
 
     @property
-    def toolset_registry(self) -> dict[str, ToolsetSpec]:
+    def tool_registry(self) -> dict[str, ToolDef]:
+        return self._tool_registry
+
+    @property
+    def toolset_registry(self) -> dict[str, ToolsetDef]:
         return self._toolset_registry
 
     @property
@@ -196,11 +201,15 @@ class Runtime:
     def register_agents(self, agents: Mapping[str, AgentSpec]) -> None:
         self._agent_registry = dict(agents)
 
-    def register_toolsets(self, toolsets: Mapping[str, ToolsetSpec]) -> None:
+    def register_tools(self, tools: Mapping[str, ToolDef]) -> None:
+        self._tool_registry = dict(tools)
+
+    def register_toolsets(self, toolsets: Mapping[str, ToolsetDef]) -> None:
         self._toolset_registry = dict(toolsets)
 
     def register_registry(self, registry: "AgentRegistry") -> None:
         self.register_agents(registry.agents)
+        self.register_tools(registry.tools)
         self.register_toolsets(registry.toolsets)
 
     def _create_usage(self) -> RunUsage:

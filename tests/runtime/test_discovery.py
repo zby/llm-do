@@ -5,9 +5,11 @@ import tempfile
 import pytest
 
 from llm_do.runtime import (
+    discover_tools_from_module,
     discover_toolsets_from_module,
     load_agents_from_files,
     load_module,
+    load_tools_from_files,
     load_toolsets_from_files,
 )
 
@@ -36,12 +38,12 @@ class TestLoadModule:
 class TestDiscoverToolsets:
     """Tests for toolset discovery."""
 
-    def test_discover_function_toolset(self):
-        """Test discovering ToolsetSpec from module."""
+    def test_discover_toolsets_from_registry(self):
+        """Discover toolsets via TOOLSETS registry."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec
+
 
 def build_tools(_ctx):
     tools = FunctionToolset()
@@ -52,7 +54,7 @@ def build_tools(_ctx):
 
     return tools
 
-my_tools = ToolsetSpec(factory=build_tools)
+TOOLSETS = {"my_tools": build_tools}
 """)
             f.flush()
 
@@ -61,26 +63,17 @@ my_tools = ToolsetSpec(factory=build_tools)
                 toolsets = discover_toolsets_from_module(module)
 
                 assert "my_tools" in toolsets
-                from llm_do.runtime import ToolsetSpec
-                assert isinstance(toolsets["my_tools"], ToolsetSpec)
             finally:
                 os.unlink(f.name)
 
-    def test_discover_skips_private(self):
-        """Test that private attributes are skipped."""
+    def test_discover_toolsets_skips_private_instances(self):
+        """Private toolset instances are ignored."""
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
             f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec
 
-def build_private(_ctx):
-    return FunctionToolset()
-
-def build_public(_ctx):
-    return FunctionToolset()
-
-_private_tools = ToolsetSpec(factory=build_private)
-public_tools = ToolsetSpec(factory=build_public)
+_private_tools = FunctionToolset()
+public_tools = FunctionToolset()
 """)
             f.flush()
 
@@ -90,6 +83,85 @@ public_tools = ToolsetSpec(factory=build_public)
 
                 assert "_private_tools" not in toolsets
                 assert "public_tools" in toolsets
+            finally:
+                os.unlink(f.name)
+
+
+class TestDiscoverTools:
+    """Tests for tool discovery."""
+
+    def test_discover_tools_from_tools_list(self):
+        with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
+            f.write("""\
+def add(a: int, b: int) -> int:
+    return a + b
+
+TOOLS = [add]
+""")
+            f.flush()
+
+            try:
+                module = load_module(f.name)
+                tools = discover_tools_from_module(module)
+
+                assert "add" in tools
+            finally:
+                os.unlink(f.name)
+
+    def test_discover_tools_from_all(self):
+        with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
+            f.write("""\
+from pydantic_ai import Tool
+
+
+def hello(name: str) -> str:
+    return name
+
+hello_tool = Tool(hello, name="hello_tool")
+__all__ = ["hello_tool"]
+""")
+            f.flush()
+
+            try:
+                module = load_module(f.name)
+                tools = discover_tools_from_module(module)
+
+                assert "hello_tool" in tools
+            finally:
+                os.unlink(f.name)
+
+    def test_tools_registry_rejects_toolsets(self):
+        with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
+            f.write("""\
+from pydantic_ai.toolsets import FunctionToolset
+
+TOOLS = [FunctionToolset()]
+""")
+            f.flush()
+
+            try:
+                module = load_module(f.name)
+                with pytest.raises(ValueError, match="Invalid tools registry"):
+                    discover_tools_from_module(module)
+            finally:
+                os.unlink(f.name)
+
+    def test_toolsets_registry_rejects_tools(self):
+        with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
+            f.write("""\
+from pydantic_ai import Tool
+
+def ping() -> str:
+    return "pong"
+
+TOOLSETS = {"oops": Tool(ping, name="oops")}
+""")
+            f.flush()
+
+            try:
+                module = load_module(f.name)
+                with pytest.raises(ValueError, match="Invalid toolsets registry"):
+                    discover_toolsets_from_module(module)
             finally:
                 os.unlink(f.name)
 
@@ -104,7 +176,7 @@ class TestLoadToolsetsFromFiles:
             with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                 f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec
+
 
 def build_math(_ctx):
     tools = FunctionToolset()
@@ -115,14 +187,14 @@ def build_math(_ctx):
 
     return tools
 
-math_tools = ToolsetSpec(factory=build_math)
+TOOLSETS = {"math_tools": build_math}
 """)
                 files.append(f.name)
 
             with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                 f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec
+
 
 def build_string(_ctx):
     tools = FunctionToolset()
@@ -133,7 +205,7 @@ def build_string(_ctx):
 
     return tools
 
-string_tools = ToolsetSpec(factory=build_string)
+TOOLSETS = {"string_tools": build_string}
 """)
                 files.append(f.name)
 
@@ -154,12 +226,12 @@ string_tools = ToolsetSpec(factory=build_string)
                 with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
                     f.write("""\
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec
+
 
 def build_tools(_ctx):
     return FunctionToolset()
 
-duplicate_tools = ToolsetSpec(factory=build_tools)
+TOOLSETS = {"duplicate_tools": build_tools}
 """)
                     files.append(f.name)
 
@@ -181,6 +253,30 @@ duplicate_tools = ToolsetSpec(factory=build_tools)
                 assert toolsets == {}
             finally:
                 os.unlink(f.name)
+
+
+class TestLoadToolsFromFiles:
+    """Tests for load_tools_from_files."""
+
+    def test_duplicate_name_raises(self):
+        files = []
+        try:
+            for _ in range(2):
+                with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
+                    f.write("""\
+
+def ping() -> str:
+    return "pong"
+
+TOOLS = [ping]
+""")
+                    files.append(f.name)
+
+            with pytest.raises(ValueError, match="Duplicate tool name"):
+                load_tools_from_files(files)
+        finally:
+            for fname in files:
+                os.unlink(fname)
 
 
 class TestLoadAgentsFromFiles:

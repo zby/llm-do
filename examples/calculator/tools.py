@@ -1,11 +1,12 @@
 """Calculator tools using FunctionToolset."""
+from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec
+from llm_do.runtime import CallContext
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 
-def build_calc_tools():
+def build_calc_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     calc_tools = FunctionToolset()
 
     @calc_tools.tool
@@ -73,4 +74,4 @@ def build_calc_tools():
     return calc_tools
 
 
-calc_tools = ToolsetSpec(factory=build_calc_tools)
+TOOLSETS = {"calc_tools": build_calc_tools}

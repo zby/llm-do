@@ -33,7 +33,7 @@ Sessions are not persisted—each CLI invocation is a separate session.
 - Toolset instances (created fresh per call)
 - Handle-based resources (DB transactions, browser sessions)
 
-The key property: **all state created during a call is cleaned up when that call ends**. Uncommitted transactions roll back, sessions close, handles release. The next call starts fresh.
+The key property: **all state created during a call is cleaned up when that call ends**. Toolset contexts exit, sessions close, handles release. The next call starts fresh.
 
 **Naming vs instances**: Toolsets are referenced by name in worker config (declaring capability), but actual instances are created per call. Parent and child calls never share toolset instances.
 
@@ -51,15 +51,16 @@ Turns update the `CallFrame` prompt. At depth 0, message history accumulates acr
 
 ## Toolset Instances Are Per-Call
 
-Toolsets are registered as factories. Each call gets a fresh instance:
+Toolsets are registered as factories in `TOOLSETS`. Each call gets a fresh instance:
 
 ```python
-from llm_do.runtime import ToolsetSpec
+from pydantic_ai.tools import RunContext
+from llm_do.runtime import CallContext
 
-def build_tools():
+def build_tools(_ctx: RunContext[CallContext]):
     return MyToolset(config={"base_path": "/data"})
 
-my_tools = ToolsetSpec(factory=build_tools)
+TOOLSETS = {"my_tools": build_tools}
 ```
 
 Why per-call? If toolsets were shared, recursive workers would leak state:
@@ -79,11 +80,11 @@ Some resources are expensive to create: connection pools, browser instances, HTT
 # Connection pool created once at module load
 pool = ConnectionPool(max_connections=10)
 
-def build_database_tools():
+def build_database_tools(_ctx):
     # Fresh toolset instance per call, shared pool
     return DatabaseToolset(pool)
 
-database = ToolsetSpec(factory=build_database_tools)
+TOOLSETS = {"database": build_database_tools}
 ```
 
 This gives you:
@@ -120,10 +121,11 @@ Handles keep the resource lifecycle in the LLM-visible control flow.
 
 ## Cleanup Protocol
 
-Toolsets may implement `cleanup()` (sync or async). The runtime calls it after each call, logging errors without failing the run:
+Toolsets may implement `__aenter__`/`__aexit__` for lifecycle cleanup. The runtime
+enters/exits toolsets per call:
 
 ```python
-async def cleanup(self) -> None:
+async def __aexit__(self, exc_type, exc, tb) -> None:
     for conn in self._transactions.values():
         conn.execute("ROLLBACK")
         self._pool.release(conn)
@@ -135,7 +137,7 @@ async def cleanup(self) -> None:
 - **Prefer stateless toolsets** when possible
 - **Use handles** when multiple resources coexist in one call
 - **Capture expensive resources in factories**, isolate per-call state in instances
-- **Implement cleanup** to release forgotten handles
+- **Implement __aexit__** to release forgotten handles
 
 ## Chat Mode
 

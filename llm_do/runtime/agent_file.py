@@ -6,6 +6,8 @@ Agent files use YAML frontmatter followed by markdown instructions:
 ---
 name: main
 model: anthropic:claude-haiku-4-5
+tools:
+  - web_research
 toolsets:
   - shell_readonly
   - calc_tools
@@ -13,6 +15,7 @@ toolsets:
 Instructions for the agent...
 ```
 
+The `tools` section is a list of tool names.
 The `toolsets` section is a list of toolset names.
 Toolset names can reference:
 - Built-in toolsets (e.g., "shell_readonly", "filesystem_project")
@@ -32,8 +35,8 @@ class AgentDefinition:
     """Parsed agent definition from a .agent file.
 
     This is the declarative specification extracted from a .agent file,
-    containing unresolved toolset references (as strings) that will be
-    resolved to ToolsetSpec factories when building an AgentSpec.
+    containing unresolved tool/toolset references (as strings) that will be
+    resolved to tool and toolset definitions when building an AgentSpec.
     """
     name: str
     description: str | None
@@ -41,6 +44,7 @@ class AgentDefinition:
     model: str | None = None
     compatible_models: list[str] | None = None
     input_model_ref: str | None = None
+    tools: list[str] = field(default_factory=list)
     toolsets: list[str] = field(default_factory=list)
     server_side_tools: list[dict[str, Any]] = field(default_factory=list)  # Raw config passed to PydanticAI
 
@@ -90,6 +94,7 @@ def build_agent_definition(
         model=fm.get("model"),
         compatible_models=_parse_compatible_models(fm.get("compatible_models")),
         input_model_ref=_parse_input_model_ref(fm.get("input_model_ref")),
+        tools=_parse_tools(fm.get("tools")),
         toolsets=_parse_toolsets(fm.get("toolsets")),
         server_side_tools=_parse_server_side_tools(fm.get("server_side_tools")),
     )
@@ -130,6 +135,24 @@ def _parse_toolsets(toolsets_raw: Any) -> list[str]:
         toolsets.append(item)
 
     return toolsets
+
+
+def _parse_tools(tools_raw: Any) -> list[str]:
+    """Parse and validate the tools section."""
+    if tools_raw is None:
+        return []
+    if not isinstance(tools_raw, list):
+        raise ValueError("Invalid tools: expected YAML list")
+    tools: list[str] = []
+    seen: set[str] = set()
+    for item in tools_raw:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError("Invalid tool entry: expected non-empty string")
+        if item in seen:
+            raise ValueError(f"Duplicate tool entry: {item}")
+        seen.add(item)
+        tools.append(item)
+    return tools
 
 
 def _parse_server_side_tools(raw: Any) -> list[dict[str, Any]]:

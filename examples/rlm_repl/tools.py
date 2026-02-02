@@ -18,7 +18,7 @@ from RestrictedPython import (
 from RestrictedPython.Guards import guarded_iter_unpack_sequence, safer_getattr
 from RestrictedPython.PrintCollector import PrintCollector
 
-from llm_do.runtime import CallContext, ToolsetSpec
+from llm_do.runtime import CallContext
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 _STATE: dict[str, Any] = {
@@ -216,7 +216,7 @@ def set_context(text: str, query: str) -> None:
     env["query"] = query
 
 
-def build_rlm_tools():
+def build_rlm_tools(_ctx):
     tools = FunctionToolset()
 
     @tools.tool
@@ -240,7 +240,7 @@ def build_rlm_tools():
     return tools
 
 
-rlm_tools = ToolsetSpec(factory=build_rlm_tools)
+TOOLSETS = {"rlm_tools": build_rlm_tools}
 
 PROJECT_ROOT = Path(__file__).parent.resolve()
 CONTEXT_PATH = PROJECT_ROOT / "context.txt"

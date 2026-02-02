@@ -19,11 +19,11 @@ import json
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import CallContext, ToolsetSpec
+from llm_do.runtime import CallContext
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 
-def build_research_tools():
+def build_research_tools(_ctx: RunContext[CallContext]):
     """Build the research toolset with an orchestrating tool."""
     tools = FunctionToolset()
 
@@ -94,5 +94,4 @@ Research findings from {len(queries)} queries:
     return tools
 
 
-# Export the toolset spec
-research_tools = ToolsetSpec(factory=build_research_tools)
+TOOLSETS = {"research_tools": build_research_tools}

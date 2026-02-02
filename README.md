@@ -146,40 +146,28 @@ When constructing `AgentSpec` in Python, pass a resolved `Model` instance (use
 
 ## Custom Tools
 
-Add custom tools by creating `tools.py` in your project root. Toolsets are
-defined as factories via `ToolsetSpec`, so each call gets its own instance:
+Add custom tools by creating `tools.py` in your project root. Export **tools**
+and **toolsets** explicitly so llm-do can register them:
 
 ```python
 # tools.py
-from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec
+def sanitize_filename(name: str) -> str:
+    """Remove special characters from filename."""
+    return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
 
-def build_tools():
-    tools = FunctionToolset()
-
-    @tools.tool
-    def sanitize_filename(name: str) -> str:
-        """Remove special characters from filename."""
-        return "".join(c if c.isalnum() or c in ".-_" else "_" for c in name)
-
-    return tools
-
-tools = ToolsetSpec(factory=build_tools)
+TOOLS = {"sanitize_filename": sanitize_filename}
 ```
 
-> **Note:** This is more verbose than PydanticAI's `@agent.tool` decorator. The factory pattern ensures each run gets a fresh toolset instance—useful for stateful tools, but admittedly boilerplate for simple cases.
-
-Functions become LLM-callable tools. Reference the toolset name in your agent's `toolsets` config and list `tools.py` in `project.json` under `python_files`.
-
-To access runtime context (for calling other tools/agents), accept a `RunContext` and use `ctx.deps`:
+For stateful or grouped tools, define a toolset factory and export it via
+`TOOLSETS` (each call gets a fresh instance):
 
 ```python
 # tools.py
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import ToolsetSpec, CallContext
+from llm_do.runtime import CallContext
 
-def build_tools():
+def build_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     tools = FunctionToolset()
 
     @tools.tool
@@ -189,8 +177,23 @@ def build_tools():
 
     return tools
 
-tools = ToolsetSpec(factory=build_tools)
+TOOLSETS = {"config_tools": build_tools}
 ```
+
+Reference tool names in `tools:` and toolset names in `toolsets:` within your
+agent file, and list `tools.py` in `project.json` under `python_files`:
+
+```yaml
+---
+name: config_worker
+tools: [sanitize_filename]
+toolsets: [config_tools]
+---
+```
+
+> **Note:** Tools and toolsets are separate namespaces but their tool names are
+> merged at runtime. If two tools share a name, you'll get a clear error and
+> should rename or prefix them.
 
 You can also use:
 - **Server-side tools** — Provider-executed capabilities like web search and code execution

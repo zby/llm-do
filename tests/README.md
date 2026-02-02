@@ -60,7 +60,7 @@ assert tool wiring or approval behavior without relying on LLM reasoning.
 ### Example
 
 ```python
-from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, ToolsetSpec
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime
 from tests.tool_calling_model import ToolCallingModel
 
 
@@ -80,7 +80,7 @@ async def main(input_data, runtime):
 
 async def test_tool_call_flow():
     model = ToolCallingModel(tool_calls=[{"name": "add", "args": {"a": 1, "b": 2}}])
-    agent = AgentSpec(name="calc", instructions="Use tools", model=model, toolset_specs=[ToolsetSpec(factory=build_tools)])
+    agent = AgentSpec(name="calc", instructions="Use tools", model=model, toolsets=[build_tools])
     entry = FunctionEntry(name="main", fn=main)
 
     runtime = Runtime()

@@ -157,7 +157,7 @@ and vice versa.
 ### Open/Closed Principle
 
 **Strengths:**
-- `ToolsetSpec` + `instantiate_toolsets` keep toolset creation extensible
+- `ToolsetDef` + DynamicToolset factories keep toolset creation extensible
 - `parse_event()` centralizes raw PydanticAI event parsing
 
 **Weaknesses:**
@@ -245,7 +245,7 @@ via `runtime/call.py (toolset cleanup inlined)`, which reduces cross-cutting con
 **Strengths:**
 - `Runtime.run_entry()` now relies on `Entry.start()` instead of type checks
 - Runtime events are now a stable core API (`runtime/events.py`)
-- `ToolsetSpec` continues to allow toolset extension without modifying runtime
+- `ToolsetDef` (TOOLSETS registry) continues to allow toolset extension without modifying runtime
 
 **Weaknesses:**
 - New runtime event types require updates in `ui/adapter.py`
@@ -349,7 +349,7 @@ runtime, but it remains multi-purpose.
 **Strengths:**
 - `EntrySpec` is now the single entry surface; `Runtime.run_entry()` no longer
   type-checks concrete entry implementations.
-- `ToolsetSpec` factories allow new toolsets without touching runtime core.
+- `ToolsetDef` factories allow new toolsets without touching runtime core.
 - `RuntimeEvent` + `ui/adapter.py` provides a clear extension point.
 
 **Weaknesses:**
@@ -462,7 +462,7 @@ This breadth is intentional as the runtime "engine," but blends policy
 **Strengths:**
 - `Entry` hierarchy (Entry → FunctionEntry/AgentEntry) allows new entry types
   without modifying runtime core
-- `ToolsetSpec` factories enable new toolsets via `AbstractToolset` inheritance
+- `ToolsetDef` factories enable new toolsets via `AbstractToolset` inheritance
 - `register_model_factory()` in `models.py` allows custom provider registration
 - Approval callbacks are pluggable strategies
 - `RuntimeEvent` + `ui/adapter.py` provides clear extension point

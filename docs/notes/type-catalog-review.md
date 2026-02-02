@@ -46,8 +46,7 @@ Run date: 2026-01-29. Reviewed dataclasses, protocols, Pydantic models, TypeAlia
 - TypeAliases (implicit): PromptContent, PromptMessages
 
 ### llm_do/toolsets/loader.py
-- TypeAlias (implicit): ToolsetFactory
-- Dataclass: ToolsetSpec
+- TypeAliases: ToolDef, ToolsetDef
 
 ### llm_do/toolsets/agent.py
 - Pydantic model: _DefaultAgentToolSchema
@@ -105,7 +104,7 @@ Run date: 2026-01-29. Reviewed dataclasses, protocols, Pydantic models, TypeAlia
 - ApprovalMode is defined in multiple places (runtime/manifest.py, ui/runner.py, and RunApprovalPolicy.mode literal), which is a drift risk.
 - Approval override shapes are duplicated: AgentApprovalOverride (Pydantic) vs AgentApprovalConfig (dataclass), with normalization glue to bridge them.
 - Naming collisions remain: runtime.events.UserMessageEvent vs ui.events.UserMessageEvent; also ApprovalCallback is defined locally while pydantic_ai_blocking_approval exports a similarly named type.
-- ToolsetSpec wraps only a factory today, which is simple but may be more surface area than needed unless metadata is planned.
+- The toolset wrapper has been removed; toolsets now use ToolsetDef (callables or instances) via TOOLSETS registry.
 
 ## Simplification Recommendations
 
@@ -145,11 +144,11 @@ Run date: 2026-01-29. Reviewed dataclasses, protocols, Pydantic models, TypeAlia
 - Trade-offs: Using Pydantic everywhere adds dependency weight; using dataclass everywhere requires manifest conversion at load time.
 - Priority: Should-have.
 
-### 7) Re-evaluate ToolsetSpec wrapper
-- What: Consider replacing ToolsetSpec with raw factory callables unless metadata is imminent.
-- Why: The wrapper currently adds a class solely to carry a single factory.
+### 7) Remove toolset wrapper (Done)
+- What: Replaced the wrapper dataclass with raw ToolsetDef (ToolsetFunc/AbstractToolset).
+- Why: The wrapper added a class solely to carry a single factory.
 - Trade-offs: Removing reduces type count but loses a convenient place to hang future attributes.
-- Priority: Nice-to-have.
+- Priority: Completed.
 
 ## Open Questions
 - Should the UI ever emit InitialRequestEvent/StatusEvent/DeferredToolEvent, or should they be removed entirely?

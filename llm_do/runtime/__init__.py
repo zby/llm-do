@@ -6,7 +6,7 @@ This module provides a runtime architecture that:
 - Loads tools from Python files and agent declarations
 - Provides the `llm-do` CLI entry point
 """
-from ..toolsets.loader import ToolsetSpec
+from ..toolsets.loader import ToolDef, ToolsetDef
 from .agent_file import (
     AgentDefinition,
     AgentFileParser,
@@ -32,10 +32,12 @@ from .contracts import (
 )
 from .discovery import (
     discover_agents_from_module,
+    discover_tools_from_module,
     discover_toolsets_from_module,
     load_agents_from_files,
     load_all_from_files,
     load_module,
+    load_tools_from_files,
     load_toolsets_from_files,
 )
 from .entry_resolver import resolve_entry
@@ -80,9 +82,11 @@ __all__ = [
     # Discovery
     "load_module",
     "discover_toolsets_from_module",
+    "discover_tools_from_module",
     "discover_agents_from_module",
     "resolve_entry",
     "load_toolsets_from_files",
+    "load_tools_from_files",
     "load_agents_from_files",
     "load_all_from_files",
     # Manifest
@@ -92,6 +96,7 @@ __all__ = [
     "load_manifest",
     "resolve_manifest_paths",
     "resolve_generated_agents_dir",
-    # Toolset factories
-    "ToolsetSpec",
+    # Tool/toolset defs
+    "ToolDef",
+    "ToolsetDef",
 ]

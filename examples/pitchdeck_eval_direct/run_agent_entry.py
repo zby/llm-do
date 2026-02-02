@@ -52,7 +52,7 @@ def build_entry() -> FunctionEntry:
     )
 
     builtin_toolsets = build_builtin_toolsets(Path.cwd(), PROJECT_ROOT)
-    toolset_specs = [
+    toolsets = [
         builtin_toolsets["filesystem_project"],
         agent_as_toolset(pitch_evaluator, tool_name="pitch_evaluator"),
     ]
@@ -61,7 +61,7 @@ def build_entry() -> FunctionEntry:
         name="main",
         model=RESOLVED_MODEL,
         instructions=(INSTRUCTIONS_DIR / "main.md").read_text(),
-        toolset_specs=toolset_specs,
+        toolsets=toolsets,
     )
 
     async def main(input_data, runtime) -> str:

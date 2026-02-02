@@ -5,7 +5,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 
-from llm_do.runtime import AgentSpec, ToolsetSpec
+from llm_do.runtime import AgentSpec
 from llm_do.runtime.contracts import CallContextProtocol
 from llm_do.toolsets.agent import AgentToolset, agent_as_toolset
 from llm_do.toolsets.approval import (
@@ -23,13 +23,19 @@ def test_agent_toolset_creation() -> None:
     assert toolset.id == spec.name
 
 
-def test_agent_as_toolset_spec_method() -> None:
-    """agent_as_toolset() returns a ToolsetSpec factory."""
+@pytest.mark.anyio
+async def test_agent_as_toolset_spec_method() -> None:
+    """agent_as_toolset() returns a toolset definition."""
     spec = AgentSpec(name="test", instructions="Test agent", model=TestModel())
-    toolset_spec = agent_as_toolset(spec)
+    toolset_def = agent_as_toolset(spec)
 
-    assert isinstance(toolset_spec, ToolsetSpec)
-    toolset = toolset_spec.factory()
+    from pydantic_ai.toolsets._dynamic import DynamicToolset
+    assert isinstance(toolset_def, DynamicToolset)
+    mock_deps = MagicMock(spec=CallContextProtocol)
+    mock_model = TestModel()
+    from pydantic_ai.usage import RunUsage
+    run_ctx = RunContext(deps=mock_deps, model=mock_model, usage=RunUsage(), prompt="test")
+    toolset = toolset_def.toolset_func(run_ctx)
     assert isinstance(toolset, AgentToolset)
     assert toolset.spec is spec
 

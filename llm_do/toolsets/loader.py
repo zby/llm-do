@@ -1,52 +1,114 @@
-"""Toolset resolution for agents."""
+"""Tool and toolset resolution helpers."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence
+import functools
+import inspect
+from collections.abc import Mapping, Sequence
+from typing import Any, TypeAlias
 
-from pydantic_ai.toolsets import AbstractToolset
+from pydantic_ai.tools import Tool, ToolFuncEither
+from pydantic_ai.toolsets import AbstractToolset, ToolsetFunc
 
-ToolsetFactory = Callable[[], AbstractToolset[Any]]
-
-
-@dataclass(frozen=True, slots=True)
-class ToolsetSpec:
-    """Specification for creating toolset instances."""
-
-    factory: ToolsetFactory
+ToolDef: TypeAlias = Tool[Any] | ToolFuncEither[Any, ...]
+ToolsetDef: TypeAlias = AbstractToolset[Any] | ToolsetFunc[Any]
 
 
-def resolve_toolset_specs(
+def tool_def_name(tool: ToolDef) -> str:
+    """Return the callable name for a tool definition."""
+    if isinstance(tool, Tool):
+        return tool.name
+    return getattr(tool, "__name__", type(tool).__name__)
+
+
+def is_tool_def(value: Any) -> bool:
+    return isinstance(value, Tool) or callable(value)
+
+
+def is_toolset_def(value: Any) -> bool:
+    return isinstance(value, AbstractToolset) or callable(value)
+
+
+def _attach_registry_name(obj: Any, name: str) -> None:
+    """Attach registry name metadata when possible (best-effort)."""
+    try:
+        setattr(obj, "_llm_do_registry_name", name)
+    except Exception:
+        return
+
+
+def _wrap_toolset_func_validation(
+    toolset_func: ToolsetFunc[Any],
+    name: str,
+) -> ToolsetFunc[Any]:
+    """Wrap a ToolsetFunc to validate its return type and add context to errors."""
+
+    @functools.wraps(toolset_func)
+    async def _validated(ctx: Any) -> AbstractToolset[Any] | None:
+        toolset = toolset_func(ctx)
+        if inspect.isawaitable(toolset):
+            toolset = await toolset
+        if toolset is None:
+            return None
+        if not isinstance(toolset, AbstractToolset):
+            raise TypeError(
+                f"Toolset '{name}' factory returned {type(toolset)!r}; "
+                "expected AbstractToolset or None."
+            )
+        return toolset
+
+    _attach_registry_name(_validated, name)
+    return _validated
+
+
+def resolve_tool_defs(
+    tools_definition: Sequence[str],
+    *,
+    available_tools: Mapping[str, ToolDef],
+    agent_name: str = "",
+) -> list[ToolDef]:
+    """Resolve tool defs declared in an agent file."""
+    tools: list[ToolDef] = []
+    for tool_name in tools_definition:
+        tool = available_tools.get(tool_name)
+        if tool is None:
+            available = sorted(available_tools.keys())
+            raise ValueError(
+                f"Unknown tool {tool_name!r} for agent {agent_name!r}. "
+                f"Available: {available}"
+            )
+        if not is_tool_def(tool) or isinstance(tool, AbstractToolset):
+            raise TypeError(
+                f"Tool registry entry {tool_name!r} is not a tool definition: {tool!r}"
+            )
+        _attach_registry_name(tool, tool_name)
+        tools.append(tool)
+    return tools
+
+
+def resolve_toolset_defs(
     toolsets_definition: Sequence[str],
     *,
-    available_toolsets: Mapping[str, ToolsetSpec],
+    available_toolsets: Mapping[str, ToolsetDef],
     agent_name: str = "",
-) -> list[ToolsetSpec]:
-    """Resolve toolset specs declared in an agent file.
-
-    Toolsets are registered as factories (built-ins, Python toolsets, agents).
-    Agent YAML may only reference toolset names.
-    """
-    specs: list[ToolsetSpec] = []
+) -> list[ToolsetDef]:
+    """Resolve toolset defs declared in an agent file."""
+    toolsets: list[ToolsetDef] = []
     for toolset_name in toolsets_definition:
-        spec = available_toolsets.get(toolset_name)
-        if spec is None:
+        toolset = available_toolsets.get(toolset_name)
+        if toolset is None:
             available = sorted(available_toolsets.keys())
             raise ValueError(
                 f"Unknown toolset {toolset_name!r} for agent {agent_name!r}. "
                 f"Available: {available}"
             )
-        specs.append(spec)
-    return specs
-
-
-def instantiate_toolsets(
-    toolset_specs: Sequence[ToolsetSpec],
-) -> list[AbstractToolset[Any]]:
-    """Instantiate toolset specs for a specific call.
-    """
-    toolsets: list[AbstractToolset[Any]] = []
-    for spec in toolset_specs:
-        toolset = spec.factory()
-        toolsets.append(toolset)
+        if not is_toolset_def(toolset) or isinstance(toolset, Tool):
+            raise TypeError(
+                f"Toolset registry entry {toolset_name!r} is not a toolset definition: {toolset!r}"
+            )
+        if isinstance(toolset, AbstractToolset):
+            _attach_registry_name(toolset, toolset_name)
+            toolsets.append(toolset)
+            continue
+        wrapped = _wrap_toolset_func_validation(toolset, toolset_name)
+        toolsets.append(wrapped)
     return toolsets

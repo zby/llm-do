@@ -16,7 +16,7 @@ from pathlib import Path
 
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import AgentSpec, CallContext, FunctionEntry, ToolsetSpec
+from llm_do.runtime import AgentSpec, CallContext, FunctionEntry
 from llm_do.ui import run_ui
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
@@ -25,7 +25,7 @@ from conftest_models import ToolCall  # noqa: E402
 PROJECT_ROOT = Path(__file__).parent.resolve()
 
 
-def build_simple_toolset():
+def build_simple_toolset(_ctx):
     """Build a toolset with just one tool."""
     toolset = FunctionToolset()
 
@@ -81,7 +81,7 @@ AGENT = AgentSpec(
     name="hallucinating_agent",
     model=create_hallucinating_model(),
     instructions="You are a helpful assistant.",
-    toolset_specs=[ToolsetSpec(factory=build_simple_toolset)],  # Only has 'greet' tool
+    toolsets=[build_simple_toolset],  # Only has 'greet' tool
 )
 
 

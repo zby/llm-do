@@ -75,7 +75,7 @@ async def test_dynamic_agent_create_validates_toolsets(tmp_path):
             toolsets=["filesystem_project"],
         ),
     )
-    assert ctx.dynamic_agents[name].toolset_specs
+    assert ctx.dynamic_agents[name].toolsets
 
     with pytest.raises(ValueError, match="Unknown toolset"):
         toolset._agent_create(
@@ -86,5 +86,49 @@ async def test_dynamic_agent_create_validates_toolsets(tmp_path):
                 description="bad tools",
                 model="test",
                 toolsets=["nope_toolset"],
+            ),
+        )
+
+
+@pytest.mark.anyio
+async def test_dynamic_agent_create_validates_tools(tmp_path):
+    runtime = Runtime(
+        run_approval_policy=RunApprovalPolicy(mode="approve_all"),
+        project_root=tmp_path,
+        generated_agents_dir=tmp_path,
+    )
+    def ping():
+        return "pong"
+
+    runtime.register_tools({"ping": ping})
+    ctx = runtime.spawn_call_runtime(
+        active_toolsets=[],
+        model=TestModel(),
+        invocation_name="test",
+        depth=0,
+    )
+
+    toolset = DynamicAgentsToolset()
+    name = toolset._agent_create(
+        ctx,
+        AgentCreateArgs(
+            name="with_tools",
+            instructions="Return OK.",
+            description="tool agent",
+            model="test",
+            tools=["ping"],
+        ),
+    )
+    assert ctx.dynamic_agents[name].tools
+
+    with pytest.raises(ValueError, match="Unknown tool"):
+        toolset._agent_create(
+            ctx,
+            AgentCreateArgs(
+                name="bad_tools",
+                instructions="Return OK.",
+                description="bad tools",
+                model="test",
+                tools=["nope_tool"],
             ),
         )

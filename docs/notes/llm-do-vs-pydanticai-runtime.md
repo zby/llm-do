@@ -30,8 +30,8 @@ what changes in the computational model vs. what is just packaging/convenience?
   in application code.
 
 ### What llm-do adds (concrete behavior)
-- A **runtime registry** that resolves agents and toolsets by name, with `.agent`
-  files and `ToolsetSpec` factories loaded from a project manifest.
+- A **runtime registry** that resolves agents and tools/toolsets by name, with
+  `.agent` files and `TOOLS`/`TOOLSETS` registries loaded from a project manifest.
 - A **unified tool/agent namespace**: agents are exposed as tools and live in
   the same global registry as toolsets, but each agent declares a *subset* of
   toolsets to include. The LLM only sees a per-agent tool list.

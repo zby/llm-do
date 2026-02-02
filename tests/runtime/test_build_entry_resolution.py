@@ -7,7 +7,7 @@ from pydantic_ai.toolsets import FunctionToolset
 from llm_do import register_model_factory
 from llm_do.runtime import EntryConfig, build_registry, resolve_entry
 from llm_do.toolsets.agent import AgentToolset
-from llm_do.toolsets.loader import instantiate_toolsets
+from tests.runtime.helpers import build_runtime_context, materialize_toolset_def
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
@@ -59,20 +59,26 @@ async def test_build_registry_resolves_nested_agent_toolsets() -> None:
 
     entry_agent = registry.agents[entry.name]
 
-    entry_toolsets = instantiate_toolsets(
-        entry_agent.toolset_specs,
-    )
+    ctx = build_runtime_context(toolsets=[], model="test")
+    entry_toolsets = [
+        await materialize_toolset_def(toolset_def, ctx)
+        for toolset_def in entry_agent.toolsets
+    ]
     extractor_toolset = next(
         toolset
         for toolset in entry_toolsets
-        if isinstance(toolset, AgentToolset) and toolset.spec.name == "web_research_extractor"
+        if isinstance(toolset, AgentToolset)
+        and toolset.spec.name == "web_research_extractor"
     )
     extractor = extractor_toolset.spec
-    extractor_toolsets = instantiate_toolsets(
-        extractor.toolset_specs,
-    )
+    extractor_toolsets = [
+        await materialize_toolset_def(toolset_def, ctx)
+        for toolset_def in extractor.toolsets
+    ]
     function_toolsets = [
-        toolset for toolset in extractor_toolsets if isinstance(toolset, FunctionToolset)
+        toolset
+        for toolset in extractor_toolsets
+        if isinstance(toolset, FunctionToolset)
     ]
     assert function_toolsets, "Expected extractor to include web_research_tools toolset"
 

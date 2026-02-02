@@ -93,7 +93,7 @@ We want to understand how close PAI Agent SDK is to llm-do's approach, and wheth
 1. **Tool wrapper**: implement a `BaseTool` that runs an llm-do entry via `Runtime.run_entry`.
    - Pros: minimal changes to PAI, easy to ship.
    - Cons: nested LLM loops, approvals double-gated, environment mismatch.
-2. **Toolset bridge**: convert llm-do ToolsetSpec into a PAI Toolset, exposing llm-do workers as tools.
+2. **Toolset bridge**: convert llm-do ToolsetDef (TOOLSETS/ToolsetFunc) into a PAI Toolset, exposing llm-do workers as tools.
    - Pros: tighter integration with PAI tool selection.
    - Cons: requires adapter for llm-do runtime config and approvals.
 

@@ -27,3 +27,25 @@ Hello
             [],
             project_root=tmp_path,
         )
+
+
+@pytest.mark.anyio
+async def test_build_registry_rejects_unregistered_tools(tmp_path: Path) -> None:
+    worker = tmp_path / "main.agent"
+    worker.write_text(
+        """\
+---
+name: main
+tools:
+  - unknown_tool
+---
+Hello
+"""
+    )
+
+    with pytest.raises(ValueError, match="Unknown tool"):
+        build_registry(
+            [str(worker)],
+            [],
+            project_root=tmp_path,
+        )

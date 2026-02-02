@@ -4,7 +4,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import AgentSpec, CallContext, FunctionEntry, Runtime, ToolsetSpec
+from llm_do.runtime import AgentSpec, CallContext, FunctionEntry, Runtime
 
 
 class TestContext:
@@ -15,7 +15,7 @@ class TestContext:
         """Test that depth increments only for call_agent invocations."""
         seen: dict[str, int] = {}
 
-        def build_toolset() -> FunctionToolset:
+        def build_toolset(_ctx: RunContext[CallContext]) -> FunctionToolset:
             toolset = FunctionToolset()
 
             @toolset.tool
@@ -26,13 +26,11 @@ class TestContext:
 
             return toolset
 
-        toolset_spec = ToolsetSpec(factory=build_toolset)
-
         agent_spec = AgentSpec(
             name="depth-checker",
             instructions="Call probe.",
             model=TestModel(call_tools=["probe"], custom_output_text="done"),
-            toolset_specs=[toolset_spec],
+            toolsets=[build_toolset],
         )
 
         async def main(input_data, runtime: CallContext) -> str:

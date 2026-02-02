@@ -8,9 +8,10 @@ that don't benefit from LLM reasoning.
 
 from pathlib import Path
 
+from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec
+from llm_do.runtime import CallContext
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 try:
@@ -23,7 +24,7 @@ except ImportError:
 PROJECT_ROOT = Path(__file__).parent.resolve()
 
 
-def build_pitchdeck_tools():
+def build_pitchdeck_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     pitchdeck_tools = FunctionToolset()
 
     @pitchdeck_tools.tool
@@ -64,4 +65,4 @@ def build_pitchdeck_tools():
     return pitchdeck_tools
 
 
-pitchdeck_tools = ToolsetSpec(factory=build_pitchdeck_tools)
+TOOLSETS = {"pitchdeck_tools": build_pitchdeck_tools}

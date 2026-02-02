@@ -31,16 +31,18 @@ Is this a problem? Could cause confusion if a Python toolset has the same name a
 
 ### 3. Per-worker toolset configuration (**RESOLVED**)
 
-**Update (2026-01):** This question is resolved. The architecture now uses `ToolsetSpec` with a factory pattern:
+**Update (2026-02):** This question is resolved. The architecture now uses `ToolsetDef`
+with explicit `TOOLSETS` registries and `ToolsetFunc` factories:
 
 ```python
-# Worker now has:
-toolset_specs: list[ToolsetSpec]
+# Agent now has:
+toolsets: list[ToolsetDef]
 
-# ToolsetSpec wraps a factory:
-@dataclass(frozen=True, slots=True)
-class ToolsetSpec:
-    factory: ToolsetFactory  # Callable[[ToolsetBuildContext], AbstractToolset]
+# ToolsetDef is:
+ToolsetDef = AbstractToolset[Any] | ToolsetFunc[Any]
 ```
 
-Per-worker configuration is supported through the factory pattern - each `ToolsetSpec` can capture configuration in its factory closure. Worker files can specify toolsets by name (resolved via `ToolsetBuildContext.available_toolsets`), while programmatic `Worker` construction can pass fully configured `ToolsetSpec` instances directly.
+Per-agent configuration is supported through the factory pattern - each
+`ToolsetFunc` can capture configuration in its closure. `.agent` files specify
+toolsets by name (resolved via the TOOLSETS registry), while programmatic
+`AgentSpec` construction can pass fully configured ToolsetDef entries directly.

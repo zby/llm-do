@@ -6,13 +6,14 @@ from typing import Any
 
 from pydantic_ai.tools import RunContext, ToolDefinition
 from pydantic_ai.toolsets import AbstractToolset, ToolsetTool
+from pydantic_ai.toolsets._dynamic import DynamicToolset
 from pydantic_ai_blocking_approval import ApprovalResult
 
 from ..runtime.approval import resolve_agent_call_approval
 from ..runtime.args import Attachment, has_attachments, normalize_input
 from ..runtime.contracts import AgentSpec, CallContextProtocol
 from ..toolsets.validators import DictValidator
-from .loader import ToolsetSpec
+from .loader import ToolsetDef
 
 
 @dataclass
@@ -111,13 +112,10 @@ class AgentToolset(AbstractToolset[Any]):
         return await run_ctx.deps.call_agent(self.spec, tool_args)
 
 
-def agent_as_toolset(spec: AgentSpec, *, tool_name: str | None = None) -> ToolsetSpec:
-    """Expose an AgentSpec as a ToolsetSpec with a single tool.
+def agent_as_toolset(spec: AgentSpec, *, tool_name: str | None = None) -> ToolsetDef:
+    """Expose an AgentSpec as a toolset definition with a single tool."""
 
-    The tool name defaults to spec.name so other agents can call it by name.
-    """
-
-    def factory() -> AbstractToolset[Any]:
+    def factory(_ctx: RunContext[Any]) -> AbstractToolset[Any]:
         return AgentToolset(spec=spec, tool_name=tool_name)
 
-    return ToolsetSpec(factory=factory)
+    return DynamicToolset(toolset_func=factory, per_run_step=False)

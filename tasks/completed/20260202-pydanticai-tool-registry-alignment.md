@@ -1,10 +1,10 @@
 # Align Tool/Toolset Registry With PydanticAI
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
-- [ ] none
+- [x] none
 
 ## Goal
 Reduce llm-do internal code **and** align with PydanticAI so developers can reuse their existing tools/toolsets unchanged, while still selecting tools and toolsets by name in llm-do.
@@ -59,25 +59,25 @@ Reduce llm-do internal code **and** align with PydanticAI so developers can reus
   - Scope boundary: avoid any new tool lifecycle concepts or YAML schema beyond the `tools` list.
 
 ## Tasks
-- [ ] Replace `ToolsetSpec` with `ToolsetDef` types and update loader/instantiation logic.
-- [ ] Add tool registry/discovery alongside toolsets; require explicit tool registries (prefer `TOOLS` list/dict; fallback to `__all__`), reject non-callables and duplicates with clear errors; accept `Tool` or plain callables for tools.
-- [ ] Extend `agent_file.py` to parse `tools` list (keep YAML simple); keep toolsets list unchanged.
-- [ ] Update registry resolution to enforce separate namespaces and clear error surfaces.
-- [ ] Expose `per_run_step` in Python API only; wrap `ToolsetFunc` with `DynamicToolset` when configured.
-- [ ] Move built-in toolset construction into registry exports as factories (fresh instance per agent run), removing runtime-only building.
-- [ ] Update agent-as-toolset and dynamic agent toolset handling to use new registry types.
-- [ ] Update approval wrapping and call lifecycle to operate on resolved toolsets without ToolsetSpec.
-- [ ] Ensure approval wrapping does not stack on shared instances (use non-mutating wrappers or unwrap-on-exit semantics).
-- [ ] Ensure agent/toolset context is entered/exited per run so toolset `__aenter__/__aexit__` runs (e.g., wrap runs with `async with agent:` in `llm_do/runtime/agent_runner.py`). Shared instances must be re-entrant across runs. Factories still use `DynamicToolset` for per-run/step entry.
-- [ ] Remove/replace any `cleanup()`-based lifecycle handling; ensure toolset context entry/exit follows PydanticAI `__aenter__/__aexit__` semantics; delete now-redundant cleanup-related code paths.
-- [ ] Add tests for tools + toolsets name resolution, wrong-kind errors, and built-in exposure.
-- [ ] Add tests for shared-instance reuse vs factory isolation (including nested calls), toolset lifecycle entry/exit, and invalid toolset factories.
-- [ ] Add tests that duplicate tool names across tools + toolsets fail fast with a clear error (CombinedToolset conflict).
-- [ ] Add tests that tool discovery accepts `Tool` and plain callables, and rejects `AbstractToolset` in the tools registry (and vice versa).
-- [ ] Add a preflight duplicate-name check that reports originating tool/toolset sources in the error message.
+- [x] Replace `ToolsetSpec` with `ToolsetDef` types and update loader/instantiation logic.
+- [x] Add tool registry/discovery alongside toolsets; require explicit tool registries (prefer `TOOLS` list/dict; fallback to `__all__`), reject non-callables and duplicates with clear errors; accept `Tool` or plain callables for tools.
+- [x] Extend `agent_file.py` to parse `tools` list (keep YAML simple); keep toolsets list unchanged.
+- [x] Update registry resolution to enforce separate namespaces and clear error surfaces.
+- [x] Expose `per_run_step` in Python API only; wrap `ToolsetFunc` with `DynamicToolset` when configured.
+- [x] Move built-in toolset construction into registry exports as factories (fresh instance per agent run), removing runtime-only building.
+- [x] Update agent-as-toolset and dynamic agent toolset handling to use new registry types.
+- [x] Update approval wrapping and call lifecycle to operate on resolved toolsets without ToolsetSpec.
+- [x] Ensure approval wrapping does not stack on shared instances (use non-mutating wrappers or unwrap-on-exit semantics).
+- [x] Ensure agent/toolset context is entered/exited per run so toolset `__aenter__/__aexit__` runs (e.g., wrap runs with `async with agent:` in `llm_do/runtime/agent_runner.py`). Shared instances must be re-entrant across runs. Factories still use `DynamicToolset` for per-run/step entry.
+- [x] Remove/replace any `cleanup()`-based lifecycle handling; ensure toolset context entry/exit follows PydanticAI `__aenter__/__aexit__` semantics; delete now-redundant cleanup-related code paths.
+- [x] Add tests for tools + toolsets name resolution, wrong-kind errors, and built-in exposure.
+- [x] Add tests for shared-instance reuse vs factory isolation (including nested calls), toolset lifecycle entry/exit, and invalid toolset factories.
+- [x] Add tests that duplicate tool names across tools + toolsets fail fast with a clear error (CombinedToolset conflict).
+- [x] Add tests that tool discovery accepts `Tool` and plain callables, and rejects `AbstractToolset` in the tools registry (and vice versa).
+- [x] Add a preflight duplicate-name check that reports originating tool/toolset sources in the error message.
 
 ## Current State
-Task created; no code changes yet.
+Implementation complete, docs updated, and tests passing (`uv run ruff check . --fix`, `uv run mypy llm_do`, `uv run pytest`).
 
 ## Notes
 - Tools are not assumed stateless; concurrency is default. Use sequential flags or toolset factories for isolation.

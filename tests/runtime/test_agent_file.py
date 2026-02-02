@@ -22,6 +22,7 @@ These are the instructions.
         assert result.model == "anthropic:claude-haiku-4-5"
         assert result.instructions == "These are the instructions."
         assert result.description is None
+        assert result.tools == []
         assert result.toolsets == []
 
     def test_agent_file_with_description(self):
@@ -59,6 +60,23 @@ You are a helpful assistant.
         assert result.input_model_ref == "schemas.py:TopicInput"
         assert "shell_readonly" in result.toolsets
         assert "calc_tools" in result.toolsets
+
+    def test_agent_file_with_tools(self):
+        """Test parsing an agent file with tools section."""
+        content = """\
+---
+name: main
+model: anthropic:claude-haiku-4-5
+tools:
+  - web_research
+  - summarize
+---
+Use tools.
+"""
+        result = parse_agent_file(content)
+
+        assert "web_research" in result.tools
+        assert "summarize" in result.tools
 
     def test_agent_file_with_toolsets_list(self):
         """Test parsing an agent file with toolsets list."""
@@ -151,6 +169,19 @@ Instructions.
         with pytest.raises(ValueError, match="expected YAML list"):
             parse_agent_file(content)
 
+    def test_invalid_tools_raises(self):
+        """Test that invalid tools section raises ValueError."""
+        content = """\
+---
+name: main
+tools:
+  foo: bar
+---
+Instructions.
+"""
+        with pytest.raises(ValueError, match="expected YAML list"):
+            parse_agent_file(content)
+
     def test_invalid_toolset_entry_raises(self):
         """Test that invalid toolset entries raise ValueError."""
         content = """\
@@ -176,6 +207,20 @@ toolsets:
 Instructions.
 """
         with pytest.raises(ValueError, match="Duplicate toolset entry"):
+            parse_agent_file(content)
+
+    def test_duplicate_tool_entry_raises(self):
+        """Test that duplicate tool entries raise ValueError."""
+        content = """\
+---
+name: main
+tools:
+  - web_research
+  - web_research
+---
+Instructions.
+"""
+        with pytest.raises(ValueError, match="Duplicate tool entry"):
             parse_agent_file(content)
 
     def test_no_model(self):

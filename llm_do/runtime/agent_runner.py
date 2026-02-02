@@ -46,6 +46,7 @@ def _build_agent(
     spec: AgentSpec,
     runtime: CallContextProtocol,
     *,
+    tools: Sequence[Any] | None = None,
     toolsets: Sequence[AbstractToolset[Any]] | None = None,
     model: Any | None = None,
     # system_prompt is intentionally kept for future use (e.g., per-call prompt
@@ -61,6 +62,7 @@ def _build_agent(
         system_prompt=system_prompt_value,
         output_type=spec.output_model or str,
         deps_type=type(runtime),
+        tools=list(tools) if tools else (),
         toolsets=list(toolsets) if toolsets else None,
         builtin_tools=spec.builtin_tools,
         end_strategy="exhaustive",
@@ -153,33 +155,35 @@ async def run_agent(
     agent = _build_agent(
         spec,
         runtime,
+        tools=spec.tools,
         toolsets=list(runtime.frame.config.active_toolsets),
         model=model,
     )
     base_path = runtime.config.project_root or Path.cwd()
     prompt = render_prompt(messages, base_path)
 
-    if runtime.config.on_event is not None:
-        output, run_messages = await _run_with_event_stream(
-            spec,
-            agent,
-            prompt,
-            runtime,
-            message_history,
-            model_settings,
-        )
-    else:
-        result = await agent.run(
-            prompt,
-            deps=runtime,
-            model_settings=model_settings,
-            message_history=message_history,
-        )
-        run_messages = _finalize_messages(
-            spec.name,
-            runtime,
-            result,
-        )
-        output = result.output
+    async with agent:
+        if runtime.config.on_event is not None:
+            output, run_messages = await _run_with_event_stream(
+                spec,
+                agent,
+                prompt,
+                runtime,
+                message_history,
+                model_settings,
+            )
+        else:
+            result = await agent.run(
+                prompt,
+                deps=runtime,
+                model_settings=model_settings,
+                message_history=message_history,
+            )
+            run_messages = _finalize_messages(
+                spec.name,
+                runtime,
+                result,
+            )
+            output = result.output
 
     return output, run_messages

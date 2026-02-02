@@ -40,8 +40,15 @@ Call yourself.
     )
 
     agent = registry.agents[entry.name]
-    assert agent.toolset_specs
-    toolset = agent.toolset_specs[0].factory()
+    assert agent.toolsets
+    toolset = agent.toolsets[0]
+    from pydantic_ai.toolsets._dynamic import DynamicToolset
+    if isinstance(toolset, DynamicToolset):
+        from pydantic_ai._run_context import RunContext
+        from pydantic_ai.usage import RunUsage
+        toolset = toolset.toolset_func(
+            RunContext(deps=None, model=TestModel(), usage=RunUsage())
+        )
     assert isinstance(toolset, AgentToolset)
     assert toolset.spec is agent
 
@@ -52,9 +59,9 @@ async def test_max_depth_blocks_self_recursion() -> None:
         name="loop",
         instructions="Loop until depth is exceeded.",
         model=TestModel(call_tools=["loop"], custom_output_text="done"),
-        toolset_specs=[],
+        toolsets=[],
     )
-    agent_spec.toolset_specs = [agent_as_toolset(agent_spec)]
+    agent_spec.toolsets = [agent_as_toolset(agent_spec)]
 
     async def main(input_data, runtime):
         return await runtime.call_agent(agent_spec, input_data)

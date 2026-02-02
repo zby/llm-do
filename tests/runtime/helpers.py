@@ -1,9 +1,13 @@
 """Helpers for building CallContext contexts in tests."""
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
+from pydantic_ai._run_context import RunContext
 from pydantic_ai.toolsets import AbstractToolset
+from pydantic_ai.toolsets._dynamic import DynamicToolset
+from pydantic_ai.usage import RunUsage
 
 from llm_do.models import ModelInput, resolve_model
 from llm_do.runtime import (
@@ -13,9 +17,10 @@ from llm_do.runtime import (
     Entry,
     Runtime,
 )
-from llm_do.runtime.approval import RunApprovalPolicy, wrap_toolsets_for_approval
+from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.call import CallConfig, CallFrame
 from llm_do.runtime.contracts import EventCallback
+from llm_do.toolsets.loader import ToolDef, ToolsetDef
 
 
 def build_runtime_context(
@@ -52,9 +57,39 @@ def build_runtime_context(
     return CallContext(runtime=runtime, frame=frame)
 
 
+def build_run_context(ctx: CallContext) -> RunContext:
+    return RunContext(
+        deps=ctx,
+        model=ctx.frame.config.model,
+        usage=RunUsage(),
+        prompt=ctx.frame.prompt,
+        messages=list(ctx.frame.messages),
+        run_step=0,
+        retry=0,
+    )
+
+
+async def materialize_toolset_def(
+    toolset_def: ToolsetDef, ctx: CallContext
+) -> AbstractToolset[Any] | None:
+    run_ctx = build_run_context(ctx)
+    if isinstance(toolset_def, DynamicToolset):
+        toolset = toolset_def.toolset_func(run_ctx)
+        if inspect.isawaitable(toolset):
+            toolset = await toolset
+        return toolset
+    if isinstance(toolset_def, AbstractToolset):
+        return toolset_def
+    toolset = toolset_def(run_ctx)  # type: ignore[call-arg]
+    if inspect.isawaitable(toolset):
+        toolset = await toolset
+    return toolset
+
+
 def build_call_scope(
     *,
     toolsets: list[AbstractToolset[Any]],
+    tools: list[ToolDef] | None = None,
     model: ModelInput = "test",
     depth: int = 0,
     invocation_name: str = "test",
@@ -69,18 +104,13 @@ def build_call_scope(
         on_event=on_event,
         verbosity=verbosity,
     )
-    wrapped_toolsets = wrap_toolsets_for_approval(
-        toolsets,
-        runtime.config.approval_callback,
-        return_permission_errors=runtime.config.return_permission_errors,
-    )
     call_runtime = runtime.spawn_call_runtime(
-        wrapped_toolsets,
+        toolsets,
         model=resolve_model(model),
         invocation_name=invocation_name,
         depth=depth,
     )
-    return CallScope(runtime=call_runtime, toolsets=toolsets)
+    return CallScope(runtime=call_runtime, toolsets=toolsets, tools=tools or [])
 
 
 async def run_entry_test(

@@ -15,9 +15,10 @@ from typing import Dict, List
 from urllib import parse, request
 from urllib.error import HTTPError, URLError
 
+from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec
+from llm_do.runtime import CallContext
 
 # =============================================================================
 # Constants
@@ -241,7 +242,7 @@ def generate_slug(topic: str) -> str:
     return slug or "report"
 
 
-def build_web_research_tools():
+def build_web_research_tools(_ctx: RunContext[CallContext]):
     tools = FunctionToolset()
     tools.tool(search_web)
     tools.tool(fetch_page)
@@ -249,4 +250,4 @@ def build_web_research_tools():
     return tools
 
 
-web_research_tools = ToolsetSpec(factory=build_web_research_tools)
+TOOLSETS = {"web_research_tools": build_web_research_tools}

@@ -3,7 +3,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalToolset
 
-from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, ToolsetSpec
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime
 from llm_do.runtime.approval import AgentApprovalPolicy, RunApprovalPolicy
 from llm_do.toolsets.filesystem import FileSystemToolset
 
@@ -39,7 +39,7 @@ def test_wrap_toolsets_preserves_toolset_instances() -> None:
 
 @pytest.mark.anyio
 async def test_agent_tool_calls_can_require_approval() -> None:
-    def build_tools() -> FunctionToolset:
+    def build_tools(_ctx) -> FunctionToolset:
         toolset = FunctionToolset()
 
         @toolset.tool
@@ -52,7 +52,7 @@ async def test_agent_tool_calls_can_require_approval() -> None:
         name="child",
         instructions="Call ping.",
         model=TestModel(call_tools=["ping"], custom_output_text="done"),
-        toolset_specs=[ToolsetSpec(factory=build_tools)],
+        toolsets=[build_tools],
     )
 
     async def main(input_data, runtime) -> str:

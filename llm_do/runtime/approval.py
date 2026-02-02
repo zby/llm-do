@@ -40,9 +40,28 @@ class AgentApprovalPolicy:
         for toolset in toolsets:
             if isinstance(toolset, (ApprovalToolset, ApprovalDeniedResultToolset)):
                 raise TypeError("Pre-wrapped ApprovalToolset instances are not supported")
-            approved: AbstractToolset[Any] = ApprovalToolset(inner=toolset, approval_callback=self.approval_callback, config=get_toolset_approval_config(toolset))
-            wrapped.append(ApprovalDeniedResultToolset(approved) if self.return_permission_errors else approved)
+            approved: AbstractToolset[Any] = ApprovalContextToolset(
+                inner=toolset,
+                approval_callback=self.approval_callback,
+                config=get_toolset_approval_config(toolset),
+            )
+            wrapped.append(
+                ApprovalDeniedResultToolset(approved)
+                if self.return_permission_errors
+                else approved
+            )
         return wrapped
+
+
+class ApprovalContextToolset(ApprovalToolset):
+    """Approval wrapper that preserves inner toolset context management."""
+
+    async def __aenter__(self) -> "ApprovalContextToolset":
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, *args: Any) -> bool | None:
+        return await self._inner.__aexit__(*args)
 
 
 class ApprovalDeniedResultToolset(AbstractToolset):
@@ -56,6 +75,13 @@ class ApprovalDeniedResultToolset(AbstractToolset):
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
+
+    async def __aenter__(self) -> "ApprovalDeniedResultToolset":
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, *args: Any) -> bool | None:
+        return await self._inner.__aexit__(*args)
 
     async def get_tools(self, ctx: Any) -> dict:
         return await self._inner.get_tools(ctx)

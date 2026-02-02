@@ -15,7 +15,12 @@ from pydantic_ai.builtin_tools import (
 from ..models import select_model_with_id
 from ..toolsets.agent import agent_as_toolset
 from ..toolsets.builtins import build_builtin_toolsets
-from ..toolsets.loader import ToolsetSpec, resolve_toolset_specs
+from ..toolsets.loader import (
+    ToolDef,
+    ToolsetDef,
+    resolve_tool_defs,
+    resolve_toolset_defs,
+)
 from .agent_file import AgentDefinition, build_agent_definition, load_agent_file_parts
 from .args import AgentArgs
 from .contracts import AgentSpec
@@ -28,7 +33,8 @@ class AgentRegistry:
     """Symbol table mapping agent names to AgentSpec instances."""
 
     agents: dict[str, AgentSpec]
-    toolsets: dict[str, ToolsetSpec] = field(default_factory=dict)
+    tools: dict[str, ToolDef] = field(default_factory=dict)
+    toolsets: dict[str, ToolsetDef] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -70,14 +76,15 @@ def _build_builtin_tools(configs: list[dict[str, Any]]) -> list[Any]:
     return tools
 
 
-def _merge_toolsets(
-    *sources: Mapping[str, ToolsetSpec],
-) -> dict[str, ToolsetSpec]:
-    merged: dict[str, ToolsetSpec] = {}
+def _merge_registry(
+    kind: str,
+    *sources: Mapping[str, Any],
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
     for source in sources:
         for name, toolset in source.items():
             if name in merged:
-                raise ValueError(f"Duplicate toolset name: {name}")
+                raise ValueError(f"Duplicate {kind} name: {name}")
             merged[name] = toolset
     return merged
 
@@ -92,7 +99,7 @@ def build_registry(
         raise ValueError("project_root is required to build registry")
     project_root_path = Path(project_root).resolve()
 
-    python_toolsets, python_agents = load_all_from_files(python_files)
+    python_tools, python_toolsets, python_agents = load_all_from_files(python_files)
 
     if not agent_files and not python_files:
         raise ValueError("At least one agent_files or python_files entry is required")
@@ -126,7 +133,8 @@ def build_registry(
             description=agent_def.description,
             model=selection.model,
             model_id=selection.model_id,
-            toolset_specs=[],
+            tools=[],
+            toolsets=[],
             builtin_tools=_build_builtin_tools(agent_def.server_side_tools),
         )
         agent_file_specs[name] = AgentFileSpec(
@@ -143,17 +151,29 @@ def build_registry(
     agent_toolsets = {
         name: agent_as_toolset(spec, tool_name=name) for name, spec in agents.items()
     }
-    all_toolsets = _merge_toolsets(builtin_toolsets, python_toolsets, agent_toolsets)
+    all_toolsets = _merge_registry(
+        "toolset",
+        builtin_toolsets,
+        python_toolsets,
+        agent_toolsets,
+    )
+    all_tools = _merge_registry("tool", python_tools)
 
     for agent_file_spec in agent_file_specs.values():
         agent_root = agent_file_spec.path.parent
-        resolved_toolset_specs = resolve_toolset_specs(
+        resolved_tools = resolve_tool_defs(
+            agent_file_spec.definition.tools,
+            available_tools=all_tools,
+            agent_name=agent_file_spec.name,
+        )
+        resolved_toolsets = resolve_toolset_defs(
             agent_file_spec.definition.toolsets,
             available_toolsets=all_toolsets,
             agent_name=agent_file_spec.name,
         )
 
-        agent_file_spec.spec.toolset_specs = resolved_toolset_specs
+        agent_file_spec.spec.tools = resolved_tools
+        agent_file_spec.spec.toolsets = resolved_toolsets
 
         if agent_file_spec.definition.input_model_ref:
             resolved_input_model = resolve_input_model_ref(
@@ -168,4 +188,4 @@ def build_registry(
                 type[AgentArgs], resolved_input_model
             )
 
-    return AgentRegistry(agents=agents, toolsets=all_toolsets)
+    return AgentRegistry(agents=agents, tools=all_tools, toolsets=all_toolsets)

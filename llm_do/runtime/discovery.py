@@ -1,4 +1,4 @@
-"""Module loading and ToolsetSpec discovery."""
+"""Module loading and tool/toolset discovery."""
 from __future__ import annotations
 
 import importlib.util
@@ -7,9 +7,16 @@ from pathlib import Path
 from types import ModuleType
 from typing import Iterable, TypeVar
 
+from pydantic_ai.tools import Tool
 from pydantic_ai.toolsets import AbstractToolset
 
-from ..toolsets.loader import ToolsetSpec
+from ..toolsets.loader import (
+    ToolDef,
+    ToolsetDef,
+    is_tool_def,
+    is_toolset_def,
+    tool_def_name,
+)
 from .contracts import AgentSpec
 
 _LOADED_MODULES: dict[Path, ModuleType] = {}
@@ -52,16 +59,184 @@ def _discover_from_module(module: ModuleType, target_type: type[T]) -> list[T]:
     return discovered
 
 
-def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetSpec]:
-    toolsets: dict[str, ToolsetSpec] = {}
+def _ensure_name_list(raw: object, *, field_name: str) -> list[str]:
+    if not isinstance(raw, list):
+        raise ValueError(f"{field_name} must be a list of strings")
+    names: list[str] = []
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"{field_name} entries must be non-empty strings")
+        names.append(item)
+    return names
+
+
+def _raise_registry_error(kind: str, message: str) -> None:
+    raise ValueError(f"Invalid {kind} registry: {message}")
+
+
+def _validate_tool_entry(name: str, obj: object, *, source: str) -> str | None:
+    if not is_tool_def(obj) or isinstance(obj, AbstractToolset):
+        return f"{name} ({type(obj).__name__})"
+    if isinstance(obj, Tool):
+        if obj.name != name:
+            return f"{name} (Tool name {obj.name!r})"
+        return None
+    obj_name = getattr(obj, "__name__", None)
+    if not obj_name:
+        return f"{name} (missing __name__)"
+    if obj_name != name:
+        return f"{name} (callable {obj_name!r})"
+    return None
+
+
+def _parse_tools_registry(raw: object, *, source: str) -> dict[str, ToolDef]:
+    tools: dict[str, ToolDef] = {}
+    errors: list[str] = []
+    if isinstance(raw, dict):
+        for name, obj in raw.items():
+            if not isinstance(name, str) or not name.strip():
+                _raise_registry_error("tools", f"{source} keys must be non-empty strings")
+            error = _validate_tool_entry(name, obj, source=source)
+            if error:
+                errors.append(error)
+                continue
+            tools[name] = obj  # type: ignore[assignment]
+        if errors:
+            _raise_registry_error(
+                "tools",
+                f"{source} contains invalid entries: {', '.join(errors)}",
+            )
+        return tools
+    if isinstance(raw, list):
+        duplicates: set[str] = set()
+        for obj in raw:
+            if not is_tool_def(obj) or isinstance(obj, AbstractToolset):
+                errors.append(f"{obj!r} ({type(obj).__name__})")
+                continue
+            name = tool_def_name(obj)  # type: ignore[arg-type]
+            if not name:
+                errors.append(f"{obj!r} (no usable name)")
+                continue
+            if name in tools:
+                duplicates.add(name)
+            tools[name] = obj  # type: ignore[assignment]
+        if errors:
+            _raise_registry_error(
+                "tools",
+                f"{source} list contains invalid entries: {', '.join(errors)}",
+            )
+        if duplicates:
+            _raise_registry_error(
+                "tools",
+                f"{source} list contains duplicate tool names: {sorted(duplicates)}",
+            )
+        return tools
+    _raise_registry_error("tools", f"{source} must be a dict or list")
+    return {}
+
+
+def discover_tools_from_module(module: ModuleType) -> dict[str, ToolDef]:
+    tools_raw = getattr(module, "TOOLS", None)
+    if tools_raw is not None:
+        return _parse_tools_registry(tools_raw, source="TOOLS")
+
+    all_names = getattr(module, "__all__", None)
+    if all_names is None:
+        return {}
+
+    names = _ensure_name_list(all_names, field_name="__all__")
+    tools: dict[str, ToolDef] = {}
+    errors: list[str] = []
+    for name in names:
+        obj = getattr(module, name, None)
+        if obj is None:
+            errors.append(f"{name} (not found)")
+            continue
+        error = _validate_tool_entry(name, obj, source="__all__")
+        if error:
+            errors.append(error)
+            continue
+        tools[name] = obj  # type: ignore[assignment]
+    if errors:
+        _raise_registry_error(
+            "tools",
+            f"__all__ contains invalid entries: {', '.join(errors)}",
+        )
+    return tools
+
+
+def _validate_toolset_entry(name: str, obj: object, *, source: str) -> str | None:
+    if not is_toolset_def(obj) or isinstance(obj, Tool):
+        return f"{name} ({type(obj).__name__})"
+    return None
+
+
+def _parse_toolsets_registry(raw: object, *, source: str) -> dict[str, ToolsetDef]:
+    toolsets: dict[str, ToolsetDef] = {}
+    errors: list[str] = []
+    if isinstance(raw, dict):
+        for name, obj in raw.items():
+            if not isinstance(name, str) or not name.strip():
+                _raise_registry_error("toolsets", f"{source} keys must be non-empty strings")
+            error = _validate_toolset_entry(name, obj, source=source)
+            if error:
+                errors.append(error)
+                continue
+            toolsets[name] = obj  # type: ignore[assignment]
+        if errors:
+            _raise_registry_error(
+                "toolsets",
+                f"{source} contains invalid entries: {', '.join(errors)}",
+            )
+        return toolsets
+    if isinstance(raw, list):
+        duplicates: set[str] = set()
+        for obj in raw:
+            if isinstance(obj, AbstractToolset):
+                name = obj.id
+                if not name:
+                    errors.append(
+                        "AbstractToolset without id (use dict for explicit names)"
+                    )
+                    continue
+            elif callable(obj):
+                name = getattr(obj, "__name__", None)
+                if not name:
+                    errors.append("callable missing __name__ (use dict for explicit names)")
+                    continue
+            else:
+                errors.append(f"{obj!r} ({type(obj).__name__})")
+                continue
+            if name in toolsets:
+                duplicates.add(name)
+            toolsets[name] = obj  # type: ignore[assignment]
+        if errors:
+            _raise_registry_error(
+                "toolsets",
+                f"{source} list contains invalid entries: {', '.join(errors)}",
+            )
+        if duplicates:
+            _raise_registry_error(
+                "toolsets",
+                f"{source} list contains duplicate toolset names: {sorted(duplicates)}",
+            )
+        return toolsets
+    _raise_registry_error("toolsets", f"{source} must be a dict or list")
+    return {}
+
+
+def discover_toolsets_from_module(module: ModuleType) -> dict[str, ToolsetDef]:
+    toolsets_raw = getattr(module, "TOOLSETS", None)
+    if toolsets_raw is not None:
+        return _parse_toolsets_registry(toolsets_raw, source="TOOLSETS")
+
+    toolsets: dict[str, ToolsetDef] = {}
     for name in dir(module):
         if name.startswith("_"):
             continue
         obj = getattr(module, name)
-        if isinstance(obj, ToolsetSpec):
+        if isinstance(obj, AbstractToolset):
             toolsets[name] = obj
-        elif isinstance(obj, AbstractToolset):
-            raise ValueError(f"Toolset '{name}' must be defined as ToolsetSpec.")
     return toolsets
 
 
@@ -69,8 +244,8 @@ def discover_agents_from_module(module: ModuleType) -> list[AgentSpec]:
     return _discover_from_module(module, AgentSpec)
 
 
-def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
-    all_toolsets: dict[str, ToolsetSpec] = {}
+def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetDef]:
+    all_toolsets: dict[str, ToolsetDef] = {}
     for file_path in files:
         path = Path(file_path)
         if path.suffix != ".py":
@@ -80,6 +255,19 @@ def load_toolsets_from_files(files: list[str | Path]) -> dict[str, ToolsetSpec]:
                 raise ValueError(f"Duplicate toolset name: {name}")
             all_toolsets[name] = toolset
     return all_toolsets
+
+
+def load_tools_from_files(files: list[str | Path]) -> dict[str, ToolDef]:
+    all_tools: dict[str, ToolDef] = {}
+    for file_path in files:
+        path = Path(file_path)
+        if path.suffix != ".py":
+            continue
+        for name, tool in discover_tools_from_module(load_module(path)).items():
+            if name in all_tools:
+                raise ValueError(f"Duplicate tool name: {name}")
+            all_tools[name] = tool
+    return all_tools
 
 
 def load_agents_from_files(files: list[str | Path]) -> dict[str, AgentSpec]:
@@ -101,8 +289,8 @@ def load_agents_from_files(files: list[str | Path]) -> dict[str, AgentSpec]:
 
 def load_all_from_files(
     files: Iterable[str | Path],
-) -> tuple[dict[str, ToolsetSpec], dict[str, AgentSpec]]:
-    """Load toolset specs and agents from Python files.
+) -> tuple[dict[str, ToolDef], dict[str, ToolsetDef], dict[str, AgentSpec]]:
+    """Load tools, toolsets, and agents from Python files.
 
     Performs a single pass through the modules to discover all items.
 
@@ -110,9 +298,10 @@ def load_all_from_files(
         files: Paths to Python files
 
     Returns:
-        Tuple of (toolset specs, agents) dictionaries
+        Tuple of (tools, toolsets, agents) dictionaries
     """
-    toolsets: dict[str, ToolsetSpec] = {}
+    tools: dict[str, ToolDef] = {}
+    toolsets: dict[str, ToolsetDef] = {}
     agents: dict[str, AgentSpec] = {}
     agent_paths: dict[str, Path] = {}
     loaded_paths: set[Path] = set()
@@ -127,8 +316,14 @@ def load_all_from_files(
         loaded_paths.add(resolved)
 
         module = load_module(resolved)
+        module_tools = discover_tools_from_module(module)
         module_toolsets = discover_toolsets_from_module(module)
         module_agents = discover_agents_from_module(module)
+
+        for name, tool in module_tools.items():
+            if name in tools:
+                raise ValueError(f"Duplicate tool name: {name}")
+            tools[name] = tool
 
         for name, toolset in module_toolsets.items():
             if name in toolsets:
@@ -145,4 +340,4 @@ def load_all_from_files(
             agents[agent.name] = agent
             agent_paths[agent.name] = resolved
 
-    return toolsets, agents
+    return tools, toolsets, agents

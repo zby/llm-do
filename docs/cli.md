@@ -60,13 +60,15 @@ Entry selection is explicit in the manifest:
 - `entry.function` selects a Python function via `path.py:function` (must be listed in `python_files`).
 - If the target cannot be resolved, loading fails with a descriptive error.
 
-## Worker File Toolsets
+## Worker File Tools & Toolsets
 
-Worker frontmatter declares toolsets as a list of names (config is defined in Python):
+Worker frontmatter declares tools and toolsets as lists of names (config is defined in Python):
 
 ```yaml
 ---
 name: main
+tools:
+  - normalize_path
 toolsets:
   - shell_readonly
   - filesystem_project
@@ -75,9 +77,12 @@ toolsets:
 ---
 ```
 
+Tool names resolve to:
+- Python tools exported via `TOOLS` (dict or list) or `__all__` in passed `.py` files
+
 Toolset names resolve to:
 - Built-ins: `shell_readonly`, `shell_file_ops`, `filesystem_cwd`, `filesystem_project` (+ `_ro` variants)
-- Python toolsets discovered from passed `.py` files (by variable name)
+- Python toolsets exported via `TOOLSETS` (dict or list), or module-level `AbstractToolset` instances
 - Other worker entries from passed `.agent` files (by `name`)
 
 ## Worker Input Models

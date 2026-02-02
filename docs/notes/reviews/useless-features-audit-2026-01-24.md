@@ -169,7 +169,7 @@ From `tasks/recurring/find-useless-features.md`:
 - [x] **Worker class** - Removed, replaced by AgentSpec
 - [x] **Runtime class** - Reviewed, approval tunneling noted
 - [x] **EntryFunction** - Removed, replaced by EntrySpec
-- [x] **ToolsetSpec** - Reviewed, factory is now zero-arg (context parameter already removed)
+- [x] **Toolset wrapper** - Removed; replaced by ToolsetDef + TOOLSETS registry factories
 
 ### Dead Code
 - [x] Functions/methods with no callers - `Runtime._create_usage`, `Runtime.usage`, `Runtime.message_log`, `MessageAccumulator.for_worker`, `AgentRegistry.get`, `AgentRegistry.names`, `Runtime.run`

@@ -142,14 +142,14 @@ When an entry runs (usually an agent), it operates within two scopes:
 - Like a request context - isolated per call
 
 **CallScope** (lifecycle wrapper for agent calls):
-- Wraps a `CallContext` + toolset instances for cleanup
-- Ensures toolsets are cleaned up when the scope exits
+- Wraps a `CallContext` + toolsets for lifecycle management
+- Ensures toolset contexts are entered/exited when the scope exits
 
 This separation means:
 - **Shared globally**: Usage tracking, event callbacks, agent registry, approval mode
 - **Per-call, no inheritance**: Message history, active toolsets, nesting depth
 
-Note: `AgentSpec.toolset_specs` are the *declared* toolset factories from configuration. Think of these names as run-scoped capabilities: a stable registry of what an agent is allowed to use. `CallFrame.config.active_toolsets` are the per-call instances created from those specs at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
+Note: `AgentSpec.tools` and `AgentSpec.toolsets` are the *declared* tool and toolset definitions resolved from the registry. Think of these names as run-scoped capabilities: a stable registry of what an agent is allowed to use. `CallFrame.config.active_toolsets` are the per-call instances created from those toolset definitions at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/runtime.py`: `Runtime`, `RuntimeConfig`, usage/message sinks
@@ -168,7 +168,7 @@ instances during the link step.
 CLI or Python
     │
     ▼
-Build entry (link step resolves agent toolset specs)
+Build entry (link step resolves agent tools/toolsets by name)
     │
     ▼
 Runtime.run_entry() creates entry runtime (NullModel, no toolsets)
@@ -198,10 +198,10 @@ Key points:
 
 ## Toolset Instantiation & State
 
-Toolsets are registered as `ToolsetSpec` factories and instantiated per call
-to keep state isolated. The runtime calls
-optional `cleanup()` hooks when the call scope exits to release handle-based
-resources. See [scopes.md](scopes.md) for lifecycle and handle pattern details.
+Toolsets are registered as `ToolsetDef` values (either `AbstractToolset` instances
+or `ToolsetFunc` factories) and instantiated per call to keep state isolated.
+Factories are wrapped via `DynamicToolset` and entered/exited per run using
+`__aenter__`/`__aexit__`. See [scopes.md](scopes.md) for lifecycle and handle pattern details.
 
 ---
 
@@ -252,5 +252,6 @@ def my_policy(call_info):
 - **shell_readonly**: read-only shell commands (whitelist)
 - **shell_file_ops**: `ls` (pre-approved) + `mv` (approval required)
 
-Python toolsets are discovered from `.py` files as `ToolsetSpec` factories.
-Agents reference toolsets by name only.
+Python toolsets are discovered from `.py` files via the `TOOLSETS` registry
+(dict or list), or module-level `AbstractToolset` instances. Agents reference
+toolsets by name only.

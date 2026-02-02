@@ -20,7 +20,7 @@ from ..models import select_model_with_id
 from ..runtime.agent_file import build_agent_definition, load_agent_file_parts
 from ..runtime.approval import resolve_agent_call_approval
 from ..runtime.contracts import AgentSpec, CallContextProtocol
-from ..toolsets.loader import resolve_toolset_specs
+from ..toolsets.loader import resolve_tool_defs, resolve_toolset_defs
 from ..toolsets.validators import DictValidator
 
 _DEFAULT_GENERATED_DIR = Path("/tmp/llm-do/generated")
@@ -36,6 +36,10 @@ class AgentCreateArgs(BaseModel):
     model: str | None = Field(
         default=None,
         description="Optional model override (defaults to LLM_DO_MODEL)",
+    )
+    tools: list[str] = Field(
+        default_factory=list,
+        description="Tool names to enable for the new agent",
     )
     toolsets: list[str] = Field(
         default_factory=list,
@@ -93,8 +97,11 @@ class DynamicAgentsToolset(AbstractToolset[Any]):
     ) -> str:
         if name == "agent_create":
             toolsets = tool_args.get("toolsets") or []
+            tools = tool_args.get("tools") or []
             model = tool_args.get("model")
             suffix = []
+            if tools:
+                suffix.append(f"tools={tools}")
             if toolsets:
                 suffix.append(f"toolsets={toolsets}")
             if model:
@@ -185,6 +192,7 @@ class DynamicAgentsToolset(AbstractToolset[Any]):
             name=name,
             description=args.description,
             model=args.model,
+            tools=args.tools,
             toolsets=args.toolsets,
         )
         content = f"{frontmatter}\n\n{instructions}\n"
@@ -196,14 +204,26 @@ class DynamicAgentsToolset(AbstractToolset[Any]):
                 parsed_frontmatter,
                 parsed_instructions,
             )
-            toolset_specs = []
+            resolved_toolsets = []
+            tool_defs = []
+            if agent_def.tools:
+                available_tools = ctx.tool_registry
+                if not available_tools:
+                    raise ValueError(
+                        "Tool registry unavailable; cannot validate tools."
+                    )
+                tool_defs = resolve_tool_defs(
+                    agent_def.tools,
+                    available_tools=available_tools,
+                    agent_name=agent_def.name,
+                )
             if agent_def.toolsets:
                 available_toolsets = ctx.toolset_registry
                 if not available_toolsets:
                     raise ValueError(
                         "Toolset registry unavailable; cannot validate toolsets."
                     )
-                toolset_specs = resolve_toolset_specs(
+                resolved_toolsets = resolve_toolset_defs(
                     agent_def.toolsets,
                     available_toolsets=available_toolsets,
                     agent_name=agent_def.name,
@@ -219,7 +239,8 @@ class DynamicAgentsToolset(AbstractToolset[Any]):
                 description=agent_def.description,
                 model=selection.model,
                 model_id=selection.model_id,
-                toolset_specs=toolset_specs,
+                tools=tool_defs,
+                toolsets=resolved_toolsets,
             )
         except Exception:
             try:
@@ -266,6 +287,7 @@ class DynamicAgentsToolset(AbstractToolset[Any]):
         name: str,
         description: str,
         model: str | None,
+        tools: list[str],
         toolsets: list[str],
     ) -> str:
         lines = ["---"]
@@ -274,6 +296,10 @@ class DynamicAgentsToolset(AbstractToolset[Any]):
             lines.append(f"description: {json.dumps(description)}")
         if model:
             lines.append(f"model: {json.dumps(model)}")
+        if tools:
+            lines.append("tools:")
+            for tool in tools:
+                lines.append(f"  - {json.dumps(tool)}")
         if toolsets:
             lines.append("toolsets:")
             for toolset in toolsets:

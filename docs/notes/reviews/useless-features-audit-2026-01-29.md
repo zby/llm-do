@@ -96,7 +96,7 @@ Periodic audit for features that add complexity without clear value. Scope: runt
 - If a brief deprecation window is still desired, mark each alias with `# BACKCOMPAT: <reason> - remove after <condition>` and set a removal date.
 
 ## Checklist Status (2026-01-29)
-- **Core classes**: Runtime, AgentRegistry, CallScope/CallFrame, CallContext, ToolsetSpec reviewed.
+- **Core classes**: Runtime, AgentRegistry, CallScope/CallFrame, CallContext, ToolsetDef reviewed.
 - **Dead code**: `output_model`, `UsageCollector`/`Runtime.usage`, `Runtime.message_log`, `MessageAccumulator.for_agent`, `Runtime.run`.
 - **Config/registry**: `worker_*` backcompat remains the largest redundant surface.
 - **Recent additions**: No new dead features observed since 2026-01-24.

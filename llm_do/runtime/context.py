@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from ..toolsets.loader import ToolsetSpec
+from ..toolsets.loader import ToolDef, ToolsetDef
 from .agent_runner import run_agent
 from .call import CallFrame, CallScope
 from .contracts import AgentSpec, ModelType
@@ -42,7 +42,11 @@ class CallContext:
         return self.runtime.agent_registry
 
     @property
-    def toolset_registry(self) -> dict[str, ToolsetSpec]:
+    def tool_registry(self) -> dict[str, ToolDef]:
+        return self.runtime.tool_registry
+
+    @property
+    def toolset_registry(self) -> dict[str, ToolsetDef]:
         return self.runtime.toolset_registry
 
     @property

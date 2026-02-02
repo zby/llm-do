@@ -6,13 +6,14 @@ pre-approves the pure functions and leaves send_notification gated.
 
 from __future__ import annotations
 
+from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
-from llm_do.runtime import ToolsetSpec
+from llm_do.runtime import CallContext
 from llm_do.toolsets.approval import set_toolset_approval_config
 
 
-def build_data_tools():
+def build_data_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     data_tools = FunctionToolset()
 
     @data_tools.tool
@@ -51,4 +52,4 @@ def build_data_tools():
     return data_tools
 
 
-data_tools = ToolsetSpec(factory=build_data_tools)
+TOOLSETS = {"data_tools": build_data_tools}

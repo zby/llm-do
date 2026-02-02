@@ -13,7 +13,7 @@ from llm_do.runtime import (
 )
 from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.dynamic_agents import DynamicAgentsToolset
-from llm_do.toolsets.loader import instantiate_toolsets
+from tests.runtime.helpers import build_runtime_context, materialize_toolset_def
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
@@ -45,7 +45,7 @@ async def test_single_worker_example_builds():
 
     entry, registry, _manifest = _build_example("calculator")
     agent = registry.agents[entry.name]
-    assert len(agent.toolset_specs) == 1
+    assert len(agent.toolsets) == 1
 
 
 @pytest.mark.anyio
@@ -53,9 +53,11 @@ async def test_delegation_example_builds():
     """Test pitchdeck_eval: static agent delegation pattern."""
     entry, registry, _manifest = _build_example("pitchdeck_eval")
     agent = registry.agents[entry.name]
-    toolsets = instantiate_toolsets(
-        agent.toolset_specs,
-    )
+    ctx = build_runtime_context(toolsets=[], model="test")
+    toolsets = [
+        await materialize_toolset_def(toolset_def, ctx)
+        for toolset_def in agent.toolsets
+    ]
     assert any(isinstance(toolset, AgentToolset) for toolset in toolsets)
 
 
@@ -64,9 +66,11 @@ async def test_bootstrapping_example_builds():
     """Test bootstrapping: dynamic agent creation pattern."""
     entry, registry, _manifest = _build_example("bootstrapping")
     agent = registry.agents[entry.name]
-    toolsets = instantiate_toolsets(
-        agent.toolset_specs,
-    )
+    ctx = build_runtime_context(toolsets=[], model="test")
+    toolsets = [
+        await materialize_toolset_def(toolset_def, ctx)
+        for toolset_def in agent.toolsets
+    ]
     assert any(isinstance(toolset, DynamicAgentsToolset) for toolset in toolsets)
 
 
@@ -99,7 +103,7 @@ async def test_file_organizer_example_builds():
 
     entry, registry, _manifest = _build_example("file_organizer")
     agent = registry.agents[entry.name]
-    assert len(agent.toolset_specs) == 2  # file_tools + shell_file_ops
+    assert len(agent.toolsets) == 2  # file_tools + shell_file_ops
 
 
 @pytest.mark.anyio
@@ -110,9 +114,11 @@ async def test_recursive_summarizer_example_builds():
 
     entry, registry, _manifest = _build_example("recursive_summarizer")
     agent = registry.agents[entry.name]
-    toolsets = instantiate_toolsets(
-        agent.toolset_specs,
-    )
+    ctx = build_runtime_context(toolsets=[], model="test")
+    toolsets = [
+        await materialize_toolset_def(toolset_def, ctx)
+        for toolset_def in agent.toolsets
+    ]
     toolset_names = [
         toolset.spec.name for toolset in toolsets if isinstance(toolset, AgentToolset)
     ]

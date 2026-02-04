@@ -2,7 +2,7 @@
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from llm_do.models import register_model_factory, resolve_model
+from llm_do.models import ModelError, register_model_factory, resolve_model
 
 
 def test_register_model_factory_resolves_custom_model() -> None:
@@ -35,3 +35,8 @@ def test_register_model_factory_rejects_reserved_prefix() -> None:
 
     with pytest.raises(ValueError, match="reserved"):
         register_model_factory("openai", factory)
+
+
+def test_unprefixed_unknown_model_includes_hint() -> None:
+    with pytest.raises(ModelError, match="provider prefix"):
+        resolve_model("not-a-real-model")

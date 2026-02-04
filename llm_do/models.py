@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
+from pydantic_ai.exceptions import UserError
 from pydantic_ai.models import (
     Model,
     ModelMessage,
@@ -133,12 +134,23 @@ def register_model_factory(provider: str, factory: ModelFactory, *, replace: boo
 
 
 def _resolve_model_string(model: str) -> Model:
-    if ":" in model:
+    has_prefix = ":" in model
+    if has_prefix:
         provider, model_name = model.split(":", 1)
         factory = _CUSTOM_MODEL_FACTORIES.get(provider)
         if factory is not None:
             return factory(model_name)
-    return infer_model(model)
+    try:
+        return infer_model(model)
+    except UserError as exc:
+        if not has_prefix:
+            raise ModelError(
+                f"Unknown model '{model}'. Model identifiers must include a provider prefix, "
+                "e.g. 'openai:gpt-4o-mini' or 'anthropic:claude-haiku-4-5'. "
+                "If you are using a custom provider, register it with register_model_factory "
+                "and use 'yourprefix:your-model'."
+            ) from exc
+        raise
 
 
 def resolve_model_with_id(model: ModelInput) -> ModelSelection:

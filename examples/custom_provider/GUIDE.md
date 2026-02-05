@@ -1,77 +1,76 @@
 # Custom Provider Guide (No SDK)
 
-This guide explains what the `http-json` example provider implements and what you need to build when wiring a custom provider that **does not rely on any LLM SDKs**. The goal is to show how to connect `llm-do` + PydanticAI to a plain HTTP endpoint (OpenAI-compatible or similar) using only common HTTP libraries.
+Connect `llm-do` to any HTTP endpoint without relying on LLM SDKs.
 
-## What This Example Implements
+This guide walks through the `http-json` example—a minimal implementation that speaks to OpenAI-compatible APIs using raw HTTP requests.
 
-The example in `providers.py` adds **two** providers:
+---
 
-1. **`ollama-local`** (SDK-backed) using `OpenAIChatModel`.
-2. **`http-json`** (SDK-free) using a custom `SimpleHTTPChatModel` that issues raw HTTP requests with `httpx`.
+## Overview
 
-The SDK-free version demonstrates the minimum surface area you must implement:
+The `providers.py` example registers two providers:
 
-- A provider class that stores base URL/auth info.
-- A model class that subclasses `pydantic_ai.models.Model` and implements `request()`.
-- Mapping between `PydanticAI` message objects and your HTTP provider’s request schema.
-- Parsing the provider response back into a `ModelResponse` with text parts.
+| Provider | Approach | Implementation |
+|----------|----------|----------------|
+| `ollama-local` | SDK-backed | Uses `OpenAIChatModel` from PydanticAI |
+| `http-json` | SDK-free | Custom `SimpleHTTPChatModel` with `httpx` |
 
-## Provider Responsibilities
+The SDK-free approach requires you to implement:
 
-**Provider = configuration + HTTP client.**
+1. A **provider** class (configuration + HTTP client)
+2. A **model** class (request/response translation)
+3. **Message mapping** (PydanticAI ↔ your API format)
+4. **Registration** via `register_model_factory()`
 
-The `SimpleHTTPProvider` encapsulates:
+---
 
-- `base_url`: Where HTTP requests are sent (e.g., `http://127.0.0.1:8000/v1`).
-- `api_key`: Optional bearer token for auth headers.
-- `name`: A stable identifier used in responses (e.g., `http-json`).
-- `httpx.AsyncClient`: A reusable async HTTP client.
+## The Provider Class
 
-If you swap in another HTTP client (`urllib`, `requests`, `aiohttp`), the model logic stays the same—only the transport changes.
+The provider holds connection details and the HTTP client:
 
-## Model Responsibilities
-
-A custom model must subclass `pydantic_ai.models.Model` and implement:
-
-- `model_name`: The provider-side model name (e.g., `your-model`).
-- `system`: A standardized provider id (the example uses `openai` because the API is OpenAI-compatible).
-- `request()`: The real HTTP call with request/response translation.
-
-### Message Mapping
-
-PydanticAI hands you a list of `ModelMessage` objects. In the example, we only support:
-
-- `ModelRequest` with `UserPromptPart` (user input)
-- `ModelRequest` with `SystemPromptPart` (system input)
-- `ModelResponse` with `TextPart` (assistant history)
-
-If your provider accepts OpenAI-style messages, you need to map these into:
-
-```json
-{
-  "role": "user" | "system" | "assistant",
-  "content": "..."
-}
+```python
+class SimpleHTTPProvider:
+    base_url: str      # e.g., "http://127.0.0.1:8000/v1"
+    api_key: str       # Optional bearer token
+    name: str          # Provider identifier (e.g., "http-json")
+    client: httpx.AsyncClient
 ```
 
-The example does the following:
+Swap `httpx` for `aiohttp`, `requests`, or `urllib`—the model logic stays the same.
 
-- Uses `Model._get_instructions()` to inject system instructions.
-- Converts each `UserPromptPart` into a `user` message.
-- Converts each `SystemPromptPart` into a `system` message.
-- Converts each prior `ModelResponse` into an `assistant` message (text only).
+---
 
-### Output + Tool Constraints
+## The Model Class
 
-The SDK-free example intentionally keeps scope minimal:
+Subclass `pydantic_ai.models.Model` and implement these:
 
-- **Only text output is supported.** If tool calls or structured output are requested, it raises a `UserError`.
-- **No streaming.** Streaming is possible but not shown in this minimal example.
-- **No tool calling.** If you want tools, you must translate `function_tools` + tool schemas into your provider’s format.
+| Attribute/Method | Purpose |
+|------------------|---------|
+| `model_name` | The model identifier sent to the API |
+| `system` | Provider ID (use `"openai"` for OpenAI-compatible APIs) |
+| `request()` | Sends the HTTP request and parses the response |
 
-## Request Construction
+---
 
-The `http-json` example posts to `/chat/completions` with a payload like:
+## Message Mapping
+
+PydanticAI provides `ModelMessage` objects. Convert them to your API's format:
+
+**Supported in this example:**
+
+| PydanticAI Type | Maps To |
+|-----------------|---------|
+| `ModelRequest` + `UserPromptPart` | `{"role": "user", "content": "..."}` |
+| `ModelRequest` + `SystemPromptPart` | `{"role": "system", "content": "..."}` |
+| `ModelResponse` + `TextPart` | `{"role": "assistant", "content": "..."}` |
+
+The example also calls `Model._get_instructions()` to inject system instructions.
+
+---
+
+## Request Format
+
+The example posts to `/chat/completions`:
 
 ```json
 {
@@ -82,63 +81,147 @@ The `http-json` example posts to `/chat/completions` with a payload like:
 }
 ```
 
-Only a small set of optional settings are passed through:
+**Supported settings:** `temperature`, `max_tokens`, `top_p`, `presence_penalty`, `frequency_penalty`
 
-- `temperature`
-- `max_tokens`
-- `top_p`
-- `presence_penalty`
-- `frequency_penalty`
+### Custom Parameters
 
-If your endpoint supports different fields, you can map them in the same spot.
+The example passes through any additional keys from `model_settings` to the API payload, allowing provider-specific parameters:
+
+```python
+# In your agent or run call
+result = await agent.run(
+    prompt,
+    model_settings={
+        "temperature": 0.7,
+        "stop": ["\n\n"],           # Standard OpenAI parameter
+        "seed": 42,                  # Reproducibility
+        "num_ctx": 4096,             # Ollama-specific context size
+    },
+)
+```
+
+Internal keys (`timeout`, `parallel_tool_calls`, `extra_headers`) are filtered out and not sent to the API.
+
+---
 
 ## Response Parsing
 
-The model expects an OpenAI-style response structure:
+Expects an OpenAI-style response:
 
 ```json
 {
   "choices": [
-    {"message": {"content": "..."}}
+    {"message": {"content": "Hello!"}}
   ]
 }
 ```
 
-It extracts the first `choices[0].message.content` and returns a `ModelResponse` with a single `TextPart`.
+Extract `choices[0].message.content` and return a `ModelResponse` with a `TextPart`.
 
-If your provider returns a different schema, transform it here and set `parts` accordingly.
+---
 
-## Configuration in `providers.py`
+## Tool Calling Support
 
-The `register_model_factory` call connects a provider prefix (e.g., `http-json`) to a factory function that builds the model:
+The example supports OpenAI-compatible function calling. Tools are mapped as follows:
+
+### Tool Definition Mapping
+
+| PydanticAI Field | OpenAI Format |
+|------------------|---------------|
+| `ToolDefinition.name` | `function.name` |
+| `ToolDefinition.description` | `function.description` |
+| `ToolDefinition.parameters_json_schema` | `function.parameters` |
+
+### Request Message Mapping
+
+| PydanticAI Type | OpenAI Format |
+|-----------------|---------------|
+| `ToolReturnPart` | `{"role": "tool", "tool_call_id": "...", "content": "..."}` |
+| `RetryPromptPart` (with tool_name) | `{"role": "tool", "tool_call_id": "...", "content": "..."}` |
+| `ModelResponse` with `ToolCallPart` | Assistant message with `tool_calls` array |
+
+### Response Parsing
+
+Tool calls in the response are parsed into `ToolCallPart` objects:
+
+```python
+for tc in msg.get("tool_calls", []):
+    if tc.get("type") == "function":
+        parts.append(ToolCallPart(
+            tool_name=tc["function"]["name"],
+            args=tc["function"]["arguments"],
+            tool_call_id=tc["id"],
+        ))
+```
+
+### Example Tool Response
+
+```json
+{
+  "choices": [{
+    "message": {
+      "content": null,
+      "tool_calls": [{
+        "id": "call_abc123",
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "arguments": "{\"location\": \"Paris\"}"
+        }
+      }]
+    }
+  }]
+}
+```
+
+---
+
+## Registration
+
+Connect your provider prefix to a factory function:
 
 ```python
 register_model_factory("http-json", build_http_json_model)
 ```
 
-Usage becomes:
+Then use it:
 
 ```bash
 export LLM_DO_MODEL="http-json:your-model"
 llm-do examples/custom_provider/project.json "Hello!"
 ```
 
-If you need environment-driven configuration, update the provider factory to read from env vars before instantiating the provider.
+---
 
-## Extending This Example
+## Limitations
 
-When you need more features, consider adding:
+This minimal example intentionally omits:
 
-- **Tool support:** Map `function_tools` to your provider’s tool schema and parse tool calls back into `ToolCallPart`.
-- **Streaming:** Implement `request_stream()` and return `StreamedResponse` objects.
-- **Token usage:** Populate `RequestUsage` by parsing `usage` fields from your API responses.
-- **Error mapping:** Translate provider-specific error payloads into `UserError` with actionable messages.
+| Feature | Status |
+|---------|--------|
+| Tool calling | Supported |
+| Structured output | Not supported |
+| Streaming | Not implemented |
 
-## Checklist: Minimal SDK-Free Provider
+---
 
-- [ ] Provider object that stores base URL, API key, name, and HTTP client.
-- [ ] Model subclass implementing `request()`.
-- [ ] Model message mapping for system/user/assistant history.
-- [ ] Response parsing into `ModelResponse` + `TextPart`.
-- [ ] `register_model_factory()` with a custom provider prefix.
-- [ ] README instructions + example run commands.
+## Extending the Example
+
+| Feature | How to Add |
+|---------|------------|
+| **Streaming** | Implement `request_stream()` returning `StreamedResponse` |
+| **Token usage** | Parse `usage` fields into `RequestUsage` |
+| **Error handling** | Translate API errors into `UserError` with clear messages |
+
+---
+
+## Checklist
+
+Before shipping your custom provider:
+
+1. Provider stores base URL, API key, name, and HTTP client
+2. Model subclass implements `request()`
+3. Message mapping handles system/user/assistant history
+4. Response parsing returns `ModelResponse` + `TextPart`
+5. Factory registered with `register_model_factory()`
+6. README documents usage and example commands

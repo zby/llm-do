@@ -14,6 +14,7 @@
     "main.agent"
   ],
   "python_files": [
-    "providers.py"
+    "providers.py",
+    "pure_http_provider.py"
   ]
 }

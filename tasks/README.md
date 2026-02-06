@@ -1,130 +1,106 @@
-# Tasks
+---
+name: tasks-system
+description: Manage the llm-do task tracker stored under tasks/ (backlog, active, completed, recurring) including creating new tasks, updating current state, moving tasks between stages, and applying the standard templates when planning or resuming work.
+---
 
-Operational documents for tracking work in progress.
+# llm-do Task Tracker
 
-## Purpose
+Use this skill whenever a request involves creating, editing, or reviewing work items in the `tasks/` directory. Tasks capture in-flight work for agents so they can pause/resume reliably.
 
-1. **Recovery** - After crash/context loss, AI reads task and resumes work
-2. **Scoping** - Break work into chunks that fit in context window
-3. **Dependencies** - Track what must be done first
-4. **Bootstrap** - Capture key context (files, commands, links) so work can start immediately
+## Directory Layout
 
-## Directories
+- `tasks/backlog/` — lightweight ideas; use the backlog template.
+- `tasks/active/` — scoped work currently in progress; follow the full active template.
+- `tasks/completed/` — finished items (purge as needed; permanent learnings belong in docs/code).
+- `tasks/recurring/` — periodic reviews/work; contains the recurring template.
+- `tasks/templates/` — canonical templates for each task type.
 
-| Directory | Purpose |
-|-----------|---------|
-| `active/` | Work in progress or planned next |
-| `backlog/` | Ideas worth tracking, not yet planned |
-| `completed/` | Finished work (can be purged periodically) |
-| `recurring/` | Periodic tasks (reviews, audits) that are run repeatedly |
+Each entry is a Markdown file named `<id>-<slug>.md` when possible so IDs remain stable during edits.
 
-## Usage
+## Standard Workflow
 
-- **New idea**: Create in `backlog/` with lightweight template
-- **Planning work**: Move from `backlog/` to `active/`, flesh out full template
-- **Starting work**: Create task in `active/`
-- **Resuming work**: Read task, continue from current state
-- **Finishing work**: Move to `completed/` or delete
-- **Recurring work**: Create in `recurring/` with recurring template; task is read-only during execution, all findings go to the output report
+1. **Capture an idea**
+   - Create `tasks/backlog/<slug>.md`.
+   - Copy from `tasks/templates/backlog.md`.
+   - Keep it short; only promote to active once ready.
 
-Completed tasks can be purged periodically - permanent decisions belong in AGENTS.md, code comments, or other documentation.
+2. **Activate a task**
+   - Move the file into `tasks/active/`.
+   - Fill out every heading from `tasks/templates/active.md`: Status, Prerequisites (with checkboxes linking dependent tasks), Goal, Context (files, related work, verification plan), Decision Record (even if "none yet"), Tasks checklist, Current State narrative, Notes.
+   - Frontload all context that can be gathered without changing code so implementation can start with minimal extra discovery.
+   - Status is one of `information gathering`, `ready for implementation`, or `waiting for <dependency>`.
 
-## Backlog Template
+3. **Work / resume**
+   - Before editing code, update **Prerequisites** and **Tasks** checkboxes to show the next actionable step.
+   - Keep **Current State** fresh; treat it as the handoff note for the next agent session.
+   - Log decisions inline. If a decision grows large or spans efforts, spin off a dedicated task and cross-link it.
 
-```markdown
-# Feature Name
+4. **Complete**
+   - When done, move the file to `tasks/completed/` (or delete if noise).
+   - Replace open checkboxes with `[x]`.
+   - Note merged PRs or docs in **Current State** or **Notes** for historical traceability.
 
-## Idea
-What this would do.
+5. **Recurring reviews**
+   - For periodic audits (UI, security, etc.), create files in `tasks/recurring/` using `tasks/templates/recurring.md`.
+   - Update **Last Run** with `YYYY-MM` plus a short finding summary at the end of each run.
 
-## Why
-Why it might be valuable.
+## Templates
 
-## Rough Scope
-High-level bullets of what's involved.
+Canonical templates live in `tasks/templates/`:
 
-## Why Not Now
-What's blocking or why it's not a priority.
+- [`templates/backlog.md`](templates/backlog.md)
+- [`templates/active.md`](templates/active.md)
+- [`templates/recurring.md`](templates/recurring.md)
 
-## Trigger to Activate
-What would make this worth doing.
-```
+## Task Review
 
-## Active Task Template
+When asked to review a task, carefully analyze the task file and propose revisions for:
 
-```markdown
-# Task Name
+- **Goal clarity** — Is the goal well-defined and achievable?
+- **Scope** — Should it be split, expanded, or narrowed?
+- **Architecture** — Better technical approach, cleaner design
+- **Missing steps** — Gaps in the Tasks checklist
+- **Prerequisites** — Unidentified dependencies or blockers
+- **Frontloading boundary** — Is pre-implementation research captured? Are code-changing probes correctly treated as execution or prerequisite tasks?
+- **Verification** — Is "How to verify" concrete and testable?
+- **Risk/edge cases** — Failure modes not yet considered
 
-## Status
-information gathering | ready for implementation | waiting for <dependency>
+**Resolve open questions:** Identify questions the task creator left unaddressed or assumptions that need validation. Research available sources (codebase, docs, web) to answer them rather than just flagging them.
 
-## Prerequisites
-- [ ] other-task-name (dependency on another task)
-- [ ] design decision needed (new design / approval)
-- [ ] none
+For each proposed change, provide:
+1. **What** — The specific change being proposed
+2. **Why** — Detailed rationale and justification
+3. **Trade-offs** — Any downsides or costs to consider
+4. **Priority** — Must-have vs nice-to-have
 
-## Goal
-One sentence: what "done" looks like.
+Focus on substantive improvements. Challenge assumptions and identify gaps.
 
-## Context
-- Relevant files/symbols:
-- Related tasks/notes/docs:
-- How to verify / reproduce:
+## Authoring Guidelines
 
-## Decision Record
-- Decision:
-- Inputs:
-- Options:
-- Outcome:
-- Follow-ups:
+- Keep each task to a single coherent goal; split unrelated efforts.
+- **Inline information from notes** — When creating a task based on a note or design doc, copy the relevant content directly into the task rather than just referencing it (e.g., "see `docs/notes/foo.md`"). Reading an additional file is extra work for the implementer; frontload that effort when writing the task.
+- **Self-contained tasks** — Aim for the full task implementation to fit within one context window. When you know the implementer will need specific background information, inline it rather than making them go find it.
+- **Frontload aggressively, but only with no-code research** — Include current behavior mapping, impacted files/symbols, constraints, assumptions, risks, and clear verification steps when these can be established without modifying code.
+- **Treat code-changing probes as execution work** — If validating an assumption requires code changes, runtime mutation, or experiments that alter behavior, do not treat it as frontloaded research.
+- **Promote substantial probes into prerequisite tasks** — When a probe can materially change scope, architecture, or estimates, create a separate prerequisite task and block the implementation task on it.
+- **Keep small probes inline when tightly scoped** — If the probe is minor and does not change task boundaries, keep it in the task checklist rather than splitting it out.
+- Add links to relevant files (`path/to/file.py`) and related tasks so agents can `rg` quickly.
+- Always state **How to verify** within Context.
+- Prefer `Prerequisites: none` unless genuinely blocked.
+- Notes capture gotchas encountered during execution; migrate durable learnings to `AGENTS.md`, inline code comments, or docs afterward.
+- Completed tasks are not documentation — if a decision matters broadly, extract it to docs before archiving.
 
-## Tasks
-- [x] completed step
-- [ ] next step
-- [ ] future step
+## Frontloading vs Prerequisite Probe Tasks
 
-## Current State
-Where things stand right now. Update as work progresses.
+Use this decision rule when authoring tasks:
 
-## Notes
-- Short observations, gotchas, things tried
-- Reference external docs for longer explanations
-```
+1. If information can be gathered from reading code/docs/history only, frontload it into the task now.
+2. If checking an assumption requires changing code or running behavior-altering experiments, treat it as execution work.
+3. If that execution work can significantly affect plan/scope, split it into a prerequisite task and link it in **Prerequisites**.
+4. If the execution work is small and low-risk, keep it as an explicit early checklist item in **Tasks**.
 
-## Recurring Task Template
+## Helpful Commands
 
-Recurring tasks are **read-only** when executed. The task document defines what to review and where to record findings - it should not be modified during execution. All findings, dates, and observations go to the output report file, not the task itself. This avoids committing the task file after every run.
-
-```markdown
-# Review: Area Name
-
-Brief description of what this review covers.
-
-## Scope
-
-- `path/to/module/` - Description
-- `path/to/file.py` - Description
-
-## Checklist
-
-- [ ] Check item 1
-- [ ] Check item 2
-- [ ] Check item 3
-
-## Output
-
-Record findings in `docs/notes/reviews/review-<area>.md`.
-```
-
-## Guidelines
-
-- Keep tasks focused - one coherent unit of work
-- **Inline information from notes** - When creating a task based on a note or design doc, copy the relevant content directly into the task rather than just referencing it. Reading an additional file is extra work for the implementer; frontload that effort when writing the task.
-- **Self-contained tasks** - Aim for the full task implementation to fit within one context window. When you know the implementer will need specific background information, inline it rather than making them go find it.
-- Front-load background gathering so tasks are startable without extra research
-- Prefer `Prerequisites: none` unless blocked by new design or another task
-- Record decisions in the task body; if a decision spans multiple tasks, extract
-  it into a dedicated task and add dependencies
-- Update current state frequently
-- Notes prevent repeating mistakes after recovery
-- Delete or archive when done - this is not documentation
+- `rg -n "<Task Name>" tasks/` — find all references to a task ID/slug.
+- `mv tasks/backlog/foo.md tasks/active/` — promote backlog to active when planning begins.
+- `rg -l "Prerequisites" tasks/active` — quickly audit tasks missing prerequisite updates.

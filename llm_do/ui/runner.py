@@ -6,7 +6,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Literal, Mapping, Sequence, TextIO
+from typing import Any, Awaitable, Callable, Literal, Mapping, Sequence, TextIO
 
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, UserError
 from pydantic_ai.messages import PartDeltaEvent
@@ -23,10 +23,13 @@ from .parser import parse_approval_request
 
 UiMode = Literal["tui", "headless"]
 ApprovalMode = Literal["prompt", "approve_all", "reject_all"]
+AuthMode = Literal["oauth_off", "oauth_auto", "oauth_required"]
 UiEventSink = Callable[[UIEvent], None]
 RuntimeEventSink = Callable[[RuntimeEvent], None]
 EntryFactory = Callable[[], tuple[Entry, AgentRegistry]]
 RuntimeFactory = Callable[..., Runtime]
+OAuthProviderResolver = Callable[[str], str | None]
+OAuthOverrideResolver = Callable[[str], Awaitable[Any | None]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +105,9 @@ def _build_runtime(
     project_root: Path | None,
     run_approval_policy: RunApprovalPolicy,
     max_depth: int,
+    auth_mode: AuthMode,
+    oauth_provider_resolver: OAuthProviderResolver | None,
+    oauth_override_resolver: OAuthOverrideResolver | None,
     generated_agents_dir: Path | None,
     agent_calls_require_approval: bool,
     agent_attachments_require_approval: bool,
@@ -114,6 +120,9 @@ def _build_runtime(
     factory = runtime_factory or Runtime
     return factory(
         project_root=project_root, run_approval_policy=run_approval_policy, max_depth=max_depth,
+        auth_mode=auth_mode,
+        oauth_provider_resolver=oauth_provider_resolver,
+        oauth_override_resolver=oauth_override_resolver,
         generated_agents_dir=generated_agents_dir,
         agent_calls_require_approval=agent_calls_require_approval,
         agent_attachments_require_approval=agent_attachments_require_approval,
@@ -178,6 +187,7 @@ async def run_tui(
     agent_registry: AgentRegistry | None = None,
     project_root: Path | None = None,
     approval_mode: ApprovalMode = "prompt",
+    auth_mode: AuthMode = "oauth_off",
     verbosity: int = 1,
     return_permission_errors: bool = True,
     max_depth: int = 5,
@@ -185,6 +195,8 @@ async def run_tui(
     agent_calls_require_approval: bool = False,
     agent_attachments_require_approval: bool = False,
     agent_approval_overrides: Mapping[str, Any] | None = None,
+    oauth_provider_resolver: OAuthProviderResolver | None = None,
+    oauth_override_resolver: OAuthOverrideResolver | None = None,
     message_log_callback: MessageLogCallback | None = None,
     extra_backends: Sequence[DisplayBackend] | None = None,
     chat: bool = False,
@@ -235,6 +247,9 @@ async def run_tui(
         project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
+        auth_mode=auth_mode,
+        oauth_provider_resolver=oauth_provider_resolver,
+        oauth_override_resolver=oauth_override_resolver,
         generated_agents_dir=generated_agents_dir,
         agent_calls_require_approval=agent_calls_require_approval,
         agent_attachments_require_approval=agent_attachments_require_approval,
@@ -358,6 +373,7 @@ async def run_headless(
     agent_registry: AgentRegistry | None = None,
     project_root: Path | None = None,
     approval_mode: ApprovalMode = "approve_all",
+    auth_mode: AuthMode = "oauth_off",
     verbosity: int = 1,
     return_permission_errors: bool = True,
     max_depth: int = 5,
@@ -365,6 +381,8 @@ async def run_headless(
     agent_calls_require_approval: bool = False,
     agent_attachments_require_approval: bool = False,
     agent_approval_overrides: Mapping[str, Any] | None = None,
+    oauth_provider_resolver: OAuthProviderResolver | None = None,
+    oauth_override_resolver: OAuthOverrideResolver | None = None,
     backends: Sequence[DisplayBackend] | None = None,
     message_log_callback: MessageLogCallback | None = None,
     debug: bool = False,
@@ -387,6 +405,9 @@ async def run_headless(
         project_root=project_root,
         run_approval_policy=approval_policy,
         max_depth=max_depth,
+        auth_mode=auth_mode,
+        oauth_provider_resolver=oauth_provider_resolver,
+        oauth_override_resolver=oauth_override_resolver,
         generated_agents_dir=generated_agents_dir,
         agent_calls_require_approval=agent_calls_require_approval,
         agent_attachments_require_approval=agent_attachments_require_approval,
@@ -433,6 +454,7 @@ async def run_ui(
     mode: UiMode = "tui",
     project_root: Path | None = None,
     approval_mode: ApprovalMode = "prompt",
+    auth_mode: AuthMode = "oauth_off",
     verbosity: int = 1,
     return_permission_errors: bool = True,
     max_depth: int = 5,
@@ -440,6 +462,8 @@ async def run_ui(
     agent_calls_require_approval: bool = False,
     agent_attachments_require_approval: bool = False,
     agent_approval_overrides: Mapping[str, Any] | None = None,
+    oauth_provider_resolver: OAuthProviderResolver | None = None,
+    oauth_override_resolver: OAuthOverrideResolver | None = None,
     backends: Sequence[DisplayBackend] | None = None,
     extra_backends: Sequence[DisplayBackend] | None = None,
     message_log_callback: MessageLogCallback | None = None,
@@ -459,6 +483,7 @@ async def run_ui(
             agent_registry=agent_registry,
             project_root=project_root,
             approval_mode=approval_mode,
+            auth_mode=auth_mode,
             verbosity=verbosity,
             return_permission_errors=return_permission_errors,
             max_depth=max_depth,
@@ -466,6 +491,8 @@ async def run_ui(
             agent_calls_require_approval=agent_calls_require_approval,
             agent_attachments_require_approval=agent_attachments_require_approval,
             agent_approval_overrides=agent_approval_overrides,
+            oauth_provider_resolver=oauth_provider_resolver,
+            oauth_override_resolver=oauth_override_resolver,
             message_log_callback=message_log_callback,
             extra_backends=extra_backends,
             chat=chat,
@@ -483,6 +510,7 @@ async def run_ui(
             agent_registry=agent_registry,
             project_root=project_root,
             approval_mode=approval_mode,
+            auth_mode=auth_mode,
             verbosity=verbosity,
             return_permission_errors=return_permission_errors,
             max_depth=max_depth,
@@ -490,6 +518,8 @@ async def run_ui(
             agent_calls_require_approval=agent_calls_require_approval,
             agent_attachments_require_approval=agent_attachments_require_approval,
             agent_approval_overrides=agent_approval_overrides,
+            oauth_provider_resolver=oauth_provider_resolver,
+            oauth_override_resolver=oauth_override_resolver,
             backends=backends,
             message_log_callback=message_log_callback,
             debug=debug,

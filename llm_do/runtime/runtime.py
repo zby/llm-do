@@ -5,7 +5,17 @@ import asyncio
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Mapping, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Awaitable,
+    Callable,
+    Literal,
+    Mapping,
+    Protocol,
+    Sequence,
+    TypeAlias,
+)
 
 from pydantic_ai.usage import RunUsage
 
@@ -24,6 +34,19 @@ if TYPE_CHECKING:
     from .registry import AgentRegistry
 
 AuthMode = Literal["oauth_off", "oauth_auto", "oauth_required"]
+
+
+class OAuthModelOverridesProtocol(Protocol):
+    """Structural contract for OAuth model override payloads."""
+
+    model: Any
+    model_settings: Any | None
+
+
+OAuthProviderResolver: TypeAlias = Callable[[str], str | None]
+OAuthOverrideResolver: TypeAlias = Callable[
+    [str], Awaitable[OAuthModelOverridesProtocol | None]
+]
 
 
 class UsageCollector:
@@ -107,6 +130,8 @@ class RuntimeConfig:
     return_permission_errors: bool = False
     max_depth: int = 5
     auth_mode: AuthMode = "oauth_off"
+    oauth_provider_resolver: OAuthProviderResolver | None = None
+    oauth_override_resolver: OAuthOverrideResolver | None = None
     generated_agents_dir: Path | None = None
     agent_calls_require_approval: bool = False
     agent_attachments_require_approval: bool = False
@@ -126,6 +151,8 @@ class Runtime:
         run_approval_policy: RunApprovalPolicy | None = None,
         max_depth: int = 5,
         auth_mode: AuthMode = "oauth_off",
+        oauth_provider_resolver: OAuthProviderResolver | None = None,
+        oauth_override_resolver: OAuthOverrideResolver | None = None,
         generated_agents_dir: str | Path | None = None,
         agent_calls_require_approval: bool = False,
         agent_attachments_require_approval: bool = False,
@@ -145,6 +172,8 @@ class Runtime:
             return_permission_errors=policy.return_permission_errors,
             max_depth=max_depth,
             auth_mode=auth_mode,
+            oauth_provider_resolver=oauth_provider_resolver,
+            oauth_override_resolver=oauth_override_resolver,
             generated_agents_dir=resolved_generated_dir,
             agent_calls_require_approval=agent_calls_require_approval,
             agent_attachments_require_approval=agent_attachments_require_approval,

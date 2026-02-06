@@ -22,6 +22,10 @@ from typing import Any, Callable
 
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 
+from ..oauth import (
+    get_oauth_provider_for_model_provider,
+    resolve_oauth_overrides,
+)
 from ..runtime import AgentRegistry, Entry, build_registry, resolve_entry
 from ..runtime.manifest import (
     ProjectManifest,
@@ -259,6 +263,7 @@ def main() -> int:
         project_root=manifest_dir,
         mode="tui" if use_tui else "headless",
         approval_mode=manifest.runtime.approval_mode,
+        auth_mode=manifest.runtime.auth_mode,
         verbosity=run_verbosity,
         return_permission_errors=return_permission_errors,
         max_depth=manifest.runtime.max_depth,
@@ -266,6 +271,8 @@ def main() -> int:
         agent_calls_require_approval=manifest.runtime.agent_calls_require_approval,
         agent_attachments_require_approval=manifest.runtime.agent_attachments_require_approval,
         agent_approval_overrides=manifest.runtime.agent_approval_overrides,
+        oauth_provider_resolver=get_oauth_provider_for_model_provider,
+        oauth_override_resolver=resolve_oauth_overrides,
         backends=backends,
         extra_backends=extra_backends,
         message_log_callback=message_log_callback,

@@ -5,11 +5,11 @@ import pytest
 from pydantic_ai.models.test import TestModel
 
 from llm_do.oauth import OAuthModelOverrides
-from llm_do.runtime import AgentSpec, FunctionEntry, Runtime, agent_runner
+from llm_do.runtime import AgentSpec, FunctionEntry, Runtime
 
 
 @pytest.mark.anyio
-async def test_auth_auto_uses_oauth_override_model(monkeypatch) -> None:
+async def test_auth_auto_uses_oauth_override_model() -> None:
     base_model = TestModel(custom_output_text="base-model")
     oauth_model = TestModel(custom_output_text="oauth-model")
     agent_spec = AgentSpec(
@@ -23,16 +23,14 @@ async def test_auth_auto_uses_oauth_override_model(monkeypatch) -> None:
         assert model == "anthropic:claude-sonnet-4"
         return OAuthModelOverrides(model=oauth_model, model_settings=None)
 
-    monkeypatch.setattr(
-        agent_runner,
-        "resolve_oauth_overrides",
-        fake_resolve_oauth_overrides,
-    )
-
     async def entry_main(input_data, runtime):
         return await runtime.call_agent(agent_spec, input_data)
 
-    runtime = Runtime(auth_mode="oauth_auto")
+    runtime = Runtime(
+        auth_mode="oauth_auto",
+        oauth_provider_resolver=lambda provider: "anthropic" if provider == "anthropic" else None,
+        oauth_override_resolver=fake_resolve_oauth_overrides,
+    )
     runtime.register_agents({agent_spec.name: agent_spec})
     result, _ctx = await runtime.run_entry(
         FunctionEntry(name="entry", fn=entry_main),
@@ -42,7 +40,7 @@ async def test_auth_auto_uses_oauth_override_model(monkeypatch) -> None:
 
 
 @pytest.mark.anyio
-async def test_auth_required_raises_when_oauth_credentials_missing(monkeypatch) -> None:
+async def test_auth_required_raises_when_oauth_credentials_missing() -> None:
     agent_spec = AgentSpec(
         name="oauth_agent",
         instructions="Respond with your configured output.",
@@ -53,10 +51,29 @@ async def test_auth_required_raises_when_oauth_credentials_missing(monkeypatch) 
     async def fake_resolve_oauth_overrides(_model: str):
         return None
 
-    monkeypatch.setattr(
-        agent_runner,
-        "resolve_oauth_overrides",
-        fake_resolve_oauth_overrides,
+    async def entry_main(input_data, runtime):
+        return await runtime.call_agent(agent_spec, input_data)
+
+    runtime = Runtime(
+        auth_mode="oauth_required",
+        oauth_provider_resolver=lambda provider: "anthropic" if provider == "anthropic" else None,
+        oauth_override_resolver=fake_resolve_oauth_overrides,
+    )
+    runtime.register_agents({agent_spec.name: agent_spec})
+    with pytest.raises(RuntimeError, match="no OAuth credentials found"):
+        await runtime.run_entry(
+            FunctionEntry(name="entry", fn=entry_main),
+            {"input": "hello"},
+        )
+
+
+@pytest.mark.anyio
+async def test_auth_required_raises_when_oauth_resolvers_not_configured() -> None:
+    agent_spec = AgentSpec(
+        name="oauth_agent",
+        instructions="Respond with your configured output.",
+        model=TestModel(custom_output_text="base-model"),
+        model_id="anthropic:claude-sonnet-4",
     )
 
     async def entry_main(input_data, runtime):
@@ -64,7 +81,7 @@ async def test_auth_required_raises_when_oauth_credentials_missing(monkeypatch) 
 
     runtime = Runtime(auth_mode="oauth_required")
     runtime.register_agents({agent_spec.name: agent_spec})
-    with pytest.raises(RuntimeError, match="no OAuth credentials found"):
+    with pytest.raises(RuntimeError, match="OAuth provider resolver is not configured"):
         await runtime.run_entry(
             FunctionEntry(name="entry", fn=entry_main),
             {"input": "hello"},

@@ -11,7 +11,6 @@ from pydantic_ai.settings import ModelSettings, merge_model_settings
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 
-from ..oauth import get_oauth_provider_for_model_provider, resolve_oauth_overrides
 from .args import get_display_text, normalize_input, render_prompt
 from .contracts import AgentSpec, CallContextProtocol
 from .events import RuntimeEvent
@@ -40,6 +39,26 @@ def _split_model_identifier(model_id: str) -> tuple[str | None, str]:
         return None, model_id
     provider, name = model_id.split(":", 1)
     return provider, name
+
+
+def _resolve_oauth_provider_for_model_provider(
+    runtime: CallContextProtocol,
+    model_provider: str,
+) -> str | None:
+    provider_resolver = runtime.config.oauth_provider_resolver
+    if provider_resolver is None:
+        return None
+    return provider_resolver(model_provider)
+
+
+async def _resolve_oauth_model_overrides(
+    runtime: CallContextProtocol,
+    model_id: str,
+) -> Any | None:
+    override_resolver = runtime.config.oauth_override_resolver
+    if override_resolver is None:
+        return None
+    return await override_resolver(model_id)
 
 
 def _build_agent(
@@ -125,9 +144,17 @@ async def run_agent(
                 )
         else:
             provider_name, _model_name = _split_model_identifier(spec.model_id)
-            oauth_provider = get_oauth_provider_for_model_provider(provider_name or "")
+            oauth_provider = _resolve_oauth_provider_for_model_provider(
+                runtime,
+                provider_name or "",
+            )
             if oauth_provider is None:
                 if auth_mode == "oauth_required":
+                    if runtime.config.oauth_provider_resolver is None:
+                        raise RuntimeError(
+                            f"OAuth required for agent '{spec.name}', "
+                            "but OAuth provider resolver is not configured."
+                        )
                     if provider_name:
                         raise RuntimeError(
                             f"OAuth required for agent '{spec.name}', "
@@ -138,9 +165,14 @@ async def run_agent(
                         f"but model '{spec.model_id}' has no provider prefix."
                     )
             else:
-                overrides = await resolve_oauth_overrides(spec.model_id)
+                overrides = await _resolve_oauth_model_overrides(runtime, spec.model_id)
                 if overrides is None:
                     if auth_mode == "oauth_required":
+                        if runtime.config.oauth_override_resolver is None:
+                            raise RuntimeError(
+                                f"OAuth required for agent '{spec.name}', "
+                                "but OAuth override resolver is not configured."
+                            )
                         raise RuntimeError(
                             f"OAuth required for agent '{spec.name}', "
                             f"but no OAuth credentials found for '{oauth_provider}'."

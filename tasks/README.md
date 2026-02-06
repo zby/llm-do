@@ -98,6 +98,7 @@ Use this decision rule when authoring tasks:
 2. If checking an assumption requires changing code or running behavior-altering experiments, treat it as execution work.
 3. If that execution work can significantly affect plan/scope, split it into a prerequisite task and link it in **Prerequisites**.
 4. If the execution work is small and low-risk, keep it as an explicit early checklist item in **Tasks**.
+5. If task authoring reveals small, low-risk improvements to existing code (e.g., a missing guard, a clearer name, a stale comment), propose them to the user directly rather than writing a separate task.
 
 ## Helpful Commands
 

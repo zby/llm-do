@@ -4,7 +4,7 @@
 ready for implementation
 
 ## Prerequisites
-- [ ] none
+- [x] none
 
 ## Goal
 Make UI events data-only and move all rendering/widget creation into renderer backends so new formats do not require editing every event class.

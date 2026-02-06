@@ -4,7 +4,7 @@
 ready for implementation
 
 ## Prerequisites
-- [ ] none
+- [x] none
 
 ## Goal
 Decide and implement where OAuth model override behavior belongs (`core runtime` vs `app/harness`) so the package split can proceed without hidden cross-layer coupling.
@@ -32,7 +32,7 @@ Decide and implement where OAuth model override behavior belongs (`core runtime`
 
 ## Decision Record
 - Decision:
-  - Pending; resolve in this task.
+  - Choose Option B: runtime uses injected OAuth provider/override resolvers instead of importing OAuth implementation directly.
 - Inputs:
   - Package split requires clean dependency direction and embeddable core runtime.
   - Existing behavior for `auth_mode` and OAuth override resolution must remain stable for users.
@@ -40,23 +40,29 @@ Decide and implement where OAuth model override behavior belongs (`core runtime`
   - A) Keep OAuth resolution in runtime (status quo) and treat OAuth as a core dependency.
   - B) Introduce an injected auth resolver seam (protocol/callback) so runtime is auth-provider agnostic, with app/harness wiring OAuth implementation.
 - Outcome:
-  - TBD in this task (record selected option and rationale).
+  - Implemented runtime callback seam in `RuntimeConfig` and removed direct OAuth import from `runtime/agent_runner.py`.
+  - Wired CLI/UI runtime construction to pass `auth_mode` plus OAuth callbacks from `llm_do.oauth`.
+  - Added runtime-level tests for `oauth_auto`, `oauth_required` missing credentials, and required-mode behavior when resolvers are not configured.
 - Follow-ups:
-  - If Option B is chosen, update package split task module ownership and dependency checks accordingly.
+  - Package split task can proceed past the OAuth ownership prerequisite.
 
 ## Tasks
-- [ ] Time-box decision work and capture chosen option with explicit trade-offs in Decision Record.
-- [ ] Implement minimal code change required by the chosen option (YAGNI; no broader auth redesign).
-- [ ] Preserve existing `auth_mode` semantics (`oauth_off`, `oauth_auto`, `oauth_required`) and runtime behavior.
+- [x] Time-box decision work and capture chosen option with explicit trade-offs in Decision Record.
+- [x] Implement minimal code change required by the chosen option (YAGNI; no broader auth redesign).
+- [x] Preserve existing `auth_mode` semantics (`oauth_off`, `oauth_auto`, `oauth_required`) and runtime behavior.
 - [x] Add or update focused tests covering the chosen boundary and failure modes.
-- [ ] Update `tasks/active/20260206-package-split-runtime-project-harness.md` prerequisite checkbox once resolved.
+- [x] Update `tasks/active/20260206-package-split-runtime-project-harness.md` prerequisite checkbox once resolved.
 
 ## Current State
-Created as a prerequisite gate for the package split. Dependency and coupling are validated; ownership decision and implementation are pending.
-Focused runtime-level OAuth coverage is now in place via `tests/runtime/test_oauth_runtime.py`:
-- `oauth_auto` path uses OAuth model override when available.
-- `oauth_required` path raises when overrides/credentials are unavailable.
-Verification command was updated to use this new targeted runtime test instead of a `-k oauth` filter that selected zero tests.
+Ownership boundary decision and implementation are complete for this task.
+Implemented callback-based OAuth seam:
+- Runtime no longer imports `llm_do.oauth` directly.
+- Runtime config now accepts injected OAuth provider and override resolver callbacks.
+- CLI wiring now passes `manifest.runtime.auth_mode` and OAuth callbacks into runtime construction.
+Validated with:
+- `uv run ruff check .`
+- `uv run mypy llm_do`
+- `uv run pytest`
 
 ## Notes
 - Keep this task narrow: boundary ownership only.

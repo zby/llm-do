@@ -15,7 +15,7 @@ Use this skill whenever a request involves creating, editing, or reviewing work 
 - `tasks/recurring/` — periodic reviews/work; contains the recurring template.
 - `tasks/templates/` — canonical templates for each task type.
 
-Each entry is a Markdown file named `<id>-<slug>.md` when possible so IDs remain stable during edits.
+Backlog entries may use `<slug>.md`; active and completed entries should use `<id>-<slug>.md` so IDs remain stable during edits.
 
 ## Standard Workflow
 
@@ -26,6 +26,7 @@ Each entry is a Markdown file named `<id>-<slug>.md` when possible so IDs remain
 
 2. **Activate a task**
    - Move the file into `tasks/active/`.
+   - When promoting from backlog, rename to include an ID (for example `YYYYMMDD`): `tasks/backlog/foo.md` → `tasks/active/20260206-foo.md`.
    - Fill out every heading from `tasks/templates/active.md`: Status, Prerequisites (with checkboxes linking dependent tasks), Goal, Context (files, related work, verification plan), Decision Record (even if "none yet"), Tasks checklist, Current State narrative, Notes.
    - Frontload all context that can be gathered without changing code so implementation can start with minimal extra discovery.
    - Status is one of `information gathering`, `ready for implementation`, or `waiting for <dependency>`.
@@ -42,7 +43,9 @@ Each entry is a Markdown file named `<id>-<slug>.md` when possible so IDs remain
 
 5. **Recurring reviews**
    - For periodic audits (UI, security, etc.), create files in `tasks/recurring/` using `tasks/templates/recurring.md`.
-   - Update **Last Run** with `YYYY-MM` plus a short finding summary at the end of each run.
+   - Treat recurring task files as stable runbooks: do not update checklist state or add per-run history in the task file.
+   - Record each run in the output note (for example `docs/notes/reviews/review-<area>.md`) by appending a dated section with findings and follow-ups.
+   - Edit recurring task files only when the review scope/process changes.
 
 ## Templates
 
@@ -84,6 +87,7 @@ Focus on substantive improvements. Challenge assumptions and identify gaps.
 - **Treat code-changing probes as execution work** — If validating an assumption requires code changes, runtime mutation, or experiments that alter behavior, do not treat it as frontloaded research.
 - **Promote substantial probes into prerequisite tasks** — When a probe can materially change scope, architecture, or estimates, create a separate prerequisite task and block the implementation task on it.
 - **Keep small probes inline when tightly scoped** — If the probe is minor and does not change task boundaries, keep it in the task checklist rather than splitting it out.
+- **Recurring tasks are reusable runbooks** — Keep recurring task files stable across runs so output is comparable over time; store run-by-run results in notes/review docs, not in `tasks/recurring/*.md`.
 - Add links to relevant files (`path/to/file.py`) and related tasks so agents can `rg` quickly.
 - Always state **How to verify** within Context.
 - Prefer `Prerequisites: none` unless genuinely blocked.
@@ -103,5 +107,6 @@ Use this decision rule when authoring tasks:
 ## Helpful Commands
 
 - `rg -n "<Task Name>" tasks/` — find all references to a task ID/slug.
-- `mv tasks/backlog/foo.md tasks/active/` — promote backlog to active when planning begins.
-- `rg -l "Prerequisites" tasks/active` — quickly audit tasks missing prerequisite updates.
+- `mv tasks/backlog/foo.md tasks/active/20260206-foo.md` — promote backlog to active and assign a stable ID.
+- `rg -L "^## Prerequisites$" tasks/active/*.md` — find active tasks missing a **Prerequisites** section.
+- `rg -n "^- \\[ \\] none$" tasks/active/*.md` — find tasks where `none` is still unchecked.

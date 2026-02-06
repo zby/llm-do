@@ -1,10 +1,10 @@
 # Package Split: Runtime, Project, Harness
 
 ## Status
-waiting for 20260206-oauth-ownership-boundary
+ready for implementation
 
 ## Prerequisites
-- [ ] `tasks/active/20260206-oauth-ownership-boundary.md` (must be resolved before Phase 2/Phase 3 completion)
+- [x] `tasks/completed/20260206-oauth-ownership-boundary.md` (must be resolved before Phase 2/Phase 3 completion)
 
 ## Goal
 Split the codebase into clear package boundaries so the runtime can be embedded independently while the project linker and CLI/TUI harness evolve without contaminating core APIs.
@@ -25,7 +25,7 @@ Split the codebase into clear package boundaries so the runtime can be embedded 
     - `llm_do/runtime/__init__.py` currently exports both core runtime types and linker/manifest APIs from one surface.
     - CLI currently imports runtime + linker pieces together (`llm_do/cli/main.py` imports `build_registry`, `resolve_entry`, and `runtime.manifest` APIs directly).
     - Dynamic agent toolset depends on agent-file parsing from `runtime` (`llm_do/toolsets/dynamic_agents.py` imports `runtime.agent_file`).
-    - Runtime execution still has host-specific OAuth dependency (`llm_do/runtime/agent_runner.py` imports from `llm_do/oauth`).
+    - OAuth ownership boundary has been resolved via injected runtime callbacks (`auth_mode` + provider/override resolvers wired from CLI).
     - Packaging is monolithic today (`pyproject.toml` has one distribution and `include = ["llm_do*"]`).
 - How to verify / reproduce:
   - `uv run ruff check .`
@@ -67,7 +67,7 @@ Split the codebase into clear package boundaries so the runtime can be embedded 
 
 ### Phase 2: Focused Validation Gates (do not frontload prematurely)
 - [ ] Time-box Stage 1 packaging decision and record outcome (single repo with multiple dists vs other layout, package names, entrypoint ownership), then apply metadata changes.
-- [ ] Complete `tasks/active/20260206-oauth-ownership-boundary.md` and apply its decision to this split.
+- [x] Complete `tasks/completed/20260206-oauth-ownership-boundary.md` and apply its decision to this split.
 
 ### Phase 3: Finalization
 - [ ] Update docs (`README.md`, `docs/architecture.md`) to reflect final package boundaries and dependency direction.
@@ -75,7 +75,7 @@ Split the codebase into clear package boundaries so the runtime can be embedded 
 
 ## Current State
 Task has a validated-first implementation plan. Concrete coupling edges and test hotspots are now inlined, and unresolved high-cost decisions are explicitly isolated as focused validation gates during implementation.
-Execution is now blocked on prerequisite task `tasks/active/20260206-oauth-ownership-boundary.md` before Phase 2 and finalization.
+OAuth ownership prerequisite is resolved (callback-based seam implemented), so this task is unblocked for remaining split work.
 
 ## Notes
 - Favor clean boundaries over backcompat shims unless a migration blocker appears.

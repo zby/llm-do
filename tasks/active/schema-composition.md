@@ -1,7 +1,7 @@
 # Schema Composition as Function Types
 
 ## Status
-exploring design
+information gathering
 
 ## Goal
 Add examples demonstrating how input/output schemas enable composition, treating agents as typed functions: `Agent : schema_in → schema_out`.

@@ -10,14 +10,14 @@ description: LLM Day 2026 Warsaw conference presentation proposal
 
 ### Title Options (undecided)
 
+- "Recursive Isn't Enough: Unifying LLM and Code for Reliable Systems"
 - "Stabilize the Joints: A Unified Interface for LLM and Code"
-- "One Interface: Unifying LLM and Code for Reliable Systems"
-- "The Unified Function Space: Where LLM Meets Code"
+- "One Interface, Two Engines: LLM + Code Without Rewrites"
 - "Same Call, Different Engine: Unifying Stochastic and Deterministic"
 
 ### Elevator Pitch (300 chars)
 
-> LLM composition fails at the joints—contracts get violated, pipelines break. llm-do unifies LLM and code under one interface, letting you progressively stabilize boundaries into reliable code while keeping flexibility where you need it.
+> Recursive execution is necessary but not sufficient. Reliability fails at the joints—contracts get violated, pipelines break. llm-do unifies LLM and code under one interface so you can progressively stabilize boundaries into reliable code while keeping flexibility where you need it.
 
 ### Description
 
@@ -62,7 +62,7 @@ description: LLM Day 2026 Warsaw conference presentation proposal
 
 ## Through-line
 
-> "LLM systems are stochastic; reliability comes from being able to refactor fluidly between stochastic and deterministic—and llm-do makes that refactoring cheap."
+> "Recursive execution is necessary but not sufficient; reliability comes from being able to refactor fluidly between stochastic and deterministic—and llm-do makes that refactoring cheap."
 
 Every slide returns to this.
 
@@ -72,7 +72,8 @@ Every slide returns to this.
 
 ### Part 1: The Problem (5 min)
 
-**Slide 1: "The Wall"**
+**Slide 1: "Recursive Isn't Enough"**
+- Recursive execution shows compositionality, but doesn't solve reliability
 - Pure prompts: flexible but fragile (can't test, can't debug)
 - Pure code: reliable but brittle (edge cases explode)
 - Graph DSLs: structure but friction (refactoring = redrawing)
@@ -82,6 +83,7 @@ Every slide returns to this.
 **Slide 2: "Why It's Hard"**
 - The real issue: we're treating stochastic systems as if they were deterministic
 - Same prompt → different behavior (not a bug—intrinsic)
+- Failures cluster at boundaries between components, not inside them
 
 **Transition:** "What if we took the stochasticity seriously instead of fighting it?"
 
@@ -200,14 +202,15 @@ Quick demo: file_organizer or pitchdeck_eval showing the stabilizing progression
 
 **Slide 11: "The Recipe"**
 
-1. Model LLMs as stochastic computers (not fuzzy deterministic ones)
-2. Make distribution boundaries explicit (that's where you can refactor)
-3. Use a unified calling convention (so refactoring is cheap)
-4. Stabilize progressively (start flexible, extract determinism as patterns emerge)
+1. Treat recursion as a baseline, not the finish line
+2. Model LLMs as stochastic computers (not fuzzy deterministic ones)
+3. Make distribution boundaries explicit (that's where you can refactor)
+4. Use a unified calling convention (so refactoring is cheap)
+5. Stabilize progressively (start flexible, extract determinism as patterns emerge)
 
 **Slide 12: "One Slide Summary"**
 
-> "LLM systems are stochastic. Reliability comes from fluid refactoring between stochastic and deterministic. llm-do makes that refactoring cheap."
+> "Recursive execution is necessary but not sufficient. Reliability comes from fluid refactoring between stochastic and deterministic. llm-do makes that refactoring cheap."
 
 **Slide 13: Resources**
 

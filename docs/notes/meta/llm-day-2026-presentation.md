@@ -17,7 +17,7 @@ description: LLM Day 2026 Warsaw conference presentation proposal
 
 ### Elevator Pitch (300 chars)
 
-> Recursive execution is necessary but not sufficient. Reliability fails at the joints—contracts get violated, pipelines break. llm-do unifies LLM and code under one interface so you can progressively stabilize boundaries into reliable code while keeping flexibility where you need it.
+> Recursive execution is necessary but not sufficient for reliability. Systems fail at the joints—contracts get violated, pipelines break. llm-do unifies LLM and code under one interface so you can progressively stabilize boundaries into reliable code while keeping flexibility where you need it.
 
 ### Description
 

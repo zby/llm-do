@@ -8,7 +8,7 @@
 
 ## Through-line
 
-> "Two independent motivations—extensibility and recursive power—both require recursive dispatch. llm-do's unified calling convention makes the neural-symbolic boundary invisible, enabling progressive stabilization."
+> "Two independent motivations—power and evolvability—both require recursive dispatch. RLMs optimize for power with an explicit boundary. llm-do optimizes for evolution with a unified calling convention, enabling systems that grow from prototype to production."
 
 ---
 
@@ -80,15 +80,15 @@ But when you try to build it:
 
 ### Slide 4: "I Wasn't Alone"
 
-> "When I started thinking about what this system needs, I found others arriving at the same place from a different direction."
+> "When I started thinking about what this system needs, I found others arriving at the same place from a different direction—but with a different priority."
 
-Two independent motivations, one architecture.
+Two independent motivations. Same structural need. Different values.
 
 ---
 
-### Slide 5: Road 1 — Extensibility (My Origin)
+### Slide 5: Road 1 — Evolvability (My Origin)
 
-**The goal**: Systems that grow by prompting
+**The goal**: Systems that grow and mature over time
 
 ```
 User describes intent
@@ -104,14 +104,17 @@ Encode stable parts as code
 Hybrid capability (prompt + code)
 ```
 
+**The priority**: Not maximum power at any moment—but enabling the system to **evolve**.
+Refactoring from prompt to code must be cheap. The engineering lifecycle matters.
+
 **What this requires**:
 - Save prompts as callable units
 - Unified interface (prompts and code look the same)
-- Progressive stabilization (move logic prompt → code)
+- Progressive stabilization (move logic prompt → code without breaking callers)
 
 ---
 
-### Slide 6: Road 2 — Recursive Power (RLM Perspective)
+### Slide 6: Road 2 — Power (RLM Perspective)
 
 **The goal**: Maximum expressive power through recursion
 
@@ -133,37 +136,41 @@ Task (ambiguous → LLM)
 At any depth, choose the best execution mode for that subtask.
 Full power requires arbitrary interleaving: `LLM → code → LLM → code → ...`
 
+**The priority**: Solve harder problems. The architecture serves capability at a point in time.
+
 **What this requires**:
 - Recursive dispatch between LLM and code
 - Mode choice independent of nesting depth
-- Unified calling convention
+- Calling convention (explicit or unified)
 
 ---
 
-### Slide 7: RLMs and llm-do — Different Design Choices
+### Slide 7: RLMs and llm-do — Different Priorities
 
 Recursive Language Models (Prime Intellect, Oct 2025):
-- Models manage their own context
-- Delegation to Python scripts and sub-LLMs
-- Recursive decomposition of long-horizon tasks
+- **Priority: power** — solve harder problems through recursive decomposition
+- Models manage their own context, delegate to Python scripts and sub-LLMs
 - **Explicit boundary**: LLM calls and code calls have different APIs
+- **Pure computation**: no user approvals — simplifies architecture significantly
+- The architecture serves capability at a point in time
 
 llm-do:
-- Same recursive power
-- **Unified calling convention**: LLM calls and code calls look identical
-- Enables refactoring across the boundary without changing call sites
+- **Priority: evolution** — systems that grow and mature over time
+- Same recursive power, but **unified calling convention**: LLM and code calls look identical
+- **Coding-agent path**: full approval/safety harness for dangerous tool calls
+- The architecture serves the engineering lifecycle — refactoring, testing, incremental improvement
 
-Different tradeoffs: RLMs make the boundary explicit; llm-do hides it for refactoring flexibility.
+**Different values, not just different features.** If you optimize for power, an explicit boundary is fine — you're not planning to move things across it. If you optimize for evolution, refactoring cost is everything.
 
 ---
 
 ### Slide 8: The Convergence Diagram
 
 ```
-        EXTENSIBILITY                    RECURSIVE POWER
+        EVOLVABILITY                     POWER
               │                                │
-       "save prompts                   "use the best tool
-        as extensions"                  for each subtask,
+       "systems that                  "use the best tool
+        grow and mature"               for each subtask,
                                         at any depth"
               │                                │
               └────────────────┬───────────────┘
@@ -178,39 +185,43 @@ Different tradeoffs: RLMs make the boundary explicit; llm-do hides it for refact
               │                                 │
               ▼                                 ▼
     ┌───────────────────┐             ┌───────────────────┐
-    │  RLM approach:    │             │  llm-do approach: │
+    │  RLM:             │             │  llm-do:          │
     │  explicit boundary│             │  unified calling  │
+    │  pure computation │             │  approval harness │
     └───────────────────┘             └───────────────────┘
-                                                │
-                                                ▼
-                                      ┌───────────────────┐
-                                      │    PROGRESSIVE    │
-                                      │   STABILIZATION   │
-                                      └───────────────────┘
+              │                                 │
+              ▼                                 ▼
+    ┌───────────────────┐             ┌───────────────────┐
+    │  max capability   │             │    PROGRESSIVE    │
+    │  at a point in    │             │   STABILIZATION   │
+    │  time             │             │  (system evolves) │
+    └───────────────────┘             └───────────────────┘
 ```
 
-*(Build this progressively: convergence point, then two approaches)*
+*(Build this progressively: convergence point, then two approaches, then outcomes)*
 
 ---
 
 ## Part 3: The Convergence (3 min)
 
-### Slide 9: Shared Requirement, Different Solutions
+### Slide 9: Shared Requirement, Different Priorities
 
 **Both roads require**: Recursive dispatch between LLM and code
 
-**RLMs**: Explicit boundary—different APIs for calling LLM vs code
+**RLMs**: Power first — explicit boundary, pure computation, maximum capability
 
-**llm-do**: Unified calling—same interface regardless of implementation
+**llm-do**: Evolution first — unified boundary, approval harness, cheap refactoring
 
 | | RLM | llm-do |
 |---|-----|--------|
+| **Priority** | **Power** | **Evolution** |
 | Recursive dispatch | ✓ | ✓ |
 | Boundary visibility | Explicit | Hidden |
-| Refactoring cost | Change call sites | No changes |
-| Progressive stabilization | Harder | Natural |
+| User approvals | None (pure computation) | Full harness (coding-agent style) |
+| Refactoring cost | Pay the tax | No changes |
+| Progressive stabilization | Not a goal | Core design driver |
 
-**So what**: "Same power, different ergonomics. llm-do optimizes for refactoring."
+**So what**: "Same recursive power, different values. RLMs ask 'what can we solve?' llm-do asks 'how does this system mature?'"
 
 ---
 
@@ -218,10 +229,13 @@ Different tradeoffs: RLMs make the boundary explicit; llm-do hides it for refact
 
 > "Whether a capability is neural (LLM) or symbolic (code) should be invisible at the call site."
 
-This is a design choice, not the only way. But it enables:
+This follows directly from the evolution priority. If your system is going to change over time—logic moving from LLM to code and back—the boundary must be cheap to cross.
+
+This is an engineering choice, not a research choice. It enables:
 - Refactoring without breaking callers
 - Progressive stabilization as patterns emerge
 - Experimentation: swap implementations freely
+- The standard engineering lifecycle applied to hybrid systems
 
 *(Pause. Let this land.)*
 
@@ -343,22 +357,33 @@ LLM evaluates    →   LLM evaluates    →   LLM evaluates
 
 ### Slide 16: The Refactoring That Didn't Break
 
-From LLM's perspective (in `.agent` files), the call looks the same:
-```
-Call pitch_evaluator(input="Evaluate this pitch deck.", attachments=[...])
-```
+Imagine a **Version 4**: stabilize `pitch_evaluator` itself.
 
-From Python code, the call is:
+**Before** — `pitch_evaluator.agent` (LLM does everything):
+```
+# main.agent — the call site
+Call pitch_evaluator(input="Evaluate this pitch deck.",
+                     attachments=["input/aurora-solar.pdf"])
+```
+→ LLM reads PDF, scores dimensions, writes report (all neural)
+
+**After** — `pitch_evaluator` becomes code wrapping an LLM:
 ```python
-await runtime.call_agent("pitch_evaluator", {
-    "input": "Evaluate this pitch deck.",
-    "attachments": [deck["file"]]
-})
+# tools.py — pitch_evaluator is now a Python function
+async def pitch_evaluator(ctx, input: str, attachments: list[str]) -> str:
+    pdf_path = validate_pdf(attachments[0])         # Code (deterministic)
+    raw = await ctx.deps.call_agent(                # LLM (reasoning)
+        "raw_evaluator",
+        {"input": input, "attachments": [pdf_path]}
+    )
+    return enforce_report_format(raw)               # Code (deterministic)
 ```
 
-**Same name. Same arguments. Same result.**
+**The call in `main.agent` doesn't change at all.**
 
-Whether the orchestrator is an LLM agent or Python code, the interface to `pitch_evaluator` doesn't change. The unified calling convention made this refactoring trivial.
+First the LLM called another LLM. Now it calls code that calls an LLM. Same name, same arguments, same result. The caller never knew the difference.
+
+*(This is also the `orchestrating_tool/deep_research` pattern — Python code orchestrating 3 agents, but the caller just sees `deep_research(question)`.)*
 
 ---
 
@@ -467,8 +492,8 @@ Agent/Code ──→ Harness ──→ Tool execution
 - "Graphs are the answer"
 
 **Instead**:
-- A coherent model for building reliable systems on stochastic foundations
-- Architecture derived from two independent motivations
+- An engineering approach to hybrid systems — optimizing for evolution, not just power
+- Architecture derived from two independent motivations (power and evolvability)
 - Practical implementation that makes progressive stabilization cheap
 
 ---
@@ -495,9 +520,9 @@ Agent/Code ──→ Harness ──→ Tool execution
 
 ### Slide 24: One Slide Summary
 
-> "Two roads—extensibility and recursive power—both need recursive dispatch. llm-do's unified calling convention enables progressive stabilization."
+> "Two roads—power and evolvability—both need recursive dispatch. RLMs optimize for power. llm-do optimizes for evolution, making the engineering lifecycle work for hybrid systems."
 
-> "Start stochastic for flexibility. Stabilize as patterns emerge. The unified interface makes this movement natural."
+> "Start stochastic for flexibility. Stabilize as patterns emerge. The unified interface makes this movement cheap."
 
 ---
 
@@ -535,8 +560,8 @@ Questions?
 | After... | So what |
 |----------|---------|
 | The dream | "This is how software should grow" |
-| Convergence | "Evidence the design is sound" |
-| One-line insight | "This single constraint enables everything" |
+| Two roads | "Same need, different values — power vs. evolution" |
+| Convergence | "The unified boundary follows from the evolution priority" |
 | Refactoring demo | "Same interface throughout—refactoring was trivial" |
 | Stabilization table | "Progressive stabilization = progressive confidence" |
 
@@ -585,15 +610,15 @@ Three orchestration styles:
 
 ### Elevator Pitch (300 chars)
 
-> Extensibility and recursive power both require unified calling between LLM and code. llm-do provides this, enabling systems that grow by prompting and stabilize to code as patterns emerge.
+> Power and evolvability both require recursive dispatch between LLM and code. RLMs optimize for power; llm-do optimizes for evolution — enabling systems that grow by prompting and stabilize to code as patterns emerge.
 
 ### Description
 
-> This talk presents a unified architecture for LLM-based systems, derived from two independent motivations that converge on the same design requirements.
+> This talk presents a unified architecture for LLM-based systems, derived from two independent motivations that converge on the same structural need but diverge on priorities.
 >
-> First, the dream of extensible systems—computers you extend by talking to them, saving prompts as capabilities, and progressively stabilizing to code. Second, the recursive power argument (building on RLM insights)—at any level of task decomposition, you should use whichever execution mode (LLM or code) is best for that subtask, requiring arbitrary interleaving of neural and symbolic computation.
+> First, the evolvability road—systems you extend by talking to them, saving prompts as capabilities, and progressively stabilizing to code. The priority is the engineering lifecycle: how does this system mature? Second, the power road (building on RLM insights)—at any level of task decomposition, use whichever execution mode (LLM or code) is best for that subtask, requiring arbitrary interleaving of neural and symbolic computation. The priority is maximum capability.
 >
-> Both roads require recursive dispatch between LLM and code. RLMs achieve this with explicit boundaries—different APIs for LLM and code calls. llm-do adds a unified calling convention, making the boundary invisible at call sites. This enables progressive stabilization: refactoring from LLM to code without changing callers.
+> Both roads require recursive dispatch between LLM and code. RLMs optimize for power with explicit boundaries and pure computation—no user approvals, simpler architecture. llm-do optimizes for evolution with a unified calling convention, making the boundary invisible at call sites, and a full approval harness in the style of coding agents. The unified boundary follows from the evolution priority: if your system is going to change over time, refactoring cost is everything.
 >
 > We demonstrate this with llm-do, showing concrete refactoring from all-LLM prototypes to hybrid systems—without changing call sites. Attendees will leave with practical patterns for organic system evolution from prototype to production.
 >

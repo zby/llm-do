@@ -90,10 +90,17 @@ def build_registry(
     agent_files: list[str],
     python_files: list[str],
     *,
-    project_root: Path | str,
+    project_root: Path | str | None,
     extra_toolsets: Mapping[str, ToolsetDef],
     agent_toolset_factory: AgentToolsetFactory,
 ) -> AgentRegistry:
+    if project_root is None:
+        raise ValueError("project_root is required to build registry")
+    if extra_toolsets is None:
+        raise ValueError("extra_toolsets is required to build registry")
+    if agent_toolset_factory is None:
+        raise ValueError("agent_toolset_factory is required to build registry")
+
     project_root_path = Path(project_root).resolve()
     if not project_root_path.exists():
         raise FileNotFoundError(f"project_root not found: {project_root_path}")

@@ -1,12 +1,11 @@
-from pathlib import Path
-
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from llm_do.project import EntryConfig, build_registry, resolve_entry
-from llm_do.project.host_toolsets import (
-    build_agent_toolset_factory,
-    build_host_toolsets,
+from llm_do.project import (
+    EntryConfig,
+    build_registry,
+    build_registry_host_wiring,
+    resolve_entry,
 )
 from llm_do.runtime import (
     AgentSpec,
@@ -15,13 +14,6 @@ from llm_do.runtime import (
 )
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.toolsets.agent import AgentToolset, agent_as_toolset
-
-
-def _host_registry_kwargs(project_root: Path) -> dict[str, object]:
-    return {
-        "extra_toolsets": build_host_toolsets(Path.cwd(), project_root),
-        "agent_toolset_factory": build_agent_toolset_factory(),
-    }
 
 
 @pytest.mark.anyio
@@ -42,7 +34,7 @@ Call yourself.
         [str(agent_path)],
         [],
         project_root=tmp_path,
-        **_host_registry_kwargs(tmp_path),
+        **build_registry_host_wiring(tmp_path),
     )
     entry = resolve_entry(
         EntryConfig(agent="recursive"),

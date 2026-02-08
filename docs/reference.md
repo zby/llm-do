@@ -112,13 +112,13 @@ Use `Runtime` to create a shared execution environment and run an entry:
 ```python
 from pathlib import Path
 
-from llm_do.runtime import (
+from llm_do.project import (
     EntryConfig,
-    Runtime,
-    RunApprovalPolicy,
     build_registry,
+    build_registry_host_wiring,
     resolve_entry,
 )
+from llm_do.runtime import RunApprovalPolicy, Runtime
 
 async def main():
     project_root = Path(".").resolve()
@@ -126,6 +126,7 @@ async def main():
         ["analyzer.agent"],
         [],
         project_root=project_root,
+        **build_registry_host_wiring(project_root),
     )
     entry = resolve_entry(
         EntryConfig(agent="analyzer"),
@@ -153,9 +154,11 @@ async def main():
 - Runtime state is process-scoped (in-memory only, not persisted beyond the process)
 - Returns both the result and the runtime context
  
-`build_registry()` returns an `AgentRegistry` and requires an explicit `project_root`; `AgentRegistry` is a thin
-container around the `agents` mapping, so pass the same root to `Runtime` and register `registry.agents` to keep
-filesystem toolsets and attachment resolution aligned.
+`build_registry()` returns an `AgentRegistry` and requires explicit host wiring.
+Use `build_registry_host_wiring(project_root)` for standard CLI-equivalent host toolsets.
+`AgentRegistry` is a thin container around the `agents` mapping, so pass the same root
+to `Runtime` and register `registry.agents` to keep filesystem toolsets and attachment
+resolution aligned.
 
 Agent files resolve model identifiers when building the registry (or when dynamic
 agents are created). `AgentSpec.model` always stores a resolved `Model` instance.
@@ -179,7 +182,13 @@ For chat-style flows, carry forward `message_history` between turns:
 ```python
 from pathlib import Path
 
-from llm_do.runtime import EntryConfig, Runtime, build_registry, resolve_entry
+from llm_do.project import (
+    EntryConfig,
+    build_registry,
+    build_registry_host_wiring,
+    resolve_entry,
+)
+from llm_do.runtime import Runtime
 
 async def main():
     project_root = Path(".").resolve()
@@ -187,6 +196,7 @@ async def main():
         ["assistant.agent"],
         [],
         project_root=project_root,
+        **build_registry_host_wiring(project_root),
     )
     entry = resolve_entry(
         EntryConfig(agent="assistant"),

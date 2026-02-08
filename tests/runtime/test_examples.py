@@ -5,28 +5,18 @@ import pytest
 
 from llm_do.project import (
     build_registry,
+    build_registry_host_wiring,
     load_agent_file,
     load_manifest,
     load_toolsets_from_files,
     resolve_entry,
     resolve_manifest_paths,
 )
-from llm_do.project.host_toolsets import (
-    build_agent_toolset_factory,
-    build_host_toolsets,
-)
 from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.dynamic_agents import DynamicAgentsToolset
 from tests.runtime.helpers import build_runtime_context, materialize_toolset_def
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
-
-
-def _host_registry_kwargs(project_root: Path) -> dict[str, object]:
-    return {
-        "extra_toolsets": build_host_toolsets(Path.cwd(), project_root),
-        "agent_toolset_factory": build_agent_toolset_factory(),
-    }
 
 
 def _build_example(example_name: str):
@@ -36,7 +26,7 @@ def _build_example(example_name: str):
         [str(path) for path in agent_paths],
         [str(path) for path in python_paths],
         project_root=manifest_dir,
-        **_host_registry_kwargs(manifest_dir),
+        **build_registry_host_wiring(manifest_dir),
     )
     entry = resolve_entry(
         manifest.entry,

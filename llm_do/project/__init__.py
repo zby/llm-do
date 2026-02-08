@@ -18,6 +18,12 @@ from .discovery import (
     load_toolsets_from_files,
 )
 from .entry_resolver import resolve_entry
+from .host_toolsets import (
+    RegistryHostWiring,
+    build_agent_toolset_factory,
+    build_host_toolsets,
+    build_registry_host_wiring,
+)
 from .manifest import (
     EntryConfig,
     ManifestRuntimeConfig,
@@ -50,6 +56,10 @@ __all__ = [
     "load_manifest",
     "resolve_generated_agents_dir",
     "resolve_manifest_paths",
+    "build_host_toolsets",
+    "build_agent_toolset_factory",
+    "build_registry_host_wiring",
+    "RegistryHostWiring",
     "AgentRegistry",
     "AgentToolsetFactory",
     "build_registry",

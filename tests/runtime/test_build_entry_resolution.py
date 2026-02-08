@@ -5,10 +5,11 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
 from llm_do import register_model_factory
-from llm_do.project import EntryConfig, build_registry, resolve_entry
-from llm_do.project.host_toolsets import (
-    build_agent_toolset_factory,
-    build_host_toolsets,
+from llm_do.project import (
+    EntryConfig,
+    build_registry,
+    build_registry_host_wiring,
+    resolve_entry,
 )
 from llm_do.toolsets.agent import AgentToolset
 from tests.runtime.helpers import build_runtime_context, materialize_toolset_def
@@ -16,11 +17,15 @@ from tests.runtime.helpers import build_runtime_context, materialize_toolset_def
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 
 
-def _host_registry_kwargs(project_root: Path) -> dict[str, object]:
-    return {
-        "extra_toolsets": build_host_toolsets(Path.cwd(), project_root),
-        "agent_toolset_factory": build_agent_toolset_factory(),
-    }
+def test_build_registry_requires_project_root() -> None:
+    with pytest.raises(ValueError, match="project_root is required"):
+        build_registry(
+            [],
+            [],
+            project_root=None,
+            extra_toolsets={},
+            agent_toolset_factory=lambda _name, _spec: None,
+        )
 
 
 def test_build_registry_records_model_id(tmp_path: Path) -> None:
@@ -45,7 +50,7 @@ Hello
         [str(agent_path)],
         [],
         project_root=tmp_path,
-        **_host_registry_kwargs(tmp_path),
+        **build_registry_host_wiring(tmp_path),
     )
     spec = registry.agents["main"]
     assert spec.model_id == "custom_model_id_test:demo"
@@ -65,7 +70,7 @@ async def test_build_registry_resolves_nested_agent_toolsets() -> None:
         agent_files,
         python_files,
         project_root=EXAMPLES_DIR / "web_research_agent",
-        **_host_registry_kwargs(EXAMPLES_DIR / "web_research_agent"),
+        **build_registry_host_wiring(EXAMPLES_DIR / "web_research_agent"),
     )
     entry = resolve_entry(
         EntryConfig(agent="main"),
@@ -131,7 +136,7 @@ ENTRY = FunctionEntry(
         [],
         [str(module_path)],
         project_root=tmp_path,
-        **_host_registry_kwargs(tmp_path),
+        **build_registry_host_wiring(tmp_path),
     )
     resolve_entry(
         EntryConfig(function=f"{module_path}:main"),
@@ -183,7 +188,7 @@ Instructions.
         [str(agent_path)],
         [str(schema_path)],
         project_root=tmp_path,
-        **_host_registry_kwargs(tmp_path),
+        **build_registry_host_wiring(tmp_path),
     )
     resolve_entry(
         EntryConfig(agent="main"),
@@ -228,7 +233,7 @@ Instructions.
         [str(agent_path)],
         [],
         project_root=tmp_path,
-        **_host_registry_kwargs(tmp_path),
+        **build_registry_host_wiring(tmp_path),
     )
     entry = resolve_entry(
         EntryConfig(agent="main"),
@@ -258,5 +263,5 @@ async def test_build_registry_rejects_duplicate_toolset_names(tmp_path: Path) ->
             [str(reserved_worker), str(entry_worker)],
             [],
             project_root=tmp_path,
-            **_host_registry_kwargs(tmp_path),
+            **build_registry_host_wiring(tmp_path),
         )

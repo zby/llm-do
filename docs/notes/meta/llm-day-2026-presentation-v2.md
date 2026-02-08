@@ -8,7 +8,7 @@
 
 ## Through-line
 
-> "Two independent motivations—extensibility and recursive power—converge on the same architecture: a unified calling convention enabling recursive dispatch across the neural-symbolic boundary."
+> "Two independent motivations—extensibility and recursive power—both require recursive dispatch. llm-do's unified calling convention makes the neural-symbolic boundary invisible, enabling progressive stabilization."
 
 ---
 
@@ -170,50 +170,58 @@ Different tradeoffs: RLMs make the boundary explicit; llm-do hides it for refact
                                │
                                ▼
                     ┌─────────────────────┐
-                    │  UNIFIED CALLING    │
-                    │    CONVENTION       │
-                    └─────────────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
                     │  RECURSIVE DISPATCH │
+                    │  (both roads need)  │
                     └─────────────────────┘
                                │
-                               ▼
-                    ┌─────────────────────┐
-                    │    PROGRESSIVE      │
-                    │   STABILIZATION     │
-                    └─────────────────────┘
+              ┌────────────────┴────────────────┐
+              │                                 │
+              ▼                                 ▼
+    ┌───────────────────┐             ┌───────────────────┐
+    │  RLM approach:    │             │  llm-do approach: │
+    │  explicit boundary│             │  unified calling  │
+    └───────────────────┘             └───────────────────┘
+                                                │
+                                                ▼
+                                      ┌───────────────────┐
+                                      │    PROGRESSIVE    │
+                                      │   STABILIZATION   │
+                                      └───────────────────┘
 ```
 
-*(Build this progressively: show two roads, then convergence)*
+*(Build this progressively: convergence point, then two approaches)*
 
 ---
 
 ## Part 3: The Convergence (3 min)
 
-### Slide 9: What Both Roads Require
+### Slide 9: Shared Requirement, Different Solutions
 
-| Requirement | Extensibility | Recursive Power |
-|-------------|---------------|-----------------|
-| **Unified calling** | Prompts & code interchangeable | Subtasks route freely at any depth |
-| **Recursive dispatch** | Call saved prompts from code | Decompose without API changes |
-| **Progressive refinement** | Stabilize as patterns emerge | Optimize each subtask independently |
+**Both roads require**: Recursive dispatch between LLM and code
 
-**The claim**: These aren't independent features. They're consequences of taking either motivation seriously.
+**RLMs**: Explicit boundary—different APIs for calling LLM vs code
 
-**So what**: "The convergence is evidence the design is sound."
+**llm-do**: Unified calling—same interface regardless of implementation
+
+| | RLM | llm-do |
+|---|-----|--------|
+| Recursive dispatch | ✓ | ✓ |
+| Boundary visibility | Explicit | Hidden |
+| Refactoring cost | Change call sites | No changes |
+| Progressive stabilization | Harder | Natural |
+
+**So what**: "Same power, different ergonomics. llm-do optimizes for refactoring."
 
 ---
 
-### Slide 10: The One-Line Insight
+### Slide 10: llm-do's Design Choice
 
 > "Whether a capability is neural (LLM) or symbolic (code) should be invisible at the call site."
 
-This single constraint enables:
+This is a design choice, not the only way. But it enables:
 - Refactoring without breaking callers
-- Recursive composition at any depth
 - Progressive stabilization as patterns emerge
+- Experimentation: swap implementations freely
 
 *(Pause. Let this land.)*
 
@@ -487,7 +495,7 @@ Agent/Code ──→ Harness ──→ Tool execution
 
 ### Slide 24: One Slide Summary
 
-> "Two roads—extensibility and recursive power—converge on one architecture: unified calling convention, recursive dispatch, progressive stabilization."
+> "Two roads—extensibility and recursive power—both need recursive dispatch. llm-do's unified calling convention enables progressive stabilization."
 
 > "Start stochastic for flexibility. Stabilize as patterns emerge. The unified interface makes this movement natural."
 
@@ -585,7 +593,7 @@ Three orchestration styles:
 >
 > First, the dream of extensible systems—computers you extend by talking to them, saving prompts as capabilities, and progressively stabilizing to code. Second, the recursive power argument (building on RLM insights)—at any level of task decomposition, you should use whichever execution mode (LLM or code) is best for that subtask, requiring arbitrary interleaving of neural and symbolic computation.
 >
-> Both roads require the same architecture: unified calling convention, recursive dispatch, and progressive stabilization. We compare with RLMs—which make the neural/symbolic boundary explicit—and show how llm-do's unified interface enables refactoring flexibility.
+> Both roads require recursive dispatch between LLM and code. RLMs achieve this with explicit boundaries—different APIs for LLM and code calls. llm-do adds a unified calling convention, making the boundary invisible at call sites. This enables progressive stabilization: refactoring from LLM to code without changing callers.
 >
 > We demonstrate this with llm-do, showing concrete refactoring from all-LLM prototypes to hybrid systems—without changing call sites. Attendees will leave with practical patterns for organic system evolution from prototype to production.
 >

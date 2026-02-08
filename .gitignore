@@ -147,5 +147,6 @@ pydantic_ai_blocking_approval
 # Ralph loop logs (local state)
 ralph-logs/
 
-# Local docs checkout symlink for agent reference
+# Local repo checkout symlinks for agent reference
 pydantic-ai
+shesha

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping, cast
+from typing import Any, Callable, Mapping, TypeAlias, cast
 
 from pydantic_ai.builtin_tools import (
     CodeExecutionTool,
@@ -13,19 +13,13 @@ from pydantic_ai.builtin_tools import (
 )
 
 from ..models import select_model_with_id
-from ..toolsets.agent import agent_as_toolset
-from ..toolsets.builtins import build_builtin_toolsets
-from ..toolsets.loader import (
-    ToolDef,
-    ToolsetDef,
-    resolve_tool_defs,
-    resolve_toolset_defs,
-)
+from ..runtime.args import AgentArgs
+from ..runtime.contracts import AgentSpec
+from ..runtime.tooling import ToolDef, ToolsetDef
 from .agent_file import AgentDefinition, build_agent_definition, load_agent_file_parts
-from .args import AgentArgs
-from .contracts import AgentSpec
 from .discovery import load_all_from_files
 from .input_model_refs import resolve_input_model_ref
+from .tool_resolution import resolve_tool_defs, resolve_toolset_defs
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +39,9 @@ class AgentFileSpec:
     path: Path
     definition: AgentDefinition
     spec: AgentSpec
+
+
+AgentToolsetFactory: TypeAlias = Callable[[str, AgentSpec], ToolsetDef]
 
 
 _BUILTIN_TOOL_FACTORIES: dict[str, Callable[[dict[str, Any]], Any]] = {
@@ -94,10 +91,14 @@ def build_registry(
     python_files: list[str],
     *,
     project_root: Path | str,
+    extra_toolsets: Mapping[str, ToolsetDef] | None = None,
+    agent_toolset_factory: AgentToolsetFactory | None = None,
 ) -> AgentRegistry:
     if project_root is None:
         raise ValueError("project_root is required to build registry")
     project_root_path = Path(project_root).resolve()
+    if not project_root_path.exists():
+        raise FileNotFoundError(f"project_root not found: {project_root_path}")
 
     python_tools, python_toolsets, python_agents = load_all_from_files(python_files)
 
@@ -147,13 +148,25 @@ def build_registry(
     agents: dict[str, AgentSpec] = dict(python_agents)
     agents.update({spec.name: spec.spec for spec in agent_file_specs.values()})
 
-    builtin_toolsets = build_builtin_toolsets(Path.cwd(), project_root_path)
+    if extra_toolsets is None:
+        from .host_toolsets import build_host_toolsets
+
+        host_toolsets = build_host_toolsets(Path.cwd(), project_root_path)
+    else:
+        host_toolsets = dict(extra_toolsets)
+
+    if agent_toolset_factory is None:
+        from .host_toolsets import build_agent_toolset_factory
+
+        agent_toolset_factory = build_agent_toolset_factory()
+
     agent_toolsets = {
-        name: agent_as_toolset(spec, tool_name=name) for name, spec in agents.items()
+        name: agent_toolset_factory(name, spec)
+        for name, spec in agents.items()
     }
     all_toolsets = _merge_registry(
         "toolset",
-        builtin_toolsets,
+        host_toolsets,
         python_toolsets,
         agent_toolsets,
     )

@@ -12,7 +12,8 @@ from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior, User
 from pydantic_ai.messages import PartDeltaEvent
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest
 
-from llm_do.runtime import AgentRegistry, Entry, RunApprovalPolicy, Runtime
+from llm_do.project import AgentRegistry
+from llm_do.runtime import Entry, RunApprovalPolicy, Runtime
 from llm_do.runtime.contracts import MessageLogCallback
 from llm_do.runtime.events import RuntimeEvent
 

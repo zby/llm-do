@@ -1,13 +1,11 @@
 import pytest
 from pydantic_ai.models.test import TestModel
 
+from llm_do.project import EntryConfig, build_registry, resolve_entry
 from llm_do.runtime import (
     AgentSpec,
-    EntryConfig,
     FunctionEntry,
     Runtime,
-    build_registry,
-    resolve_entry,
 )
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.toolsets.agent import AgentToolset, agent_as_toolset

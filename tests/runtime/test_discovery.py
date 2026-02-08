@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from llm_do.runtime import (
+from llm_do.project import (
     discover_tools_from_module,
     discover_toolsets_from_module,
     load_agents_from_files,

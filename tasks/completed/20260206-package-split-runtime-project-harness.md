@@ -1,7 +1,7 @@
 # Package Split: Runtime, Project, Harness
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] `tasks/completed/20260206-oauth-ownership-boundary.md` (must be resolved before Phase 2/Phase 3 completion)
@@ -73,7 +73,11 @@ Split the codebase into clear package boundaries so the runtime can be embedded 
   - B) Split now into two packages: `core runtime` + `app (project linker + harness)`.
   - C) Split now into three packages: `core runtime` + `project linker` + `harness`.
 - Outcome:
-  - Choose B now; keep C as a follow-up once linker contracts are stable and reused independently.
+  - Chose B at module/package-boundary level now (`llm_do/runtime` core, `llm_do/project` linker, `llm_do/cli` + `llm_do/ui` harness) while keeping a single distribution in `pyproject.toml`.
+  - Keep C as a follow-up once linker contracts are stable and reused independently.
+- Packaging decision (2026-02-08 implementation):
+  - Keep single distribution (`llm_do*`) for Stage 1 to avoid premature multi-dist versioning overhead.
+  - Treat boundary enforcement (imports/tests/public surfaces) as the current contractual split.
 - Follow-ups:
   - Re-evaluate three-package split after at least one non-CLI embedding of the linker layer.
   - Document and enforce dependency direction (`core <- project <- harness`).
@@ -84,25 +88,25 @@ Split the codebase into clear package boundaries so the runtime can be embedded 
 ## Tasks
 ### Phase 1A: No-code Frontloading Gates (validated)
 - [x] **1a. Module ownership map (verified).** Classified every `runtime/` module as core or linker. Linker: `manifest`, `agent_file`, `discovery`, `entry_resolver`, `path_refs`, `input_model_refs`, `registry`. Core: `runtime`, `context`, `call`, `agent_runner`, `contracts`, `approval`, `args`, `events`. Verified in task context on 2026-02-08.
-- [ ] **1b. Migration checklist.** Freeze from the ownership map plus all validated coupling edges in Context (runtime exports, registry→toolsets imports, CLI imports, dynamic-agent imports, ui→runtime imports, test hotspots).
+- [x] **1b. Migration checklist.** Frozen/implemented via concrete move + import rewrites listed in Current State update (2026-02-08).
 
 ### Phase 1B: Implementation Moves
-- [ ] **1c. Inject host/builtin toolsets into registry.** Refactor `build_registry()` to accept toolsets via a parameter (e.g. `extra_toolsets: list[ToolsetSpec]`) instead of importing `toolsets.builtins` and `toolsets.agent` directly. Caller (`cli/main.py`) assembles and passes them. This breaks the forward direction of the bidirectional coupling.
-- [ ] **1d. Lock linker/app target layout path.** Decide and record the concrete Stage 1 destination for linker APIs before broad rewrites. Default target: move linker/manifest modules under `llm_do/project/` (or a clearly named equivalent app-layer package if this step picks a different path).
-- [ ] **1e. Remove `runtime -> toolsets.loader` coupling (type-surface decision + migration).** First decide canonical ownership for tool-definition type aliases (`inline direct PydanticAI types` vs `runtime-owned alias module` such as `llm_do/runtime/types.py`), then migrate the 7 runtime modules listed in Context and move resolver helpers (`resolve_tool_defs`, `resolve_toolset_defs`, related name-resolution helpers) under linker/project ownership.
-- [ ] **1f. Split runtime public surface.** Keep core APIs (`Runtime`, `CallContext`, `Entry`, contracts, approval, args, events) in `runtime` exports. Move linker/manifest APIs under the path chosen in 1d.
-- [ ] **1g. Relocate hotspot imports.** Update `llm_do/cli/main.py`, `llm_do/toolsets/dynamic_agents.py`, `llm_do/ui/runner.py`, `llm_do/ui/adapter.py`, and runtime/linker tests to import from the new locations.
-- [ ] **1h. Dependency-direction enforcement.** Add a pytest test that greps for disallowed imports (core modules importing from project/harness and `toolsets.loader`, while temporarily allowing `toolsets.approval` until backlog cleanup lands). Runs as part of the normal test suite.
+- [x] **1c. Inject host/builtin toolsets into registry.** `llm_do/project/registry.py` now accepts `extra_toolsets` and `agent_toolset_factory`; `llm_do/cli/main.py` assembles host toolsets via `llm_do/project/host_toolsets.py` and injects them.
+- [x] **1d. Lock linker/app target layout path.** Implemented with new `llm_do/project/` package owning linker/manifest/discovery/registry/entry-resolution modules.
+- [x] **1e. Remove `runtime -> toolsets.loader` coupling (type-surface decision + migration).** Chose runtime-owned alias/helpers in `llm_do/runtime/tooling.py`; migrated runtime modules; moved tool resolution ownership to `llm_do/project/tool_resolution.py` (with compatibility re-export in `llm_do/toolsets/loader.py`).
+- [x] **1f. Split runtime public surface.** `llm_do/runtime/__init__.py` now exports core runtime APIs only; linker APIs are exported via `llm_do/project/__init__.py`.
+- [x] **1g. Relocate hotspot imports.** Updated CLI/UI/dynamic-agent imports and impacted runtime/live tests to new `llm_do.project` paths.
+- [x] **1h. Dependency-direction enforcement.** Added `tests/runtime/test_dependency_direction.py` to enforce no core runtime imports from project/cli/ui and no `runtime -> toolsets.loader|builtins|agent` (with `toolsets.approval` seam allowed).
 
 ### Phase 2: Focused Validation Gates (do not frontload prematurely)
-- [ ] **2a. Time-box packaging decision.** Run one session (~2 hours) for Stage 1 packaging decision (single repo with multiple dists vs other layout, package names, entrypoint ownership). Default to single-repo multi-dist if no clear winner.
-- [ ] **2b. Record decision and rationale.** Update Decision Record with chosen package names/layout and rejected alternatives.
-- [ ] **2c. Apply metadata changes.** Update packaging metadata/files according to the selected option and re-run verification.
+- [x] **2a. Time-box packaging decision.** Completed during implementation pass on 2026-02-08.
+- [x] **2b. Record decision and rationale.** Decision recorded above: keep one distribution for now, enforce boundaries via module ownership + dependency tests.
+- [x] **2c. Apply metadata changes.** No distribution metadata split required for Stage 1 (existing `include = ["llm_do*"]` already includes `llm_do/project`); verification rerun completed.
 - [x] Complete `tasks/completed/20260206-oauth-ownership-boundary.md` and apply its decision to this split.
 
 ### Phase 3: Finalization
-- [ ] Update docs (`README.md`, `docs/architecture.md`) to reflect final package boundaries and dependency direction.
-- [ ] Run lint, typecheck, tests, and one CLI smoke test.
+- [x] Update docs (`README.md`, `docs/architecture.md`) to reflect final package boundaries and dependency direction.
+- [x] Run lint, typecheck, tests, and one CLI smoke test.
 
 ## Current State
 Task reviewed and revised (2026-02-06). Changes from review:
@@ -122,6 +126,19 @@ Task refinement update (2026-02-08, follow-up review):
 - Added explicit type-surface decision gate for post-split ownership of `ToolDef`/`ToolsetDef`.
 - Marked module ownership map step as verified-complete and kept migration checklist as the active gate.
 OAuth ownership prerequisite is resolved (callback-based seam implemented), so this task is unblocked for remaining split work.
+Implementation completion update (2026-02-08):
+- Moved linker modules from `llm_do/runtime/` to new `llm_do/project/` package and added `llm_do/project/__init__.py`.
+- Added host-toolset assembly helpers in `llm_do/project/host_toolsets.py`.
+- Added runtime-owned tool type surface in `llm_do/runtime/tooling.py` and removed runtime imports of `toolsets.loader`.
+- Added project-owned resolver helpers in `llm_do/project/tool_resolution.py`; `llm_do/toolsets/loader.py` is now a compatibility re-export layer.
+- Updated `llm_do/runtime/__init__.py` to core-only exports and rewired callers/tests to `llm_do.project`.
+- Added `tests/runtime/test_dependency_direction.py` for import-boundary enforcement.
+- Addressed a runtime/toolsets circular import by making `llm_do/toolsets/__init__.py` lazily expose `DynamicAgentsToolset`.
+- Verification run complete:
+  - `uv run ruff check .`
+  - `uv run mypy llm_do`
+  - `uv run pytest`
+  - `LLM_DO_MODEL=test .venv/bin/python -m llm_do.cli.main examples/greeter/project.json "hello"`
 
 ## Notes
 - Favor clean boundaries over backcompat shims unless a migration blocker appears.

@@ -6,11 +6,11 @@ from typing import Any
 
 from pydantic_ai.toolsets import AbstractToolset
 
-from ..toolsets.loader import ToolDef, ToolsetDef
 from .agent_runner import run_agent
 from .call import CallFrame, CallScope
 from .contracts import AgentSpec, ModelType
 from .runtime import Runtime, RuntimeConfig
+from .tooling import ToolDef, ToolsetDef
 
 
 class CallContext:

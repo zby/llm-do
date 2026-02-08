@@ -1,18 +1,4 @@
-"""Runtime-centric execution API for llm-do.
-
-This module provides a runtime architecture that:
-- Uses Runtime as the shared execution environment
-- Supports toolsets (AbstractToolset, FunctionToolset)
-- Loads tools from Python files and agent declarations
-- Provides the `llm-do` CLI entry point
-"""
-from ..toolsets.loader import ToolDef, ToolsetDef
-from .agent_file import (
-    AgentDefinition,
-    AgentFileParser,
-    load_agent_file,
-    parse_agent_file,
-)
+"""Core runtime execution API for llm-do."""
 from .approval import (
     AgentApprovalPolicy,
     ApprovalCallback,
@@ -30,27 +16,8 @@ from .contracts import (
     FunctionEntry,
     ModelType,
 )
-from .discovery import (
-    discover_agents_from_module,
-    discover_tools_from_module,
-    discover_toolsets_from_module,
-    load_agents_from_files,
-    load_all_from_files,
-    load_module,
-    load_tools_from_files,
-    load_toolsets_from_files,
-)
-from .entry_resolver import resolve_entry
-from .manifest import (
-    EntryConfig,
-    ManifestRuntimeConfig,
-    ProjectManifest,
-    load_manifest,
-    resolve_generated_agents_dir,
-    resolve_manifest_paths,
-)
-from .registry import AgentRegistry, build_registry
 from .runtime import Runtime
+from .tooling import ToolDef, ToolsetDef
 
 __all__ = [
     # Runtime
@@ -67,35 +34,11 @@ __all__ = [
     "RunApprovalPolicy",
     "AgentApprovalPolicy",
     "resolve_approval_callback",
-    "AgentRegistry",
-    "build_registry",
     "Attachment",
     "PromptContent",
     "PromptMessages",
     "AgentArgs",
     "PromptInput",
-    # Agent file
-    "AgentDefinition",
-    "AgentFileParser",
-    "parse_agent_file",
-    "load_agent_file",
-    # Discovery
-    "load_module",
-    "discover_toolsets_from_module",
-    "discover_tools_from_module",
-    "discover_agents_from_module",
-    "resolve_entry",
-    "load_toolsets_from_files",
-    "load_tools_from_files",
-    "load_agents_from_files",
-    "load_all_from_files",
-    # Manifest
-    "ProjectManifest",
-    "ManifestRuntimeConfig",
-    "EntryConfig",
-    "load_manifest",
-    "resolve_manifest_paths",
-    "resolve_generated_agents_dir",
     # Tool/toolset defs
     "ToolDef",
     "ToolsetDef",

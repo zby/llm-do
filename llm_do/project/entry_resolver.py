@@ -5,7 +5,7 @@ import inspect
 from pathlib import Path
 from typing import Iterable
 
-from .contracts import AgentEntry, Entry, FunctionEntry
+from ..runtime.contracts import AgentEntry, Entry, FunctionEntry
 from .discovery import load_module
 from .manifest import EntryConfig
 from .path_refs import is_path_ref, resolve_path_ref, split_ref

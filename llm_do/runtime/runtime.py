@@ -20,7 +20,6 @@ from typing import (
 from pydantic_ai.usage import RunUsage
 
 from ..models import ModelInput, resolve_model
-from ..toolsets.loader import ToolDef, ToolsetDef
 from .approval import ApprovalCallback, RunApprovalPolicy, resolve_approval_callback
 from .contracts import (
     AgentSpec,
@@ -28,10 +27,23 @@ from .contracts import (
     EventCallback,
     MessageLogCallback,
 )
+from .tooling import ToolDef, ToolsetDef
 
 if TYPE_CHECKING:
     from .context import CallContext
-    from .registry import AgentRegistry
+
+
+class RegistryProtocol(Protocol):
+    """Structural registry contract used by Runtime.register_registry."""
+
+    @property
+    def agents(self) -> Mapping[str, AgentSpec]: ...
+
+    @property
+    def tools(self) -> Mapping[str, ToolDef]: ...
+
+    @property
+    def toolsets(self) -> Mapping[str, ToolsetDef]: ...
 
 AuthMode = Literal["oauth_off", "oauth_auto", "oauth_required"]
 
@@ -236,7 +248,7 @@ class Runtime:
     def register_toolsets(self, toolsets: Mapping[str, ToolsetDef]) -> None:
         self._toolset_registry = dict(toolsets)
 
-    def register_registry(self, registry: "AgentRegistry") -> None:
+    def register_registry(self, registry: RegistryProtocol) -> None:
         self.register_agents(registry.agents)
         self.register_tools(registry.tools)
         self.register_toolsets(registry.toolsets)

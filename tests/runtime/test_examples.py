@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import (
+from llm_do.project import (
     build_registry,
     load_agent_file,
     load_manifest,

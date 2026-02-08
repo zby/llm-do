@@ -5,7 +5,7 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.toolsets import FunctionToolset
 
 from llm_do import register_model_factory
-from llm_do.runtime import EntryConfig, build_registry, resolve_entry
+from llm_do.project import EntryConfig, build_registry, resolve_entry
 from llm_do.toolsets.agent import AgentToolset
 from tests.runtime.helpers import build_runtime_context, materialize_toolset_def
 

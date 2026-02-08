@@ -10,14 +10,14 @@ from typing import Iterable, TypeVar
 from pydantic_ai.tools import Tool
 from pydantic_ai.toolsets import AbstractToolset
 
-from ..toolsets.loader import (
+from ..runtime.contracts import AgentSpec
+from ..runtime.tooling import (
     ToolDef,
     ToolsetDef,
     is_tool_def,
     is_toolset_def,
     tool_def_name,
 )
-from .contracts import AgentSpec
 
 _LOADED_MODULES: dict[Path, ModuleType] = {}
 

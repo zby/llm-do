@@ -12,8 +12,8 @@ from pydantic_ai_blocking_approval import ApprovalResult
 from ..runtime.approval import resolve_agent_call_approval
 from ..runtime.args import Attachment, has_attachments, normalize_input
 from ..runtime.contracts import AgentSpec, CallContextProtocol
+from ..runtime.tooling import ToolsetDef
 from ..toolsets.validators import DictValidator
-from .loader import ToolsetDef
 
 
 @dataclass

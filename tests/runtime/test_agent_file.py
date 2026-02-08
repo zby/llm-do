@@ -1,7 +1,7 @@
 """Tests for agent file parsing."""
 import pytest
 
-from llm_do.runtime import AgentDefinition, AgentFileParser, parse_agent_file
+from llm_do.project import AgentDefinition, AgentFileParser, parse_agent_file
 
 
 class TestParseAgentFile:

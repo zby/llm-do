@@ -10,8 +10,8 @@ from pydantic_ai.toolsets._dynamic import DynamicToolset
 from pydantic_ai.usage import RunUsage
 
 from llm_do.models import ModelInput, resolve_model
+from llm_do.project import AgentRegistry
 from llm_do.runtime import (
-    AgentRegistry,
     CallContext,
     CallScope,
     Entry,
@@ -20,7 +20,7 @@ from llm_do.runtime import (
 from llm_do.runtime.approval import RunApprovalPolicy
 from llm_do.runtime.call import CallConfig, CallFrame
 from llm_do.runtime.contracts import EventCallback
-from llm_do.toolsets.loader import ToolDef, ToolsetDef
+from llm_do.runtime.tooling import ToolDef, ToolsetDef
 
 
 def build_runtime_context(

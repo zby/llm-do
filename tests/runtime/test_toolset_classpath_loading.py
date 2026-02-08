@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import build_registry
+from llm_do.project import build_registry
 
 
 @pytest.mark.anyio

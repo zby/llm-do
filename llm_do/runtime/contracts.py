@@ -15,9 +15,9 @@ from pydantic_ai.models import Model  # Used in ModelType
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.toolsets import AbstractToolset  # Used in CallContextProtocol
 
-from ..toolsets.loader import ToolDef, ToolsetDef, is_tool_def, is_toolset_def
 from .args import AgentArgs, PromptInput
 from .events import RuntimeEvent
+from .tooling import ToolDef, ToolsetDef, is_tool_def, is_toolset_def
 
 if TYPE_CHECKING:
     from .call import CallFrame

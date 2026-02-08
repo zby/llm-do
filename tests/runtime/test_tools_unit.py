@@ -12,7 +12,7 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.usage import RunUsage
 
-from llm_do.runtime import load_toolsets_from_files
+from llm_do.project import load_toolsets_from_files
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 

@@ -26,13 +26,17 @@ from ..oauth import (
     get_oauth_provider_for_model_provider,
     resolve_oauth_overrides,
 )
-from ..runtime import AgentRegistry, Entry, build_registry, resolve_entry
-from ..runtime.manifest import (
+from ..project import (
+    AgentRegistry,
     ProjectManifest,
+    build_registry,
     load_manifest,
+    resolve_entry,
     resolve_generated_agents_dir,
     resolve_manifest_paths,
 )
+from ..project.host_toolsets import build_agent_toolset_factory, build_host_toolsets
+from ..runtime import Entry
 from ..ui import HeadlessDisplayBackend, run_ui
 
 
@@ -79,10 +83,13 @@ def _make_entry_factory(
 ) -> Callable[[], tuple[Entry, AgentRegistry]]:
     def factory() -> tuple[Entry, AgentRegistry]:
         agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
+        extra_toolsets = build_host_toolsets(Path.cwd(), manifest_dir)
         registry = build_registry(
             [str(p) for p in agent_paths],
             [str(p) for p in python_paths],
             project_root=manifest_dir,
+            extra_toolsets=extra_toolsets,
+            agent_toolset_factory=build_agent_toolset_factory(),
         )
         entry = resolve_entry(
             manifest.entry,

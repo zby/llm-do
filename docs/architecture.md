@@ -156,11 +156,16 @@ Implementation layout mirrors the scopes:
 - `llm_do/runtime/context.py`: `CallContext` (per-call orchestrator)
 - `llm_do/runtime/call.py`: `CallConfig`, `CallFrame`, `CallScope`
 
+Package boundaries:
+- `llm_do/runtime`: core execution/runtime contracts only
+- `llm_do/project`: manifest/agent-file/linker/discovery/registry wiring
+- `llm_do/cli` + `llm_do/ui`: harness surfaces for CLI/TUI execution
+
 ---
 
 ## Execution Flow
 
-Entry linking resolves toolset specs for agents and produces a single `Entry`
+Project linking resolves toolset specs for agents and produces a single `Entry`
 (either AgentEntry or FunctionEntry). Internally, a registry maps agent names to `AgentSpec`
 instances during the link step.
 

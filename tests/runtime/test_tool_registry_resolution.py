@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from llm_do.runtime import build_registry
-from llm_do.toolsets.loader import tool_def_name
+from llm_do.project import build_registry
+from llm_do.runtime.tooling import tool_def_name
 
 
 def _write_tools_module(path: Path) -> None:

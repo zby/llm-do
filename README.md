@@ -67,6 +67,10 @@ Keep your responses brief and cheerful.
 `llm-do` reads the manifest, links the listed files, and runs the entry agent.
 See [`examples/`](examples/) for more.
 
+Programmatic embedding uses two layers:
+- `llm_do.runtime`: core execution (`Runtime`, `CallContext`, `AgentSpec`)
+- `llm_do.project`: manifest/linker APIs (`load_manifest`, `build_registry`, `resolve_entry`)
+
 ## Core Concepts
 
 **The VM executes two kinds of operations:**

@@ -13,9 +13,9 @@ from pydantic_ai.toolsets._dynamic import DynamicToolset
 from pydantic_ai.usage import RunUsage
 from pydantic_ai_blocking_approval import ApprovalToolset
 
-from ..toolsets.loader import ToolDef, ToolsetDef, tool_def_name
 from .approval import ApprovalDeniedResultToolset, wrap_toolsets_for_approval
 from .contracts import AgentSpec, CallContextProtocol, ModelType
+from .tooling import ToolDef, ToolsetDef, tool_def_name
 
 logger = logging.getLogger(__name__)
 

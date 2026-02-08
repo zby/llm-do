@@ -23,16 +23,15 @@ from typing import Any, Callable
 import pytest
 
 from llm_do.models import LLM_DO_MODEL_ENV
-from llm_do.runtime import (
-    AgentArgs,
+from llm_do.project import (
     EntryConfig,
-    Runtime,
     build_registry,
     load_agent_file,
     load_manifest,
     resolve_entry,
     resolve_manifest_paths,
 )
+from llm_do.runtime import AgentArgs, Runtime
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
     make_headless_approval_callback,

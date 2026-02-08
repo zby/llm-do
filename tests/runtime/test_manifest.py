@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from llm_do.runtime.manifest import (
+from llm_do.project import (
     EntryConfig,
     ManifestRuntimeConfig,
     ProjectManifest,

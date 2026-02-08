@@ -17,10 +17,10 @@ from pydantic_ai_blocking_approval import (
 )
 
 from ..models import select_model_with_id
-from ..runtime.agent_file import build_agent_definition, load_agent_file_parts
+from ..project.agent_file import build_agent_definition, load_agent_file_parts
+from ..project.tool_resolution import resolve_tool_defs, resolve_toolset_defs
 from ..runtime.approval import resolve_agent_call_approval
 from ..runtime.contracts import AgentSpec, CallContextProtocol
-from ..toolsets.loader import resolve_tool_defs, resolve_toolset_defs
 from ..toolsets.validators import DictValidator
 
 _DEFAULT_GENERATED_DIR = Path("/tmp/llm-do/generated")

@@ -33,15 +33,15 @@ for (const f of files) { ... }
 # llm-do - Human writes this, exposed as tool:
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
-from llm_do.runtime import Context
+from llm_do.runtime import CallContext
 
 tools = FunctionToolset()
 
 @tools.tool
-async def process_repo(ctx: RunContext[Context], repo: str):
+async def process_repo(ctx: RunContext[CallContext], repo: str):
     files = list_files(repo)           # deterministic
     for f in files:
-        analysis = await ctx.deps.call("analyzer", {"input": f})  # LLM callback
+        analysis = await ctx.deps.call_agent("analyzer", {"input": f})  # LLM callback
 ```
 
 ## Key Difference

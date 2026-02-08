@@ -38,8 +38,8 @@ For live UI updates in TunaCode, reuse llm-do's event parsing layer:
 # tunacode/integrations/llm_do_bridge.py (concept)
 from typing import Awaitable, Callable
 
-from llm_do.runtime import ApprovalPolicy, run_entry
-from llm_do.runtime.cli import build_entry
+from llm_do.runtime import RunApprovalPolicy, Runtime
+from llm_do.project import build_registry, build_registry_host_wiring, resolve_entry
 from llm_do.ui.events import UIEvent
 from llm_do.ui.parser import parse_event
 from pydantic_ai_blocking_approval import ApprovalDecision, ApprovalRequest

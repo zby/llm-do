@@ -128,12 +128,14 @@ Run entry functions through the same invocation path as workers: create a CallFr
 Provide a library-level helper that builds the environment and runs the entry directly in Python, using the same toolset resolution and cleanup. For now, script mode requires an EntryRegistry (or a pre-resolved Entry) so named toolsets can be resolved:
 
 ```python
-from llm_do.runtime.registry import build_entry_registry
+from llm_do.project import build_registry, build_registry_host_wiring, resolve_entry, EntryConfig
 
-runtime = Runtime(cli_model="...", run_approval_policy=RunApprovalPolicy(mode="prompt"))
-registry = build_entry_registry(agent_files=[...], python_files=[...])
-entry = registry.agents["main"]
-result = await runtime.run_entry(entry, {"input": "hello"})
+project_root = Path(".").resolve()
+runtime = Runtime(project_root=project_root, run_approval_policy=RunApprovalPolicy(mode="prompt"))
+registry = build_registry(agent_files=[...], python_files=[...], project_root=project_root, **build_registry_host_wiring(project_root))
+runtime.register_agents(registry.agents)
+entry = resolve_entry(EntryConfig(agent="main"), registry, python_files=[], base_path=project_root)
+result, ctx = await runtime.run_entry(entry, {"input": "hello"})
 ```
 
 A registry-free bootstrap (passing only ToolsetSpec objects and skipping name resolution) is a future step once we have more embedding examples.

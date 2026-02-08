@@ -370,16 +370,16 @@ async def run(self, args: ReadFileArgs) -> ReadFileResult:
 
 ### Why Recursive Workers Don't Work
 
-In llm-do, tools receive `RunContext[Context]` via dependency injection:
+In llm-do, tools receive `RunContext[CallContext]` via dependency injection:
 
 ```python
 # llm-do pattern
 from pydantic_ai.tools import RunContext
-from llm_do.runtime import Context
+from llm_do.runtime import CallContext
 
-async def create_file(ctx: RunContext[Context], file_path: str, content: str):
-    # Can call other workers through context
-    result = await ctx.deps.call("validate_syntax", {"input": content})
+async def create_file(ctx: RunContext[CallContext], file_path: str, content: str):
+    # Can call other agents through context
+    result = await ctx.deps.call_agent("validate_syntax", {"input": content})
     # Can access approvals, depth, usage via ctx.deps
 ```
 

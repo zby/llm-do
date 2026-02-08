@@ -1,6 +1,6 @@
 # LLM Day 2026 Warsaw - Presentation Plan v2
 
-## Three Roads to the Hybrid VM
+## Two Roads to the Hybrid VM
 
 **Duration**: 30 minutes (25 content + 5 Q&A)
 
@@ -8,13 +8,13 @@
 
 ## Through-line
 
-> "Three independent motivations—extensibility, computational power, and neuro-symbolic completeness—all converge on the same architecture: a unified calling convention enabling recursive dispatch across the neural-symbolic boundary."
+> "Two independent motivations—extensibility and recursive power—converge on the same architecture: a unified calling convention enabling recursive dispatch across the neural-symbolic boundary."
 
 ---
 
 ## Title Options
 
-- "Three Roads to the Hybrid VM: Unifying LLM and Code"
+- "Two Roads to the Hybrid VM: Unifying LLM and Code"
 - "Extend, Stabilize, Recurse: A Unified Interface for LLM and Code"
 - "The Breathing System: Progressive Stabilization for LLM Applications"
 
@@ -25,8 +25,8 @@
 | Part | Topic | Time |
 |------|-------|------|
 | 1 | The Vision: Extending Systems by Prompting | 4 min |
-| 2 | Three Roads to the Same Design | 6 min |
-| 3 | The Convergence: What All Three Require | 3 min |
+| 2 | Two Roads to the Same Design | 6 min |
+| 3 | The Convergence: What Both Require | 3 min |
 | 4 | The Concrete Refactoring Demo | 7 min |
 | 5 | The Theoretical Frame | 5 min |
 | 6 | Close & Takeaways | 3 min |
@@ -39,8 +39,8 @@
 
 ### Slide 1: Title Slide
 
-**"Three Roads to the Hybrid VM"**
-*Unifying LLM and Code for Extensible, Powerful, Complete Systems*
+**"Two Roads to the Hybrid VM"**
+*Unifying LLM and Code for Extensible, Powerful Systems*
 
 Zbigniew Lukasiak
 LLM Day 2026, Warsaw
@@ -76,13 +76,13 @@ But when you try to build it:
 
 ---
 
-## Part 2: Three Roads (6 min)
+## Part 2: Two Roads (6 min)
 
 ### Slide 4: "I Wasn't Alone"
 
-> "When I started thinking about what this system needs, I found others arriving at the same place from different directions."
+> "When I started thinking about what this system needs, I found others arriving at the same place from a different direction."
 
-Three independent motivations, one architecture.
+Two independent motivations, one architecture.
 
 ---
 
@@ -111,15 +111,15 @@ Hybrid capability (prompt + code)
 
 ---
 
-### Slide 6: Road 2 — Computational Power (RLM Perspective)
+### Slide 6: Road 2 — Recursive Power (RLM Perspective)
 
-**The goal**: Maximum expressive power
+**The goal**: Maximum expressive power through recursion
 
 - Code: deterministic, fast, cheap—but rigid
 - Prompts: flexible, handle ambiguity—but expensive, variable
 - **Neither dominates**—each is better for different subtasks
 
-**The recursive insight**:
+**The recursive insight** (this is also the neuro-symbolic completeness argument):
 
 ```
 Task (ambiguous → LLM)
@@ -131,6 +131,7 @@ Task (ambiguous → LLM)
 ```
 
 At any depth, choose the best execution mode for that subtask.
+Full power requires arbitrary interleaving: `LLM → code → LLM → code → ...`
 
 **What this requires**:
 - Recursive dispatch between LLM and code
@@ -139,40 +140,32 @@ At any depth, choose the best execution mode for that subtask.
 
 ---
 
-### Slide 7: Road 3 — Neuro-Symbolic Completeness
+### Slide 7: What RLMs Get Right (and What's Missing)
 
-**The goal**: Full neuro-symbolic power
+Recursive Language Models (Prime Intellect, Oct 2025) established key insights:
+- Models should manage their own context
+- Delegation to Python scripts and sub-LLMs
+- Recursive decomposition of long-horizon tasks
 
-Current tool-use is shallow:
-```
-LLM → tool → result → LLM
-```
+**But RLMs don't have unified calling convention**:
+- Calling an LLM has a different API than calling code
+- Refactoring across the boundary requires changing call sites
+- The interface exposes the implementation
 
-The tool can't use LLM reasoning. Symbolic layer is "leaves only."
-
-**Full power requires**:
-```
-LLM → code → LLM → code → LLM → ...
-```
-
-- Symbolic components that invoke neural components
-- Neural components that invoke symbolic components
-- Arbitrary nesting depth
-
-**This is just recursion across the neural-symbolic boundary.**
+**llm-do's addition**: Make the call site identical regardless of whether the target is neural or symbolic.
 
 ---
 
 ### Slide 8: The Convergence Diagram
 
 ```
-     EXTENSIBILITY           POWER            COMPLETENESS
-           │                   │                    │
-    "save prompts        "use the best        "neural and symbolic
-     as extensions"       tool for each         should interleave
-                          subtask"              at any depth"
-           │                   │                    │
-           └───────────────────┼────────────────────┘
+        EXTENSIBILITY                    RECURSIVE POWER
+              │                                │
+       "save prompts                   "use the best tool
+        as extensions"                  for each subtask,
+                                        at any depth"
+              │                                │
+              └────────────────┬───────────────┘
                                │
                                ▼
                     ┌─────────────────────┐
@@ -192,21 +185,21 @@ LLM → code → LLM → code → LLM → ...
                     └─────────────────────┘
 ```
 
-*(Build this progressively: show three roads, then convergence)*
+*(Build this progressively: show two roads, then convergence)*
 
 ---
 
 ## Part 3: The Convergence (3 min)
 
-### Slide 9: What All Three Require
+### Slide 9: What Both Roads Require
 
-| Requirement | Extensibility | Power | Completeness |
-|-------------|---------------|-------|--------------|
-| **Unified calling** | Prompts & code interchangeable | Subtasks route freely | Neural/symbolic interleave |
-| **Recursive dispatch** | Call saved prompts from code | Decompose at any depth | Full expressiveness |
-| **Progressive refinement** | Stabilize as patterns emerge | Optimize each subtask | Balance flexibility/efficiency |
+| Requirement | Extensibility | Recursive Power |
+|-------------|---------------|-----------------|
+| **Unified calling** | Prompts & code interchangeable | Subtasks route freely at any depth |
+| **Recursive dispatch** | Call saved prompts from code | Decompose without API changes |
+| **Progressive refinement** | Stabilize as patterns emerge | Optimize each subtask independently |
 
-**The claim**: These aren't independent features. They're consequences of taking any of these motivations seriously.
+**The claim**: These aren't independent features. They're consequences of taking either motivation seriously.
 
 **So what**: "The convergence is evidence the design is sound."
 
@@ -268,10 +261,12 @@ Three versions of the same task, progressively stabilized:
 ```python
 def list_pitchdecks(path: str = "input") -> list[dict]:
     """List pitch deck PDFs with pre-computed slugs."""
+    result = []
+    base = PROJECT_ROOT / path
     for pdf in sorted(base.glob("*.pdf")):
         slug = slugify(pdf.stem)  # Deterministic!
         result.append({
-            "file": rel_path,
+            "file": str(pdf.relative_to(PROJECT_ROOT)),
             "slug": slug,
             "output_path": f"evaluations/{slug}.md",
         })
@@ -339,20 +334,22 @@ LLM evaluates    →   LLM evaluates    →   LLM evaluates
 
 ### Slide 16: The Refactoring That Didn't Break
 
-```python
-# In pure LLM version (main.agent calls this)
-await call("pitch_evaluator", {...})
-
-# In stabilized version (main.agent still calls this)
-await call("pitch_evaluator", {...})
-
-# In code entry version (Python calls this)
-await runtime.call_agent("pitch_evaluator", {...})
+From LLM's perspective (in `.agent` files), the call looks the same:
+```
+Call pitch_evaluator(input="Evaluate this pitch deck.", attachments=[...])
 ```
 
-**Same name. Same interface. Different orchestration.**
+From Python code, the call is:
+```python
+await runtime.call_agent("pitch_evaluator", {
+    "input": "Evaluate this pitch deck.",
+    "attachments": [deck["file"]]
+})
+```
 
-The unified calling convention made this refactoring trivial.
+**Same name. Same arguments. Same result.**
+
+Whether the orchestrator is an LLM agent or Python code, the interface to `pitch_evaluator` doesn't change. The unified calling convention made this refactoring trivial.
 
 ---
 
@@ -462,7 +459,7 @@ Agent/Code ──→ Harness ──→ Tool execution
 
 **Instead**:
 - A coherent model for building reliable systems on stochastic foundations
-- Architecture derived from three independent motivations
+- Architecture derived from two independent motivations
 - Practical implementation that makes progressive stabilization cheap
 
 ---
@@ -480,11 +477,16 @@ Agent/Code ──→ Harness ──→ Tool execution
 - Graph visualization is your primary interface
 - You need distributed orchestration out of the box
 
+**Current status**:
+- The API is unstable—expect breaking changes
+- This is research-grade software, not production-hardened
+- The concepts are more mature than the implementation
+
 ---
 
 ### Slide 24: One Slide Summary
 
-> "Three roads—extensibility, power, completeness—converge on one architecture: unified calling convention, recursive dispatch, progressive stabilization."
+> "Two roads—extensibility and recursive power—converge on one architecture: unified calling convention, recursive dispatch, progressive stabilization."
 
 > "Start stochastic for flexibility. Stabilize as patterns emerge. The unified interface makes this movement natural."
 
@@ -514,7 +516,7 @@ Questions?
 
 | Slide | Diagram | Build Strategy |
 |-------|---------|----------------|
-| 8 | Convergence | Progressive (three roads → requirements → conclusion) |
+| 8 | Convergence | Progressive (two roads → requirements → conclusion) |
 | 15 | Stabilization spectrum | Static table, highlight progression |
 | 17 | Distribution boundaries | Progressive (LLM → tool → LLM) |
 | 18 | Stabilize/Soften | Static with bidirectional arrows |
@@ -570,21 +572,23 @@ Three orchestration styles:
 
 ### Title
 
-**"Three Roads to the Hybrid VM: Unifying LLM and Code"**
+**"Two Roads to the Hybrid VM: Unifying LLM and Code"**
 
 ### Elevator Pitch (300 chars)
 
-> Extensibility, power, and neuro-symbolic completeness all require the same thing: unified calling between LLM and code. llm-do provides this, enabling systems that grow by prompting and stabilize to code as patterns emerge.
+> Extensibility and recursive power both require unified calling between LLM and code. llm-do provides this, enabling systems that grow by prompting and stabilize to code as patterns emerge.
 
 ### Description
 
-> This talk presents a unified architecture for LLM-based systems, derived from three independent motivations that converge on the same design requirements.
+> This talk presents a unified architecture for LLM-based systems, derived from two independent motivations that converge on the same design requirements.
 >
-> First, the dream of extensible systems—computers you extend by talking to them, saving prompts as capabilities, and progressively stabilizing to code. Second, the power argument—at any level of task decomposition, you should use whichever execution mode (LLM or code) is best for that subtask. Third, neuro-symbolic completeness—full expressiveness requires recursive interleaving of neural and symbolic computation.
+> First, the dream of extensible systems—computers you extend by talking to them, saving prompts as capabilities, and progressively stabilizing to code. Second, the recursive power argument (building on RLM insights)—at any level of task decomposition, you should use whichever execution mode (LLM or code) is best for that subtask, requiring arbitrary interleaving of neural and symbolic computation.
 >
-> All three require the same architecture: unified calling convention, recursive dispatch, and progressive stabilization. We demonstrate this with llm-do, showing concrete refactoring from all-LLM prototypes to production-ready hybrid systems—without changing call sites.
+> Both roads require the same architecture: unified calling convention, recursive dispatch, and progressive stabilization. We show what RLMs established and what they're missing—a unified interface that makes the neural/symbolic distinction invisible at call sites.
 >
-> Attendees will leave with a coherent model for building reliable systems on stochastic foundations, and practical patterns for organic system evolution from prototype to production.
+> We demonstrate this with llm-do, showing concrete refactoring from all-LLM prototypes to hybrid systems—without changing call sites. Attendees will leave with practical patterns for organic system evolution from prototype to production.
+>
+> Note: llm-do's API is currently unstable. The concepts are more mature than the implementation.
 
 ### Bio
 

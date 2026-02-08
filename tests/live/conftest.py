@@ -31,6 +31,10 @@ from llm_do.project import (
     resolve_entry,
     resolve_manifest_paths,
 )
+from llm_do.project.host_toolsets import (
+    build_agent_toolset_factory,
+    build_host_toolsets,
+)
 from llm_do.runtime import AgentArgs, Runtime
 from llm_do.runtime.approval import (
     RunApprovalPolicy,
@@ -40,6 +44,13 @@ from llm_do.runtime.approval import (
 # Mark all tests in this directory as live tests
 pytestmark = pytest.mark.live
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
+
+
+def _host_registry_kwargs(project_root: Path) -> dict[str, object]:
+    return {
+        "extra_toolsets": build_host_toolsets(Path.cwd(), project_root),
+        "agent_toolset_factory": build_agent_toolset_factory(),
+    }
 
 
 def has_anthropic_key() -> bool:
@@ -177,6 +188,7 @@ def build_direct_entry_for_agent(
             [str(agent_path)],
             [str(entry_path)],
             project_root=agent_path.parent,
+            **_host_registry_kwargs(agent_path.parent),
         )
         entry = resolve_entry(
             EntryConfig(function=f"{entry_path}:main"),
@@ -209,6 +221,7 @@ async def run_example(
             [str(path) for path in agent_paths],
             [str(path) for path in python_paths],
             project_root=manifest_dir,
+            **_host_registry_kwargs(manifest_dir),
         )
         entry = resolve_entry(
             manifest.entry,

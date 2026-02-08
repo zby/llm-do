@@ -46,7 +46,7 @@ def _is_forbidden(module: str) -> bool:
 
 def test_runtime_dependency_direction() -> None:
     violations: list[str] = []
-    for file_path in sorted(RUNTIME_DIR.glob("*.py")):
+    for file_path in sorted(RUNTIME_DIR.rglob("*.py")):
         tree = ast.parse(file_path.read_text(encoding="utf-8"), filename=str(file_path))
         module_name = _module_name_for_file(file_path)
 

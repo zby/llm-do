@@ -91,11 +91,9 @@ def build_registry(
     python_files: list[str],
     *,
     project_root: Path | str,
-    extra_toolsets: Mapping[str, ToolsetDef] | None = None,
-    agent_toolset_factory: AgentToolsetFactory | None = None,
+    extra_toolsets: Mapping[str, ToolsetDef],
+    agent_toolset_factory: AgentToolsetFactory,
 ) -> AgentRegistry:
-    if project_root is None:
-        raise ValueError("project_root is required to build registry")
     project_root_path = Path(project_root).resolve()
     if not project_root_path.exists():
         raise FileNotFoundError(f"project_root not found: {project_root_path}")
@@ -148,18 +146,7 @@ def build_registry(
     agents: dict[str, AgentSpec] = dict(python_agents)
     agents.update({spec.name: spec.spec for spec in agent_file_specs.values()})
 
-    if extra_toolsets is None:
-        from .host_toolsets import build_host_toolsets
-
-        host_toolsets = build_host_toolsets(Path.cwd(), project_root_path)
-    else:
-        host_toolsets = dict(extra_toolsets)
-
-    if agent_toolset_factory is None:
-        from .host_toolsets import build_agent_toolset_factory
-
-        agent_toolset_factory = build_agent_toolset_factory()
-
+    host_toolsets = dict(extra_toolsets)
     agent_toolsets = {
         name: agent_toolset_factory(name, spec)
         for name, spec in agents.items()

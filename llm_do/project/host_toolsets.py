@@ -1,7 +1,6 @@
 """Host-owned helpers for assembling project-layer toolsets."""
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
 
 from ..runtime.contracts import AgentSpec
@@ -23,15 +22,3 @@ def build_agent_toolset_factory() -> AgentToolsetFactory:
         return agent_as_toolset(spec, tool_name=agent_name)
 
     return factory
-
-
-def merge_host_toolsets(
-    *sources: Mapping[str, ToolsetDef],
-) -> dict[str, ToolsetDef]:
-    merged: dict[str, ToolsetDef] = {}
-    for source in sources:
-        for name, toolset in source.items():
-            if name in merged:
-                raise ValueError(f"Duplicate toolset name: {name}")
-            merged[name] = toolset
-    return merged

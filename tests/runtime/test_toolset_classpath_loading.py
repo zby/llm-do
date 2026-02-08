@@ -5,6 +5,17 @@ from pathlib import Path
 import pytest
 
 from llm_do.project import build_registry
+from llm_do.project.host_toolsets import (
+    build_agent_toolset_factory,
+    build_host_toolsets,
+)
+
+
+def _host_registry_kwargs(project_root: Path) -> dict[str, object]:
+    return {
+        "extra_toolsets": build_host_toolsets(Path.cwd(), project_root),
+        "agent_toolset_factory": build_agent_toolset_factory(),
+    }
 
 
 @pytest.mark.anyio
@@ -26,6 +37,7 @@ Hello
             [str(worker)],
             [],
             project_root=tmp_path,
+            **_host_registry_kwargs(tmp_path),
         )
 
 
@@ -48,4 +60,5 @@ Hello
             [str(worker)],
             [],
             project_root=tmp_path,
+            **_host_registry_kwargs(tmp_path),
         )

@@ -83,8 +83,8 @@ The RLM approach (Shesha included) only needs the first mode. llm-do needs both.
 |--------|--------|--------|
 | **Core insight** | LLM can explore documents by writing code | Stabilize stochastic ↔ deterministic |
 | **Execution model** | REPL+LLM loop (model writes code, sandbox executes) | PydanticAI agent loop (model calls tools via schemas) |
-| **Who writes code?** | The LLM writes all code; developers write nothing | Developers write tools; LLM orchestrates |
-| **Code lifespan** | Ephemeral — generated per query, then discarded | Permanent — tools are versioned infrastructure |
+| **Who writes code?** | The LLM writes all code; developers write nothing | Developers write tools; LLM orchestrates (bootstrapping planned: LLM generates tools too) |
+| **Code lifespan** | Ephemeral — generated per query, then discarded | Permanent — tools are versioned infrastructure (bootstrapping: LLM-generated code becomes permanent) |
 | **Sandbox** | Docker containers (no network, no root, memory limits) | No sandbox; approval gates at tool boundaries |
 | **LLM backend** | LiteLLM (100+ providers via proxy) | PydanticAI (direct provider SDKs) |
 | **Multi-agent** | Single agent + sub-LLM calls | First-class — agents call agents, depth-tracked |
@@ -114,6 +114,9 @@ The RLM approach (Shesha included) only needs the first mode. llm-do needs both.
 - **Toolset abstraction** — reusable, composable tool bundles (filesystem, shell, dynamic agents)
 - **TUI with interactive approval** — Textual-based UI for human-in-the-loop workflows
 - **Unified calling convention** — agents and tools are interchangeable callables
+- **Bootstrapping** (planned) — LLM generates code that becomes permanent tools,
+  closing the loop with stabilization: ephemeral LLM-generated code → tested tool →
+  versioned infrastructure
 
 ## Open Questions
 
@@ -144,6 +147,9 @@ reasoning, but they apply it at different levels:
 The key differentiator remains the same as with other RLM implementations: llm-do's
 refactoring is **seamless across the stochastic-deterministic boundary**. Shesha's LLM
 writes code that is discarded after each query; llm-do's tools are permanent
-infrastructure that can be promoted from or demoted to LLM behavior. The two approaches
-are complementary — Shesha's sandbox + ingestion could serve as a toolset within llm-do's
-orchestration model.
+infrastructure that can be promoted from or demoted to LLM behavior. Planned
+**bootstrapping** sharpens this contrast further: where Shesha's generated code is
+ephemeral by design, llm-do will let the LLM generate code that *graduates* into
+permanent tools — the LLM becomes a contributor to the codebase, not just a runtime
+reasoning engine. The two approaches are complementary — Shesha's sandbox + ingestion
+could serve as a toolset within llm-do's orchestration model.

@@ -126,7 +126,7 @@ def test_web_research_consolidator(
     result = asyncio.run(
         runtime.run_entry(
             entry,
-            json.dumps(mock_insights),
+            {"input": json.dumps(mock_insights)},
         )
     )
 

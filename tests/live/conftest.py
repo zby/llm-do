@@ -153,6 +153,12 @@ def _restore_env_model(changed: bool, previous: str | None) -> None:
         os.environ[LLM_DO_MODEL_ENV] = previous
 
 
+def _normalize_input_data(input_data: AgentArgs | dict[str, Any] | str) -> AgentArgs | dict[str, Any]:
+    if isinstance(input_data, str):
+        return {"input": input_data}
+    return input_data
+
+
 def build_direct_entry_for_agent(
     agent_path: Path,
     tmp_path: Path,
@@ -193,7 +199,7 @@ def build_direct_entry_for_agent(
 
 async def run_example(
     example_dir: Path,
-    input_data: AgentArgs,
+    input_data: AgentArgs | dict[str, Any] | str,
     *,
     model: str | None = None,
     approval_callback: Callable[[Any], Any] | None = None,
@@ -234,7 +240,10 @@ async def run_example(
             generated_agents_dir=generated_agents_dir,
         )
         runtime.register_registry(registry)
-        result, _ctx = await runtime.run_entry(entry, input_data)
+        result, _ctx = await runtime.run_entry(
+            entry,
+            _normalize_input_data(input_data),
+        )
         return result
     finally:
         _restore_env_model(changed, previous)

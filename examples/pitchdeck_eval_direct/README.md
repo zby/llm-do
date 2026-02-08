@@ -138,6 +138,11 @@ When you use raw PydanticAI (run_raw.py), you bypass all of this. You're respons
 - **Easy integration**: Embed in larger Python applications
 - **Debugging**: Standard Python debugging tools work normally
 
+This example bypasses manifest linking on purpose. If you want manifest-driven
+embedding in Python, use the project layer (`llm_do.project`) for
+`build_registry(...)` / `resolve_entry(...)` and pass
+`build_registry_host_wiring(project_root)` when building the registry.
+
 ## Run
 
 ```bash

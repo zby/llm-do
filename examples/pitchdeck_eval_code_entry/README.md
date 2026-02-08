@@ -125,3 +125,7 @@ Choose the right level based on your needs:
 - **Code Entry Point**: Only reasoning tasks use LLM tokens
 
 See also `examples/pitchdeck_eval_direct/` for running the same pattern directly from Python without the CLI.
+
+If you embed this manifest flow programmatically, use project-layer APIs:
+`llm_do.project.build_registry(...)`, `llm_do.project.resolve_entry(...)`, and
+`llm_do.project.build_registry_host_wiring(project_root)`.

@@ -66,3 +66,30 @@ LLM tests are inherently non-deterministic. If a test fails:
 4. Use `run_example(...)` to build and run the entry worker
 5. Use `approve_all_callback` fixture for non-interactive runs
 6. Use `default_model` fixture or hardcode model for provider-specific tests
+
+## Manual Registry Wiring
+
+If a live test needs to build a registry directly (instead of using
+`run_example(...)`), use the project-layer APIs and explicit host wiring:
+
+```python
+from llm_do.project import (
+    EntryConfig,
+    build_registry,
+    build_registry_host_wiring,
+    resolve_entry,
+)
+
+registry = build_registry(
+    agent_files,
+    python_files,
+    project_root=project_root,
+    **build_registry_host_wiring(project_root),
+)
+entry = resolve_entry(
+    EntryConfig(agent="main"),
+    registry,
+    python_files=python_files,
+    base_path=project_root,
+)
+```

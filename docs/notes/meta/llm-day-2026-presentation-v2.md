@@ -140,19 +140,20 @@ Full power requires arbitrary interleaving: `LLM → code → LLM → code → .
 
 ---
 
-### Slide 7: What RLMs Get Right (and What's Missing)
+### Slide 7: RLMs and llm-do — Different Design Choices
 
-Recursive Language Models (Prime Intellect, Oct 2025) established key insights:
-- Models should manage their own context
+Recursive Language Models (Prime Intellect, Oct 2025):
+- Models manage their own context
 - Delegation to Python scripts and sub-LLMs
 - Recursive decomposition of long-horizon tasks
+- **Explicit boundary**: LLM calls and code calls have different APIs
 
-**But RLMs don't have unified calling convention**:
-- Calling an LLM has a different API than calling code
-- Refactoring across the boundary requires changing call sites
-- The interface exposes the implementation
+llm-do:
+- Same recursive power
+- **Unified calling convention**: LLM calls and code calls look identical
+- Enables refactoring across the boundary without changing call sites
 
-**llm-do's addition**: Make the call site identical regardless of whether the target is neural or symbolic.
+Different tradeoffs: RLMs make the boundary explicit; llm-do hides it for refactoring flexibility.
 
 ---
 
@@ -584,7 +585,7 @@ Three orchestration styles:
 >
 > First, the dream of extensible systems—computers you extend by talking to them, saving prompts as capabilities, and progressively stabilizing to code. Second, the recursive power argument (building on RLM insights)—at any level of task decomposition, you should use whichever execution mode (LLM or code) is best for that subtask, requiring arbitrary interleaving of neural and symbolic computation.
 >
-> Both roads require the same architecture: unified calling convention, recursive dispatch, and progressive stabilization. We show what RLMs established and what they're missing—a unified interface that makes the neural/symbolic distinction invisible at call sites.
+> Both roads require the same architecture: unified calling convention, recursive dispatch, and progressive stabilization. We compare with RLMs—which make the neural/symbolic boundary explicit—and show how llm-do's unified interface enables refactoring flexibility.
 >
 > We demonstrate this with llm-do, showing concrete refactoring from all-LLM prototypes to hybrid systems—without changing call sites. Attendees will leave with practical patterns for organic system evolution from prototype to production.
 >

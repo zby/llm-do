@@ -11,13 +11,14 @@ benchmarks (arXiv:2512.24601) work exactly this way: the entire input is handed 
 system as a single blob. No filesystem, no tools. Just "here's your data, answer the
 question."
 
-In this regime, you only have two places to put the data:
+In this regime, there is no good place to put the data. The only default option is
+the LLM's prompt — which means the model has to reason over 100k tokens at once. In
+any normal coding environment, the data would just live on disk and the agent would
+read slices as needed. RLM's contribution is inventing a third place: a REPL variable
+in a Python namespace that the LLM accesses by writing code.
 
-1. **In the prompt** — the LLM sees all of it in its context window
-2. **In a REPL variable** — the data lives in the Python namespace; the LLM accesses
-   it by writing code
-
-The paper's baseline ("CodeAct + Sub-calls") takes option 1. RLM takes option 2:
+The paper's baseline ("CodeAct + Sub-calls") puts data in the prompt. RLM puts it in
+the REPL:
 
 | Benchmark    | CodeAct+Sub-calls | RLM   |
 |--------------|-------------------|-------|

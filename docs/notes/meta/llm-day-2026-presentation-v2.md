@@ -1,6 +1,6 @@
 # LLM Day 2026 Warsaw - Presentation Plan v2
 
-## Two Roads to the Hybrid VM
+## Two Roads to Recursive Dispatch
 
 **Duration**: 30 minutes (25 content + 5 Q&A)
 
@@ -8,13 +8,13 @@
 
 ## Through-line
 
-> "Two independent motivations—power and evolvability—both require recursive dispatch. RLMs optimize for power with an explicit boundary. llm-do optimizes for evolution with a unified calling convention, enabling systems that grow from prototype to production."
+> "Two independent motivations—power and evolvability—both require recursive dispatch between LLM and code. They diverge on design: RLMs optimize for power with an explicit boundary. llm-do optimizes for evolution with a unified calling convention, enabling systems that grow from prototype to production."
 
 ---
 
 ## Title Options
 
-- "Two Roads to the Hybrid VM: Unifying LLM and Code"
+- **"Two Roads to Recursive Dispatch: Power and Evolution in LLM-Code Systems"** (selected)
 - "Extend, Stabilize, Recurse: A Unified Interface for LLM and Code"
 - "The Breathing System: Progressive Stabilization for LLM Applications"
 
@@ -27,11 +27,11 @@
 | 1 | The Vision: Extending Systems by Prompting | 4 min |
 | 2 | Two Roads to the Same Design | 6 min |
 | 3 | The Convergence: What Both Require | 3 min |
-| 4 | The Concrete Refactoring Demo | 7 min |
+| 4 | The Concrete Demo | 5 min |
 | 5 | The Theoretical Frame | 5 min |
 | 6 | Close & Takeaways | 3 min |
 | | Q&A | 5 min |
-| | **Total** | **33 min** |
+| | **Total** | **31 min** |
 
 ---
 
@@ -39,8 +39,8 @@
 
 ### Slide 1: Title Slide
 
-**"Two Roads to the Hybrid VM"**
-*Unifying LLM and Code for Extensible, Powerful Systems*
+**"Two Roads to Recursive Dispatch"**
+*Power and Evolution in LLM-Code Systems*
 
 Zbigniew Lukasiak
 LLM Day 2026, Warsaw
@@ -241,155 +241,71 @@ This is an engineering choice, not a research choice. It enables:
 
 ---
 
-## Part 4: The Concrete Refactoring Demo (7 min)
+## Part 4: The Concrete Demo (5 min)
 
-### Slide 11: Let's See It Work
+### Slide 11: Let's See It Work — Data Report Generator
 
-**The pitchdeck evaluator progression**
+**The caller** (`main.agent`) — identical in both versions:
 
-Three versions of the same task, progressively stabilized:
-1. All LLM (prototype)
-2. Extracted tools (hybrid)
-3. Code orchestration (production)
+```
+1. Use list_files("input", "*.csv") to find all CSV files.
+2. For each CSV file:
+   - Call analyze_dataset(path=<csv_path>)
+   - Write the returned report to reports/<name>.md
+```
+
+The caller never changes. Only the implementation of `analyze_dataset` evolves.
 
 ---
 
-### Slide 12: Version 1 — Pure LLM
+### Slide 12: Version 1 — All LLM (Prototype)
 
-`examples/pitchdeck_eval/main.agent`
+`examples/data_report/analyze_dataset.agent`:
 
 ```
-1. Use list_files("input", "*.pdf") to find all pitch deck PDFs.
-2. For each PDF file:
-   - Generate a file slug (lowercase, hyphenated, no extension)
-   - Call pitch_evaluator(input=..., attachments=[...])
-3. For each report returned:
-   - Write it to evaluations/{file_slug}.md
+You are a data analyst. You will receive a path to a CSV file.
+1. Read the CSV file using read_file(path).
+2. Compute summary statistics (mean, median, min, max).
+3. Identify notable trends.
+4. Write a narrative report with statistics, interpretation,
+   and recommendations.
 ```
 
 **What the LLM is doing**:
-- Finding files (mechanical)
-- Generating slugs like `"aurora-solar.pdf" → "aurora-solar"` (mechanical)
-- Orchestrating the loop (mechanical)
-- Evaluating pitch decks (reasoning)
+- Reading and parsing CSV (mechanical)
+- Computing statistics (mechanical)
+- Identifying trends (reasoning)
+- Writing narrative (reasoning)
 
-**Problem**: Tokens spent on slug generation. Behavior varies. This is purely mechanical—no reasoning needed.
+**Problem**: LLM computes averages — expensive, sometimes wrong. This is calculator work.
 
 ---
 
-### Slide 13: Version 2 — Extract the Mechanical
+### Slide 13: Version 2 — Hybrid (Stabilized)
 
-`examples/pitchdeck_eval_stabilized/tools.py`
+`examples/data_report_stabilized/tools.py`:
 
 ```python
-def list_pitchdecks(path: str = "input") -> list[dict]:
-    """List pitch deck PDFs with pre-computed slugs."""
-    result = []
-    base = PROJECT_ROOT / path
-    for pdf in sorted(base.glob("*.pdf")):
-        slug = slugify(pdf.stem)  # Deterministic!
-        result.append({
-            "file": str(pdf.relative_to(PROJECT_ROOT)),
-            "slug": slug,
-            "output_path": f"evaluations/{slug}.md",
-        })
-    return result
-```
+async def analyze_dataset(ctx, path: str) -> str:
+    rows = list(csv.DictReader(open(path)))      # Code (mechanical)
+    stats = compute_summary(rows)                # Code (mechanical)
+    trends = detect_trends(rows)                 # Code (mechanical)
 
-Updated prompt (`main.agent`):
-
-```
-1. Call list_pitchdecks() to get all pitch decks.
-2. For each item:
-   - Call pitch_evaluator(...)
-   - Write to item.output_path
-```
-
-**Key observation**: The LLM calls `list_pitchdecks()` exactly like it would call an agent. **Same calling convention.**
-
----
-
-### Slide 14: Version 3 — Code Orchestration
-
-`examples/pitchdeck_eval_code_entry/tools.py`
-
-```python
-async def main(_input_data, runtime: CallContext) -> str:
-    decks = list_pitchdecks()           # Python (deterministic)
-
-    for deck in decks:                   # Python loop (deterministic)
-        report = await runtime.call_agent(
-            "pitch_evaluator",           # LLM call (reasoning)
-            {"input": "Evaluate this pitch deck.",
-             "attachments": [deck["file"]]}
-        )
-        Path(deck["output_path"]).write_text(report)  # Python
-
-    return f"Evaluated {len(decks)} pitch deck(s)"
-```
-
-**Now**: Python handles everything mechanical. LLM only does evaluation (actual reasoning).
-
----
-
-### Slide 15: The Stabilization Spectrum
-
-```
-Original             Stabilized           Code Entry
-────────────────────────────────────────────────────────
-LLM lists files  →   Python tool      →   Python tool
-LLM generates slugs → Python tool      →   Python tool
-LLM orchestrates →   LLM orchestrates →   Python code
-LLM evaluates    →   LLM evaluates    →   LLM evaluates
-────────────────────────────────────────────────────────
-     All LLM              Hybrid            Minimal LLM
-```
-
-**What changed**:
-- Fewer tokens (no slug generation, no orchestration tokens)
-- Faster (Python loops are microseconds)
-- Deterministic file handling
-- LLM focused on what it's good at: reasoning
-
-**What stayed the same**: The call to `pitch_evaluator`. Same interface throughout.
-
----
-
-### Slide 16: The Refactoring That Didn't Break
-
-Imagine a **Version 4**: stabilize `pitch_evaluator` itself.
-
-**Before** — `pitch_evaluator.agent` (LLM does everything):
-```
-# main.agent — the call site
-Call pitch_evaluator(input="Evaluate this pitch deck.",
-                     attachments=["input/aurora-solar.pdf"])
-```
-→ LLM reads PDF, scores dimensions, writes report (all neural)
-
-**After** — `pitch_evaluator` becomes code wrapping an LLM:
-```python
-# tools.py — pitch_evaluator is now a Python function
-async def pitch_evaluator(ctx, input: str, attachments: list[str]) -> str:
-    pdf_path = validate_pdf(attachments[0])         # Code (deterministic)
-    raw = await ctx.deps.call_agent(                # LLM (reasoning)
-        "raw_evaluator",
-        {"input": input, "attachments": [pdf_path]}
+    narrative = await ctx.deps.call_agent(       # LLM (reasoning)
+        "write_narrative",
+        {"input": f"Stats: {stats}\nTrends: {trends}"}
     )
-    return enforce_report_format(raw)               # Code (deterministic)
+    return format_report(stats, narrative)       # Code (mechanical)
 ```
 
-**The call in `main.agent` doesn't change at all.**
-
-First the LLM called another LLM. Now it calls code that calls an LLM. Same name, same arguments, same result. The caller never knew the difference.
-
-*(This is also the `orchestrating_tool/deep_research` pattern — Python code orchestrating 3 agents, but the caller just sees `deep_research(question)`.)*
+**Same call. Same name. Same arguments.** The caller never knew it changed.
+Code handles what's mechanical. LLM handles what needs interpretation.
 
 ---
 
 ## Part 5: The Theoretical Frame (5 min)
 
-### Slide 17: Why This Works — Distribution Boundaries
+### Slide 14: Why This Works — Distribution Boundaries
 
 LLM components sample from distributions.
 Code components are point masses (deterministic).
@@ -410,7 +326,7 @@ distribution    point mass      distribution
 
 ---
 
-### Slide 18: Stabilizing and Softening
+### Slide 15: Stabilizing and Softening
 
 ```
          ◄─────── SOFTEN ────────
@@ -438,7 +354,7 @@ Stochastic ─────────────────────► De
 
 ---
 
-### Slide 19: What Changes When You Stabilize
+### Slide 16: What Changes When You Stabilize
 
 | Aspect | Stochastic (LLM) | Stabilized (Code) |
 |--------|------------------|-------------------|
@@ -452,14 +368,9 @@ Stochastic ─────────────────────► De
 
 ---
 
-### Slide 20: The Harness Pattern
+### Slide 17: The Harness Pattern
 
-llm-do adds a harness on top of the hybrid VM:
-
-- **Your code owns control flow** (or LLM does—your choice)
-- **Tool calls intercepted** like syscalls
-- **Approvals** block until permission granted
-- **Observability** via message history, usage tracking
+Tool calls are intercepted like syscalls:
 
 ```
 Agent/Code ──→ Harness ──→ Tool execution
@@ -469,13 +380,15 @@ Agent/Code ──→ Harness ──→ Tool execution
            (validation)
 ```
 
-**Call sites stay stable. Implementations move across the boundary.**
+- **Approvals** block until permission granted
+- **Observability** via message history, usage tracking
+- **Your code owns control flow** (or LLM does—your choice)
 
 ---
 
 ## Part 6: Close (3 min)
 
-### Slide 21: The Recipe
+### Slide 18: The Recipe
 
 1. **Unify the calling convention** — LLM and code share the same interface
 2. **Enable recursive dispatch** — neural and symbolic can call each other at any depth
@@ -484,7 +397,7 @@ Agent/Code ──→ Harness ──→ Tool execution
 
 ---
 
-### Slide 22: What Makes This Different
+### Slide 19: What Makes This Different
 
 **Not**:
 - "How to prompt better"
@@ -498,27 +411,17 @@ Agent/Code ──→ Harness ──→ Tool execution
 
 ---
 
-### Slide 23: The Tradeoffs (Honest)
+### Slide 20: The Tradeoffs (Honest)
 
-**llm-do is a good fit when**:
-- You're prototyping and will stabilize as patterns emerge
-- You want Python control flow (not graph DSLs)
-- You need tool-level auditability and approvals
-- You expect to refactor between LLM and code
+**Good fit**: prototyping with progressive stabilization, Python control flow, refactoring between LLM and code
 
-**It may be a poor fit when**:
-- You need durable workflows with checkpointing/replay
-- Graph visualization is your primary interface
-- You need distributed orchestration out of the box
+**Poor fit**: durable workflows with checkpointing, distributed orchestration, graph-based visualization
 
-**Current status**:
-- The API is unstable—expect breaking changes
-- This is research-grade software, not production-hardened
-- The concepts are more mature than the implementation
+**Current status**: Research-grade. The concepts are more mature than the implementation.
 
 ---
 
-### Slide 24: One Slide Summary
+### Slide 21: One Slide Summary
 
 > "Two roads—power and evolvability—both need recursive dispatch. RLMs optimize for power. llm-do optimizes for evolution, making the engineering lifecycle work for hybrid systems."
 
@@ -526,12 +429,12 @@ Agent/Code ──→ Harness ──→ Tool execution
 
 ---
 
-### Slide 25: Resources
+### Slide 22: Resources
 
 - **GitHub**: github.com/zby/llm-do
 - **Theory**: `docs/theory.md` — stochastic computation model
 - **Architecture**: `docs/architecture.md` — internal structure
-- **Examples**: `examples/pitchdeck_eval*` — stabilization progression
+- **Examples**: `examples/data_report*` — stabilization progression
 
 Questions?
 
@@ -551,9 +454,8 @@ Questions?
 | Slide | Diagram | Build Strategy |
 |-------|---------|----------------|
 | 8 | Convergence | Progressive (two roads → requirements → conclusion) |
-| 15 | Stabilization spectrum | Static table, highlight progression |
-| 17 | Distribution boundaries | Progressive (LLM → tool → LLM) |
-| 18 | Stabilize/Soften | Static with bidirectional arrows |
+| 14 | Distribution boundaries | Progressive (LLM → tool → LLM) |
+| 15 | Stabilize/Soften | Static with bidirectional arrows |
 
 ### "So What?" Moments
 
@@ -562,17 +464,16 @@ Questions?
 | The dream | "This is how software should grow" |
 | Two roads | "Same need, different values — power vs. evolution" |
 | Convergence | "The unified boundary follows from the evolution priority" |
-| Refactoring demo | "Same interface throughout—refactoring was trivial" |
+| Data report demo | "Same call, same name — the caller never knew it changed" |
 | Stabilization table | "Progressive stabilization = progressive confidence" |
 
 ### Demo Option
 
 If live demo is possible:
-1. Run `pitchdeck_eval` — show token usage
-2. Run `pitchdeck_eval_stabilized` — show reduced tokens
-3. Run `pitchdeck_eval_code_entry` — show only evaluation uses LLM
+1. Run `data_report` — LLM does everything (stats + narrative)
+2. Run `data_report_stabilized` — code does stats, LLM only writes narrative
 
-The numbers tell the story better than slides.
+Show the output side by side: V2 has deterministic stats tables (code) followed by LLM narrative. The numbers tell the story better than slides.
 
 ---
 
@@ -606,7 +507,7 @@ Three orchestration styles:
 
 ### Title
 
-**"Two Roads to the Hybrid VM: Unifying LLM and Code"**
+**"Two Roads to Recursive Dispatch: Power and Evolution in LLM-Code Systems"**
 
 ### Elevator Pitch (300 chars)
 

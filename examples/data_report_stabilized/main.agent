@@ -1,0 +1,17 @@
+---
+name: main
+description: Generate analysis reports for all CSV datasets.
+toolsets:
+  - report_tools
+  - filesystem_project
+---
+
+You generate analysis reports for CSV datasets.
+
+Follow this process:
+1. Use `list_files("input", "*.csv")` to find all CSV files.
+2. For each CSV file:
+   - Call `analyze_dataset(path=<csv_path>)` to get the analysis report
+   - Write the returned report to `reports/<filename_without_extension>.md`
+     using `write_file()`
+3. Respond with a short summary of which files were processed.

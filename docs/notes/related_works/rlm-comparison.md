@@ -52,6 +52,33 @@ Both implementations follow the same pattern:
 - **Single concern.** Both focus on long-context exploration / recursive decomposition,
   not general agent orchestration.
 
+## How Novel Is the RLM Pattern?
+
+The RLM authors frame their work as a breakthrough. The key insight is real:
+sub-agents orchestrated in code can do map-reduce over large contexts, aggregating
+results programmatically and only passing the outcome back to the LLM. This is
+genuinely more efficient than naively forwarding everything through prompts.
+
+But none of the ingredients are new. The underlying primitive — a tool that calls an
+LLM — has been available in agent frameworks for a long time. PydanticAI has
+documented [agent delegation](https://ai.pydantic.dev/multi-agent-applications/#agent-delegation-and-dependencies)
+since its early releases: you call `other_agent.run(...)` inside a tool function, and
+the parent agent resumes with the result. Many coding agents (Cursor, Claude Code,
+Devin) also spawn sub-agents that can recursively invoke further sub-agents. You could
+have built an RLM on top of PydanticAI long before the term existed.
+
+What RLM implementations contribute is a specific *recipe* — the right proportions of
+known ingredients:
+
+1. **Model-driven REPL** — the LLM writes arbitrary code, not just tool calls
+2. **Context as a variable** — large data passed in the execution namespace, not the
+   prompt
+3. **FINAL protocol** — explicit termination rather than structured returns
+
+Discovering the right proportions matters — the combination produces results that the
+individual ingredients don't. But it is a usage pattern on top of existing
+capabilities, not a new computational primitive.
+
 ## Where llm-do Diverges
 
 The RLM implementations and llm-do both support recursive dispatch between LLM and

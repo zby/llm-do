@@ -31,8 +31,11 @@ MessageLogCallback: TypeAlias = Callable[[str, int, list[Any]], None]
 class CallContextProtocol(Protocol):
     """Structural type for the runtime object used as PydanticAI deps.
 
-    Minimal surface: config (runtime-scoped settings) + frame (call-scoped state).
-    Access settings via config.*, call state via frame.prompt/messages and frame.config.*.
+    This protocol is intentionally wide: PydanticAI requires all tools in an
+    agent to share a single deps type, so this must cover the union of what any
+    tool might need.  The registry properties (agent_registry, tool_registry,
+    toolset_registry, dynamic_agents) exist for DynamicAgentsToolset; most
+    tools only use config/frame/call_agent.
     """
 
     @property
@@ -52,6 +55,10 @@ class CallContextProtocol(Protocol):
     ) -> "CallContextProtocol": ...
 
     async def call_agent(self, spec_or_name: "AgentSpec | str", input_data: Any) -> Any: ...
+
+    # Registry access — needed by DynamicAgentsToolset for runtime agent
+    # creation/validation.  Cannot be narrowed into a separate protocol
+    # because PydanticAI shares one deps type across all tools in an agent.
 
     @property
     def agent_registry(self) -> dict[str, "AgentSpec"]: ...

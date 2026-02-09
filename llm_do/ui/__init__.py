@@ -25,7 +25,7 @@ from .events import (
 from .parser import parse_approval_request
 
 if TYPE_CHECKING:
-    from .runner import RunUiResult, run_headless, run_tui, run_ui
+    from .runner import RunConfig, RunUiResult, run_headless, run_tui, run_ui
 
 __all__ = [
     # Display backends
@@ -49,6 +49,7 @@ __all__ = [
     # Adapter
     "adapt_event",
     # Runners
+    "RunConfig",
     "RunUiResult",
     "run_headless",
     "run_tui",
@@ -57,7 +58,7 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    if name in {"RunUiResult", "run_headless", "run_tui", "run_ui"}:
+    if name in {"RunConfig", "RunUiResult", "run_headless", "run_tui", "run_ui"}:
         from . import runner
 
         return getattr(runner, name)

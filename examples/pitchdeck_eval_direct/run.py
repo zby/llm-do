@@ -20,7 +20,7 @@ except ImportError:
 
 from llm_do.models import resolve_model
 from llm_do.runtime import AgentSpec, CallContext, FunctionEntry
-from llm_do.ui import run_ui
+from llm_do.ui import RunConfig, run_ui
 
 # =============================================================================
 # CONFIGURATION - Edit these constants to experiment
@@ -139,13 +139,15 @@ def cli_main():
     print("-" * 60)
 
     outcome = asyncio.run(run_ui(
-        entry=ENTRY,
         input={"input": ""},
-        project_root=PROJECT_ROOT,
-        approval_mode=APPROVAL_MODE,
+        config=RunConfig(
+            entry=ENTRY,
+            project_root=PROJECT_ROOT,
+            approval_mode=APPROVAL_MODE,
+            verbosity=VERBOSITY,
+            return_permission_errors=True,
+        ),
         mode=UI_MODE,
-        verbosity=VERBOSITY,
-        return_permission_errors=True,
     ))
     if outcome.result is not None:
         print(outcome.result)

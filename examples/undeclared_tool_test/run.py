@@ -17,7 +17,7 @@ from pathlib import Path
 from pydantic_ai.toolsets import FunctionToolset
 
 from llm_do.runtime import AgentSpec, CallContext, FunctionEntry
-from llm_do.ui import run_ui
+from llm_do.ui import RunConfig, run_ui
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
 from conftest_models import ToolCall  # noqa: E402
@@ -103,12 +103,14 @@ def cli_main():
     print()
 
     outcome = asyncio.run(run_ui(
-        entry=ENTRY,
         input={"input": ""},
-        project_root=PROJECT_ROOT,
-        approval_mode="approve_all",
+        config=RunConfig(
+            entry=ENTRY,
+            project_root=PROJECT_ROOT,
+            approval_mode="approve_all",
+            verbosity=2,
+        ),
         mode="headless",
-        verbosity=2,
     ))
 
     print()

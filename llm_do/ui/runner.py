@@ -34,6 +34,34 @@ OAuthOverrideResolver = Callable[[str], Awaitable[Any | None]]
 
 
 @dataclass(frozen=True, slots=True)
+class RunConfig:
+    """Shared configuration for run_tui / run_headless / run_ui."""
+
+    # Entry resolution
+    entry: Entry | None = None
+    entry_factory: EntryFactory | None = None
+    agent_registry: AgentRegistry | None = None
+    # Runtime settings
+    project_root: Path | None = None
+    approval_mode: ApprovalMode = "prompt"
+    auth_mode: AuthMode = "oauth_off"
+    verbosity: int = 1
+    return_permission_errors: bool = True
+    max_depth: int = 5
+    generated_agents_dir: Path | None = None
+    agent_calls_require_approval: bool = False
+    agent_attachments_require_approval: bool = False
+    agent_approval_overrides: Mapping[str, Any] | None = None
+    oauth_provider_resolver: OAuthProviderResolver | None = None
+    oauth_override_resolver: OAuthOverrideResolver | None = None
+    message_log_callback: MessageLogCallback | None = None
+    runtime_factory: RuntimeFactory | None = None
+    # Error handling
+    debug: bool = False
+    error_stream: TextIO | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class RunUiResult:
     result: Any | None
     exit_code: int
@@ -102,33 +130,26 @@ def _resolve_entry_factory(
 
 
 def _build_runtime(
+    config: RunConfig,
     *,
-    project_root: Path | None,
     run_approval_policy: RunApprovalPolicy,
-    max_depth: int,
-    auth_mode: AuthMode,
-    oauth_provider_resolver: OAuthProviderResolver | None,
-    oauth_override_resolver: OAuthOverrideResolver | None,
-    generated_agents_dir: Path | None,
-    agent_calls_require_approval: bool,
-    agent_attachments_require_approval: bool,
-    agent_approval_overrides: Mapping[str, Any] | None,
     on_event: RuntimeEventSink | None,
-    message_log_callback: MessageLogCallback | None,
-    verbosity: int,
-    runtime_factory: RuntimeFactory | None,
 ) -> Runtime:
-    factory = runtime_factory or Runtime
+    factory = config.runtime_factory or Runtime
     return factory(
-        project_root=project_root, run_approval_policy=run_approval_policy, max_depth=max_depth,
-        auth_mode=auth_mode,
-        oauth_provider_resolver=oauth_provider_resolver,
-        oauth_override_resolver=oauth_override_resolver,
-        generated_agents_dir=generated_agents_dir,
-        agent_calls_require_approval=agent_calls_require_approval,
-        agent_attachments_require_approval=agent_attachments_require_approval,
-        agent_approval_overrides=agent_approval_overrides, on_event=on_event,
-        message_log_callback=message_log_callback, verbosity=verbosity,
+        project_root=config.project_root,
+        run_approval_policy=run_approval_policy,
+        max_depth=config.max_depth,
+        auth_mode=config.auth_mode,
+        oauth_provider_resolver=config.oauth_provider_resolver,
+        oauth_override_resolver=config.oauth_override_resolver,
+        generated_agents_dir=config.generated_agents_dir,
+        agent_calls_require_approval=config.agent_calls_require_approval,
+        agent_attachments_require_approval=config.agent_attachments_require_approval,
+        agent_approval_overrides=config.agent_approval_overrides,
+        on_event=on_event,
+        message_log_callback=config.message_log_callback,
+        verbosity=config.verbosity,
     )
 
 
@@ -183,35 +204,17 @@ def _start_render_loop(
 async def run_tui(
     *,
     input: Any,
-    entry: Entry | None = None,
-    entry_factory: EntryFactory | None = None,
-    agent_registry: AgentRegistry | None = None,
-    project_root: Path | None = None,
-    approval_mode: ApprovalMode = "prompt",
-    auth_mode: AuthMode = "oauth_off",
-    verbosity: int = 1,
-    return_permission_errors: bool = True,
-    max_depth: int = 5,
-    generated_agents_dir: Path | None = None,
-    agent_calls_require_approval: bool = False,
-    agent_attachments_require_approval: bool = False,
-    agent_approval_overrides: Mapping[str, Any] | None = None,
-    oauth_provider_resolver: OAuthProviderResolver | None = None,
-    oauth_override_resolver: OAuthOverrideResolver | None = None,
-    message_log_callback: MessageLogCallback | None = None,
+    config: RunConfig,
     extra_backends: Sequence[DisplayBackend] | None = None,
     chat: bool = False,
     initial_prompt: str | None = None,
-    debug: bool = False,
     agent_name: str | None = None,
-    runtime_factory: RuntimeFactory | None = None,
-    error_stream: TextIO | None = None,
 ) -> RunUiResult:
     """Run a single entry with the Textual TUI."""
     _ensure_stdout_textual_driver()
     from .app import LlmDoApp
 
-    entry_factory = _resolve_entry_factory(entry, entry_factory, agent_registry)
+    resolved_factory = _resolve_entry_factory(config.entry, config.entry_factory, config.agent_registry)
     app: LlmDoApp | None = None
     tui_event_queue: asyncio.Queue[UIEvent | None] = asyncio.Queue()
     approval_queue: asyncio.Queue[ApprovalDecision] = asyncio.Queue()
@@ -223,7 +226,7 @@ async def run_tui(
         backends.extend(extra_backends)
     render_state = _start_render_loop(
         backends,
-        verbosity=verbosity,
+        verbosity=config.verbosity,
         on_close=lambda: tui_event_queue.put_nowait(None),
     )
     if render_state is None:
@@ -237,28 +240,17 @@ async def run_tui(
         render_state.emit(approval_event)
         return await approval_queue.get()
 
-    approval_callback = prompt_approval if approval_mode == "prompt" else None
+    approval_callback = prompt_approval if config.approval_mode == "prompt" else None
     approval_policy = RunApprovalPolicy(
-        mode=approval_mode,
+        mode=config.approval_mode,
         approval_callback=approval_callback,
-        return_permission_errors=return_permission_errors,
+        return_permission_errors=config.return_permission_errors,
     )
 
     runtime = _build_runtime(
-        project_root=project_root,
+        config,
         run_approval_policy=approval_policy,
-        max_depth=max_depth,
-        auth_mode=auth_mode,
-        oauth_provider_resolver=oauth_provider_resolver,
-        oauth_override_resolver=oauth_override_resolver,
-        generated_agents_dir=generated_agents_dir,
-        agent_calls_require_approval=agent_calls_require_approval,
-        agent_attachments_require_approval=agent_attachments_require_approval,
-        agent_approval_overrides=agent_approval_overrides,
         on_event=render_state.on_event,
-        message_log_callback=message_log_callback,
-        verbosity=verbosity,
-        runtime_factory=runtime_factory,
     )
 
     result_holder: list[Any] = []
@@ -280,7 +272,7 @@ async def run_tui(
         nonlocal entry_instance
         nonlocal entry_name
         if entry_instance is None:
-            entry_instance = entry_factory()
+            entry_instance = resolved_factory()
             entry_name = agent_name or entry_instance[0].name
         return entry_instance
 
@@ -288,8 +280,8 @@ async def run_tui(
         nonlocal exit_code
         nonlocal last_error_line
         last_error_line = f"[{entry_name}] ERROR ({error_type}): {message}"
-        if error_stream is not None:
-            print(last_error_line, file=error_stream, flush=True)
+        if config.error_stream is not None:
+            print(last_error_line, file=config.error_stream, flush=True)
         from .events import ErrorEvent
         emit_ui_event(ErrorEvent(agent=entry_name, message=message, error_type=error_type))
         exit_code = 1
@@ -321,7 +313,7 @@ async def run_tui(
             return None
         except Exception as exc:
             emit_error(_format_run_error_message(exc), type(exc).__name__)
-            if debug:
+            if config.debug:
                 raise
             return None
 
@@ -361,7 +353,7 @@ async def run_tui(
     finally:
         await render_state.close()
     result = result_holder[0] if result_holder else None
-    if last_error_line and (error_stream is None or error_stream is sys.stderr):
+    if last_error_line and (config.error_stream is None or config.error_stream is sys.stderr):
         print(last_error_line, file=sys.stderr, flush=True)
     return RunUiResult(result=result, exit_code=exit_code)
 
@@ -369,66 +361,37 @@ async def run_tui(
 async def run_headless(
     *,
     input: Any,
-    entry: Entry | None = None,
-    entry_factory: EntryFactory | None = None,
-    agent_registry: AgentRegistry | None = None,
-    project_root: Path | None = None,
-    approval_mode: ApprovalMode = "approve_all",
-    auth_mode: AuthMode = "oauth_off",
-    verbosity: int = 1,
-    return_permission_errors: bool = True,
-    max_depth: int = 5,
-    generated_agents_dir: Path | None = None,
-    agent_calls_require_approval: bool = False,
-    agent_attachments_require_approval: bool = False,
-    agent_approval_overrides: Mapping[str, Any] | None = None,
-    oauth_provider_resolver: OAuthProviderResolver | None = None,
-    oauth_override_resolver: OAuthOverrideResolver | None = None,
+    config: RunConfig,
     backends: Sequence[DisplayBackend] | None = None,
-    message_log_callback: MessageLogCallback | None = None,
-    debug: bool = False,
-    runtime_factory: RuntimeFactory | None = None,
-    error_stream: TextIO | None = None,
 ) -> RunUiResult:
     """Run a single entry with a headless text backend."""
-    entry_factory = _resolve_entry_factory(entry, entry_factory, agent_registry)
+    resolved_factory = _resolve_entry_factory(config.entry, config.entry_factory, config.agent_registry)
     if backends is None:
-        backends = [HeadlessDisplayBackend(stream=sys.stderr, verbosity=verbosity)]
-    render_state = _start_render_loop(list(backends), verbosity=verbosity) if backends else None
+        backends = [HeadlessDisplayBackend(stream=sys.stderr, verbosity=config.verbosity)]
+    render_state = _start_render_loop(list(backends), verbosity=config.verbosity) if backends else None
     on_event = render_state.on_event if render_state is not None else None
 
     approval_policy = RunApprovalPolicy(
-        mode=approval_mode,
-        return_permission_errors=return_permission_errors,
+        mode=config.approval_mode,
+        return_permission_errors=config.return_permission_errors,
     )
 
     runtime = _build_runtime(
-        project_root=project_root,
+        config,
         run_approval_policy=approval_policy,
-        max_depth=max_depth,
-        auth_mode=auth_mode,
-        oauth_provider_resolver=oauth_provider_resolver,
-        oauth_override_resolver=oauth_override_resolver,
-        generated_agents_dir=generated_agents_dir,
-        agent_calls_require_approval=agent_calls_require_approval,
-        agent_attachments_require_approval=agent_attachments_require_approval,
-        agent_approval_overrides=agent_approval_overrides,
         on_event=on_event,
-        message_log_callback=message_log_callback,
-        verbosity=verbosity,
-        runtime_factory=runtime_factory,
     )
 
     result: Any | None = None
     exit_code = 0
-    error_stream = error_stream or sys.stderr
+    error_stream = config.error_stream or sys.stderr
 
     try:
-        if approval_mode == "prompt":
+        if config.approval_mode == "prompt":
             raise ValueError(
                 "Headless mode cannot prompt for approvals; use approve_all or reject_all."
             )
-        entry, registry = entry_factory()
+        entry, registry = resolved_factory()
         runtime.register_registry(registry)
         result, _ctx = await runtime.run_entry(entry, input)
     except KeyboardInterrupt as exc:
@@ -437,7 +400,7 @@ async def run_headless(
     except Exception as exc:
         exit_code = 1
         print(_format_run_error_message(exc), file=error_stream)
-        if debug:
+        if config.debug:
             raise
     finally:
         if render_state is not None:
@@ -449,82 +412,28 @@ async def run_headless(
 async def run_ui(
     *,
     input: Any,
-    entry: Entry | None = None,
-    entry_factory: EntryFactory | None = None,
-    agent_registry: AgentRegistry | None = None,
+    config: RunConfig,
     mode: UiMode = "tui",
-    project_root: Path | None = None,
-    approval_mode: ApprovalMode = "prompt",
-    auth_mode: AuthMode = "oauth_off",
-    verbosity: int = 1,
-    return_permission_errors: bool = True,
-    max_depth: int = 5,
-    generated_agents_dir: Path | None = None,
-    agent_calls_require_approval: bool = False,
-    agent_attachments_require_approval: bool = False,
-    agent_approval_overrides: Mapping[str, Any] | None = None,
-    oauth_provider_resolver: OAuthProviderResolver | None = None,
-    oauth_override_resolver: OAuthOverrideResolver | None = None,
     backends: Sequence[DisplayBackend] | None = None,
     extra_backends: Sequence[DisplayBackend] | None = None,
-    message_log_callback: MessageLogCallback | None = None,
     chat: bool = False,
     initial_prompt: str | None = None,
-    debug: bool = False,
     agent_name: str | None = None,
-    runtime_factory: RuntimeFactory | None = None,
-    error_stream: TextIO | None = None,
 ) -> RunUiResult:
     """Run a single entry with either TUI or headless UI."""
     if mode == "tui":
         return await run_tui(
             input=input,
-            entry=entry,
-            entry_factory=entry_factory,
-            agent_registry=agent_registry,
-            project_root=project_root,
-            approval_mode=approval_mode,
-            auth_mode=auth_mode,
-            verbosity=verbosity,
-            return_permission_errors=return_permission_errors,
-            max_depth=max_depth,
-            generated_agents_dir=generated_agents_dir,
-            agent_calls_require_approval=agent_calls_require_approval,
-            agent_attachments_require_approval=agent_attachments_require_approval,
-            agent_approval_overrides=agent_approval_overrides,
-            oauth_provider_resolver=oauth_provider_resolver,
-            oauth_override_resolver=oauth_override_resolver,
-            message_log_callback=message_log_callback,
+            config=config,
             extra_backends=extra_backends,
             chat=chat,
             initial_prompt=initial_prompt,
-            debug=debug,
             agent_name=agent_name,
-            runtime_factory=runtime_factory,
-            error_stream=error_stream,
         )
     if mode == "headless":
         return await run_headless(
             input=input,
-            entry=entry,
-            entry_factory=entry_factory,
-            agent_registry=agent_registry,
-            project_root=project_root,
-            approval_mode=approval_mode,
-            auth_mode=auth_mode,
-            verbosity=verbosity,
-            return_permission_errors=return_permission_errors,
-            max_depth=max_depth,
-            generated_agents_dir=generated_agents_dir,
-            agent_calls_require_approval=agent_calls_require_approval,
-            agent_attachments_require_approval=agent_attachments_require_approval,
-            agent_approval_overrides=agent_approval_overrides,
-            oauth_provider_resolver=oauth_provider_resolver,
-            oauth_override_resolver=oauth_override_resolver,
+            config=config,
             backends=backends,
-            message_log_callback=message_log_callback,
-            debug=debug,
-            runtime_factory=runtime_factory,
-            error_stream=error_stream,
         )
     raise ValueError(f"Unknown UI mode: {mode}")

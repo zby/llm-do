@@ -37,7 +37,7 @@ from ..project import (
     resolve_manifest_paths,
 )
 from ..runtime import Entry
-from ..ui import HeadlessDisplayBackend, run_ui
+from ..ui import HeadlessDisplayBackend, RunConfig, run_ui
 
 
 def _input_to_args(data: dict[str, Any] | str) -> dict[str, Any]:
@@ -262,11 +262,9 @@ def main() -> int:
     error_stream = sys.stderr if use_tui and extra_backends is None else None
     return_permission_errors = True if use_tui else manifest.runtime.return_permission_errors
 
-    outcome = asyncio.run(run_ui(
-        input=input_data,
+    config = RunConfig(
         entry_factory=entry_factory,
         project_root=manifest_dir,
-        mode="tui" if use_tui else "headless",
         approval_mode=manifest.runtime.approval_mode,
         auth_mode=manifest.runtime.auth_mode,
         verbosity=run_verbosity,
@@ -278,13 +276,18 @@ def main() -> int:
         agent_approval_overrides=manifest.runtime.agent_approval_overrides,
         oauth_provider_resolver=get_oauth_provider_for_model_provider,
         oauth_override_resolver=resolve_oauth_overrides,
+        message_log_callback=message_log_callback,
+        debug=args.debug,
+        error_stream=error_stream,
+    )
+    outcome = asyncio.run(run_ui(
+        input=input_data,
+        config=config,
+        mode="tui" if use_tui else "headless",
         backends=backends,
         extra_backends=extra_backends,
-        message_log_callback=message_log_callback,
         chat=args.chat,
-        debug=args.debug,
         agent_name="agent",
-        error_stream=error_stream,
     ))
     if outcome.result is not None:
         print(outcome.result)

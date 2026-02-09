@@ -1,7 +1,7 @@
 """Tests for agent file parsing."""
 import pytest
 
-from llm_do.project import AgentDefinition, AgentFileParser, parse_agent_file
+from llm_do.project import AgentDefinition, parse_agent_file
 
 
 class TestParseAgentFile:
@@ -379,43 +379,17 @@ Instructions.
         assert result.compatible_models is None
 
 
-class TestAgentFileParser:
-    """Tests for AgentFileParser class."""
-
-    def test_parser_parse_returns_agent_definition(self):
-        """Test that parser.parse() returns an AgentDefinition."""
-        parser = AgentFileParser()
-        content = """\
+def test_parse_agent_file_returns_agent_definition():
+    """Test that parse_agent_file returns an AgentDefinition."""
+    content = """\
 ---
 name: test_agent
 model: anthropic:claude-haiku-4-5
 ---
 Instructions here.
 """
-        result = parser.parse(content)
+    result = parse_agent_file(content)
 
-        assert isinstance(result, AgentDefinition)
-        assert result.name == "test_agent"
-        assert result.model == "anthropic:claude-haiku-4-5"
-
-    def test_parser_instance_reusable(self):
-        """Test that a parser instance can be reused for multiple files."""
-        parser = AgentFileParser()
-
-        content1 = """\
----
-name: agent1
----
-First agent.
-"""
-        content2 = """\
----
-name: agent2
----
-Second agent.
-"""
-        result1 = parser.parse(content1)
-        result2 = parser.parse(content2)
-
-        assert result1.name == "agent1"
-        assert result2.name == "agent2"
+    assert isinstance(result, AgentDefinition)
+    assert result.name == "test_agent"
+    assert result.model == "anthropic:claude-haiku-4-5"

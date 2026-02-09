@@ -204,80 +204,13 @@ def _parse_input_model_ref(raw: Any) -> str | None:
     return raw
 
 
-class AgentFileParser:
-    """Parser for .agent files.
-
-    Parses YAML frontmatter + Markdown instructions format into AgentDefinition.
-    """
-
-    def parse(
-        self,
-        content: str,
-    ) -> AgentDefinition:
-        """Parse agent file content.
-
-        Args:
-            content: Raw file content
-
-        Returns:
-            Parsed AgentDefinition
-
-        Raises:
-            ValueError: If file format is invalid
-        """
-        fm, instructions = _extract_frontmatter_and_instructions(content)
-        return build_agent_definition(fm, instructions)
-
-    def load(
-        self,
-        path: str | Path,
-    ) -> AgentDefinition:
-        """Load and parse an agent file from disk.
-
-        Args:
-            path: Path to agent file
-
-        Returns:
-            Parsed AgentDefinition
-        """
-        content = Path(path).read_text(encoding="utf-8")
-        return self.parse(content)
+def parse_agent_file(content: str) -> AgentDefinition:
+    """Parse agent file content (YAML frontmatter + markdown instructions)."""
+    fm, instructions = _extract_frontmatter_and_instructions(content)
+    return build_agent_definition(fm, instructions)
 
 
-# Default parser instance
-_default_parser = AgentFileParser()
-
-
-def parse_agent_file(
-    content: str,
-) -> AgentDefinition:
-    """Parse an agent file with YAML frontmatter and markdown instructions.
-
-    This is a convenience function that uses the default AgentFileParser.
-
-    Args:
-        content: Raw file content
-
-    Returns:
-        Parsed AgentDefinition
-
-    Raises:
-        ValueError: If file format is invalid
-    """
-    return _default_parser.parse(content)
-
-
-def load_agent_file(
-    path: str | Path,
-) -> AgentDefinition:
-    """Load and parse an agent file from disk.
-
-    This is a convenience function that uses the default AgentFileParser.
-
-    Args:
-        path: Path to agent file
-
-    Returns:
-        Parsed AgentDefinition
-    """
-    return _default_parser.load(path)
+def load_agent_file(path: str | Path) -> AgentDefinition:
+    """Load and parse an agent file from disk."""
+    content = Path(path).read_text(encoding="utf-8")
+    return parse_agent_file(content)

@@ -2,7 +2,6 @@
 
 from .agent_file import (
     AgentDefinition,
-    AgentFileParser,
     load_agent_file,
     load_agent_file_parts,
     parse_agent_file,
@@ -37,7 +36,6 @@ from .tool_resolution import resolve_tool_defs, resolve_toolset_defs
 
 __all__ = [
     "AgentDefinition",
-    "AgentFileParser",
     "load_agent_file",
     "load_agent_file_parts",
     "parse_agent_file",

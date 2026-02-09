@@ -14,3 +14,8 @@ Review of filesystem toolset behavior and approval logic.
 
 ## Open Questions
 - Do callers rely on `total_chars`, or can it be removed to simplify reads?
+
+## 2026-02-09 Review
+- `read_file()` has separate small-file and streaming branches with partially duplicated truncation accounting; one streaming path for all sizes would simplify behavior.
+- `call_tool()` and `get_tools()` switch on explicit tool names; declarative dispatch tables (name -> function/schema/description) would remove repeated branching.
+- Path capability classification (`within_base`/`outside_base`) is computed but writes are not blocked outside base path by default; if containment is desired, enforce it in `_resolve_path` to remove policy ambiguity.

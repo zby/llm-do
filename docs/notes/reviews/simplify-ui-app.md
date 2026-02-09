@@ -17,3 +17,8 @@ Review of the Textual TUI app orchestration code.
 ## Open Questions
 - Should the app own approval queue state, or can that live entirely in the
   `ApprovalWorkflowController`?
+
+## 2026-02-09 Review
+- `_consume_events()` performs repeated widget lookups and mixed responsibilities (queue loop, rendering delegation, app state transitions). Splitting queue consumption from state transitions would simplify.
+- Approval input-disable/enable logic is spread across `_enqueue_approval_request`, `_resolve_approval`, and completion/error branches; centralizing input-state transitions would reduce drift.
+- `_messages` stores completed text responses only for final output; if final output can be derived from message history, this extra accumulator can be removed.

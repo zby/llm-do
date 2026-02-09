@@ -12,3 +12,8 @@ Review of built-in toolset spec creation.
   config to reduce duplication here.
 - `dynamic_agents` toolset is always registered. If it is optional, consider
   gating it on runtime configuration to reduce unused surface.
+
+## 2026-02-09 Review
+- Builtin toolset construction has nested closures (`filesystem_factory`, `shell_factory`, `_per_run_toolset`) that can be flattened into a small table-driven builder.
+- Filesystem config generation (`cwd` vs `project`) is symmetric; a data-driven config loop would reduce near-duplicate declarations.
+- Shell readonly/file_ops rules live as inline dict lists; if reused by docs/tests, centralizing as typed rule objects can reduce drift.

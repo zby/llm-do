@@ -14,3 +14,7 @@ Review of runtime event envelope types.
 ## Open Questions
 - Do we expect more system events beyond `UserMessageEvent`? If not, a simpler
   representation might be sufficient.
+
+## 2026-02-09 Review
+- `RuntimeEvent` and `UserMessageEvent` remain minimal wrappers. If no additional system-event variants are expected, a simpler tagged payload shape could replace the extra class.
+- Event envelope creation is repeated at call sites; a tiny constructor helper (e.g., `user_message_event(agent, depth, content)`) would reduce boilerplate.

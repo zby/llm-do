@@ -13,3 +13,7 @@ Review of controller helpers (`agent_runner.py`, `approval_workflow.py`,
   deriving these from queue state to reduce internal state.
 - `ExitConfirmationController` is small and could be folded into `LlmDoApp`
   if no other users exist, reducing file count.
+
+## 2026-02-09 Review
+- Controllers remain small and focused; the largest simplification opportunity is consolidating repeated `is_running`/task-start checks in `AgentRunner` into one private helper.
+- `ApprovalWorkflowController` keeps both `_batch_total` and `_batch_index`; numbering can likely be derived from queue state plus consumed count without dual mutable counters.

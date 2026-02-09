@@ -16,3 +16,8 @@ Review of approval policy wiring and toolset wrappers.
 ## Open Questions
 - Should permission errors be part of the approval toolset contract instead of
   a separate wrapper (`ApprovalDeniedResultToolset`)?
+
+## 2026-02-09 Review
+- `make_headless_approval_callback()` and `make_tui_approval_callback()` both enforce approve/reject exclusivity and mode branching; shared normalization of mode flags would reduce duplicate guards.
+- `resolve_approval_callback()` still uses implicit deny behavior for prompt mode without callback; making that policy explicit at call sites would reduce hidden defaults.
+- `ApprovalDeniedResultToolset` remains a translation wrapper around `PermissionError`; if upstream toolset behavior can return structured denial payloads, this wrapper can disappear.

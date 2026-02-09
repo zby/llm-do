@@ -17,7 +17,7 @@ Currently this code is human-authored. The goal: **let the LLM write orchestrati
 
 ### RLM Insight
 
-From the [RLM comparison](related_works/recursive-llm-comparison.md):
+From the [RLM comparison](related_works/rlm-comparison.md):
 
 > "recursive-llm has no approvals because it exposes no side-effectful tools"
 
@@ -155,4 +155,4 @@ Pure tools could be stored similarly to dynamic agents:
 - `examples/orchestrating_tool/` — human-authored version of this pattern
 - `examples/rlm_repl/` — RestrictedPython sandbox foundation
 - `llm_do/toolsets/dynamic_agents.py` — similar pattern for agents
-- `docs/notes/related_works/recursive-llm-comparison.md` — RLM analysis
+- `docs/notes/related_works/rlm-comparison.md` — RLM analysis

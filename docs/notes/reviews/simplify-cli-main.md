@@ -54,3 +54,8 @@ dependencies (`llm_do.runtime.*`, `llm_do.ui.*`).
   `run_tui`/`run_headless`?
 - Is entry rebuild per chat turn intentional (hot reload), or can we cache the
   entry/registry for the session?
+
+## 2026-02-09 Review
+- `_make_entry_factory()` still rebuilds paths, registry, and entry per call; this is only needed for hot reload. If chat hot reload is not intentional, build once and pass `entry` + `agent_registry` to `run_ui`.
+- `main()` still owns argument validation, manifest loading, input normalization, verbosity wiring, and UI mode branching. Extracting `resolve_input_data()` and `resolve_backends()` would shrink branch duplication.
+- TUI path still hard-codes `return_permission_errors=True` while headless uses manifest runtime config; this remains an unused-flexibility seam.

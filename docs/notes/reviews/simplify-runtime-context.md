@@ -16,3 +16,8 @@ Review of `CallContext` and agent dispatch helpers.
 ## Open Questions
 - Is the CallContext API meant to be minimal (config + frame), or do we
   intentionally expose registries for convenience?
+
+## 2026-02-09 Review
+- `CallContext` still exposes multiple runtime pass-through properties (`agent_registry`, `tool_registry`, `toolset_registry`, `dynamic_agents`), expanding surface area without adding logic.
+- `_resolve_agent_spec()` remains local lookup/formatting logic that could live on `AgentRegistry` for reuse.
+- `call_agent()` now uses `async with CallScope.for_agent(...)` cleanly; remaining simplification is mostly API surface reduction.

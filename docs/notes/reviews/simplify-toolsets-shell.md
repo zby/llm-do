@@ -16,3 +16,8 @@ Review of shell toolset package (`execution.py`, `toolset.py`, `types.py`).
 ## Open Questions
 - Are typed rule models intended to be user-facing? If not, simplifying to
   plain dicts everywhere might be clearer.
+
+## 2026-02-09 Review
+- `ShellToolset.needs_approval()` and `ShellToolset.get_capabilities()` both parse command + rule matching; shared `analyze_command()` output would eliminate duplicate work.
+- `match_shell_rules(command, args, ...)` ignores `command` beyond the signature; dropping the unused parameter would simplify API.
+- `MAX_OUTPUT_BYTES` truncation is applied after UTF-8 decode via character length. Either rename to chars or enforce byte-based truncation consistently.

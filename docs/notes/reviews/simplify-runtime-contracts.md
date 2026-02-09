@@ -15,3 +15,8 @@ Review of runtime type contracts and entry/agent spec helpers.
 ## Open Questions
 - Do we want to keep `Entry` as a base class for type checking, or switch to a
   structural `Protocol` and keep concrete types only?
+
+## 2026-02-09 Review
+- `CallContextProtocol` includes a broad registry/dynamic-agent surface in addition to core config/frame behavior; splitting into smaller protocols would reduce over-specified interfaces.
+- `FunctionEntry` and `AgentSpec` still duplicate `input_model` validation logic.
+- `Entry` remains a nominal base class with required attributes; a structural protocol would better match current usage.

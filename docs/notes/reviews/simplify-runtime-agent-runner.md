@@ -67,3 +67,8 @@ reductions that make the run flow more direct.
 - `run_agent()` has two code paths (with/without `on_event`) that repeat
   message finalization and output extraction. A small helper that accepts an
   optional event handler could reduce branching.
+
+## 2026-02-09 Review
+- OAuth branching in `run_agent()` is still deeply nested (`auth_mode` + provider resolver + override resolver). A dedicated `resolve_model_and_settings_for_auth(...)` helper would simplify control flow.
+- `_split_model_identifier`, `_resolve_oauth_provider_for_model_provider`, and `_resolve_oauth_model_overrides` are tiny one-call wrappers; inlining or collapsing them would reduce indirection.
+- `_build_agent()` is still single-call and mostly forwards fields from `AgentSpec`; inlining into `run_agent()` is a low-risk simplification.

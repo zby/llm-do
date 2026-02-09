@@ -16,3 +16,8 @@ Review of dynamic agent creation/call toolset.
 ## Open Questions
 - Should dynamic agent creation be allowed without writing to disk (in-memory
   agent definitions)? If so, the file parse/write round-trip can be removed.
+
+## 2026-02-09 Review
+- `_agent_create()` combines validation, filesystem writes, parse/resolve, model selection, and registry mutation in one large method; extracting staged helpers would simplify rollback/error flow.
+- `_render_frontmatter()` manually emits YAML-like text using `json.dumps`; writing structured frontmatter via the same parser/serializer path would reduce formatting edge cases.
+- `needs_approval()` duplicates agent-call approval branching already present in `AgentToolset`; shared approval descriptor/capability helpers remain a simplification target.

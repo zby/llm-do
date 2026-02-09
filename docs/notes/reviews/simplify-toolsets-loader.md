@@ -9,3 +9,7 @@ Review of toolset spec resolution/instantiation helpers.
   indirection.
 - `resolve_toolset_specs()` does not deduplicate toolset names; if duplicates
   are not allowed, consider validating and surfacing a clearer error.
+
+## 2026-02-09 Review
+- This module is now pure compatibility re-export. If no external callers depend on `llm_do.toolsets.loader`, removing it and updating imports would reduce indirection.
+- If compatibility is still needed, mark this file as backcompat-only and keep the surface minimal.

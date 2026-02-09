@@ -17,3 +17,8 @@ Review of the AgentToolset wrapper that exposes AgentSpec as a tool.
 ## Open Questions
 - Do we want agent-call approval policy to live in runtime config instead of
   toolset logic (to reduce duplication across toolsets)?
+
+## 2026-02-09 Review
+- `_messages_from_args()` and `_get_attachment_paths()` still re-parse the same payload in approval and description flows; parse once and reuse derived attachments.
+- `get_tools()` still truncates description inline with fixed `200` constant; moving shared truncation policy to one UI/runtime formatting helper would reduce duplicated presentation decisions.
+- `agent_as_toolset()` always wraps with `DynamicToolset(per_run_step=False)`; if per-run static instance is sufficient, direct toolset construction could remove one indirection layer.

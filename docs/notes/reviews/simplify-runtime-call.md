@@ -53,3 +53,8 @@ construction so tuple normalization and depth increments live in one place.
 - `CallConfig.build()` is a thin wrapper around tuple conversion. If the
   classmethod is not used outside tests, prefer direct construction to reduce
   helper surface. Done: removed in `c1d9471`.
+
+## 2026-02-09 Review
+- `_prepare_toolsets_for_run()` repeats wrapping logic for `DynamicToolset`, `AbstractToolset`, and callable toolset defs. A normalization helper (`normalize_toolset_def`) would reduce branching.
+- `_wrap_toolset_func_for_approval()` duplicates return-type validation behavior also present in project toolset resolution wrappers.
+- `CallScope.close()` is currently a no-op (other than idempotence flag). If no resource cleanup is planned, removing `close()` and `_closed` would simplify lifecycle semantics.

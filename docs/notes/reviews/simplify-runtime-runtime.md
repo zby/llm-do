@@ -17,3 +17,8 @@ Review of shared runtime config/state and entry execution.
 ## Open Questions
 - Do we need thread-safe collectors here, or can we move usage/message
   accumulation to the async loop for simplicity?
+
+## 2026-02-09 Review
+- `UsageCollector` and `MessageAccumulator` still duplicate lock/list patterns and can be unified behind one generic synchronized collection helper.
+- `register_agents()`, `register_tools()`, and `register_toolsets()` are near-identical assignment wrappers; a single internal registry setter would reduce repetition.
+- `_normalize_agent_approval_overrides()` still contains repeated conversion branches (`AgentApprovalConfig`, model_dump-capable object, Mapping) that could be centralized on `AgentApprovalConfig.from_value`.

@@ -15,10 +15,10 @@ Periodic audit for features that add complexity without clear value.
 
 ### Core Classes
 
-- [ ] **Runtime class** - Check configuration options in `runtime.py`
-- [ ] **AgentRegistry** - Check optional fields and methods in `registry.py`
-- [ ] **CallScope/CallFrame** - Check call handling in `call.py`
-- [ ] **CallContext** - Check runtime interface in `context.py`
+- [ ] **Runtime class** - Check configuration options in `llm_do/runtime/runtime.py`
+- [ ] **AgentRegistry** - Check optional fields and methods in `llm_do/project/registry.py`
+- [ ] **CallScope/CallFrame** - Check call handling in `llm_do/runtime/call.py`
+- [ ] **CallContext** - Check runtime interface in `llm_do/runtime/context.py`
 - [ ] **ToolsetSpec** - Configuration options
 
 ### Dead Code

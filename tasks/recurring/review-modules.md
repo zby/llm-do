@@ -12,21 +12,27 @@ Periodic review of core modules for bugs, inconsistencies, overengineering, and 
 - `llm_do/models.py` -> `docs/notes/reviews/review-config-auth.md` - model selection and compatibility
 - `llm_do/oauth/` -> `docs/notes/reviews/review-config-auth.md` - OAuth flow + storage
 
-### Runtime
-- `llm_do/runtime/agent_file.py` -> `docs/notes/reviews/review-ctx-runtime.md` - agent file handling
+### Runtime (core)
 - `llm_do/runtime/agent_runner.py` -> `docs/notes/reviews/review-ctx-runtime.md` - agent execution flow
 - `llm_do/runtime/approval.py` -> `docs/notes/reviews/review-ctx-runtime.md` - approval workflow
 - `llm_do/runtime/args.py` -> `docs/notes/reviews/review-ctx-runtime.md` - runtime args
 - `llm_do/runtime/call.py` -> `docs/notes/reviews/review-ctx-runtime.md` - call orchestration
 - `llm_do/runtime/context.py` -> `docs/notes/reviews/review-ctx-runtime.md` - runtime context
 - `llm_do/runtime/contracts.py` -> `docs/notes/reviews/review-ctx-runtime.md` - runtime contracts
-- `llm_do/runtime/discovery.py` -> `docs/notes/reviews/review-ctx-runtime.md` - discovery logic
-- `llm_do/runtime/entry_resolver.py` -> `docs/notes/reviews/review-ctx-runtime.md` - entry resolution
 - `llm_do/runtime/events.py` -> `docs/notes/reviews/review-ctx-runtime.md` - event stream/types
-- `llm_do/runtime/input_model_refs.py` -> `docs/notes/reviews/review-ctx-runtime.md` - input model refs
-- `llm_do/runtime/manifest.py` -> `docs/notes/reviews/review-ctx-runtime.md` - manifest handling
-- `llm_do/runtime/registry.py` -> `docs/notes/reviews/review-ctx-runtime.md` - registry logic
 - `llm_do/runtime/runtime.py` -> `docs/notes/reviews/review-ctx-runtime.md` - runtime entrypoint
+- `llm_do/runtime/tooling.py` -> `docs/notes/reviews/review-ctx-runtime.md` - runtime-owned tool type aliases
+
+### Project (linker/manifest)
+- `llm_do/project/agent_file.py` -> `docs/notes/reviews/review-project.md` - agent file handling
+- `llm_do/project/discovery.py` -> `docs/notes/reviews/review-project.md` - discovery logic
+- `llm_do/project/entry_resolver.py` -> `docs/notes/reviews/review-project.md` - entry resolution
+- `llm_do/project/host_toolsets.py` -> `docs/notes/reviews/review-project.md` - host toolset assembly
+- `llm_do/project/input_model_refs.py` -> `docs/notes/reviews/review-project.md` - input model refs
+- `llm_do/project/manifest.py` -> `docs/notes/reviews/review-project.md` - manifest handling
+- `llm_do/project/path_refs.py` -> `docs/notes/reviews/review-project.md` - path reference resolution
+- `llm_do/project/registry.py` -> `docs/notes/reviews/review-project.md` - registry logic
+- `llm_do/project/tool_resolution.py` -> `docs/notes/reviews/review-project.md` - tool resolution helpers
 
 ### Toolsets
 - `llm_do/toolsets/agent.py` -> `docs/notes/reviews/review-toolsets.md` - agent toolset

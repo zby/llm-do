@@ -10,22 +10,27 @@ Periodic simplification review of core modules using subagents. Each module is r
 ### Core models
 - `llm_do/models.py` -> `docs/notes/reviews/simplify-models.md` - shared models
 
-### Runtime
-- `llm_do/runtime/agent_file.py` -> `docs/notes/reviews/simplify-runtime-agent-file.md` - agent file handling
+### Runtime (core)
 - `llm_do/runtime/agent_runner.py` -> `docs/notes/reviews/simplify-runtime-agent-runner.md` - agent execution flow
 - `llm_do/runtime/approval.py` -> `docs/notes/reviews/simplify-runtime-approval.md` - approval workflow
 - `llm_do/runtime/args.py` -> `docs/notes/reviews/simplify-runtime-args.md` - runtime args
-- `llm_do/runtime/auth.py` -> `docs/notes/reviews/simplify-runtime-auth.md` - auth config types
 - `llm_do/runtime/call.py` -> `docs/notes/reviews/simplify-runtime-call.md` - call orchestration
 - `llm_do/runtime/context.py` -> `docs/notes/reviews/simplify-runtime-context.md` - runtime context
 - `llm_do/runtime/contracts.py` -> `docs/notes/reviews/simplify-runtime-contracts.md` - runtime contracts
-- `llm_do/runtime/discovery.py` -> `docs/notes/reviews/simplify-runtime-discovery.md` - discovery logic
-- `llm_do/runtime/entry_resolver.py` -> `docs/notes/reviews/simplify-runtime-entry-resolver.md` - entry resolution
 - `llm_do/runtime/events.py` -> `docs/notes/reviews/simplify-runtime-events.md` - event stream/types
-- `llm_do/runtime/input_model_refs.py` -> `docs/notes/reviews/simplify-runtime-input-model-refs.md` - input model refs
-- `llm_do/runtime/manifest.py` -> `docs/notes/reviews/simplify-runtime-manifest.md` - manifest handling
-- `llm_do/runtime/registry.py` -> `docs/notes/reviews/simplify-runtime-registry.md` - registry logic
 - `llm_do/runtime/runtime.py` -> `docs/notes/reviews/simplify-runtime-runtime.md` - runtime entrypoint
+- `llm_do/runtime/tooling.py` -> `docs/notes/reviews/simplify-runtime-tooling.md` - runtime-owned tool type aliases
+
+### Project (linker/manifest)
+- `llm_do/project/agent_file.py` -> `docs/notes/reviews/simplify-project-agent-file.md` - agent file handling
+- `llm_do/project/discovery.py` -> `docs/notes/reviews/simplify-project-discovery.md` - discovery logic
+- `llm_do/project/entry_resolver.py` -> `docs/notes/reviews/simplify-project-entry-resolver.md` - entry resolution
+- `llm_do/project/host_toolsets.py` -> `docs/notes/reviews/simplify-project-host-toolsets.md` - host toolset assembly
+- `llm_do/project/input_model_refs.py` -> `docs/notes/reviews/simplify-project-input-model-refs.md` - input model refs
+- `llm_do/project/manifest.py` -> `docs/notes/reviews/simplify-project-manifest.md` - manifest handling
+- `llm_do/project/path_refs.py` -> `docs/notes/reviews/simplify-project-path-refs.md` - path reference resolution
+- `llm_do/project/registry.py` -> `docs/notes/reviews/simplify-project-registry.md` - registry logic
+- `llm_do/project/tool_resolution.py` -> `docs/notes/reviews/simplify-project-tool-resolution.md` - tool resolution helpers
 
 ### Toolsets
 - `llm_do/toolsets/agent.py` -> `docs/notes/reviews/simplify-toolsets-agent.md` - agent toolset

@@ -540,3 +540,225 @@ This breadth is intentional as the runtime "engine," but blends policy
 - `llm_do/toolsets/agent.py`, `dynamic_agents.py`, `approval.py`
 - `llm_do/models.py`
 - `llm_do/ui/events.py`, `adapter.py`
+
+## Review 2026-02-09
+
+### Architectural Context
+
+Since the 2026-01-29 review, the codebase has undergone a significant structural
+change: the **runtime/project package split**. Modules previously in `runtime/`
+that handled project-level concerns (agent file parsing, discovery, registry
+building, entry resolution, manifest loading) have been extracted into a
+dedicated `project/` package. The dependency direction is:
+
+```
+cli/ → project/ → runtime/
+             ↘ toolsets/
+ui/ → runtime/
+```
+
+This is the correct layering. `runtime/` is the low-level execution engine;
+`project/` is the linker that wires configuration into runtime types; `ui/` and
+`cli/` are consumers.
+
+### Single Responsibility Principle
+
+**Runtime layer** — each module now has a focused scope:
+- `runtime/runtime.py` — shared runtime state and entry dispatch
+- `runtime/context.py` — call-scoped orchestration (spawn child, call agent)
+- `runtime/call.py` — call config, frame, and scope lifecycle
+- `runtime/agent_runner.py` — PydanticAI agent construction + execution
+- `runtime/contracts.py` — type contracts (AgentSpec, Entry, protocols)
+- `runtime/approval.py` — approval policies and callbacks
+- `runtime/args.py` — input normalization and prompt rendering
+- `runtime/events.py` — runtime event types (3 dataclasses)
+- `runtime/tooling.py` — tool/toolset type aliases
+
+**CallContext** (`runtime/context.py`) is now genuinely slim at 110 lines, with
+only two real behaviors: `spawn_child` and `call_agent`. The prior concern about
+it being a "god object" is resolved — tool dispatch, arg validation, usage
+tracking, and event emission have all been extracted elsewhere.
+
+**Runtime** (`runtime/runtime.py`) still aggregates configuration, usage
+collection, message logging, and entry dispatch. The useless-features audit
+(2026-02-09) identified `UsageCollector` and `MessageAccumulator` as un-wired;
+removing them would leave Runtime with just config + entry dispatch, which is
+appropriately cohesive.
+
+**Project layer** — clean separation:
+- `project/manifest.py` — manifest schema + loading (no runtime logic)
+- `project/registry.py` — AgentRegistry construction
+- `project/discovery.py` — module loading + tool/toolset/agent discovery
+- `project/agent_file.py` — .agent file parsing
+- `project/entry_resolver.py` — entry point resolution
+- `project/tool_resolution.py` — tool/toolset ref → def resolution
+- `project/host_toolsets.py` — builtin toolset assembly
+- `project/input_model_refs.py` — input model ref resolution
+- `project/path_refs.py` — path reference utilities
+
+Each project module has one clear reason to change.
+
+**AgentRunner** (`runtime/agent_runner.py`) remains the most complex runtime
+module at 221 lines. It handles: prompt normalization, agent construction,
+OAuth model overrides, event stream handling, and message logging. The OAuth
+override logic (lines 138–185) is the densest section and could be extracted,
+but the rest is cohesive "run an agent call" logic.
+
+**UIEvent classes** (`ui/events.py`) continue to mix data + rendering
+(render_rich, render_text, create_widget). This is the most persistent SRP
+concern across all reviews.
+
+### Open/Closed Principle
+
+**Strengths:**
+- `Entry` hierarchy (Entry → FunctionEntry / AgentEntry) supports new entry
+  types without modifying runtime
+- `ToolsetDef` / `AbstractToolset` allows new toolsets via inheritance
+- `register_model_factory()` enables custom model providers
+- `RuntimeEvent` + `ui/adapter.py` provides a clean extension seam
+- Approval callbacks are pluggable strategies
+- `AgentToolsetFactory` callback in registry building allows custom agent-to-
+  toolset wiring without modifying core
+
+**Weaknesses:**
+- Adding a new render format requires modifying all 10 UIEvent subclasses
+  (adding a new `render_*` method to each)
+- `ui/adapter.py` requires updates for each new RuntimeEvent type (but the
+  adapter is the right place for this — it's the designated translation point)
+- Built-in toolset registry in `toolsets/builtins.py` is hard-coded; new
+  built-in toolsets require modifying that file
+
+**Improvement since last review:**
+- The `isinstance(Worker)` check in UI runner for chat mode is gone. Chat is
+  now driven by configuration, not type checks.
+
+### Liskov Substitution Principle
+
+**No violations observed.**
+
+- `FunctionEntry` and `AgentEntry` correctly satisfy the `Entry` protocol
+- `ReadOnlyFileSystemToolset` properly specializes `FileSystemToolset` by
+  restricting operations (no write_file tool exposed)
+- `AgentToolset` correctly adapts `AgentSpec` for `AbstractToolset` contexts
+- `ApprovalDeniedResultToolset` converts PermissionError → dict result, which
+  is an intentional behavioral shift documented in its purpose. Callers that
+  set `return_permission_errors=True` explicitly opt into this.
+- `ApprovalContextToolset` extends `ApprovalToolset` to preserve inner toolset
+  context management — correct delegation pattern
+
+### Interface Segregation Principle
+
+**Strengths:**
+- `CallContextProtocol` is minimal and focused: config, frame, log_messages,
+  spawn_child, call_agent, plus registry accessors
+- `RegistryProtocol` in `runtime.py` is three properties (agents, tools,
+  toolsets) — exactly what `register_registry` needs
+- `Entry` protocol is minimal (name, input_model, run)
+- `DisplayBackend` ABC is focused (display, start, stop)
+- `OAuthModelOverridesProtocol` is two fields — minimal
+
+**Persistent weakness:**
+- `UIEvent` ABC mandates `render_rich`, `render_text`, and `create_widget` on
+  every subclass, even though:
+  - `TextualDisplayBackend` never calls render methods (it queues raw events)
+  - `HeadlessDisplayBackend` never calls `render_rich` or `create_widget`
+  - `RichDisplayBackend` never calls `render_text` or `create_widget`
+  - Several events return `None` from methods that aren't meaningful for them
+
+  This forces every event to implement three rendering strategies even when
+  only one is ever used per backend. The active task
+  `tasks/active/decouple-ui-rendering-from-events.md` addresses this.
+
+**Acceptable breadth:**
+- `AbstractToolset` has multiple methods (get_tools, call_tool, needs_approval,
+  get_approval_description, get_capabilities) but these are all called by the
+  approval/execution pipeline. Splitting would add complexity without clear
+  benefit since all toolsets need all methods.
+
+### Dependency Inversion Principle
+
+**Well-structured layer boundaries:**
+
+```
+runtime/ → (no imports from project/, ui/, cli/)
+project/ → runtime/ (types only: AgentSpec, ToolDef, Entry, etc.)
+ui/      → runtime/ (events only: RuntimeEvent, MessageLogCallback)
+cli/     → project/, ui/, runtime/
+toolsets/ → runtime/ (contracts, tooling types)
+```
+
+- Runtime depends only on its own types and PydanticAI abstractions
+- Project depends on runtime type contracts, not runtime implementation
+- UI depends on runtime events via the adapter pattern
+- No circular dependencies between packages
+
+**Good practices:**
+- `CallContextProtocol` allows toolsets to depend on abstraction, not `CallContext`
+- Approval callbacks are function-based strategies
+- `RegistryProtocol` is structural typing for registry integration
+- `TYPE_CHECKING` guards prevent circular imports
+
+**Minor coupling (acceptable):**
+- `runtime/agent_runner.py` depends directly on PydanticAI's `Agent`, message
+  types, and settings. This is expected — PydanticAI is the execution engine.
+- `project/discovery.py` does `isinstance` checks against PydanticAI's `Tool`
+  and `AbstractToolset` for type discrimination. This is discovery logic that
+  inherently needs to know concrete types.
+
+### Summary vs Previous Review (2026-01-29)
+
+| Issue | Status |
+|-------|--------|
+| UIEvent render-centric (OCP/ISP) | **Persists** — active task exists to address |
+| CallContext multi-responsibility (SRP) | **Resolved** — now 110 lines, 2 behaviors |
+| Runtime aggregates too much (SRP) | **Improved** — un-wired collectors identified for removal |
+| Worker/AgentRunner mix concerns (SRP) | **Stable** — OAuth override logic is the main density |
+| isinstance checks in UI runner (OCP) | **Resolved** — Worker type checks removed |
+| Builtin toolsets hard-coded (OCP) | **Persists** — acceptable given no external consumers |
+| Runtime↔UI coupling (DIP) | **Still resolved** — clean layer boundaries |
+
+### New Observations
+
+1. **The runtime/project split is a genuine DIP improvement.** Prior reviews
+   noted that registry building, discovery, and manifest loading lived alongside
+   execution logic. Now they're in a separate layer with the correct dependency
+   direction (project → runtime types).
+
+2. **The project layer is well-factored.** Nine modules, each with a clear
+   single responsibility. `host_toolsets.py` is a thin wiring file (39 lines)
+   that could be inlined into registry building, but its current form is
+   harmless.
+
+3. **`AgentRunner` OAuth logic is the remaining SRP concern.** Lines 138–185
+   handle OAuth provider resolution, override resolution, and error reporting
+   with multiple nested conditionals. This could be extracted into an
+   `_resolve_model_with_oauth()` helper, but the complexity is bounded and the
+   logic is cohesive within "resolve the model for this agent call."
+
+### Recommendations (2026-02-09)
+
+1. **Decouple UIEvent rendering (ISP/OCP):** This remains the single most
+   persistent SOLID concern across all 6 reviews. The active task
+   `decouple-ui-rendering-from-events.md` should be prioritized. Moving to a
+   visitor or strategy pattern would eliminate the ISP violation and make new
+   output formats additive.
+
+2. **Remove un-wired runtime collectors (SRP):** Dropping `UsageCollector`,
+   `MessageAccumulator`, and `Runtime.message_log` (as identified in the
+   useless-features audit) would reduce Runtime to config + entry dispatch —
+   a clean single responsibility.
+
+3. **Extract OAuth model resolution (SRP):** Move the OAuth override logic
+   from `agent_runner.py` into a dedicated helper. Low priority since it's
+   bounded complexity, but would improve readability.
+
+### Files Reviewed (2026-02-09)
+- `llm_do/runtime/`: `contracts.py`, `runtime.py`, `context.py`, `call.py`,
+  `agent_runner.py`, `approval.py`, `args.py`, `events.py`, `tooling.py`
+- `llm_do/project/`: `registry.py`, `discovery.py`, `agent_file.py`,
+  `entry_resolver.py`, `manifest.py`, `host_toolsets.py`, `tool_resolution.py`,
+  `input_model_refs.py`, `path_refs.py`
+- `llm_do/toolsets/`: `builtins.py`, `filesystem.py`, `agent.py`,
+  `dynamic_agents.py`, `approval.py`
+- `llm_do/models.py`
+- `llm_do/ui/`: `events.py`, `adapter.py`, `display.py`, `runner.py`

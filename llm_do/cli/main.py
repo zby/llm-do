@@ -37,7 +37,8 @@ from ..project import (
     resolve_manifest_paths,
 )
 from ..runtime import Entry
-from ..ui import HeadlessDisplayBackend, RunConfig, run_ui
+from ..ui import HeadlessDisplayBackend
+from ..ui.runner import RunConfig, run_ui
 
 
 def _input_to_args(data: dict[str, Any] | str) -> dict[str, Any]:

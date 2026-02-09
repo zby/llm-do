@@ -1,8 +1,6 @@
 """UI components for llm-do CLI."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from .adapter import adapt_event
 from .display import (
     DisplayBackend,
@@ -23,9 +21,6 @@ from .events import (
     UIEvent,
 )
 from .parser import parse_approval_request
-
-if TYPE_CHECKING:
-    from .runner import RunConfig, RunUiResult, run_headless, run_tui, run_ui
 
 __all__ = [
     # Display backends
@@ -48,18 +43,4 @@ __all__ = [
     "parse_approval_request",
     # Adapter
     "adapt_event",
-    # Runners
-    "RunConfig",
-    "RunUiResult",
-    "run_headless",
-    "run_tui",
-    "run_ui",
 ]
-
-
-def __getattr__(name: str):
-    if name in {"RunConfig", "RunUiResult", "run_headless", "run_tui", "run_ui"}:
-        from . import runner
-
-        return getattr(runner, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

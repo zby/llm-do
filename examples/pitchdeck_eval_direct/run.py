@@ -20,7 +20,7 @@ except ImportError:
 
 from llm_do.models import resolve_model
 from llm_do.runtime import AgentSpec, CallContext, FunctionEntry
-from llm_do.ui import RunConfig, run_ui
+from llm_do.ui.runner import RunConfig, run_ui
 
 # =============================================================================
 # CONFIGURATION - Edit these constants to experiment

@@ -17,7 +17,7 @@ from pathlib import Path
 from pydantic_ai.toolsets import FunctionToolset
 
 from llm_do.runtime import AgentSpec, CallContext, FunctionEntry
-from llm_do.ui import RunConfig, run_ui
+from llm_do.ui.runner import RunConfig, run_ui
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
 from conftest_models import ToolCall  # noqa: E402

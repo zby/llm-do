@@ -25,7 +25,7 @@ import os
 
 from llm_do.models import resolve_model
 from llm_do.runtime import AgentSpec, FunctionEntry, CallContext
-from llm_do.ui import run_ui
+from llm_do.ui.runner import run_ui
 
 MODEL = resolve_model("anthropic:claude-haiku-4-5")
 EVALUATOR = AgentSpec(

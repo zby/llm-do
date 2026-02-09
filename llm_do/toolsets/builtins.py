@@ -10,7 +10,7 @@ from pydantic_ai.toolsets._dynamic import DynamicToolset
 
 from .dynamic_agents import DynamicAgentsToolset
 from .filesystem import FileSystemToolset, ReadOnlyFileSystemToolset
-from .loader import ToolsetDef
+from ..runtime.tooling import ToolsetDef
 from .shell import ShellToolset
 
 _SHELL_READONLY_RULES = [

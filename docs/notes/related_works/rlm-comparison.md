@@ -82,7 +82,7 @@ capabilities, not a new computational primitive.
 ## Where llm-do Diverges
 
 The RLM implementations and llm-do both support recursive dispatch between LLM and
-code, but they optimize for different things. Three differences follow from this, each
+code, but they optimize for different things. Four differences follow from this, each
 building on the previous.
 
 ### 1. Power vs. Evolvability
@@ -162,6 +162,37 @@ execution is available:
 
 The RLM approach only needs the first mode. llm-do needs both.
 
+### 4. Trivial vs. Managed Reentrancy
+
+The first three differences combine to create a fourth: recursion in RLMs is almost
+free, while in llm-do it's a significant engineering concern.
+
+In RLM implementations, `recursive_llm(sub_query, sub_context)` creates a fresh
+instance with its own REPL namespace. There is no shared mutable state, no side
+effects, no resource lifecycle. The fresh instance runs, returns a value, and
+disappears. Reentrancy is trivial because there's nothing to re-enter — each call is a
+self-contained computation in an isolated namespace.
+
+In llm-do, when a worker calls another worker (or itself), the system must:
+
+- **Isolate state per call** — each depth gets a fresh `CallFrame` with its own message
+  history and fresh toolset instances, so nested calls don't leak database handles, file
+  cursors, or other stateful resources from the parent.
+- **Stay async throughout** — nested calls must `await` directly rather than creating
+  new event loops, or the system deadlocks.
+- **Route approvals per depth** — side-effectful tools need consent at each level, with
+  session-level caching that spans the call tree.
+- **Manage toolset lifecycles** — each call scope runs `__aenter__`/`__aexit__` hooks
+  for resource setup and cleanup, and these must nest correctly even under exceptions.
+- **Enforce depth limits** — without guards, agents can recurse infinitely; llm-do
+  tracks depth per `CallFrame` and raises at `max_depth`.
+
+This complexity is the direct cost of the previous three design choices. Side effects
+require approval routing. Stateful toolsets require lifecycle management. The unified
+calling convention means the same dispatch path handles both plain code tools and nested
+LLM calls. RLMs avoid all of this by being pure, ephemeral, and single-concern —
+reentrancy is trivial precisely because there's nothing stateful to protect.
+
 ## Comparison Table
 
 | Aspect | RLM implementations | llm-do |
@@ -175,6 +206,7 @@ The RLM approach only needs the first mode. llm-do needs both.
 | **Trust boundary** | Sandbox (containment) | Approval system (consent) |
 | **Calling convention** | Explicit (LLM ≠ code) | Unified (LLM = code) |
 | **Refactoring cost** | Pay the tax | Free (call sites don't change) |
+| **Reentrancy cost** | Trivial (nothing to protect) | Managed (isolation, lifecycles, approvals) |
 | **State isolation** | Fresh instance per call | `CallFrame` per call |
 
 ## Open Questions

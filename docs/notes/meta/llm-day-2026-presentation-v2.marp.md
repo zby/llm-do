@@ -29,89 +29,64 @@ style: |
 
 <!-- _class: title -->
 
-# Two Roads to Recursive Dispatch
-
-*Power and Evolution in LLM-Code Systems*
+# One Interface: Fluid Movement Between LLM and Code
 
 **Zbigniew Lukasiak**
 LLM Day 2026, Warsaw
 
 ---
 
-## The Dream
+## Prompts Are Like Code
 
-> "Imagine a computer you extend by talking to it."
+You instruct, the machine executes.
 
-**The workflow:**
+- **Code**: you write precise instructions &rarr; computer executes deterministically
+- **Prompts**: you describe intent &rarr; LLM executes stochastically
 
-1. You describe what you want &rarr; LLM does it (like a copilot)
-2. You save that prompt &rarr; it becomes a named capability
-3. You use it repeatedly &rarr; observe what's stable
-4. You encode stable parts as code &rarr; hybrid capability
+Both are ways of telling a computer what to do. One is precise, the other is flexible.
 
-**This is how software should grow — organically, from intent to implementation.**
-
-<!--
-So what: "This is how software should grow—organically, from intent to implementation."
-Visual: Simple flow diagram showing this progression
--->
+**This isn't a metaphor. LLMs can be formally modelled as probabilistic computers — and prompts are the way to program them.**
 
 ---
 
-## The Problem With This Dream
+## The Hybrid Computer
 
-But when you try to build it:
+Some tasks are better as prompts, some as code:
 
-- Saved prompts and code have **different interfaces**
-- Refactoring from prompt &rarr; code **breaks call sites**
-- No unified way to **compose** them
-- Where does the LLM end and code begin?
+- **Code excels at**: deterministic logic, speed, precision, cost
+- **Prompts excel at**: ambiguity, creativity, interpretation, flexibility
 
-**The dream requires an architecture that doesn't exist in standard LLM frameworks.**
+**Neither dominates.** You need both — and any real system uses both. This is **neuro-symbolic computing** — neural networks and traditional code, combined.
 
----
-
-## "I Wasn't Alone"
-
-> "When I started thinking about what this system needs, I found others arriving at the same place from a different direction — but with a different priority."
-
-Two independent motivations. Same structural need. **Different values.**
+**If neither mode is sufficient alone, the question becomes: how do you combine them?**
 
 ---
 
-## Road 1 — Evolvability (My Origin)
+## Why Recursive?
 
-**The goal**: Systems that grow and mature over time
+The standard agent loop is flat — LLM and tools alternate, but tools are always leaves:
 
 ```
-User describes intent
-        ↓
-LLM performs it
-        ↓
-Save as named capability
-        ↓
-Observe patterns over time
-        ↓
-Encode stable parts as code
-        ↓
-Hybrid capability (prompt + code)
+LLM → tool → LLM → tool → LLM → done
 ```
 
-**The priority**: Not maximum power at any moment — but enabling the system to **evolve**.
+But real tasks decompose fractally — a tool itself may need judgment, which needs another tool:
 
-**What this requires**: Unified interface. Progressive stabilization. Cheap refactoring.
+```
+LLM decides what to analyze          (judgment)
+  └─ Code reads and parses data      (mechanical)
+       └─ LLM interprets anomalies   (judgment)
+            └─ Code looks up history  (mechanical)
+                 └─ LLM writes report (judgment)
+```
+
+**One layer of "LLM calls tools" only reaches level 1. Full power requires arbitrary interleaving.**
 
 ---
 
-## Road 2 — Power (RLM Perspective)
+## RLMs — The REPL
 
-**The goal**: Maximum expressive power through recursion
-
-- Code: deterministic, fast, cheap — but rigid
-- Prompts: flexible, handle ambiguity — but expensive, variable
-- **Neither dominates** — each is better for different subtasks
-
-**The recursive insight:**
+**Recursive Language Models** (Prime Intellect, Oct 2025) formalize this with an elegant approach: give the LLM a Python REPL.
 
 ```
 Task (ambiguous → LLM)
@@ -122,72 +97,42 @@ Task (ambiguous → LLM)
 └── Subtask C (formatting → code)
 ```
 
-Full power requires arbitrary interleaving: `LLM → code → LLM → code → ...`
+The LLM writes code, the REPL executes it. Code orchestrates sub-agents (map-reduce), accumulating partial results in REPL variables — keeping data out of the LLM's context window.
+
+The approach is elegantly simple: code is ephemeral and sandboxed, so there's no need to store code, manage approvals, or handle reentrant state.
 
 ---
 
-## RLMs and llm-do — Different Priorities
+## My Road — Evolution
 
-**Recursive Language Models** (Prime Intellect, Oct 2025):
-- **Priority: power** — recursive decomposition
-- Explicit boundary: LLM calls and code calls have different APIs
-- Pure computation: no user approvals
+> "I arrived at the same architecture independently — with a different priority."
 
-**llm-do:**
-- **Priority: evolution** — systems that grow over time
-- **Unified calling convention**: LLM and code calls look identical
-- Full approval/safety harness for dangerous tool calls
+**The goal**: Systems that grow and mature over time
 
-**Different values, not just different features.** If you optimize for power, an explicit boundary is fine. If you optimize for evolution, refactoring cost is everything.
-
----
-
-## The Convergence
+> "Imagine a computer you extend by talking to it."
 
 ```
-     EVOLVABILITY                          POWER
-          │                                  │
-          └──────────────┬───────────────────┘
-                         ▼
-              ┌─────────────────────┐
-              │  RECURSIVE DISPATCH │
-              │  (both roads need)  │
-              └─────────────────────┘
-                         │
-          ┌──────────────┴──────────────┐
-          ▼                             ▼
-   ┌──────────────┐            ┌──────────────┐
-   │ RLM:         │            │ llm-do:      │
-   │ explicit     │            │ unified      │
-   │ boundary     │            │ calling conv │
-   └──────────────┘            └──────────────┘
-          │                             │
-          ▼                             ▼
-   ┌──────────────┐            ┌──────────────┐
-   │ max capable  │            │ progressive  │
-   │ at a point   │            │ stabiliz-    │
-   │ in time      │            │ ation        │
-   └──────────────┘            └──────────────┘
+User describes intent → LLM performs it → Save as named capability
+→ Observe patterns → Encode stable parts as code → Hybrid capability
 ```
 
-<!-- Build this progressively: convergence point, then two approaches, then outcomes -->
+**The priority**: enabling the system to **evolve**. This is **llm-do**.
 
 ---
 
-## Shared Requirement, Different Priorities
+## The Key Differences
 
-**Both roads require**: Recursive dispatch between LLM and code
+Same structural need — recursive dispatch. Different design choices.
 
 |                            | RLM               | llm-do                      |
 |----------------------------|--------------------|-----------------------------|
-| **Priority**               | **Power**          | **Evolution**               |
-| Recursive dispatch         | ✓                  | ✓                           |
-| Boundary visibility        | Explicit           | Hidden                      |
-| User approvals             | None               | Full harness                |
-| Refactoring cost           | Pay the tax        | No changes                  |
+| **Focus**                  | **Recursive dispatch** | **System evolution**    |
+| Code lifecycle             | Ephemeral          | Stored and evolved          |
+| Data passing               | REPL variables     | Disk reads                  |
+| User approvals             | None (sandboxed)   | Full harness                |
 | Progressive stabilization  | Not a goal         | Core design driver          |
 
-**RLMs ask "what can we solve?" llm-do asks "how does this system mature?"**
+**RLMs formalized recursive dispatch. llm-do adds the machinery for systems that mature over time.**
 
 ---
 
@@ -202,23 +147,76 @@ This is an **engineering choice**, not a research choice. It enables:
 - Refactoring without breaking callers
 - Progressive stabilization as patterns emerge
 - Experimentation: swap implementations freely
-- The standard engineering lifecycle applied to hybrid systems
 
 <!-- Pause. Let this land. This is the core design thesis. -->
 
 ---
 
-## Let's See It Work — Data Report Generator
+## llm-do in Practice — The Manifest
 
-**The caller** (`main.agent`) — identical in both versions:
-```
-1. Use list_files("input", "*.csv") to find all CSV files.
-2. For each CSV file:
-   - Call analyze_dataset(path=<csv_path>)
-   - Write the returned report to reports/<name>.md
+**The manifest** (`project.json`):
+```json
+{
+  "runtime": { "approval_mode": "approve_all", "max_depth": 5 },
+  "entry": { "agent": "main" },
+  "agent_files": ["main.agent"],
+  "python_files": ["tools.py"]
+}
 ```
 
-The caller never changes. Only the implementation of `analyze_dataset` evolves.
+The manifest declares what files make up the project, which agent to start with, and runtime config (approval mode, max recursion depth).
+
+---
+
+## llm-do in Practice — The Agent
+
+**The agent** (`main.agent`):
+```yaml
+---
+name: main
+toolsets:
+  - data_tools
+---
+You are a data processor.
+Use tools for all data formatting and statistics.
+```
+
+An agent is a prompt with toolset declarations. Toolsets are loaded by name — they can be LLM agents or code tools.
+
+---
+
+## llm-do in Practice — Tools
+
+**Tools** (`tools.py`):
+```python
+@data_tools.tool
+def calculate_stats(numbers: str) -> str:
+    """Calculate basic statistics."""
+    nums = [float(x) for x in numbers.split(",")]
+    return f"count={len(nums)}, avg={sum(nums)/len(nums):.2f}"
+
+@data_tools.tool
+def send_notification(message: str, channel: str = "default") -> str:
+    """Send a notification message."""
+    return f"Notification sent to {channel}: {message}"
+```
+
+Every tool call goes through the approval harness. The manifest's `approval_mode` controls whether the operator is prompted.
+
+---
+
+## Data Report Generator — Setup
+
+Two agents working together:
+
+- **`main`** — the orchestrator: finds CSV files, calls the analyzer, writes reports
+- **`analyze_dataset`** — does the analysis: reads data, computes stats, writes narrative
+
+We'll show two versions:
+1. **Prototype**: `analyze_dataset` is all-LLM — one prompt does everything
+2. **Stabilized**: `analyze_dataset` becomes hybrid — code handles mechanical parts, LLM handles interpretation
+
+**The key**: `main` never changes between versions. Same call, same interface.
 
 ---
 
@@ -244,6 +242,18 @@ You are a data analyst. You will receive a path to a CSV file.
 
 ---
 
+## Version 1 — Prototype Running
+
+![w:1100](screenshot-prototype-tool-call.png)
+
+---
+
+## The Approval Harness
+
+![w:1100](screenshot-approval.png)
+
+---
+
 ## Version 2 — Hybrid (Stabilized)
 
 `examples/data_report_stabilized/tools.py`:
@@ -265,24 +275,15 @@ Code handles what's mechanical. LLM handles what needs interpretation.
 
 ---
 
-## Why This Works — Distribution Boundaries
+## Version 2 — Stabilized Running
 
-LLM components sample from distributions.
-Code components are point masses (deterministic).
+![w:1100](screenshot-stabilized-tool-call.png)
 
-```
-Stochastic  →  Deterministic  →  Stochastic
-   (LLM)          (tool)           (LLM)
-distribution    point mass      distribution
-     ↓              ↓               ↓
- [variance]    [checkpoint]     [variance]
-```
+---
 
-**Boundaries are natural intervention points**:
-- Approvals (gate the call)
-- Logging (observe what flows through)
-- Testing (mock the implementation)
-- **Refactoring** (move logic across)
+## Version 2 — Result
+
+![w:1100](screenshot-stabilized-tool-result.png)
 
 ---
 
@@ -304,7 +305,7 @@ Stochastic ─────────────────────► De
 
 **Soften** when: edge cases multiply, requirements are fuzzy, you need to extend quickly
 
-**The system breathes.** Logic moves in both directions as requirements evolve.
+**The system breathes.** This is what "fluid movement" means — and the unified interface makes it cheap.
 
 ---
 
@@ -323,47 +324,6 @@ Stochastic ─────────────────────► De
 
 ---
 
-## The Harness Pattern
-
-Tool calls are intercepted like syscalls:
-
-```
-Agent/Code ──→ Harness ──→ Tool execution
-                  │
-           (approval check)
-           (logging)
-           (validation)
-```
-
-- **Approvals** block until permission granted
-- **Observability** via message history, usage tracking
-- **Your code owns control flow** (or LLM does — your choice)
-
----
-
-## The Recipe
-
-1. **Unify the calling convention** — LLM and code share the same interface
-2. **Enable recursive dispatch** — neural and symbolic can call each other at any depth
-3. **Stabilize progressively** — start stochastic, extract determinism as patterns emerge
-4. **Keep the boundary visible** — that's where you refactor, test, and intervene
-
----
-
-## What Makes This Different
-
-**Not**:
-- "How to prompt better"
-- "Another agent framework"
-- "Graphs are the answer"
-
-**Instead**:
-- An engineering approach to hybrid systems — optimizing for **evolution**, not just power
-- Architecture derived from two independent motivations (power and evolvability)
-- Practical implementation that makes progressive stabilization cheap
-
----
-
 ## The Tradeoffs (Honest)
 
 **Good fit**: prototyping with progressive stabilization, Python control flow, refactoring between LLM and code
@@ -378,9 +338,7 @@ Agent/Code ──→ Harness ──→ Tool execution
 
 ## One Slide Summary
 
-> "Two roads — power and evolvability — both need recursive dispatch. RLMs optimize for power. llm-do optimizes for evolution, making the engineering lifecycle work for hybrid systems."
-
-> "Start stochastic for flexibility. Stabilize as patterns emerge. The unified interface makes this movement cheap."
+> "LLMs are probabilistic computers. Real systems need both LLM and code, recursively interleaved. llm-do provides one interface — making the boundary invisible, so logic flows freely between LLM and code as systems evolve."
 
 ---
 
@@ -428,3 +386,21 @@ Three orchestration styles:
 | Refactoring    | Redraw the graph        | Change code            |
 | Mental model   | Dataflow                | Function calls         |
 | State          | Global context          | Local scope            |
+
+---
+
+## Backup: The Harness Pattern
+
+Tool calls are intercepted like syscalls:
+
+```
+Agent/Code ──→ Harness ──→ Tool execution
+                  │
+           (approval check)
+           (logging)
+           (validation)
+```
+
+- **Approvals** block until permission granted
+- **Observability** via message history, usage tracking
+- **Your code owns control flow** (or LLM does — your choice)

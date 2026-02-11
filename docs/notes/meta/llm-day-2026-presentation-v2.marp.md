@@ -84,6 +84,18 @@ LLM decides what to analyze          (judgment)
 
 ---
 
+## Why Not a DSL?
+
+Graph DSLs (LangGraph, etc.) start simple — nodes, edges, conditions. But arbitrary interleaving means you need:
+
+- Loops, branching, error handling, recursion, dynamic dispatch...
+
+Case by case, the DSL grows into a new programming language — without the tooling, debugging, or ecosystem of a real one.
+
+**Better to start from the host language.** Python already has all of this. Use it directly.
+
+---
+
 ## RLMs — The REPL
 
 **Recursive Language Models** (Prime Intellect, Oct 2025) formalize this with an elegant approach: give the LLM a Python REPL.
@@ -162,7 +174,18 @@ The same system can also be built entirely in Python code — but we haven't opt
 
 ---
 
-## llm-do in Practice — The Manifest
+## llm-do in Practice — A Data Reports Generator
+
+The example: a system that analyzes CSV datasets and produces narrative reports.
+
+- **Input**: a directory of CSV files (e.g. monthly website metrics)
+- **Output**: markdown reports with statistics, trends, and interpretation
+
+We'll build it twice — first as a pure LLM prototype, then stabilize the mechanical parts to code — and show that **the calling code doesn't change**.
+
+---
+
+## The Manifest
 
 **Prototype manifest** (`examples/data_report/project.json`):
 ```json
@@ -180,12 +203,19 @@ The same system can also be built entirely in Python code — but we haven't opt
 }
 ```
 
-In `examples/data_report_stabilized/project.json`, the flow is the same, but files switch to
-`write_narrative.agent` and `tools.py`.
+The stabilized version has the same structure, but `analyze_dataset.agent` is replaced by `tools.py` and `write_narrative.agent`.
 
 ---
 
-## llm-do in Practice — The Agent
+## The Toolsets
+
+`filesystem_project` is a built-in toolset: `list_files`, `read_file`, `write_file` — scoped to the project directory. Built-in toolsets don't need to be declared in the manifest.
+
+`analyze_dataset` is another toolset — in V1 it's an LLM agent, in V2 it becomes code. **The caller doesn't know which.**
+
+---
+
+## The Orchestrator
 
 **Prototype orchestrator** (`examples/data_report/main.agent`):
 ```yaml
@@ -204,32 +234,11 @@ You generate analysis reports for CSV datasets.
    and write it to `reports/<name>.md` using `write_file()`.
 ```
 
-An agent is a prompt with toolset declarations. Toolsets are loaded by name — they can be LLM agents or code tools.
+If you know Claude Code Skills — this is the same idea: YAML frontmatter + prompt. The difference is `toolsets` — and a toolset can be an LLM agent or code tools.
 
 ---
 
-## Data Report Generator — Setup
-
-Two versions of the same workflow:
-
-- **Prototype (`examples/data_report`)**:
-  - `main` (agent orchestrator)
-  - `analyze_dataset` (LLM agent)
-- **Stabilized (`examples/data_report_stabilized`)**:
-  - `main` (agent orchestrator)
-  - `analyze_dataset` (Python tool in `report_tools`)
-  - `write_narrative` (LLM agent)
-
-We'll show two versions:
-1. **Prototype**: `analyze_dataset` is all-LLM — one prompt does everything
-2. **Stabilized**: `analyze_dataset` becomes hybrid — code handles mechanical parts, LLM handles interpretation
-
-**The key**: the workflow call stays `analyze_dataset(path=<csv_path>)`.
-The implementation moves from LLM agent to Python tool + sub-agent.
-
----
-
-## Version 1 — All LLM (Prototype)
+## The Analyzer — Version 1 (All LLM)
 
 `examples/data_report/analyze_dataset.agent`:
 ```yaml
@@ -249,18 +258,6 @@ You are a data analyst. You will receive a path to a CSV file.
 4. Write a narrative markdown report with statistics, interpretation,
    and recommendations.
 ```
-
----
-
-## Version 1 — The Problem
-
-**What the LLM is doing**:
-- Reading and parsing CSV *(mechanical)*
-- Computing statistics *(mechanical)*
-- Identifying trends *(reasoning)*
-- Writing narrative *(reasoning)*
-
-**Problem**: LLM computes averages — expensive, sometimes wrong. This is calculator work.
 
 ---
 
@@ -291,6 +288,18 @@ The all-LLM result: a long narrative with statistics, trends, and recommendation
 <!--
 The approval dialog for write_file. The agent wants to write the report to disk — a side effect. The harness intercepts the call and shows the full content for review. Options: Approve, Approve for session, Deny, Quit. This is the trust boundary — every side-effectful tool call goes through it.
 -->
+
+---
+
+## Version 1 — Room to Improve
+
+**What the LLM is doing**:
+- Reading and parsing CSV *(mechanical)*
+- Computing statistics *(mechanical)*
+- Identifying trends *(reasoning)*
+- Writing narrative *(reasoning)*
+
+Two of these are calculator work — deterministic, cheaper, and more reliable as code.
 
 ---
 
@@ -345,8 +354,8 @@ The stabilized result. The narrative is focused on interpretation because the me
          (add flexibility back)
 
 Stochastic ─────────────────────► Deterministic
-(flexible,                         (testable,
- handles ambiguity)                 fast, cheap)
+(flexible,                         (testable, fast,
+ handles ambiguity)                 cheap, auditable)
 
          ─────── STABILIZE ──────►
          (extract patterns to code)
@@ -360,28 +369,17 @@ Stochastic ─────────────────────► De
 
 ---
 
-## What Changes When You Stabilize
+**Every piece you stabilize becomes** testable, faster, cheaper, auditable, and pre-approvable.
 
-| Aspect           | LLM (stochastic)                 | Extracted to code              |
-|------------------|-----------------------------------|---------------------------------|
-| **Testing**      | Sample N times, check invariants  | Assert equality                |
-| **Performance**  | API call + token generation       | No API call                    |
-| **Cost**         | Tokens per call                   | No token cost                  |
-| **Auditability** | Opaque reasoning                  | Full trace                     |
-| **Approvals**    | May need human review             | Can be pre-approved by policy  |
-
-**Every piece you stabilize becomes traditionally testable.**
 **Progressive stabilization = progressive confidence.**
 
 ---
 
-## The Tradeoffs (Honest)
+## Current Status
 
-**Good fit**: prototyping with progressive stabilization, Python control flow, refactoring between LLM and code
+Research-grade. The concepts are ahead of the implementation.
 
-**Poor fit**: durable workflows with checkpointing, distributed orchestration, graph-based visualization
-
-**Current status**: Research-grade. The concepts are more mature than the implementation.
+But not vaporware — the repo includes 20+ working examples beyond what we showed today. The strongest part: **progressive stabilization and softening** — the unified calling convention that makes refactoring between LLM and code cheap.
 
 ---
 
@@ -410,15 +408,6 @@ Stochastic ─────────────────────► De
 
 ---
 
-## Backup: File Organizer Example
-
-Alternative demo showing semantic/mechanical separation:
-
-- LLM decides what files should be called *(semantic)*
-- Python sanitizes filenames *(mechanical)*
-
----
-
 ## Backup: The Entry Point Patterns
 
 Three orchestration styles:
@@ -426,17 +415,6 @@ Three orchestration styles:
 1. **Agent entry** — LLM orchestrates
 2. **Code entry** — Python orchestrates
 3. **Orchestrating tool** — encapsulated workflow
-
----
-
-## Backup: Comparison to LangGraph
-
-| Aspect         | Graph DSLs              | llm-do                 |
-|----------------|-------------------------|------------------------|
-| Control flow   | Declarative (nodes/edges) | Imperative (Python)  |
-| Refactoring    | Redraw the graph        | Change code            |
-| Mental model   | Dataflow                | Function calls         |
-| State          | Global context          | Local scope            |
 
 ---
 

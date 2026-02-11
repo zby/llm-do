@@ -1,7 +1,6 @@
 {
   "version": 1,
   "runtime": {
-    "approval_mode": "approve_all",
     "max_depth": 3
   },
   "entry": {

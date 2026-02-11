@@ -34,7 +34,7 @@
 ## Cross-Module Themes
 - Duplicated validation wrappers (tool/toolset return-type checks, approval-mode branching).
 - Overwide interfaces with pass-through properties and long argument lists.
-- Compatibility shims that can be retired (`toolsets/loader.py`, thin proxy modules).
+- Compatibility shims retired (`toolsets/loader.py` and thin proxy modules).
 
 ## Scope Gaps / Stale Items
 - Runbook mapping now uses `simplify-project-*.md` and `simplify-runtime-tooling.md`; these notes were created in this run to align output paths.

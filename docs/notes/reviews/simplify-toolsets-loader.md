@@ -13,3 +13,7 @@ Review of toolset spec resolution/instantiation helpers.
 ## 2026-02-09 Review
 - This module is now pure compatibility re-export. If no external callers depend on `llm_do.toolsets.loader`, removing it and updating imports would reduce indirection.
 - If compatibility is still needed, mark this file as backcompat-only and keep the surface minimal.
+
+## 2026-02-11 Cleanup
+- `llm_do/toolsets/loader.py` has been removed.
+- Runtime and project modules now import tool/toolset types and resolvers directly.

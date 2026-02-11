@@ -9,7 +9,6 @@ FORBIDDEN_PREFIXES = (
     "llm_do.project",
     "llm_do.cli",
     "llm_do.ui",
-    "llm_do.toolsets.loader",
     "llm_do.toolsets.builtins",
     "llm_do.toolsets.agent",
 )

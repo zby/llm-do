@@ -45,7 +45,7 @@ Run date: 2026-01-29. Reviewed dataclasses, protocols, Pydantic models, TypeAlia
 - Pydantic model: AgentArgs
 - TypeAliases (implicit): PromptContent, PromptMessages
 
-### llm_do/toolsets/loader.py
+### llm_do/runtime/tooling.py
 - TypeAliases: ToolDef, ToolsetDef
 
 ### llm_do/toolsets/agent.py
@@ -105,6 +105,7 @@ Run date: 2026-01-29. Reviewed dataclasses, protocols, Pydantic models, TypeAlia
 - Approval override shapes are duplicated: AgentApprovalOverride (Pydantic) vs AgentApprovalConfig (dataclass), with normalization glue to bridge them.
 - Naming collisions remain: runtime.events.UserMessageEvent vs ui.events.UserMessageEvent; also ApprovalCallback is defined locally while pydantic_ai_blocking_approval exports a similarly named type.
 - The toolset wrapper has been removed; toolsets now use ToolsetDef (callables or instances) via TOOLSETS registry.
+- `llm_do/toolsets/loader.py` has been removed; `runtime/tooling.py` is the canonical tool/toolset type surface.
 
 ## Simplification Recommendations
 

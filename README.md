@@ -38,7 +38,11 @@ uv pip install -e .  # or: pip install -e .
 export ANTHROPIC_API_KEY="sk-ant-..."  # or OPENAI_API_KEY
 
 # Set the default model (recommended approach—see Model Configuration)
+
+# export LLM_DO_MODEL=gpt-5-nano
+
 export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
+
 
 # Run a project via manifest
 llm-do examples/greeter/project.json "Tell me a joke"
@@ -122,7 +126,10 @@ This progression reflects **moving computation within the VM**: initially you mi
 **Recommended approach**: Set the `LLM_DO_MODEL` environment variable as your project-wide default:
 
 ```bash
+# export LLM_DO_MODEL=gpt-5-nano
+
 export LLM_DO_MODEL="anthropic:claude-haiku-4-5"
+
 ```
 
 This keeps model configuration external to your agent definitions, making it easy to switch models across your entire project or between environments (dev/prod).
@@ -142,7 +149,7 @@ You analyze complex documents...
 2. `LLM_DO_MODEL` environment variable (recommended default)
 3. Error if neither is set
 
-**Model format**: Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/)—`provider:model_name` (e.g., `anthropic:claude-haiku-4-5`, `openai:gpt-4o-mini`).
+**Model format**: Model names follow [PydanticAI conventions](https://ai.pydantic.dev/models/)—`provider:model_name` (e.g., `anthropic:claude-haiku-4-5`, `openai:gpt-5-nano`).
 When constructing `AgentSpec` in Python, pass a resolved `Model` instance (use
 `resolve_model("provider:model")`).
 

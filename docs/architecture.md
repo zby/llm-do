@@ -6,7 +6,12 @@ Internal architecture of llm-do. For theoretical foundation, see [theory.md](the
 
 ## Agents
 
-An **agent** is an executable prompt artifact: a `.agent` file that defines how to run an LLM-backed task. These files are loaded into `AgentSpec` objects and executed as PydanticAI agents.
+Agents are [PydanticAI agents](https://ai.pydantic.dev/agents/). llm-do adds a declarative layer on top:
+
+- **`.agent` files**: YAML frontmatter (name, model, toolsets, `input_model_ref`) + markdown instructions, parsed into `AgentSpec` objects at link time.
+- **Agent-as-tool**: Agents listed in another agent's `toolsets` are wrapped via `AgentToolset` and appear as callable tools—the calling LLM doesn't know whether a tool is backed by code or another agent.
+- **Typed input**: `input_model_ref: schemas.py:PitchInput` resolves a file-path reference to an `AgentArgs` subclass (must implement `prompt_messages()`).
+- **Toolset declaration by name**: Each agent declares its own toolsets; they're not inherited. Names resolve to registry entries at link time.
 
 ```yaml
 ---
@@ -21,19 +26,16 @@ toolsets:
 Instructions for the agent...
 ```
 
-Agents can call other agents as tools, forming a call tree. Each agent declares its own toolsets - they're not inherited.
-Agents can also declare a typed input model via `input_model_ref`; models must subclass `AgentArgs` and implement `prompt_messages()`. Input is provided as a dict (validated into the input model) or as an `AgentArgs` instance.
-
 ---
 
-## Entry Functions
+## Entries
 
-An **entry function** is the root of execution—a Python function that orchestrates agents. Entry functions:
+An **entry** is the root of execution, declared in the project manifest. Two forms:
 
-- Receive input and a `CallContext` for dispatching agent calls
-- Can only call agents via `call_agent()`—they cannot use tools directly
-- Run under `NullModel` with no toolsets (pure orchestration)
-- Are trusted code: no approval needed for the entry itself, but called agents' tool use still flows through approval
+- **`entry.agent`**: selects an agent by name (runs as an `AgentEntry`)
+- **`entry.function`**: selects a Python function (wrapped as a `FunctionEntry`)
+
+Both run under `NullModel` with no toolsets—they can only call agents via `call_agent()`, not use tools directly. Entries are trusted code: no approval needed for the entry itself, but called agents' tool use still flows through approval.
 
 ```
 Entry main(input, ctx)
@@ -44,10 +46,6 @@ Entry main(input, ctx)
     │
     └── return final_result
 ```
-
-Entry can be defined as:
-- An agent selected by manifest `entry.agent` (runs as an AgentEntry)
-- A Python function selected by manifest `entry.function` (wrapped as a FunctionEntry)
 
 ---
 
@@ -61,7 +59,7 @@ Both agents and tools are registered by name into a shared namespace:
 
 ```python
 # Agents registered by name (from YAML specs or Python)
-runtime.register_agent("sentiment_analyzer", agent_spec)
+runtime.register_agents({"sentiment_analyzer": agent_spec})
 
 # Tools registered by name (via toolsets)
 @tools.tool
@@ -149,7 +147,7 @@ This separation means:
 - **Shared globally**: Usage tracking, event callbacks, agent registry, approval mode
 - **Per-call, no inheritance**: Message history, active toolsets, nesting depth
 
-Note: `AgentSpec.tools` and `AgentSpec.toolsets` are the *declared* tool and toolset definitions resolved from the registry. Think of these names as run-scoped capabilities: a stable registry of what an agent is allowed to use. `CallFrame.config.active_toolsets` are the per-call instances created from those toolset definitions at execution time. This makes toolset identity global but toolset state local to the call (see [Trust Boundary](#trust-boundary)).
+Note: `AgentSpec.tools` and `AgentSpec.toolsets` are the *declared* tool and toolset definitions resolved from the registry. Think of these names as run-scoped capabilities: a stable registry of what an agent is allowed to use. `CallFrame.config.active_toolsets` are the per-call instances created from those toolset definitions at execution time. This makes toolset identity global but toolset state local to the call (see [Tool Approval](#tool-approval)).
 
 Implementation layout mirrors the scopes:
 - `llm_do/runtime/runtime.py`: `Runtime`, `RuntimeConfig`, usage/message sinks

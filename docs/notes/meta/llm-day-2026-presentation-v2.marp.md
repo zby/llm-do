@@ -31,7 +31,7 @@ style: |
 
 # One Interface: Fluid Movement Between LLM and Code
 
-**Zbigniew Lukasiak**
+**Zbigniew Łukasiak**
 LLM Day 2026, Warsaw
 
 ---
@@ -116,7 +116,7 @@ User describes intent → LLM performs it → Save as named capability
 → Observe patterns → Encode stable parts as code → Hybrid capability
 ```
 
-**The priority**: enabling the system to **evolve**. This is **llm-do**.
+**The priority**: enabling the system to **evolve**. Evolution means refactoring must be cheap. This is **llm-do**.
 
 ---
 
@@ -132,105 +132,127 @@ Same structural need — recursive dispatch. Different design choices.
 | User approvals             | None (sandboxed)   | Full harness                |
 | Progressive stabilization  | Not a goal         | Core design driver          |
 
-**RLMs formalized recursive dispatch. llm-do adds the machinery for systems that mature over time.**
+**RLMs are elegantly simple. llm-do trades that simplicity for evolvability and practical completeness.**
 
 ---
 
-## llm-do's Design Choice
+## llm-do's Design Choices
 
-> "Whether a capability is neural (LLM) or symbolic (code) should be invisible at the call site."
+Three engineering choices that add complexity:
 
-This follows directly from the evolution priority. If your system is going to change over time — logic moving from LLM to code and back — the boundary must be cheap to cross.
+1. **Unified calling convention** — LLM or code is invisible at the call site. Follows from evolvability: refactoring across the boundary changes nothing for callers.
 
-This is an **engineering choice**, not a research choice. It enables:
+2. **Stateful tools** — database connections, file handles, full lifecycle. Makes reentrancy hard, but covers real-world cases.
 
-- Refactoring without breaking callers
-- Progressive stabilization as patterns emerge
-- Experimentation: swap implementations freely
+3. **Approval harness** — every tool call can be gated. Agents do real work (file writes, API calls), so you need consent.
 
-<!-- Pause. Let this land. This is the core design thesis. -->
+Each makes the architecture harder. Each is necessary for a practical system — not a toy.
+
+---
+
+## llm-do Projects
+
+A **project** is the analog of a program. Its elements:
+
+- **Agents** (`.agent` files) — prompts with toolset declarations. Analog of functions.
+- **Tools** (`.py` files) — Python code, also organized into toolsets.
+- **Manifest** (`project.json`) — declares the elements, entry point, runtime config.
+
+The same system can also be built entirely in Python code — but we haven't optimized that path yet. The declarative form makes it easier to inspect what the system can do.
 
 ---
 
 ## llm-do in Practice — The Manifest
 
-**The manifest** (`project.json`):
+**Prototype manifest** (`examples/data_report/project.json`):
 ```json
 {
-  "runtime": { "approval_mode": "approve_all", "max_depth": 5 },
-  "entry": { "agent": "main" },
-  "agent_files": ["main.agent"],
-  "python_files": ["tools.py"]
+  "version": 1,
+  "runtime": { "max_depth": 3 },
+  "entry": {
+    "agent": "main",
+    "args": {
+      "input": "Analyze all CSV datasets in the input directory"
+    }
+  },
+  "agent_files": ["main.agent", "analyze_dataset.agent"],
+  "python_files": ["schemas.py"]
 }
 ```
 
-The manifest declares what files make up the project, which agent to start with, and runtime config (approval mode, max recursion depth).
+In `examples/data_report_stabilized/project.json`, the flow is the same, but files switch to
+`write_narrative.agent` and `tools.py`.
 
 ---
 
 ## llm-do in Practice — The Agent
 
-**The agent** (`main.agent`):
+**Prototype orchestrator** (`examples/data_report/main.agent`):
 ```yaml
 ---
 name: main
+description: Generate analysis reports for all CSV datasets.
 toolsets:
-  - data_tools
+  - analyze_dataset
+  - filesystem_project
 ---
-You are a data processor.
-Use tools for all data formatting and statistics.
+
+You generate analysis reports for CSV datasets.
+
+1. Use `list_files("input", "*.csv")` to find all CSV files.
+2. For each CSV file, call `analyze_dataset(path=<csv_path>)` to get the report
+   and write it to `reports/<name>.md` using `write_file()`.
 ```
 
 An agent is a prompt with toolset declarations. Toolsets are loaded by name — they can be LLM agents or code tools.
 
 ---
 
-## llm-do in Practice — Tools
-
-**Tools** (`tools.py`):
-```python
-@data_tools.tool
-def calculate_stats(numbers: str) -> str:
-    """Calculate basic statistics."""
-    nums = [float(x) for x in numbers.split(",")]
-    return f"count={len(nums)}, avg={sum(nums)/len(nums):.2f}"
-
-@data_tools.tool
-def send_notification(message: str, channel: str = "default") -> str:
-    """Send a notification message."""
-    return f"Notification sent to {channel}: {message}"
-```
-
-Every tool call goes through the approval harness. The manifest's `approval_mode` controls whether the operator is prompted.
-
----
-
 ## Data Report Generator — Setup
 
-Two agents working together:
+Two versions of the same workflow:
 
-- **`main`** — the orchestrator: finds CSV files, calls the analyzer, writes reports
-- **`analyze_dataset`** — does the analysis: reads data, computes stats, writes narrative
+- **Prototype (`examples/data_report`)**:
+  - `main` (agent orchestrator)
+  - `analyze_dataset` (LLM agent)
+- **Stabilized (`examples/data_report_stabilized`)**:
+  - `main` (agent orchestrator)
+  - `analyze_dataset` (Python tool in `report_tools`)
+  - `write_narrative` (LLM agent)
 
 We'll show two versions:
 1. **Prototype**: `analyze_dataset` is all-LLM — one prompt does everything
 2. **Stabilized**: `analyze_dataset` becomes hybrid — code handles mechanical parts, LLM handles interpretation
 
-**The key**: `main` never changes between versions. Same call, same interface.
+**The key**: the workflow call stays `analyze_dataset(path=<csv_path>)`.
+The implementation moves from LLM agent to Python tool + sub-agent.
 
 ---
 
 ## Version 1 — All LLM (Prototype)
 
 `examples/data_report/analyze_dataset.agent`:
-```
+```yaml
+---
+name: analyze_dataset
+description: Analyze a CSV dataset and produce a narrative report.
+input_model_ref: schemas.py:DatasetInput
+toolsets:
+  - filesystem_project
+---
+
 You are a data analyst. You will receive a path to a CSV file.
-1. Read the CSV file using read_file(path).
-2. Compute summary statistics (mean, median, min, max).
-3. Identify notable trends.
-4. Write a narrative report with statistics, interpretation,
+
+1. Read the CSV file using `read_file(path)`.
+2. Compute summary statistics (mean, median, min, max) for numeric columns.
+3. Identify notable trends and outliers.
+4. Write a narrative markdown report with statistics, interpretation,
    and recommendations.
 ```
+
+---
+
+## Version 1 — The Problem
 
 **What the LLM is doing**:
 - Reading and parsing CSV *(mechanical)*
@@ -246,11 +268,29 @@ You are a data analyst. You will receive a path to a CSV file.
 
 ![w:1100](screenshot-prototype-tool-call.png)
 
+<!--
+Prototype execution trace. The main agent (depth 1) calls list_files to find CSVs, then calls analyze_dataset. Since analyze_dataset is an LLM agent, it runs at depth 2 and calls read_file itself to read the raw CSV data. The LLM is doing everything — parsing, statistics, interpretation.
+-->
+
+---
+
+## Version 1 — Prototype Result
+
+![w:1100](screenshot-prototype-result.png)
+
+<!--
+The all-LLM result: a long narrative with statistics, trends, and recommendations. The LLM computed all the numbers itself — expensive and potentially inaccurate. This is the motivation for stabilization.
+-->
+
 ---
 
 ## The Approval Harness
 
 ![w:1100](screenshot-approval.png)
+
+<!--
+The approval dialog for write_file. The agent wants to write the report to disk — a side effect. The harness intercepts the call and shows the full content for review. Options: Approve, Approve for session, Deny, Quit. This is the trust boundary — every side-effectful tool call goes through it.
+-->
 
 ---
 
@@ -258,16 +298,19 @@ You are a data analyst. You will receive a path to a CSV file.
 
 `examples/data_report_stabilized/tools.py`:
 ```python
+@tools.tool
 async def analyze_dataset(ctx, path: str) -> str:
-    rows = list(csv.DictReader(open(path)))      # Code (mechanical)
-    stats = compute_summary(rows)                # Code (mechanical)
-    trends = detect_trends(rows)                 # Code (mechanical)
+    full_path = PROJECT_ROOT / path
+    rows = list(csv.DictReader(open(full_path)))  # Code (mechanical)
+    stats = _compute_summary(rows)                 # Code (mechanical)
+    trends = _detect_trends(rows)                  # Code (mechanical)
 
-    narrative = await ctx.deps.call_agent(       # LLM (reasoning)
+    runtime = ctx.deps                             # LLM (reasoning)
+    narrative = await runtime.call_agent(
         "write_narrative",
-        {"input": f"Stats: {stats}\nTrends: {trends}"}
+        {"input": f"Stats: {stats}\nTrends: {trends}"},
     )
-    return format_report(stats, narrative)       # Code (mechanical)
+    return narrative
 ```
 
 **Same call. Same name. Same arguments.** The caller never knew it changed.
@@ -279,11 +322,19 @@ Code handles what's mechanical. LLM handles what needs interpretation.
 
 ![w:1100](screenshot-stabilized-tool-call.png)
 
+<!--
+Stabilized execution trace. The main agent calls list_files and then analyze_dataset — same as before. But now analyze_dataset is a Python tool, not an LLM agent. Notice there's NO read_file call at depth 2 — the code reads the CSV directly. The only LLM call inside is write_narrative for interpretation.
+-->
+
 ---
 
 ## Version 2 — Result
 
 ![w:1100](screenshot-stabilized-tool-result.png)
+
+<!--
+The stabilized result. The narrative is focused on interpretation because the mechanical work (parsing, statistics, trends) was done by code. Compare with the prototype result — same quality narrative, but statistics are computed deterministically.
+-->
 
 ---
 
@@ -311,13 +362,13 @@ Stochastic ─────────────────────► De
 
 ## What Changes When You Stabilize
 
-| Aspect           | Stochastic (LLM)            | Stabilized (Code)     |
-|------------------|-----------------------------|-----------------------|
-| **Testing**      | Sample N times, check invariants | Assert equality  |
-| **Performance**  | API calls, seconds          | Microseconds          |
-| **Cost**         | Tokens per call             | Zero marginal cost    |
-| **Auditability** | Opaque reasoning            | Full trace            |
-| **Approvals**    | May need human review       | Trusted (your code)   |
+| Aspect           | LLM (stochastic)                 | Extracted to code              |
+|------------------|-----------------------------------|---------------------------------|
+| **Testing**      | Sample N times, check invariants  | Assert equality                |
+| **Performance**  | API call + token generation       | No API call                    |
+| **Cost**         | Tokens per call                   | No token cost                  |
+| **Auditability** | Opaque reasoning                  | Full trace                     |
+| **Approvals**    | May need human review             | Can be pre-approved by policy  |
 
 **Every piece you stabilize becomes traditionally testable.**
 **Progressive stabilization = progressive confidence.**
@@ -338,7 +389,7 @@ Stochastic ─────────────────────► De
 
 ## One Slide Summary
 
-> "LLMs are probabilistic computers. Real systems need both LLM and code, recursively interleaved. llm-do provides one interface — making the boundary invisible, so logic flows freely between LLM and code as systems evolve."
+> "Real systems need both LLM and code, recursively interleaved. llm-do provides one interface — making the boundary invisible — with the engineering needed for a practical, evolving system: stateful tools, approvals, and progressive stabilization."
 
 ---
 
@@ -404,3 +455,13 @@ Agent/Code ──→ Harness ──→ Tool execution
 - **Approvals** block until permission granted
 - **Observability** via message history, usage tracking
 - **Your code owns control flow** (or LLM does — your choice)
+
+---
+
+## Backup: Approvals — Work in Progress
+
+**Already working**: tools declare fine-grained approval requirements, agents declare which toolsets they use, every call goes through the harness. This is already far beyond RLMs, which have no approval model at all.
+
+**Current limitation**: the reconciliation is coarse — the manifest sets one global `approval_mode`. Agent permissions and tool requirements aren't yet matched at a granular level.
+
+**Next step**: a **capabilities-based** design — agents granted specific capabilities, tools requiring specific capabilities. An improvement, not a redesign.

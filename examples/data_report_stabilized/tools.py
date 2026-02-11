@@ -7,7 +7,6 @@ interpretation — the part that actually requires reasoning.
 """
 
 import csv
-import json
 from pathlib import Path
 from statistics import mean, median
 
@@ -73,15 +72,6 @@ def _detect_trends(rows: list[dict]) -> dict:
     return trends
 
 
-def _format_stats_table(stats: dict) -> str:
-    """Format statistics as a markdown table."""
-    lines = ["| Column | Mean | Median | Min | Max |",
-             "|--------|------|--------|-----|-----|"]
-    for col, s in stats.items():
-        lines.append(f"| {col} | {s['mean']} | {s['median']} | {s['min']} | {s['max']} |")
-    return "\n".join(lines)
-
-
 def build_report_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     """Build the report tools toolset."""
     tools = FunctionToolset()
@@ -93,36 +83,17 @@ def build_report_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
         Args:
             path: Path to the CSV file relative to the project root.
         """
-        # Code: read and parse CSV (mechanical)
         full_path = PROJECT_ROOT / path
-        with open(full_path) as f:
-            rows = list(csv.DictReader(f))
+        rows = list(csv.DictReader(open(full_path)))  # Code (mechanical)
+        stats = _compute_summary(rows)                 # Code (mechanical)
+        trends = _detect_trends(rows)                  # Code (mechanical)
 
-        # Code: compute statistics (mechanical)
-        stats = _compute_summary(rows)
-        trends = _detect_trends(rows)
-
-        # LLM: interpret findings and write narrative (reasoning)
-        runtime = ctx.deps
+        runtime = ctx.deps                             # LLM (reasoning)
         narrative = await runtime.call_agent(
             "write_narrative",
-            {
-                "input": (
-                    f"Dataset: {path} ({len(rows)} rows)\n"
-                    f"Columns: {', '.join(rows[0].keys())}\n\n"
-                    f"Statistics:\n{json.dumps(stats, indent=2)}\n\n"
-                    f"Trends:\n{json.dumps(trends, indent=2)}"
-                ),
-            },
+            {"input": f"Stats: {stats}\nTrends: {trends}"},
         )
-
-        # Code: assemble final report (mechanical)
-        return (
-            f"# Analysis: {Path(path).stem}\n\n"
-            f"## Statistics\n\n{_format_stats_table(stats)}\n\n"
-            f"## Trends\n\n{_format_trends_summary(trends)}\n\n"
-            f"## Narrative\n\n{narrative}"
-        )
+        return narrative
 
     set_toolset_approval_config(
         tools,
@@ -130,14 +101,6 @@ def build_report_tools(_ctx: RunContext[CallContext]) -> FunctionToolset:
     )
 
     return tools
-
-
-def _format_trends_summary(trends: dict) -> str:
-    """Format trends as a bullet list."""
-    lines = []
-    for col, t in trends.items():
-        lines.append(f"- **{col}**: {t['direction']} ({t['change_pct']:+.1f}%)")
-    return "\n".join(lines)
 
 
 TOOLSETS = {"report_tools": build_report_tools}

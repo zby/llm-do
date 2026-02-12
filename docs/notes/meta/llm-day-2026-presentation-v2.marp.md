@@ -148,6 +148,16 @@ Same structural need — recursive dispatch. Different design choices.
 
 ---
 
+## Why Not Ephemeral Code?
+
+Ephemeral code makes sense for **benchmarks** — each problem is independent, you solve it and discard. Nothing to reuse.
+
+But real software is **tools for a use case**: Word for writing, a browser for the web, a data pipeline for your data. Code accumulates value because the use case persists.
+
+LLMs move us toward a "universal tool" — but we're not there yet. For the foreseeable future, we still build programs that serve specific purposes. Those programs deserve a codebase.
+
+---
+
 ## llm-do's Design Choices
 
 Three engineering choices that add complexity:

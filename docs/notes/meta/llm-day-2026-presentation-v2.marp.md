@@ -171,12 +171,14 @@ Same structural need — recursive dispatch. Different design choices.
 
 ## The Key Differences — Why Not Ephemeral?
 
+Both systems can use LLM-generated code — llm-do decouples generation from execution, but code can still be LLM-authored. The difference isn't **who writes** the code, but whether it's **reused**:
+
 - **Benchmarks**: independent problems — nothing to reuse
 - **Real software**: tools for a use case — code accumulates value
 - **Universal tool?** Not yet — programs still serve specific purposes
 
 <!--
-Ephemeral code makes sense for benchmarks like OOLONG — each problem is independent, you solve it and discard. But real software is tools for a use case: Word for writing, a browser for the web, a data pipeline for your data. Code accumulates value because the use case persists. LLMs move us toward a "universal tool" — but we're not there yet. For the foreseeable future, we still build programs that serve specific purposes. Those programs deserve a codebase.
+Both systems can have LLM-generated code. In RLMs the LLM writes and immediately runs code in a REPL. In llm-do, code generation is decoupled from execution — but the code can still be LLM-authored (we have bootstrapping experiments for synchronous LLM code generation). So the authorship isn't the difference. The difference is reuse: ephemeral code makes sense for benchmarks like OOLONG — each problem is independent, you solve it and discard. But real software is tools for a use case: Word for writing, a browser for the web, a data pipeline for your data. Code accumulates value because the use case persists. LLMs move us toward a "universal tool" — but we're not there yet. For the foreseeable future, we still build programs that serve specific purposes. Those programs deserve a codebase.
 -->
 
 ---

@@ -38,6 +38,18 @@ LLM Day 2026, Warsaw
 
 ---
 
+## What is llm-do?
+
+A **hybrid VM** and **recursive LLM harness** — a framework for building systems that combine LLM and code.
+
+- Built on **PydanticAI**
+- One interface for both LLM and code
+- Designed for systems that **evolve** over time
+
+**github.com/zby/llm-do**
+
+---
+
 ## Prompts Are Like Code
 
 You instruct, the machine executes.

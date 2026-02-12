@@ -181,7 +181,7 @@ Visual pause: tree rings. Each ring is a year of growth — each stabilization i
 
 - **Unified calling convention** — LLM or code, invisible at the call site
 - Refactoring across the boundary changes nothing for callers
-- Stateful tools + approval harness add complexity — but the unified interface makes stabilization cheap
+- **Stateful tools + approval harness** — add complexity, but needed for real-world use
 
 <!--
 The key design choice is the unified calling convention: whether a capability is implemented as a prompt or as code must be invisible at the call site. This follows from evolvability — if logic migrates between prompt and code as patterns emerge, refactoring must be free. Stateful tools and the approval harness add further engineering complexity, but the unified interface is what makes progressive stabilization cheap.
@@ -396,7 +396,7 @@ Stochastic ─────────────────────► De
 
 ---
 
-**Every piece you stabilize becomes** testable, faster, cheaper, auditable, and pre-approvable.
+**Every piece you stabilize becomes** testable, faster, cheaper, and auditable.
 
 **Progressive stabilization = progressive confidence.**
 
@@ -414,7 +414,7 @@ But not vaporware — the repo includes 20+ working examples beyond what we show
 
 ## One Slide Summary
 
-> "Real systems need both LLM and code, recursively interleaved. llm-do provides one interface — making the boundary invisible — with the engineering needed for a practical, evolving system: stateful tools, approvals, and progressive stabilization."
+> "One interface for LLM and code. Callers can't tell LLM from code. The system evolves."
 
 ---
 

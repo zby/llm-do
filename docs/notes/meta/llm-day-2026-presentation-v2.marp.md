@@ -76,6 +76,18 @@ Some tasks are better as prompts, some as code:
 
 ---
 
+## Why Not a DSL (Domain-Specific Language)?
+
+Graph DSLs (LangGraph, etc.) start simple — nodes, edges, conditions. But arbitrary interleaving means you need:
+
+- Loops, branching, error handling, recursion, dynamic dispatch...
+
+Case by case, the DSL grows into a new programming language — without the tooling, debugging, or ecosystem of a real one.
+
+**Better to start from the host language.** Python already has all of this. Use it directly.
+
+---
+
 ## Why Recursive?
 
 The standard agent loop is flat — LLM and tools alternate, but tools are always leaves:
@@ -103,18 +115,6 @@ LLM decides what to analyze          (judgment)
 <!--
 Visual pause: fractal self-similarity. The same structure repeats at every scale — just like real task decomposition, where any subtask can itself require the full interleaving of judgment and mechanical work.
 -->
-
----
-
-## Why Not a DSL?
-
-Graph DSLs (LangGraph, etc.) start simple — nodes, edges, conditions. But arbitrary interleaving means you need:
-
-- Loops, branching, error handling, recursion, dynamic dispatch...
-
-Case by case, the DSL grows into a new programming language — without the tooling, debugging, or ecosystem of a real one.
-
-**Better to start from the host language.** Python already has all of this. Use it directly.
 
 ---
 

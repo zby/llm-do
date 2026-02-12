@@ -29,6 +29,8 @@ style: |
 
 <!-- _class: title -->
 
+![bg opacity:0.3](two-rivers.jpg)
+
 # One Interface: Fluid Movement Between LLM and Code
 
 **Zbigniew Łukasiak**
@@ -81,6 +83,14 @@ LLM decides what to analyze          (judgment)
 ```
 
 **One layer of "LLM calls tools" only reaches level 1. Full power requires arbitrary interleaving.**
+
+---
+
+![bg contain](fractal-mandelbrot.jpg)
+
+<!--
+Visual pause: fractal self-similarity. The same structure repeats at every scale — just like real task decomposition, where any subtask can itself require the full interleaving of judgment and mechanical work.
+-->
 
 ---
 
@@ -138,41 +148,48 @@ Same structural need — recursive dispatch. Different design choices.
 
 |                            | RLM               | llm-do                      |
 |----------------------------|--------------------|-----------------------------|
-| **Focus**                  | **Recursive dispatch** | **System evolution**    |
-| Code lifecycle             | Ephemeral          | Stored and evolved          |
-| Data passing               | REPL variables     | Disk reads                  |
-| User approvals             | None (sandboxed)   | Full harness                |
-| Progressive stabilization  | Not a goal         | Core design driver          |
+| **Focus**                  | Recursive dispatch | System evolution             |
+| Code lifecycle             | Ephemeral          | Stored and evolved           |
+| Data passing               | REPL variables     | Disk reads                   |
+| Side effects               | None (sandboxed)   | Approvals + stateful tools   |
 
 **RLMs are elegantly simple. llm-do trades that simplicity for evolvability and practical completeness.**
 
 ---
 
-## Why Not Ephemeral Code?
+## The Key Differences — Why Not Ephemeral?
 
-Ephemeral code makes sense for **benchmarks** — each problem is independent, you solve it and discard. Nothing to reuse.
+- **Benchmarks**: independent problems — nothing to reuse
+- **Real software**: tools for a use case — code accumulates value
+- **Universal tool?** Not yet — programs still serve specific purposes
 
-But real software is **tools for a use case**: Word for writing, a browser for the web, a data pipeline for your data. Code accumulates value because the use case persists.
-
-LLMs move us toward a "universal tool" — but we're not there yet. For the foreseeable future, we still build programs that serve specific purposes. Those programs deserve a codebase.
-
----
-
-## llm-do's Design Choices
-
-Three engineering choices that add complexity:
-
-1. **Unified calling convention** — LLM or code is invisible at the call site. Follows from evolvability: refactoring across the boundary changes nothing for callers.
-
-2. **Stateful tools** — database connections, file handles, full lifecycle. Makes reentrancy hard, but covers real-world cases.
-
-3. **Approval harness** — every tool call can be gated. Agents do real work (file writes, API calls), so you need consent.
-
-Each makes the architecture harder. Each is necessary for a practical system — not a toy.
+<!--
+Ephemeral code makes sense for benchmarks like OOLONG — each problem is independent, you solve it and discard. But real software is tools for a use case: Word for writing, a browser for the web, a data pipeline for your data. Code accumulates value because the use case persists. LLMs move us toward a "universal tool" — but we're not there yet. For the foreseeable future, we still build programs that serve specific purposes. Those programs deserve a codebase.
+-->
 
 ---
 
-## llm-do Projects
+![bg contain](tree-rings.jpg)
+
+<!--
+Visual pause: tree rings. Each ring is a year of growth — each stabilization is a layer of accumulated value. Code that persists, tested, reused, built upon.
+-->
+
+---
+
+## The Key Differences — The Core Design Choice
+
+- **Unified calling convention** — LLM or code, invisible at the call site
+- Refactoring across the boundary changes nothing for callers
+- Stateful tools + approval harness add complexity — but the unified interface makes stabilization cheap
+
+<!--
+The key design choice is the unified calling convention: whether a capability is implemented as a prompt or as code must be invisible at the call site. This follows from evolvability — if logic migrates between prompt and code as patterns emerge, refactoring must be free. Stateful tools and the approval harness add further engineering complexity, but the unified interface is what makes progressive stabilization cheap.
+-->
+
+---
+
+## llm-do Declarative Projects
 
 A **project** is the analog of a program. Its elements:
 
@@ -180,7 +197,7 @@ A **project** is the analog of a program. Its elements:
 - **Tools** (`.py` files) — Python code, also organized into toolsets.
 - **Manifest** (`project.json`) — declares the elements, entry point, runtime config.
 
-The same system can also be built entirely in Python code — but we haven't optimized that path yet. The declarative form makes it easier to inspect what the system can do.
+The same system can also be built entirely in Python code (still early stage). The declarative form makes it easier to inspect what the system can do.
 
 ---
 

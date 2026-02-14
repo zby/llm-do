@@ -81,14 +81,14 @@ def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], N
 
 
 
-def _load_init_modules(module_paths: list[str], manifest_dir: Path) -> None:
+def _load_init_modules(module_paths: list[str]) -> None:
     """Load Python modules for side effects (e.g., custom provider registration)."""
     # TEMPORARY: Escape hatch for provider injection during CLI runs;
     # replace with a first-class manifest/runtime mechanism.
     for module_path in module_paths:
         path = Path(module_path)
         if not path.is_absolute():
-            path = (manifest_dir / path).resolve()
+            path = path.resolve()
         if not path.exists():
             raise FileNotFoundError(f"Init module not found: {module_path} (resolved: {path})")
         load_module(path)
@@ -256,7 +256,7 @@ def main() -> int:
         return 1
 
     try:
-        _load_init_modules(args.init_python, manifest_dir)
+        _load_init_modules(args.init_python)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         if args.debug:

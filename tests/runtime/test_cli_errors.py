@@ -142,6 +142,30 @@ class TestCLIManifestErrors:
             with pytest.raises(RuntimeError, match="init boom"):
                 main()
 
+    def test_init_python_relative_path_resolves_from_cwd(self, tmp_path, capsys, monkeypatch):
+        """Test relative --init-python paths are resolved from shell CWD."""
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        manifest_file = create_test_manifest(project_dir)
+
+        init_module = tmp_path / "cwd_init.py"
+        init_module.write_text("raise RuntimeError('cwd relative init loaded')\n")
+
+        monkeypatch.chdir(tmp_path)
+        with patch("sys.argv", [
+            "llm-do",
+            str(manifest_file),
+            "hello",
+            "--init-python",
+            "cwd_init.py",
+        ]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "cwd relative init loaded" in captured.err
+        assert "Init module not found" not in captured.err
+
     def test_invalid_input_does_not_run_init_python(self, tmp_path, capsys):
         """Test init modules are not executed when CLI input validation already fails."""
         manifest_file = create_test_manifest(tmp_path)

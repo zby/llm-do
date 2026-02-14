@@ -8,9 +8,9 @@ from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import AbstractToolset
 from pydantic_ai.toolsets._dynamic import DynamicToolset
 
+from ..runtime.tooling import ToolsetDef
 from .dynamic_agents import DynamicAgentsToolset
 from .filesystem import FileSystemToolset, ReadOnlyFileSystemToolset
-from ..runtime.tooling import ToolsetDef
 from .shell import ShellToolset
 
 _SHELL_READONLY_RULES = [

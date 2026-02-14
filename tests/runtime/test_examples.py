@@ -4,8 +4,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
-from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from llm_do.models import ModelCompatibilityError, register_model_factory
 from llm_do.project import (
@@ -21,6 +19,7 @@ from llm_do.runtime import Runtime
 from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.dynamic_agents import DynamicAgentsToolset
 from tests.runtime.helpers import build_runtime_context, materialize_toolset_def
+from tests.tool_calling_model import ToolCallingModel
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
 NON_STREAMING_PROVIDER = "testnostream_examples"
@@ -45,12 +44,11 @@ def _build_example(example_name: str):
 
 
 def _register_non_streaming_provider() -> None:
-    def respond(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
-        return ModelResponse(parts=[TextPart(content="non-streaming smoke response")])
-
     register_model_factory(
         NON_STREAMING_PROVIDER,
-        lambda _model_name: FunctionModel(respond),
+        # ToolCallingModel implements request() only (no request_stream()).
+        # With on_event + verbosity=1 this verifies we stay on the non-stream path.
+        lambda _model_name: ToolCallingModel(tool_calls=[]),
         replace=True,
     )
 
@@ -105,7 +103,8 @@ async def test_all_examples_run_with_non_streaming_provider(
     except ModuleNotFoundError as exc:
         pytest.skip(f"example requires optional dependency unavailable in test environment: {exc}")
 
-    runtime = Runtime()
+    events: list[Any] = []
+    runtime = Runtime(on_event=events.append, verbosity=1)
     runtime.register_registry(registry)
 
     result, _ctx = await runtime.run_entry(
@@ -114,6 +113,7 @@ async def test_all_examples_run_with_non_streaming_provider(
     )
 
     assert result is not None
+    assert events
 
 
 @pytest.mark.anyio

@@ -29,3 +29,25 @@ async def test_non_streaming_model_runs_with_on_event_at_verbosity_1() -> None:
 
     assert result == "Task completed"
     assert events
+
+
+@pytest.mark.anyio
+async def test_non_streaming_model_raises_with_streaming_events_enabled() -> None:
+    """Non-streaming models should fail when streaming mode is explicitly enabled."""
+    agent_spec = AgentSpec(
+        name="non_streaming_agent",
+        instructions="Reply briefly.",
+        model=ToolCallingModel(tool_calls=[]),
+    )
+
+    async def entry_main(input_data, runtime):
+        return await runtime.call_agent(agent_spec, input_data)
+
+    runtime = Runtime(on_event=lambda _event: None, verbosity=2)
+    runtime.register_agents({agent_spec.name: agent_spec})
+
+    with pytest.raises(NotImplementedError, match="Streamed requests not supported"):
+        await runtime.run_entry(
+            FunctionEntry(name="entry", fn=entry_main),
+            {"input": "hello"},
+        )

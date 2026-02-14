@@ -106,6 +106,65 @@ class TestCLIManifestErrors:
         assert exit_code == 1
         assert "Init module not found" in captured.err
 
+    def test_init_python_runtime_error_without_debug_returns_error(self, tmp_path, capsys):
+        """Test init module exceptions return exit code 1 by default."""
+        manifest_file = create_test_manifest(tmp_path)
+        init_module = tmp_path / "broken_init.py"
+        init_module.write_text("raise RuntimeError('init boom')\n")
+
+        with patch("sys.argv", [
+            "llm-do",
+            str(manifest_file),
+            "hello",
+            "--init-python",
+            str(init_module),
+        ]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "init boom" in captured.err
+
+    def test_init_python_runtime_error_with_debug_reraises(self, tmp_path):
+        """Test init module exceptions are re-raised with --debug."""
+        manifest_file = create_test_manifest(tmp_path)
+        init_module = tmp_path / "broken_init.py"
+        init_module.write_text("raise RuntimeError('init boom')\n")
+
+        with patch("sys.argv", [
+            "llm-do",
+            str(manifest_file),
+            "hello",
+            "--init-python",
+            str(init_module),
+            "--debug",
+        ]):
+            with pytest.raises(RuntimeError, match="init boom"):
+                main()
+
+    def test_invalid_input_does_not_run_init_python(self, tmp_path, capsys):
+        """Test init modules are not executed when CLI input validation already fails."""
+        manifest_file = create_test_manifest(tmp_path)
+        init_module = tmp_path / "side_effect_init.py"
+        marker = tmp_path / "init_ran.marker"
+        init_module.write_text(f"open({str(marker)!r}, 'w').write('ran')\n")
+
+        with patch("sys.argv", [
+            "llm-do",
+            str(manifest_file),
+            "hello",
+            "--input-json",
+            '{"input":"override"}',
+            "--init-python",
+            str(init_module),
+        ]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Cannot combine prompt argument and --input-json" in captured.err
+        assert not marker.exists()
+
 
 class TestCLIInputErrors:
     """Tests for input handling errors."""

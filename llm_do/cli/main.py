@@ -200,12 +200,6 @@ def main() -> int:
             raise
         return 1
 
-    try:
-        _load_init_modules(args.init_python, manifest_dir)
-    except (FileNotFoundError, ImportError, ValueError) as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-
     # Determine input data
     has_cli_input = args.prompt is not None or args.input_json is not None
 
@@ -259,6 +253,14 @@ def main() -> int:
         input_data = _input_to_args(raw_input)
     except (TypeError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    try:
+        _load_init_modules(args.init_python, manifest_dir)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        if args.debug:
+            raise
         return 1
 
     entry_factory = _make_entry_factory(manifest, manifest_dir)

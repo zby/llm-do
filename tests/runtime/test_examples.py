@@ -1,8 +1,13 @@
 """Smoke tests for representative examples/ patterns."""
+import os
 from pathlib import Path
+from typing import Any
 
 import pytest
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 
+from llm_do.models import ModelCompatibilityError, register_model_factory
 from llm_do.project import (
     build_registry,
     build_registry_host_wiring,
@@ -12,11 +17,13 @@ from llm_do.project import (
     resolve_entry,
     resolve_manifest_paths,
 )
+from llm_do.runtime import Runtime
 from llm_do.toolsets.agent import AgentToolset
 from llm_do.toolsets.dynamic_agents import DynamicAgentsToolset
 from tests.runtime.helpers import build_runtime_context, materialize_toolset_def
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
+NON_STREAMING_PROVIDER = "testnostream_examples"
 
 
 def _build_example(example_name: str):
@@ -35,6 +42,78 @@ def _build_example(example_name: str):
         base_path=manifest_dir,
     )
     return entry, registry, manifest
+
+
+def _register_non_streaming_provider() -> None:
+    def respond(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        return ModelResponse(parts=[TextPart(content="non-streaming smoke response")])
+
+    register_model_factory(
+        NON_STREAMING_PROVIDER,
+        lambda _model_name: FunctionModel(respond),
+        replace=True,
+    )
+
+
+def _default_input(manifest_input: Any | None) -> dict[str, str] | Any:
+    if manifest_input is None:
+        return {"input": "smoke test input"}
+    return manifest_input
+
+
+@pytest.fixture
+def non_streaming_provider_env() -> Any:
+    _register_non_streaming_provider()
+    previous = os.environ.get("LLM_DO_MODEL")
+    os.environ["LLM_DO_MODEL"] = f"{NON_STREAMING_PROVIDER}:smoke"
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop("LLM_DO_MODEL", None)
+        else:
+            os.environ["LLM_DO_MODEL"] = previous
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "manifest_path",
+    sorted(EXAMPLES_DIR.glob("*/project.json")),
+    ids=lambda path: path.parent.name,
+)
+async def test_all_examples_run_with_non_streaming_provider(
+    manifest_path: Path,
+    non_streaming_provider_env: Any,
+) -> None:
+    manifest, manifest_dir = load_manifest(manifest_path)
+    agent_paths, python_paths = resolve_manifest_paths(manifest, manifest_dir)
+    try:
+        registry = build_registry(
+            [str(path) for path in agent_paths],
+            [str(path) for path in python_paths],
+            project_root=manifest_dir,
+            **build_registry_host_wiring(manifest_dir),
+        )
+        entry = resolve_entry(
+            manifest.entry,
+            registry,
+            python_files=python_paths,
+            base_path=manifest_dir,
+        )
+    except ModelCompatibilityError as exc:
+        pytest.skip(f"example enforces model compatibility not matching non-streaming provider: {exc}")
+    except ModuleNotFoundError as exc:
+        pytest.skip(f"example requires optional dependency unavailable in test environment: {exc}")
+
+    runtime = Runtime()
+    runtime.register_registry(registry)
+
+    result, _ctx = await runtime.run_entry(
+        entry,
+        _default_input(manifest.entry.args),
+    )
+
+    assert result is not None
 
 
 @pytest.mark.anyio

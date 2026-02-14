@@ -32,6 +32,7 @@ from ..project import (
     build_registry,
     build_registry_host_wiring,
     load_manifest,
+    load_module,
     resolve_entry,
     resolve_generated_agents_dir,
     resolve_manifest_paths,
@@ -76,6 +77,21 @@ def _make_message_log_callback(stream: Any) -> Callable[[str, int, list[Any]], N
         stream.flush()
 
     return callback
+
+
+
+
+def _load_init_modules(module_paths: list[str], manifest_dir: Path) -> None:
+    """Load Python modules for side effects (e.g., custom provider registration)."""
+    # TEMPORARY: Escape hatch for provider injection during CLI runs;
+    # replace with a first-class manifest/runtime mechanism.
+    for module_path in module_paths:
+        path = Path(module_path)
+        if not path.is_absolute():
+            path = (manifest_dir / path).resolve()
+        if not path.exists():
+            raise FileNotFoundError(f"Init module not found: {module_path} (resolved: {path})")
+        load_module(path)
 
 
 def _make_entry_factory(
@@ -126,6 +142,16 @@ def main() -> int:
         help="Input as inline JSON (overrides manifest entry.args)",
     )
     parser.add_argument(
+        "--init-python",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help=(
+            "Load a Python module for side effects before building the registry "
+            "(temporary provider injection path, e.g., register_model_factory). Repeatable."
+        ),
+    )
+    parser.add_argument(
         "-v", "--verbose",
         action="count",
         default=0,
@@ -172,6 +198,12 @@ def main() -> int:
         print(f"Error: {e}", file=sys.stderr)
         if args.debug:
             raise
+        return 1
+
+    try:
+        _load_init_modules(args.init_python, manifest_dir)
+    except (FileNotFoundError, ImportError, ValueError) as e:
+        print(f"Error: {e}", file=sys.stderr)
         return 1
 
     # Determine input data

@@ -89,6 +89,24 @@ class TestCLIManifestErrors:
         assert "version" in captured.err.lower()
 
 
+    def test_init_python_module_not_found(self, tmp_path, capsys):
+        """Test missing --init-python path is reported clearly."""
+        manifest_file = create_test_manifest(tmp_path)
+
+        with patch("sys.argv", [
+            "llm-do",
+            str(manifest_file),
+            "hello",
+            "--init-python",
+            "missing_provider.py",
+        ]):
+            exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 1
+        assert "Init module not found" in captured.err
+
+
 class TestCLIInputErrors:
     """Tests for input handling errors."""
 
@@ -384,6 +402,43 @@ class TestCLISuccess:
         # Input is passed as dict payload
         call_args = mock_run.call_args
         assert call_args.args[1] == {"input": "json override"}
+
+
+    def test_init_python_registers_custom_provider(self, tmp_path, capsys):
+        """Test --init-python can register providers for model resolution."""
+        manifest_file = create_test_manifest(tmp_path)
+
+        provider_file = tmp_path / "provider_init.py"
+        provider_file.write_text(
+            """
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
+
+from llm_do import register_model_factory
+
+
+def _respond(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+    return ModelResponse(parts=[TextPart(content="init provider response")])
+
+
+register_model_factory("init_provider_test", lambda _name: FunctionModel(_respond), replace=True)
+"""
+        )
+
+        with patch("sys.argv", [
+            "llm-do",
+            str(manifest_file),
+            "hello",
+            "--headless",
+            "--init-python",
+            str(provider_file),
+        ]):
+            with patch.dict("os.environ", {"LLM_DO_MODEL": "init_provider_test:model"}):
+                exit_code = main()
+
+        captured = capsys.readouterr()
+        assert exit_code == 0
+        assert captured.out.strip() == "init provider response"
 
 
 class TestCLIDebugFlag:

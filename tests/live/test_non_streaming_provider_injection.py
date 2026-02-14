@@ -3,7 +3,6 @@
 import os
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 
 from .conftest import skip_no_llm
@@ -17,41 +16,7 @@ def test_cli_init_python_injected_non_streaming_provider_runs(greeter_example, d
     if not python_exe.exists():
         python_exe = Path(sys.executable)
 
-    init_module = greeter_example / "nostream_provider.py"
-    init_module.write_text(
-        textwrap.dedent(
-            """
-            from pydantic_ai.models import Model, infer_model
-
-            from llm_do import register_model_factory
-
-
-            class NonStreamingModel(Model):
-                def __init__(self, inner: Model) -> None:
-                    super().__init__()
-                    self._inner = inner
-
-                @property
-                def model_name(self) -> str:
-                    return self._inner.model_name
-
-                @property
-                def system(self) -> str:
-                    return self._inner.system
-
-                async def request(self, messages, model_settings, model_request_parameters):
-                    return await self._inner.request(messages, model_settings, model_request_parameters)
-
-
-            def build_nostream(model_name: str) -> Model:
-                return NonStreamingModel(infer_model(model_name))
-
-
-            register_model_factory("nostream_live", build_nostream, replace=True)
-            """
-        ),
-        encoding="utf-8",
-    )
+    init_module = Path(__file__).with_name("nostream_provider.py").resolve()
 
     env = os.environ.copy()
     env["LLM_DO_MODEL"] = f"nostream_live:{default_model}"

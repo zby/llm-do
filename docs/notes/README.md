@@ -73,6 +73,7 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [Toolset Instantiation Questions](toolset-instantiation-questions.md) — Open questions on per-worker vs shared toolset instances
 - [Type Catalog Review](type-catalog-review.md) — Current review of llm_do type surface with simplification candidates (2026-01-29)
 - [Event-Stream UI with Blocking Approvals](ui-event-stream-blocking-approvals.md) — Approval broker design for event-stream UI with blocking approvals
+- [Non-Streaming Provider Support](non-streaming-provider-support.md) — Analysis of non-streaming provider behavior and plan for graceful fallback support
 ### Meta
 
 - [Deferred Handler Minimal-Core Proposal Draft](meta/blocking_approvals.md) — Proposal for deferred_tool_handler enabling blocking approvals

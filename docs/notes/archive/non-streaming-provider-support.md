@@ -1,8 +1,15 @@
 ---
-description: Analysis of non-streaming provider behavior and plan for graceful fallback support
+description: Analysis of non-streaming provider behavior and verbosity-gated streaming status
 ---
 
 # Non-Streaming Provider Support — Analysis & Plan
+
+## Status Update (2026-02-14)
+
+Current behavior differs from the fallback plan below:
+- Streaming is only requested when `on_event` is set **and** verbosity is `>= 2`.
+- At lower verbosity, runs use non-stream execution and emit coarse events after completion.
+- Non-streaming models are expected to raise in streaming mode (`verbosity >= 2`); no automatic fallback is applied.
 
 ## 1. Analysis: What happens today with a non-streaming provider?
 

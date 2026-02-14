@@ -193,6 +193,8 @@ Key points:
 - Top-level entries (depth 0) keep message history across turns
 - Child agent calls get fresh message history (parent only sees tool call/result)
 - Run-level settings (approval mode, usage tracking) are shared; toolsets are not
+- Streaming model events are requested only when callbacks are enabled and verbosity is `>= 2`
+- Lower verbosity runs use non-stream execution and emit coarse events after completion
 - Max nesting depth prevents infinite recursion (default: 5)
 - Entry inputs are normalized to `AgentArgs` (via `input_model`)
 - Entry functions are trusted but agent tool calls still go through approval wrappers per run policy

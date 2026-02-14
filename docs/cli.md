@@ -187,6 +187,9 @@ Set `runtime.max_depth` in the manifest to cap worker nesting depth (default: 5)
 **Verbosity:**
 - `-v` shows tool calls and status updates.
 - `-vv` streams model text deltas.
+- Streaming is enabled only when event callbacks are active and verbosity is `>= 2`.
+- With `-v`, runs stay on the non-stream execution path and emit coarse-grained events from final messages.
+- Models without `request_stream()` support can run at `-v`; at `-vv` they fail when the model is asked to stream.
 
 ## Chat Mode
 

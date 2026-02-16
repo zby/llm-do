@@ -11,10 +11,10 @@ import os
 from pathlib import Path
 
 from llm_do.models import resolve_model
+from llm_do.project.host_toolsets import build_host_toolsets
 from llm_do.runtime import AgentSpec, FunctionEntry, RunApprovalPolicy, Runtime
 from llm_do.runtime.events import RuntimeEvent
 from llm_do.toolsets.agent import agent_as_toolset
-from llm_do.toolsets.builtins import build_builtin_toolsets
 from llm_do.ui.adapter import adapt_event
 from llm_do.ui.display import HeadlessDisplayBackend
 
@@ -51,7 +51,7 @@ def build_entry() -> FunctionEntry:
         instructions=(INSTRUCTIONS_DIR / "pitch_evaluator.md").read_text(),
     )
 
-    builtin_toolsets = build_builtin_toolsets(Path.cwd(), PROJECT_ROOT)
+    builtin_toolsets = build_host_toolsets(Path.cwd(), PROJECT_ROOT)
     toolsets = [
         builtin_toolsets["filesystem_project"],
         agent_as_toolset(pitch_evaluator, tool_name="pitch_evaluator"),

@@ -22,10 +22,11 @@ This is the recommended approach when orchestration is mechanical (list files, l
 
 ```python
 import os
+from pathlib import Path
 
 from llm_do.models import resolve_model
 from llm_do.runtime import AgentSpec, FunctionEntry, CallContext
-from llm_do.ui.runner import run_ui
+from llm_do.ui.runner import RunConfig, run_ui
 
 MODEL = resolve_model("anthropic:claude-haiku-4-5")
 EVALUATOR = AgentSpec(
@@ -47,10 +48,12 @@ ENTRY = FunctionEntry(name="main", fn=main)
 
 # Run with TUI or headless output
 outcome = await run_ui(
-    entry=ENTRY,
     input={"input": ""},
-    project_root=Path(__file__).parent,
-    approval_mode="approve_all",  # or "prompt" for interactive
+    config=RunConfig(
+        entry=ENTRY,
+        project_root=Path(__file__).parent,
+        approval_mode="approve_all",  # or "prompt" for interactive
+    ),
     mode="headless",  # or "tui"
 )
 ```
@@ -66,14 +69,19 @@ Python → Runtime.run_entry() → LLM main agent → pitch_evaluator tool
 Use this when orchestration requires judgment or flexibility that benefits from LLM reasoning. The main agent can adapt to unexpected situations, handle errors creatively, or make decisions about which files to process.
 
 ```python
+import os
+from pathlib import Path
+
 from llm_do.models import resolve_model
+from llm_do.project.host_toolsets import build_host_toolsets
 from llm_do.runtime import AgentSpec, FunctionEntry, RunApprovalPolicy, Runtime
 from llm_do.toolsets.agent import agent_as_toolset
-from llm_do.toolsets.builtins import build_builtin_toolsets
 
 MODEL = resolve_model(os.environ["LLM_DO_MODEL"])
+policy = RunApprovalPolicy(mode="approve_all", return_permission_errors=True)
 # Build agents and wire toolsets
 pitch_evaluator = AgentSpec(name="pitch_evaluator", model=MODEL, instructions=...)
+builtin_toolsets = build_host_toolsets(Path.cwd(), Path("."))
 main_agent = AgentSpec(
     name="main",
     model=MODEL,

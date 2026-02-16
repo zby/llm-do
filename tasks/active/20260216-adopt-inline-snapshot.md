@@ -49,27 +49,42 @@ One assertion, full coverage, auto-updatable.
 - `tests/test_shell.py` (261 lines) — `parse_command` results, shell execution results
 
 ### Key decisions
-- Use `.model_dump()` (or equivalent dict conversion) before snapshotting Pydantic models — constructors in snapshot literals don't work well
-- Use `dirty-equals` (`IsDatetime()`, `IsStr(regex=...)`) for non-deterministic fields if needed
-- Don't convert fuzzy substring checks (`"not found" in err`) to exact snapshots unless the message is stable — this is a per-test judgment call
+- Prefer contract-focused snapshots over full-object snapshots. Snapshot only behavior-relevant fields unless full object equality is the contract under test.
+- Use `.model_dump()` (or equivalent dict conversion) before snapshotting Pydantic models when a dict snapshot is the clearest contract.
+- If non-deterministic values must be asserted, use `dirty-equals` matchers via `inline-snapshot` integration.
+- Keep fuzzy substring checks (`"not found" in err`, platform-dependent shell stderr) as substring assertions unless the message is demonstrably stable.
 - Start with `test_agent_file.py` as the pilot to establish the pattern
 
 ### How to verify
-- `uv run pytest` passes before and after each file conversion
-- `pytest --inline-snapshot=fix` correctly populates empty `snapshot()` placeholders
-- Converted tests catch the same regressions as the originals (spot-check by temporarily breaking a parsed field)
+- Baseline before changes: `uv run pytest`
+- For each converted file, run targeted fix mode and review the diff:
+  - `uv run pytest tests/runtime/test_agent_file.py --inline-snapshot=fix`
+  - `uv run pytest tests/runtime/test_manifest.py --inline-snapshot=fix`
+  - `uv run pytest tests/test_shell.py --inline-snapshot=fix`
+  - `uv run pytest tests/runtime/test_cli_errors.py --inline-snapshot=fix`
+- Re-run each touched file without `--inline-snapshot=fix` to confirm normal pass.
+- Run full suite after all conversions: `uv run pytest`
+- Spot-check regression sensitivity by temporarily breaking one parsed field in a converted test and confirming failure.
 
 ## Decision Record
 - Decision: Use inline-snapshot (not syrupy)
 - Inputs: Pydantic team recommendation, inline storage preferred over separate snapshot files for readability
+- Options:
+  - Keep granular assertions only
+  - Use external snapshot files (for example syrupy)
+  - Use inline snapshots in source (chosen)
 - Outcome: Inline snapshots in test source, auto-updatable via `--inline-snapshot=fix`
+- Follow-ups:
+  - If snapshot churn becomes noisy, document narrower snapshot conventions in `AGENTS.md`
+  - If fuzzy matcher usage expands, standardize on `inline-snapshot[dirty-equals]` in dev deps
 
 ## Tasks
-- [ ] Add `inline-snapshot` to dev dependencies in `pyproject.toml` and install
+- [ ] Add `inline-snapshot` to dev dependencies in `pyproject.toml` and install (choose plain package vs `inline-snapshot[dirty-equals]` based on actual matcher use)
 - [ ] Convert `tests/runtime/test_agent_file.py` — pilot file, establish the pattern
 - [ ] Convert `tests/runtime/test_manifest.py` — config defaults and manifest structure assertions
-- [ ] Convert `tests/test_shell.py` — parse_command and shell result assertions
-- [ ] Selectively convert `tests/runtime/test_cli_errors.py` — only stable error messages
+- [ ] Convert `tests/test_shell.py` selectively — snapshot deterministic parse/structured results; keep platform-dependent stderr checks as substring assertions
+- [ ] Selectively convert `tests/runtime/test_cli_errors.py` — only stable error messages; keep fragile path/shell text checks as `in` assertions
+- [ ] Run per-file `--inline-snapshot=fix` commands and review rewritten snapshots in diff
 - [ ] Run full test suite, verify no regressions
 - [ ] Update `AGENTS.md` or similar if a testing convention note is warranted
 
@@ -79,4 +94,5 @@ Research complete. The discussion identified the four highest-value test files a
 ## Notes
 - `inline-snapshot` rewrites source files — always review the diff after `--inline-snapshot=fix`
 - pytest config in `pyproject.toml` uses `addopts = ["-v", "--strict-markers", ...]` — no conflict expected with inline-snapshot flags
+- Shell/CLI error text can vary by environment and should not be over-snapshotted
 - The 64-file test suite doesn't need full conversion at once; the four listed files cover the highest-value patterns

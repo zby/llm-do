@@ -1,12 +1,12 @@
 ---
-description: Three timescales of AI learning — training, in-context, and crystallisation
+description: Three timescales of AI system adaptation — training, in-context, and crystallisation
 ---
 
 # Crystallisation: The Missing Middle
 
 ## Three Timescales
 
-AI systems learn at three timescales, each with a different substrate:
+Deployed AI systems adapt at three timescales, each with a different substrate:
 
 | Timescale | When | Substrate | Properties |
 |-----------|------|-----------|------------|
@@ -14,7 +14,7 @@ AI systems learn at three timescales, each with a different substrate:
 | **In-context** | Within a session | Context window | Inspectable but ephemeral; evaporates when the session ends |
 | **Crystallisation** | Across sessions, during deployment | Repo artifacts | Durable, inspectable, and verifiable; accumulates over time |
 
-Crystallisation is a third, distinct mode: learning that happens during deployment, like in-context learning, but persists durably, like training. What makes it possible is encoding knowledge into repo artifacts rather than weights or context.
+Crystallisation is not a new training paradigm — the model weights don't change. It is **system-level adaptation**: the deployed system's behavior improves because its *artifacts* improve. Like in-context learning it happens during deployment; like training it persists durably. What makes it possible is encoding knowledge into repo artifacts rather than weights or context.
 
 ## Why Repo Artifacts
 
@@ -23,11 +23,11 @@ Crystallisation is a third, distinct mode: learning that happens during deployme
 
 Crystallisation is about making things verifiable. Karpathy identifies three properties that make a task verifiable: it must be **resettable** (you can retry), **efficient** (retries are cheap), and **rewardable** (you can evaluate the result automatically). The more verifiable a task is, the more you can hill-climb on it — whether through RL at training time or through iteration at runtime.
 
-The grades of crystallisation are grades of verifiability. Moving up the gradient means making more of your system resettable, efficient to test, and automatically rewardable — which in turn enables tighter iteration loops.
+The grades of crystallisation are grades of verifiability. Moving down the table means making more of your system resettable, efficient to test, and automatically rewardable — which in turn enables tighter iteration loops.
 
-Other things try to fill this space: RAG databases, memory files, fine-tuning on deployment logs. What distinguishes crystallisation is that the substrate is **repo artifacts** — prompts, schemas, eval suites, deterministic modules, tests — not unstructured memory notes or embedding vectors.
+Other approaches try to fill this space: RAG databases, persistent memory, fine-tuning on deployment logs, automated prompt optimization. The practices aren't new — prompt versioning, eval-driven development, and CI-gated prompt testing are increasingly common in LLMOps. What crystallisation contributes is a **unifying lens**: these practices form a gradient of verifiability, and understanding the gradient helps you choose the right hardness for each piece of your system.
 
-A memory note like "remember to validate emails" can drift or contradict itself silently. A structured output schema enforces shape. A test fails loudly. Deterministic code removes the LLM from the loop entirely. Every grade along the way is an improvement over ephemeral context.
+The key property of crystallised artifacts is that they are **diffable, executable, testable, and reviewable**. A memory note like "remember to validate emails" can drift or contradict itself silently — it is none of those things. A structured output schema enforces shape and can be diffed. A test fails loudly and runs in CI. Deterministic code removes the LLM from the loop entirely. Every grade along the way is an improvement over ephemeral context.
 
 ## Grades of Crystallisation
 
@@ -40,15 +40,58 @@ Deterministic code is the strongest form, but crystallisation is a gradient. Eac
 | Prompt tests / evals | Assertions over LLM output across test cases | Yes | Yes — automated | Mostly — statistical pass rates |
 | Deterministic modules | Code that replaces what was previously LLM work | Yes | Yes — automated | Yes — pass/fail |
 
-Moving down the table, verification gets cheaper and sharper. Restructured prompts require a human to judge quality. Deterministic module tests run in milliseconds and return a boolean. The harder the verification, the tighter the iteration loop you can run — and the faster you can hill-climb.
+Moving down the table, verification gets cheaper and sharper. Restructured prompts require a human to judge quality. Deterministic module tests run in milliseconds and return a boolean. The sharper the verification, the tighter the iteration loop you can run — and the faster you can hill-climb.
 
-Crystallisation depends on the quality of the in-context learning that precedes it. An agent that writes a bad test crystallises a bad assumption. The quality gate is typically human approval — crystallisation is a human-AI collaborative process, not a purely autonomous one.
+## Concrete Examples
+
+The [`examples/`](../../examples/) directory contains working before-and-after pairs that demonstrate stabilisation at different grades.
+
+### Data report: statistics → code, interpretation → LLM
+
+[`data_report/`](../../examples/data_report/) is the unstabilised version. A single LLM agent receives a CSV file and does *everything*: parse the CSV, compute statistics (mean, median, min, max), detect trends, and write a narrative report. The LLM is doing arithmetic it could get wrong, at token cost, for work that has a single correct answer.
+
+[`data_report_stabilized/`](../../examples/data_report_stabilized/) extracts the mechanical parts into a Python tool (`tools.py`):
+- **CSV parsing** → `csv.DictReader` (deterministic)
+- **Statistics** → Python's `statistics` module (deterministic)
+- **Trend detection** → a simple algorithm comparing first-half vs second-half averages (deterministic)
+
+The LLM agent (`write_narrative.agent`) now receives pre-computed stats and trends, and does only what requires judgment: interpreting what the numbers mean for the business.
+
+The call site in the orchestrator (`main.agent`) is unchanged — `analyze_dataset(path=...)` works the same way. The implementation moved from stochastic to deterministic; the interface stayed stable.
+
+### Pitchdeck evaluation: a four-stage progression
+
+The pitchdeck examples show the same task — evaluate PDF pitch decks — at four stabilisation levels:
+
+| Example | What moved to code |
+|---------|-------------------|
+| [`pitchdeck_eval/`](../../examples/pitchdeck_eval/) | Nothing — all LLM, including filename slug generation |
+| [`pitchdeck_eval_stabilized/`](../../examples/pitchdeck_eval_stabilized/) | File discovery, slug generation, path construction → Python tool (`list_pitchdecks()`) |
+| [`pitchdeck_eval_code_entry/`](../../examples/pitchdeck_eval_code_entry/) | Orchestration loop → Python; agents handle reasoning only |
+| [`pitchdeck_eval_direct/`](../../examples/pitchdeck_eval_direct/) | Direct API calls — three abstraction levels without the CLI |
+
+At each stage, mechanical work moves to code while the LLM stays focused on what requires judgment (analyzing the pitch deck content). The slug generation is a small example but an instructive one: in the unstabilised version, the LLM is asked to "generate a file slug (lowercase, hyphenated, no extension)" — a deterministic string operation described in natural language, where inconsistency means broken file paths. In the stabilised version, `python-slugify` does it in one line, every time.
+
+## Failure Modes
+
+Crystallisation is not a free lunch. Things that go wrong:
+
+- **Premature crystallisation.** Extracting code before patterns have stabilised locks in brittle assumptions. The soften/crystallise cycle is the antidote — crystallise only when you've observed enough runs to trust the pattern, and be ready to soften back when new requirements appear.
+- **Goodharting on evals.** Prompt tests can enshrine the wrong behavior. If your eval cases aren't representative of real traffic, improvements on the eval set may regress in production.
+- **Model drift.** Vendor model updates can break crystallised prompts and schemas. Regression evals are the defense — they detect drift even when the artifact hasn't changed.
+- **Bad assumptions crystallised confidently.** An agent that writes a bad test crystallises a bad assumption that now passes CI. The quality gate is typically human review — crystallisation is a human-AI collaborative process, not a purely autonomous one.
+
+## Related Work
+
+The individual practices are well-established. Prompt versioning and "prompts as code" are standard LLMOps advice. Eval-driven development has its own frameworks (OpenAI Evals, promptfoo) and process models ([EDDOps](https://arxiv.org/abs/2411.13768)). Automated prompt optimisation (DSPy, ProTeGi) pursues a related goal — improving system behavior without weight updates — through search over prompt components. Agent skill libraries like [Voyager](https://arxiv.org/abs/2305.16291) and evaluator-guided program evolution like [FunSearch](https://www.nature.com/articles/s41586-023-06924-6) accumulate executable code as a form of cross-episode memory.
+
+Crystallisation is a **taxonomy** (three timescales of system adaptation), a **verifiability gradient** (from prompt tweaks to deterministic code), and a **mapping to the hybrid VM stabilise/soften cycle** — a synthesis of established practices into a concrete model for when and how to move between grades.
 
 ## Relation to the Hybrid VM Theory
 
 The [theory document](../theory.md) describes llm-do as a hybrid VM where components move between stochastic (LLM) and deterministic (code) execution via two operations: **stabilizing** (stochastic → deterministic) and **softening** (deterministic → stochastic).
 
-Crystallisation is the learning process that drives stabilizing. The theory describes *what* moves across the distribution boundary; crystallisation describes *how* — through deployment experience encoded into progressively harder artifacts:
+Crystallisation is the adaptation process that drives stabilizing. The theory describes *what* moves across the distribution boundary; crystallisation describes *how* — through deployment experience encoded into progressively harder artifacts:
 
 | Theory concept | Crystallisation grade |
 |----------------|----------------------|
@@ -69,3 +112,4 @@ This framing describes the design rationale behind llm-do's architecture:
 - Deterministic tool modules are crystallised capabilities
 - `project.json` manifests are crystallised orchestration knowledge
 - Tests verify that crystallised assumptions still hold
+- The [examples](../../examples/README.md#progressive-stabilizing) demonstrate the gradient in working code

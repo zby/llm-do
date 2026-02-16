@@ -1,5 +1,8 @@
 """Tests for agent file parsing."""
+from dataclasses import asdict
+
 import pytest
+from inline_snapshot import snapshot
 
 from llm_do.project import AgentDefinition, parse_agent_file
 
@@ -17,13 +20,19 @@ model: anthropic:claude-haiku-4-5
 These are the instructions.
 """
         result = parse_agent_file(content)
-
-        assert result.name == "test_agent"
-        assert result.model == "anthropic:claude-haiku-4-5"
-        assert result.instructions == "These are the instructions."
-        assert result.description is None
-        assert result.tools == []
-        assert result.toolsets == []
+        assert asdict(result) == snapshot(
+            {
+                "name": "test_agent",
+                "description": None,
+                "instructions": "These are the instructions.",
+                "model": "anthropic:claude-haiku-4-5",
+                "compatible_models": None,
+                "input_model_ref": None,
+                "tools": [],
+                "toolsets": [],
+                "server_side_tools": [],
+            }
+        )
 
     def test_agent_file_with_description(self):
         """Test parsing an agent file with description."""
@@ -36,10 +45,17 @@ model: openai:gpt-4o-mini
 Instructions here.
 """
         result = parse_agent_file(content)
-
-        assert result.name == "my_agent"
-        assert result.description == "A helpful agent"
-        assert result.model == "openai:gpt-4o-mini"
+        assert {
+            "name": result.name,
+            "description": result.description,
+            "model": result.model,
+        } == snapshot(
+            {
+                "name": "my_agent",
+                "description": "A helpful agent",
+                "model": "openai:gpt-4o-mini",
+            }
+        )
 
     def test_agent_file_with_toolsets(self):
         """Test parsing an agent file with toolsets section."""
@@ -55,11 +71,17 @@ toolsets:
 You are a helpful assistant.
 """
         result = parse_agent_file(content)
-
-        assert result.name == "main"
-        assert result.input_model_ref == "schemas.py:TopicInput"
-        assert "shell_readonly" in result.toolsets
-        assert "calc_tools" in result.toolsets
+        assert {
+            "name": result.name,
+            "input_model_ref": result.input_model_ref,
+            "toolsets": result.toolsets,
+        } == snapshot(
+            {
+                "name": "main",
+                "input_model_ref": "schemas.py:TopicInput",
+                "toolsets": ["shell_readonly", "calc_tools"],
+            }
+        )
 
     def test_agent_file_with_tools(self):
         """Test parsing an agent file with tools section."""
@@ -74,9 +96,7 @@ tools:
 Use tools.
 """
         result = parse_agent_file(content)
-
-        assert "web_research" in result.tools
-        assert "summarize" in result.tools
+        assert result.tools == snapshot(["web_research", "summarize"])
 
     def test_agent_file_with_toolsets_list(self):
         """Test parsing an agent file with toolsets list."""
@@ -90,8 +110,7 @@ toolsets:
 Instructions.
 """
         result = parse_agent_file(content)
-
-        assert "my_tools" in result.toolsets
+        assert result.toolsets == snapshot(["my_tools"])
 
     def test_agent_file_multiline_instructions(self):
         """Test parsing an agent file with multiline instructions."""
@@ -107,10 +126,9 @@ Line 2.
 Line 3.
 """
         result = parse_agent_file(content)
-
-        assert "Line 1." in result.instructions
-        assert "Line 2." in result.instructions
-        assert "Line 3." in result.instructions
+        assert result.instructions.splitlines() == snapshot(
+            ["Line 1.", "", "Line 2.", "", "Line 3."]
+        )
 
     def test_missing_frontmatter_raises(self):
         """Test that missing frontmatter raises ValueError."""
@@ -232,9 +250,9 @@ name: test_agent
 Instructions.
 """
         result = parse_agent_file(content)
-
-        assert result.name == "test_agent"
-        assert result.model is None
+        assert {"name": result.name, "model": result.model} == snapshot(
+            {"name": "test_agent", "model": None}
+        )
 
     def test_server_side_tools_web_search(self):
         """Test parsing server_side_tools with web_search."""
@@ -249,11 +267,15 @@ server_side_tools:
 Use web search to find information.
 """
         result = parse_agent_file(content)
-
-        assert result.name == "searcher"
-        assert len(result.server_side_tools) == 1
-        assert result.server_side_tools[0]["tool_type"] == "web_search"
-        assert result.server_side_tools[0]["max_uses"] == 3
+        assert {
+            "name": result.name,
+            "server_side_tools": result.server_side_tools,
+        } == snapshot(
+            {
+                "name": "searcher",
+                "server_side_tools": [{"tool_type": "web_search", "max_uses": 3}],
+            }
+        )
 
     def test_server_side_tools_with_domains(self):
         """Test parsing server_side_tools with domain filtering."""
@@ -269,11 +291,14 @@ server_side_tools:
 Instructions.
 """
         result = parse_agent_file(content)
-
-        assert len(result.server_side_tools) == 1
-        tool = result.server_side_tools[0]
-        assert tool["tool_type"] == "web_search"
-        assert tool["allowed_domains"] == ["wikipedia.org", "docs.python.org"]
+        assert result.server_side_tools == snapshot(
+            [
+                {
+                    "tool_type": "web_search",
+                    "allowed_domains": ["wikipedia.org", "docs.python.org"],
+                }
+            ]
+        )
 
     def test_server_side_tools_multiple(self):
         """Test parsing multiple server_side_tools."""
@@ -288,12 +313,9 @@ server_side_tools:
 Instructions.
 """
         result = parse_agent_file(content)
-
-        assert len(result.server_side_tools) == 3
-        types = [t["tool_type"] for t in result.server_side_tools]
-        assert "web_search" in types
-        assert "code_execution" in types
-        assert "image_generation" in types
+        assert [tool["tool_type"] for tool in result.server_side_tools] == snapshot(
+            ["web_search", "code_execution", "image_generation"]
+        )
 
     def test_server_side_tools_invalid_format_raises(self):
         """Test that invalid server_side_tools format raises ValueError."""
@@ -317,8 +339,7 @@ name: basic
 Instructions.
 """
         result = parse_agent_file(content)
-
-        assert result.server_side_tools == []
+        assert result.server_side_tools == snapshot([])
 
     def test_compatible_models(self):
         """Test parsing compatible_models from agent file."""
@@ -334,12 +355,13 @@ compatible_models:
 Instructions.
 """
         result = parse_agent_file(content)
-
-        assert result.compatible_models == [
-            "anthropic:claude-sonnet-4-20250514",
-            "anthropic:claude-opus-4-20250514",
-            "openai:gpt-4o",
-        ]
+        assert result.compatible_models == snapshot(
+            [
+                "anthropic:claude-sonnet-4-20250514",
+                "anthropic:claude-opus-4-20250514",
+                "openai:gpt-4o",
+            ]
+        )
 
     def test_compatible_models_invalid_format_raises(self):
         """Test that invalid compatible_models format raises ValueError."""
@@ -391,5 +413,6 @@ Instructions here.
     result = parse_agent_file(content)
 
     assert isinstance(result, AgentDefinition)
-    assert result.name == "test_agent"
-    assert result.model == "anthropic:claude-haiku-4-5"
+    assert {"name": result.name, "model": result.model} == snapshot(
+        {"name": "test_agent", "model": "anthropic:claude-haiku-4-5"}
+    )

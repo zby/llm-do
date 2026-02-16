@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+from inline_snapshot import snapshot
 
 from llm_do.toolsets.shell import (
     ShellBlockedError,
@@ -16,23 +17,25 @@ class TestParseCommand:
     """Tests for shlex command parsing."""
 
     def test_simple_command(self):
-        assert parse_command("ls -la") == ["ls", "-la"]
+        assert parse_command("ls -la") == snapshot(["ls", "-la"])
 
     def test_quoted_arguments(self):
-        assert parse_command('echo "hello world"') == ["echo", "hello world"]
+        assert parse_command('echo "hello world"') == snapshot(["echo", "hello world"])
 
     def test_single_quotes(self):
-        assert parse_command("echo 'hello world'") == ["echo", "hello world"]
+        assert parse_command("echo 'hello world'") == snapshot(["echo", "hello world"])
 
     def test_empty_command(self):
-        assert parse_command("") == []
+        assert parse_command("") == snapshot([])
 
     def test_unclosed_quote_raises(self):
         with pytest.raises(ShellBlockedError):
             parse_command('echo "unclosed')
 
     def test_complex_command(self):
-        assert parse_command("git commit -m 'fix bug'") == ["git", "commit", "-m", "fix bug"]
+        assert parse_command("git commit -m 'fix bug'") == snapshot(
+            ["git", "commit", "-m", "fix bug"]
+        )
 
 
 class TestCheckMetacharacters:
@@ -71,28 +74,24 @@ class TestMatchShellRules:
     def test_exact_match(self):
         rules = [{"pattern": "git status", "approval_required": False, "allowed": True}]
         allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None)
-        assert allowed is True
-        assert approval is False
+        assert (allowed, approval) == snapshot((True, False))
 
     def test_prefix_match(self):
         rules = [{"pattern": "git", "approval_required": False, "allowed": True}]
         allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None)
-        assert allowed is True
-        assert approval is False
+        assert (allowed, approval) == snapshot((True, False))
 
     def test_no_match_uses_default(self):
         rules = [{"pattern": "git", "approval_required": False}]
         default = {"approval_required": True}
         allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, default)
-        assert allowed is True  # Default exists
-        assert approval is True
+        assert (allowed, approval) == snapshot((True, True))
 
     def test_no_match_no_default_blocks(self):
         """Whitelist model: no matching rule + no default = blocked."""
         rules = [{"pattern": "git", "approval_required": False}]
         allowed, approval = match_shell_rules("ls -la", ["ls", "-la"], rules, None)
-        assert allowed is False  # Whitelist blocks unmatched commands
-        assert approval is True
+        assert (allowed, approval) == snapshot((False, True))
 
     def test_first_match_wins(self):
         rules = [
@@ -100,36 +99,33 @@ class TestMatchShellRules:
             {"pattern": "git", "approval_required": True},
         ]
         allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None)
-        assert allowed is True  # Matched first rule
-        assert approval is False  # First rule wins
+        assert (allowed, approval) == snapshot((True, False))
 
     def test_rule_match_means_allowed(self):
         """Whitelist model: presence in rules = allowed."""
         rules = [{"pattern": "rm", "approval_required": True}]
         allowed, approval = match_shell_rules("rm -rf /", ["rm", "-rf", "/"], rules, None)
-        assert allowed is True  # In rules = allowed
-        assert approval is True
+        assert (allowed, approval) == snapshot((True, True))
 
     def test_no_overmatch_similar_binary(self):
         """Pattern 'git' should NOT match 'gitx' or 'git-foo'."""
         rules = [{"pattern": "git", "approval_required": False}]
         # gitx should not match git pattern
         allowed, approval = match_shell_rules("gitx status", ["gitx", "status"], rules, None)
-        assert allowed is False  # Different binary, no match
+        assert (allowed, approval) == snapshot((False, True))
         # git-foo should not match git pattern
         allowed, approval = match_shell_rules("git-foo status", ["git-foo", "status"], rules, None)
-        assert allowed is False  # Different binary, no match
+        assert (allowed, approval) == snapshot((False, True))
 
     def test_multi_token_pattern_exact_match(self):
         """Pattern 'git commit' should match 'git commit -m msg' but not 'git status'."""
         rules = [{"pattern": "git commit", "approval_required": False}]
         # Should match
         allowed, approval = match_shell_rules("git commit -m msg", ["git", "commit", "-m", "msg"], rules, None)
-        assert allowed is True
-        assert approval is False
+        assert (allowed, approval) == snapshot((True, False))
         # Should not match
         allowed, approval = match_shell_rules("git status", ["git", "status"], rules, None)
-        assert allowed is False  # 'git status' doesn't start with 'git commit'
+        assert (allowed, approval) == snapshot((False, True))
 
     def test_rule_requires_approval_for_args(self):
         rules = [
@@ -145,8 +141,7 @@ class TestMatchShellRules:
             rules,
             None,
         )
-        assert allowed is True
-        assert approval is True
+        assert (allowed, approval) == snapshot((True, True))
 
     def test_rule_allows_without_flag_args(self):
         rules = [
@@ -162,8 +157,7 @@ class TestMatchShellRules:
             rules,
             None,
         )
-        assert allowed is True
-        assert approval is False
+        assert (allowed, approval) == snapshot((True, False))
 
 
 
@@ -173,14 +167,17 @@ class TestExecuteShell:
 
     def test_simple_command(self, tmp_path):
         result = execute_shell("echo hello", working_dir=tmp_path)
-        assert result.exit_code == 0
-        assert "hello" in result.stdout
-        assert result.truncated is False
+        assert {
+            "exit_code": result.exit_code,
+            "stdout": result.stdout.strip(),
+            "truncated": result.truncated,
+        } == snapshot({"exit_code": 0, "stdout": "hello", "truncated": False})
 
     def test_command_with_args(self, tmp_path):
         result = execute_shell("echo hello world", working_dir=tmp_path)
-        assert result.exit_code == 0
-        assert "hello world" in result.stdout
+        assert {"exit_code": result.exit_code, "stdout": result.stdout.strip()} == snapshot(
+            {"exit_code": 0, "stdout": "hello world"}
+        )
 
     def test_command_not_found(self, tmp_path):
         result = execute_shell("nonexistent_command_xyz", working_dir=tmp_path)
@@ -204,8 +201,9 @@ class TestExecuteShell:
         test_file.write_text("content")
 
         result = execute_shell("ls", working_dir=tmp_path)
-        assert result.exit_code == 0
-        assert "test.txt" in result.stdout
+        assert {"exit_code": result.exit_code, "contains_test_file": "test.txt" in result.stdout} == snapshot(
+            {"exit_code": 0, "contains_test_file": True}
+        )
 
 
 
@@ -219,14 +217,12 @@ class TestShellDefault:
         """Presence of default = unmatched commands are allowed."""
         default = {"approval_required": False}
         allowed, approval = match_shell_rules("xyz", ["xyz"], [], default)
-        assert allowed is True  # Default exists = allowed
-        assert approval is False
+        assert (allowed, approval) == snapshot((True, False))
 
     def test_no_default_blocks_unmatched(self):
         """Absence of default = unmatched commands are blocked."""
         allowed, approval = match_shell_rules("xyz", ["xyz"], [], None)
-        assert allowed is False  # No default = blocked
-        assert approval is True
+        assert (allowed, approval) == snapshot((False, True))
 
 
 class TestShellToolsetNeedsApproval:
@@ -257,5 +253,4 @@ class TestShellToolsetNeedsApproval:
             None,
             None,
         )
-        assert not result.is_blocked
-        assert result.is_pre_approved
+        assert (result.is_blocked, result.is_pre_approved) == snapshot((False, True))

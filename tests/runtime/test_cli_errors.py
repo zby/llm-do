@@ -7,6 +7,7 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from inline_snapshot import snapshot
 
 from llm_do.cli.main import main
 
@@ -185,8 +186,12 @@ class TestCLIManifestErrors:
             exit_code = main()
 
         captured = capsys.readouterr()
-        assert exit_code == 1
-        assert "Cannot combine prompt argument and --input-json" in captured.err
+        assert {"exit_code": exit_code, "err": captured.err.strip()} == snapshot(
+            {
+                "exit_code": 1,
+                "err": "Error: Cannot combine prompt argument and --input-json",
+            }
+        )
         assert not marker.exists()
 
 
@@ -212,8 +217,12 @@ class TestCLIInputErrors:
             exit_code = main()
 
         captured = capsys.readouterr()
-        assert exit_code == 1
-        assert "allow_cli_input" in captured.err
+        assert {"exit_code": exit_code, "err": captured.err.strip()} == snapshot(
+            {
+                "exit_code": 1,
+                "err": "Error: CLI input not allowed by manifest (allow_cli_input is false)",
+            }
+        )
 
     def test_prompt_and_input_json_mutually_exclusive(self, tmp_path, capsys):
         """Test that prompt and --input-json cannot be combined."""
@@ -226,8 +235,12 @@ class TestCLIInputErrors:
             exit_code = main()
 
         captured = capsys.readouterr()
-        assert exit_code == 1
-        assert "Cannot combine" in captured.err
+        assert {"exit_code": exit_code, "err": captured.err.strip()} == snapshot(
+            {
+                "exit_code": 1,
+                "err": "Error: Cannot combine prompt argument and --input-json",
+            }
+        )
 
     def test_invalid_input_json(self, tmp_path, capsys):
         """Test that invalid --input-json shows error."""
@@ -248,8 +261,9 @@ class TestCLIInputErrors:
             exit_code = main()
 
         captured = capsys.readouterr()
-        assert exit_code == 1
-        assert "must be a JSON object" in captured.err
+        assert {"exit_code": exit_code, "err": captured.err.strip()} == snapshot(
+            {"exit_code": 1, "err": "Error: --input-json must be a JSON object"}
+        )
 
     def test_no_input_provided(self, tmp_path, capsys):
         """Test that missing input shows error."""
@@ -271,8 +285,12 @@ class TestCLIInputErrors:
                 exit_code = main()
 
         captured = capsys.readouterr()
-        assert exit_code == 1
-        assert "No input provided" in captured.err
+        assert {"exit_code": exit_code, "err": captured.err.strip()} == snapshot(
+            {
+                "exit_code": 1,
+                "err": "Error: No input provided (use prompt argument, --input-json, or manifest entry.args)",
+            }
+        )
 
 
 class TestCLIFlagErrors:
@@ -286,8 +304,9 @@ class TestCLIFlagErrors:
             exit_code = main()
 
         captured = capsys.readouterr()
-        assert exit_code == 1
-        assert "Cannot combine --headless and --tui" in captured.err
+        assert {"exit_code": exit_code, "err": captured.err.strip()} == snapshot(
+            {"exit_code": 1, "err": "Cannot combine --headless and --tui"}
+        )
 
     def test_chat_requires_tui(self, tmp_path, capsys):
         """Test that --chat requires TUI mode."""
@@ -298,8 +317,9 @@ class TestCLIFlagErrors:
                 exit_code = main()
 
         captured = capsys.readouterr()
-        assert exit_code == 1
-        assert "Chat mode requires TUI" in captured.err
+        assert {"exit_code": exit_code, "err": captured.err.strip()} == snapshot(
+            {"exit_code": 1, "err": "Chat mode requires TUI (--tui or a TTY)."}
+        )
 
 
 class TestCLIRuntimeErrors:
@@ -424,8 +444,9 @@ class TestCLISuccess:
                     exit_code = main()
 
         captured = capsys.readouterr()
-        assert exit_code == 0
-        assert captured.out.strip() == "Success!"
+        assert {"exit_code": exit_code, "out": captured.out.strip()} == snapshot(
+            {"exit_code": 0, "out": "Success!"}
+        )
 
     def test_input_from_manifest(self, tmp_path, capsys):
         """Test using input from manifest entry.args."""
@@ -453,7 +474,7 @@ class TestCLISuccess:
         assert exit_code == 0
         # Verify the input data passed to run() is a dict
         call_args = mock_run.call_args
-        assert call_args.args[1] == {"input": "manifest prompt"}
+        assert call_args.args[1] == snapshot({"input": "manifest prompt"})
 
     def test_input_json_override(self, tmp_path, capsys):
         """Test --input-json overrides manifest entry.args."""
@@ -484,7 +505,7 @@ class TestCLISuccess:
         assert exit_code == 0
         # Input is passed as dict payload
         call_args = mock_run.call_args
-        assert call_args.args[1] == {"input": "json override"}
+        assert call_args.args[1] == snapshot({"input": "json override"})
 
 
     def test_init_python_registers_custom_provider(self, tmp_path, capsys):
@@ -520,8 +541,9 @@ register_model_factory("init_provider_test", lambda _name: FunctionModel(_respon
                 exit_code = main()
 
         captured = capsys.readouterr()
-        assert exit_code == 0
-        assert captured.out.strip() == "init provider response"
+        assert {"exit_code": exit_code, "out": captured.out.strip()} == snapshot(
+            {"exit_code": 0, "out": "init provider response"}
+        )
 
 
 class TestCLIDebugFlag:

@@ -29,6 +29,7 @@ dependencies = [
     "rich>=13.0",
     "textual>=1.0.0",
     "pytest>=9.0.1",
+    "inline-snapshot",
     "python-frontmatter>=1.0.0",
     "python-slugify>=8.0",
 ]

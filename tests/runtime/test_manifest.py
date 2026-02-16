@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from inline_snapshot import snapshot
 
 from llm_do.project import (
     EntryConfig,
@@ -20,13 +21,17 @@ class TestManifestRuntimeConfig:
     def test_defaults(self):
         """Test default values."""
         config = ManifestRuntimeConfig()
-        assert config.approval_mode == "prompt"
-        assert config.auth_mode == "oauth_off"
-        assert config.max_depth == 5
-        assert config.return_permission_errors is False
-        assert config.agent_calls_require_approval is False
-        assert config.agent_attachments_require_approval is False
-        assert config.agent_approval_overrides == {}
+        assert config.model_dump() == snapshot(
+            {
+                "approval_mode": "prompt",
+                "auth_mode": "oauth_off",
+                "max_depth": 5,
+                "return_permission_errors": False,
+                "agent_calls_require_approval": False,
+                "agent_attachments_require_approval": False,
+                "agent_approval_overrides": {},
+            }
+        )
 
     def test_approval_modes(self):
         """Test valid approval modes."""
@@ -89,8 +94,9 @@ class TestEntryConfig:
             agent="main",
             args={"input": "Hello"},
         )
-        assert entry.agent == "main"
-        assert entry.args == {"input": "Hello"}
+        assert entry.model_dump() == snapshot(
+            {"agent": "main", "function": None, "args": {"input": "Hello"}}
+        )
 
     def test_function_entry(self):
         """Test entry with function."""
@@ -98,7 +104,9 @@ class TestEntryConfig:
             function="tools.py:main",
             args={"input": "Hello"},
         )
-        assert entry.function == "tools.py:main"
+        assert entry.model_dump() == snapshot(
+            {"agent": None, "function": "tools.py:main", "args": {"input": "Hello"}}
+        )
 
     def test_rejects_multiple_targets(self):
         """Test both agent and function set raises error."""
@@ -122,8 +130,13 @@ class TestProjectManifest:
             entry=EntryConfig(agent="main"),
             agent_files=["main.agent"],
         )
-        assert manifest.version == 1
-        assert manifest.allow_cli_input is True
+        assert {
+            "version": manifest.version,
+            "allow_cli_input": manifest.allow_cli_input,
+            "agent_files": manifest.agent_files,
+        } == snapshot(
+            {"version": 1, "allow_cli_input": True, "agent_files": ["main.agent"]}
+        )
 
     def test_version_required(self):
         """Test version is required."""
@@ -239,10 +252,23 @@ class TestLoadManifest:
         manifest_file.write_text(json.dumps(manifest_data))
 
         manifest, manifest_dir = load_manifest(manifest_file)
-
-        assert manifest.version == 1
-        assert manifest.runtime.approval_mode == "approve_all"
-        assert manifest.runtime.max_depth == 3
+        assert {
+            "version": manifest.version,
+            "runtime": manifest.runtime.model_dump(),
+        } == snapshot(
+            {
+                "version": 1,
+                "runtime": {
+                    "approval_mode": "approve_all",
+                    "auth_mode": "oauth_off",
+                    "max_depth": 3,
+                    "return_permission_errors": False,
+                    "agent_calls_require_approval": False,
+                    "agent_attachments_require_approval": False,
+                    "agent_approval_overrides": {},
+                },
+            }
+        )
         assert manifest_dir == tmp_path
 
     def test_file_not_found(self, tmp_path):
@@ -280,9 +306,10 @@ class TestLoadManifest:
 
         # Pass directory instead of file path
         manifest, manifest_dir = load_manifest(tmp_path)
-
-        assert manifest.version == 1
-        assert manifest.runtime.approval_mode == "approve_all"
+        assert {
+            "version": manifest.version,
+            "runtime_approval_mode": manifest.runtime.approval_mode,
+        } == snapshot({"version": 1, "runtime_approval_mode": "approve_all"})
         assert manifest_dir == tmp_path
 
     def test_directory_without_project_json(self, tmp_path):
@@ -311,9 +338,11 @@ class TestResolveManifestPaths:
         )
 
         agent_paths, python_paths = resolve_manifest_paths(manifest, tmp_path)
-
-        assert len(agent_paths) == 1
-        assert len(python_paths) == 1
+        assert {
+            "agent_count": len(agent_paths),
+            "python_count": len(python_paths),
+            "first_agent_name": agent_paths[0].name,
+        } == snapshot({"agent_count": 1, "python_count": 1, "first_agent_name": "main.agent"})
         assert agent_paths[0] == agent.resolve()
 
     def test_agent_file_not_found(self, tmp_path):

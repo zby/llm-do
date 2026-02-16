@@ -50,6 +50,7 @@ Run relevant checks before submitting changes:
 - **Lint**: `uv run ruff check .`
 - **Typecheck**: `uv run mypy llm_do`
 - **Tests**: `uv run pytest` — all tests must pass. Tests use dummy models, no API calls needed.
+- **Inline snapshots**: when changing `snapshot(...)` assertions, run `uv run pytest <target> --inline-snapshot=fix` and review rewritten diffs before final test runs.
 
 **Never claim checks passed unless they were actually run.** If checks cannot be run, explicitly state why.
 

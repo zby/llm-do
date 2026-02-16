@@ -1,7 +1,7 @@
 # Adopt inline-snapshot for test assertions
 
 ## Status
-ready for implementation
+completed
 
 ## Prerequisites
 - [x] none
@@ -79,17 +79,34 @@ One assertion, full coverage, auto-updatable.
   - If fuzzy matcher usage expands, standardize on `inline-snapshot[dirty-equals]` in dev deps
 
 ## Tasks
-- [ ] Add `inline-snapshot` to dev dependencies in `pyproject.toml` and install (choose plain package vs `inline-snapshot[dirty-equals]` based on actual matcher use)
-- [ ] Convert `tests/runtime/test_agent_file.py` — pilot file, establish the pattern
-- [ ] Convert `tests/runtime/test_manifest.py` — config defaults and manifest structure assertions
-- [ ] Convert `tests/test_shell.py` selectively — snapshot deterministic parse/structured results; keep platform-dependent stderr checks as substring assertions
-- [ ] Selectively convert `tests/runtime/test_cli_errors.py` — only stable error messages; keep fragile path/shell text checks as `in` assertions
-- [ ] Run per-file `--inline-snapshot=fix` commands and review rewritten snapshots in diff
-- [ ] Run full test suite, verify no regressions
-- [ ] Update `AGENTS.md` or similar if a testing convention note is warranted
+- [x] Add `inline-snapshot` to dev dependencies in `pyproject.toml` and install (choose plain package vs `inline-snapshot[dirty-equals]` based on actual matcher use)
+- [x] Convert `tests/runtime/test_agent_file.py` — pilot file, establish the pattern. Most tests here are "parse YAML, get these exact fields" so full-object snapshots are the right contract. Other files will need more selective field choices.
+- [x] Convert `tests/runtime/test_manifest.py` — config defaults and manifest structure assertions
+- [x] Convert `tests/test_shell.py` selectively — snapshot deterministic parse/structured results; keep platform-dependent stderr checks as substring assertions
+- [x] Selectively convert `tests/runtime/test_cli_errors.py` — only stable error messages; keep fragile path/shell text checks as `in` assertions
+- [x] Run per-file `--inline-snapshot=fix` commands and review rewritten snapshots in diff
+- [x] Run full test suite, verify no regressions
+- [x] Update `AGENTS.md` or similar if a testing convention note is warranted
 
 ## Current State
-Research complete. The discussion identified the four highest-value test files and established the conversion approach (`.model_dump()` + `snapshot()`, selective conversion for error messages). Ready to implement starting with `test_agent_file.py` as pilot.
+Implementation complete.
+Changes landed in:
+- `pyproject.toml` (added `inline-snapshot` in dev dependencies)
+- `tests/runtime/test_agent_file.py` (dataclass snapshot assertions)
+- `tests/runtime/test_manifest.py` (manifest/config snapshot assertions)
+- `tests/test_shell.py` (deterministic shell parsing/rule snapshots; platform-sensitive stderr checks kept as substring assertions)
+- `tests/runtime/test_cli_errors.py` (stable CLI error/success snapshots; fragile message checks retained as substring assertions)
+- `AGENTS.md` (added inline-snapshot verification convention)
+
+Verification run:
+- `uv run pytest tests/runtime/test_agent_file.py --inline-snapshot=fix`
+- `uv run pytest tests/runtime/test_manifest.py --inline-snapshot=fix`
+- `uv run pytest tests/test_shell.py --inline-snapshot=fix`
+- `uv run pytest tests/runtime/test_cli_errors.py --inline-snapshot=fix`
+- `uv run pytest tests/runtime/test_agent_file.py tests/runtime/test_manifest.py tests/test_shell.py tests/runtime/test_cli_errors.py`
+- `uv run ruff check .`
+- `uv run mypy llm_do`
+- `uv run pytest`
 
 ## Notes
 - `inline-snapshot` rewrites source files — always review the diff after `--inline-snapshot=fix`

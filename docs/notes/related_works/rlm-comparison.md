@@ -82,8 +82,8 @@ capabilities, not a new computational primitive.
 ## Where llm-do Diverges
 
 The RLM implementations and llm-do both support recursive dispatch between LLM and
-code, but they optimize for different things. Four differences follow from this, each
-building on the previous.
+code, but they optimize for different things. Five differences follow from this, the
+first four building on each other, and a fifth addressing a genuine RLM advantage.
 
 ### 1. Power vs. Evolvability
 
@@ -193,6 +193,48 @@ calling convention means the same dispatch path handles both plain code tools an
 LLM calls. RLMs avoid all of this by being pure, ephemeral, and single-concern —
 reentrancy is trivial precisely because there's nothing stateful to protect.
 
+### 5. Opaque Delegation vs. Conversation Horizon
+
+This is a genuine RLM advantage that the previous four divergences don't capture,
+clarified by researcher Omar Khattab.
+
+In subagent architectures (including llm-do's current design), delegation happens
+through explicit tool invocations. When agent A calls agent B, the call is opaque: A
+doesn't see B's instructions, reasoning, or internal decomposition — only the returned
+result. Each delegation is a black box at the call site. The parent agent cannot reason
+about the recursive structure of the work it's orchestrating.
+
+In RLMs, recursion is integrated directly into the model's self-understanding of its
+conversation horizon. The LLM writes
+`results = [recursive_llm("summarize", chunk) for chunk in chunks]` — it *sees* the
+decomposition strategy, understands that sub-calls will happen, and reasons about
+aggregation as part of the same cognitive process. The recursion is part of the model's
+plan, not hidden behind an API boundary.
+
+This has a concrete efficiency consequence: subagent delegation requires the parent to
+re-attend over its full context at each step (quadratic attention cost in the number of
+delegations), while RLM's code-driven recursion allows linear or superlinear LLM
+calls — intermediate results live in Python variables, not in any model's context
+window.
+
+**Replicating this in llm-do.** Two approaches could close the gap:
+
+1. **Make agent instructions visible to the caller.** If the calling agent can see the
+   system prompts and schemas of the agents it delegates to, it gains a model of what
+   sub-agents do — closing the opacity gap. The caller can reason about delegation
+   structure and plan multi-step decompositions, even though execution remains separate.
+
+2. **Restructure agent composition around conversation horizon.** Redesign how agents
+   describe their delegation capabilities so the orchestrator reasons about the full
+   plan upfront — more like writing a program than making one-at-a-time opaque tool
+   calls. Python entry points (like `pitchdeck_eval_code_entry`) already move in this
+   direction: orchestration logic is code that structures the full delegation plan,
+   rather than an agent that discovers the next step incrementally.
+
+Neither approach gives llm-do the pure efficiency win of RLM's in-variable
+intermediates. But they address the deeper issue — opacity — which is what prevents
+the calling agent from reasoning well about recursive work.
+
 ## Comparison Table
 
 | Aspect | RLM implementations | llm-do |
@@ -208,6 +250,7 @@ reentrancy is trivial precisely because there's nothing stateful to protect.
 | **Refactoring cost** | Pay the tax | Free (call sites don't change) |
 | **Reentrancy cost** | Trivial (nothing to protect) | Managed (isolation, lifecycles, approvals) |
 | **State isolation** | Fresh instance per call | `CallFrame` per call |
+| **Delegation transparency** | Integrated — model sees its own decomposition strategy | Opaque — tool call returns result only |
 
 ## Open Questions
 

@@ -5,7 +5,7 @@ This example shows how to register a custom provider and use it via `LLM_DO_MODE
 ## Files
 
 - `providers.py` registers a model factory for the provider prefix `ollama-local`.
-- `providers.py` also registers a `http-json` provider that calls an OpenAI-compatible endpoint with raw HTTP.
+- `providers.py` also registers a `http-json` provider that calls an OpenAI-compatible endpoint with raw HTTP.  Streaming support is optional — `SimpleHTTPChatModel` only implements `request()` and works at all verbosity levels up to `-v`.
 - `main.agent` is a minimal agent with no model specified.
 - `project.json` loads both the agent and provider registration code.
 - `GUIDE.md` is a detailed guide for building custom providers without SDKs.

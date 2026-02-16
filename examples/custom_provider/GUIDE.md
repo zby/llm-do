@@ -18,7 +18,7 @@ The `providers.py` example registers two providers:
 The SDK-free approach requires you to implement:
 
 1. A **provider** class (configuration + HTTP client)
-2. A **model** class (request/response translation)
+2. A **model** class implementing `request()` (and optionally `request_stream()`)
 3. **Message mapping** (PydanticAI ↔ your API format)
 4. **Registration** via `register_model_factory()`
 
@@ -44,11 +44,12 @@ Swap `httpx` for `aiohttp`, `requests`, or `urllib`—the model logic stays the 
 
 Subclass `pydantic_ai.models.Model` and implement these:
 
-| Attribute/Method | Purpose |
-|------------------|---------|
-| `model_name` | The model identifier sent to the API |
-| `system` | Provider ID (use `"openai"` for OpenAI-compatible APIs) |
-| `request()` | Sends the HTTP request and parses the response |
+| Attribute/Method | Required | Purpose |
+|------------------|----------|---------|
+| `model_name` | Yes | The model identifier sent to the API |
+| `system` | Yes | Provider ID (use `"openai"` for OpenAI-compatible APIs) |
+| `request()` | Yes | Sends the HTTP request and parses the response |
+| `request_stream()` | No | Streaming variant; only needed for `-vv` text deltas |
 
 ---
 
@@ -193,15 +194,28 @@ llm-do examples/custom_provider/project.json "Hello!"
 
 ---
 
-## Limitations
+## Streaming Support
 
-This minimal example intentionally omits:
+Streaming is **optional**. The `SimpleHTTPChatModel` only implements `request()` and works out of the box:
+
+| Verbosity | Behavior |
+|-----------|----------|
+| Default / `-v` | Uses `request()` — works with all models |
+| `-vv` | Uses `request_stream()` — requires streaming support |
+
+Models without `request_stream()` run at any verbosity up to `-v`. At `-vv`, PydanticAI raises `NotImplementedError` because the base `Model` class does not provide a default streaming implementation.
+
+If your API supports streaming and you want `-vv` text deltas, implement `request_stream()` returning a `StreamedResponse`. Otherwise, simply omit it — `request()` alone is sufficient.
+
+---
+
+## Limitations
 
 | Feature | Status |
 |---------|--------|
 | Tool calling | Supported |
+| Streaming | Optional (see above) |
 | Structured output | Not supported |
-| Streaming | Not implemented |
 
 ---
 
@@ -220,7 +234,7 @@ This minimal example intentionally omits:
 Before shipping your custom provider:
 
 1. Provider stores base URL, API key, name, and HTTP client
-2. Model subclass implements `request()`
+2. Model subclass implements `request()` (streaming via `request_stream()` is optional)
 3. Message mapping handles system/user/assistant history
 4. Response parsing returns `ModelResponse` + `TextPart`
 5. Factory registered with `register_model_factory()`

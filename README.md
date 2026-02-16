@@ -1,8 +1,8 @@
 # llm-do
 
-*A hybrid VM—extend with prompts, stabilize with code.*
+*A hybrid VM—extend with prompts, stabilize with code, verify what you've stabilized.*
 
-LLM reasoning and Python code share a unified execution model. Call an agent (LLM) or a tool (Python) with the same convention. Move computation freely between neural and symbolic—stabilize patterns to code when they emerge, soften rigid code back to LLM when edge cases multiply.
+LLM reasoning and Python code share a unified execution model. Call an agent (LLM) or a tool (Python) with the same convention. Move computation freely between neural and symbolic—stabilize patterns to code when they emerge, soften rigid code back to LLM when edge cases multiply. Each stabilization step makes more of the system verifiable, enabling tighter iteration.
 
 ```
 [LLM ⟷ Code ⟷ LLM ⟷ Code] → output
@@ -119,7 +119,7 @@ my-project/
 └── output/
 ```
 
-This progression reflects **moving computation within the VM**: initially you might prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function—deterministic, testable, no LLM variability. The operation migrates from neural to symbolic without changing how callers invoke it. See the pitchdeck examples for a concrete progression: [`pitchdeck_eval`](examples/pitchdeck_eval/) (all LLM) → [`pitchdeck_eval_stabilized`](examples/pitchdeck_eval_stabilized/) (extracted tools) → [`pitchdeck_eval_code_entry`](examples/pitchdeck_eval_code_entry/) (Python orchestration).
+This progression is **crystallisation** — encoding deployment experience into progressively more verifiable artifacts. Initially you prompt the LLM to "rename the file to remove special characters". Once you see it works, extract that to a Python function — deterministic, testable, no LLM variability. Each step makes more of the system resettable, cheap to test, and automatically checkable, enabling tighter iteration loops. The operation migrates from neural to symbolic without changing how callers invoke it. See the pitchdeck examples for a concrete progression: [`pitchdeck_eval`](examples/pitchdeck_eval/) (all LLM) → [`pitchdeck_eval_stabilized`](examples/pitchdeck_eval_stabilized/) (extracted tools) → [`pitchdeck_eval_code_entry`](examples/pitchdeck_eval_code_entry/) (Python orchestration).
 
 ## Model Configuration
 
@@ -243,6 +243,7 @@ For Python-driven orchestration (instead of agent-first), see [`pitchdeck_eval_c
 ## Documentation
 
 - **[`docs/theory.md`](docs/theory.md)** — Theoretical foundation: probabilistic programs, stabilizing/softening, tradeoffs
+- **[`docs/notes/crystallisation-learning-timescales.md`](docs/notes/crystallisation-learning-timescales.md)** — Crystallisation: learning across sessions through progressively verifiable artifacts
 - **[`docs/architecture.md`](docs/architecture.md)** — Internal structure: unified calling, harness layer, runtime scopes
 - **[`docs/reference.md`](docs/reference.md)** — API reference: workflows, toolsets, agent format
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference

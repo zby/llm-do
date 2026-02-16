@@ -128,6 +128,8 @@ Example: a file-renaming agent initially uses LLM judgment for everything. You n
 
 Either way, **version both spec and artifact**. Don't rely on "re-generate later" as a build step—regeneration gives you a *different sample*, not the same code.
 
+For the gradient of stabilisation techniques — from prompt restructuring through evals to deterministic modules — see [Crystallisation: The Missing Middle](notes/crystallisation-learning-timescales.md).
+
 ### Softening as extension
 
 The common path for softening is **extension**: you need new capability, describe it in natural language, and it becomes callable. The rarer path is **replacement**: rigid code is drowning in edge cases, so you swap it for an LLM call that handles linguistic variation.

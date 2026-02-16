@@ -16,6 +16,8 @@ Deployed AI systems adapt at three timescales, each with a different substrate:
 
 Crystallisation is not a new training paradigm — the model weights don't change. It is **system-level adaptation**: the deployed system's behavior improves because its *artifacts* improve. Like in-context learning it happens during deployment; like training it persists durably. What makes it possible is encoding knowledge into repo artifacts rather than weights or context.
 
+The machinery behind crystallisation — version control, diffs, tests, CI, code review — is unremarkable to programmers. But AI researchers, trained to think about adaptation in terms of weights and gradients, tend to look past it. Repo artifacts sit in a disciplinary blind spot — "just engineering" to the ML community, yet doing genuine system-level learning.
+
 ## Why Repo Artifacts
 
 > Software 1.0 easily automates what you can specify. Software 2.0 easily automates what you can verify.
@@ -85,31 +87,6 @@ Crystallisation is not a free lunch. Things that go wrong:
 
 The individual practices are well-established. Prompt versioning and "prompts as code" are standard LLMOps advice. Eval-driven development has its own frameworks (OpenAI Evals, promptfoo) and process models ([EDDOps](https://arxiv.org/abs/2411.13768)). Automated prompt optimisation (DSPy, ProTeGi) pursues a related goal — improving system behavior without weight updates — through search over prompt components. Agent skill libraries like [Voyager](https://arxiv.org/abs/2305.16291) and evaluator-guided program evolution like [FunSearch](https://www.nature.com/articles/s41586-023-06924-6) accumulate executable code as a form of cross-episode memory.
 
-Crystallisation is a **taxonomy** (three timescales of system adaptation), a **verifiability gradient** (from prompt tweaks to deterministic code), and a **mapping to the hybrid VM stabilise/soften cycle** — a synthesis of established practices into a concrete model for when and how to move between grades.
+Crystallisation is a **taxonomy** (three timescales of system adaptation) and a **verifiability gradient** (from prompt tweaks to deterministic code) — a synthesis of established practices into a concrete model for when and how to move between grades.
 
-## Relation to the Hybrid VM Theory
-
-The [theory document](../theory.md) describes llm-do as a hybrid VM where components move between stochastic (LLM) and deterministic (code) execution via two operations: **stabilizing** (stochastic → deterministic) and **softening** (deterministic → stochastic).
-
-Crystallisation is the adaptation process that drives stabilizing. The theory describes *what* moves across the distribution boundary; crystallisation describes *how* — through deployment experience encoded into progressively harder artifacts:
-
-| Theory concept | Crystallisation grade |
-|----------------|----------------------|
-| Fully stochastic | In-context learning only — nothing persisted |
-| Shaping the distribution (prompts, schemas) | Restructured prompts, structured output schemas |
-| Progressive stabilizing | Prompt evals catching regressions |
-| Full stabilizing | Deterministic modules replacing LLM steps |
-
-Softening is the opposite movement: extending into territory where we don't yet have enough information to crystallise. You add an LLM call to handle new cases, observe its behavior across sessions, and crystallise the patterns that emerge.
-
-The full cycle: **soften to explore, crystallise to consolidate.** A component might start as an LLM call (quick to add), crystallise to code as patterns emerge (reliable and testable), then soften again when new requirements outgrow the rigid implementation. The system breathes.
-
-## In llm-do
-
-This framing describes the design rationale behind llm-do's architecture:
-
-- `.agent` specs are crystallised interaction patterns
-- Deterministic tool modules are crystallised capabilities
-- `project.json` manifests are crystallised orchestration knowledge
-- Tests verify that crystallised assumptions still hold
-- The [examples](../../examples/README.md#progressive-stabilizing) demonstrate the gradient in working code
+For how crystallisation maps to the llm-do hybrid VM's stabilise/soften cycle, see the [theory document](../theory.md). The [examples](../../examples/README.md#progressive-stabilizing) demonstrate the gradient in working code.

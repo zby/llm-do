@@ -1,0 +1,60 @@
+# arscontexta/ops/config.yaml -- edit these to adjust your system
+# See arscontexta/ops/derivation.md for WHY each choice was made
+
+dimensions:
+  granularity: moderate
+  organization: hierarchical
+  linking: explicit
+  processing: moderate
+  navigation: 3-tier
+  maintenance: condition-based
+  schema: moderate
+  automation: full
+
+features:
+  semantic-search: false
+  processing-pipeline: true
+  sleep-processing: false
+  voice-capture: false
+
+processing_tier: auto
+
+processing:
+  depth: standard
+  chaining: suggested
+  extraction:
+    selectivity: moderate
+    categories:
+      - design-decisions
+      - technical-insights
+      - api-design
+      - integration-patterns
+      - open-questions
+  verification:
+    description_test: true
+    schema_check: true
+    link_check: true
+  reweave:
+    scope: related
+    frequency: after_create
+
+provenance: minimal
+
+personality:
+  enabled: false
+
+research:
+  primary: web-search
+  fallback: web-search
+  last_resort: web-search
+  default_depth: moderate
+
+# Domain-specific settings
+domain:
+  name: llm-do
+  type: library-development
+  public_docs_path: docs/  # no schema enforcement here
+  internal_workspace:
+    - docs/notes/
+    - docs/adr/
+    - tasks/

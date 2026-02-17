@@ -5,7 +5,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-SESSION_FILE="$PROJECT_ROOT/ops/sessions/current.json"
+SESSION_FILE="$PROJECT_ROOT/arscontexta/ops/sessions/current.json"
 
 if [ ! -f "$SESSION_FILE" ]; then
   exit 0
@@ -19,4 +19,4 @@ fi
 
 # Archive with timestamp
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-cp "$SESSION_FILE" "$PROJECT_ROOT/ops/sessions/${TIMESTAMP}.json"
+cp "$SESSION_FILE" "$PROJECT_ROOT/arscontexta/ops/sessions/${TIMESTAMP}.json"

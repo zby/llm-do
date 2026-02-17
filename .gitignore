@@ -148,7 +148,7 @@ pydantic_ai_blocking_approval
 ralph-logs/
 
 # Session logs (transient runtime state)
-ops/sessions/
+arscontexta/ops/sessions/
 
 # Local repo checkout symlinks for agent reference
 pydantic-ai

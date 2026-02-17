@@ -49,8 +49,8 @@ Every session follows: **Orient → Work → Persist**
 
 Read identity and goals at session start. Check condition-based triggers for maintenance items.
 
-- `self/identity.md`, `self/methodology.md`, `self/goals.md` — who you are, what you're working on
-- `ops/reminders.md` — time-bound commitments (surface overdue items)
+- `arscontexta/self/identity.md`, `arscontexta/self/methodology.md`, `arscontexta/self/goals.md` — who you are, what you're working on
+- `arscontexta/ops/reminders.md` — time-bound commitments (surface overdue items)
 - Workboard reconciliation — surfaces condition-based maintenance triggers automatically
 
 ### Work
@@ -62,16 +62,16 @@ Do the actual task. Surface connections as you go. If you discover something wor
 Before session ends:
 - Write any new insights as notes in docs/notes/
 - Update relevant indexes
-- Update self/goals.md with current state
+- Update arscontexta/self/goals.md with current state
 - Capture anything learned about methodology
-- Session capture: stop hooks save transcript to ops/sessions/
+- Session capture: stop hooks save transcript to arscontexta/ops/sessions/
 
-## Your Mind Space (self/)
+## Your Mind Space (arscontexta/self/)
 
 This is YOUR persistent memory. Read it at EVERY session start.
 
 ```
-self/
+arscontexta/self/
 ├── identity.md      — who you are, your approach
 ├── methodology.md   — how you work, principles
 ├── goals.md         — current threads, what's active
@@ -89,19 +89,19 @@ self/
 |-------------|-------------|----------|
 | Design notes, insights, explorations | docs/notes/ | Architecture patterns, design trade-offs, research |
 | Architecture decisions | docs/adr/ | Formal decisions with status, context, consequences |
-| Quick captures, raw ideas | inbox/ | URLs, rough thoughts, things to process later |
-| Agent identity, methodology, preferences | self/ | Working patterns, goals, learned preferences |
-| Time-bound commitments | ops/reminders.md | Follow-ups, deadlines, things to revisit |
-| Processing state, queue, config | ops/ | Queue state, session logs, observations |
-| Friction signals, patterns noticed | ops/observations/ | Search failures, methodology improvements |
+| Quick captures, raw ideas | arscontexta/inbox/ | URLs, rough thoughts, things to process later |
+| Agent identity, methodology, preferences | arscontexta/self/ | Working patterns, goals, learned preferences |
+| Time-bound commitments | arscontexta/ops/reminders.md | Follow-ups, deadlines, things to revisit |
+| Processing state, queue, config | arscontexta/ops/ | Queue state, session logs, observations |
+| Friction signals, patterns noticed | arscontexta/ops/observations/ | Search failures, methodology improvements |
 | Project tasks | tasks/ | Active work items (existing system — see tasks/README.md) |
 
-When uncertain, ask: "Is this durable knowledge (docs/notes/), agent identity (self/), or temporal coordination (ops/)?" Durable knowledge earns its place in the graph. Agent identity shapes future behavior. Everything else is operational.
+When uncertain, ask: "Is this durable knowledge (docs/notes/), agent identity (arscontexta/self/), or temporal coordination (arscontexta/ops/)?" Durable knowledge earns its place in the graph. Agent identity shapes future behavior. Everything else is operational.
 
-## Operational Space (ops/)
+## Operational Space (arscontexta/ops/)
 
 ```
-ops/
+arscontexta/ops/
 ├── derivation.md         — why this system was configured this way
 ├── derivation-manifest.md — machine-readable config for runtime skills
 ├── config.yaml           — live configuration (edit to adjust dimensions)
@@ -123,7 +123,7 @@ When users ask about system structure, schema, or methodology:
 | "How should I organize/structure..." | /arscontexta:architect | Apply methodology below |
 | "Can I add/change the schema..." | /arscontexta:architect | Edit templates directly |
 | "Research best practices for..." | /arscontexta:ask | Read bundled references |
-| "What does my system know about..." | Check ops/methodology/ directly | /arscontexta:ask for research backing |
+| "What does my system know about..." | Check arscontexta/ops/methodology/ directly | /arscontexta:ask for research backing |
 | "What should I work on..." | /arscontexta:next | Reconcile queue + recommend |
 | "Help / what can I do..." | /arscontexta:help | Show available commands |
 | "Walk me through..." | /arscontexta:tutorial | Interactive learning |
@@ -203,7 +203,7 @@ What is unexplored or unresolved.
 
 ### Starting Indexes
 
-The self/ files serve as your foundation indexes. As docs/notes/ grows, create topic indexes there (e.g., `architecture-index.md`, `runtime-index.md`, `ui-index.md`).
+The arscontexta/self/ files serve as your foundation indexes. As docs/notes/ grows, create topic indexes there (e.g., `architecture-index.md`, `runtime-index.md`, `ui-index.md`).
 
 ## Processing Pipeline
 
@@ -213,7 +213,7 @@ Every piece of content follows: capture → extract → connect → review. Each
 
 ### The Phases
 
-**Phase 1: Capture** — Zero friction. Everything enters through `inbox/` or directly to `docs/notes/`. Speed of capture beats precision of filing.
+**Phase 1: Capture** — Zero friction. Everything enters through `arscontexta/inbox/` or directly to `docs/notes/`. Speed of capture beats precision of filing.
 
 **Phase 2: Extract** — Read source material through the project lens: "Does this serve understanding of llm-do?" Pull out design decisions, technical insights, API design observations, integration patterns, and open questions.
 
@@ -228,7 +228,7 @@ Quality bar for extracted notes:
 
 ### Processing Depth
 
-Configured in ops/config.yaml:
+Configured in arscontexta/ops/config.yaml:
 - **deep** — Full pipeline, fresh context per phase, maximum quality gates
 - **standard** — Full pipeline, balanced attention (default)
 - **quick** — Compressed pipeline, combine connect+review. For high volume catch-up.
@@ -241,7 +241,7 @@ Configured in ops/config.yaml:
 
 ### Task Queue
 
-Pipeline tasks are tracked in `ops/queue/queue.json`. Each note gets one queue entry progressing through phases. /next evaluates conditions and recommends the highest-priority action.
+Pipeline tasks are tracked in `arscontexta/ops/queue/queue.json`. Each note gets one queue entry progressing through phases. /next evaluates conditions and recommends the highest-priority action.
 
 Maintenance work lives alongside pipeline work in the same queue. Conditions materialize as `type: "maintenance"` entries with priority based on consequence speed.
 
@@ -286,7 +286,7 @@ rg '\[\[note title\]\]' --glob '*.md'
 
 ### Validation
 
-Notes are validated against templates in `templates/`. Validation catches drift without blocking capture. Missing descriptions are FAIL; missing optional fields are WARN.
+Notes are validated against templates in `arscontexta/templates/`. Validation catches drift without blocking capture. Missing descriptions are FAIL; missing optional fields are WARN.
 
 ## Maintenance — Keeping the Graph Healthy
 
@@ -326,9 +326,9 @@ Complexity arrives at pain points, not before. You don't add features because th
 5. Activate and adapt it
 6. Monitor — did the friction decrease?
 
-### Your System's Self-Knowledge (ops/methodology/)
+### Your System's Self-Knowledge (arscontexta/ops/methodology/)
 
-Your vault knows why it was built the way it was. `ops/methodology/` contains linked notes explaining configuration rationale, learned behavioral patterns, and operational evolution.
+Your vault knows why it was built the way it was. `arscontexta/ops/methodology/` contains linked notes explaining configuration rationale, learned behavioral patterns, and operational evolution.
 
 | Content | Created By | Purpose |
 |---------|-----------|---------|
@@ -338,19 +338,19 @@ Your vault knows why it was built the way it was. `ops/methodology/` contains li
 
 Query your methodology directly:
 ```bash
-ls ops/methodology/*.md
-rg '^category:' ops/methodology/
-rg '^status: active' ops/methodology/
+ls arscontexta/ops/methodology/*.md
+rg '^category:' arscontexta/ops/methodology/
+rg '^status: active' arscontexta/ops/methodology/
 ```
 
 The /ask command consults two knowledge layers:
-- **Local methodology** (ops/methodology/) — "How does MY system work?"
+- **Local methodology** (arscontexta/ops/methodology/) — "How does MY system work?"
 - **Research graph** (bundled methodology notes) — "Why is this a good idea?"
 
 ### Operational Learning Loop
 
-**Observations** (ops/observations/) — friction, surprises, process gaps captured during work.
-**Tensions** (ops/tensions/) — contradictions between notes or between methodology and practice.
+**Observations** (arscontexta/ops/observations/) — friction, surprises, process gaps captured during work.
+**Tensions** (arscontexta/ops/tensions/) — contradictions between notes or between methodology and practice.
 
 Thresholds: 10+ pending observations or 5+ pending tensions → run /rethink to triage.
 
@@ -375,24 +375,24 @@ Your wiki-linked workspace is a graph database: markdown files are nodes, wiki l
 
 ## Templates — Schema as Scaffolding
 
-Templates live in `templates/` and define the structure of each note type:
-- `templates/note.md` — for docs/notes/ design notes
-- `templates/adr.md` — for docs/adr/ architecture decisions
-- `templates/index.md` — for area indexes
-- `templates/observation.md` — for ops/observations/
+Templates live in `arscontexta/templates/` and define the structure of each note type:
+- `arscontexta/templates/note.md` — for docs/notes/ design notes
+- `arscontexta/templates/adr.md` — for docs/adr/ architecture decisions
+- `arscontexta/templates/index.md` — for area indexes
+- `arscontexta/templates/observation.md` — for arscontexta/ops/observations/
 
 Each includes a `_schema` block defining required fields, optional fields, enums, and constraints. The `_schema` block is the single source of truth for validation.
 
 ## Pipeline Compliance
 
-New insights should route through the pipeline: `inbox/` → `/extract` → `docs/notes/`. Direct writes to docs/notes/ are acceptable for design explorations that emerge during development work — just make sure to run /connect afterward so the note gets linked into the graph.
+New insights should route through the pipeline: `arscontexta/inbox/` → `/extract` → `docs/notes/`. Direct writes to docs/notes/ are acceptable for design explorations that emerge during development work — just make sure to run /connect afterward so the note gets linked into the graph.
 
 Full automation is active from day one. All processing skills, all quality gates, all maintenance mechanisms are available immediately.
 
 ## Self-Improvement
 
 When friction occurs (search fails, content placed wrong, user corrects you):
-1. Use /remember to capture it as an observation in ops/observations/
+1. Use /remember to capture it as an observation in arscontexta/ops/observations/
 2. Continue your current work — don't derail
 3. If the same friction occurs 3+ times, propose updating this context file
 4. If user explicitly says "remember this" or "always do X", update this context file immediately
@@ -443,7 +443,7 @@ rg -L '^description:' docs/notes/*.md    # missing descriptions
 ## Guardrails
 
 - Never present inferences as facts — "I notice a pattern" not "this is true"
-- Derivation rationale (ops/derivation.md) is always readable
+- Derivation rationale (arscontexta/ops/derivation.md) is always readable
 - No hidden processing — every automated action is logged and inspectable
 - The system helps you think, not thinks for you
 - Never fabricate sources or citations
@@ -485,7 +485,7 @@ This system was derived for the llm-do project with these key choices:
 - **Full automation** — leveraging Claude Code hooks and skills
 - **Public/internal boundary** — docs/*.md untouched; docs/notes/, docs/adr/, tasks/ enhanced
 
-See `ops/derivation.md` for the complete derivation with conversation signals and confidence levels.
+See `arscontexta/ops/derivation.md` for the complete derivation with conversation signals and confidence levels.
 
 ## Available Skills
 

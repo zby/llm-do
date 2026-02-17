@@ -1,0 +1,37 @@
+{
+  "schema_version": 3,
+  "tasks": [],
+  "maintenance_conditions": {
+    "orphan_notes": {
+      "description": "Notes with no incoming wiki links",
+      "threshold": 10,
+      "check_command": "rg -l '\\[\\[' docs/notes/ | sort > /tmp/linked; ls docs/notes/*.md | sort > /tmp/all; comm -23 /tmp/all /tmp/linked",
+      "action": "Run /arscontexta:connect on orphan notes"
+    },
+    "stale_notes": {
+      "description": "Notes not modified in 60+ days with sparse connections",
+      "threshold": 5,
+      "action": "Run /arscontexta:revisit on stale notes"
+    },
+    "dangling_links": {
+      "description": "Wiki links pointing to non-existent files",
+      "threshold": 3,
+      "action": "Fix or remove dangling wiki links"
+    },
+    "inbox_overflow": {
+      "description": "Unprocessed items in inbox/",
+      "threshold": 10,
+      "action": "Process inbox items into docs/notes/ or tasks/"
+    },
+    "pending_observations": {
+      "description": "Unreviewed observations in arscontexta/ops/observations/",
+      "threshold": 10,
+      "action": "Run /arscontexta:rethink to review observations"
+    },
+    "pending_tensions": {
+      "description": "Unresolved tensions in arscontexta/ops/tensions/",
+      "threshold": 5,
+      "action": "Run /arscontexta:rethink to resolve tensions"
+    }
+  }
+}

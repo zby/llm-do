@@ -9,7 +9,7 @@ FILE_PATH="${CLAUDE_FILE_PATH:-}"
 
 # Only auto-commit internal workspace files
 case "$FILE_PATH" in
-  */docs/notes/*.md|*/docs/adr/*.md|*/self/*.md|*/ops/*.md|*/ops/*.json|*/ops/*.yaml|*/inbox/*.md|*/templates/*.md|*/manual/*.md)
+  */docs/notes/*.md|*/docs/adr/*.md|*/arscontexta/self/*.md|*/arscontexta/ops/*.md|*/arscontexta/ops/*.json|*/arscontexta/ops/*.yaml|*/arscontexta/inbox/*.md|*/arscontexta/templates/*.md|*/arscontexta/manual/*.md)
     ;;
   *)
     exit 0

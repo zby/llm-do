@@ -11,7 +11,7 @@ FILE_PATH="${CLAUDE_FILE_PATH:-}"
 
 # Only validate files in the internal workspace
 case "$FILE_PATH" in
-  */docs/notes/*.md|*/docs/adr/*.md|*/self/*.md|*/ops/observations/*.md|*/ops/tensions/*.md)
+  */docs/notes/*.md|*/docs/adr/*.md|*/arscontexta/self/*.md|*/arscontexta/ops/observations/*.md|*/arscontexta/ops/tensions/*.md)
     ;;
   *)
     exit 0

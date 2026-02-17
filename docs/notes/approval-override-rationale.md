@@ -31,4 +31,10 @@ That simplifies runtime config but loses the ability to express exceptions. It f
 - Are there concrete users or workflows relying on per‑agent exceptions today?
 - Should attachment approvals be a separate concern from agent call approvals, or tied together?
 - If overrides stay, should the canonical shape be Pydantic (shared with manifest) or a runtime dataclass?
-- Is there a different policy model (capability-based) that would replace per‑agent overrides entirely?
+- Is there a different policy model (capability-based) that would replace per‑agent overrides entirely? (See [[capability-based-approvals]] — tools declare capabilities, runtime policy evaluates them, making per-agent overrides unnecessary.)
+
+---
+
+Relevant Notes:
+- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — grounds: since approvals are UX rather than security, override simplification is a usability question, not a safety one
+- [[capability-based-approvals]] — supersedes: capability-based policy where tools declare facts and the runtime evaluates them replaces the need for per-agent approval overrides

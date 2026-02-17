@@ -168,6 +168,11 @@ Aider-style integration:
 - Do we prefer GitPython or invoking the git CLI for early iterations?
 - How should approvals and manual-only operations map to git push and pull?
 
+---
+
+Relevant Notes:
+- [[capability-based-approvals]] — enables: narrow git tools (git_status, git_stage, git_push) would declare specific capabilities (git.read, git.write, git.push) rather than the broad `proc.exec`, giving the runtime policy finer-grained control
+
 ## References
 
 - Aider git docs: https://aider.chat/docs/git.html

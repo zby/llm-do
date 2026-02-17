@@ -218,3 +218,8 @@ for i, h in enumerate(handles):
 2. **Implement `agent_onboard` / `agent_onboard_reply`** - if pattern proves valuable
 3. **Consider user-initiated onboarding** - later, needs UI work
 4. **Fork support** - separate feature, combines well with batch onboarding
+
+---
+
+Relevant Notes:
+- [[dynamic-agents-runtime-design]] — foundation: the `agent_create`/`agent_call` primitives that onboarding extends with a bidirectional setup phase

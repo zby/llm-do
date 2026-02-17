@@ -386,3 +386,9 @@ Rapid iteration during development.
 4. **Hot reload** - File watcher for worker changes during development?
 
 5. **`/load` semantics** - Replace vs delegate vs augment?
+
+---
+
+Relevant Notes:
+- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — grounds: the approval scenarios (1-11) implicitly treat approvals as UX affordances (session caching, per-tool preapproval) rather than security gates, consistent with approvals being an error-catching mechanism
+- [[capability-based-approvals]] — foundation: scenarios 1-11 are concrete examples of how capability-based policy maps to session caching (grant lifetime), pre-approved tools (capability allow rules), and headless mode (autonomous policy profile)

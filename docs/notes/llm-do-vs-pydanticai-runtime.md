@@ -190,6 +190,12 @@ For outward messaging, lead with the unified tool/agent namespace; keep
 approvals secondary until that surface is more mature, while framing everything
 under the hybrid VM umbrella.
 
+---
+
+Relevant Notes:
+- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — grounds: the "syscall interception" framing treats tool call mediation as a UX feature (visibility and error-catching), consistent with approvals being a UI mechanism rather than a security boundary
+- [[capability-based-approvals]] — extends: the runtime interception points are where capability declarations get evaluated against session policy — the "syscall" model IS capability-based approval
+
 ## References
 - https://ai.pydantic.dev/multi-agent-applications/#agent-delegation-and-dependencies
 - https://github.com/vstorm-co/subagents-pydantic-ai

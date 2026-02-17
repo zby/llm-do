@@ -81,4 +81,10 @@ Passed to `respond`:
 - Redaction details: finalize key denylist, truncation thresholds, and container caps.
 
 ## Conclusion
-Decision: keep the event stream and approvals in-process for now; defer any network transport. If we revisit remote UI later, start by factoring the current in-process approval queue into a reusable “approval broker” interface so both Textual (local) and a future remote UI can share the same `ApprovalPolicy.approval_callback` wiring. Initial defaults: timeout raises an error for visibility; single UI controller; denylist + truncation redaction for `args`.
+Decision: keep the event stream and approvals in-process for now; defer any network transport. If we revisit remote UI later, start by factoring the current in-process approval queue into a reusable "approval broker" interface so both Textual (local) and a future remote UI can share the same `ApprovalPolicy.approval_callback` wiring. Initial defaults: timeout raises an error for visibility; single UI controller; denylist + truncation redaction for `args`.
+
+---
+
+Relevant Notes:
+- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — grounds: the broker's timeout, redaction, and "remember" design treats approvals as UX affordances, which follows from approvals being error-catching rather than security gates
+- [[capability-based-approvals]] — implements: the broker's cache_key, remember semantics, and timeout behavior are the runtime mechanism for capability grant lifetime described in the capability-based design

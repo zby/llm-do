@@ -1,5 +1,29 @@
 {
   "enabledPlugins": {
     "open-prose@prose": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-orient.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-note.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": []
   }
 }

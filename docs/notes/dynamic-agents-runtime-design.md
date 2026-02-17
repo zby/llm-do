@@ -1,11 +1,16 @@
 ---
 description: Design for runtime creation and invocation of dynamic workers
+areas:
+  - "[[index]]"
 ---
 
 # Dynamic Workers Runtime Design
 
 Design note for runtime creation and invocation of workers (`worker_create` /
-`worker_call`).
+`worker_call`). This extends [[llm-do-vs-pydanticai-runtime]] by adding a
+session-scoped registry alongside the static `EntryRegistry`, addressing the
+gap where the unified tool/agent namespace could not accommodate agents created
+during execution.
 
 Related:
 - `tasks/active/dynamic-workers.md` (implementation tracking - has more current decisions)
@@ -59,9 +64,11 @@ A new toolset (e.g., `dynamic_workers`) providing:
 
 ### Experimental scope (YAGNI)
 
-Dynamic workers should remain **experimental** for a long time. The goal is to
-enable fast iteration on bootstrapping/decomposition workflows, not to design a
-fully-general plugin/runtime system up front.
+Dynamic workers should remain **experimental** for a long time — they sit at the
+ephemeral end of the [[crystallisation-learning-timescales]] gradient, where
+patterns need to be observed across many runs before committing to stable APIs.
+The goal is to enable fast iteration on bootstrapping/decomposition workflows,
+not to design a fully-general plugin/runtime system up front.
 
 **Non-goals (for now)**:
 - Stable long-lived public APIs beyond `worker_create`/`worker_call`
@@ -113,8 +120,12 @@ Dynamic workers would need a separate session-scoped registry.
 
 - `worker_create` itself may need approval (creating executable code)
 - Tools within the created worker need approval wrapping
-- `worker_call` must run a worker only after the worker’s toolsets are wrapped
+- `worker_call` must run a worker only after the worker's toolsets are wrapped
 
+Since [[capability-based-approvals]] separates capability description from
+approval decisions, dynamically created agents can declare capabilities
+(`proc.exec`, `fs.write`) and the runtime policy evaluates them identically to
+static agents — no special-case approval logic needed for dynamic creation.
 The easiest way to keep CLI vs programmatic behavior consistent is to route
 dynamic-worker compilation/wrapping through the same approval boundary described in
 `docs/architecture.md`.
@@ -127,3 +138,14 @@ dynamic-worker compilation/wrapping through the same approval boundary described
 - Do we also expose created workers as normal tools on later steps (DynamicToolset),
   while keeping `worker_call` for create+call-in-one-response?
 - Do we restrict `worker_call` to session-generated workers only?
+
+---
+
+Relevant Notes:
+- [[pure-dynamic-tools]] — extends this by adding LLM-authored executable code (not just prompts) that can only call agents, building on the same session registry pattern
+- [[llm-do-vs-pydanticai-runtime]] — provides the foundation: name-based dispatch and the unified tool/agent namespace that dynamic agents must integrate with
+- [[capability-based-approvals]] — enables approval for dynamically created agents by separating capability declaration from policy evaluation
+- [[subagent-onboarding-protocol]] — extends this by adding a bidirectional setup conversation before `agent_call`, addressing single-shot invocation limitations
+- [[crystallisation-learning-timescales]] — frames why dynamic agents should remain experimental: they operate at the ephemeral end of the verifiability gradient
+- [[toolset-instantiation-questions]] — raises the per-agent vs shared instance question that dynamic agents' session registry must also resolve
+- [[type-catalog-review]] — documents the implemented type surface (`DynamicAgentsToolset`, `AgentCreateArgs`, `AgentCallArgs`)

@@ -7,7 +7,7 @@ description: Path-scoped preapproval policies for reducing approval prompts
 ## Context
 Approvals today are per-tool-call. This is safe but can be noisy for common
 operations (especially file reads/writes). A scoped preapproval policy could
-reduce prompts while keeping a default-deny posture. This note captures the
+reduce prompts while keeping a default-deny posture. This extends [[capability-based-approvals]] by adding path-scoped granularity to the coarse capability taxonomy (`fs.write`, `net.egress`). This note captures the
 idea; it is out of scope for immediate implementation.
 
 ## Findings
@@ -44,4 +44,10 @@ idea; it is out of scope for immediate implementation.
 - How should path scope interact with non-filesystem tools (shell/network)?
 - Do we need a deny state, or is "require approval" sufficient for all
   disallowed operations?
+
+---
+
+Relevant Notes:
+- [[capability-based-approvals]] — foundation: the coarse capability taxonomy (fs.write, net.egress) that this note extends with path-scoped granularity
+- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — grounds: scoped preapproval is safe precisely because approvals are a UX feature, not a security boundary
 

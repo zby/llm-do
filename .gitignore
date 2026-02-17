@@ -147,6 +147,9 @@ pydantic_ai_blocking_approval
 # Ralph loop logs (local state)
 ralph-logs/
 
+# Session logs (transient runtime state)
+ops/sessions/
+
 # Local repo checkout symlinks for agent reference
 pydantic-ai
 shesha

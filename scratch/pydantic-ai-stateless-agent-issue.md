@@ -11,13 +11,11 @@ Two places in the docs state that agents are stateless:
 **`docs/multi-agent-applications.md`:**
 > Since agents are **stateless and designed to be global**, you do not need to include the agent itself in agent dependencies.
 
-## What's accurate
+This is accurate for the Agent's own state — messages are created fresh per run in `GraphAgentState` and returned on `AgentRunResult`, with continuity explicit via `message_history`. But the Agent also holds references to toolsets, and toolsets can carry mutable state.
 
-The Agent itself doesn't accumulate per-run state. Messages are created fresh per run in `GraphAgentState` and returned on `AgentRunResult`. Conversation continuity is explicit via the `message_history` parameter. This part of the claim is correct.
+## Observed behavior
 
-## The gap: toolset state ownership
-
-The Agent holds references to toolsets, and toolsets can carry mutable state. In `Agent._get_toolset()`, per-run toolset preparation handles `DynamicToolset` and static toolsets differently:
+`Agent._get_toolset()` handles `DynamicToolset` and static toolsets differently per run:
 
 ```python
 def copy_dynamic_toolsets(toolset):
@@ -27,27 +25,7 @@ def copy_dynamic_toolsets(toolset):
         return toolset  # same instance, shared across runs
 ```
 
-This means:
-- **`DynamicToolset`**: gets a fresh wrapper per run via `copy()`
-- **Static `AbstractToolset` instances**: shared across all runs of the same Agent
-
-If a static toolset has mutable internal state (counters, caches, open connections, accumulated context), that state bleeds between runs when the Agent is used "globally" as the docs recommend.
-
-## `DynamicToolset.copy()` provides shallow isolation only
-
-`DynamicToolset.copy()` clones the wrapper configuration (`toolset_func`, `per_run_step`, `id`) and resets the cached runtime state (`_toolset`, `_run_step`). This ensures the factory function will be called again on the next run. However, the factory function itself is shared by reference — so **isolation depends entirely on what the factory returns**:
-
-```python
-def copy(self) -> DynamicToolset[AgentDepsT]:
-    """Create a copy of this toolset for use in a new agent run."""
-    return DynamicToolset(
-        self.toolset_func,       # same factory, shared by reference
-        per_run_step=self.per_run_step,
-        id=self._id,
-    )
-```
-
-Three scenarios demonstrate the range of behavior:
+This creates three distinct behaviors depending on how toolsets are provided:
 
 ```python
 class CountingToolset(AbstractToolset):
@@ -72,43 +50,27 @@ shared = CountingToolset()
 agent = Agent('model', toolsets=[DynamicToolset(lambda ctx: shared)])
 ```
 
-Case 3 shows that `DynamicToolset` + `copy()` is not sufficient for isolation — it resets the wrapper cache but cannot enforce that the factory produces fresh instances. The isolation guarantee depends on a convention (`toolset_func` should return new instances) that is neither documented nor enforced.
+Case 1 is the natural pattern for users following the "stateless and global" guidance. Case 3 shows that even `DynamicToolset` doesn't guarantee isolation — it depends on the factory returning fresh instances, a convention that is neither documented nor enforced.
 
-## Why this matters
+## The underlying design question
 
-Users following the documented "stateless and global" pattern will instantiate agents at module level:
+`DynamicToolset` is already a factory wrapper — `toolset_func` IS the factory. `DynamicToolset.copy()` resets the wrapper's cached state (`_toolset`, `_run_step`) so the factory will be called again, but shares the factory function by reference. It's a shallow wrapper clone, not a deep clone of produced toolset state.
 
-```python
-agent = Agent(
-    'openai:gpt-5',
-    toolsets=[MyCustomToolset()],  # static instance
-)
+This means the factory pattern is the actual mechanism for per-run isolation, but it isn't acknowledged as such in the API. The per-run `async with toolset:` in `Agent.iter()` provides `__aenter__`/`__aexit__` lifecycle hooks, but there's no contract that `__aexit__` must reset mutable state — it's primarily documented for MCP server cleanup.
 
-# Later, in request handlers:
-result1 = await agent.run("query 1")  # MyCustomToolset state persists...
-result2 = await agent.run("query 2")  # ...into this run
-```
-
-The per-run `async with toolset:` in `Agent.iter()` provides `__aenter__`/`__aexit__` lifecycle hooks, but there's no contract that `__aexit__` must reset all mutable state. It's primarily documented for MCP server cleanup.
-
-### The `DynamicToolset` escape hatch
-
-`DynamicToolset` provides per-run isolation for users who know about it and whose factory returns fresh instances. But:
-
-1. The docs don't caveat the "stateless and global" claim to mention that static toolsets are shared
-2. There's no guidance on when to use `DynamicToolset` vs static toolsets for state isolation
-3. The `AbstractToolset` base class doesn't document the lifecycle contract — what state should `__aexit__` clean up?
-4. `DynamicToolset.copy()` is a shallow wrapper clone, not a deep clone of produced toolset state — the name suggests more isolation than it provides
+The result is an implicit two-tier system:
+- If you happen to use `DynamicToolset` with a factory that returns fresh instances, you get per-run isolation
+- If you use a static toolset (the natural pattern from the docs), you don't
 
 ## Suggested improvements
 
-1. **Caveat the "stateless" claim** in both locations: agents are stateless for messages, but toolsets may carry state. Mention `DynamicToolset` as the mechanism for per-run isolation.
+1. **Caveat the "stateless" claim** in both doc locations: agents are stateless for messages, but toolsets may carry state across runs. Point users to `DynamicToolset` for per-run isolation.
 
-2. **Document the toolset lifecycle contract**: when is `__aenter__`/`__aexit__` called? What's expected of `__aexit__` regarding state cleanup? Is there a difference between the Agent-level enter (reference-counted, for MCP) and the per-run enter (in `Agent.iter()`)?
+2. **Document the toolset lifecycle contract**: when is `__aenter__`/`__aexit__` called? What's expected regarding state cleanup? Clarify the difference between the Agent-level enter (reference-counted, for MCP) and the per-run enter (in `Agent.iter()`).
 
 3. **Document when to use `DynamicToolset`**: if your toolset has mutable state that shouldn't persist between runs, use a `DynamicToolset` factory that returns fresh instances.
 
-4. **Consider clarifying `copy()` semantics**: the current name implies state duplication, but the operation is a shallow wrapper clone that resets cached state. The isolation guarantee depends on an undocumented convention about factory behavior. A clearer name or additional documentation would help.
+4. **Consider making the factory pattern a first-class concept**: if per-run toolset freshness is the intended model for stateful toolsets, the factory pattern deserves explicit API support — a documented protocol for toolset factories, clear guidance on when factories are needed vs. when static instances are safe, and `Agent._get_toolset()` treating factories as the primary path rather than a special case handled via `copy()`.
 
 ## Connection to Traits proposal
 
@@ -119,6 +81,6 @@ This becomes more significant if/when the Traits API lands. A Trait is a long-li
 - `before_tool_call()` / `after_tool_call()` — lifecycle hooks that may accumulate state
 - `on_agent_start()` / `on_agent_end()` — per-run hooks
 
-The trait itself persists on the Agent across runs (like static toolsets), but its `get_toolset(ctx)` signature suggests per-run toolset creation. The composition description says "merges toolsets at construction" but `get_toolset` takes a `RunContext` that doesn't exist at construction time.
+The trait persists on the Agent across runs (like static toolsets), but `get_toolset(ctx: RunContext)` takes a `RunContext`, suggesting per-run evaluation. Meanwhile, the traits composition description says toolsets are "merged at construction" — when no `RunContext` exists yet.
 
-This is the same static-vs-dynamic tension that exists today with toolsets, but amplified — traits add hooks and guardrails that can also accumulate per-run state on a per-agent-lifetime object. Clarifying the toolset state ownership model now — ideally converging on a consistent factory-based approach with documented conventions — would provide a solid foundation for the traits design.
+This is the same static-vs-dynamic tension that exists today with toolsets, but amplified: traits add hooks and guardrails that can also accumulate per-run state on a per-agent-lifetime object. Clarifying the toolset state ownership model now — ideally converging on a consistent factory-based approach with documented conventions — would provide a solid foundation for the traits design.

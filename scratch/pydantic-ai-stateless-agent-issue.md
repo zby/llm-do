@@ -1,4 +1,4 @@
-# Issue: Agent "stateless and global" claim needs toolset state caveat
+# Issue: Toolset state leaks across runs — factory pattern needs first-class support
 
 ## The documented claim
 

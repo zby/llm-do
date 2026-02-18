@@ -53,9 +53,9 @@ Note: the approval callback itself doesn't vary between calls — `RuntimeConfig
 
 ## The cost
 
-Per-call Agent construction is wasteful for things that don't change between calls: model resolution, instruction assembly, output schema validation. PydanticAI does this work at Agent construction, so llm-do repeats it every call.
+Per-call Agent construction is a forced choice, not a preference. PydanticAI binds toolsets at `Agent.__init__` and provides no `Agent.run(toolsets=...)` override. Since llm-do needs to wrap toolsets with approval before binding and ensure fresh instances per call, the only option is constructing a new Agent each time.
 
-If PydanticAI adopted a first-class factory pattern for toolsets (or separated Agent configuration from toolset binding), llm-do could construct the Agent once and only vary toolsets per-run. But today, `Agent.__init__` takes `toolsets=` and there's no `Agent.run(toolsets=...)` override.
+This repeats work that doesn't change between calls: model resolution, instruction assembly, output schema validation. If PydanticAI separated Agent configuration from toolset binding (or adopted a first-class factory pattern for toolsets), llm-do could construct the Agent once and only vary toolsets per-run.
 
 ## Connection to Traits proposal
 
@@ -63,7 +63,7 @@ The [Traits API proposal](https://github.com/pydantic/pydantic-ai/blob/traits-ap
 
 If traits compose at construction and the Agent is long-lived, per-run state on traits faces the same problem as per-run state on static toolsets. If traits compose per-call (as llm-do would need), the dependency validation and topological sorting repeat every call.
 
-The resolution likely requires separating trait *declaration* (static, on the AgentSpec) from trait *activation* (per-run, producing fresh toolsets and binding runtime context). This mirrors what llm-do already does with `ToolsetDef = AbstractToolset | ToolsetFunc` — the definition is static, the instance is per-call.
+The resolution likely requires separating trait *declaration* (static, on the AgentSpec) from trait *activation* (per-run, producing fresh toolsets and binding runtime context). This is exactly the split llm-do already implements with `ToolsetDef = AbstractToolset | ToolsetFunc` — the definition is static, the instance is per-call. That pattern has been validated in production and could serve as prior art for how PydanticAI resolves the same tension in traits.
 
 ## Open Questions
 

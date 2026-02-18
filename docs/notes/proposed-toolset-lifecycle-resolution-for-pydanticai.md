@@ -1,16 +1,20 @@
 ---
-description: PydanticAI should handle the common lifecycle cases cleanly (stateless, shared, per-run fresh) and provide explicit extension points for exotic ones (snapshot, transactional, inherited) rather than trying to model all policies
+description: Early sketch of how PydanticAI could handle common toolset lifecycle cases and provide extension points for exotic ones — rough proposal for discussion, not a finished design
 areas: []
-status: current
+status: speculative
 ---
 
 # Proposed toolset lifecycle resolution for PydanticAI
+
+> **Status: early draft.** This is an initial sketch based on our experience building llm-do on PydanticAI. The specific API shapes (`for_sub_agent()`, factory sugar, etc.) are illustrative — the point is the layered approach and the principle that the framework should handle common cases and leave extension points for the rest. Expect this to evolve significantly as the PydanticAI team works on traits and as we learn more from actual usage.
 
 ## The constraint
 
 [[toolset-state-spectrum-from-stateless-to-transactional]] identifies at least five distinct lifecycle policies for toolsets: global singleton, per-run fresh, per-agent-call fresh, snapshot from parent, and inherited from parent. PydanticAI cannot and should not try to model all of these — the exotic combinations (snapshot semantics, shared transactions, per-field isolation) are domain-specific and fundamentally depend on the relationship between caller and callee.
 
-But PydanticAI should handle the common cases well and leave clear extension points for the rest. The current design handles global singletons (static toolsets) and has a mechanism for per-run freshness (`DynamicToolset`), but neither is documented as a lifecycle model. The gap isn't in capability — it's in explicitness.
+But PydanticAI should handle the common cases well and leave clear extension points for the rest. The three layers below map to these policies: Layer 1 documents global singleton and per-run fresh (which already work). Layer 2 makes per-run fresh ergonomic and visible. Layer 3 enables per-agent-call, snapshot, and inherited semantics via extension points.
+
+The current design handles global singletons (static toolsets) and has a mechanism for per-run freshness (`DynamicToolset`), but neither is documented as a lifecycle model. The gap isn't in capability — it's in explicitness.
 
 ## Proposal: three layers
 
@@ -86,10 +90,12 @@ This is essentially `isolated_copy()` from external analysis, but named to commu
 
 The default (`return self`) is correct for the common cases: stateless toolsets, shared resources, and toolsets that don't care about sub-agent isolation. Only toolsets with per-run state need to override.
 
-**The override at composition time.** The toolset's `for_sub_agent()` provides the default, but the agent author should be able to override it at wiring time:
+**The override at composition time.** Today the agent author has exactly two choices: pass the same instance (shared) or wrap in a factory (fresh). `for_sub_agent()` adds the missing middle option: "let the toolset decide" based on domain knowledge.
+
+The agent author can still override the toolset's default at wiring time:
 
 ```python
-# Use the toolset's default isolation behavior
+# Use the toolset's default isolation behavior (NEW — the middle option)
 sub_agent = Agent(toolsets=[browser_toolset])
 
 # Override: force fresh instance regardless of toolset default
@@ -99,7 +105,7 @@ sub_agent = Agent(toolsets=[lambda ctx: BrowserToolset()])
 sub_agent = Agent(toolsets=[browser_toolset])  # pass same instance
 ```
 
-This is already how it works today with the factory pattern. `for_sub_agent()` just adds a middle option: "let the toolset decide" rather than forcing the agent author to choose between raw instance (shared) and factory (fresh).
+The first pattern is what's new. Without `for_sub_agent()`, passing the instance always means sharing. With it, passing the instance means "use the toolset's domain-specific isolation policy" — which might be sharing, snapshotting, or creating a fresh instance depending on what makes sense for that toolset.
 
 **What this doesn't handle** — and shouldn't:
 
@@ -119,7 +125,7 @@ The tension in the traits proposal — `get_toolset(ctx: RunContext)` suggesting
 
 ## What this means for llm-do
 
-If PydanticAI ships Layer 2 (first-class factory pattern), llm-do's `_per_run_toolset()` wrapper becomes unnecessary — the framework would handle it. If Layer 3 lands (`for_sub_agent()`), llm-do's `CallScope` could use it instead of unconditionally constructing fresh toolsets for sub-agents.
+llm-do already implements the factory pattern via `ToolsetDef = AbstractToolset | ToolsetFunc` — the definition is static, the instance is per-call. This has been validated in production and demonstrates that Layer 2's approach works. If PydanticAI ships Layer 2 (first-class factory pattern), llm-do's `_per_run_toolset()` wrapper becomes unnecessary — the framework would handle it. If Layer 3 lands (`for_sub_agent()`), llm-do's `CallScope` could use it instead of unconditionally constructing fresh toolsets for sub-agents.
 
 The approval wrapping question remains separate: llm-do wraps toolsets with approval at call time because the approval callback comes from the runtime, not the toolset. This is orthogonal to the lifecycle question and would remain llm-do's responsibility regardless of what PydanticAI ships.
 

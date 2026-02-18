@@ -6,7 +6,7 @@ status: current
 
 # Toolset state spectrum: from stateless to transactional
 
-Most tools are pure functions — no state, no lifecycle, no problem. This is why [[toolset-state-prevents-treating-pydanticai-agents-as-global]] is easy to miss: the common case works fine with global agents. The hard cases only surface with parallel calls or sub-agent delegation, which is exactly where state management matters most.
+Most tools are pure functions — no state, no lifecycle, no problem. This is why [[toolset-state-prevents-treating-pydanticai-agents-as-global]] is easy to miss: the common case works fine with global agents. The problems surface in two distinct ways: **cross-run leakage** (a global agent's static toolset carries state from one run into the next) and **intra-run interference** (parallel calls or sub-agent delegation cause concurrent access to the same stateful toolset). The first is subtle — stale caches, drifting counters — and easy to miss. The second is where state management matters most.
 
 A key insight: the isolation decision isn't purely a property of the toolset — it depends on the **relationship between the caller and the callee**. The same toolset may need sharing in one delegation scenario and isolation in another. This means the framework can't make the decision for you; it can only provide mechanisms for the developer to express their intent at the composition site.
 
@@ -107,6 +107,8 @@ The tool calls form a sequential conversation with the stateful resource: naviga
 
 This is not hypothetical. Claude Code's sub-agents face this with terminal state: a sub-agent that `cd`s to a different directory could confuse the parent. Claude Code solves this by giving each sub-agent independent execution contexts.
 
+The snapshot option also reveals why a generic deep clone can't solve sub-agent isolation — each field needs a domain-specific decision about whether to carry over or reset. This means isolation logic must live in the toolset implementation, not in a framework-level copy mechanism.
+
 A similar pattern applies to `FileSystemToolset` with a working directory: when a parent delegates to a "search files" sub-agent, they probably want to share the working directory (search where I'm working). When delegating to a "scaffold new project" sub-agent, they want isolation (don't pollute my directory). Same toolset, different isolation needs — the decision depends on the relationship between caller and callee.
 
 ### 6. Database transactions
@@ -172,7 +174,9 @@ agent = Agent('model', toolsets=[
 
 Each toolset has different lifecycle needs. The browser must be per-run. The pool must be shared. The cache could go either way. The filesystem is stateless. There's no single "per-run" or "global" policy that works for all of them.
 
-**Lifecycle need:** Per-toolset lifecycle policies. This is exactly what llm-do's `ToolsetDef = AbstractToolset | ToolsetFunc` enables — each toolset definition independently chooses static (shared) or factory (per-call). But the decision is pushed entirely to the developer, with no framework guidance or validation.
+The coordination challenge goes beyond independent lifecycle policies. Consider an agent that navigates to a form in a browser, fills it with data from a database query, and submits it inside a transaction. If navigation fails mid-way, should the transaction roll back? If the transaction rolls back, should the browser navigate back? These cross-resource consistency questions can't be answered by individual toolset lifecycle policies — they require explicit coordination logic in the harness or application layer.
+
+**Lifecycle need:** Per-toolset lifecycle policies, plus application-level coordination for cross-resource consistency. llm-do's `ToolsetDef = AbstractToolset | ToolsetFunc` enables independent lifecycle choices per toolset, but coordination across toolsets remains the developer's responsibility — and arguably should stay there, since the correct behavior is domain-specific.
 
 ## Why the easy cases hide the hard ones
 
@@ -182,15 +186,15 @@ The spectrum explains why PydanticAI's "stateless and global" claim doesn't caus
 
 2. **Category 3 (shared resources) works correctly** — MCP servers and pools are designed for sharing. The Agent context manager handles their lifecycle.
 
-3. **Categories 4-7 only matter with sub-agents or parallel calls** — a single agent making sequential calls to a browser toolset works fine even with a global agent. The state belongs to the conversation. Problems only appear when multiple agents interact with the same stateful resource, which requires either delegation or parallelism.
+3. **Categories 4-7 have two failure modes that surface at different times.** Within a single run, a browser toolset works fine — the state belongs to the conversation. But across runs of a global agent, categories 4-7 leak: the cache from run 1 serves stale results in run 2, the browser session starts on whatever page the last run left. This cross-run leakage is subtle and easy to miss. The more dramatic failures — intra-run interference — only appear with sub-agent delegation or parallel calls.
 
-4. **Most tutorials and examples use stateless tools** — the getting-started path never encounters the problem.
+4. **Most tutorials and examples use stateless tools** — the getting-started path never encounters either failure mode.
 
-The result: developers build intuition on stateless tools, adopt the "global agent" pattern, and only discover the state problem when they add sub-agent delegation or parallel execution to an already-working system. By then the global-agent assumption is baked into the architecture.
+The result: developers build intuition on stateless tools, adopt the "global agent" pattern, and only discover cross-run leakage when accumulated state causes a subtle bug. They discover intra-run interference when they add sub-agent delegation or parallel execution. By then the global-agent assumption is baked into the architecture.
 
 ## What this means for framework design
 
-The spectrum suggests that toolset lifecycle is not a single concern but at least four distinct policies:
+The spectrum suggests that toolset lifecycle is not a single concern but at least five distinct policies:
 
 | Policy | When to use | Example | Mechanism today |
 |--------|-------------|---------|-----------------|
@@ -211,12 +215,13 @@ A traits system (see [Traits API proposal](https://github.com/pydantic/pydantic-
 - Should llm-do expose the lifecycle policy choice explicitly in `AgentSpec` or toolset registration? Something like `toolset("browser", lifecycle="per_call")` vs `toolset("pool", lifecycle="shared")`?
 - For database transactions, is `__aenter__`/`__aexit__` alignment with agent call lifecycle sufficient, or does this need explicit transaction boundary management in the harness?
 - Could the "inherited from parent" pattern work through `RunContext[deps]` — the sub-agent receives the parent's transaction via dependency injection?
-- How do parallel tool calls (PydanticAI's `end_strategy="exhaustive"`) interact with stateful toolsets? If two tool calls to the same browser execute concurrently, the state is corrupted.
+- How do parallel tool calls interact with stateful toolsets? If two tool calls to the same browser execute concurrently, the state is corrupted. (PydanticAI's tool execution model and `sequential` tool flag are relevant here.)
 
 ---
 
 Relevant Notes:
 - [[toolset-state-prevents-treating-pydanticai-agents-as-global]] — the upstream issue that motivates this catalog
+- [[proposed-toolset-lifecycle-resolution-for-pydanticai]] — three-layer proposal for addressing these lifecycle gaps in PydanticAI
 - [[llm-do-vs-pydanticai-runtime]] — per-call isolation as a key llm-do differentiator over vanilla PydanticAI
 
 Topics:

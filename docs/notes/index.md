@@ -20,6 +20,7 @@ Welcome to the llm-do knowledge system. This index connects design notes, archit
 ## Recent Notes
 
 - [[toolset-state-prevents-treating-pydanticai-agents-as-global]] — PydanticAI documents agents as stateless, but toolset state forces llm-do to construct Agents per-call; connects to Traits proposal
+- [[toolset-state-spectrum-from-stateless-to-transactional]] — catalog of seven toolset state patterns showing why most tools hide the lifecycle problem until sub-agents or parallelism surface it
 - [[approvals-guard-against-llm-mistakes-not-active-attacks]] — establishes that approvals are a UX feature for catching LLM errors, not a security boundary; isolation handles security
 - [[capability-based-approvals]] — capability-based approval system where tools declare required capabilities and the runtime policy evaluates them, separating description from decision
 - [[dynamic-agents-runtime-design]] — design for runtime creation and invocation of agents (`agent_create`/`agent_call`), including session registry, PydanticAI tool lifecycle constraints, and approval interaction

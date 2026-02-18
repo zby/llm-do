@@ -18,7 +18,7 @@ But the Agent holds references to toolsets, and toolsets can carry mutable state
 
 This creates an implicit two-tier system: if you use `DynamicToolset` with a well-behaved factory you get per-run isolation; if you use a static toolset (the natural pattern from the docs) you don't.
 
-Filed as a PydanticAI issue — see `scratch/pydantic-ai-stateless-agent-issue.md` for the full writeup with reproduction scenarios.
+Filed as [pydantic-ai#4347](https://github.com/pydantic/pydantic-ai/issues/4347).
 
 ## What llm-do does instead
 
@@ -45,11 +45,11 @@ Key design choices that follow from this:
 
 1. **All built-in toolsets are factory-wrapped** via `_per_run_toolset(factory)` — no static toolset is ever shared between calls.
 
-2. **Approval wrapping happens at call time**, not Agent construction — because the approval callback comes from `RuntimeConfig`, which may differ between calls (headless vs TUI vs test).
+2. **Approval wrapping is applied to toolsets before passing them to `Agent(toolsets=...)`** — since PydanticAI binds toolsets at Agent construction, the wrapping must happen before construction.
 
-3. **Per-call Agent construction enables per-call toolset variation** — the same `AgentSpec` can run with different approval policies, different model overrides (OAuth), and at different nesting depths.
+3. **`CallScope` owns the lifecycle** — toolset enter/exit, preflight conflict detection, and cleanup are managed per-call, not per-Agent.
 
-4. **`CallScope` owns the lifecycle** — toolset enter/exit, preflight conflict detection, and cleanup are managed per-call, not per-Agent.
+Note: the approval callback itself doesn't vary between calls — `RuntimeConfig` is frozen and the callback is resolved once at `Runtime.__init__`. Per-call Agent construction is driven by toolset freshness and approval wrapping needing to happen before `Agent(toolsets=...)`, not by per-call policy variation.
 
 ## The cost
 
@@ -59,7 +59,7 @@ If PydanticAI adopted a first-class factory pattern for toolsets (or separated A
 
 ## Connection to Traits proposal
 
-The [Traits API proposal](https://github.com/pydantic/pydantic-ai/blob/traits-api-research/traits-research-report.md) would deepen this tension. Traits are long-lived objects on the Agent that provide toolsets, lifecycle hooks, and guardrails. `Trait.get_toolset(ctx: RunContext)` takes a `RunContext` (suggesting per-run evaluation), but the composition description says traits are merged at Agent construction.
+The [Traits API proposal](https://github.com/pydantic/pydantic-ai/blob/traits-api-research/traits-research-report.md) ([issue #4303](https://github.com/pydantic/pydantic-ai/issues/4303)) would deepen this tension. Traits are long-lived objects on the Agent that provide toolsets, lifecycle hooks, and guardrails. `Trait.get_toolset(ctx: RunContext)` takes a `RunContext` (suggesting per-run evaluation), but the composition description says traits are merged at Agent construction.
 
 If traits compose at construction and the Agent is long-lived, per-run state on traits faces the same problem as per-run state on static toolsets. If traits compose per-call (as llm-do would need), the dependency validation and topological sorting repeat every call.
 
@@ -74,6 +74,7 @@ The resolution likely requires separating trait *declaration* (static, on the Ag
 ---
 
 Relevant Notes:
+- [[toolset-state-spectrum-from-stateless-to-transactional]] — comprehensive catalog of toolset state patterns, from pure functions through browser sessions to database transactions
 - [[llm-do-vs-pydanticai-runtime]] — broader comparison of what llm-do adds on top of vanilla PydanticAI, including per-call isolation as a key differentiator
 
 Topics:

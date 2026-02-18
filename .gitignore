@@ -150,6 +150,9 @@ ralph-logs/
 # Session logs (transient runtime state)
 arscontexta/ops/sessions/
 
+# Plugin compatibility symlink (ops -> arscontexta/ops)
+ops
+
 # Local repo checkout symlinks for agent reference
 pydantic-ai
 shesha

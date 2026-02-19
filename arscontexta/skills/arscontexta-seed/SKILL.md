@@ -81,7 +81,40 @@ If either check finds a match:
 - If the user declines, stop cleanly
 - If the user confirms (or no duplicate found), continue
 
-## Step 3: Create Archive Structure
+## Step 3: Classify Input
+
+Based on the content read in Step 1, classify the source to determine how it should be processed:
+
+| Type | Signal | Processing Mode | Downstream Behavior |
+|------|--------|----------------|---------------------|
+| **Research paper** | Academic structure, findings/methodology sections, literature references | `extract` | Full atomic claim extraction (existing pipeline) |
+| **Design proposal** | API design, PR, RFC, spec, external project proposal | `analyze` | One analysis note on impact to our project |
+| **Conversation transcript** | Dialog, session log, chat export | `extract` | Extract our own insights (standard pipeline) |
+| **Reference/catalog** | API docs, survey, comparison matrix, changelog | `reference` | Archive as reference, minimal extraction |
+
+**Classification signals:**
+
+- **Research paper:** sections like Abstract, Methodology, Findings, Discussion; citations; hypothesis framing
+- **Design proposal:** proposes changes to an API or system; describes what ANOTHER project should do; RFC/ADR structure; code examples showing proposed interfaces
+- **Conversation transcript:** alternating speakers, timestamps, Q&A format
+- **Reference/catalog:** tabular data, enumerated lists of features, API endpoint documentation, comparison grids
+
+**The key question:** "Is this telling us what to think about OUR project, or proposing what ANOTHER project should do?"
+- If it's about our project → `extract`
+- If it's another project's proposal and we need to assess impact → `analyze`
+- If it's reference material we might look up later → `reference`
+
+Record the classification as `processing_mode` in the task file (Step 7).
+
+### Reference Mode Short-Circuit
+
+If `processing_mode: reference`, skip claim numbering (Step 6) and create a simplified task flow:
+1. Create archive structure (Step 4) and move source (Step 5) as normal
+2. Instead of an extract task file, write a brief reference note directly to `docs/notes/` summarizing what the document contains and when to consult it
+3. Add a queue entry with `type: reference, status: done` (no further processing needed)
+4. Skip to Step 9 (Report), noting that the source was archived as reference material
+
+## Step 4: Create Archive Structure
 
 Create the archive folder. The date-prefixed folder name ensures uniqueness.
 
@@ -96,7 +129,7 @@ The archive folder serves two purposes:
 1. Permanent home for the source file (moved from inbox)
 2. Destination for task files after batch completion (/archive-batch moves them here)
 
-## Step 4: Move Source to Archive
+## Step 5: Move Source to Archive
 
 Move the source file from its current location to the archive folder. This is the **claiming step** — once moved, the source is owned by this processing batch.
 
@@ -119,7 +152,11 @@ Use `$FINAL_SOURCE` in the task file — this is the path all downstream phases 
 
 **Why move immediately:** All references (task files, notes' Source footers) use the final archived path from the start. No path updates needed later. If it is in inbox, it is unclaimed. Claimed sources live in archive.
 
-## Step 5: Determine Claim Numbering
+## Step 6: Determine Claim Numbering
+
+**Skip this step if `processing_mode: reference`** (reference mode short-circuits at Step 3).
+
+**Skip this step if `processing_mode: analyze`** — analyze mode produces one analysis note, not numbered claims.
 
 Find the highest existing claim number across the queue and archive to ensure globally unique claim IDs.
 
@@ -140,14 +177,17 @@ NEXT_CLAIM_START=$((QUEUE_MAX > ARCHIVE_MAX ? QUEUE_MAX + 1 : ARCHIVE_MAX + 1))
 
 Claim numbers are globally unique and never reused across batches. This ensures every claim file name (`{source}-{NNN}.md`) is unique vault-wide.
 
-## Step 6: Create Extract Task File
+## Step 7: Create Task File
 
-Write the task file to `arscontexta/ops/queue/${SOURCE_BASENAME}.md`:
+Write the task file to `arscontexta/ops/queue/${SOURCE_BASENAME}.md`. The template varies by `processing_mode` (determined in Step 3).
+
+### Task file for `extract` mode (default)
 
 ```markdown
 ---
 id: {SOURCE_BASENAME}
 type: extract
+processing_mode: extract
 source: {FINAL_SOURCE}
 original_path: {original file path before move}
 archive_folder: {ARCHIVE_DIR}
@@ -179,7 +219,52 @@ Content type: {detected type}
 (filled by /extract)
 ```
 
-## Step 7: Update Queue
+### Task file for `analyze` mode
+
+```markdown
+---
+id: {SOURCE_BASENAME}
+type: extract
+processing_mode: analyze
+source: {FINAL_SOURCE}
+original_path: {original file path before move}
+archive_folder: {ARCHIVE_DIR}
+created: {UTC timestamp}
+---
+
+# Analyze impact of {source filename}
+
+## Source
+Original: {original file path}
+Archived: {FINAL_SOURCE}
+Size: {line count} lines
+Content type: {detected type} (design proposal)
+
+## Summary
+{Brief summary of what the document proposes — 2-3 sentences from Step 1 reading}
+
+## Guiding Questions
+- What does this change for our project?
+- Which existing design decisions does it affect?
+- Do any existing notes need updating in light of this?
+- What should we be watching for as this proposal evolves?
+
+## Related Existing Notes
+{List of existing notes found by keyword search in Step 2b — these are the notes most likely to be affected by this proposal}
+
+## Acceptance Criteria
+- One analysis note capturing what this means for our project
+- Updates or connections to existing notes where affected
+- NOT atomic claim decomposition — understand the whole, surface what matters
+
+## Execution Notes
+(filled by /extract)
+
+## Outputs
+(filled by /extract)
+```
+
+## Step 8: Update Queue
 
 Add the extract task entry to the queue file.
 
@@ -187,11 +272,12 @@ Add the extract task entry to the queue file.
 ```yaml
 - id: {SOURCE_BASENAME}
   type: extract
+  processing_mode: {extract|analyze}
   status: pending
   source: "{FINAL_SOURCE}"
   file: "{SOURCE_BASENAME}.md"
   created: "{UTC timestamp}"
-  next_claim_start: {NEXT_CLAIM_START}
+  next_claim_start: {NEXT_CLAIM_START}  # omit for analyze mode
 ```
 
 **For JSON queues (arscontexta/ops/queue/queue.json):**
@@ -199,6 +285,7 @@ Add the extract task entry to the queue file.
 {
   "id": "{SOURCE_BASENAME}",
   "type": "extract",
+  "processing_mode": "{extract|analyze}",
   "status": "pending",
   "source": "{FINAL_SOURCE}",
   "file": "{SOURCE_BASENAME}.md",
@@ -207,9 +294,15 @@ Add the extract task entry to the queue file.
 }
 ```
 
+For `analyze` mode, omit `next_claim_start` (no numbered claims will be produced).
+
+For `reference` mode, the queue entry is created with `status: done` (no further processing).
+
 **If no queue file exists:** Create one with the appropriate schema header (phase_order definitions) and this first task entry.
 
-## Step 8: Report
+## Step 9: Report
+
+### Report for `extract` mode
 
 ```
 --=={ seed }==--
@@ -219,6 +312,7 @@ Source: {original path} -> {FINAL_SOURCE}
 Archive folder: {ARCHIVE_DIR}
 Size: {line count} lines
 Content type: {detected type}
+Processing mode: extract
 
 Task file: arscontexta/ops/queue/{SOURCE_BASENAME}.md
 Claims will start at: {NEXT_CLAIM_START}
@@ -228,6 +322,43 @@ Queue: updated with extract task
 Next steps:
   /ralph 1 --batch {SOURCE_BASENAME}     (extract claims)
   /pipeline will handle this automatically
+```
+
+### Report for `analyze` mode
+
+```
+--=={ seed }==--
+
+Seeded: {SOURCE_BASENAME}
+Source: {original path} -> {FINAL_SOURCE}
+Archive folder: {ARCHIVE_DIR}
+Size: {line count} lines
+Content type: {detected type}
+Processing mode: analyze (design proposal — one analysis note, not atomic claims)
+
+Task file: arscontexta/ops/queue/{SOURCE_BASENAME}.md
+Queue: updated with analyze task
+
+Next steps:
+  /extract {SOURCE_BASENAME}     (analyze impact to our project)
+```
+
+### Report for `reference` mode
+
+```
+--=={ seed }==--
+
+Archived: {SOURCE_BASENAME}
+Source: {original path} -> {FINAL_SOURCE}
+Archive folder: {ARCHIVE_DIR}
+Size: {line count} lines
+Content type: {detected type}
+Processing mode: reference (archived, minimal extraction)
+
+Reference note: docs/notes/{reference note title}.md
+Queue: reference entry added (status: done)
+
+No further processing needed.
 ```
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: extract
-description: Extract structured knowledge from source material. Comprehensive extraction is the default — every insight that serves the domain gets extracted. For domain-relevant sources, skip rate must be below 10%. Zero extraction from a domain-relevant source is a BUG. Triggers on "/extract", "/extract [file]", "extract insights", "mine this", "process this".
+description: Extract structured knowledge from source material. Two modes — `extract` (default) for comprehensive atomic claim extraction, and `analyze` for design proposals where one impact-analysis note replaces claim decomposition. A relevance filter ("does this change how we build our project?") applies to all modes. For `extract` mode on domain-relevant sources, skip rate must be below 10%. Triggers on "/extract", "/extract [file]", "extract insights", "mine this", "process this".
 version: "1.0"
 generated_from: "arscontexta-v1.6"
 user-invocable: true
@@ -122,6 +122,32 @@ Parse immediately:
 7. If `--handoff` in target: create per-claim task files, update queue, output RALPH HANDOFF block
 
 **START NOW.** Reference below explains methodology — use to guide, not as output.
+
+### Processing Mode Detection
+
+Check the task file (if invoked via queue) for `processing_mode`:
+
+| Mode | Behavior | Skip to Section |
+|------|----------|-----------------|
+| `extract` (default) | Full atomic claim extraction — existing pipeline | Continue below |
+| `analyze` | One analysis note on impact to our project | Jump to **Analyze Mode** section |
+
+If no task file or no `processing_mode` field, default to `extract`.
+
+### Relevance Filter Preamble (applies to ALL modes)
+
+Before extracting any claim or writing any analysis, apply this filter:
+
+**"Does this change how we think about or build this project?"**
+
+- **YES** → proceed with extraction/analysis
+- **NO** → discard
+
+This filter is the first gate for ALL content in ALL modes. It replaces the assumption that all domain-adjacent content is worth capturing.
+
+**For `extract` mode:** Discard off-topic claims (existing category 10), but ALSO discard claims about third-party internals unless they directly inform our design. A claim about how another project implements its internals is not automatically relevant just because we use that project. Ask: "Does knowing this change what WE build?"
+
+**For `analyze` mode:** The entire document is filtered through relevance. Don't summarize what the document proposes — surface only what matters for our project. The output is an impact analysis, not a summary.
 
 ### Observation Capture (during work, not at end)
 
@@ -502,6 +528,98 @@ Topics:
 **d. Create the file**
 
 Write to: `docs/notes/[title].md`
+
+---
+
+## Analyze Mode
+
+**When `processing_mode: analyze` is set in the task file, use this section instead of the standard extraction workflow.**
+
+Analyze mode is for external design proposals, RFCs, and specs — documents that propose changes to ANOTHER project where we need to assess impact on OUR project. The goal is not to decompose the document into atomic claims, but to understand it as a whole and surface what matters for us.
+
+### When Analyze Mode Applies
+
+- External API proposals (e.g., a traits/personality system for an LLM provider)
+- RFCs or specs from upstream dependencies
+- Design documents from projects we integrate with
+- Large PRs or proposals that affect our architecture
+
+### What Analyze Mode Does NOT Do
+
+- Decompose into atomic claims
+- Apply the < 10% skip rate mandate (this mandate is for `extract` mode only)
+- Create numbered claim files
+- Apply the comprehensive extraction principle
+
+### Analyze Mode Workflow
+
+**1. Read the source fully** — understand what it proposes, its scope, its architecture.
+
+**2. Read the task file** — it contains a summary, guiding questions, and related existing notes (populated by /seed).
+
+**3. Apply the relevance filter** — for every section of the document, ask: "Does this change how we think about or build our project?" Most sections of an external proposal will NOT pass this filter. That's correct.
+
+**4. Write one analysis note** answering:
+- What does this proposal mean for our project?
+- Which of our existing design decisions does it affect?
+- What should we watch for as this evolves?
+- What existing notes need updating?
+
+**5. Connect** — link the analysis note to affected existing notes. Update those notes if the proposal changes their context.
+
+### Analyze Mode Output
+
+One analysis note in `docs/notes/`, following the standard note schema:
+
+```markdown
+---
+description: [what this proposal means for our project — ~150 chars]
+type: claim
+created: YYYY-MM-DD
+---
+
+# [impact claim as prose title]
+
+[Analysis body — what the proposal means for us, not a summary of the proposal itself.
+Focus on: implications for our architecture, changes to assumptions in existing notes,
+new constraints or opportunities, what to watch for.]
+
+---
+
+Source: [[source filename]]
+
+Relevant Notes:
+- [[affected note 1]] — [how this proposal changes the context]
+- [[affected note 2]] — [what needs updating]
+
+Topics:
+- [[relevant index]]
+```
+
+Optionally, if the analysis reveals that specific existing notes need updating, create enrichment tasks or update the notes directly (with user approval).
+
+### Analyze Mode Report
+
+```
+Extraction scan complete (analyze mode).
+
+SUMMARY:
+- Analysis notes: 1
+- Existing notes affected: N
+- Enrichment tasks: N (if any)
+
+ANALYSIS:
+[title of analysis note] — [one-sentence summary]
+
+AFFECTED NOTES:
+- [[note 1]] — [how affected]
+- [[note 2]] — [how affected]
+
+ENRICHMENT TASKS (if any):
+- [[existing note]] — source changes context for [aspect]
+```
+
+Wait for user approval before creating files.
 
 ---
 

@@ -60,4 +60,4 @@ This paper supports positioning llm-do as aligned with professional practice:
 ---
 
 Relevant Notes:
-- [[crystallisation-is-continuous-learning]] — the developer behaviors observed here (validate, extract patterns, stabilise) are empirical evidence of the crystallisation loop this note formalises as continuous learning
+- [crystallisation-is-continuous-learning](../crystallisation-is-continuous-learning.md) — the developer behaviors observed here (validate, extract patterns, stabilise) are empirical evidence of the crystallisation loop this note formalises as continuous learning

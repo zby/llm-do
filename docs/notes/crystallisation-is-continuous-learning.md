@@ -52,14 +52,7 @@ Crystallisation provides that system. DSPy discovers better prompts; crystallisa
 
 ## The Verifiability Gradient as Learning Gradient
 
-Each grade of crystallisation (as described in [crystallisation-learning-timescales](crystallisation-learning-timescales.md)) represents a different level of "learning" by the deployed system:
-
-- **Restructured prompts** — the system learned what framing works best (weakly verifiable)
-- **Structured schemas** — the system learned the shape of correct output (moderately verifiable)
-- **Evals and prompt tests** — the system learned what good behavior looks like (well verifiable)
-- **Deterministic code** — the system learned the exact algorithm (fully verifiable)
-
-Moving down this gradient is learning. The substrate is different from neural weight updates, but the function — adapting system behavior to deployment experience — is identical. At the very top of this gradient sit [dynamic agents](dynamic-agents-runtime-design.md) — ephemeral, experimental workers created at runtime where patterns have not yet stabilised enough for repo artifacts. They represent the pre-crystallisation state: the exploration phase before the learning loop has enough signal to extract durable knowledge.
+Each grade of crystallisation — from restructured prompts through schemas and evals to deterministic code — represents a different level of "learning" by the deployed system. Moving down the [verifiability gradient](crystallisation-learning-timescales.md) is learning: the substrate is different from neural weight updates, but the function — adapting system behavior to deployment experience — is identical. At the very top of this gradient sit [dynamic agents](dynamic-agents-runtime-design.md) — ephemeral, experimental workers created at runtime where patterns have not yet stabilised enough for repo artifacts. They represent the pre-crystallisation state: the exploration phase before the learning loop has enough signal to extract durable knowledge.
 
 ## Why This Framing Matters
 

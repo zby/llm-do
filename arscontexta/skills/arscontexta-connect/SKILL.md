@@ -25,6 +25,31 @@ Read these files to configure domain-specific behavior:
 
 If these files don't exist, use universal defaults.
 
+## Link Format
+
+All links between notes use **standard markdown links**, not wiki-links. This ensures links render correctly on GitHub and other markdown viewers.
+
+**Same-directory links:**
+```markdown
+[note-title](./note-title.md)
+```
+
+**Cross-directory links** (use relative paths from the source file's directory):
+```markdown
+[note-title](./research/note-title.md)       # linking into a subdirectory
+[note-title](../note-title.md)                # linking up from a subdirectory
+```
+
+**Links with display text:**
+```markdown
+[display text](./note-title.md)
+```
+
+**Path resolution rules:**
+- Always use relative paths from the source file's directory
+- When linking to a file in a subdirectory, verify the path with `ls` before creating the link
+- Filenames use hyphens, not spaces (e.g., `my-note-title.md`)
+
 **Processing depth adaptation:**
 
 | Depth | Connection Behavior |
@@ -38,7 +63,7 @@ If these files don't exist, use universal defaults.
 **Target: $ARGUMENTS**
 
 Parse immediately:
-- If target contains `[[note name]]` or note name: find connections for that note
+- If target contains a note name or path: find connections for that note
 - If target contains `--handoff`: output RALPH HANDOFF block at end
 - If target is empty: check for recently created notes or ask which note
 - If target is "recent" or "new": find connections for all notes created today
@@ -52,7 +77,7 @@ Parse immediately:
    - Browse relevant index(s) for related notes
    - Run semantic search for conceptually related notes
 5. Evaluate each candidate: does a genuine connection exist? Can you articulate WHY?
-6. Add inline wiki-links where connections pass the articulation test
+6. Add inline markdown links where connections pass the articulation test
 7. Update relevant index(s) with this note
 8. If task file in context: update the connect section
 9. Report what was connected and why
@@ -253,7 +278,7 @@ For each candidate connection, apply the articulation test.
 **The Articulation Test:**
 
 Complete this sentence:
-> [[note A]] connects to [[note B]] because [specific reason]
+> [note A](./note-a.md) connects to [note B](./note-b.md) because [specific reason]
 
 If you cannot fill in [specific reason] with something substantive, the connection fails.
 
@@ -261,12 +286,12 @@ If you cannot fill in [specific reason] with something substantive, the connecti
 
 | Relationship | Signal | Example |
 |-------------|--------|---------|
-| extends | adds dimension | "extends [[X]] by adding temporal aspect" |
-| grounds | provides foundation | "this works because [[Y]] establishes..." |
-| contradicts | creates tension | "conflicts with [[Z]] because..." |
-| exemplifies | concrete instance | "demonstrates [[W]] in practice" |
-| synthesizes | combines insights | "emerges from combining [[A]] and [[B]]" |
-| enables | unlocks possibility | "makes [[C]] actionable by providing..." |
+| extends | adds dimension | "extends [X](./x.md) by adding temporal aspect" |
+| grounds | provides foundation | "this works because [Y](./y.md) establishes..." |
+| contradicts | creates tension | "conflicts with [Z](./z.md) because..." |
+| exemplifies | concrete instance | "demonstrates [W](./w.md) in practice" |
+| synthesizes | combines insights | "emerges from combining [A](./a.md) and [B](./b.md)" |
+| enables | unlocks possibility | "makes [C](./c.md) actionable by providing..." |
 
 **Reject if:**
 - The connection is "related" without specifics
@@ -308,24 +333,24 @@ Connections live in the prose, not just footers.
 
 **Inline Links as Prose:**
 
-The wiki link IS the argument. The title works as prose when linked.
+The markdown link IS the argument. The title works as prose when linked.
 
 Good patterns:
 ```markdown
-Since [[other note]], the question becomes how to structure that memory for retrieval.
+Since [other note](./other-note.md), the question becomes how to structure that memory for retrieval.
 
-The insight that [[throughput matters more than accumulation]] suggests curation, not creation, is the real work.
+The insight that [throughput matters more than accumulation](./throughput-matters-more-than-accumulation.md) suggests curation, not creation, is the real work.
 
-This works because [[good systems learn from friction]] — each iteration improves the next.
+This works because [good systems learn from friction](./good-systems-learn-from-friction.md) — each iteration improves the next.
 ```
 
 Bad patterns:
 ```markdown
-This relates to [[other note]].
+This relates to [other note](./other-note.md).
 
-See also [[throughput matters more than accumulation]].
+See also [throughput matters more than accumulation](./throughput-matters-more-than-accumulation.md).
 
-As discussed in [[good systems learn from friction]], systems improve.
+As discussed in [good systems learn from friction](./good-systems-learn-from-friction.md), systems improve.
 ```
 
 If you catch yourself writing "this relates to" or "see also", STOP. Restructure so the claim does the work.
@@ -338,17 +363,17 @@ If you catch yourself writing "this relates to" or "see also", STOP. Restructure
 
 **Relevant Notes Format:**
 
-```yaml
-relevant_notes:
-  - "[[note title]] — extends this by adding the temporal dimension"
-  - "[[another note]] — provides the mechanism this claim depends on"
+```markdown
+Relevant Notes:
+- [note title](./note-title.md) — extends this by adding the temporal dimension
+- [another note](./another-note.md) — provides the mechanism this claim depends on
 ```
 
 Context phrases use standard relationship vocabulary: extends, grounds, contradicts, exemplifies, synthesizes, enables.
 
 **Bidirectional Consideration:**
 
-When adding [[A]] to [[B]], ask: should [[B]] also link to [[A]]?
+When adding a link from A to B, ask: should B also link to A?
 
 Not always. Relationships are not always symmetric:
 - "extends" often is not bidirectional
@@ -371,7 +396,7 @@ When you edit an older note to add a reverse link, you MAY flag it for full reco
 
 **Check incoming links:**
 ```bash
-grep -r '\[\[note name\]\]' docs/notes/*.md | wc -l
+grep -r '\[.*\](.*note-name\.md)' docs/notes/ --include="*.md" | wc -l
 ```
 
 If >= 5, skip reweave flagging.
@@ -393,7 +418,7 @@ indexes are synthesis hubs, not just indexes.
 After updating Core Ideas, count the links:
 
 ```bash
-grep -c '^\- \[\[' "docs/notes/[moc-name].md"
+grep -c '^\- \[' "docs/notes/[moc-name].md"
 ```
 
 If approaching the split threshold (configurable, default ~40): note in output "index approaching split threshold (N links)"
@@ -410,12 +435,12 @@ Splitting is a human decision (architectural judgment required), but /connect sh
 
 ## Core Ideas
 
-- [[claim note]] — what it contributes to understanding
-- [[another claim]] — how it fits or challenges existing ideas
+- [claim note](./claim-note.md) — what it contributes to understanding
+- [another claim](./another-claim.md) — how it fits or challenges existing ideas
 
 ## Tensions
 
-- [[claim A]] and [[claim B]] conflict because... [genuine unresolved tension]
+- [claim A](./claim-a.md) and [claim B](./claim-b.md) conflict because... [genuine unresolved tension]
 
 ## Gaps
 
@@ -433,7 +458,7 @@ Agent Notes:
 
 Add new notes with context phrase explaining contribution:
 ```markdown
-- [[new note]] — extends the quality argument by showing how friction teaches you what to check
+- [new note](./new-note.md) — extends the quality argument by showing how friction teaches you what to check
 ```
 
 Order matters. Place notes where they fit the logical flow, not alphabetically.
@@ -444,7 +469,7 @@ If the new note creates or resolves tension:
 ```markdown
 ## Tensions
 
-- [[composability]] demands small notes, but [[context limits]] means traversal has overhead. [[new note]] suggests the tradeoff depends on expected traversal depth.
+- [composability](./composability.md) demands small notes, but [context limits](./context-limits.md) means traversal has overhead. [new note](./new-note.md) suggests the tradeoff depends on expected traversal depth.
 ```
 
 Document genuine conflicts. Tensions are valuable, not bugs.
@@ -472,13 +497,13 @@ Agent Notes:
 **Good agent notes:**
 ```markdown
 - 2026-02-15: tried connecting via "learning" — too generic. better path: friction -> verification -> quality. the mechanism chain is tighter.
-- 2026-02-15: [[claim A]] and [[claim B]] form a tight pair. A sets the standard, B teaches the method.
+- 2026-02-15: [claim A](./claim-a.md) and [claim B](./claim-b.md) form a tight pair. A sets the standard, B teaches the method.
 ```
 
 **Bad agent notes:**
 ```markdown
 - 2026-02-15: read the index and added some links.
-- 2026-02-15: connected [[note A]] to [[note B]].
+- 2026-02-15: connected [note A](./note-a.md) to [note B](./note-b.md).
 ```
 
 The test: would this help a future agent navigate more effectively?
@@ -488,7 +513,7 @@ The test: would this help a future agent navigate more effectively?
 ### Gate 1: Articulation Test
 
 For every connection added, can you complete:
-> [[A]] connects to [[B]] because [specific reason]
+> [A](./a.md) connects to [B](./b.md) because [specific reason]
 
 If any connection fails this test, remove it.
 
@@ -496,8 +521,8 @@ If any connection fails this test, remove it.
 
 For every inline link, read the sentence aloud. Does it flow naturally? Would you say this to a friend explaining the idea?
 
-Bad: "this is related to [[note]]"
-Good: "since [[note]], the implication is..."
+Bad: "this is related to [note](./note.md)"
+Good: "since [note](./note.md), the implication is..."
 
 ### Gate 3: Bidirectional Check
 
@@ -512,11 +537,11 @@ If the synthesis is now wrong or incomplete, update it.
 
 ### Gate 5: Link Verification
 
-Verify every wiki link target exists. Never create links to non-existent files.
+Verify every markdown link target exists. Never create links to non-existent files.
 
 ```bash
 # Check that a link target exists
-ls docs/notes/"target name.md" 2>/dev/null
+ls docs/notes/"target-name.md" 2>/dev/null
 ```
 
 ### Gate 6: Areas-Topics Consistency
@@ -567,16 +592,16 @@ If yes, the note bundles multiple ideas that should be separate.
 **Split detection output:**
 
 ```markdown
-### Split Candidate: [[broad note]]
+### Split Candidate: [broad note](./broad-note.md)
 
 **Indicators:**
 - Connects to 7 notes across 3 domains
 - Makes distinct claims about: (1) capture workflows, (2) synthesis patterns, (3) tool selection
-- Linking from [[note A]] would drag in unrelated content about tool selection
+- Linking from [note A](./note-a.md) would drag in unrelated content about tool selection
 
 **Proposed split:**
-- [[capture workflows matter less than synthesis]] — the first claim
-- [[tool selection follows from workflow needs]] — the third claim
+- [capture workflows matter less than synthesis](./capture-workflows-matter-less-than-synthesis.md) — the first claim
+- [tool selection follows from workflow needs](./tool-selection-follows-from-workflow-needs.md) — the third claim
 - Keep original note focused on synthesis patterns
 
 **Action:** Flag for human decision, do not auto-split
@@ -615,30 +640,30 @@ After reflecting, report:
 **Why this matters:** Shows methodology was followed. Blind delegation hides whether dual discovery happened. Trace enables verification.
 
 **index exploration:**
-- Read [[moc-name]] — found candidates: [[note A]], [[note B]], [[note C]]
-- Followed link from [[note A]] to [[note D]]
+- Read [moc-name](./moc-name.md) — found candidates: [note A](./note-a.md), [note B](./note-b.md), [note C](./note-c.md)
+- Followed link from [note A](./note-a.md) to [note D](./note-d.md)
 
 **Semantic search:** (via MCP | bash fallback | grep-only)
 - query "[core concept from note]" — top hits:
-  - [[note E]] (0.74) — evaluated: strong match, mechanism overlap
-  - [[note F]] (0.61) — evaluated: weak, only surface vocabulary
-  - [[note G]] (0.58) — evaluated: skip, different domain
+  - [note E](./note-e.md) (0.74) — evaluated: strong match, mechanism overlap
+  - [note F](./note-f.md) (0.61) — evaluated: weak, only surface vocabulary
+  - [note G](./note-g.md) (0.58) — evaluated: skip, different domain
 
 **Keyword search:**
-- grep "specific term" — found [[note H]] (already in index candidates)
+- grep "specific term" — found [note H](./note-h.md) (already in index candidates)
 
 ### Connections Added
 
-**[[source note]]**
-- -> [[target]] — [relationship type]: [why]
-- <- [[incoming]] — [relationship type]: [why]
-- inline: added link to [[note]] in paragraph about X
+**[source note](./source-note.md)**
+- -> [target](./target.md) — [relationship type]: [why]
+- <- [incoming](./incoming.md) — [relationship type]: [why]
+- inline: added link to [note](./note.md) in paragraph about X
 
 ### index Updates
 
-**[[moc-name]]**
-- Added [[note]] to Core Ideas — [contribution]
-- Updated Tensions: [[A]] vs [[B]] now includes [[C]]
+**[moc-name](./moc-name.md)**
+- Added [note](./note.md) to Core Ideas — [contribution]
+- Updated Tensions: [A](./a.md) vs [B](./b.md) now includes [C](./c.md)
 - Removed from Gaps: [what was filled]
 - Agent note: [what was learned]
 
@@ -648,9 +673,9 @@ After reflecting, report:
 
 ### Flagged for Attention
 
-- [[orphan note]] — could not find connections
-- [[broad note]] — might benefit from splitting
-- Tension between [[X]] and [[Y]] needs resolution
+- [orphan note](./orphan-note.md) — could not find connections
+- [broad note](./broad-note.md) — might benefit from splitting
+- Tension between [X](./x.md) and [Y](./y.md) needs resolution
 ```
 
 ## What Success Looks Like
@@ -668,7 +693,7 @@ The test: if someone follows the links you added, do they find genuinely useful 
 ## Critical Constraints
 
 **Never:**
-- Create wiki links to non-existent files
+- Create links to non-existent files
 - Add "related" connections without specific reasoning
 - Force connections that are not there
 - Auto-generate without semantic judgment
@@ -702,12 +727,12 @@ When invoked with `--handoff`, output this structured format at the END of the s
 
 ```
 === RALPH HANDOFF: connect ===
-Target: [[note name]]
+Target: [note name](./note-name.md)
 
 Work Done:
-- Discovery: index [[moc-name]], query "[query]" (MCP|bash|grep-only), grep "[term]"
+- Discovery: index [moc-name](./moc-name.md), query "[query]" (MCP|bash|grep-only), grep "[term]"
 - Connections added: N (articulation test: PASS)
-- index updates: [[moc-name]] Core Ideas section
+- index updates: [moc-name](./moc-name.md) Core Ideas section
 - Synthesis opportunities: [count or NONE]
 
 Files Modified:
@@ -723,7 +748,7 @@ Learnings:
 
 Queue Updates:
 - Advance phase: connect -> revisit
-- Reweave candidates (if any pass filter): [[note]] | NONE (filtered: hub/tension/recent)
+- Reweave candidates (if any pass filter): [note](./note.md) | NONE (filtered: hub/tension/recent)
 === END HANDOFF ===
 ```
 

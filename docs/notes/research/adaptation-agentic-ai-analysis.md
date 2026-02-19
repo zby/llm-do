@@ -241,7 +241,7 @@ The paper reinforces llm-do's bidirectional refactoring principle with data-driv
 ---
 
 Relevant Notes:
-- [[crystallisation-is-continuous-learning]] — the stabilising/softening signals catalogued here are the data-driven triggers for the continuous learning loop that crystallisation describes
+- [crystallisation-is-continuous-learning](../crystallisation-is-continuous-learning.md) — the stabilising/softening signals catalogued here are the data-driven triggers for the continuous learning loop that crystallisation describes
 
 ## References
 

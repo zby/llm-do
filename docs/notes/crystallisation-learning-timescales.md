@@ -1,5 +1,6 @@
 ---
-description: Three timescales of AI system adaptation — training, in-context, and crystallisation
+description: Crystallisation fills the gap between training and in-context learning — repo artifacts provide durable, inspectable adaptation with a verifiability gradient from prompt tweaks to deterministic code
+areas: [index]
 ---
 
 # Crystallisation: The Missing Middle

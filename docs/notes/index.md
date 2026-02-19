@@ -5,25 +5,28 @@ type: moc
 
 # index
 
-Welcome to the llm-do knowledge system. This index connects design notes, architecture decisions, and active work threads.
+llm-do is built on the observation that deployed AI systems adapt at three timescales — training, in-context, and crystallisation — and that the third is systematically undervalued. The [verifiability gradient](./crystallisation-learning-timescales.md) from prompt tweaks to deterministic code is the organising principle: every design decision in llm-do is about making it easier to move along this gradient.
+
+## Core Concept
+
+- [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — the foundational claim: three timescales, the verifiability gradient, and why repo artifacts beat weights
+
+## Notes
+
+- [crystallisation-is-continuous-learning](./crystallisation-is-continuous-learning.md) — argues this achieves what labs pursue as "continuous learning" via weight updates
+- [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) — the top of the gradient: ephemeral agents for patterns not yet stable enough to crystallise
+- [pure-dynamic-tools](./pure-dynamic-tools.md) — LLM-authored tools that can only call agents, enabling safe dynamic orchestration via RestrictedPython sandbox
+- [subagent-onboarding-protocol](./subagent-onboarding-protocol.md) — bidirectional setup conversation before subagent execution, addressing single-shot invocation limitations
+
+## Area Indexes
+
+- [pydanticai-upstream-index](./pydanticai-upstream-index.md) — proposed PydanticAI changes, upstream issues, and how they affect llm-do (toolset lifecycle, approval wrapping, Traits API)
 
 ## Agent Memory
 
 - [identity](../../arscontexta/self/identity.md) — who the agent is and how it approaches this project
 - [methodology](../../arscontexta/self/methodology.md) — how the agent processes and connects knowledge
 - [goals](../../arscontexta/self/goals.md) — current active threads and focus areas
-
-## Area Indexes
-
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md) — proposed PydanticAI changes, upstream issues, and how they affect llm-do (toolset lifecycle, approval wrapping, Traits API)
-
-## Notes
-
-- [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — three timescales of AI system adaptation (training, in-context, crystallisation) and the verifiability gradient from prompt tweaks to deterministic code
-- [crystallisation-is-continuous-learning](./crystallisation-is-continuous-learning.md) — what labs pursue as "continuous learning" via weight updates is already achievable through crystallisation of repo artifacts; reframes the infrastructure investment for deployed AI systems
-- [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) — design for runtime creation and invocation of agents (`agent_create`/`agent_call`), including session registry, PydanticAI tool lifecycle constraints, and approval interaction
-- [pure-dynamic-tools](./pure-dynamic-tools.md) — LLM-authored tools that can only call agents, enabling safe dynamic orchestration via RestrictedPython sandbox
-- [subagent-onboarding-protocol](./subagent-onboarding-protocol.md) — bidirectional setup conversation before subagent execution, addressing single-shot invocation limitations
 
 ## Decisions (ADRs)
 

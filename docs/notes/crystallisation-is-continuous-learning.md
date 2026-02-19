@@ -1,5 +1,5 @@
 ---
-description: What labs pursue as "continuous learning" via weight updates is already achievable through crystallisation of repo artifacts
+description: Crystallisation systematises the out-of-band optimisations every deployed system accumulates — achieving continuous learning through versioned artifacts, whether human-driven or automated
 areas: [index]
 ---
 
@@ -38,15 +38,17 @@ Crystallisation achieves the same narrowing of the behavior distribution, but th
 
 ### RAG
 
-Retrieval-augmented generation puts knowledge in a vector store instead of weights. This solves some problems (knowledge is updatable, no retraining needed) but introduces others: retrieval quality is fragile, context windows are limited, and the knowledge remains unstructured — you can't test it, diff it, or review it.
+Traditional RAG — a single retrieve-then-answer step — is largely obsolete. What people actually build now is agentic RAG: retrieval happens inside an agentic loop, where the agent decides what to search for, evaluates what it finds, and searches again if needed. This is a much stronger pattern.
 
-Crystallised artifacts occupy a stronger position: a structured schema or a deterministic tool doesn't depend on retrieval quality. It's always present, always applies, and its correctness can be verified. RAG is appropriate for large, loosely structured knowledge bases; crystallisation is appropriate for patterns that have stabilised enough to encode precisely.
+Agentic RAG fits naturally inside the crystallisation framework. The repo itself is the knowledge base: documents, schemas, examples, prior decisions — all versioned, all improving over time. The agent searches them as part of its work loop, and the artifacts it retrieves are the same ones that crystallisation continuously refines. The difference from a traditional vector store is that these artifacts are structured, testable, and subject to the same versioning and review as code. You don't just retrieve knowledge — you retrieve knowledge that has been progressively verified and hardened.
+
+The old critique of RAG — fragile retrieval, unstructured knowledge, no way to test or diff what's stored — applies to the one-shot vector-store pattern. Agentic retrieval over a crystallised repo sidesteps all three: the agent compensates for retrieval imprecision by iterating, the knowledge is structured by design, and every artifact is diffable and reviewable.
 
 ### Automated Prompt Optimization
 
-Systems like DSPy and ProTeGi search over prompt components to optimize against an objective. This is crystallisation-adjacent — the artifacts are prompts, the optimization is iterative, the improvement persists. The difference is automation: prompt optimization is search over a space, while crystallisation (as practiced today) typically involves human judgment about what to extract.
+Systems like DSPy and ProTeGi search over prompt components to optimize against an objective. This is not merely crystallisation-adjacent — it's an automated instance of the same loop. The artifacts are prompts, the optimization is iterative, the improvement persists. What these systems lack is the broader framework: the verifiability gradient, the progression from optimized prompts to schemas to deterministic code, and the infrastructure for versioning, testing, and reviewing what was learned.
 
-The approaches are complementary. Automated optimization can discover better prompts; crystallisation can then harden the resulting patterns into more verifiable forms — from optimized prompts to schemas to code.
+Crystallisation provides that system. DSPy discovers better prompts; crystallisation provides the framework to harden those discoveries into progressively more verifiable forms, track them in version control, and test them in CI. The [[research/adaptation-agentic-ai-analysis|adaptation taxonomy for agentic AI]] identifies concrete data-driven triggers for when to crystallise (e.g., "tool consistently fails with certain input patterns") versus when to soften back to prompts, providing the feedback signals that drive this learning loop. The combination is the full picture: automated search for what works, systematic infrastructure for preserving and verifying what was found.
 
 ## The Verifiability Gradient as Learning Gradient
 
@@ -57,7 +59,7 @@ Each grade of crystallisation (as described in [[crystallisation-learning-timesc
 - **Evals and prompt tests** — the system learned what good behavior looks like (well verifiable)
 - **Deterministic code** — the system learned the exact algorithm (fully verifiable)
 
-Moving down this gradient is learning. The substrate is different from neural weight updates, but the function — adapting system behavior to deployment experience — is identical.
+Moving down this gradient is learning. The substrate is different from neural weight updates, but the function — adapting system behavior to deployment experience — is identical. At the very top of this gradient sit [[dynamic-agents-runtime-design|dynamic agents]] — ephemeral, experimental workers created at runtime where patterns have not yet stabilised enough for repo artifacts. They represent the pre-crystallisation state: the exploration phase before the learning loop has enough signal to extract durable knowledge.
 
 ## Why This Framing Matters
 
@@ -65,15 +67,19 @@ Calling crystallisation "continuous learning" is not just terminological. It ref
 
 1. **Infrastructure investment shifts.** Instead of building online learning pipelines, invest in eval frameworks, prompt versioning, and CI for AI artifacts. These are mature, well-understood tools.
 
-2. **The human-in-the-loop is a feature.** Weight-based learning tries to remove humans from the adaptation loop. Crystallisation keeps them in — reviewing diffs, approving changes, catching bad assumptions. For production systems handling real stakes, this is a strength.
+2. **Systematised out-of-band optimisation.** Every deployed LLM system accumulates informal tweaks — prompt adjustments, output post-processing, workflow changes — that improve behavior but live outside the model. These are learning, but ad-hoc learning: undocumented, untested, unreproducible. Crystallisation systematises this. The loop can be human-driven (reviewing diffs, approving changes, catching bad assumptions) or automated (search over prompt components, eval-driven iteration) — the point is that optimizations land as versioned, testable artifacts rather than scattered tribal knowledge. Research on [[related_works/professional-developers-ai-agents|professional developers using AI agents]] confirms the human-driven variant empirically: experienced developers naturally practice this loop. But the framework accommodates both modes — and the automated mode is where it connects to DSPy and similar systems.
 
-3. **Verifiability as the metric.** Instead of asking "how do we keep the model learning?", ask "how verifiable is each piece of our system?" and push toward more verifiable forms. The [theory document](../theory.md) describes this as the stabilise/soften cycle: crystallise patterns when they emerge, soften back when new requirements appear.
+3. **Verifiability as the metric.** Instead of asking "how do we keep the model learning?", ask "how verifiable is each piece of our system?" and push toward more verifiable forms. The [theory document](../theory.md) describes this as the stabilise/soften cycle: crystallise patterns when they emerge, soften back when new requirements appear. The [[python-agent-annotation-brainstorm]] explores the practical mechanisms for this bidirectionality — decorators and annotations that make it easy to move between LLM-based workers and deterministic Python code, lowering the friction of moving along the crystallisation gradient.
 
 ---
 
 Relevant Notes:
 - [[crystallisation-learning-timescales]] — foundation: defines the three timescales and the verifiability gradient this note builds on
 - [[capability-based-approvals]] — the human review loop that makes crystallisation safe is an instance of capability-based approval design
+- [[dynamic-agents-runtime-design]] — exemplifies the pre-crystallisation state: ephemeral agents sit at the top of the verifiability gradient where patterns are too unstable for durable artifacts
+- [[research/adaptation-agentic-ai-analysis]] — extends: provides data-driven triggers (error patterns, repeated tool failures) for when to crystallise vs soften, grounding the learning loop in concrete signals
+- [[related_works/professional-developers-ai-agents]] — empirical evidence that professional developers naturally practice the crystallisation loop: validate, extract patterns, stabilise
+- [[python-agent-annotation-brainstorm]] — enables: the softening/stabilising paths lower friction for moving along the crystallisation gradient between LLM workers and deterministic code
 
 Topics:
 - [[index]]

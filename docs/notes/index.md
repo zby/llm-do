@@ -19,6 +19,8 @@ Welcome to the llm-do knowledge system. This index connects design notes, archit
 
 ## Notes
 
+- [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — three timescales of AI system adaptation (training, in-context, crystallisation) and the verifiability gradient from prompt tweaks to deterministic code
+- [crystallisation-is-continuous-learning](./crystallisation-is-continuous-learning.md) — what labs pursue as "continuous learning" via weight updates is already achievable through crystallisation of repo artifacts; reframes the infrastructure investment for deployed AI systems
 - [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) — design for runtime creation and invocation of agents (`agent_create`/`agent_call`), including session registry, PydanticAI tool lifecycle constraints, and approval interaction
 - [pure-dynamic-tools](./pure-dynamic-tools.md) — LLM-authored tools that can only call agents, enabling safe dynamic orchestration via RestrictedPython sandbox
 - [subagent-onboarding-protocol](./subagent-onboarding-protocol.md) — bidirectional setup conversation before subagent execution, addressing single-shot invocation limitations

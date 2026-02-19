@@ -56,3 +56,8 @@ This paper supports positioning llm-do as aligned with professional practice:
 - The approval system directly addresses the "validation of outputs" finding
 - Progressive stabilizing is the systematic approach to what developers do informally (gradually trusting and extracting patterns)
 - The "Unix philosophy for agents" matches how experienced developers actually want to work—with control, oversight, and the ability to stabilize patterns over time
+
+---
+
+Relevant Notes:
+- [[crystallisation-is-continuous-learning]] — the developer behaviors observed here (validate, extract patterns, stabilise) are empirical evidence of the crystallisation loop this note formalises as continuous learning

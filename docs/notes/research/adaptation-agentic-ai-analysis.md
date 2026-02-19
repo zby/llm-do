@@ -238,6 +238,11 @@ The paper reinforces llm-do's bidirectional refactoring principle with data-driv
 - Validation rules have many special cases → use LLM for fuzzy validation
 - User frequently overrides tool behavior → add flexibility via worker
 
+---
+
+Relevant Notes:
+- [[crystallisation-is-continuous-learning]] — the stabilising/softening signals catalogued here are the data-driven triggers for the continuous learning loop that crystallisation describes
+
 ## References
 
 - Paper: https://arxiv.org/abs/2512.16301

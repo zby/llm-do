@@ -44,7 +44,7 @@ The Traits API proposal ([PR #4233](https://github.com/pydantic/pydantic-ai/pull
 
 **Denied-call UX mapping.** Today `ApprovalDeniedResultToolset` catches `PermissionError` from denied calls and returns a structured payload `{"error": str, "tool_name": str, "error_type": "permission"}` instead of raising. This is toggled by `return_permission_errors` in `RuntimeConfig` and consumed by the TUI (`ui/runner.py`) and CLI (`cli/main.py`). A `before_tool_call` hook that returns `False` must produce an equivalent tool result — PydanticAI needs to either: (a) return a configurable denial payload as the tool result when `before_tool_call` blocks, or (b) let the hook return a custom result dict instead of a bare `False`. Without this, the LLM sees a different signal on denial (possibly an exception or missing result) and the TUI loses the structured error display.
 
-**Status:** The Traits API is in research/design phase. See [pydanticai-traits-api-pr-comment](./meta/pydanticai-traits-api-pr-comment.md) for our feedback on the PR.
+**Status:** The Traits API is in research/design phase. See [pydanticai-traits-api-analysis](./pydanticai-traits-api-analysis.md) for our analysis of the proposal and its implications for llm-do.
 
 ## Comparison
 
@@ -79,7 +79,7 @@ The Traits API proposal ([PR #4233](https://github.com/pydantic/pydantic-ai/pull
 
 Relevant Notes:
 - [blocking_approvals](./meta/blocking_approvals.md) — detailed `deferred_tool_handler` proposal draft we authored
-- [pydanticai-traits-api-pr-comment](./meta/pydanticai-traits-api-pr-comment.md) — our feedback on the Traits API PR
+- [pydanticai-traits-api-analysis](./pydanticai-traits-api-analysis.md) — analysis of the Traits API proposal and its implications for approval wrapping and lifecycle scaffolding
 - [capability-based-approvals](./capability-based-approvals.md) — our long-term direction for approval policy (tools declare capabilities, runtime decides)
 - [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — foundation: approvals are UX, not security
 - [stateful-flag-evaluation-against-toolset-spectrum](./stateful-flag-evaluation-against-toolset-spectrum.md) — eliminating wrapping is a prerequisite for the `stateful` flag to work cleanly in frameworks that currently wrap toolsets

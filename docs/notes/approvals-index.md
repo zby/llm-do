@@ -15,6 +15,7 @@ The approval system is a usability feature, not a security boundary. Since [appr
 - [approval-override-rationale](./approval-override-rationale.md) — why per-agent overrides exist and conditions for removing them
 - [ui-event-stream-blocking-approvals](./ui-event-stream-blocking-approvals.md) — how blocking approvals work when UI is decoupled from the runtime event stream
 - [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — upstream PydanticAI paths to eliminate the ApprovalToolset wrapper stacking
+- [pydanticai-traits-api-analysis](./pydanticai-traits-api-analysis.md) — analysis of the Traits API proposal: one of the two paths to eliminating wrapping, plus potential CallScope replacement
 
 ## Open Questions
 

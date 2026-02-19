@@ -1,6 +1,6 @@
 ---
 description: Early sketch of how PydanticAI could handle common toolset lifecycle cases and provide extension points for exotic ones — rough proposal for discussion, not a finished design
-areas: []
+areas: [pydanticai-upstream-index]
 status: speculative
 ---
 
@@ -127,7 +127,7 @@ The tension in the traits proposal — `get_toolset(ctx: RunContext)` suggesting
 
 llm-do already implements the factory pattern via `ToolsetDef = AbstractToolset | ToolsetFunc` — the definition is static, the instance is per-call. This has been validated in production and demonstrates that Layer 2's approach works. If PydanticAI ships Layer 2 (first-class factory pattern), llm-do's `_per_run_toolset()` wrapper becomes unnecessary — the framework would handle it. If Layer 3 lands (`for_sub_agent()`), llm-do's `CallScope` could use it instead of unconditionally constructing fresh toolsets for sub-agents.
 
-The approval wrapping question remains separate: llm-do wraps toolsets with approval at call time because the approval callback comes from the runtime, not the toolset. This is orthogonal to the lifecycle question and would remain llm-do's responsibility regardless of what PydanticAI ships.
+The approval wrapping question remains separate *today*: llm-do wraps toolsets with approval at call time because the approval callback comes from the runtime, not the toolset. But [[we-want-to-get-rid-of-approval-wrapping]] tracks two upstream paths that would eliminate wrapping entirely — once approval becomes a hook in the agent loop, toolsets pass through to PydanticAI unwrapped, and Layer 2's factory pattern could fully subsume llm-do's per-call construction.
 
 ## Open Questions
 
@@ -140,6 +140,7 @@ The approval wrapping question remains separate: llm-do wraps toolsets with appr
 Relevant Notes:
 - [[toolset-state-spectrum-from-stateless-to-transactional]] — the problem catalog this proposal addresses
 - [[toolset-state-prevents-treating-pydanticai-agents-as-global]] — the upstream issue ([pydantic-ai#4347](https://github.com/pydantic/pydantic-ai/issues/4347)) motivating this work
+- [[we-want-to-get-rid-of-approval-wrapping]] — enables: once wrapping is eliminated, Layer 2 (first-class factories) could fully replace llm-do's per-call Agent construction
 
 Topics:
 - [[index]]

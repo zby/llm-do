@@ -1,5 +1,6 @@
 ---
 description: What llm-do adds on top of vanilla PydanticAI agents
+areas: [pydanticai-upstream-index]
 ---
 
 # llm-do vs vanilla PydanticAI: what the runtime adds

@@ -88,3 +88,4 @@ Decision: keep the event stream and approvals in-process for now; defer any netw
 Relevant Notes:
 - [[approvals-guard-against-llm-mistakes-not-active-attacks]] — grounds: the broker's timeout, redaction, and "remember" design treats approvals as UX affordances, which follows from approvals being error-catching rather than security gates
 - [[capability-based-approvals]] — implements: the broker's cache_key, remember semantics, and timeout behavior are the runtime mechanism for capability grant lifetime described in the capability-based design
+- [[we-want-to-get-rid-of-approval-wrapping]] — adapts: when wrapping is eliminated, the broker's `request_approval` / `respond` interface adapts to produce `DeferredToolResult` (Path 1) or integrate with `before_tool_call` hooks (Path 2)

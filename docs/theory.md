@@ -39,7 +39,9 @@ Spec → sample interpretation → execute on input → output
 
 This captures why the same prompt can produce qualitatively different behaviors, not just noisy variations of the same behavior—the *interpretation* varies, not just the execution.
 
-Mathematically, this is a mixture model:
+This makes LLMs fundamentally different from compilers. A traditional compiler performs a semantic-preserving transformation—a homeomorphism between representations where the meaning is invariant. An LLM performs a *stochastic projection*: a natural-language spec admits a space of valid interpretations, and each run collapses that space to one concrete program. The variance is not translation noise—it's the inherent ambiguity of the source being resolved differently each time.
+
+Mathematically, this projection is a mixture model:
 
 ```
 D(Output | Spec, Input) ≈ Σ Pr[Program | Spec] · D(Output | Program, Input)
@@ -73,7 +75,7 @@ In probabilistic programming, you shape distributions through priors, conditioni
 | Conversation history | Dynamic reshaping as context accumulates |
 | Temperature | Flattens or sharpens the distribution at sampling time |
 
-Understanding these as **distribution-shaping techniques** clarifies what each can and can't do. Examples shift the mode; schemas constrain the support; temperature reshapes the distribution without changing the underlying model.
+Understanding these as **distribution-shaping techniques** clarifies what each can and can't do. Examples shift the mode; schemas constrain the support; temperature reshapes the distribution without changing the underlying model. Each narrows the projection—reducing the space of interpretations the LLM might sample—but none eliminate the ambiguity entirely.
 
 ## Distribution Boundaries
 
@@ -97,7 +99,7 @@ But boundaries aren't fixed. As systems evolve, logic moves across them.
 
 Components exist on a spectrum from stochastic to deterministic. Logic can move in both directions.
 
-**Stabilizing**: Replace a stochastic component with a deterministic one. Sample from the distribution and freeze the result into code, configuration, or a decision that no longer varies.
+**Stabilizing**: Replace a stochastic component with a deterministic one. Choose one interpretation from the space the spec admits and freeze it into code, configuration, or a decision that no longer varies.
 
 **Softening**: Replace a deterministic component with a stochastic one. Describe new functionality in natural language; the LLM figures out how to do it.
 
@@ -120,13 +122,13 @@ The tradeoff: code requires you to know the exact behavior upfront. LLMs let you
 
 ### One-shot vs progressive stabilizing
 
-LLMs can act as compilers: spec in, code out. Each run samples from the distribution, producing a different but (hopefully) valid implementation. This is stabilizing in one step.
+LLMs can act as compilers: spec in, code out. But as the program-sampling model makes clear, this is stochastic projection, not compilation—each run samples a different valid implementation from the space the spec admits. This is one-shot stabilizing: freeze a single sample into code.
 
 Alternatively, you can stabilize incrementally. As you observe the LLM's behavior across many runs, you learn which "programs" it tends to sample—and can extract the consistent patterns into deterministic code while keeping the stochastic component for genuinely ambiguous cases.
 
 Example: a file-renaming agent initially uses LLM judgment for everything. You notice it always lowercases and replaces spaces with underscores—so you extract `sanitize_filename()` to Python. The agent still handles ambiguous cases ("is '2024-03' a date or a version?"), but the common path is now code.
 
-Either way, **version both spec and artifact**. Don't rely on "re-generate later" as a build step—regeneration gives you a *different sample*, not the same code.
+Either way, **version both spec and artifact**. Regeneration is a new projection from the same spec—a different sample, not a deterministic rebuild. Don't treat "re-generate later" as a build step.
 
 For the gradient of stabilisation techniques — from prompt restructuring through evals to deterministic modules — see [Crystallisation: The Missing Middle](notes/crystallisation-learning-timescales.md).
 
@@ -203,7 +205,7 @@ Treating agentic systems as probabilistic programs suggests:
 2. **Enable bidirectional refactoring**—design interfaces so components can move across the boundary without rewriting call sites
 3. **Reduce variance where reliability matters**—use schemas, constraints, and deterministic code on critical paths
 4. **Preserve variance where it helps**—don't over-constrain creative or ambiguous tasks
-5. **Version both spec and artifact**—regeneration produces different samples
+5. **Version both spec and artifact**—regeneration is a new projection, not a deterministic rebuild
 6. **Design for statistical failure**—expect retries and graceful degradation
 7. **Stabilize progressively, soften tactically**—start stochastic for flexibility, extract determinism as patterns emerge
 

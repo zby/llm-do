@@ -12,12 +12,10 @@ Working documents for exploration, design thinking, and capturing insights.
 
 - **Creating**: Add to `docs/notes/` with YAML frontmatter (see below)
 - **Promoting**: Move to `docs/adr/background/` when a note becomes foundational to a design decision
-- **Archiving**: Move to `archive/` when resolved or no longer relevant
 - **Referencing**: Link from AGENTS.md or tasks when the note informs decisions
 
 ## Subdirectories
 
-- `archive/` — resolved or superseded notes (immutable after archiving)
 - `agent-learnings/` — staging area for agent-discovered insights
 - `meta/` — upstream proposals and cross-project concerns
 - `research/` — external research analysis and literature review
@@ -43,7 +41,7 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 
 - Notes are for thinking, tasks are for doing
 - Include "Open Questions" to mark unresolved points
-- Don't let notes become stale — archive or update them
+- Don't let notes become stale — update or delete them
 - Permanent decisions belong in AGENTS.md or code, not notes
 
 ---

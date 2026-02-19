@@ -68,7 +68,6 @@ Calling crystallisation "continuous learning" is not just terminological. It ref
 
 Relevant Notes:
 - [crystallisation-learning-timescales](crystallisation-learning-timescales.md) — foundation: defines the three timescales and the verifiability gradient this note builds on
-- [capability-based-approvals](capability-based-approvals.md) — the human review loop that makes crystallisation safe is an instance of capability-based approval design
 - [dynamic-agents-runtime-design](dynamic-agents-runtime-design.md) — exemplifies the pre-crystallisation state: ephemeral agents sit at the top of the verifiability gradient where patterns are too unstable for durable artifacts
 - [adaptation-agentic-ai-analysis](research/adaptation-agentic-ai-analysis.md) — extends: provides data-driven triggers (error patterns, repeated tool failures) for when to crystallise vs soften, grounding the learning loop in concrete signals
 - [professional-developers-ai-agents](related_works/professional-developers-ai-agents.md) — empirical evidence that professional developers naturally practice the crystallisation loop: validate, extract patterns, stabilise

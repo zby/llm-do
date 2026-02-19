@@ -20,6 +20,7 @@ llm-do is built on the observation that deployed AI systems adapt at three times
 
 ## Area Indexes
 
+- [approvals-index](./approvals-index.md) — threat model, capability taxonomy, UI integration, and upstream simplification
 - [pydanticai-upstream-index](./pydanticai-upstream-index.md) — proposed PydanticAI changes, upstream issues, and how they affect llm-do (toolset lifecycle, approval wrapping, Traits API)
 
 ## Agent Memory

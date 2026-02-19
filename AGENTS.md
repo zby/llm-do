@@ -70,7 +70,7 @@ Run relevant checks before submitting changes:
 - `docs/notes/` — working design documents, explorations, bug investigations
 - Create notes to offload complex thinking that doesn't fit in a commit or TODO
 - Include "Open Questions" section for unresolved decisions
-- Move to `docs/notes/archive/` when resolved or implemented
+- Delete when resolved or no longer relevant
 
 ---
 
@@ -87,8 +87,7 @@ Run relevant checks before submitting changes:
 
 ### Notes
 - Use `docs/notes/` for explorations and reasoning that doesn’t belong in code or tasks; follow the note template.
-- Include "Open Questions" for unresolved items; move to `docs/notes/archive/` when resolved.
-- Archived notes are immutable — do not edit content after archiving.
+- Include "Open Questions" for unresolved items; delete when resolved.
 
 ---
 

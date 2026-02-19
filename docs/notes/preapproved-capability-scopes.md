@@ -1,5 +1,6 @@
 ---
 description: Path-scoped preapproval policies for reducing approval prompts
+areas: [approvals-index]
 ---
 
 # Preapproved Capability Scopes

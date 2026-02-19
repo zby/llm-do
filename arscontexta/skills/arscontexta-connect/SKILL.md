@@ -519,6 +519,25 @@ Verify every wiki link target exists. Never create links to non-existent files.
 ls docs/notes/"target name.md" 2>/dev/null
 ```
 
+### Gate 6: Areas-Topics Consistency
+
+Every entry in the note's `areas:` frontmatter must have a corresponding link in the `Topics:` footer section. If `areas: [pydanticai-upstream-index]` exists but Topics doesn't include a link to that index, add it.
+
+```bash
+# Check: extract areas from frontmatter, verify each has a Topics link
+grep '^areas:' docs/notes/target-note.md
+grep 'Topics:' -A 20 docs/notes/target-note.md
+```
+
+If an area is listed in frontmatter but missing from Topics, add the link:
+```markdown
+Topics:
+- [index](./index.md)
+- [area-index-name](./area-index-name.md)   # <-- add missing
+```
+
+This prevents drift between the machine-queryable `areas:` field and the human-navigable Topics footer.
+
 ## Handling Edge Cases
 
 ### No Connections Found

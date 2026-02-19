@@ -80,3 +80,4 @@ Relevant Notes:
 
 Topics:
 - [index](./index.md)
+- [pydanticai-upstream-index](./pydanticai-upstream-index.md)

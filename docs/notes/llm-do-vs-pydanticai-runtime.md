@@ -198,6 +198,10 @@ Relevant Notes:
 - [capability-based-approvals](./capability-based-approvals.md) — extends: the runtime interception points are where capability declarations get evaluated against session policy — the "syscall" model IS capability-based approval
 - [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — details why llm-do constructs Agents per-call instead of reusing them as PydanticAI docs recommend
 
+Topics:
+- [index](./index.md)
+- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
+
 ## References
 - https://ai.pydantic.dev/multi-agent-applications/#agent-delegation-and-dependencies
 - https://github.com/vstorm-co/subagents-pydantic-ai

@@ -8,7 +8,7 @@ pydanticai_version: "1.26.0"
 
 # The stateful flag resolves simple accumulation but not session or composition-site cases
 
-Evaluates the [proposed fix](https://github.com/pydantic/pydantic-ai/issues/4347) — a `stateful` flag on `AbstractToolset` that opts into copy-before-run via custom `copy()` or `dataclasses.replace()` — against concrete examples from each category in [[toolset-state-spectrum-from-stateless-to-transactional]].
+Evaluates the [proposed fix](https://github.com/pydantic/pydantic-ai/issues/4347) — a `stateful` flag on `AbstractToolset` that opts into copy-before-run via custom `copy()` or `dataclasses.replace()` — against concrete examples from each category in [toolset-state-spectrum-from-stateless-to-transactional](./toolset-state-spectrum-from-stateless-to-transactional.md).
 
 ## The proposal
 
@@ -323,7 +323,7 @@ The BrowserToolset case works: `copy()` returns `BrowserToolset()` (uninitialize
 
 ### Tier 3: Composition-site override via `for_sub_agent()` (Categories 4 sub-agent, 6)
 
-The `stateful` flag is a class-level property — it controls cross-run behavior. But sub-agent delegation needs a **per-delegation** decision. Add a `for_sub_agent()` hook (see [[proposed-toolset-lifecycle-resolution-for-pydanticai]] Layer 3):
+The `stateful` flag is a class-level property — it controls cross-run behavior. But sub-agent delegation needs a **per-delegation** decision. Add a `for_sub_agent()` hook (see [proposed-toolset-lifecycle-resolution-for-pydanticai](./proposed-toolset-lifecycle-resolution-for-pydanticai.md) Layer 3):
 
 ```python
 class AbstractToolset:
@@ -526,7 +526,7 @@ Every call constructs a new PydanticAI Agent. This is forced because:
 2. `DynamicToolset` factories produce fresh instances that need wrapping
 3. PydanticAI's `Agent.run(toolsets=...)` is additive only — extends the base set, can't replace
 
-**However:** [[we-want-to-get-rid-of-approval-wrapping]]. Two upstream PydanticAI proposals — `deferred_tool_handler` and Traits `before_tool_call` hooks — would eliminate the `ApprovalToolset` wrapping entirely. Approval would become a hook in the agent loop, not a toolset wrapper. This fundamentally changes how the `stateful` flag interacts with llm-do.
+**However:** [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md). Two upstream PydanticAI proposals — `deferred_tool_handler` and Traits `before_tool_call` hooks — would eliminate the `ApprovalToolset` wrapping entirely. Approval would become a hook in the agent loop, not a toolset wrapper. This fundamentally changes how the `stateful` flag interacts with llm-do.
 
 ### What the stateful flag would change
 
@@ -636,15 +636,15 @@ Support the `stateful` flag proposal with these caveats:
 3. **Specify wrapper behavior** — any wrapping toolset must propagate `stateful`/`copy()`, otherwise the flag is invisible through wrappers. This becomes less critical if approval moves to hooks (no more `ApprovalToolset` wrappers), but matters for any `PrefixedToolset`, `CombinedToolset`, or other wrappers in the ecosystem
 4. **Acknowledge scope boundary** — the flag solves cross-run leakage; composition-site decisions (sub-agent sharing vs isolation) are a separate concern that needs `for_sub_agent()` or an explicit sharing/isolation mechanism at the wiring site
 
-The no-wrapping future ([[we-want-to-get-rid-of-approval-wrapping]]) makes the `stateful` flag more viable for frameworks like llm-do. With approval as a hook rather than a wrapper, toolsets pass through to PydanticAI unwrapped — the flag sees the actual toolset, not a wrapper layer. Combined with `DynamicToolset` for user factories, this could eliminate per-call Agent construction entirely.
+The no-wrapping future ([we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md)) makes the `stateful` flag more viable for frameworks like llm-do. With approval as a hook rather than a wrapper, toolsets pass through to PydanticAI unwrapped — the flag sees the actual toolset, not a wrapper layer. Combined with `DynamicToolset` for user factories, this could eliminate per-call Agent construction entirely.
 
 ---
 
 Relevant Notes:
-- [[toolset-state-spectrum-from-stateless-to-transactional]] — the taxonomy this evaluation follows
-- [[toolset-state-prevents-treating-pydanticai-agents-as-global]] — the upstream issue motivating the proposal
-- [[proposed-toolset-lifecycle-resolution-for-pydanticai]] — three-layer resolution proposal
-- [[we-want-to-get-rid-of-approval-wrapping]] — eliminating wrapping makes the stateful flag work cleanly for frameworks
+- [toolset-state-spectrum-from-stateless-to-transactional](./toolset-state-spectrum-from-stateless-to-transactional.md) — the taxonomy this evaluation follows
+- [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — the upstream issue motivating the proposal
+- [proposed-toolset-lifecycle-resolution-for-pydanticai](./proposed-toolset-lifecycle-resolution-for-pydanticai.md) — three-layer resolution proposal
+- [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — eliminating wrapping makes the stateful flag work cleanly for frameworks
 
 Topics:
-- [[index]]
+- [index](./index.md)

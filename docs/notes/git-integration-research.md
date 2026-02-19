@@ -171,7 +171,7 @@ Aider-style integration:
 ---
 
 Relevant Notes:
-- [[capability-based-approvals]] — enables: narrow git tools (git_status, git_stage, git_push) would declare specific capabilities (git.read, git.write, git.push) rather than the broad `proc.exec`, giving the runtime policy finer-grained control
+- [capability-based-approvals](./capability-based-approvals.md) — enables: narrow git tools (git_status, git_stage, git_push) would declare specific capabilities (git.read, git.write, git.push) rather than the broad `proc.exec`, giving the runtime policy finer-grained control
 
 ## References
 

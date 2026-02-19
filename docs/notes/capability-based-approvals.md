@@ -1,12 +1,12 @@
 ---
 description: Capability-based approval system design for tool execution control
-areas: ["[[index]]"]
+areas: [index]
 status: current
 ---
 
 # Approval System Design
 
-Since [[approvals-guard-against-llm-mistakes-not-active-attacks]], the approval system can be designed for usability rather than security. Capabilities are the mechanism.
+Since [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md), the approval system can be designed for usability rather than security. Capabilities are the mechanism.
 
 ## Risk Model: Uncommitted Work
 
@@ -40,7 +40,7 @@ This leads to complexity:
 - **Tools describe** — return required capabilities per call (`fs.write`, `net.egress`)
 - **Runtime decides** — maps capabilities to approval levels based on environment policy
 
-Tools don't make approval decisions. They declare facts. The runtime holds a single policy that interprets those facts. One place decides, one place to understand, one place to test. This separation also means that [[dynamic-agents-runtime-design]] requires no special-case approval logic — dynamically created agents declare capabilities identically to static ones, and the runtime evaluates them through the same policy.
+Tools don't make approval decisions. They declare facts. The runtime holds a single policy that interprets those facts. One place decides, one place to understand, one place to test. This separation also means that [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) requires no special-case approval logic — dynamically created agents declare capabilities identically to static ones, and the runtime evaluates them through the same policy.
 
 ## Capability Granularity
 
@@ -50,7 +50,7 @@ Start coarse to avoid prompt overload:
 - `proc.exec`
 - `data.user`, `secrets.access`
 
-Scopes (path-based targeting like `fs.write:/workspace/**`) and parameterized capabilities can wait for v2. [[preapproved-capability-scopes]] explores what that v2 looks like — path-scoped rules that refine these coarse capabilities into fine-grained allow/prompt/deny policies.
+Scopes (path-based targeting like `fs.write:/workspace/**`) and parameterized capabilities can wait for v2. [preapproved-capability-scopes](./preapproved-capability-scopes.md) explores what that v2 looks like — path-scoped rules that refine these coarse capabilities into fine-grained allow/prompt/deny policies.
 
 ## Composition Model
 
@@ -63,7 +63,7 @@ For composite tools:
 
 ## Grant Lifetime
 
-Per-session caching: once a user approves a capability, don't prompt again for the same capability in that session. This is a pragmatic UX choice — there's no theoretical basis that n good edits predict the next one will be safe. But all harnesses offer this, and users expect it. Easy to clear if needed. The [[ui-event-stream-blocking-approvals]] broker design implements this via `cache_key` and `remember` semantics on the approval response.
+Per-session caching: once a user approves a capability, don't prompt again for the same capability in that session. This is a pragmatic UX choice — there's no theoretical basis that n good edits predict the next one will be safe. But all harnesses offer this, and users expect it. Easy to clear if needed. The [ui-event-stream-blocking-approvals](./ui-event-stream-blocking-approvals.md) broker design implements this via `cache_key` and `remember` semantics on the approval response.
 
 ## Tool Declarations
 
@@ -78,11 +78,11 @@ ToolDeclaration(
 
 Session policy determines prompt level based on capability matching.
 
-Prefer narrow tools (`run_tests`, `git_status`) over raw shell — capabilities are meaningful when tools are specific. The [[git-integration-research]] proposals illustrate this: a dedicated `git_status` tool can declare `git.read`, while a raw shell command requires the broader `proc.exec`.
+Prefer narrow tools (`run_tests`, `git_status`) over raw shell — capabilities are meaningful when tools are specific. The [git-integration-research](./git-integration-research.md) proposals illustrate this: a dedicated `git_status` tool can declare `git.read`, while a raw shell command requires the broader `proc.exec`.
 
 ## Session Policy Examples
 
-**Autonomous (isolated sandbox)** (when [[container-security-boundary]] provides isolation):
+**Autonomous (isolated sandbox)** (when [container-security-boundary](./container-security-boundary.md) provides isolation):
 - Allow read/write/exec
 - Deny network egress
 
@@ -90,7 +90,7 @@ Prefer narrow tools (`run_tests`, `git_status`) over raw shell — capabilities 
 - Allow reads
 - Approve writes, deletes, and network
 
-The [[execution-modes-user-stories]] approval scenarios (1-11) concretize these policies across headless automation, interactive chat, and nested delegation.
+The [execution-modes-user-stories](./execution-modes-user-stories.md) approval scenarios (1-11) concretize these policies across headless automation, interactive chat, and nested delegation.
 
 ## Open Questions
 
@@ -102,16 +102,16 @@ The [[execution-modes-user-stories]] approval scenarios (1-11) concretize these 
 ---
 
 Relevant Notes:
-- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — grounds: establishes that approvals are a UX feature, freeing capability-based design to optimize for usability rather than security
-- [[container-security-boundary]] — enables: containers provide the actual security boundary that makes it safe to design capabilities for usability
-- [[preapproved-capability-scopes]] — extends: adds path-scoped rules to the coarse capability taxonomy defined here
-- [[ui-event-stream-blocking-approvals]] — implements: the approval broker provides the runtime mechanism (cache_key, remember, timeout) for capability grant lifetime
-- [[approval-override-rationale]] — supersedes: capability-based policy replaces per-agent overrides with a single policy evaluating declared capabilities
-- [[dynamic-agents-runtime-design]] — enables: dynamic agents declare capabilities and are evaluated identically to static agents, requiring no special-case logic
-- [[execution-modes-user-stories]] — example: approval scenarios 1-11 concretize capability policies across headless, interactive, and nested delegation modes
-- [[llm-do-vs-pydanticai-runtime]] — extends: the "syscall interception" computational model frames tool calls as capability-checked interception points
-- [[pure-dynamic-tools]] — example: RestrictedPython sandbox with only `call_agent` is a degenerate case of capability-based policy — one declared capability, always allowed
-- [[git-integration-research]] — example: proposed git toolset shows how narrow tools map to specific capability declarations (git.read, git.write, git.push)
+- [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — grounds: establishes that approvals are a UX feature, freeing capability-based design to optimize for usability rather than security
+- [container-security-boundary](./container-security-boundary.md) — enables: containers provide the actual security boundary that makes it safe to design capabilities for usability
+- [preapproved-capability-scopes](./preapproved-capability-scopes.md) — extends: adds path-scoped rules to the coarse capability taxonomy defined here
+- [ui-event-stream-blocking-approvals](./ui-event-stream-blocking-approvals.md) — implements: the approval broker provides the runtime mechanism (cache_key, remember, timeout) for capability grant lifetime
+- [approval-override-rationale](./approval-override-rationale.md) — supersedes: capability-based policy replaces per-agent overrides with a single policy evaluating declared capabilities
+- [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) — enables: dynamic agents declare capabilities and are evaluated identically to static agents, requiring no special-case logic
+- [execution-modes-user-stories](./execution-modes-user-stories.md) — example: approval scenarios 1-11 concretize capability policies across headless, interactive, and nested delegation modes
+- [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — extends: the "syscall interception" computational model frames tool calls as capability-checked interception points
+- [pure-dynamic-tools](./pure-dynamic-tools.md) — example: RestrictedPython sandbox with only `call_agent` is a degenerate case of capability-based policy — one declared capability, always allowed
+- [git-integration-research](./git-integration-research.md) — example: proposed git toolset shows how narrow tools map to specific capability declarations (git.read, git.write, git.push)
 
 Topics:
-- [[index]]
+- [index](./index.md)

@@ -194,9 +194,9 @@ under the hybrid VM umbrella.
 ---
 
 Relevant Notes:
-- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — grounds: the "syscall interception" framing treats tool call mediation as a UX feature (visibility and error-catching), consistent with approvals being a UI mechanism rather than a security boundary
-- [[capability-based-approvals]] — extends: the runtime interception points are where capability declarations get evaluated against session policy — the "syscall" model IS capability-based approval
-- [[toolset-state-prevents-treating-pydanticai-agents-as-global]] — details why llm-do constructs Agents per-call instead of reusing them as PydanticAI docs recommend
+- [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — grounds: the "syscall interception" framing treats tool call mediation as a UX feature (visibility and error-catching), consistent with approvals being a UI mechanism rather than a security boundary
+- [capability-based-approvals](./capability-based-approvals.md) — extends: the runtime interception points are where capability declarations get evaluated against session policy — the "syscall" model IS capability-based approval
+- [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — details why llm-do constructs Agents per-call instead of reusing them as PydanticAI docs recommend
 
 ## References
 - https://ai.pydantic.dev/multi-agent-applications/#agent-delegation-and-dependencies

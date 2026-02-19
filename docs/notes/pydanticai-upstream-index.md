@@ -10,28 +10,28 @@ Notes about PydanticAI design gaps, proposed changes, and how upstream decisions
 
 ## The core issue
 
-- [[toolset-state-prevents-treating-pydanticai-agents-as-global]] — the upstream issue ([#4347](https://github.com/pydantic/pydantic-ai/issues/4347)): toolset state forces per-call Agent construction despite agents being documented as global/stateless
+- [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — the upstream issue ([#4347](https://github.com/pydantic/pydantic-ai/issues/4347)): toolset state forces per-call Agent construction despite agents being documented as global/stateless
 
 ## Toolset lifecycle
 
-- [[toolset-state-spectrum-from-stateless-to-transactional]] — taxonomy of seven state patterns; most tools hide the lifecycle problem until sub-agents or parallelism surface it
-- [[proposed-toolset-lifecycle-resolution-for-pydanticai]] — three-layer proposal: document what exists, make factories first-class, add `for_sub_agent()` hooks
-- [[stateful-flag-evaluation-against-toolset-spectrum]] — evaluates the proposed `stateful` flag against concrete examples for all seven categories; proposes tiered mechanisms for gaps including framework implications for llm-do
+- [toolset-state-spectrum-from-stateless-to-transactional](./toolset-state-spectrum-from-stateless-to-transactional.md) — taxonomy of seven state patterns; most tools hide the lifecycle problem until sub-agents or parallelism surface it
+- [proposed-toolset-lifecycle-resolution-for-pydanticai](./proposed-toolset-lifecycle-resolution-for-pydanticai.md) — three-layer proposal: document what exists, make factories first-class, add `for_sub_agent()` hooks
+- [stateful-flag-evaluation-against-toolset-spectrum](./stateful-flag-evaluation-against-toolset-spectrum.md) — evaluates the proposed `stateful` flag against concrete examples for all seven categories; proposes tiered mechanisms for gaps including framework implications for llm-do
 
 ## Approval wrapping
 
-- [[we-want-to-get-rid-of-approval-wrapping]] — two upstream paths (`deferred_tool_handler` and Traits `before_tool_call`) that would eliminate our ~440-line wrapping layer
-- [[blocking_approvals]] — detailed `deferred_tool_handler` proposal we drafted for upstream
-- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — foundation: approvals are UX for catching LLM errors, not a security boundary
-- [[capability-based-approvals]] — long-term direction: tools declare capabilities, runtime policy decides
+- [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — two upstream paths (`deferred_tool_handler` and Traits `before_tool_call`) that would eliminate our ~440-line wrapping layer
+- [blocking_approvals](./meta/blocking_approvals.md) — detailed `deferred_tool_handler` proposal we drafted for upstream
+- [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — foundation: approvals are UX for catching LLM errors, not a security boundary
+- [capability-based-approvals](./capability-based-approvals.md) — long-term direction: tools declare capabilities, runtime policy decides
 
 ## Traits API
 
-- [[pydanticai-traits-api-pr-comment]] — our feedback on PydanticAI PR #4233 (Traits API research report)
+- [pydanticai-traits-api-pr-comment](./meta/pydanticai-traits-api-pr-comment.md) — our feedback on PydanticAI PR #4233 (Traits API research report)
 
 ## Broader comparison
 
-- [[llm-do-vs-pydanticai-runtime]] — what llm-do adds on top of vanilla PydanticAI: per-call isolation, approval wrapping, toolset factories, multi-agent orchestration
+- [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — what llm-do adds on top of vanilla PydanticAI: per-call isolation, approval wrapping, toolset factories, multi-agent orchestration
 
 ## Open threads
 
@@ -43,4 +43,4 @@ Notes about PydanticAI design gaps, proposed changes, and how upstream decisions
 ---
 
 Topics:
-- [[index]]
+- [index](./index.md)

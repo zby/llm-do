@@ -1,13 +1,13 @@
 ---
 description: Design for runtime creation and invocation of dynamic workers
 areas:
-  - "[[index]]"
+  - index
 ---
 
 # Dynamic Workers Runtime Design
 
 Design note for runtime creation and invocation of workers (`worker_create` /
-`worker_call`). This extends [[llm-do-vs-pydanticai-runtime]] by adding a
+`worker_call`). This extends [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) by adding a
 session-scoped registry alongside the static `EntryRegistry`, addressing the
 gap where the unified tool/agent namespace could not accommodate agents created
 during execution.
@@ -65,7 +65,7 @@ A new toolset (e.g., `dynamic_workers`) providing:
 ### Experimental scope (YAGNI)
 
 Dynamic workers should remain **experimental** for a long time — they sit at the
-ephemeral end of the [[crystallisation-learning-timescales]] gradient, where
+ephemeral end of the [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) gradient, where
 patterns need to be observed across many runs before committing to stable APIs.
 The goal is to enable fast iteration on bootstrapping/decomposition workflows,
 not to design a fully-general plugin/runtime system up front.
@@ -122,7 +122,7 @@ Dynamic workers would need a separate session-scoped registry.
 - Tools within the created worker need approval wrapping
 - `worker_call` must run a worker only after the worker's toolsets are wrapped
 
-Since [[capability-based-approvals]] separates capability description from
+Since [capability-based-approvals](./capability-based-approvals.md) separates capability description from
 approval decisions, dynamically created agents can declare capabilities
 (`proc.exec`, `fs.write`) and the runtime policy evaluates them identically to
 static agents — no special-case approval logic needed for dynamic creation.
@@ -142,10 +142,10 @@ dynamic-worker compilation/wrapping through the same approval boundary described
 ---
 
 Relevant Notes:
-- [[pure-dynamic-tools]] — extends this by adding LLM-authored executable code (not just prompts) that can only call agents, building on the same session registry pattern
-- [[llm-do-vs-pydanticai-runtime]] — provides the foundation: name-based dispatch and the unified tool/agent namespace that dynamic agents must integrate with
-- [[capability-based-approvals]] — enables approval for dynamically created agents by separating capability declaration from policy evaluation
-- [[subagent-onboarding-protocol]] — extends this by adding a bidirectional setup conversation before `agent_call`, addressing single-shot invocation limitations
-- [[crystallisation-learning-timescales]] — frames why dynamic agents should remain experimental: they operate at the ephemeral end of the verifiability gradient
-- [[toolset-instantiation-questions]] — raises the per-agent vs shared instance question that dynamic agents' session registry must also resolve
-- [[type-catalog-review]] — documents the implemented type surface (`DynamicAgentsToolset`, `AgentCreateArgs`, `AgentCallArgs`)
+- [pure-dynamic-tools](./pure-dynamic-tools.md) — extends this by adding LLM-authored executable code (not just prompts) that can only call agents, building on the same session registry pattern
+- [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — provides the foundation: name-based dispatch and the unified tool/agent namespace that dynamic agents must integrate with
+- [capability-based-approvals](./capability-based-approvals.md) — enables approval for dynamically created agents by separating capability declaration from policy evaluation
+- [subagent-onboarding-protocol](./subagent-onboarding-protocol.md) — extends this by adding a bidirectional setup conversation before `agent_call`, addressing single-shot invocation limitations
+- [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — frames why dynamic agents should remain experimental: they operate at the ephemeral end of the verifiability gradient
+- [toolset-instantiation-questions](./toolset-instantiation-questions.md) — raises the per-agent vs shared instance question that dynamic agents' session registry must also resolve
+- [type-catalog-review](./type-catalog-review.md) — documents the implemented type surface (`DynamicAgentsToolset`, `AgentCreateArgs`, `AgentCallArgs`)

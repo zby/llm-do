@@ -160,6 +160,6 @@ Pure tools could be stored similarly to dynamic agents:
 ---
 
 Relevant Notes:
-- [[dynamic-agents-runtime-design]] — foundation: pure tools extend the dynamic agents pattern from prompt-only delegation to LLM-authored executable code, reusing the same session registry and `tool_create`/`tool_call` structure
-- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — grounds: the RestrictedPython sandbox is a complementary safety model to container isolation, externalizing security via capability restriction rather than in-process approval gates
-- [[capability-based-approvals]] — example: the single-capability sandbox (only `call_agent`) is a degenerate case of capability-based policy — one declared capability, always allowed because side effects flow through agents with their own approval policies
+- [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) — foundation: pure tools extend the dynamic agents pattern from prompt-only delegation to LLM-authored executable code, reusing the same session registry and `tool_create`/`tool_call` structure
+- [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — grounds: the RestrictedPython sandbox is a complementary safety model to container isolation, externalizing security via capability restriction rather than in-process approval gates
+- [capability-based-approvals](./capability-based-approvals.md) — example: the single-capability sandbox (only `call_agent`) is a degenerate case of capability-based policy — one declared capability, always allowed because side effects flow through agents with their own approval policies

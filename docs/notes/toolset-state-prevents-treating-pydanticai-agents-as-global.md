@@ -53,7 +53,7 @@ Note: the approval callback itself doesn't vary between calls — `RuntimeConfig
 
 ## The cost
 
-Per-call Agent construction is a forced choice, not a preference. PydanticAI binds toolsets at `Agent.__init__` and provides no `Agent.run(toolsets=...)` override. Since llm-do needs to wrap toolsets with approval before binding and ensure fresh instances per call, the only option is constructing a new Agent each time. However, [[we-want-to-get-rid-of-approval-wrapping]] — if either upstream path (deferred_tool_handler or Traits hooks) ships, approval becomes a hook in the agent loop rather than a toolset wrapper, removing the wrapping constraint entirely.
+Per-call Agent construction is a forced choice, not a preference. PydanticAI binds toolsets at `Agent.__init__` and provides no `Agent.run(toolsets=...)` override. Since llm-do needs to wrap toolsets with approval before binding and ensure fresh instances per call, the only option is constructing a new Agent each time. However, [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — if either upstream path (deferred_tool_handler or Traits hooks) ships, approval becomes a hook in the agent loop rather than a toolset wrapper, removing the wrapping constraint entirely.
 
 This repeats work that doesn't change between calls: model resolution, instruction assembly, output schema validation. If PydanticAI separated Agent configuration from toolset binding (or adopted a first-class factory pattern for toolsets), llm-do could construct the Agent once and only vary toolsets per-run.
 
@@ -74,9 +74,9 @@ The resolution likely requires separating trait *declaration* (static, on the Ag
 ---
 
 Relevant Notes:
-- [[toolset-state-spectrum-from-stateless-to-transactional]] — comprehensive catalog of toolset state patterns, from pure functions through browser sessions to database transactions
-- [[llm-do-vs-pydanticai-runtime]] — broader comparison of what llm-do adds on top of vanilla PydanticAI, including per-call isolation as a key differentiator
-- [[we-want-to-get-rid-of-approval-wrapping]] — enables: eliminating approval wrapping removes the primary driver of per-call Agent construction
+- [toolset-state-spectrum-from-stateless-to-transactional](./toolset-state-spectrum-from-stateless-to-transactional.md) — comprehensive catalog of toolset state patterns, from pure functions through browser sessions to database transactions
+- [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — broader comparison of what llm-do adds on top of vanilla PydanticAI, including per-call isolation as a key differentiator
+- [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — enables: eliminating approval wrapping removes the primary driver of per-call Agent construction
 
 Topics:
-- [[index]]
+- [index](./index.md)

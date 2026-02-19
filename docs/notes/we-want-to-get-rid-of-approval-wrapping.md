@@ -7,7 +7,7 @@ last_verified: 2026-02-18
 
 # We want to get rid of approval wrapping
 
-Our approval system works by wrapping every toolset in `ApprovalContextToolset` (and optionally `ApprovalDeniedResultToolset`) at call time. This is ~440 lines of wrapping infrastructure across `runtime/approval.py` (186) and `runtime/call.py` (256), plus the external `pydantic-ai-blocking-approval` dependency. The wrapping is the single largest piece of PydanticAI impedance-mismatch code we maintain. It is also the primary driver behind [[toolset-state-prevents-treating-pydanticai-agents-as-global]] — since wrapping must happen before `Agent(toolsets=...)`, llm-do is forced to construct a new Agent per call.
+Our approval system works by wrapping every toolset in `ApprovalContextToolset` (and optionally `ApprovalDeniedResultToolset`) at call time. This is ~440 lines of wrapping infrastructure across `runtime/approval.py` (186) and `runtime/call.py` (256), plus the external `pydantic-ai-blocking-approval` dependency. The wrapping is the single largest piece of PydanticAI impedance-mismatch code we maintain. It is also the primary driver behind [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — since wrapping must happen before `Agent(toolsets=...)`, llm-do is forced to construct a new Agent per call.
 
 Two upstream PydanticAI proposals could eliminate it. Both are unshipped as of February 2026.
 
@@ -17,18 +17,18 @@ An optional callback on `agent.run()` that handles deferred tool calls (approval
 
 **How it eliminates wrapping:** Toolsets use PydanticAI's native `requires_approval` / `ApprovalRequired` raise pattern. The handler receives all deferred tools per LLM response, returns approve/deny decisions. PydanticAI's loop handles execution of approved tools and synthetic denial results. No wrapper layers needed.
 
-**What we keep:** The per-toolset `needs_approval()` / `get_approval_description()` methods stay — they feed into PydanticAI's existing `ApprovalRequired` mechanism. The approval callback factories (`make_tui_approval_callback`, `make_headless_approval_callback`) adapt to produce `DeferredToolResults` instead of `ApprovalDecision`. Session caching logic stays. The [[ui-event-stream-blocking-approvals]] broker's `request_approval` / `respond` interface would adapt: the broker produces `DeferredToolResult` instead of `ApprovalDecision`, and the handler-receives-all-deferred-per-response pattern maps naturally to the broker's batch model.
+**What we keep:** The per-toolset `needs_approval()` / `get_approval_description()` methods stay — they feed into PydanticAI's existing `ApprovalRequired` mechanism. The approval callback factories (`make_tui_approval_callback`, `make_headless_approval_callback`) adapt to produce `DeferredToolResults` instead of `ApprovalDecision`. Session caching logic stays. The [ui-event-stream-blocking-approvals](./ui-event-stream-blocking-approvals.md) broker's `request_approval` / `respond` interface would adapt: the broker produces `DeferredToolResult` instead of `ApprovalDecision`, and the handler-receives-all-deferred-per-response pattern maps naturally to the broker's batch model.
 
-**What we delete:** `ApprovalContextToolset`, `ApprovalDeniedResultToolset`, `_prepare_toolsets_for_run()` wrapping logic, `_unwrap_approval_toolset()`, double-wrap detection, the `pydantic-ai-blocking-approval` package dependency. This also resolves [[proposed-toolset-lifecycle-resolution-for-pydanticai]]'s caveat that "the approval wrapping question remains separate" — once wrapping is gone, PydanticAI's first-class factory pattern (Layer 2) could fully subsume llm-do's per-call Agent construction.
+**What we delete:** `ApprovalContextToolset`, `ApprovalDeniedResultToolset`, `_prepare_toolsets_for_run()` wrapping logic, `_unwrap_approval_toolset()`, double-wrap detection, the `pydantic-ai-blocking-approval` package dependency. This also resolves [proposed-toolset-lifecycle-resolution-for-pydanticai](./proposed-toolset-lifecycle-resolution-for-pydanticai.md)'s caveat that "the approval wrapping question remains separate" — once wrapping is gone, PydanticAI's first-class factory pattern (Layer 2) could fully subsume llm-do's per-call Agent construction.
 
-**Type migration required:** Today `needs_approval()` takes `ApprovalConfig` and returns `ApprovalResult` from `pydantic-ai-blocking-approval`. These types are used across 8 files (`filesystem.py`, `shell/toolset.py`, `dynamic_agents.py`, `agent.py`, `runtime/approval.py`, `runtime/call.py`, `ui/runner.py`, `__init__.py`). When the package is deleted, these types must be replaced. The [[type-catalog-review]] documents the current duplication (`ApprovalMode` in multiple places, `AgentApprovalOverride` vs `AgentApprovalConfig` shape duplication) that this migration should also clean up. Two options:
+**Type migration required:** Today `needs_approval()` takes `ApprovalConfig` and returns `ApprovalResult` from `pydantic-ai-blocking-approval`. These types are used across 8 files (`filesystem.py`, `shell/toolset.py`, `dynamic_agents.py`, `agent.py`, `runtime/approval.py`, `runtime/call.py`, `ui/runner.py`, `__init__.py`). When the package is deleted, these types must be replaced. The [type-catalog-review](./type-catalog-review.md) documents the current duplication (`ApprovalMode` in multiple places, `AgentApprovalOverride` vs `AgentApprovalConfig` shape duplication) that this migration should also clean up. Two options:
 
 - **Adopt PydanticAI's native types.** If `deferred_tool_handler` ships with its own approval result types (likely `ApprovalRequired` exception + result protocol), our toolsets switch to those. The `needs_approval()` method signature changes to return whatever PydanticAI expects.
 - **Inline the types we actually use.** `ApprovalResult` is a small dataclass (pre_approved/needs_approval/blocked). `ApprovalConfig` is a dict. `ApprovalDecision` is approved + note + remember. We could vendor the ~50 lines of type definitions we actually depend on, or (preferably) upstream them into PydanticAI core since they're needed for any approval pattern.
 
 The `__init__.py` re-exports (`ApprovalBlocked`, `ApprovalCallback`, `ApprovalDecision`, `ApprovalDenied`, `ApprovalError`, `ApprovalRequest`, `ApprovalResult`, `ApprovalToolset`) are part of our public API. Removing them is a breaking change that must be handled in a major version bump or with deprecation re-exports.
 
-**Status:** We wrote a detailed proposal draft (see [[blocking_approvals]]). Blocked on PydanticAI implementing `deferred_tool_handler`. Related upstream issues: [#3274](https://github.com/pydantic/pydantic-ai/issues/3274), [#3488](https://github.com/pydantic/pydantic-ai/issues/3488).
+**Status:** We wrote a detailed proposal draft (see [blocking_approvals](./meta/blocking_approvals.md)). Blocked on PydanticAI implementing `deferred_tool_handler`. Related upstream issues: [#3274](https://github.com/pydantic/pydantic-ai/issues/3274), [#3488](https://github.com/pydantic/pydantic-ai/issues/3488).
 
 ## Path 2: Traits `before_tool_call` hooks
 
@@ -44,7 +44,7 @@ The Traits API proposal ([PR #4233](https://github.com/pydantic/pydantic-ai/pull
 
 **Denied-call UX mapping.** Today `ApprovalDeniedResultToolset` catches `PermissionError` from denied calls and returns a structured payload `{"error": str, "tool_name": str, "error_type": "permission"}` instead of raising. This is toggled by `return_permission_errors` in `RuntimeConfig` and consumed by the TUI (`ui/runner.py`) and CLI (`cli/main.py`). A `before_tool_call` hook that returns `False` must produce an equivalent tool result — PydanticAI needs to either: (a) return a configurable denial payload as the tool result when `before_tool_call` blocks, or (b) let the hook return a custom result dict instead of a bare `False`. Without this, the LLM sees a different signal on denial (possibly an exception or missing result) and the TUI loses the structured error display.
 
-**Status:** The Traits API is in research/design phase. See [[pydanticai-traits-api-pr-comment]] for our feedback on the PR.
+**Status:** The Traits API is in research/design phase. See [pydanticai-traits-api-pr-comment](./meta/pydanticai-traits-api-pr-comment.md) for our feedback on the PR.
 
 ## Comparison
 
@@ -78,15 +78,15 @@ The Traits API proposal ([PR #4233](https://github.com/pydantic/pydantic-ai/pull
 ---
 
 Relevant Notes:
-- [[blocking_approvals]] — detailed `deferred_tool_handler` proposal draft we authored
-- [[pydanticai-traits-api-pr-comment]] — our feedback on the Traits API PR
-- [[capability-based-approvals]] — our long-term direction for approval policy (tools declare capabilities, runtime decides)
-- [[approvals-guard-against-llm-mistakes-not-active-attacks]] — foundation: approvals are UX, not security
-- [[stateful-flag-evaluation-against-toolset-spectrum]] — eliminating wrapping is a prerequisite for the `stateful` flag to work cleanly in frameworks that currently wrap toolsets
-- [[toolset-state-prevents-treating-pydanticai-agents-as-global]] — enables: eliminating wrapping removes the primary reason for per-call Agent construction, since toolsets no longer need wrapping before `Agent(toolsets=...)`
-- [[proposed-toolset-lifecycle-resolution-for-pydanticai]] — enables: once wrapping is gone, PydanticAI's first-class factory pattern (Layer 2) could fully subsume llm-do's per-call construction
-- [[ui-event-stream-blocking-approvals]] — adapts: the approval broker's callback interface maps to `DeferredToolResult` in Path 1 and `before_tool_call` return values in Path 2
-- [[type-catalog-review]] — context: documents the `ApprovalMode` duplication and override shape duplication that the type migration should clean up
+- [blocking_approvals](./meta/blocking_approvals.md) — detailed `deferred_tool_handler` proposal draft we authored
+- [pydanticai-traits-api-pr-comment](./meta/pydanticai-traits-api-pr-comment.md) — our feedback on the Traits API PR
+- [capability-based-approvals](./capability-based-approvals.md) — our long-term direction for approval policy (tools declare capabilities, runtime decides)
+- [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — foundation: approvals are UX, not security
+- [stateful-flag-evaluation-against-toolset-spectrum](./stateful-flag-evaluation-against-toolset-spectrum.md) — eliminating wrapping is a prerequisite for the `stateful` flag to work cleanly in frameworks that currently wrap toolsets
+- [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — enables: eliminating wrapping removes the primary reason for per-call Agent construction, since toolsets no longer need wrapping before `Agent(toolsets=...)`
+- [proposed-toolset-lifecycle-resolution-for-pydanticai](./proposed-toolset-lifecycle-resolution-for-pydanticai.md) — enables: once wrapping is gone, PydanticAI's first-class factory pattern (Layer 2) could fully subsume llm-do's per-call construction
+- [ui-event-stream-blocking-approvals](./ui-event-stream-blocking-approvals.md) — adapts: the approval broker's callback interface maps to `DeferredToolResult` in Path 1 and `before_tool_call` return values in Path 2
+- [type-catalog-review](./type-catalog-review.md) — context: documents the `ApprovalMode` duplication and override shape duplication that the type migration should clean up
 
 Topics:
-- [[index]]
+- [index](./index.md)

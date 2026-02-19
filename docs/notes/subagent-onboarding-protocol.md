@@ -222,4 +222,4 @@ for i, h in enumerate(handles):
 ---
 
 Relevant Notes:
-- [[dynamic-agents-runtime-design]] — foundation: the `agent_create`/`agent_call` primitives that onboarding extends with a bidirectional setup phase
+- [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) — foundation: the `agent_create`/`agent_call` primitives that onboarding extends with a bidirectional setup phase

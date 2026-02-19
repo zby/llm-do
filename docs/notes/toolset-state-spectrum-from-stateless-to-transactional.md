@@ -6,7 +6,7 @@ status: current
 
 # Toolset state spectrum: from stateless to transactional
 
-Most tools are pure functions — no state, no lifecycle, no problem. This is why [[toolset-state-prevents-treating-pydanticai-agents-as-global]] is easy to miss: the common case works fine with global agents. The problems surface in two distinct ways: **cross-run leakage** (a global agent's static toolset carries state from one run into the next) and **intra-run interference** (parallel calls or sub-agent delegation cause concurrent access to the same stateful toolset). The first is subtle — stale caches, drifting counters — and easy to miss. The second is where state management matters most.
+Most tools are pure functions — no state, no lifecycle, no problem. This is why [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) is easy to miss: the common case works fine with global agents. The problems surface in two distinct ways: **cross-run leakage** (a global agent's static toolset carries state from one run into the next) and **intra-run interference** (parallel calls or sub-agent delegation cause concurrent access to the same stateful toolset). The first is subtle — stale caches, drifting counters — and easy to miss. The second is where state management matters most.
 
 A key insight: the isolation decision isn't purely a property of the toolset — it depends on the **relationship between the caller and the callee**. The same toolset may need sharing in one delegation scenario and isolation in another. This means the framework can't make the decision for you; it can only provide mechanisms for the developer to express their intent at the composition site.
 
@@ -220,9 +220,9 @@ A traits system (see [Traits API proposal](https://github.com/pydantic/pydantic-
 ---
 
 Relevant Notes:
-- [[toolset-state-prevents-treating-pydanticai-agents-as-global]] — the upstream issue that motivates this catalog
-- [[proposed-toolset-lifecycle-resolution-for-pydanticai]] — three-layer proposal for addressing these lifecycle gaps in PydanticAI
-- [[llm-do-vs-pydanticai-runtime]] — per-call isolation as a key llm-do differentiator over vanilla PydanticAI
+- [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — the upstream issue that motivates this catalog
+- [proposed-toolset-lifecycle-resolution-for-pydanticai](./proposed-toolset-lifecycle-resolution-for-pydanticai.md) — three-layer proposal for addressing these lifecycle gaps in PydanticAI
+- [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — per-call isolation as a key llm-do differentiator over vanilla PydanticAI
 
 Topics:
-- [[index]]
+- [index](./index.md)

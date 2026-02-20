@@ -14,6 +14,7 @@ llm-do is built on the observation that deployed AI systems adapt at three times
 ## Notes
 
 - [crystallisation-is-continuous-learning](./crystallisation-is-continuous-learning.md) — argues this achieves what labs pursue as "continuous learning" via weight updates
+- [inspectable-substrate-not-supervision-defeats-the-blackbox-problem](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) — counters Chollet's "agentic coding produces blackbox models" — the substrate (repo artifacts vs weights) determines verifiability, not who inspects
 - [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) — the top of the gradient: ephemeral agents for patterns not yet stable enough to crystallise
 - [pure-dynamic-tools](./pure-dynamic-tools.md) — LLM-authored tools that can only call agents, enabling safe dynamic orchestration via RestrictedPython sandbox
 - [subagent-onboarding-protocol](./subagent-onboarding-protocol.md) — bidirectional setup conversation before subagent execution, addressing single-shot invocation limitations

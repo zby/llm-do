@@ -1,19 +1,18 @@
 ---
-description: Specification for reusable worker and tool libraries
+description: Specification for reusable agent and tool libraries that can be shared across projects
 ---
 
 # Library System Specification
 
-**Status**: Draft
-**Prerequisite**: Worker-function architecture (Phases 1-4) - Completed
+**Status**: Draft (updated 2026-02-19 to align with current architecture)
 
 ## Overview
 
-Libraries are reusable collections of workers, tools, and templates that can be shared across projects. This specification defines how libraries are structured, discovered, resolved, and used.
+Libraries are reusable collections of agents, tools, and toolsets that can be shared across projects. This specification defines how libraries are structured, discovered, resolved, and used.
 
 ## Goals
 
-1. **Reusability**: Share workers across projects without copy-paste
+1. **Reusability**: Share agents across projects without copy-paste
 2. **Versioning**: Support multiple versions of the same library
 3. **Composability**: Libraries can depend on other libraries
 4. **Discoverability**: Simple CLI for managing libraries
@@ -32,38 +31,35 @@ Libraries are reusable collections of workers, tools, and templates that can be 
 ~/.llm-do/libs/
 └── library_name/
     │
-    ├── lib.yaml             # REQUIRED: Library manifest
+    ├── lib.json              # REQUIRED: Library manifest
     │
-    ├── workers/             # Exported workers
-    │   ├── worker_a.worker
-    │   └── worker_b/
-    │       ├── worker.worker
+    ├── agents/               # Exported agents (.agent files)
+    │   ├── summarizer.agent
+    │   └── reviewer/
+    │       ├── reviewer.agent
     │       └── tools.py
     │
-    ├── tools/               # Shared tools (available to all workers)
-    │   └── *.py
-    │
-    └── templates/           # Shared templates
-        └── *.jinja
+    └── tools/                # Shared tools and toolsets (available to all agents)
+        └── *.py
 ```
 
 ### 1.1 Minimal Library
 
 ```
 my-lib/
-├── lib.yaml
-└── workers/
-    └── helper.worker
+├── lib.json
+└── agents/
+    └── helper.agent
 ```
 
 ### 1.2 Library with Shared Tools
 
 ```
 utils/
-├── lib.yaml
-├── workers/
-│   ├── summarizer.worker
-│   └── translator.worker
+├── lib.json
+├── agents/
+│   ├── summarizer.agent
+│   └── translator.agent
 └── tools/
     ├── __init__.py
     └── text_utils.py
@@ -71,34 +67,29 @@ utils/
 
 ---
 
-## 2. Library Manifest (lib.yaml)
+## 2. Library Manifest (lib.json)
 
-```yaml
-# lib.yaml - REQUIRED
-
-name: utils                    # REQUIRED: Library identifier
-version: 2.1.0                 # Optional: Semantic version
-description: Common utilities  # Optional: Human-readable description
-
-# Workers exported by this library (empty = export all)
-exports:
-  - summarizer
-  - translator
-
-# Dependencies on other libraries
-dependencies:
-  - text-processing           # Latest version
-  - formatting@1.0            # Specific version
+```json
+{
+  "name": "utils",
+  "version": "2.1.0",
+  "description": "Common utility agents",
+  "exports": ["summarizer", "translator"],
+  "dependencies": [
+    "text-processing",
+    "formatting@1.0"
+  ]
+}
 ```
 
 ### 2.1 Fields
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Library identifier (used in `lib:worker` references) |
+| `name` | Yes | Library identifier (used in `lib:agent` references) |
 | `version` | No | Semantic version string |
 | `description` | No | Human-readable description |
-| `exports` | No | List of exported workers (empty = all) |
+| `exports` | No | List of exported agents (empty = all) |
 | `dependencies` | No | List of library dependencies |
 
 ---
@@ -161,50 +152,41 @@ def resolve_library(spec: str) -> Path:
 
 ### 4.1 Project Dependencies
 
-Declare library dependencies in `project.yaml`:
+Declare library dependencies in `project.json`:
 
-```yaml
-# project.yaml
-name: my-project
-dependencies:
-  - utils
-  - legal@2.0
+```json
+{
+  "version": 1,
+  "dependencies": ["utils", "legal@2.0"],
+  "runtime": { ... },
+  "entry": { ... }
+}
 ```
 
-### 4.2 Referencing Library Workers
+### 4.2 Referencing Library Agents
 
-Use `lib:` prefix to reference workers from libraries:
+Use `lib:` prefix to reference agents from libraries:
 
 ```yaml
-# In worker definition
+# In .agent file toolsets section
 toolsets:
-  delegation:
-    allow_workers:
-      - lib:utils/summarizer      # From utils library
-      - lib:legal@2.0/reviewer    # From specific version
-      - local_worker              # From project's workers/
+  - lib:utils/summarizer      # Agent from utils library as toolset
+  - lib:legal@2.0/reviewer    # From specific version
+  - local_agent                # From project's own .agent files
 ```
 
-In delegation calls:
+In Python code:
 ```python
-worker_call(worker="lib:utils/summarizer", input_data={...})
+result = await runtime.call_agent("lib:utils/summarizer", {"input": "..."})
 ```
 
-### 4.3 Library Templates
-
-Include templates from libraries:
-
-```jinja2
-{% include 'lib:utils/report_header.jinja' %}
-```
-
-### 4.4 Library Tools
+### 4.3 Library Tools
 
 Library tools are automatically available when the library is a dependency.
 
-Search order (worker-local wins):
-1. Worker directory `tools.py`
-2. Project root `tools.py`
+Search order (agent-local wins):
+1. Agent directory `tools.py`
+2. Project Python files (from `python_files` in manifest)
 3. Library `tools/` directories (in dependency order)
 
 ---
@@ -231,7 +213,7 @@ llm-do lib install ./path/to/library --version 2.0.0
 llm-do lib list
 
 # Output:
-# utils          2.1.0   Common utility workers
+# utils          2.1.0   Common utility agents
 # legal          1.0.0   Legal document processing
 # formatting     -       Text formatting helpers
 ```
@@ -246,9 +228,9 @@ llm-do lib info utils
 # Name: utils
 # Version: 2.1.0
 # Path: ~/.llm-do/libs/utils
-# Description: Common utility workers
+# Description: Common utility agents
 #
-# Exported workers:
+# Exported agents:
 #   - summarizer
 #   - translator
 #
@@ -274,14 +256,12 @@ llm-do lib remove utils@1.0
 
 Libraries can depend on other libraries. Dependencies are resolved transitively.
 
-```yaml
-# utils/lib.yaml
-dependencies:
-  - text-processing
+```json
+// utils/lib.json
+{ "dependencies": ["text-processing"] }
 
-# text-processing/lib.yaml
-dependencies:
-  - formatting
+// text-processing/lib.json
+{ "dependencies": ["formatting"] }
 ```
 
 When using `utils`, both `text-processing` and `formatting` are available.
@@ -305,7 +285,7 @@ Circular dependencies are detected and rejected:
 ```
 A depends on B
 B depends on C
-C depends on A  ← Error: Circular dependency detected
+C depends on A  <- Error: Circular dependency detected
 ```
 
 ---
@@ -314,43 +294,58 @@ C depends on A  ← Error: Circular dependency detected
 
 ### 7.1 Default: Export All
 
-If `exports` is empty or omitted, all workers in `workers/` are exported:
+If `exports` is empty or omitted, all agents in `agents/` are exported:
 
-```yaml
-# lib.yaml
-name: utils
-# exports: not specified = all workers exported
+```json
+{
+  "name": "utils"
+}
 ```
 
 ### 7.2 Explicit Exports
 
-List specific workers to export (others are internal):
+List specific agents to export (others are internal):
 
-```yaml
-# lib.yaml
-name: utils
-exports:
-  - summarizer
-  - translator
-  # helper worker exists but is NOT exported
+```json
+{
+  "name": "utils",
+  "exports": ["summarizer", "translator"]
+}
 ```
 
-Attempting to use unexported worker:
+Attempting to use unexported agent:
 ```
-Error: Worker 'helper' is not exported by library 'utils'
+Error: Agent 'helper' is not exported by library 'utils'
 ```
 
 ---
 
-## 8. Implementation Plan
+## 8. Integration Points
 
-Work tracking lives in `tasks/backlog/library-system.md`.
+### 8.1 Registry Integration
 
-### Phases (high level)
-1. Core types (LibraryConfig model, resolution helpers, exceptions)
-2. Registry integration (lib: resolution, templates, tools)
-3. CLI commands (install, list, info, remove)
-4. Testing and polish (tests, example library, docs)
+Library agents are registered in `AgentRegistry` during project setup, namespaced by library:
+
+- Library agent `summarizer` from `utils` registers as `lib:utils/summarizer`
+- Project agents take precedence over library agents with the same name
+- Library tools and toolsets are discoverable through the standard `discovery.py` module loading
+
+### 8.2 Agent File Resolution
+
+The existing `agent_file.py` parser handles `.agent` files from libraries identically to project agents. Library agents can reference:
+- Tools from their own library's `tools/` directory
+- Tools from dependent libraries
+- Built-in toolsets (same as project agents)
+
+### 8.3 Manifest Extension
+
+The `ProjectManifest` schema gains an optional `dependencies` field:
+
+```python
+class ProjectManifest(BaseModel):
+    # ... existing fields ...
+    dependencies: list[str] = Field(default_factory=list)
+```
 
 ---
 
@@ -360,7 +355,10 @@ Work tracking lives in `tasks/backlog/library-system.md`.
    - Current thinking: Aggregate (all library tools available), name conflicts use priority
 
 2. **Config inheritance**: Should libraries be able to specify default model?
-   - Current thinking: No, keep libraries simple (just workers/tools/templates)
+   - Current thinking: No, keep libraries simple (just agents/tools)
 
 3. **Private dependencies**: Can a library have dependencies that aren't exposed to users?
    - Current thinking: All dependencies are transitive (simpler model)
+
+4. **Toolset sharing**: Should library toolsets (Python classes implementing `AbstractToolset`) be first-class exports alongside agents and tools?
+   - Current thinking: Yes, toolsets are a natural library export since they encapsulate reusable tool bundles

@@ -14,18 +14,11 @@ The `areas: []` field in note templates guides agents to update indexes without 
 
 Checking findability *before* saving prevents orphan accumulation. Four questions: Does the title work as a claim? Does the description add information beyond the title? Is this linked from at least one index? Can this be linked without dragging irrelevant context? If any answer is no, fix it before saving.
 
-## Description as progressive disclosure
+## Frontmatter as queryable structure
 
-A one-sentence description in frontmatter lets you decide whether to read the full note without opening it. `rg '^description:.*runtime' docs/notes/` becomes a lightweight search over note summaries. The description field is the most important metadata a note can have.
+YAML frontmatter turns a directory of markdown files into a queryable collection. `rg '^areas:.*architecture' docs/notes/` finds all architecture notes. `rg '^description:.*runtime' docs/notes/` searches summaries without opening files. In practice, `areas` and `description` are the fields that get queried — `description` especially, because it lets you decide whether to read the full note without opening it.
 
 ## Public/internal boundary
 
 Keeping knowledge system artifacts out of public docs (`docs/*.md`) prevents coupling. Public documentation has its own audience and conventions. Internal notes can evolve freely without worrying about external readers.
 
-## Extract, connect, review cycle
-
-A simple three-phase pipeline that works. Extract pulls insights from source material. Connect finds relationships to existing notes (the backward pass — updating older notes to reference newer ones). Review checks quality. The connect phase is where most value is created, because it's where isolated notes become a graph.
-
-## Input classification before processing
-
-External sources (papers, articles, blog posts) need different treatment than domain research or design explorations. Classifying input type before processing prevents applying the wrong extraction strategy — you don't decompose a design exploration into atomic claims the same way you would a research paper.

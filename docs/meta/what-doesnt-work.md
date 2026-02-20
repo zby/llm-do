@@ -1,23 +1,15 @@
 # What doesn't work
 
-Honest assessment of friction encountered in the arscontexta knowledge system.
+## Auto-commits
 
-## Too many skills
+Hook-driven automatic commits after every note operation created a mess. Commits were noisy, hard to review, and we spent significant effort removing them. Agents should not commit without explicit human approval.
 
-16 local skills + 10 plugin commands. Most are rarely used. The cognitive overhead of knowing what's available exceeds the value of having specialized commands. A few general-purpose operations (extract, connect, review) cover 90% of real work.
+## Observations needing more evidence
 
-## Queue and pipeline machinery
+The following areas showed friction, but we haven't tested them enough to draw conclusions.
 
-The processing queue (`queue.json`), task management, and multi-phase pipeline add overhead that exceeds their value at this project's scale. Simple "just do it" beats "add to queue, process later, track state" for a project with one active contributor.
-
-## Schema validation as a separate step
-
-Creating a validation phase with FAIL/WARN/PASS reporting creates compliance burden without proportional benefit. Better to have good templates that guide correct structure at creation time (see: template fields as behavioral nudges in what-works.md).
-
-## Session rhythm protocol
-
-The prescribed orient → work → persist cycle is too rigid. Agents naturally orient themselves when context is good (CLAUDE.md, recent files) and naturally persist when they have something worth saving. The protocol adds ceremony without changing behavior.
-
-## Connection requirements outpace connection-making
-
-The system generated requirements for connections (orphan detection, dangling link checks, index membership rules) faster than connections were actually made. At one point the orphan rate was ~90%. Rules about linking are less effective than making linking easy and natural.
+- **26 skills/commands** — 16 local + 10 plugin. Most rarely used, but unclear which are valuable until we use the system more.
+- **Queue and pipeline machinery** — adds significant complexity. Noticeable overhead for a single-contributor project, but may pay off differently at scale.
+- **Schema validation as a separate ceremony** — a dedicated FAIL/WARN/PASS phase adds machinery. The frontmatter fields themselves are useful; the question is whether formal validation justifies its cost.
+- **Session rhythm protocol** — orient → work → persist adds ceremony. Unclear whether it changes behavior beyond what good context already provides.
+- **Connection requirements outpace connection-making** — orphan rate reached ~90%. The gap between connection rules and actual connections was noticeable, but the rules themselves may not be the problem.

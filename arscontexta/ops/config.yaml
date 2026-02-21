@@ -12,10 +12,19 @@ dimensions:
   automation: full
 
 features:
-  semantic-search: false
+  semantic-search: true
   processing-pipeline: true
   sleep-processing: false
   voice-capture: false
+
+semantic-search:
+  engine: qmd
+  collections:
+    notes: docs/notes/
+    adr: docs/adr/
+    arscontexta: arscontexta/
+    docs: docs/
+  preferred-mode: query  # query (hybrid+reranking) > vsearch (vector) > search (BM25)
 
 processing_tier: auto
 

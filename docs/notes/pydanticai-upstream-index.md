@@ -1,6 +1,6 @@
 ---
 description: Index of notes about proposed PydanticAI changes, upstream issues, and how they affect llm-do
-type: moc
+type: index
 status: current
 ---
 

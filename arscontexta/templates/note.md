@@ -7,12 +7,22 @@ _schema:
   optional:
     - areas
     - status
+    - type
     - related_adr
   enums:
     status:
       - current
       - outdated
       - speculative
+    type:
+      - analysis
+      - design
+      - review
+      - comparison
+      - insight
+      - spec
+      - research
+      - index
   constraints:
     description:
       max_length: 200
@@ -22,6 +32,7 @@ _schema:
 
 # Template fields
 description: ""
+type: ""
 areas: []
 status: current
 ---

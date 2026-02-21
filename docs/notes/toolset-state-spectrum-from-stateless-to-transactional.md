@@ -1,5 +1,6 @@
 ---
 description: Catalog of toolset state patterns — most tools are stateless so the problem is easy to miss, but shared resources, browser sessions, and DB transactions reveal that toolset lifecycle is an unresolved design question
+type: analysis
 areas: [pydanticai-upstream-index]
 status: current
 ---

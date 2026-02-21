@@ -1,5 +1,6 @@
 ---
 description: Early sketch of how PydanticAI could handle common toolset lifecycle cases and provide extension points for exotic ones — rough proposal for discussion, not a finished design
+type: design
 areas: [pydanticai-upstream-index]
 status: speculative
 ---

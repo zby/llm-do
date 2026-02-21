@@ -1,5 +1,6 @@
 ---
 description: Specification for reusable agent and tool libraries that can be shared across projects
+type: spec
 ---
 
 # Library System Specification

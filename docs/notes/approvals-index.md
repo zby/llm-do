@@ -1,6 +1,6 @@
 ---
 description: Approval system design — threat model, capability taxonomy, UI integration, and upstream simplification
-type: moc
+type: index
 ---
 
 # Approvals

@@ -1,5 +1,6 @@
 ---
 description: PydanticAI Traits API (PR #4233) proposes lifecycle hooks and cross-cutting behaviors that could eliminate our approval wrapping and CallScope scaffolding — one of two upstream paths to simplification
+type: analysis
 areas: [pydanticai-upstream-index, approvals-index]
 status: current
 pr: https://github.com/pydantic/pydantic-ai/pull/4233

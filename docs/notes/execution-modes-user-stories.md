@@ -1,5 +1,6 @@
 ---
 description: User stories for TUI, headless, and chat execution modes
+type: spec
 ---
 
 # Execution Modes: User Stories

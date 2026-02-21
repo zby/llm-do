@@ -1,5 +1,6 @@
 ---
 description: Capability-based approval system design for tool execution control
+type: design
 areas: [approvals-index]
 status: current
 ---

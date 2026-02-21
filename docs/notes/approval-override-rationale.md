@@ -1,5 +1,6 @@
 ---
 description: Why per-agent approval overrides exist and when we might remove them
+type: design
 areas: [approvals-index]
 ---
 

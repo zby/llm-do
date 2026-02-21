@@ -1,6 +1,6 @@
 ---
 description: Entry point to the llm-do knowledge system — start here to navigate
-type: moc
+type: index
 ---
 
 # index

@@ -1,3 +1,10 @@
+---
+description: Taxonomy of the type field for docs/notes/ frontmatter — analysis, design, review, comparison, insight, spec, research, index
+type: spec
+areas: [kb-design]
+status: current
+---
+
 # Note types
 
 Types for notes in `docs/notes/`. Added as a `type` field in frontmatter.
@@ -12,3 +19,6 @@ Types for notes in `docs/notes/`. Added as a `type` field in frontmatter.
 - **index** — navigation hub connecting related notes
 
 ADRs (`docs/adr/`) are a separate document type with their own template and don't need this field.
+
+Topics:
+- [kb-design](./kb-design.md)

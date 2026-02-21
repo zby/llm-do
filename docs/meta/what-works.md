@@ -1,3 +1,10 @@
+---
+description: Patterns proven valuable in practice — prose-as-title, template nudges, frontmatter queries, discovery-first, public/internal boundary
+type: review
+areas: [kb-design]
+status: current
+---
+
 # What works
 
 Patterns that have proven valuable in practice.
@@ -22,3 +29,5 @@ YAML frontmatter turns a directory of markdown files into a queryable collection
 
 Keeping knowledge system artifacts out of public docs (`docs/*.md`) prevents coupling. Public documentation has its own audience and conventions. Internal notes can evolve freely without worrying about external readers.
 
+Topics:
+- [kb-design](./kb-design.md)

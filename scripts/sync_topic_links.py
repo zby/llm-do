@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Sync Topics footer links from frontmatter areas: field.
 
-Reads docs/notes/*.md, parses the areas: field from YAML frontmatter,
-and generates/replaces the Topics: footer section with correct links.
+Usage:
+    python3 scripts/sync_topic_links.py docs/notes/my-note.md
+    python3 scripts/sync_topic_links.py docs/notes/ docs/meta/
+    python3 scripts/sync_topic_links.py --dry-run docs/notes/my-note.md
 
-This is a deterministic operation — areas: is the single source of truth.
+Accepts files and directories. Directories are expanded to *.md files
+(non-recursive). At least one path is required.
 """
 
 import re
 import sys
 from pathlib import Path
-
-NOTES_DIR = Path(__file__).resolve().parent.parent / "docs" / "notes"
 
 
 def parse_areas(content: str) -> list[str]:
@@ -47,11 +48,33 @@ def parse_areas(content: str) -> list[str]:
     return []
 
 
-def build_topics_section(areas: list[str]) -> str:
+def find_index_relpath(area: str, note_dir: Path) -> str:
+    """Find the relative path from note_dir to the area's index file.
+
+    Searches note_dir first, then parent, then grandparent (up to 3 levels).
+    Returns a relative path like './area.md' or '../area.md'.
+    Falls back to './area.md' if not found (will trigger a warning elsewhere).
+    """
+    filename = f"{area}.md"
+    search_dir = note_dir
+    prefix = "."
+    for _ in range(3):
+        if (search_dir / filename).exists():
+            return f"{prefix}/{filename}"
+        prefix = prefix + "/.."
+        search_dir = search_dir.parent
+    return f"./{filename}"
+
+
+def build_topics_section(areas: list[str], note_dir: Path | None = None) -> str:
     """Build the Topics: footer section from a list of area names."""
     lines = ["Topics:"]
     for area in sorted(areas):
-        lines.append(f"- [{area}](./{area}.md)")
+        if note_dir:
+            relpath = find_index_relpath(area, note_dir)
+        else:
+            relpath = f"./{area}.md"
+        lines.append(f"- [{area}]({relpath})")
     return "\n".join(lines) + "\n"
 
 
@@ -80,7 +103,7 @@ def sync_note(filepath: Path, dry_run: bool = False) -> str | None:
         return None
 
     # Build new Topics section
-    topics = build_topics_section(areas)
+    topics = build_topics_section(areas, filepath.parent)
 
     # Ensure content ends cleanly before appending
     cleaned = cleaned.rstrip("\n") + "\n"
@@ -103,31 +126,53 @@ def sync_note(filepath: Path, dry_run: bool = False) -> str | None:
     return f"  UPDATED: {filepath.name} -> areas={areas}"
 
 
+def resolve_paths(args: list[str]) -> list[Path]:
+    """Resolve arguments to a list of .md file paths."""
+    files = []
+    for arg in args:
+        p = Path(arg)
+        if p.is_dir():
+            files.extend(sorted(p.glob("*.md")))
+        elif p.is_file() and p.suffix == ".md":
+            files.append(p)
+        else:
+            print(f"Warning: skipping {arg} (not a .md file or directory)", file=sys.stderr)
+    return files
+
+
 def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
     dry_run = "--dry-run" in sys.argv
+
+    if not args:
+        print("Usage: sync_topic_links.py [--dry-run] <file-or-dir> [...]", file=sys.stderr)
+        print("  Accepts .md files and directories (expanded to *.md).", file=sys.stderr)
+        sys.exit(1)
+
     if dry_run:
         print("DRY RUN — no files will be modified\n")
 
-    if not NOTES_DIR.is_dir():
-        print(f"Error: {NOTES_DIR} not found", file=sys.stderr)
+    notes = resolve_paths(args)
+    if not notes:
+        print("No .md files found in the given paths.", file=sys.stderr)
         sys.exit(1)
 
-    # Check which index files exist
-    all_areas = set()
-    notes = sorted(NOTES_DIR.glob("*.md"))
-
+    # Check which index files are referenced
+    all_areas: set[str] = set()
     for note in notes:
         areas = parse_areas(note.read_text())
         all_areas.update(areas)
 
-    print("Known areas referenced in frontmatter:")
-    for area in sorted(all_areas):
-        index_file = NOTES_DIR / f"{area}.md"
-        status = "OK" if index_file.exists() else "WARNING: file not found!"
-        print(f"  {area}.md — {status}")
-    print()
+    if all_areas:
+        print("Areas referenced in frontmatter:")
+        for area in sorted(all_areas):
+            # Check for index file next to each note that references the area
+            found = any((note.parent / f"{area}.md").exists() for note in notes)
+            status = "OK" if found else "WARNING: index file not found nearby"
+            print(f"  {area} — {status}")
+        print()
 
-    # Sync all notes
+    # Sync
     changes = []
     for note in notes:
         result = sync_note(note, dry_run=dry_run)

@@ -358,7 +358,7 @@ If you catch yourself writing "this relates to" or "see also", STOP. Restructure
 **Where to add links:**
 
 1. Inline in the body where the connection naturally fits the argument
-2. In the relevant_notes YAML field with context phrase
+2. In the Relevant Notes footer section with context phrase
 3. BOTH when the connection is strong enough
 
 **Relevant Notes Format:**
@@ -546,13 +546,13 @@ ls docs/notes/"target-name.md" 2>/dev/null
 
 ### Gate 6: Areas-Topics Consistency
 
-Run the sync script to ensure every note's `Topics:` footer matches its `areas:` frontmatter:
+Run the sync script on notes you've modified to ensure `Topics:` footer matches `areas:` frontmatter:
 
 ```bash
-python3 scripts/sync_topic_links.py
+python3 scripts/sync_topic_links.py docs/notes/target-note.md
 ```
 
-This is deterministic — `areas:` is the single source of truth. The script generates/replaces the `Topics:` footer section for all notes in `docs/notes/`. Notes with no `areas:` field get no Topics section.
+This is deterministic — `areas:` is the single source of truth. The script generates/replaces the `Topics:` footer section. Notes with no `areas:` field get no Topics section. Accepts files or directories.
 
 ## Handling Edge Cases
 

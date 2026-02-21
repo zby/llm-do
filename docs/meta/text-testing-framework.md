@@ -1,3 +1,10 @@
+---
+description: Reference framework for automated text testing — contracts per document type, test pyramid (deterministic/LLM rubric/corpus), production workflow
+type: research
+areas: [kb-design]
+status: current
+---
+
 # Text testing framework — source material
 
 Full framework for automated testing of text artifacts, received 2026-02-21.
@@ -93,3 +100,6 @@ Once you have contracts, you can test them.
 Single-note: required sections, max length, next step with owner, no relative dates, acronyms defined, no PII, clarity rubric, main point in first 2 sentences.
 
 Corpus: top-5 similarity contradiction check, threshold linking, glossary alignment.
+
+Topics:
+- [kb-design](./kb-design.md)

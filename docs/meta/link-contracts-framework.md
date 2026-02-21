@@ -1,3 +1,10 @@
+---
+description: Reference framework for systematic, testable linking — link contracts, intent taxonomy, automated checks, agent implications
+type: research
+areas: [kb-design]
+status: current
+---
+
 # Link contracts framework — source material
 
 Framework for systematic, testable linking in knowledge bases. Received 2026-02-21.
@@ -105,3 +112,6 @@ Agents do constrained exploration. If links carry intent and cost:
 3. Group links by intent
 4. Index pages must describe each link in one line
 5. If something is required to proceed, summarize it — don't outsource to a link
+
+Topics:
+- [kb-design](./kb-design.md)

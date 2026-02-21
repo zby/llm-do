@@ -1,3 +1,10 @@
+---
+description: Link-following is local with context; search is long-range with titles/descriptions; indexes bridge both modes
+type: insight
+areas: [kb-design]
+status: current
+---
+
 # Two kinds of navigation
 
 There are two ways to move through a knowledge base:
@@ -11,3 +18,6 @@ There are two ways to move through a knowledge base:
 This matters for design: links need surrounding context to inform decisions, search results need good titles and descriptions to enable picking, and indexes need both — they're the bridge.
 
 See also: [links are decision points](links-are-decision-points.md), [link contracts source material](../link-contracts-framework.md).
+
+Topics:
+- [kb-design](./../kb-design.md)

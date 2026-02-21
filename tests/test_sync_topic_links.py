@@ -11,8 +11,10 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from sync_topic_links import (
     build_topics_section,
+    find_index_relpath,
     parse_areas,
     remove_topics_section,
+    resolve_paths,
     sync_note,
 )
 
@@ -75,7 +77,7 @@ class TestParseAreas:
 
 
 class TestBuildTopicsSection:
-    def test_single_area(self):
+    def test_single_area_no_dir(self):
         result = build_topics_section(["approvals-index"])
         assert result == "Topics:\n- [approvals-index](./approvals-index.md)\n"
 
@@ -91,6 +93,18 @@ class TestBuildTopicsSection:
         result = build_topics_section(["a-index", "b-index"])
         assert "- [a-index]" in result
         assert result.index("[a-index]") < result.index("[b-index]")
+
+    def test_index_in_same_dir(self, tmp_path):
+        (tmp_path / "my-index.md").write_text("# Index\n")
+        result = build_topics_section(["my-index"], tmp_path)
+        assert "- [my-index](./my-index.md)\n" in result
+
+    def test_index_in_parent_dir(self, tmp_path):
+        subdir = tmp_path / "sub"
+        subdir.mkdir()
+        (tmp_path / "my-index.md").write_text("# Index\n")
+        result = build_topics_section(["my-index"], subdir)
+        assert "- [my-index](./../my-index.md)\n" in result
 
 
 # --- remove_topics_section ---
@@ -294,3 +308,72 @@ class TestSyncNote:
         updated = p.read_text()
         assert "[approvals-index](./approvals-index.md)" in updated
         assert "[index](./index.md)" in updated
+
+
+# --- resolve_paths ---
+
+
+class TestFindIndexRelpath:
+    def test_same_directory(self, tmp_path):
+        (tmp_path / "my-index.md").write_text("# Index\n")
+        assert find_index_relpath("my-index", tmp_path) == "./my-index.md"
+
+    def test_parent_directory(self, tmp_path):
+        subdir = tmp_path / "sub"
+        subdir.mkdir()
+        (tmp_path / "my-index.md").write_text("# Index\n")
+        assert find_index_relpath("my-index", subdir) == "./../my-index.md"
+
+    def test_grandparent_directory(self, tmp_path):
+        deep = tmp_path / "a" / "b"
+        deep.mkdir(parents=True)
+        (tmp_path / "my-index.md").write_text("# Index\n")
+        assert find_index_relpath("my-index", deep) == "./../../my-index.md"
+
+    def test_not_found_falls_back(self, tmp_path):
+        assert find_index_relpath("missing-index", tmp_path) == "./missing-index.md"
+
+
+class TestResolvePaths:
+    def test_single_file(self, tmp_path):
+        f = tmp_path / "note.md"
+        f.write_text("# Note\n")
+        result = resolve_paths([str(f)])
+        assert result == [f]
+
+    def test_directory_expands_to_md_files(self, tmp_path):
+        (tmp_path / "a.md").write_text("# A\n")
+        (tmp_path / "b.md").write_text("# B\n")
+        (tmp_path / "c.txt").write_text("not markdown\n")
+        result = resolve_paths([str(tmp_path)])
+        assert len(result) == 2
+        assert all(p.suffix == ".md" for p in result)
+
+    def test_mixed_files_and_dirs(self, tmp_path):
+        subdir = tmp_path / "sub"
+        subdir.mkdir()
+        f1 = tmp_path / "standalone.md"
+        f1.write_text("# Standalone\n")
+        (subdir / "a.md").write_text("# A\n")
+        (subdir / "b.md").write_text("# B\n")
+        result = resolve_paths([str(f1), str(subdir)])
+        assert len(result) == 3
+
+    def test_skips_non_md_files(self, tmp_path):
+        f = tmp_path / "readme.txt"
+        f.write_text("not markdown\n")
+        result = resolve_paths([str(f)])
+        assert result == []
+
+    def test_empty_directory(self, tmp_path):
+        result = resolve_paths([str(tmp_path)])
+        assert result == []
+
+    def test_directory_is_not_recursive(self, tmp_path):
+        subdir = tmp_path / "sub"
+        subdir.mkdir()
+        (tmp_path / "top.md").write_text("# Top\n")
+        (subdir / "nested.md").write_text("# Nested\n")
+        result = resolve_paths([str(tmp_path)])
+        assert len(result) == 1
+        assert result[0].name == "top.md"

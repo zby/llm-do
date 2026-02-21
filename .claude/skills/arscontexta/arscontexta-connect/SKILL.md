@@ -1,5 +1,5 @@
 ---
-name: connect
+name: arscontexta-connect
 description: Find connections between notes and update MOCs. Requires semantic judgment to identify genuine relationships. Use after /extract creates notes, when exploring connections, or when a topic needs synthesis. Triggers on "/connect", "/connect [note]", "find connections", "update MOCs", "connect these notes".
 user-invocable: true
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, mcp__qmd__search, mcp__qmd__vsearch, mcp__qmd__query, mcp__qmd__status

@@ -26,6 +26,7 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 - [two-kinds-of-navigation](./observations/two-kinds-of-navigation.md) — link-following is local; search is long-range; indexes bridge both
 - [topic-links-from-frontmatter-are-deterministic](./observations/topic-links-from-frontmatter-are-deterministic.md) — the areas-to-Topics mapping is mechanical, now automated
 - [automated-tests-for-text](./observations/automated-tests-for-text.md) — text can be tested with the same pyramid as software
+- [stale-indexes-are-worse-than-no-indexes](./observations/stale-indexes-are-worse-than-no-indexes.md) — a missing index entry suppresses search; the note becomes invisible
 
 ## Decisions
 

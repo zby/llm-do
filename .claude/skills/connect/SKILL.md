@@ -1,21 +1,6 @@
 ---
-_config:
-  description: >
-    Template for the /connect skill. Placeholders ({{ name }}) are filled from
-    derivation-manifest.md and config.yaml to produce the final SKILL.md.
-    This eliminates the Runtime Configuration Step 0 — values are baked in
-    at generation time instead of read by the LLM at runtime.
-  source_files:
-    - arscontexta/ops/derivation-manifest.md
-    - arscontexta/ops/config.yaml
-  placeholders:
-    notes_path: "vocabulary.notes"
-    phase_name: "vocabulary.reflect"
-    depth: "processing.depth"
-
-# Frontmatter for generated SKILL.md
-name: {{ phase_name }}
-description: Find connections between notes and update indexes. Requires semantic judgment to identify genuine relationships. Use after /extract creates notes, when exploring connections, or when a topic needs synthesis. Triggers on "/{{ phase_name }}", "/{{ phase_name }} [note]", "find connections", "update indexes", "{{ phase_name }} these notes".
+name: connect
+description: Find connections between notes and update indexes. Requires semantic judgment to identify genuine relationships. Use after /extract creates notes, when exploring connections, or when a topic needs synthesis. Triggers on "/connect", "/connect [note]", "find connections", "update indexes", "connect these notes".
 user-invocable: true
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, mcp__qmd__search, mcp__qmd__vsearch, mcp__qmd__query, mcp__qmd__status
 context: fork
@@ -47,7 +32,7 @@ All links between notes use **standard markdown links**, not wiki-links. This en
 - When linking to a file in a subdirectory, verify the path with `ls` before creating the link
 - Filenames use hyphens, not spaces (e.g., `my-note-title.md`)
 
-**Active depth: {{ depth }}**
+**Active depth: standard**
 
 | Depth | Connection Behavior |
 |-------|-------------------|
@@ -81,7 +66,7 @@ Parse immediately:
 
 ---
 
-# {{ phase_name | title }}
+# Connect
 
 Find connections, weave the knowledge graph, update indexes.
 
@@ -101,20 +86,20 @@ Bad connections pollute the graph. They create noise that makes real connections
 
 ## Invocation Patterns
 
-### /{{ phase_name }} (no argument)
+### /connect (no argument)
 
 Check for recent additions:
 1. Look for notes modified in the last session
-2. If none obvious, ask user what notes to {{ phase_name }}
+2. If none obvious, ask user what notes to connect
 
-### /{{ phase_name }} [note]
+### /connect [note]
 
 Focus on connecting a specific note:
 1. Read the target note
 2. Discover related content
 3. Add connections and update indexes
 
-### /{{ phase_name }} [topic area]
+### /connect [topic area]
 
 Synthesize an area:
 1. Read the relevant index
@@ -198,7 +183,7 @@ Using only search misses curated structure. Using only index misses semantic nei
 
 For specific terms and exact matches:
 ```bash
-grep -r "term" {{ notes_path }}/ --include="*.md"
+grep -r "term" docs/notes/ --include="*.md"
 ```
 
 Use grep when:
@@ -289,7 +274,7 @@ Signs of a synthesis opportunity:
 
 When you detect a synthesis opportunity:
 1. Note it in the output report
-2. Do NOT create the synthesis note during {{ phase_name }} — flag it for future work
+2. Do NOT create the synthesis note during connect — flag it for future work
 3. Describe what the synthesis would argue and which notes contribute
 
 ### Phase 4: Add Inline Connections
@@ -361,7 +346,7 @@ When you edit an older note to add a reverse link, you MAY flag it for full reco
 
 **Check incoming links:**
 ```bash
-grep -r '\[.*\](.*note-name\.md)' {{ notes_path }}/ --include="*.md" | wc -l
+grep -r '\[.*\](.*note-name\.md)' docs/notes/ --include="*.md" | wc -l
 ```
 
 If >= 5, skip flagging.
@@ -390,13 +375,13 @@ For each relevant index:
 After updating Core Ideas, count the links:
 
 ```bash
-grep -c '^\- \[' "{{ notes_path }}/[index-name].md"
+grep -c '^\- \[' "docs/notes/[index-name].md"
 ```
 
 If approaching the split threshold (configurable, default ~40): note in output "index approaching split threshold (N links)"
 If exceeding: warn "index exceeds recommended size — consider splitting"
 
-Splitting is a human decision (architectural judgment required), but /{{ phase_name }} should surface the signal.
+Splitting is a human decision (architectural judgment required), but /connect should surface the signal.
 
 **index Structure:**
 
@@ -513,7 +498,7 @@ Verify every markdown link target exists. Never create links to non-existent fil
 
 ```bash
 # Check that a link target exists
-ls {{ notes_path }}/"target-name.md" 2>/dev/null
+ls docs/notes/"target-name.md" 2>/dev/null
 ```
 
 ### Gate 6: Areas-Topics Consistency
@@ -521,7 +506,7 @@ ls {{ notes_path }}/"target-name.md" 2>/dev/null
 Run the sync script on notes you've modified to ensure `Topics:` footer matches `areas:` frontmatter:
 
 ```bash
-python3 scripts/sync_topic_links.py {{ notes_path }}/target-note.md
+python3 scripts/sync_topic_links.py docs/notes/target-note.md
 ```
 
 This is deterministic — `areas:` is the single source of truth. The script generates/replaces the `Topics:` footer section. Notes with no `areas:` field get no Topics section. Accepts files or directories.

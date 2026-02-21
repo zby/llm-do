@@ -43,4 +43,4 @@ Relevant Notes:
 - [crystallisation-learning-timescales](crystallisation-learning-timescales.md) — the verifiability gradient that determines when and how to crystallise
 
 Topics:
-- [index](index.md)
+- [index](./index.md)

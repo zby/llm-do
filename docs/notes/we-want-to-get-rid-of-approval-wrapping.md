@@ -90,5 +90,5 @@ Relevant Notes:
 - [type-catalog-review](./type-catalog-review.md) — context: documents the `ApprovalMode` duplication and override shape duplication that the type migration should clean up
 
 Topics:
-- [index](./index.md)
+- [approvals-index](./approvals-index.md)
 - [pydanticai-upstream-index](./pydanticai-upstream-index.md)

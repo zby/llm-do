@@ -207,3 +207,6 @@ Topics:
 - https://github.com/vstorm-co/subagents-pydantic-ai
 - subagents-pydantic-ai/README.md
 - subagents-pydantic-ai/docs/index.md
+
+Topics:
+- [pydanticai-upstream-index](./pydanticai-upstream-index.md)

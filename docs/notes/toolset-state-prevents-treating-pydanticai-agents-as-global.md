@@ -80,5 +80,4 @@ Relevant Notes:
 - [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — enables: eliminating approval wrapping removes the primary driver of per-call Agent construction
 
 Topics:
-- [index](./index.md)
 - [pydanticai-upstream-index](./pydanticai-upstream-index.md)

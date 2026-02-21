@@ -49,5 +49,5 @@ Relevant Notes:
 - [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — the upstream issue Traits would help resolve: per-call Agent construction forced by toolset state
 
 Topics:
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
 - [approvals-index](./approvals-index.md)
+- [pydanticai-upstream-index](./pydanticai-upstream-index.md)

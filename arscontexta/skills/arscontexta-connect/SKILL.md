@@ -546,22 +546,13 @@ ls docs/notes/"target-name.md" 2>/dev/null
 
 ### Gate 6: Areas-Topics Consistency
 
-Every entry in the note's `areas:` frontmatter must have a corresponding link in the `Topics:` footer section. If `areas: [pydanticai-upstream-index]` exists but Topics doesn't include a link to that index, add it.
+Run the sync script to ensure every note's `Topics:` footer matches its `areas:` frontmatter:
 
 ```bash
-# Check: extract areas from frontmatter, verify each has a Topics link
-grep '^areas:' docs/notes/target-note.md
-grep 'Topics:' -A 20 docs/notes/target-note.md
+python3 scripts/sync_topic_links.py
 ```
 
-If an area is listed in frontmatter but missing from Topics, add the link:
-```markdown
-Topics:
-- [index](./index.md)
-- [area-index-name](./area-index-name.md)   # <-- add missing
-```
-
-This prevents drift between the machine-queryable `areas:` field and the human-navigable Topics footer.
+This is deterministic — `areas:` is the single source of truth. The script generates/replaces the `Topics:` footer section for all notes in `docs/notes/`. Notes with no `areas:` field get no Topics section.
 
 ## Handling Edge Cases
 

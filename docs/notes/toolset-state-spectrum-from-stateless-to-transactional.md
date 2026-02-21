@@ -226,5 +226,4 @@ Relevant Notes:
 - [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — per-call isolation as a key llm-do differentiator over vanilla PydanticAI
 
 Topics:
-- [index](./index.md)
 - [pydanticai-upstream-index](./pydanticai-upstream-index.md)

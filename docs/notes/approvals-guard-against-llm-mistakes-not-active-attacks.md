@@ -40,4 +40,4 @@ Relevant Notes:
 - [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — extends: the "syscall interception" computational model frames approvals as mediation for visibility and error-catching, not security
 
 Topics:
-- [index](./index.md)
+- [approvals-index](./approvals-index.md)

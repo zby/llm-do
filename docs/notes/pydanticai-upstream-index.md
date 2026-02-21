@@ -41,6 +41,3 @@ Notes about PydanticAI design gaps, proposed changes, and how upstream decisions
 - **Agent.run(toolsets=...)** — not proposed yet. Would decouple Agent construction from toolset binding, enabling Agent reuse across calls.
 
 ---
-
-Topics:
-- [index](./index.md)

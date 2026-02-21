@@ -144,5 +144,4 @@ Relevant Notes:
 - [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — enables: once wrapping is eliminated, Layer 2 (first-class factories) could fully replace llm-do's per-call Agent construction
 
 Topics:
-- [index](./index.md)
 - [pydanticai-upstream-index](./pydanticai-upstream-index.md)

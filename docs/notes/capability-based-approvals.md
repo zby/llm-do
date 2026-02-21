@@ -115,4 +115,4 @@ Relevant Notes:
 - [git-integration-research](./git-integration-research.md) — example: proposed git toolset shows how narrow tools map to specific capability declarations (git.read, git.write, git.push)
 
 Topics:
-- [index](./index.md)
+- [approvals-index](./approvals-index.md)

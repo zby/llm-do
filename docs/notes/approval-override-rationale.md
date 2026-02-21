@@ -40,3 +40,6 @@ That simplifies runtime config but loses the ability to express exceptions. It f
 Relevant Notes:
 - [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — grounds: since approvals are UX rather than security, override simplification is a usability question, not a safety one
 - [capability-based-approvals](./capability-based-approvals.md) — supersedes: capability-based policy where tools declare facts and the runtime evaluates them replaces the need for per-agent approval overrides
+
+Topics:
+- [approvals-index](./approvals-index.md)

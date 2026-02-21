@@ -75,4 +75,4 @@ Relevant Notes:
 - [python-agent-annotation-brainstorm](python-agent-annotation-brainstorm.md) — enables: the softening/stabilising paths lower friction for moving along the crystallisation gradient between LLM workers and deterministic code
 
 Topics:
-- [index](index.md)
+- [index](./index.md)

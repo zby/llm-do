@@ -53,3 +53,5 @@ Relevant Notes:
 - [capability-based-approvals](./capability-based-approvals.md) — foundation: the coarse capability taxonomy (fs.write, net.egress) that this note extends with path-scoped granularity
 - [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — grounds: scoped preapproval is safe precisely because approvals are a UX feature, not a security boundary
 
+Topics:
+- [approvals-index](./approvals-index.md)

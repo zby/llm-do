@@ -150,3 +150,6 @@ Relevant Notes:
 - [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — frames why dynamic agents should remain experimental: they operate at the ephemeral end of the verifiability gradient
 - [toolset-instantiation-questions](./toolset-instantiation-questions.md) — raises the per-agent vs shared instance question that dynamic agents' session registry must also resolve
 - [type-catalog-review](./type-catalog-review.md) — documents the implemented type surface (`DynamicAgentsToolset`, `AgentCreateArgs`, `AgentCallArgs`)
+
+Topics:
+- [index](./index.md)

@@ -1,7 +1,7 @@
 ---
 description: Reference framework for systematic, testable linking — link contracts, intent taxonomy, automated checks, agent implications
 type: research
-areas: [kb-design]
+areas: [kb-design, links]
 status: current
 ---
 
@@ -10,7 +10,7 @@ status: current
 Framework for systematic, testable linking in knowledge bases. Received 2026-02-21.
 Saved as reference for when we start building concrete link practices.
 
-See docs/meta/observations/links-are-decision-points.md and
+See docs/meta/observations/agents-navigate-by-deciding-what-to-read-next.md and
 docs/meta/observations/two-kinds-of-navigation.md for the distilled observations.
 
 ---
@@ -115,3 +115,4 @@ Agents do constrained exploration. If links carry intent and cost:
 
 Topics:
 - [kb-design](./kb-design.md)
+- [links](./links.md)

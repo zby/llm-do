@@ -1,7 +1,7 @@
 ---
 description: Link-following is local with context; search is long-range with titles/descriptions; indexes bridge both modes
 type: insight
-areas: [kb-design]
+areas: [kb-design, links]
 status: current
 ---
 
@@ -9,7 +9,7 @@ status: current
 
 There are two ways to move through a knowledge base:
 
-**Following links** — local navigation. You're reading something, you encounter a link, you decide whether to follow it. Each step is short — from one document to a neighbor. The context around the link informs the decision (see [links are decision points](links-are-decision-points.md)).
+**Following links** — local navigation. You're reading something, you encounter a link, you decide whether to follow it. Each step is short — from one document to a neighbor. The context around the link informs the decision (see [agents navigate by deciding what to read next](agents-navigate-by-deciding-what-to-read-next.md)).
 
 **Search** — long jumps. You have a question or keyword, you query the whole corpus, you land somewhere potentially distant. No local context guides the decision — you rely on search results (titles, snippets, descriptions) to pick a landing point.
 
@@ -17,7 +17,8 @@ There are two ways to move through a knowledge base:
 
 This matters for design: links need surrounding context to inform decisions, search results need good titles and descriptions to enable picking, and indexes need both — they're the bridge.
 
-See also: [links are decision points](links-are-decision-points.md), [link contracts source material](../link-contracts-framework.md).
+See also: [agents navigate by deciding what to read next](agents-navigate-by-deciding-what-to-read-next.md), [link contracts source material](../link-contracts-framework.md).
 
 Topics:
 - [kb-design](./../kb-design.md)
+- [links](./../links.md)

@@ -1,17 +1,18 @@
 ---
-description: The areas-to-Topics mapping is mechanical — a concrete stabilization candidate now implemented as scripts/sync_topic_links.py
+description: The areas-to-Topics mapping is mechanical — now implemented as scripts/sync_topic_links.py
 type: insight
-areas: [kb-design]
-status: current
+areas: [kb-design, links]
+status: outdated
 ---
 
 # Topic links from frontmatter are deterministic
 
-The `areas:` frontmatter field lists which indexes a note belongs to. The Topics footer section contains markdown links to those same indexes. Currently `/connect` generates these with LLM judgment, but the mapping is mechanical: read `areas`, write links.
+**Implemented.** See [ADR-001: Generate Topic links from frontmatter](../adr/001-generate-topic-links-from-frontmatter.md).
 
-This is a concrete stabilization candidate — replace a stochastic step with a Python script that reads frontmatter and generates footer links. The frontmatter isn't visible in markdown preview, so the footer links matter for browsing.
+The `areas:` frontmatter field lists which indexes a note belongs to. The Topics footer section contains markdown links to those same indexes. The mapping is mechanical: read `areas`, write links. This was a concrete stabilization candidate — now automated via `scripts/sync_topic_links.py`.
 
 See [storing LLM outputs is stabilization](../../notes/storing-llm-outputs-is-stabilization.md) for the general pattern.
 
 Topics:
 - [kb-design](./../kb-design.md)
+- [links](./../links.md)

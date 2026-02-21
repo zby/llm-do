@@ -22,10 +22,14 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 ## Observations
 
 - [template-areas-field-nudges-index-updates](./observations/template-areas-field-nudges-index-updates.md) — structural prompts in templates beat procedural rules in documentation
-- [links-are-decision-points](./observations/links-are-decision-points.md) — surrounding context must let the reader judge whether to follow a link
+- [agents-navigate-by-deciding-what-to-read-next](./observations/agents-navigate-by-deciding-what-to-read-next.md) — links, skills, and index entries are all contextual hints for read/skip decisions
 - [two-kinds-of-navigation](./observations/two-kinds-of-navigation.md) — link-following is local; search is long-range; indexes bridge both
 - [topic-links-from-frontmatter-are-deterministic](./observations/topic-links-from-frontmatter-are-deterministic.md) — the areas-to-Topics mapping is mechanical, now automated
 - [automated-tests-for-text](./observations/automated-tests-for-text.md) — text can be tested with the same pyramid as software
+
+## Decisions
+
+- [001-generate-topic-links-from-frontmatter](./adr/001-generate-topic-links-from-frontmatter.md) — replace LLM-generated Topics footers with deterministic script
 
 ## Reference material
 

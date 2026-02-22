@@ -5,7 +5,7 @@ model: anthropic:claude-haiku-4-5
 toolsets:
   - github_tools
   - kb_tools
-  - snapshot_tools
+  - github_snapshot_shell_tools
   - filesystem_project
 ---
 
@@ -21,9 +21,9 @@ You do NOT post anything to GitHub. You only read and analyze.
    If there are none, say so and stop.
 
 2. For each notification (up to 10, prioritize review_requested and mention):
-   a. Call `snapshot(url)` with the notification's subject_url to capture
-      the issue/PR content as a timestamped snapshot. This stores the
-      original source and a markdown view in snapshots/{date}/.
+   a. Call `shell(command=...)` to run the standalone snapshot script:
+      `uv run python scripts/github_snapshot.py "<subject_url>"`
+      This stores the original JSON and markdown view in snapshots/{date}/.
    b. Call `kb_search(query)` with a query derived from the notification's
       subject and snapshot content — look for related design notes,
       decisions, and prior analysis.
@@ -40,22 +40,13 @@ You do NOT post anything to GitHub. You only read and analyze.
 4. Print a brief summary to the user: how many notifications, how many had
    KB context, top items needing attention.
 
-## Snapshots
+## Snapshot Command
 
-The `snapshot()` tool captures external content as timestamped markdown files.
-It works in two modes:
+Use the shell tool only with this exact command shape:
 
-- **Fetch mode**: `snapshot(url=...)` fetches a URL and stores the original
-  source plus a markdown view. Frontmatter includes `capture: fetch`.
-- **Paste mode**: `snapshot(text=..., title=...)` saves user-provided text
-  directly — for sources that block scraping (Twitter/X, paywalled articles,
-  etc.). Frontmatter includes `capture: paste`.
+`uv run python scripts/github_snapshot.py "<github-issue-or-pr-url>"`
 
-Both modes write to `snapshots/{date}/` with frontmatter (source, captured
-timestamp, capture method). Use `snapshot()` for any external reference worth
-preserving — GitHub items, blog posts, tweets, upstream docs.
-
-Snapshots of the same URL or title today are skipped (idempotent).
+The shell toolset is intentionally restricted and will block any other command.
 
 ## Triage priorities (highest first)
 

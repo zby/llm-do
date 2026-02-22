@@ -21,9 +21,18 @@ from urllib.error import HTTPError, URLError
 
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets import FunctionToolset
+from pydantic_ai_blocking_approval import ApprovalConfig, ApprovalResult
 
 from llm_do.runtime import CallContext
 from llm_do.toolsets.approval import set_toolset_approval_config
+from llm_do.toolsets.shell import (
+    ShellBlockedError,
+    ShellResult,
+    ShellToolset,
+    check_metacharacters,
+    execute_shell,
+    parse_command,
+)
 
 
 # =============================================================================
@@ -419,8 +428,94 @@ def build_snapshot_tools(_ctx: RunContext[CallContext]):
     return ts
 
 
+class GitHubSnapshotShellToolset(ShellToolset):
+    """Restricted shell toolset that can only run the GitHub snapshot script."""
+
+    _PREFIX = ["uv", "run", "python", "scripts/github_snapshot.py"]
+    _WEB_URL_RE = re.compile(r"^https://github\.com/[^/]+/[^/]+/(issues|pull)/[0-9]+/?$")
+    _API_URL_RE = re.compile(r"^https://api\.github\.com/repos/[^/]+/[^/]+/(issues|pulls)/[0-9]+/?$")
+
+    def __init__(self):
+        super().__init__(
+            config={
+                "rules": [
+                    {
+                        "pattern": "uv run python scripts/github_snapshot.py",
+                        "approval_required": False,
+                    }
+                ]
+            }
+        )
+        self._working_dir = Path(__file__).resolve().parent
+
+    @classmethod
+    def _is_supported_url(cls, url: str) -> bool:
+        return bool(cls._WEB_URL_RE.match(url) or cls._API_URL_RE.match(url))
+
+    @classmethod
+    def _validate_command(cls, command: str) -> tuple[bool, str]:
+        try:
+            check_metacharacters(command)
+            args = parse_command(command)
+        except ShellBlockedError as exc:
+            return False, str(exc)
+
+        if len(args) != 5:
+            return False, "Command must be exactly: uv run python scripts/github_snapshot.py <github-url>"
+        if args[:4] != cls._PREFIX:
+            return False, "Only this command is allowed: uv run python scripts/github_snapshot.py <github-url>"
+        if not cls._is_supported_url(args[4]):
+            return False, "Only GitHub issue/PR web URLs or API issue/pull URLs are allowed."
+        return True, ""
+
+    def needs_approval(
+        self,
+        name: str,
+        tool_args: dict,
+        ctx: Any,
+        config: ApprovalConfig | None = None,
+    ) -> ApprovalResult:
+        if name != "shell":
+            return ApprovalResult.needs_approval()
+
+        command = str(tool_args.get("command", ""))
+        valid, reason = self._validate_command(command)
+        if not valid:
+            return ApprovalResult.blocked(reason)
+        return super().needs_approval(name, tool_args, ctx, config)
+
+    async def call_tool(
+        self,
+        name: str,
+        tool_args: dict[str, Any],
+        ctx: Any,
+        tool: Any,
+    ) -> ShellResult:
+        if name != "shell":
+            return await super().call_tool(name, tool_args, ctx, tool)
+
+        command = str(tool_args.get("command", ""))
+        valid, reason = self._validate_command(command)
+        if not valid:
+            return ShellResult(stdout="", stderr=reason, exit_code=1, truncated=False)
+
+        timeout = min(max(tool_args.get("timeout", 30), 1), 300)
+        try:
+            return execute_shell(
+                command=command,
+                working_dir=self._working_dir,
+                timeout=timeout,
+            )
+        except ShellBlockedError as exc:
+            return ShellResult(stdout="", stderr=str(exc), exit_code=1, truncated=False)
+
+
+def build_github_snapshot_shell_tools(_ctx: RunContext[CallContext]):
+    return GitHubSnapshotShellToolset()
+
+
 TOOLSETS = {
     "github_tools": build_github_tools,
     "kb_tools": build_kb_tools,
-    "snapshot_tools": build_snapshot_tools,
+    "github_snapshot_shell_tools": build_github_snapshot_shell_tools,
 }

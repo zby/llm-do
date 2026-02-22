@@ -10,8 +10,8 @@ status: current
 Framework for systematic, testable linking in knowledge bases. Received 2026-02-21.
 Saved as reference for when we start building concrete link practices.
 
-See docs/meta/observations/agents-navigate-by-deciding-what-to-read-next.md and
-docs/meta/observations/two-kinds-of-navigation.md for the distilled observations.
+See docs/kb-design/observations/agents-navigate-by-deciding-what-to-read-next.md and
+docs/kb-design/observations/two-kinds-of-navigation.md for the distilled observations.
 
 ---
 

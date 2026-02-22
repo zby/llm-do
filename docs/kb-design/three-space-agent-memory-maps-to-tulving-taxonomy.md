@@ -26,4 +26,4 @@ The mapping to Tulving is suggestive but may be decorative. The practical value 
 
 Relevant Notes:
 - [three-space memory separation predicts measurable failure modes](./three-space-memory-separation-predicts-measurable-failure-modes.md) — observational protocol for testing whether the separation actually helps
-- [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — the three timescales framework; graduation from operational to knowledge space is a form of crystallisation
+- [crystallisation-learning-timescales](../notes/crystallisation-learning-timescales.md) — the three timescales framework; graduation from operational to knowledge space is a form of crystallisation

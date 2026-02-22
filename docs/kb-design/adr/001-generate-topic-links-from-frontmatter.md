@@ -40,7 +40,7 @@ The `/connect` skill's Gate 6 now calls this script instead of doing manual grep
 - **Topics footers are always correct** — no more drift between frontmatter and footer
 - **One fewer LLM judgment call** — `/connect` focuses on semantic work (finding relationships), not mechanical linking
 - **Idempotent** — running the script twice produces the same result
-- **Works across directories** — `docs/notes/` and `docs/meta/` both supported
+- **Works across directories** — `docs/notes/` and `docs/kb-design/` both supported
 - **Testable** — 38 unit tests cover parsing, generation, path resolution, and edge cases
 
 Topics:

@@ -58,5 +58,5 @@ Each observation gets a short log entry: date, which failure mode, what happened
 ---
 
 Relevant Notes:
-- [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — the verifiability gradient that motivates durable knowledge in the first place
-- [storing-llm-outputs-is-stabilization](./storing-llm-outputs-is-stabilization.md) — graduation from operational space to knowledge graph is a form of stabilization
+- [crystallisation-learning-timescales](../notes/crystallisation-learning-timescales.md) — the verifiability gradient that motivates durable knowledge in the first place
+- [storing-llm-outputs-is-stabilization](../notes/storing-llm-outputs-is-stabilization.md) — graduation from operational space to knowledge graph is a form of stabilization

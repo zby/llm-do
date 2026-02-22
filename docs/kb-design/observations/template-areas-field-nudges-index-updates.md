@@ -13,7 +13,7 @@ The CLAUDE.md instructions say "every note should be linked from at least one in
 
 This is a general pattern: **structural prompts in templates are more reliable than procedural rules in documentation.** The template is read at the moment of action. The documentation is read (maybe) at session start and then forgotten.
 
-This observation triggered the creation of `docs/meta/` — it was a valuable insight about how knowledge systems work, but it had no natural home. It wasn't a design note about llm-do. It wasn't an ADR. It was a meta-observation about the system itself.
+This observation triggered the creation of `docs/kb-design/` — it was a valuable insight about how knowledge systems work, but it had no natural home. It wasn't a design note about llm-do. It wasn't an ADR. It was a meta-observation about the system itself.
 
 Topics:
 - [kb-design](./../kb-design.md)

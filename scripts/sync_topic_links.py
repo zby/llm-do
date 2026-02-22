@@ -3,7 +3,7 @@
 
 Usage:
     python3 scripts/sync_topic_links.py docs/notes/my-note.md
-    python3 scripts/sync_topic_links.py docs/notes/ docs/meta/
+    python3 scripts/sync_topic_links.py docs/notes/ docs/kb-design/
     python3 scripts/sync_topic_links.py --dry-run docs/notes/my-note.md
 
 Accepts files and directories. Directories are expanded to *.md files

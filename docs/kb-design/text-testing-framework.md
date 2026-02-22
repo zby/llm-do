@@ -10,7 +10,7 @@ status: current
 Full framework for automated testing of text artifacts, received 2026-02-21.
 Saved as reference for when we start building concrete checks.
 
-See docs/meta/observations/automated-tests-for-text.md for the distilled observation.
+See docs/kb-design/observations/automated-tests-for-text.md for the distilled observation.
 
 ---
 

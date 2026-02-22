@@ -44,6 +44,9 @@ Issues = "https://github.com/yourusername/llm-do/issues"
 Documentation = "https://github.com/yourusername/llm-do"
 
 [project.optional-dependencies]
+twitter = [
+    "xdk>=0.8",
+]
 dev = [
     "pytest",
     "pytest-cov",

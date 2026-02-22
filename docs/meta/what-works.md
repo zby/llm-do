@@ -1,5 +1,5 @@
 ---
-description: Patterns proven valuable in practice — prose-as-title, template nudges, frontmatter queries, discovery-first, public/internal boundary
+description: Patterns proven valuable in practice — prose-as-title, template nudges, frontmatter queries, semantic search via qmd, discovery-first, public/internal boundary
 type: review
 areas: [kb-design]
 status: current
@@ -24,6 +24,20 @@ Checking findability *before* saving prevents orphan accumulation. Four question
 ## Frontmatter as queryable structure
 
 YAML frontmatter turns a directory of markdown files into a queryable collection. `rg '^areas:.*architecture' docs/notes/` finds all architecture notes. `rg '^description:.*runtime' docs/notes/` searches summaries without opening files. In practice, `areas` and `description` are the fields that get queried — `description` especially, because it lets you decide whether to read the full note without opening it.
+
+## Semantic search via qmd
+
+`rg` handles structured queries (frontmatter fields, known keywords), but discovering *conceptually related* notes requires semantic search. [qmd](https://github.com/qmdnotes/qmd) runs locally on GPU with embeddings + reranking — no API calls, no latency.
+
+The knowledge base is indexed as collections (`notes`, `adr`, `meta`, `docs`). Three search modes complement each other:
+
+- `qmd search "query"` — BM25 keyword search, fast, good for known terms
+- `qmd vsearch "query"` — vector similarity, finds conceptual neighbors even with different vocabulary
+- `qmd query "query"` — hybrid: query expansion + keyword + vector + reranking (recommended default)
+
+In practice, `qmd query` with `--files` flag is the workhorse for `/connect` discovery — it finds candidates that `rg` misses because they use different terminology for the same concept. The two tools are complementary: `rg` for structured/exact queries, `qmd` for semantic/fuzzy discovery.
+
+Keeping the index current: `qmd update && qmd embed` re-scans and re-embeds changed files. Both are idempotent and fast.
 
 ## Public/internal boundary
 

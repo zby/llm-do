@@ -68,7 +68,6 @@ Regenerate the index: `python scripts/generate_notes_index.py`
 - [Subagent Onboarding Protocol](subagent-onboarding-protocol.md) — Bidirectional setup conversation before subagent starts work
 - [Tool Output Rendering Semantics](tool-output-rendering-semantics.md) — Semantic render hints for structured tool output display
 - [Tool Result Truncation Metadata](tool-result-truncation.md) — Standardizing truncation metadata for tool results
-- [Toolset Instantiation Questions](toolset-instantiation-questions.md) — Open questions on per-worker vs shared toolset instances
 - [Type Catalog Review](type-catalog-review.md) — Current review of llm_do type surface with simplification candidates (2026-01-29)
 - [Event-Stream UI with Blocking Approvals](ui-event-stream-blocking-approvals.md) — Approval broker design for event-stream UI with blocking approvals
 ### Meta

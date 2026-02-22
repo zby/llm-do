@@ -124,14 +124,14 @@ Evans reinforces the stabilization workflow with clearer triggers:
 
 ## Distribution Boundaries
 
-Evans' modeling/classification distinction maps to llm-do's distribution boundaries:
+Evans' modeling/classification distinction maps to llm-do's distribution boundaries. "Freeze a taxonomy before classification" is a specific instance of the broader pattern that [storing LLM outputs is stabilization](../storing-llm-outputs-is-stabilization.md) — collapsing a distribution to a point, then working deterministically with the result.
 
 | Type | Input→Output | Testing Approach |
 |------|--------------|------------------|
 | Tools (classification) | Same→Same | `assert result == expected` |
 | Workers (modeling) | Same→Distribution | Sample and check invariants |
 
-Schema validation sits at the trust boundary between these.
+Schema validation sits at the trust boundary between these. The two testing approaches map to the [two distinct testing targets](../storing-llm-outputs-is-stabilization.md) for stabilized artifacts: testing the distribution (does the prompt reliably produce good output?) vs testing the sample (is this specific output good?).
 
 ## Summary
 

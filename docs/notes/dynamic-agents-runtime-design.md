@@ -148,7 +148,7 @@ Relevant Notes:
 - [capability-based-approvals](./capability-based-approvals.md) — enables approval for dynamically created agents by separating capability declaration from policy evaluation
 - [subagent-onboarding-protocol](./subagent-onboarding-protocol.md) — extends this by adding a bidirectional setup conversation before `agent_call`, addressing single-shot invocation limitations
 - [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — frames why dynamic agents should remain experimental: they operate at the ephemeral end of the verifiability gradient
-- [toolset-instantiation-questions](./toolset-instantiation-questions.md) — raises the per-agent vs shared instance question that dynamic agents' session registry must also resolve
+- [toolset-state-spectrum-from-stateless-to-transactional](./toolset-state-spectrum-from-stateless-to-transactional.md) — the lifecycle policy table addresses the per-agent vs shared instance question that dynamic agents' session registry must also resolve
 - [type-catalog-review](./type-catalog-review.md) — documents the implemented type surface (`DynamicAgentsToolset`, `AgentCreateArgs`, `AgentCallArgs`)
 
 Topics:

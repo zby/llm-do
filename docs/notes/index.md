@@ -18,6 +18,7 @@ llm-do is built on the observation that deployed AI systems adapt at three times
 - [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) — the top of the gradient: ephemeral agents for patterns not yet stable enough to crystallise
 - [pure-dynamic-tools](./pure-dynamic-tools.md) — LLM-authored tools that can only call agents, enabling safe dynamic orchestration via RestrictedPython sandbox
 - [subagent-onboarding-protocol](./subagent-onboarding-protocol.md) — bidirectional setup conversation before subagent execution, addressing single-shot invocation limitations
+- [storing-llm-outputs-is-stabilization](./storing-llm-outputs-is-stabilization.md) — storing a specific LLM output collapses a distribution to a point; introduces the generator/verifier pattern as an alternative to constraining prompts
 
 ## Area Indexes
 

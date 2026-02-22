@@ -15,6 +15,7 @@ This applies broadly:
 - **Generated code** — the prompt could produce many valid implementations; you lock down the one that works
 - **Generated documents** — a note-writing prompt produces varying quality; you keep the good one
 - **Configuration** — an LLM suggests settings; you freeze the ones that behave well
+- **Accumulated logs** — append-only formats (JSONL) enforce stabilization structurally: the agent can add but cannot overwrite. [Koylanai lost 3 months of engagement data](../sources/koylanai-personal-brain-os.ingest.md) when an agent rewrote a JSON file instead of appending — concrete evidence that without append-only constraints, agents will accidentally destroy stabilized artifacts
 
 In each case, the stored artifact is more stable than the process that created it. The prompt remains stochastic; the artifact is now deterministic. This is how [crystallisation is continuous learning](./crystallisation-is-continuous-learning.md) — each stored artifact is a step in the system's adaptation, narrowing behavior through versioned artifacts rather than weight updates.
 

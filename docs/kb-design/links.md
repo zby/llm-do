@@ -19,6 +19,10 @@ Links are the edges of the knowledge graph. Every link is a decision point for t
 
 - [001-generate-topic-links-from-frontmatter](./adr/001-generate-topic-links-from-frontmatter.md) — replace LLM-generated Topics footers with deterministic script
 
+## Analysis
+
+- [backlinks](./backlinks.md) — use cases for inbound link visibility: hub identification, source-to-theory bridging, impact assessment, tension surfacing; four design options with trade-offs
+
 ## Reference material
 
 - [link-contracts-framework](./link-contracts-framework.md) — framework for systematic, testable linking: link contracts, intent taxonomy, agent implications

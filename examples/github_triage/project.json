@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "runtime": {
+    "approval_mode": "approve_all",
+    "max_depth": 3
+  },
+  "entry": {
+    "agent": "triage",
+    "args": {
+      "input": "Fetch my GitHub notifications and triage them against the knowledge base."
+    }
+  },
+  "agent_files": [
+    "triage.agent"
+  ],
+  "python_files": [
+    "tools.py"
+  ]
+}

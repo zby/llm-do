@@ -19,15 +19,17 @@ RLM:    generate → execute → discard
 llm-do: generate → execute → save → test → version → reuse
 ```
 
-## What ephemeral code buys
+## What RLM's design buys
 
-Ephemeral code is not a limitation — it's a deliberate trade. Discarding code after execution means:
+RLM makes two coupled choices: ephemeral code (discard after execution) and purely functional tools (no side effects — no filesystem, no network, no state mutation). Together they buy significant simplicity:
 
-- **No approval problem.** If code can't persist or cause side effects, there's nothing to gate. The sandbox *is* the safety policy.
+- **No approval problem.** This comes from functional isolation, not ephemerality. Code that can only compute and return values needs no gating. Ephemeral code that could call `rm -rf` would still need approval. But the two choices reinforce each other — ephemeral code is easier to keep side-effect-free because there's no temptation to build on previous state.
 - **No state management.** Each run is a clean slate. No lifecycle hooks, no resource cleanup, no isolation between nested calls.
 - **No maintenance burden.** Code that doesn't exist can't go stale, break, or accumulate tech debt.
 
-RLM gets simplicity by giving up memory.
+The no-side-effects constraint does limit what RLM can do in practice — it can't write files, call APIs, or modify databases. For analytical workloads (data analysis, computation, visualization) this is fine. For agentic workloads that need to act on the world, it's a hard ceiling.
+
+Still, this is a legitimate design point. Many useful tasks are purely analytical, and for those, RLM's simplicity is a real advantage.
 
 ## What ephemeral code costs
 

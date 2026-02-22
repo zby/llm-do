@@ -42,15 +42,20 @@ You do NOT post anything to GitHub. You only read and analyze.
 
 ## Snapshots
 
-The `snapshot(url)` tool fetches any URL and stores two files:
-- The original source (JSON for APIs, HTML for web pages, PDF for documents)
-- A markdown view with frontmatter (source URL, fetch timestamp, content type)
+The `snapshot()` tool captures external content as timestamped markdown files.
+It works in two modes:
 
-Use `snapshot()` for any external reference you want to preserve — not just
-GitHub notifications. Blog posts, upstream docs, related issues in other
-repos. If it's worth reading, it's worth snapshotting.
+- **Fetch mode**: `snapshot(url=...)` fetches a URL and stores the original
+  source plus a markdown view. Frontmatter includes `capture: fetch`.
+- **Paste mode**: `snapshot(text=..., title=...)` saves user-provided text
+  directly — for sources that block scraping (Twitter/X, paywalled articles,
+  etc.). Frontmatter includes `capture: paste`.
 
-Snapshots that already exist for the same URL today are skipped (idempotent).
+Both modes write to `snapshots/{date}/` with frontmatter (source, captured
+timestamp, capture method). Use `snapshot()` for any external reference worth
+preserving — GitHub items, blog posts, tweets, upstream docs.
+
+Snapshots of the same URL or title today are skipped (idempotent).
 
 ## Triage priorities (highest first)
 

@@ -125,23 +125,31 @@ def _render_github_json_to_markdown(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def snapshot(url: str, title: str = "") -> str:
-    """Fetch a URL and store it as a timestamped snapshot with markdown view.
+def snapshot(url: str = "", title: str = "", text: str = "") -> str:
+    """Fetch a URL or save pasted text as a timestamped snapshot.
 
-    Stores two files: the original source (JSON/HTML/PDF) and a rendered
-    markdown view with frontmatter. The markdown is indexed by qmd for
-    knowledge base search.
+    Stores a markdown file with frontmatter, indexed by qmd for knowledge
+    base search. When fetching a URL, also stores the original source file
+    (JSON/HTML/PDF).
 
-    Skips fetching if a snapshot of the same URL exists from today.
+    Either ``url`` or ``text`` must be provided. When ``text`` is given the
+    content is saved directly without fetching (useful for sources that
+    block scraping, e.g. Twitter/X).
 
     Args:
-        url: The URL to snapshot. Supports web pages (HTML), GitHub API URLs,
-             PDFs, and plain text.
-        title: Optional title for the snapshot. Auto-detected if empty.
+        url: URL to snapshot. Supports web pages, GitHub API URLs, PDFs.
+        title: Title for the snapshot. Required when using ``text``,
+               auto-detected when fetching a URL.
+        text: Pre-copied text to save directly instead of fetching a URL.
 
     Returns:
         Path to the markdown snapshot file, plus a brief content summary.
     """
+    if not url and not text:
+        return "Either url or text must be provided."
+    if not text and not url:
+        return "Either url or text must be provided."
+
     now = datetime.now(timezone.utc)
     date_str = now.strftime("%Y-%m-%d")
     timestamp = now.isoformat()
@@ -150,18 +158,42 @@ def snapshot(url: str, title: str = "") -> str:
     day_dir = Path(SNAPSHOT_DIR) / date_str
     day_dir.mkdir(parents=True, exist_ok=True)
 
-    # Check for existing snapshot of same URL today
-    for existing in day_dir.glob("*.md"):
-        try:
-            text = existing.read_text(encoding="utf-8")
-            if f"source: {url}" in text[:500]:
-                return f"Already snapshotted today: {existing}\n\nContent available at: {existing}"
-        except OSError:
-            continue
+    # Dedup key: URL if fetching, title if pasting
+    dedup_key = url or title
+    if dedup_key:
+        for existing in day_dir.glob("*.md"):
+            try:
+                header = existing.read_text(encoding="utf-8")[:500]
+                if f"source: {dedup_key}" in header:
+                    return f"Already snapshotted today: {existing}\n\nContent available at: {existing}"
+            except OSError:
+                continue
 
-    # Fetch the content
+    # --- Paste path: text provided directly ---
+    if text:
+        if not title:
+            # Use first non-empty line as fallback title
+            title = next((l.strip().lstrip("#").strip() for l in text.splitlines() if l.strip()), "untitled")
+
+        slug = _slugify(title)
+        md_path = day_dir / f"{slug}.md"
+
+        source_line = f"source: {url}" if url else f"source: {title}"
+        md_content = f"""---
+{source_line}
+captured: {timestamp}
+capture: paste
+---
+
+{text}
+"""
+        md_path.write_text(md_content, encoding="utf-8")
+
+        preview = text[:200].replace("\n", " ").strip()
+        return f"Snapshot saved: {md_path}\n\nPreview: {preview}..."
+
+    # --- Fetch path: retrieve from URL ---
     if "api.github.com" in url:
-        # Use gh CLI for authenticated GitHub API access
         raw_text = _gh("api", url)
         raw_bytes = raw_text.encode("utf-8")
         content_type = "json"
@@ -187,16 +219,13 @@ def snapshot(url: str, title: str = "") -> str:
             except json.JSONDecodeError:
                 pass
         if not title:
-            # Extract from URL path
             title = url.rstrip("/").rsplit("/", 1)[-1].replace("-", " ").replace("_", " ")
 
     slug = _slugify(title)
 
-    # Determine source file extension
+    # Write source file
     ext_map = {"json": ".json", "html": ".html", "pdf": ".pdf", "text": ".txt"}
     source_ext = ext_map.get(content_type, ".bin")
-
-    # Write source file
     source_path = day_dir / f"{slug}{source_ext}"
     source_path.write_bytes(raw_bytes)
 
@@ -223,7 +252,8 @@ def snapshot(url: str, title: str = "") -> str:
     md_path = day_dir / f"{slug}.md"
     md_content = f"""---
 source: {url}
-fetched: {timestamp}
+captured: {timestamp}
+capture: fetch
 type: {content_type}
 ---
 
@@ -231,7 +261,6 @@ type: {content_type}
 """
     md_path.write_text(md_content, encoding="utf-8")
 
-    # Brief summary for the agent
     preview = md_body[:200].replace("\n", " ").strip()
     return f"Snapshot saved: {md_path}\nSource: {source_path}\n\nPreview: {preview}..."
 

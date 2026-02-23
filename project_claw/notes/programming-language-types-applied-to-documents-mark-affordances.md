@@ -40,6 +40,16 @@ Without affordance-bearing types, a knowledge base is a pile of text that agents
 
 The [verifiability criterion](../kb-design/document-types-should-be-verifiable.md) is the quality test: a type earns its place only if it asserts structural properties that enable specific operations. `type: design` fails because it affords nothing that `type: note` doesn't. `type: claim` succeeds because it enables verification workflows that generic notes don't support.
 
+## Instructions should check argument types
+
+If types mark valid operations, then instructions (skills, tasks, workflows) that operate on documents should declare which types they accept — the same way functions declare parameter types.
+
+Currently KB operations take a path and hope for the best. `/connect` implicitly expects a note or index. `/ingest` expects a source file. A recurring review expects code paths. A verification workflow would expect a `claim`. None of them check.
+
+With type annotations on instructions, you get early validation: "this document is an `index`, but this workflow operates on `claim` — wrong type." The instruction is a function, the document is an argument, and the document's type determines whether the operation is valid.
+
+This also clarifies the `instructions` type from the other direction: instructions are callables that have signatures — they accept certain document types as input and produce certain types as output. A skill that takes a source and produces a `source-review` has a type signature: `source → source-review`.
+
 ## Open Questions
 
 - What's the minimal set of types that covers the operations we actually perform?

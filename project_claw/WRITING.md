@@ -8,7 +8,7 @@ Every note must be findable by a future agent who doesn't know it exists. Before
 
 1. **Title as claim** — Does it work as prose when linked? `since [title](./title.md)` reads naturally?
 2. **Description** — Does it add information beyond the title? Would an agent searching for this concept find it?
-3. **Index membership** — Is it linked from at least one index?
+3. **Index membership** — Is it linked from at least one area index? (Directory indexes are auto-generated.)
 4. **Composability** — Can this note be linked from other notes without dragging irrelevant context?
 
 If any answer is "no," fix it before saving.
@@ -20,7 +20,7 @@ Where a note goes depends on what triggered it:
 - **Human request or established pipeline** → main KB (`notes/`, `adr/`, tasks, etc. — see routing table in `CLAUDE.md`)
 - **Agent's own observation during work** → `notes/agent-learnings/` (notes only — no tasks or ADRs without human request)
 
-Agent-learnings are periodically reviewed and either promoted to the main KB / AGENTS.md, or deleted. The quality checklist above applies to both — but agent-learnings can be briefer since they'll be curated later.
+Agent-learnings are periodically reviewed and either promoted to the main KB / CLAUDE.md, or deleted. The quality checklist above applies to both — but agent-learnings can be briefer since they'll be curated later.
 
 ## Templates
 
@@ -45,7 +45,7 @@ Every internal workspace note has YAML frontmatter. Frontmatter makes notes quer
 | `description` | Yes | Max 200 chars, must add info beyond title |
 | `type` | No | Base type: `note` (default), `spec`, `review`, `index`, `adr`. See [note-types](kb-design/note-types.md) |
 | `traits` | No | Independently checkable properties: `has-claim`, `has-comparison`, `has-external-sources`, `has-implementation` |
-| `areas` | No | Array of index names this note belongs to |
+| `areas` | No | Array of area index names this note belongs to (not the auto-generated directory index) |
 | `status` | No | current, outdated, speculative |
 
 **`description` is the most important field.** It enables progressive disclosure: read the title and description to decide whether to load the full note.
@@ -97,7 +97,14 @@ Every link must point to a real file. Before creating a link, verify the target 
 
 ## Indexes
 
-Indexes organize notes by topic area. They are navigation hubs that reduce context-switching cost. When you switch to a topic, you need to know: what is known, what is in tension, what is unexplored.
+There are two kinds of indexes:
+
+- **Directory indexes** (`index.md` in each collection) — auto-generated flat listings of all files with title, description, and type. Rebuild with `uv run scripts/generate_notes_index.py <directory>`.
+- **Area indexes** (e.g. `approvals-index.md`) — curated navigation hubs with editorial context, grouping, and open questions. Updated by /connect or manually.
+
+The rest of this section covers area indexes.
+
+Area indexes organize notes by topic. They reduce context-switching cost. When you switch to a topic, you need to know: what is known, what is in tension, what is unexplored.
 
 ### Index Structure
 

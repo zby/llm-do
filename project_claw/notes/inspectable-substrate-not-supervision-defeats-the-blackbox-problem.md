@@ -2,7 +2,7 @@
 description: Chollet frames agentic coding as ML producing blackbox codebases — crystallisation counters this not by requiring human review but by choosing a substrate (repo artifacts) that any agent can inspect, diff, test, and verify
 type: note
 traits: [has-claim, has-external-sources]
-areas: [index]
+areas: []
 status: current
 ---
 
@@ -42,6 +42,3 @@ Chollet asks "what will be the Keras of agentic coding?" — the abstraction lay
 Relevant Notes:
 - [crystallisation-is-continuous-learning](crystallisation-is-continuous-learning.md) — foundation: crystallisation as system-level learning through repo artifacts
 - [crystallisation-learning-timescales](crystallisation-learning-timescales.md) — the verifiability gradient that determines when and how to crystallise
-
-Topics:
-- [index](./index.md)

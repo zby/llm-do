@@ -1,7 +1,7 @@
 ---
 description: Programming-language type systems applied to knowledge base documents — types mark which operations are valid on content, not just what it's about
 type: note
-areas: [index]
+areas: []
 status: speculative
 ---
 

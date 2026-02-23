@@ -201,7 +201,6 @@ Relevant Notes:
 - [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — details why llm-do constructs Agents per-call instead of reusing them as PydanticAI docs recommend
 
 Topics:
-- [index](./index.md)
 - [pydanticai-upstream-index](./pydanticai-upstream-index.md)
 
 ## References

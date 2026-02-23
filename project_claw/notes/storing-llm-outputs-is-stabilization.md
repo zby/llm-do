@@ -2,7 +2,7 @@
 description: Choosing to keep a specific LLM output collapses a distribution to a point — the same stabilizing move the theory doc describes for code, applied to artifacts
 type: note
 traits: [has-claim]
-areas: [index]
+areas: []
 status: speculative
 ---
 
@@ -51,6 +51,3 @@ Relevant Notes:
 - [crystallisation-is-continuous-learning](./crystallisation-is-continuous-learning.md) — foundation: each stored artifact is a step in the continuous learning loop this note describes
 - [evans-ai-components-deterministic-system](./related_works/evans-ai-components-deterministic-system.md) — exemplifies the constraint strategy: Evans' "freeze taxonomy then classify" is collapsing a distribution to a point for the modeling/classification boundary
 - [adaptation-agentic-ai-analysis](./research/adaptation-agentic-ai-analysis.md) — provides data-driven triggers (error patterns, repeated tool failures) for when to make the stabilization decision this note describes
-
-Topics:
-- [index](./index.md)

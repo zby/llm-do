@@ -2,7 +2,7 @@
 description: Semantic render hints for structured tool output display
 type: note
 traits: []
-areas: [index]
+areas: []
 ---
 
 # Tool Output Rendering Semantics

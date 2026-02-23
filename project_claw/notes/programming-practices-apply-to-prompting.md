@@ -1,7 +1,7 @@
 ---
 description: Programming practices — typing, testing, progressive compilation, version control — apply to LLM prompting and knowledge systems, with probabilistic execution making some practices harder
 type: note
-areas: [index]
+areas: []
 status: speculative
 ---
 
@@ -45,6 +45,3 @@ Relevant Notes:
 - [storing LLM outputs is stabilization](./storing-llm-outputs-is-stabilization.md) — version control practice applied to LLM outputs
 - [inspectable substrate](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) — design for testability applied to LLM artifacts
 - [automated tests for text](../kb-design/observations/automated-tests-for-text.md) — extends the testing discussion: concrete test pyramid for the doubled testing surface this note identifies
-
-Topics:
-- [index](./index.md)

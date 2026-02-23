@@ -1,50 +1,69 @@
 ---
-description: Entry point to the llm-do knowledge system — start here to navigate
+description: Auto-generated directory — run scripts/generate_notes_index.py /home/zby/llm/llm-do/project_claw/notes to rebuild
 type: index
 ---
 
-# index
+# Notes Directory
 
-llm-do is built on the observation that deployed AI systems adapt at three timescales — training, in-context, and crystallisation — and that the third is systematically undervalued. The [verifiability gradient](./crystallisation-learning-timescales.md) from prompt tweaks to deterministic code is the organising principle: every design decision in llm-do is about making it easier to move along this gradient.
-
-## Core Concept
-
-- [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — the foundational claim: three timescales, the verifiability gradient, and why repo artifacts beat weights
-
-## Notes
-
-- [crystallisation-is-continuous-learning](./crystallisation-is-continuous-learning.md) — argues this achieves what labs pursue as "continuous learning" via weight updates
-- [inspectable-substrate-not-supervision-defeats-the-blackbox-problem](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) — counters Chollet's "agentic coding produces blackbox models" — the substrate (repo artifacts vs weights) determines verifiability, not who inspects
-- [dynamic-agents-runtime-design](./dynamic-agents-runtime-design.md) — the top of the gradient: ephemeral agents for patterns not yet stable enough to crystallise
-- [pure-dynamic-tools](./pure-dynamic-tools.md) — LLM-authored tools that can only call agents, enabling safe dynamic orchestration via RestrictedPython sandbox
-- [subagent-onboarding-protocol](./subagent-onboarding-protocol.md) — bidirectional setup conversation before subagent execution, addressing single-shot invocation limitations
-- [storing-llm-outputs-is-stabilization](./storing-llm-outputs-is-stabilization.md) — storing a specific LLM output collapses a distribution to a point; introduces the generator/verifier pattern as an alternative to constraining prompts
-- [programming-practices-apply-to-prompting](./programming-practices-apply-to-prompting.md) — meta-observation: typing, testing, compilation, and version control transfer from programming to LLM workflows, with probabilistic execution doubling the testing surface
-- [programming-language-types-applied-to-documents-mark-affordances](./programming-language-types-applied-to-documents-mark-affordances.md) — document types work like programming types: they mark which operations (verify, implement, follow) are valid on the content
-
-## Area Indexes
-
-- [approvals-index](./approvals-index.md) — threat model, capability taxonomy, UI integration, and upstream simplification
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md) — proposed PydanticAI changes, upstream issues, and how they affect llm-do (toolset lifecycle, approval wrapping, Traits API)
-
-## Agent Memory
-
-- [identity](../../arscontexta/self/identity.md) — who the agent is and how it approaches this project
-- [methodology](../../arscontexta/self/methodology.md) — how the agent processes and connects knowledge
-- [goals](../../arscontexta/self/goals.md) — current active threads and focus areas
-
-## Decisions (ADRs)
-
-- [001-thin-custom-prefix-adapter-and-oauth-gating](../adr/001-thin-custom-prefix-adapter-and-oauth-gating.md)
-- [002-agent-args-as-public-input-contract](../adr/002-agent-args-as-public-input-contract.md)
-- [003-opt-in-tool-model](../adr/003-opt-in-tool-model.md)
-- [004-unified-tool-plane](../adr/004-unified-tool-plane.md)
-- [005-runner-harness-vs-clai](../adr/005-runner-harness-vs-clai.md)
-- [006-runtime-core-vs-simpler-runtime](../adr/006-runtime-core-vs-simpler-runtime.md)
-
-## Getting Started
-
-1. Read self/identity.md to understand the agent's role
-2. Browse docs/notes/ for existing design explorations
-3. Use /arscontexta:extract to process a source into connected notes
-4. Use /arscontexta:connect to find relationships between notes
+- [Agent Skills Standard Unification](./agent-skills-unification.md) *(note)* — Aligning .agent format with Agent Skills standard specification
+- [Approval Override Rationale](./approval-override-rationale.md) *(note)* — Why per-agent approval overrides exist and when we might remove them
+- [approvals guard against LLM mistakes not active attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) *(note)* — Approvals are a UI feature for catching LLM errors, not a security boundary — isolation is the security boundary
+- [Approvals](./approvals-index.md) *(index)* — Approval system design — threat model, capability taxonomy, UI integration, and upstream simplification
+- [Approval System Design](./capability-based-approvals.md) *(note)* — Capability-based approval system design for tool execution control
+- [Container Security Boundary](./container-security-boundary.md) *(note)* — Using Docker containers as security boundary for tool execution
+- [Crystallisation Is Continuous Learning](./crystallisation-is-continuous-learning.md) *(note)* — Crystallisation systematises the out-of-band optimisations every deployed system accumulates — achieving continuous learning through versioned artifacts, whether human-driven or automated
+- [Crystallisation: The Missing Middle](./crystallisation-learning-timescales.md) *(note)* — Crystallisation fills the gap between training and in-context learning — repo artifacts provide durable, inspectable adaptation with a verifiability gradient from prompt tweaks to deterministic code
+- [Dynamic Workers Runtime Design](./dynamic-agents-runtime-design.md) *(note)* — Design for runtime creation and invocation of dynamic workers
+- [Untitled](./examples/AICL.md)
+- [Untitled](./examples/Chang2025.md)
+- [Untitled](./examples/LongCoT.md)
+- [Execution Mode Scripting Simplification](./execution-mode-scripting-simplification.md) *(note)* — Simplifying Python embedding with a quick_run helper that collapses 15 lines of wiring to 1-3
+- [Execution Modes: User Stories](./execution-modes-user-stories.md) *(spec)* — User stories for TUI, headless, and chat execution modes
+- [Git Integration Research](./git-integration-research.md) — Research on git integration patterns from Aider and golem-forge
+- [Inspectable substrate, not supervision, defeats the blackbox problem](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) *(note)* — Chollet frames agentic coding as ML producing blackbox codebases — crystallisation counters this not by requiring human review but by choosing a substrate (repo artifacts) that any agent can inspect, diff, test, and verify
+- [Library System Specification](./library-system-spec.md) *(spec)* — Specification for reusable agent and tool libraries that can be shared across projects
+- [llm-do Project Mode, Worker Imports, and Tool Linking](./llm-do-project-mode-and-imports.md) *(spec)* — Spec for project mode discovery, worker imports, and tool linking
+- [llm-do vs vanilla PydanticAI: what the runtime adds](./llm-do-vs-pydanticai-runtime.md) *(note)* — What llm-do adds on top of vanilla PydanticAI agents
+- [Deferred Handler Minimal-Core Proposal Draft](./meta/blocking_approvals.md) — Proposal for deferred_tool_handler enabling blocking approvals
+- [One Interface: Fluid Movement Between LLM and Code](./meta/llm-day-2026-presentation-v2.marp.md)
+- [LLM Day 2026 Warsaw - Presentation Proposal](./meta/llm-day-2026-presentation.md) — LLM Day 2026 Warsaw conference presentation proposal
+- [llm-do 5-Minute Meetup Demo Plan](./meta/meetup-demo-plan.md) — 5-minute demo plan showing progressive stabilization workflow
+- [PydanticAI Runtime Split and Trace Hooks](./meta/pydanticai-runtime-trace.md) — Proposed PydanticAI changes for runtime/session split and tracing
+- [RLM ephemeral code prevents accumulation](./meta/rlm-ephemeral-code-prevents-accumulation.md) — RLM discards generated code after each run — the single design choice that separates it from llm-do
+- [Mistral Vibe Borrowing Report](./other_python_llm_assistants/mistral-vibe-borrowing-report.md)
+- [Mistral Vibe](./other_python_llm_assistants/mistral-vibe.md)
+- [PAI Agent SDK / Paintress CLI](./other_python_llm_assistants/pai-agent-sdk.md)
+- [Integrating llm-do Workers into TunaCode](./other_python_llm_assistants/tunacode-integration.md)
+- [TunaCode](./other_python_llm_assistants/tunacode.md)
+- [Preapproved Capability Scopes](./preapproved-capability-scopes.md) *(note)* — Path-scoped preapproval policies for reducing approval prompts
+- [Programmatic Embedding](./programmatic-embedding.md) *(note)* — How to embed llm-do in Python applications (API unstable)
+- [Programming-language types applied to documents mark affordances, not subjects](./programming-language-types-applied-to-documents-mark-affordances.md) *(note)* — Programming-language type systems applied to knowledge base documents — types mark which operations are valid on content, not just what it's about
+- [Programming practices apply to prompting](./programming-practices-apply-to-prompting.md) *(note)* — Programming practices — typing, testing, progressive compilation, version control — apply to LLM prompting and knowledge systems, with probabilistic execution making some practices harder
+- [Proposed toolset lifecycle resolution for PydanticAI](./proposed-toolset-lifecycle-resolution-for-pydanticai.md) *(note)* — Early sketch of how PydanticAI could handle common toolset lifecycle cases and provide extension points for exotic ones — rough proposal for discussion, not a finished design
+- [Pure Dynamic Tools](./pure-dynamic-tools.md) *(note)* — LLM-authored tools that can only call agents, enabling safe dynamic orchestration
+- [Pure Python vs MCP Code Mode](./pure-python-vs-mcp-codemode.md) *(note)* — Comparing MCP code mode with llm-do pure Python composite tools
+- [PydanticAI Traits API Analysis](./pydanticai-traits-api-analysis.md) *(note)* — PydanticAI Traits API (PR
+- [PydanticAI upstream index](./pydanticai-upstream-index.md) *(index)* — Index of notes about proposed PydanticAI changes, upstream issues, and how they affect llm-do
+- [Python Worker Annotation Brainstorm](./python-agent-annotation-brainstorm.md) *(note)* — Brainstorm for Python-only worker definitions via decorators
+- [Eric Evans: AI Components for a Deterministic System](./related_works/evans-ai-components-deterministic-system.md)
+- [Granular Software](./related_works/granular-software.md)
+- [Professional Software Developers and AI Agent Use](./related_works/professional-developers-ai-agents.md)
+- [RLM Implementations vs llm-do](./related_works/rlm-comparison.md)
+- [RLM (Recursive Language Model) — For Programmers](./related_works/rlm-explained.md)
+- [Shesha vs llm-do](./related_works/shesha-comparison.md)
+- [Analysis: Adaptation of Agentic AI (arXiv:2512.16301)](./research/adaptation-agentic-ai-analysis.md) — Analysis of agentic AI adaptation paper and llm-do implications
+- [Experiment runtime without Worker class](./research/experiment-runtime-without-worker.md) — Exploring runtime design without the Worker class
+- [Manifest-Selected Entry Motivation](./research/manifest-selected-entry-motivation.md) — Motivation for moving entry selection from worker to manifest
+- [Type Catalog Review](./research/type-catalog-review.md) — Review of type surface with simplification recommendations
+- [What Survives in Multi-Agent Systems](./research/voooooogel-multi-agent-future.md) — Analysis of what multi-agent patterns will survive stronger models
+- [Stabilize Message Capture Without Private _agent_graph](./stabilize-message-capture.md) *(note)* — Removing private PydanticAI dependency for message capture
+- [The stateful flag resolves simple accumulation but not session or composition-site cases](./stateful-flag-evaluation-against-toolset-spectrum.md) *(note)* — Concrete examples for each toolset state category, evaluating whether the proposed stateful flag + copy-before-run mechanism resolves each case
+- [Storing LLM outputs is stabilization](./storing-llm-outputs-is-stabilization.md) *(note)* — Choosing to keep a specific LLM output collapses a distribution to a point — the same stabilizing move the theory doc describes for code, applied to artifacts
+- [Subagent Onboarding Protocol](./subagent-onboarding-protocol.md) *(note)* — Bidirectional setup conversation before subagent starts work
+- [Tool Output Rendering Semantics](./tool-output-rendering-semantics.md) *(note)* — Semantic render hints for structured tool output display
+- [Tool Result Truncation Metadata](./tool-result-truncation.md) *(note)* — Standardizing truncation metadata for tool results
+- [Toolset state prevents treating PydanticAI agents as global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) *(note)* — PydanticAI documents agents as stateless and global, but toolsets on agents can carry mutable state across runs — llm-do works around this with per-call Agent construction and toolset factories
+- [Toolset state spectrum: from stateless to transactional](./toolset-state-spectrum-from-stateless-to-transactional.md) *(note)* — Catalog of toolset state patterns — most tools are stateless so the problem is easy to miss, but shared resources, browser sessions, and DB transactions reveal that toolset lifecycle is an unresolved design question
+- [Type Catalog Review](./type-catalog-review.md) *(review)* — Current review of llm_do type surface with simplification candidates (2026-01-29)
+- [Event-Stream UI with Blocking Approvals](./ui-event-stream-blocking-approvals.md) *(note)* — Approval broker design for event-stream UI with blocking approvals
+- [We want to get rid of approval wrapping](./we-want-to-get-rid-of-approval-wrapping.md) *(note)* — Two upstream PydanticAI paths could eliminate our ApprovalToolset wrapper stacking — deferred_tool_handler and Traits before_tool_call hooks

@@ -2,7 +2,7 @@
 description: Brainstorm for Python-only worker definitions via decorators
 type: note
 traits: [has-comparison]
-areas: [index]
+areas: []
 ---
 
 # Python Worker Annotation Brainstorm

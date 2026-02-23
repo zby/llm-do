@@ -20,4 +20,4 @@ Relevant Notes:
 - [related-note](./related-note.md) — how it relates
 
 Topics:
-- [relevant-index](./relevant-index.md)
+- [relevant-area-index](./relevant-area-index.md)

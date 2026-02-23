@@ -1,0 +1,30 @@
+---
+description: Auto-generated directory — run scripts/generate_notes_index.py /home/zby/llm/llm-do/project_claw/kb-design to rebuild
+type: index
+---
+
+# Kb Design Directory
+
+- [ADR-001: Generate Topic links from frontmatter](./adr/001-generate-topic-links-from-frontmatter.md)
+- [{{ phase_name | title }}](./arscontexta-connect.md)
+- [Backlinks — use cases and design space](./backlinks.md) *(note)* — Analysis of where backlinks (inbound link visibility) would concretely help agents working in the KB — use cases, trade-offs, and design options
+- [CLAUDE.md is a router, not a manual](./context-loading-strategy.md) *(note)* — CLAUDE.md should be a slim router to task-specific docs, not a comprehensive manual — because it's loaded every session
+- [Document types should be verifiable](./document-types-should-be-verifiable.md) *(note)* — Document types should assert verifiable structural properties, not subject matter — with a base type + traits model inspired by gradual and structural typing
+- [KB design](./kb-design.md) *(index)* — Index of notes about designing and building the knowledge base itself — what works, what doesn't, how to test it
+- [Link contracts framework — source material](./link-contracts-framework.md) *(note)* — Reference framework for systematic, testable linking — link contracts, intent taxonomy, automated checks, agent implications
+- [Links](./links.md) *(index)* — Index of notes about linking — how links work as decision points, navigation modes, link contracts, and automated link management
+- [Needs testing](./needs-testing.md) *(review)* — Promising ideas without enough evidence — extract/connect/review cycle, input classification before processing
+- [Note types](./note-types.md) *(spec)* — Base types assert verifiable structure (note, spec, review, index, adr); traits assert independently checkable properties (has-claim, has-comparison, has-external-sources, has-implementation)
+- [Agents navigate by deciding what to read next](./observations/agents-navigate-by-deciding-what-to-read-next.md) *(note)* — An agent doing a task navigates by deciding what to read — links, index entries, search tools, and skill descriptions are all pointers with varying amounts of context for that decision
+- [Automated tests for text](./observations/automated-tests-for-text.md) *(note)* — Text artifacts can be tested with the same pyramid as software — deterministic checks, LLM rubrics, corpus compatibility — built from real failures not taxonomy
+- [Stale indexes are worse than no indexes](./observations/stale-indexes-are-worse-than-no-indexes.md) *(note)* — An agent trusts an index as exhaustive — a missing entry doesn't trigger search, it makes the note invisible
+- [Template areas field nudges index updates](./observations/template-areas-field-nudges-index-updates.md)
+- [Topic links from frontmatter are deterministic](./observations/topic-links-from-frontmatter-are-deterministic.md) *(note)* — The areas-to-Topics mapping is mechanical — now implemented as scripts/sync_topic_links.py
+- [Two kinds of navigation](./observations/two-kinds-of-navigation.md) *(note)* — Link-following is local with context; search is long-range with titles/descriptions; indexes bridge both modes
+- [Scenarios](./scenarios.md) *(note)* — Concrete use cases for the knowledge system — upstream change analysis and proposing our own changes
+- [Text testing framework — source material](./text-testing-framework.md) *(note)* — Reference framework for automated text testing — contracts per document type, test pyramid (deterministic/LLM rubric/corpus), production workflow
+- [Three-space agent memory maps to Tulving's taxonomy](./three-space-agent-memory-maps-to-tulving-taxonomy.md) — Agent memory split into knowledge, self, and operational spaces mirrors Tulving's semantic/episodic/procedural distinction
+- [Three-space memory separation predicts measurable failure modes](./three-space-memory-separation-predicts-measurable-failure-modes.md) — The three-space memory claim is testable because flat memory predicts specific cross-contamination failures
+- [What cludebot teaches us](./what-cludebot-teaches-us.md) — Techniques from cludebot worth borrowing — what we already cover, what to adopt now, and what to watch for as the KB grows
+- [What doesn't work](./what-doesnt-work.md) *(review)* — Anti-patterns and areas with insufficient evidence — auto-commits, queue overhead, validation ceremony, session rhythm
+- [What works](./what-works.md) *(review)* — Patterns proven valuable in practice — prose-as-title, template nudges, frontmatter queries, semantic search via qmd, discovery-first, public/internal boundary

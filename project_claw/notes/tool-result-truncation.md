@@ -2,7 +2,7 @@
 description: Standardizing truncation metadata for tool results
 type: note
 traits: [has-comparison]
-areas: [index]
+areas: []
 ---
 
 # Tool Result Truncation Metadata

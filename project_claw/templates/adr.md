@@ -28,4 +28,4 @@ Relevant Notes:
 - [related-note](./related-note.md) — background exploration or research
 
 Topics:
-- [relevant-index](./relevant-index.md)
+- [relevant-area-index](./relevant-area-index.md)

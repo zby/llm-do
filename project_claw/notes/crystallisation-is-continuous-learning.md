@@ -2,7 +2,7 @@
 description: Crystallisation systematises the out-of-band optimisations every deployed system accumulates — achieving continuous learning through versioned artifacts, whether human-driven or automated
 type: note
 traits: [has-claim]
-areas: [index]
+areas: []
 ---
 
 # Crystallisation Is Continuous Learning
@@ -74,6 +74,3 @@ Relevant Notes:
 - [adaptation-agentic-ai-analysis](research/adaptation-agentic-ai-analysis.md) — extends: provides data-driven triggers (error patterns, repeated tool failures) for when to crystallise vs soften, grounding the learning loop in concrete signals
 - [professional-developers-ai-agents](related_works/professional-developers-ai-agents.md) — empirical evidence that professional developers naturally practice the crystallisation loop: validate, extract patterns, stabilise
 - [python-agent-annotation-brainstorm](python-agent-annotation-brainstorm.md) — enables: the softening/stabilising paths lower friction for moving along the crystallisation gradient between LLM workers and deterministic code
-
-Topics:
-- [index](./index.md)

@@ -2,7 +2,7 @@
 description: LLM-authored tools that can only call agents, enabling safe dynamic orchestration
 type: note
 traits: [has-implementation, has-comparison]
-areas: [index]
+areas: []
 ---
 
 # Pure Dynamic Tools

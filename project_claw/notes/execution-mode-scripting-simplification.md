@@ -2,7 +2,7 @@
 description: Simplifying Python embedding with a quick_run helper that collapses 15 lines of wiring to 1-3
 type: note
 traits: [has-implementation]
-areas: [index]
+areas: []
 ---
 
 # Execution Mode Scripting Simplification

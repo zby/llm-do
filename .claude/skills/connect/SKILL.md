@@ -183,7 +183,7 @@ Using only search misses curated structure. Using only index misses semantic nei
 
 For specific terms and exact matches:
 ```bash
-grep -r "term" docs/notes/ --include="*.md"
+grep -r "term" project_claw/notes/ --include="*.md"
 ```
 
 Use grep when:
@@ -346,7 +346,7 @@ When you edit an older note to add a reverse link, you MAY flag it for full reco
 
 **Check incoming links:**
 ```bash
-grep -r '\[.*\](.*note-name\.md)' docs/notes/ --include="*.md" | wc -l
+grep -r '\[.*\](.*note-name\.md)' project_claw/notes/ --include="*.md" | wc -l
 ```
 
 If >= 5, skip flagging.
@@ -357,9 +357,9 @@ indexes are synthesis hubs, not just indexes.
 
 **Step 1: Check all indexes for membership.**
 
-Read `docs/indexes.md` — the index of indexes. For each index listed, ask: "does this note belong here?" This prevents silent omissions where a note is relevant to an index but never gets added.
+Read `project_claw/indexes.md` — the index of indexes. For each index listed, ask: "does this note belong here?" This prevents silent omissions where a note is relevant to an index but never gets added.
 
-If the note should belong to an index it doesn't yet claim, add the index name to the note's `areas:` frontmatter field, then run `python3 scripts/sync_topic_links.py` on the note to update its Topics footer.
+If the note should belong to an index it doesn't yet claim, add the index name to the note's `areas:` frontmatter field, then run `uv run scripts/sync_topic_links.py` on the note to update its Topics footer.
 
 **Step 2: Update the indexes this note belongs to.**
 
@@ -375,7 +375,7 @@ For each relevant index:
 After updating Core Ideas, count the links:
 
 ```bash
-grep -c '^\- \[' "docs/notes/[index-name].md"
+grep -c '^\- \[' "project_claw/notes/[index-name].md"
 ```
 
 If approaching the split threshold (configurable, default ~40): note in output "index approaching split threshold (N links)"
@@ -465,6 +465,16 @@ Agent Notes:
 
 The test: would this help a future agent navigate more effectively?
 
+### Phase 7: Regenerate Directory Index
+
+After all connections and area index updates are done, regenerate the directory index for the collection the target note belongs to. Determine the collection directory from the target note's path (e.g. `project_claw/notes/foo.md` → `project_claw/notes`):
+
+```bash
+uv run scripts/generate_notes_index.py <collection-directory>
+```
+
+Directory indexes are auto-generated flat listings (title, description, type) — distinct from the curated area indexes updated in Phase 5. This ensures new notes appear in the directory immediately.
+
 ## Quality Gates
 
 ### Gate 1: Articulation Test
@@ -498,7 +508,7 @@ Verify every markdown link target exists. Never create links to non-existent fil
 
 ```bash
 # Check that a link target exists
-ls docs/notes/"target-name.md" 2>/dev/null
+ls project_claw/notes/"target-name.md" 2>/dev/null
 ```
 
 ### Gate 6: Areas-Topics Consistency
@@ -506,7 +516,7 @@ ls docs/notes/"target-name.md" 2>/dev/null
 Run the sync script on notes you've modified to ensure `Topics:` footer matches `areas:` frontmatter:
 
 ```bash
-python3 scripts/sync_topic_links.py docs/notes/target-note.md
+uv run scripts/sync_topic_links.py project_claw/notes/target-note.md
 ```
 
 This is deterministic — `areas:` is the single source of truth. The script generates/replaces the `Topics:` footer section. Notes with no `areas:` field get no Topics section. Accepts files or directories.
@@ -517,7 +527,7 @@ This is deterministic — `areas:` is the single source of truth. The script gen
 
 Sometimes a note genuinely does not connect yet. That is fine.
 
-1. Ensure it is linked to at least one index via Topics footer
+1. Ensure it is linked to at least one area index via Topics footer
 2. Note in index Gaps that this area needs development
 3. Do not force connections that are not there
 

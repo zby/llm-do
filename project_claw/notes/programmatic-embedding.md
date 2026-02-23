@@ -2,7 +2,7 @@
 description: How to embed llm-do in Python applications (API unstable)
 type: note
 traits: [has-implementation]
-areas: [index]
+areas: []
 ---
 
 # Programmatic Embedding

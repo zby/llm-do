@@ -2,7 +2,7 @@
 description: Aligning .agent format with Agent Skills standard specification
 type: note
 traits: [has-comparison, has-external-sources]
-areas: [index]
+areas: []
 ---
 
 # Agent Skills Standard Unification

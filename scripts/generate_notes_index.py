@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Generate notes index from frontmatter.
+"""Generate index.md from frontmatter of all markdown files in a directory.
 
-Reads YAML frontmatter from markdown files and generates an index.
-Frontmatter format:
----
-description: One-line summary of the note
----
+Scans all .md files recursively, extracts title, description, and type
+from frontmatter, and writes a sorted directory listing to index.md.
+
+Usage: uv run scripts/generate_notes_index.py <directory>
 """
 
 import re
@@ -15,97 +14,75 @@ from pathlib import Path
 import yaml
 
 
-def parse_frontmatter(content: str) -> dict | None:
+def parse_frontmatter(content: str) -> dict:
     """Extract YAML frontmatter from markdown content."""
     match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
     if not match:
-        return None
+        return {}
     try:
-        return yaml.safe_load(match.group(1))
+        return yaml.safe_load(match.group(1)) or {}
     except yaml.YAMLError:
-        return None
+        return {}
 
 
 def get_title(content: str) -> str:
     """Extract first H1 heading from markdown."""
-    # Skip frontmatter if present
     content = re.sub(r"^---\n.*?\n---\n", "", content, flags=re.DOTALL)
     match = re.search(r"^#\s+(.+)$", content, re.MULTILINE)
     return match.group(1) if match else "Untitled"
 
 
-def generate_index(notes_dir: Path) -> str:
-    """Generate markdown index from notes with frontmatter."""
-    entries: list[tuple[str, str, str]] = []  # (path, title, desc)
+def generate(notes_dir: Path) -> str:
+    output = notes_dir / "index.md"
+    entries: list[tuple[str, str, str, str]] = []  # (rel_path, title, description, type)
 
-    # Collect notes from main directory only
-    for md_file in sorted(notes_dir.glob("*.md")):
-        if md_file.name == "README.md":
+    for path in sorted(notes_dir.rglob("*.md")):
+        if path == output or path.name == "README.md":
             continue
 
-        content = md_file.read_text()
-        frontmatter = parse_frontmatter(content)
+        content = path.read_text()
+        fm = parse_frontmatter(content)
         title = get_title(content)
+        desc = fm.get("description", "")
+        note_type = fm.get("type", "")
+        rel = path.relative_to(notes_dir)
 
-        if frontmatter and "description" in frontmatter:
-            desc = frontmatter["description"]
-        else:
-            desc = ""
+        entries.append((str(rel), title, desc, note_type))
 
-        entries.append((md_file.name, title, desc))
+    lines = [
+        "---",
+        f"description: Auto-generated directory — run scripts/generate_notes_index.py {notes_dir} to rebuild",
+        "type: index",
+        "---",
+        "",
+        f"# {notes_dir.name.replace('-', ' ').title()} Directory",
+        "",
+    ]
 
-    # Also check subdirectories (meta/, research/)
-    subdirs = ["meta", "research"]
-    subdir_entries: dict[str, list] = {d: [] for d in subdirs}
+    for rel, title, desc, note_type in entries:
+        parts = [f"- [{title}](./{rel})"]
+        if note_type:
+            parts.append(f"*({note_type})*")
+        if desc:
+            parts.append(f"— {desc}")
+        lines.append(" ".join(parts))
 
-    for subdir in subdirs:
-        subdir_path = notes_dir / subdir
-        if not subdir_path.exists():
-            continue
-        for md_file in sorted(subdir_path.glob("*.md")):
-            if md_file.name == "README.md":
-                continue
-            content = md_file.read_text()
-            frontmatter = parse_frontmatter(content)
-            title = get_title(content)
-
-            if frontmatter and "description" in frontmatter:
-                desc = frontmatter["description"]
-            else:
-                desc = ""
-
-            subdir_entries[subdir].append((f"{subdir}/{md_file.name}", title, desc))
-
-    # Generate markdown
-    lines = ["## Index", ""]
-
-    if entries:
-        for path, title, desc in entries:
-            suffix = f" — {desc}" if desc else ""
-            lines.append(f"- [{title}]({path}){suffix}")
-        lines.append("")
-
-    for subdir in subdirs:
-        if subdir_entries[subdir]:
-            lines.append(f"### {subdir.title()}")
-            lines.append("")
-            for path, title, desc in subdir_entries[subdir]:
-                suffix = f" — {desc}" if desc else ""
-                lines.append(f"- [{title}]({path}){suffix}")
-            lines.append("")
-
+    lines.append("")
     return "\n".join(lines)
 
 
-def main():
-    notes_dir = Path(__file__).parent.parent / "docs" / "notes"
-    if not notes_dir.exists():
-        print(f"Notes directory not found: {notes_dir}", file=sys.stderr)
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print(f"Usage: {sys.argv[0]} <directory>", file=sys.stderr)
         sys.exit(1)
 
-    index = generate_index(notes_dir)
-    print(index)
+    notes_dir = Path(sys.argv[1]).resolve()
+    if not notes_dir.is_dir():
+        print(f"Not a directory: {notes_dir}", file=sys.stderr)
+        sys.exit(1)
 
-
-if __name__ == "__main__":
-    main()
+    output = notes_dir / "index.md"
+    content = generate(notes_dir)
+    output.write_text(content)
+    count = content.count("\n- ")
+    print(f"Generated {output} with {count} entries")

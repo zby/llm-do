@@ -2,7 +2,7 @@
 description: Crystallisation fills the gap between training and in-context learning — repo artifacts provide durable, inspectable adaptation with a verifiability gradient from prompt tweaks to deterministic code
 type: note
 traits: [has-comparison]
-areas: [index]
+areas: []
 ---
 
 # Crystallisation: The Missing Middle
@@ -93,6 +93,3 @@ The individual practices are well-established. Prompt versioning and "prompts as
 Crystallisation is a **taxonomy** (three timescales of system adaptation) and a **verifiability gradient** (from prompt tweaks to deterministic code) — a synthesis of established practices into a concrete model for when and how to move between grades.
 
 For how crystallisation maps to the llm-do hybrid VM's stabilise/soften cycle, see the [theory document](../../docs/theory.md). The [examples](../../examples/README.md#progressive-stabilizing) demonstrate the gradient in working code.
-
-Topics:
-- [index](./index.md)

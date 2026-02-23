@@ -1,7 +1,7 @@
 ---
 description: Current review of llm_do type surface with simplification candidates (2026-01-29)
 type: review
-areas: [index]
+areas: []
 ---
 
 # Type Catalog Review

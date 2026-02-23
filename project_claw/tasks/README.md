@@ -21,13 +21,13 @@ Backlog entries may use `<slug>.md`; active and completed entries should use `<i
 
 1. **Capture an idea**
    - Create `tasks/backlog/<slug>.md`.
-   - Copy from `tasks/templates/backlog.md`.
+   - Copy from `../templates/task-backlog.md`.
    - Keep it short; only promote to active once ready.
 
 2. **Activate a task**
    - Move the file into `tasks/active/`.
    - When promoting from backlog, rename to include an ID (for example `YYYYMMDD`): `tasks/backlog/foo.md` → `tasks/active/20260206-foo.md`.
-   - Fill out every heading from `tasks/templates/active.md`: Status, Prerequisites (with checkboxes linking dependent tasks), Goal, Context (files, related work, verification plan), Decision Record (even if "none yet"), Tasks checklist, Current State narrative, Notes.
+   - Fill out every heading from `../templates/task-active.md`: Status, Prerequisites (with checkboxes linking dependent tasks), Goal, Context (files, related work, verification plan), Decision Record (even if "none yet"), Tasks checklist, Current State narrative, Notes.
    - Frontload all context that can be gathered without changing code so implementation can start with minimal extra discovery.
    - Status is one of `information gathering`, `ready for implementation`, or `waiting for <dependency>`.
 
@@ -42,18 +42,18 @@ Backlog entries may use `<slug>.md`; active and completed entries should use `<i
    - Note merged PRs or docs in **Current State** or **Notes** for historical traceability.
 
 5. **Recurring reviews**
-   - For periodic audits (UI, security, etc.), create files in `tasks/recurring/` using `tasks/templates/recurring.md`.
+   - For periodic audits (UI, security, etc.), create files in `tasks/recurring/` using `../templates/task-recurring.md`.
    - Treat recurring task files as stable runbooks: do not update checklist state or add per-run history in the task file.
    - Record each run in the output note (for example `../notes/reviews/review-<area>.md`) by appending a dated section with findings and follow-ups.
    - Edit recurring task files only when the review scope/process changes.
 
 ## Templates
 
-Canonical templates live in `tasks/templates/`:
+Canonical templates live in `../templates/`:
 
-- [`templates/backlog.md`](templates/backlog.md)
-- [`templates/active.md`](templates/active.md)
-- [`templates/recurring.md`](templates/recurring.md)
+- [`task-backlog.md`](../templates/task-backlog.md)
+- [`task-active.md`](../templates/task-active.md)
+- [`task-recurring.md`](../templates/task-recurring.md)
 
 ## Task Review
 

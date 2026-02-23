@@ -71,7 +71,7 @@ Keep your responses brief and cheerful.
 `llm-do` reads the manifest, links the listed files, and runs the entry agent.
 See [`examples/`](examples/) for more.
 
-For programmatic embedding, see [`docs/notes/programmatic-embedding.md`](docs/notes/programmatic-embedding.md).
+For programmatic embedding, see [`project_claw/notes/programmatic-embedding.md`](project_claw/notes/programmatic-embedding.md).
 
 ## Core Concepts
 
@@ -243,11 +243,11 @@ For Python-driven orchestration (instead of agent-first), see [`pitchdeck_eval_c
 ## Documentation
 
 - **[`docs/theory.md`](docs/theory.md)** — Theoretical foundation: probabilistic programs, stabilizing/softening, tradeoffs
-- **[`docs/notes/crystallisation-learning-timescales.md`](docs/notes/crystallisation-learning-timescales.md)** — Crystallisation: learning across sessions through progressively verifiable artifacts
+- **[`project_claw/notes/crystallisation-learning-timescales.md`](project_claw/notes/crystallisation-learning-timescales.md)** — Crystallisation: learning across sessions through progressively verifiable artifacts
 - **[`docs/architecture.md`](docs/architecture.md)** — Internal structure: unified calling, harness layer, runtime scopes
 - **[`docs/reference.md`](docs/reference.md)** — API reference: workflows, toolsets, agent format
 - **[`docs/cli.md`](docs/cli.md)** — CLI reference
-- **[`docs/notes/`](docs/notes/)** — Working design notes and explorations
+- **[`project_claw/notes/`](project_claw/notes/)** — Working design notes and explorations
 
 ## Status & Tradeoffs
 

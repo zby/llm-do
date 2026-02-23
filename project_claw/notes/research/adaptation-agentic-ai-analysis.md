@@ -246,5 +246,5 @@ Relevant Notes:
 ## References
 
 - Paper: https://arxiv.org/abs/2512.16301
-- llm-do theory: [theory.md](../theory.md)
-- llm-do architecture: [architecture.md](../architecture.md)
+- llm-do theory: [theory.md](../../../docs/theory.md)
+- llm-do architecture: [architecture.md](../../../docs/architecture.md)

@@ -79,7 +79,7 @@ async def main(_input_data, runtime: CallContext) -> str:
 ENTRY = FunctionEntry(name="main", fn=main)
 ```
 
-See [`examples/pitchdeck_eval_direct/`](../examples/pitchdeck_eval_direct/) for
+See [`examples/pitchdeck_eval_direct/`](../../examples/pitchdeck_eval_direct/) for
 complete working examples of both patterns.
 
 ## Open Questions

@@ -44,7 +44,7 @@ Backlog entries may use `<slug>.md`; active and completed entries should use `<i
 5. **Recurring reviews**
    - For periodic audits (UI, security, etc.), create files in `tasks/recurring/` using `tasks/templates/recurring.md`.
    - Treat recurring task files as stable runbooks: do not update checklist state or add per-run history in the task file.
-   - Record each run in the output note (for example `docs/notes/reviews/review-<area>.md`) by appending a dated section with findings and follow-ups.
+   - Record each run in the output note (for example `../notes/reviews/review-<area>.md`) by appending a dated section with findings and follow-ups.
    - Edit recurring task files only when the review scope/process changes.
 
 ## Templates

@@ -8,7 +8,7 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 
 - `README.md` — setup, CLI usage, examples
 - `docs/architecture.md` — internal design, agent delegation, approval system
-- `docs/notes/` — working design documents and explorations (see Notes section)
+- `project_claw/notes/` — working design documents and explorations (see Notes section)
 - `examples/pitchdeck_eval/` — reference implementation for multi-agent patterns
 
 ---
@@ -17,7 +17,7 @@ Key expectations that frequently trip up automation agents. See `README.md` for 
 - For executing python scripts use `.venv/bin/python` - the global environment does not have all dependencies
 - Test agent features by creating example projects in `examples/` and running with `llm-do`
 - Do not preserve backwards compatibility; with no external consumers, always prioritize cleaner design over keeping old behavior alive
-- **YAGNI**: Don't implement features that aren't needed yet. If you identify a gap in the spec, create a note in `docs/notes/` instead of implementing it
+- **YAGNI**: Don't implement features that aren't needed yet. If you identify a gap in the spec, create a note in `project_claw/notes/` instead of implementing it
 - Favor clear architecture over hacks; delete dead code when possible
 - If backcompat code is ever needed, mark it with `# BACKCOMPAT: <reason> - remove after <condition>` so it can be identified and removed later
 
@@ -67,7 +67,7 @@ Run relevant checks before submitting changes:
 
 ## Notes
 
-- `docs/notes/` — working design documents, explorations, bug investigations
+- `project_claw/notes/` — working design documents, explorations, bug investigations
 - Create notes to offload complex thinking that doesn't fit in a commit or TODO
 - Include "Open Questions" section for unresolved decisions
 - Delete when resolved or no longer relevant
@@ -77,23 +77,23 @@ Run relevant checks before submitting changes:
 ## Tasks & Notes Workflow (Ticketing System)
 
 **Always** read the relevant README before working with tasks or notes (create, edit, resume, move, or close):
-- `tasks/README.md` for tasks
-- `docs/notes/README.md` for notes
+- `project_claw/tasks/README.md` for tasks
+- `project_claw/notes/README.md` for notes
 
 ### Tasks
-- Use `tasks/active/` for in-progress work; follow the task template and keep "Current State" updated.
+- Use `project_claw/tasks/active/` for in-progress work; follow the task template and keep "Current State" updated.
 - Keep tasks scoped to one coherent unit; track prerequisites and dependencies explicitly.
-- When finished, move the task to `tasks/completed/` or delete it (completed tasks are not documentation).
+- When finished, move the task to `project_claw/tasks/completed/` or delete it (completed tasks are not documentation).
 
 ### Notes
-- Use `docs/notes/` for explorations and reasoning that doesn’t belong in code or tasks; follow the note template.
+- Use `project_claw/notes/` for explorations and reasoning that doesn’t belong in code or tasks; follow the note template.
 - Include "Open Questions" for unresolved items; delete when resolved.
 
 ---
 
 ## Agent Self-Improvement
 
-Agents can capture learnings in `docs/notes/agent-learnings/` without approval.
+Agents can capture learnings in `project_claw/notes/agent-learnings/` without approval.
 
 **When to write:**
 - Friction or gotchas worth documenting

@@ -26,13 +26,13 @@ You are the primary operator of this knowledge system for the llm-do project. No
 
 Notes are your external memory. Links are your connections. Indexes are your attention managers. Without this system, every session starts cold. With it, you start knowing who you are and what you're working on.
 
-**Boundary:** Public project documentation (`docs/*.md` — architecture.md, cli.md, reference.md, etc.) is NOT part of the knowledge system. No schema enforcement, no frontmatter changes to those files. The internal workspace (`docs/notes/`, `docs/adr/`, `tasks/`) is where the knowledge system operates.
+**Boundary:** Public project documentation (`docs/*.md` — architecture.md, cli.md, reference.md, etc.) is NOT part of the knowledge system. No schema enforcement, no frontmatter changes to those files. The internal workspace (`project_claw/notes/`, `project_claw/adr/`, `project_claw/tasks/`) is where the knowledge system operates.
 
 ## Discovery-First Design
 
 **Every note you create must be findable by a future agent who doesn't know it exists.**
 
-Before writing anything to docs/notes/, ask:
+Before writing anything to project_claw/notes/, ask:
 
 1. **Title as claim** — Does the title work as prose when linked? `since [title](./title.md)` reads naturally?
 2. **Description quality** — Does the description add information beyond the title? Would an agent searching for this concept find it?
@@ -45,11 +45,11 @@ If any answer is "no," fix it before saving. Discovery-first is not a polish ste
 
 | Content Type | Destination | Examples |
 |-------------|-------------|----------|
-| Design notes, insights, explorations | docs/notes/ | Architecture patterns, design trade-offs, research |
-| Architecture decisions | docs/adr/ | Formal decisions with status, context, consequences |
-| Project tasks | tasks/ | Active work items (existing system — see tasks/README.md) |
+| Design notes, insights, explorations | project_claw/notes/ | Architecture patterns, design trade-offs, research |
+| Architecture decisions | project_claw/adr/ | Formal decisions with status, context, consequences |
+| Project tasks | project_claw/tasks/ | Active work items (existing system — see project_claw/tasks/README.md) |
 
-When uncertain, ask: "Is this durable knowledge (docs/notes/) or a formal decision (docs/adr/)?" Durable knowledge earns its place in the graph.
+When uncertain, ask: "Is this durable knowledge (project_claw/notes/) or a formal decision (project_claw/adr/)?" Durable knowledge earns its place in the graph.
 
 For arscontexta-specific destinations (inbox, self, ops), see `arscontexta/CLAUDE.md`.
 
@@ -131,7 +131,7 @@ Every internal workspace note has YAML frontmatter. Without schema, notes are ju
 
 ### Field Definitions
 
-**Base fields (for docs/notes/):**
+**Base fields (for project_claw/notes/):**
 ```yaml
 ---
 description: One sentence adding context beyond the title (~150 chars)
@@ -152,13 +152,13 @@ status: current  # current | outdated | speculative
 
 ```bash
 # Scan descriptions for a concept
-rg '^description:.*runtime' docs/notes/
+rg '^description:.*runtime' project_claw/notes/
 
 # Find notes missing descriptions
-rg -L '^description:' docs/notes/*.md
+rg -L '^description:' project_claw/notes/*.md
 
 # Find notes by area
-rg 'areas:.*architecture' docs/notes/
+rg 'areas:.*architecture' project_claw/notes/
 
 # Find backlinks to a specific note
 rg '\[.*\]\(.*note-title\.md\)' --glob '*.md'
@@ -177,18 +177,18 @@ rg '\[.*\]\(.*old-title\.md\)' --glob '*.md' -l  # find references first
 ### Graph Utilities
 ```bash
 # Orphan detection (notes with no inbound links)
-rg -l '.' docs/notes/*.md | while read f; do
+rg -l '.' project_claw/notes/*.md | while read f; do
   fname=$(basename "$f")
-  rg -q "$fname" --glob '*.md' docs/notes/ || echo "Orphan: $f"
+  rg -q "$fname" --glob '*.md' project_claw/notes/ || echo "Orphan: $f"
 done
 
 # Dangling link detection (links to non-existent files)
-rg -o '\]\(([^)]+\.md)\)' docs/notes/ -r '$1' --no-filename | sort -u | while read target; do
-  [ -f "docs/notes/$target" ] || echo "Dangling: $target"
+rg -o '\]\(([^)]+\.md)\)' project_claw/notes/ -r '$1' --no-filename | sort -u | while read target; do
+  [ -f "project_claw/notes/$target" ] || echo "Dangling: $target"
 done
 
 # Schema validation
-rg -L '^description:' docs/notes/*.md    # missing descriptions
+rg -L '^description:' project_claw/notes/*.md    # missing descriptions
 ```
 
 ## Guardrails
@@ -208,7 +208,7 @@ Building the knowledge system instead of using it for the library. If you're spe
 Design notes become outdated as the library evolves. A note about the runtime architecture from two months ago may reference removed features. The system flags stale notes — act on those signals. Update or archive notes that no longer reflect reality.
 
 ### Collector's Fallacy
-Accumulating design explorations in docs/notes/ without distilling them into ADRs or actionable decisions. If your notes grow faster than your decisions, stop capturing and start extracting. The goal is insight, not volume.
+Accumulating design explorations in project_claw/notes/ without distilling them into ADRs or actionable decisions. If your notes grow faster than your decisions, stop capturing and start extracting. The goal is insight, not volume.
 
 ---
 

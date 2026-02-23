@@ -148,6 +148,16 @@ Save the report next to the snapshot as `.ingest.md`:
 - Input:  `project_claw/sources/some-article.md`
 - Output: `project_claw/sources/some-article.ingest.md`
 
+## Step 6: Clean Up Working Copy
+
+Delete the `.working.md` file — it was a scratch space for /connect and is no longer needed:
+
+```bash
+rm "{input_path%.md}.working.md"
+```
+
+The connections found are preserved in the `.ingest.md` report. The working copy is disposable.
+
 ## Output Format
 
 The saved `.ingest.md` file should contain:

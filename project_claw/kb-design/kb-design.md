@@ -16,6 +16,7 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 
 ## Foundations
 
+- [files-not-database](./files-not-database.md) — files with git beat a database for agent KBs: universal interface, free versioning, zero infrastructure; derived indexes solve scale problems without replacing the source of truth
 - [document-types-should-be-verifiable](./document-types-should-be-verifiable.md) — design rationale: types assert checkable structural properties, not subject matter; base type + traits model inspired by gradual typing
 - [note-types](./note-types.md) — the spec implementing the above: base types, traits, migration from old flat types
 - [scenarios](./scenarios.md) — concrete use cases the knowledge system must serve
@@ -39,3 +40,13 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 
 - [link-contracts-framework](./link-contracts-framework.md) — source framework for systematic, testable linking
 - [text-testing-framework](./text-testing-framework.md) — source framework for automated text quality checks
+
+## Gaps
+
+- [retrieval-scoring-layer](./retrieval-scoring-layer.md) — speculative: metadata-aware reranking over qmd results. Now connected to files-not-database (derived index pattern), what-cludebot-teaches-us (staleness decay), three-space model (metabolic rates), and document-types-should-be-verifiable (type trustworthiness prerequisite). Promote to Foundations when/if validated.
+
+---
+
+Agent Notes:
+- 2026-02-23: connected files-not-database to what-works, what-cludebot-teaches-us, and the koylanai source. The "files as source of truth, derived indexes" pattern is a thread that runs through most of the Foundations and Evaluation sections — it's the implicit architectural assumption the whole KB rests on. Making it explicit via the files-not-database note strengthens the foundations.
+- 2026-02-23: connected retrieval-scoring-layer. Its core idea — per-type decay rates in retrieval — is anticipated by both cludebot (staleness decay) and the three-space model (metabolic rates). The note concretizes what those notes describe abstractly. Keeping in Gaps since it's still speculative, but it's well-grounded in existing thinking now.

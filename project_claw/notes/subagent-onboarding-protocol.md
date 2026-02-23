@@ -194,7 +194,7 @@ For spawning multiple similar subagents (from voooooogel):
 2. That subagent interviews parent about ALL tasks at once
 3. Subagent forks into N instances, each with full onboarding context
 
-This avoids N nearly-identical onboarding conversations.
+This avoids N nearly-identical onboarding conversations. [Spacebot](../sources/spacedriveapp-spacebot-ai-agent.working.md) implements this pattern in production: its "branches" inherit full channel context and fork into independent thinking processes, validating that context inheritance scales as an implicit onboarding mechanism for multi-user concurrent agents.
 
 ```
 agent_create("task_executor", instructions)

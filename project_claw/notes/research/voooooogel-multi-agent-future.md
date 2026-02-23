@@ -98,6 +98,10 @@ how much will this change if we get continual learning? well, it's hard to predi
 - Rigid role hierarchies
 - Complex retry/loop mechanisms built into harness
 
+### Concrete Implementation: Spacebot
+
+[Spacebot](../../sources/spacedriveapp-spacebot-ai-agent.working.md) (spacedriveapp/spacebot) is a concurrent AI agent framework built in Rust for multi-user environments. Its "branches" — independent thinking forks that inherit channel context — are a production implementation of the forking pattern described above. However, its five fixed process types (channels, branches, workers, compactor, cortex) are exactly the kind of hand-crafted hierarchy this analysis predicts will be dissolved by stronger models. The tension is instructive: Spacebot bets that concurrency requirements make the process-type decomposition structural rather than dissolvable.
+
 ---
 
 ## Quotes Worth Remembering

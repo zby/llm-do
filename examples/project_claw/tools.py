@@ -41,7 +41,7 @@ from llm_do.toolsets.shell import (
 
 KB_PATH = os.getenv("TRIAGE_KB_PATH", "docs/notes")
 KB_COLLECTION = os.getenv("TRIAGE_KB_COLLECTION", "notes")
-SNAPSHOT_DIR = os.getenv("TRIAGE_SNAPSHOT_DIR", ".cache/snapshots")
+SNAPSHOT_DIR = os.getenv("TRIAGE_SNAPSHOT_DIR", "project_claw/sources")
 GITHUB_REPOS = os.getenv("TRIAGE_GITHUB_REPOS", "")  # comma-separated, empty = all
 
 

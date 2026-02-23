@@ -10,6 +10,7 @@ type: index
 - [Backlinks — use cases and design space](./backlinks.md) *(note)* — Analysis of where backlinks (inbound link visibility) would concretely help agents working in the KB — use cases, trade-offs, and design options
 - [CLAUDE.md is a router, not a manual](./context-loading-strategy.md) *(note)* — CLAUDE.md should be a slim router to task-specific docs, not a comprehensive manual — because it's loaded every session
 - [Document types should be verifiable](./document-types-should-be-verifiable.md) *(note)* — Document types should assert verifiable structural properties, not subject matter — with a base type + traits model inspired by gradual and structural typing
+- [Files beat a database for agent knowledge bases](./files-not-database.md) *(note)* — Files with git beat a database for agent-facing knowledge bases — universal interface, free versioning, no infrastructure to maintain
 - [KB design](./kb-design.md) *(index)* — Index of notes about designing and building the knowledge base itself — what works, what doesn't, how to test it
 - [Link contracts framework — source material](./link-contracts-framework.md) *(note)* — Reference framework for systematic, testable linking — link contracts, intent taxonomy, automated checks, agent implications
 - [Links](./links.md) *(index)* — Index of notes about linking — how links work as decision points, navigation modes, link contracts, and automated link management
@@ -21,6 +22,7 @@ type: index
 - [Template areas field nudges index updates](./observations/template-areas-field-nudges-index-updates.md)
 - [Topic links from frontmatter are deterministic](./observations/topic-links-from-frontmatter-are-deterministic.md) *(note)* — The areas-to-Topics mapping is mechanical — now implemented as scripts/sync_topic_links.py
 - [Two kinds of navigation](./observations/two-kinds-of-navigation.md) *(note)* — Link-following is local with context; search is long-range with titles/descriptions; indexes bridge both modes
+- [Retrieval needs a metadata-aware scoring layer](./retrieval-scoring-layer.md) *(note)* — Metadata-aware reranking over semantic search — type-dependent recency decay, per-note overrides, SQLite index rebuilt from frontmatter
 - [Scenarios](./scenarios.md) *(note)* — Concrete use cases for the knowledge system — upstream change analysis and proposing our own changes
 - [Text testing framework — source material](./text-testing-framework.md) *(note)* — Reference framework for automated text testing — contracts per document type, test pyramid (deterministic/LLM rubric/corpus), production workflow
 - [Three-space agent memory maps to Tulving's taxonomy](./three-space-agent-memory-maps-to-tulving-taxonomy.md) — Agent memory split into knowledge, self, and operational spaces mirrors Tulving's semantic/episodic/procedural distinction

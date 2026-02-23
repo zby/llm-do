@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Snapshot X/Twitter posts, threads, and article posts to .cache/snapshots/.
+"""Snapshot X/Twitter posts, threads, and article posts to project_claw/sources/.
 
 Usage:
-    .venv/bin/python scripts/x_snapshot.py "https://x.com/<user>/status/<id>"
+    uv run project_claw/scripts/x_snapshot.py "https://x.com/<user>/status/<id>"
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 
 import xdk
 
-DEFAULT_SNAPSHOT_DIR = ".cache/snapshots"
+DEFAULT_SNAPSHOT_DIR = "project_claw/sources"
 DEFAULT_MAX_POSTS = 200
 
 POST_FIELDS = [
@@ -226,9 +226,9 @@ def _post_url(post: dict[str, Any], users: dict[str, dict[str, Any]]) -> str:
     return f"https://x.com/i/web/status/{post_id}"
 
 
-def _dedup_existing_snapshot(day_dir: Path, source_url: str) -> Path | None:
+def _dedup_existing_snapshot(out_dir: Path, source_url: str) -> Path | None:
     marker = f"source: {source_url}"
-    for existing in day_dir.glob("*.md"):
+    for existing in out_dir.glob("*.md"):
         try:
             header = existing.read_text(encoding="utf-8")[:1000]
         except OSError:
@@ -329,13 +329,12 @@ def snapshot_x_url(url: str, out_dir: str, max_posts: int) -> str:
 
     now = datetime.now(timezone.utc)
     timestamp = now.isoformat()
-    date_str = now.strftime("%Y-%m-%d")
-    day_dir = Path(out_dir) / date_str
-    day_dir.mkdir(parents=True, exist_ok=True)
+    dest = Path(out_dir)
+    dest.mkdir(parents=True, exist_ok=True)
 
-    existing = _dedup_existing_snapshot(day_dir, source_url)
+    existing = _dedup_existing_snapshot(dest, source_url)
     if existing:
-        return f"Already snapshotted today: {existing}"
+        return f"Already snapshotted: {existing}"
 
     client = xdk.Client(bearer_token=token)
 
@@ -376,8 +375,8 @@ def snapshot_x_url(url: str, out_dir: str, max_posts: int) -> str:
     )
     slug = f"{_slugify(base_title)}-{status_id}"
 
-    json_path = day_dir / f"{slug}.json"
-    md_path = day_dir / f"{slug}.md"
+    json_path = dest / f"{slug}.json"
+    md_path = dest / f"{slug}.md"
 
     payload = {
         "source": source_url,
@@ -409,7 +408,7 @@ def snapshot_x_url(url: str, out_dir: str, max_posts: int) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Snapshot X/Twitter post/thread/article text into .cache/snapshots.",
+        description="Snapshot X/Twitter post/thread/article text into project_claw/sources/.",
     )
     parser.add_argument(
         "url",

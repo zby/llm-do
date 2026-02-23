@@ -106,6 +106,18 @@ Synthesize an area:
 2. Identify notes that should connect
 3. Weave connections, update synthesis
 
+## Search Scope
+
+Discovery scans three collections under `project_claw/`:
+
+| Directory | Contains |
+|-----------|----------|
+| `project_claw/notes/` | Main KB — claims, design notes, research |
+| `project_claw/kb-design/` | Knowledge system methodology and architecture |
+| `project_claw/sources/` | Snapshotted external sources |
+
+Use all three directories when searching for candidates (keyword grep, description scan, link following). Index updates (Phase 5), directory index regeneration (Phase 7), and areas-topics sync (Gate 6) only apply to notes in `project_claw/notes/`.
+
 ## Workflow
 
 ### Phase 0: Sync Search Index
@@ -181,9 +193,9 @@ Using only search misses curated structure. Using only index misses semantic nei
 
 **Step 3: Keyword Search**
 
-For specific terms and exact matches:
+For specific terms and exact matches — search all collections:
 ```bash
-grep -r "term" project_claw/notes/ --include="*.md"
+grep -r "term" project_claw/notes/ project_claw/kb-design/ project_claw/sources/ --include="*.md"
 ```
 
 Use grep when:
@@ -346,7 +358,7 @@ When you edit an older note to add a reverse link, you MAY flag it for full reco
 
 **Check incoming links:**
 ```bash
-grep -r '\[.*\](.*note-name\.md)' project_claw/notes/ --include="*.md" | wc -l
+grep -r '\[.*\](.*note-name\.md)' project_claw/notes/ project_claw/kb-design/ project_claw/sources/ --include="*.md" | wc -l
 ```
 
 If >= 5, skip flagging.
@@ -504,11 +516,11 @@ If the synthesis is now wrong or incomplete, update it.
 
 ### Gate 5: Link Verification
 
-Verify every markdown link target exists. Never create links to non-existent files.
+Verify every markdown link target exists. Never create links to non-existent files. Targets may live in any of the three collections:
 
 ```bash
 # Check that a link target exists
-ls project_claw/notes/"target-name.md" 2>/dev/null
+ls project_claw/notes/"target-name.md" project_claw/kb-design/"target-name.md" project_claw/sources/"target-name.md" 2>/dev/null
 ```
 
 ### Gate 6: Areas-Topics Consistency

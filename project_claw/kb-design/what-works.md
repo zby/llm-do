@@ -35,7 +35,7 @@ The knowledge base is indexed as collections (`notes`, `adr`, `meta`, `docs`). T
 - `qmd vsearch "query"` — vector similarity, finds conceptual neighbors even with different vocabulary
 - `qmd query "query"` — hybrid: query expansion + keyword + vector + reranking (recommended default)
 
-In practice, `qmd query` with `--files` flag is the workhorse for `/connect` discovery — it finds candidates that `rg` misses because they use different terminology for the same concept. The two tools are complementary: `rg` for structured/exact queries, `qmd` for semantic/fuzzy discovery.
+In practice, `qmd query` with `--files` flag is the workhorse for `/connect` discovery — it finds candidates that `rg` misses because they use different terminology for the same concept. The two tools are complementary: `rg` for structured/exact queries, `qmd` for semantic/fuzzy discovery. Both tools embody the pattern described in [files beat a database](./files-not-database.md): files remain the source of truth while derived indexes (qmd's embeddings, rg's grep) provide capabilities files alone cannot.
 
 Keeping the index current: `qmd update && qmd embed` re-scans and re-embeds changed files. Both are idempotent and fast.
 

@@ -1,20 +1,29 @@
 ---
 name: ingest
-description: Ingest a snapshot file into the knowledge base. Copies snapshot, runs /connect for full discovery, then classifies source, summarises, identifies extractable value informed by connections, and recommends next action. Saves report as .ingest.md. Triggers on "/ingest", "/ingest [file]".
+description: Ingest a source into the knowledge base. Accepts a URL (GitHub, X/Twitter, or web page) or a path to an existing snapshot. URLs are snapshotted first, then the snapshot is classified, connected, and analysed. Saves report as .ingest.md. Triggers on "/ingest", "/ingest [url-or-file]".
 user-invocable: true
-allowed-tools: Read, Write, Grep, Glob, Bash, Skill
+allowed-tools: Read, Write, Grep, Glob, Bash, Skill, WebFetch
 context: fork
 model: opus
-argument-hint: "[file] — path to a snapshot .md file in .cache/snapshots/"
+argument-hint: "[url-or-file] — URL (https://...) or path to .md file in project_claw/sources/. No argument lists recent snapshots."
 ---
 
 ## EXECUTE NOW
 
 **Target: $ARGUMENTS**
 
-If no target provided, list `.cache/snapshots/` subdirectories and recent `.md` files (excluding .json, .ingest.md, .working.md), then ask which to ingest.
+Parse the target to determine what to do:
 
-If target provided, start Step 1 immediately.
+1. **No target** — list `project_claw/sources/` recent `.md` files (excluding .json, .ingest.md, .working.md), then ask which to ingest.
+
+2. **URL** (starts with `http://` or `https://`) — snapshot it first, then ingest the result:
+   - **GitHub issue/PR** (`github.com/.../issues/N` or `github.com/.../pull/N`) → run: `uv run project_claw/scripts/github_snapshot.py "<url>"`
+   - **X/Twitter post** (`x.com/.../status/...` or `twitter.com/.../status/...`) → run: `uv run project_claw/scripts/x_snapshot.py "<url>"`
+   - **Any other URL** → invoke `/snapshot-web <url>`
+
+   Parse the "Snapshot saved:" line from the output to get the file path. That becomes the input for Step 1.
+
+3. **File path** — start Step 1 immediately.
 
 **START NOW.**
 
@@ -29,8 +38,8 @@ that's sufficient for /connect to work with. No rewriting needed.
 cp "{input_path}" "{input_path%.md}.working.md"
 ```
 
-- Input:  `.cache/snapshots/2026-02-22/some-article.md`
-- Working: `.cache/snapshots/2026-02-22/some-article.working.md`
+- Input:  `project_claw/sources/some-article.md`
+- Working: `project_claw/sources/some-article.working.md`
 
 ## Step 2: Run /connect on the Working Copy
 
@@ -136,8 +145,8 @@ Pick ONE and be specific:
 
 Save the report next to the snapshot as `.ingest.md`:
 
-- Input:  `.cache/snapshots/2026-02-22/some-article.md`
-- Output: `.cache/snapshots/2026-02-22/some-article.ingest.md`
+- Input:  `project_claw/sources/some-article.md`
+- Output: `project_claw/sources/some-article.ingest.md`
 
 ## Output Format
 

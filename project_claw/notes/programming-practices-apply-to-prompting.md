@@ -15,7 +15,7 @@ Much of what we do in llm-do and this knowledge base is applying established pro
 
 **Progressive compilation.** We stabilise LLM behaviour into code as patterns emerge — the same move as compiling: freezing a flexible representation into a rigid, efficient one. [theory.md](../../docs/theory.md) frames this explicitly. The [crystallisation gradient](./crystallisation-learning-timescales.md) maps the spectrum from prompt tweaks through evals to deterministic modules. Unlike compilation, stabilisation is stochastic projection — each run samples a different valid implementation.
 
-**Testing.** We test prompts and templates the way we test code. But because prompts are probabilistic, this is harder: you have two testing surfaces instead of one. You test outputs (does the distribution of results meet expectations?) and you test the instructions themselves (are they consistent? unambiguous? sufficiently constraining?). The second surface exists because probabilistic execution creates a gap between what instructions say and what they produce — a gap that doesn't exist in deterministic code.
+**Testing.** We test prompts and templates the way we test code. But because prompts are probabilistic, this is harder: you have two testing surfaces instead of one. You test outputs (does the distribution of results meet expectations?) and you test the instructions themselves (are they consistent? unambiguous? sufficiently constraining?). The second surface exists because probabilistic execution creates a gap between what instructions say and what they produce — a gap that doesn't exist in deterministic code. The [text testing pyramid](../kb-design/observations/automated-tests-for-text.md) sketches what this looks like concretely: deterministic checks at the base, LLM rubric grading in the middle, corpus compatibility at the top.
 
 **Version control.** We version prompts, templates, and knowledge artifacts in git, treating them as source code. [Storing a specific LLM output](./storing-llm-outputs-is-stabilization.md) collapses a distribution to a point — freezing a value. Versioning the spec matters because regeneration is a new sample, not a deterministic rebuild.
 
@@ -27,7 +27,7 @@ Where prompts are probabilistic, practices get harder, not just different. Testi
 
 ## Why the practices transfer
 
-Both domains solve the same problems: making behaviour predictable, making systems composable, making artifacts verifiable. The underlying concepts (type theory, compilation, contracts) explain *why* a practice works in both settings. But the motivation is practical — these are things we do, not abstractions we admire.
+Both domains solve the same problems: making behaviour predictable, making systems composable, making artifacts verifiable. The underlying concepts (type theory, compilation, contracts) explain *why* a practice works in both settings. [Crystallisation systematises these transfers](./crystallisation-is-continuous-learning.md) — the accumulated prompt adjustments, output post-processing, and workflow changes that every deployed system accumulates are exactly these programming practices applied informally. The motivation is practical — these are things we do, not abstractions we admire.
 
 ## Open Questions
 
@@ -41,5 +41,10 @@ Relevant Notes:
 - [document types should be verifiable](../kb-design/document-types-should-be-verifiable.md) — quality criterion for document types
 - [theory](../../docs/theory.md) — conceptual foundation: hybrid VM, stabilise/soften, program sampling
 - [crystallisation: the missing middle](./crystallisation-learning-timescales.md) — progressive compilation in practice
+- [crystallisation is continuous learning](./crystallisation-is-continuous-learning.md) — synthesizes: the informal programming practices accumulated by every deployed system are what crystallisation systematises
 - [storing LLM outputs is stabilization](./storing-llm-outputs-is-stabilization.md) — version control practice applied to LLM outputs
 - [inspectable substrate](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) — design for testability applied to LLM artifacts
+- [automated tests for text](../kb-design/observations/automated-tests-for-text.md) — extends the testing discussion: concrete test pyramid for the doubled testing surface this note identifies
+
+Topics:
+- [index](./index.md)

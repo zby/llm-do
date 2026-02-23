@@ -1,6 +1,7 @@
 ---
 description: Crystallisation fills the gap between training and in-context learning — repo artifacts provide durable, inspectable adaptation with a verifiability gradient from prompt tweaks to deterministic code
-type: research
+type: note
+traits: [has-comparison]
 areas: [index]
 ---
 

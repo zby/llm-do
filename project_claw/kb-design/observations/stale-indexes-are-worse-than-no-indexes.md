@@ -1,6 +1,7 @@
 ---
 description: An agent trusts an index as exhaustive — a missing entry doesn't trigger search, it makes the note invisible
-type: insight
+type: note
+traits: [has-claim]
 areas: [kb-design, links]
 status: current
 ---

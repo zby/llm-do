@@ -1,6 +1,7 @@
 ---
 description: Approval broker design for event-stream UI with blocking approvals
-type: design
+type: note
+traits: [has-implementation]
 areas: [approvals-index]
 ---
 

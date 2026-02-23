@@ -1,6 +1,7 @@
 ---
 description: Choosing to keep a specific LLM output collapses a distribution to a point — the same stabilizing move the theory doc describes for code, applied to artifacts
-type: design
+type: note
+traits: [has-claim]
 areas: [index]
 status: speculative
 ---

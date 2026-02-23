@@ -1,6 +1,7 @@
 ---
 description: What llm-do adds on top of vanilla PydanticAI agents
-type: analysis
+type: note
+traits: [has-comparison, has-external-sources]
 areas: [pydanticai-upstream-index]
 ---
 

@@ -1,6 +1,7 @@
 ---
 description: Analysis of where backlinks (inbound link visibility) would concretely help agents working in the KB — use cases, trade-offs, and design options
-type: analysis
+type: note
+traits: [has-comparison]
 areas: [kb-design, links]
 status: speculative
 ---

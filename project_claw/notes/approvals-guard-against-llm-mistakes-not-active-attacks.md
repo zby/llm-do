@@ -1,6 +1,7 @@
 ---
 description: Approvals are a UI feature for catching LLM errors, not a security boundary — isolation is the security boundary
-type: insight
+type: note
+traits: [has-claim]
 areas: [approvals-index]
 status: current
 ---

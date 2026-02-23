@@ -1,6 +1,7 @@
 ---
 description: Concrete examples for each toolset state category, evaluating whether the proposed stateful flag + copy-before-run mechanism resolves each case
-type: analysis
+type: note
+traits: [has-comparison]
 areas: [pydanticai-upstream-index]
 status: current
 last_verified: 2026-02-18

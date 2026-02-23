@@ -43,7 +43,8 @@ Every internal workspace note has YAML frontmatter. Frontmatter makes notes quer
 | Field | Required | Constraints |
 |-------|----------|------------|
 | `description` | Yes | Max 200 chars, must add info beyond title |
-| `type` | No | Content type matching the template used (note, adr, index, source-review) |
+| `type` | No | Base type: `note` (default), `spec`, `review`, `index`, `adr`. See [note-types](kb-design/note-types.md) |
+| `traits` | No | Independently checkable properties: `has-claim`, `has-comparison`, `has-external-sources`, `has-implementation` |
 | `areas` | No | Array of index names this note belongs to |
 | `status` | No | current, outdated, speculative |
 

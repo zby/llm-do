@@ -1,6 +1,7 @@
 ---
 description: Standardizing truncation metadata for tool results
-type: design
+type: note
+traits: [has-comparison]
 areas: [index]
 ---
 

@@ -1,6 +1,7 @@
 ---
 description: Crystallisation systematises the out-of-band optimisations every deployed system accumulates — achieving continuous learning through versioned artifacts, whether human-driven or automated
-type: insight
+type: note
+traits: [has-claim]
 areas: [index]
 ---
 

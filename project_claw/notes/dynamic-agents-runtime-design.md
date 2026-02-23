@@ -1,6 +1,7 @@
 ---
 description: Design for runtime creation and invocation of dynamic workers
-type: design
+type: note
+traits: [has-implementation]
 areas:
   - index
 ---

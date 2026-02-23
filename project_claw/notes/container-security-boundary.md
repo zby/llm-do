@@ -1,6 +1,7 @@
 ---
 description: Using Docker containers as security boundary for tool execution
-type: design
+type: note
+traits: [has-comparison]
 areas: [approvals-index]
 ---
 

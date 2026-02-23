@@ -1,6 +1,7 @@
 ---
 description: The areas-to-Topics mapping is mechanical — now implemented as scripts/sync_topic_links.py
-type: insight
+type: note
+traits: [has-claim]
 areas: [kb-design, links]
 status: outdated
 ---

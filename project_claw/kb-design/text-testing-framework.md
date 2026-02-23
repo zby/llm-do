@@ -1,6 +1,7 @@
 ---
 description: Reference framework for automated text testing — contracts per document type, test pyramid (deterministic/LLM rubric/corpus), production workflow
-type: research
+type: note
+traits: [has-external-sources]
 areas: [kb-design]
 status: current
 ---

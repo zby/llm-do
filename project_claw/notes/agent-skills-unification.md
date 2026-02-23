@@ -1,6 +1,7 @@
 ---
 description: Aligning .agent format with Agent Skills standard specification
-type: design
+type: note
+traits: [has-comparison, has-external-sources]
 areas: [index]
 ---
 

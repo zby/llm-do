@@ -1,6 +1,7 @@
 ---
 description: Removing private PydanticAI dependency for message capture
-type: design
+type: note
+traits: [has-implementation]
 areas: [pydanticai-upstream-index]
 ---
 

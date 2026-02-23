@@ -1,6 +1,7 @@
 ---
 description: Structural prompts in templates (like areas: []) are more reliable than procedural rules in documentation — they're present at the moment of action
-type: insight
+type: note
+traits: [has-claim]
 areas: [kb-design]
 status: current
 ---

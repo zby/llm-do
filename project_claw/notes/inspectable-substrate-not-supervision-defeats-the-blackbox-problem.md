@@ -1,6 +1,7 @@
 ---
 description: Chollet frames agentic coding as ML producing blackbox codebases — crystallisation counters this not by requiring human review but by choosing a substrate (repo artifacts) that any agent can inspect, diff, test, and verify
-type: insight
+type: note
+traits: [has-claim, has-external-sources]
 areas: [index]
 status: current
 ---

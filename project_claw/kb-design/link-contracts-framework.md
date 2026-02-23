@@ -1,6 +1,7 @@
 ---
 description: Reference framework for systematic, testable linking — link contracts, intent taxonomy, automated checks, agent implications
-type: research
+type: note
+traits: [has-external-sources]
 areas: [kb-design, links]
 status: current
 ---

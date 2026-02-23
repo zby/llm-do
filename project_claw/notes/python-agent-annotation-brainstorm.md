@@ -1,6 +1,7 @@
 ---
 description: Brainstorm for Python-only worker definitions via decorators
-type: design
+type: note
+traits: [has-comparison]
 areas: [index]
 ---
 

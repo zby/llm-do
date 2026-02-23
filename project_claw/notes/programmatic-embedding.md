@@ -1,6 +1,7 @@
 ---
 description: How to embed llm-do in Python applications (API unstable)
-type: design
+type: note
+traits: [has-implementation]
 areas: [index]
 ---
 

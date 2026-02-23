@@ -1,6 +1,7 @@
 ---
 description: Document types should assert verifiable structural properties, not subject matter — with a base type + traits model inspired by gradual and structural typing
-type: insight
+type: note
+traits: [has-claim]
 areas: [kb-design]
 status: current
 ---

@@ -1,6 +1,7 @@
 ---
 description: Comparing MCP code mode with llm-do pure Python composite tools
-type: analysis
+type: note
+traits: [has-comparison, has-external-sources]
 areas: [index]
 ---
 

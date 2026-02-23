@@ -1,6 +1,7 @@
 ---
 description: Bidirectional setup conversation before subagent starts work
-type: design
+type: note
+traits: [has-implementation]
 areas: [index]
 ---
 

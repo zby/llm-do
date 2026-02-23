@@ -1,6 +1,7 @@
 ---
 description: Path-scoped preapproval policies for reducing approval prompts
-type: design
+type: note
+traits: [has-implementation]
 areas: [approvals-index]
 ---
 

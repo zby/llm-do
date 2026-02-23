@@ -1,6 +1,7 @@
 ---
 description: Concrete use cases for the knowledge system — upstream change analysis and proposing our own changes
-type: design
+type: note
+traits: []
 areas: [kb-design]
 status: current
 ---

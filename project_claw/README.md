@@ -16,39 +16,41 @@ The plan is to progressively port tooling to llm-do — search, connection-findi
 
 ## Structure
 
+This is the internal workspace — notes, decisions, explorations that accumulate during development. Each directory has an `index.md` listing its contents.
+
 ```
 project_claw/
-  notes/          — design notes, explorations, insights
-  adr/            — architecture decision records
-  sources/        — snapshots of external references
+  notes/          — design notes, explorations, insights        [index](./notes/index.md)
+  adr/            — architecture decision records                [index](./adr/index.md)
+  sources/        — snapshots of external references             [index](./sources/index.md)
+  kb-design/      — notes about the KB system itself             [index](./kb-design/index.md)
+  skills/         — KB skills (connect, ingest) — symlinked from .claude/skills/
+  scripts/        — KB helper scripts (index generation, topic sync, snapshots)
   code-reviews/   — automated code review output
-  kb-design/      — notes about the KB system itself
   tasks/          — task tracker (backlog, active, completed, recurring)
-  templates/      — writing scaffolds for all content types
-  indexes.md      — directory of topic indexes
+  templates/      — writing scaffolds for all content types      [index](./templates/index.md)
+  indexes.md      — directory of area indexes (curated, topical)
   WRITING.md      — detailed guide for creating and editing content
 ```
 
-## Project Documentation
+## Project documentation
 
-- [theory](../docs/theory.md) — theoretical framing: LLMs as probabilistic programs, hybrid VM, stabilise/soften, distribution shaping
-- [architecture](../docs/architecture.md) — internal architecture: runtime, registry, call scopes, toolsets, UI pipeline
-- [reference](../docs/reference.md) — API and usage reference for workers, tools, manifests, and configuration
+The public-facing project documentation lives in [`docs/`](../docs/). That's the curated material for users and contributors — theory, architecture, reference. This workspace is where that documentation gets developed: design notes explore ideas, ADRs record decisions, and the results get distilled into `docs/`. We link to it from here because KB notes frequently reference and build on the public docs.
+
+- [theory](../docs/theory.md) — LLMs as probabilistic programs, hybrid VM, stabilise/soften, distribution shaping
+- [architecture](../docs/architecture.md) — runtime, registry, call scopes, toolsets, UI pipeline
+- [reference](../docs/reference.md) — API and usage reference for agents, tools, manifests, configuration
 - [scopes](../docs/scopes.md) — the three scopes (runtime, call, frame) governing resource lifecycle and state isolation
 - [cli](../docs/cli.md) — CLI reference for `llm-do` command and manifest execution
-- [ui](../docs/ui.md) — UI event pipeline: worker execution separated from rendering across Textual and headless modes
-- [bootstrapping](../docs/bootstrapping.md) — (experimental) meta-worker that creates other workers from natural language descriptions
-
-## Architecture Decisions
-
-See [ADR index](./adr/index.md).
+- [ui](../docs/ui.md) — UI event pipeline: agent execution separated from rendering across Textual and headless modes
+- [bootstrapping](../docs/bootstrapping.md) — (experimental) meta-agent that creates other agents from natural language descriptions
 
 ## Indexes
 
 Two kinds:
 
-- **Directory indexes** (`index.md` in each collection) — auto-generated flat listings. Rebuild with `uv run scripts/generate_notes_index.py <directory>`.
-- **Area indexes** (e.g. `notes/approvals-index.md`) — curated navigation hubs with editorial context. Updated by `/connect` or manually.
+- **Directory indexes** (`index.md` in each collection) — auto-generated flat listings. Rebuild with `uv run project_claw/scripts/generate_notes_index.py <directory>`.
+- **Area indexes** (e.g. `notes/approvals-index.md`) — curated navigation hubs with editorial context. Updated by `/connect` or manually. See [indexes.md](./indexes.md) for the full list.
 
 ## Search (qmd)
 

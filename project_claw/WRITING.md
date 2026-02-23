@@ -99,7 +99,7 @@ Every link must point to a real file. Before creating a link, verify the target 
 
 There are two kinds of indexes:
 
-- **Directory indexes** (`index.md` in each collection) — auto-generated flat listings of all files with title, description, and type. Rebuild with `uv run scripts/generate_notes_index.py <directory>`.
+- **Directory indexes** (`index.md` in each collection) — auto-generated flat listings of all files with title, description, and type. Rebuild with `uv run project_claw/scripts/generate_notes_index.py <directory>`.
 - **Area indexes** (e.g. `approvals-index.md`) — curated navigation hubs with editorial context, grouping, and open questions. Updated by /connect or manually.
 
 The rest of this section covers area indexes.

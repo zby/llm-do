@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 # Make the script importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "project_claw" / "scripts"))
 from sync_topic_links import (
     build_topics_section,
     find_index_relpath,

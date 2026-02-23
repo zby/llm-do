@@ -359,7 +359,7 @@ indexes are synthesis hubs, not just indexes.
 
 Read `project_claw/indexes.md` — the index of indexes. For each index listed, ask: "does this note belong here?" This prevents silent omissions where a note is relevant to an index but never gets added.
 
-If the note should belong to an index it doesn't yet claim, add the index name to the note's `areas:` frontmatter field, then run `uv run scripts/sync_topic_links.py` on the note to update its Topics footer.
+If the note should belong to an index it doesn't yet claim, add the index name to the note's `areas:` frontmatter field, then run `uv run project_claw/scripts/sync_topic_links.py` on the note to update its Topics footer.
 
 **Step 2: Update the indexes this note belongs to.**
 
@@ -470,7 +470,7 @@ The test: would this help a future agent navigate more effectively?
 After all connections and area index updates are done, regenerate the directory index for the collection the target note belongs to. Determine the collection directory from the target note's path (e.g. `project_claw/notes/foo.md` → `project_claw/notes`):
 
 ```bash
-uv run scripts/generate_notes_index.py <collection-directory>
+uv run project_claw/scripts/generate_notes_index.py <collection-directory>
 ```
 
 Directory indexes are auto-generated flat listings (title, description, type) — distinct from the curated area indexes updated in Phase 5. This ensures new notes appear in the directory immediately.
@@ -516,7 +516,7 @@ ls project_claw/notes/"target-name.md" 2>/dev/null
 Run the sync script on notes you've modified to ensure `Topics:` footer matches `areas:` frontmatter:
 
 ```bash
-uv run scripts/sync_topic_links.py project_claw/notes/target-note.md
+uv run project_claw/scripts/sync_topic_links.py project_claw/notes/target-note.md
 ```
 
 This is deterministic — `areas:` is the single source of truth. The script generates/replaces the `Topics:` footer section. Notes with no `areas:` field get no Topics section. Accepts files or directories.

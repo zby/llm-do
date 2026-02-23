@@ -374,7 +374,7 @@ indexes are synthesis hubs, not just indexes.
 
 Read `docs/indexes.md` — the index of indexes. For each index listed, ask: "does this note belong here?" This prevents silent omissions where a note is relevant to an index but never gets added.
 
-If the note should belong to an index it doesn't yet claim, add the index name to the note's `areas:` frontmatter field, then run `python3 scripts/sync_topic_links.py` on the note to update its Topics footer.
+If the note should belong to an index it doesn't yet claim, add the index name to the note's `areas:` frontmatter field, then run `python3 project_claw/scripts/sync_topic_links.py` on the note to update its Topics footer.
 
 **Step 2: Update the indexes this note belongs to.**
 
@@ -521,7 +521,7 @@ ls {{ notes_path }}/"target-name.md" 2>/dev/null
 Run the sync script on notes you've modified to ensure `Topics:` footer matches `areas:` frontmatter:
 
 ```bash
-python3 scripts/sync_topic_links.py {{ notes_path }}/target-note.md
+python3 project_claw/scripts/sync_topic_links.py {{ notes_path }}/target-note.md
 ```
 
 This is deterministic — `areas:` is the single source of truth. The script generates/replaces the `Topics:` footer section. Notes with no `areas:` field get no Topics section. Accepts files or directories.

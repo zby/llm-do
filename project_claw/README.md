@@ -1,10 +1,10 @@
 # Project Claw
 
-A [Claw](./sources/simon-willison-karpathy-claws.md) — a personal AI-assisted system that evolves with use — for llm-do's design history. Also a live example of the crystallisation pattern it documents.
+A [Claw](./sources/simon-willison-karpathy-claws.md) — an AI-assisted system that accumulates context and evolves with use — scoped to the llm-do project. Also a live example of the crystallisation pattern it documents.
 
 ## Why this exists
 
-**We need it.** llm-do's design evolves across sessions. Without persistent notes, decisions, and indexes, every session starts cold. Project Claw captures what we learn so we can build on it.
+**The memory is the system.** An LLM is stateless per session. Without persistent context, every session starts cold — same questions, same rediscovery, no compounding. The knowledge base is what turns a capable but amnesiac assistant into something that builds on itself. Notes, decisions, indexes, and search are the core of a Claw — the LLM is the engine, but the KB is the continuity.
 
 **It showcases crystallisation.** A knowledge base for a project must evolve with that project — exactly the stabilise/soften cycle described in `docs/theory.md`. Notes start as freeform LLM-written explorations (soft), patterns get extracted into templates and indexes (stabilised), and when requirements shift, rigid structures get rethought (softened again). The KB itself follows the crystallisation gradient it documents.
 

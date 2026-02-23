@@ -14,7 +14,7 @@ The [bitter lesson](../sources/wikipedia-bitter-lesson.md) says general methods 
 
 **Vision features** (SIFT, Haar cascades, Canny edge detection) had mathematical formulations and provable properties — scale invariance, rotation invariance, formal optimality criteria. They looked like exact solutions. But learned representations demolished them. The bitter lesson won.
 
-**Calculators** (arithmetic, sorting, cryptography) implement algorithms for formally specified problems. No amount of scaling makes a neural net more reliable at multiplying large numbers. The bitter lesson doesn't apply.
+**Calculators** (arithmetic, sorting, cryptography) implement algorithms for formally specified problems. It's irrational to bet on emergent reliability via scale when deterministic code gives you perfect correctness at near-zero cost. The bitter lesson doesn't apply.
 
 Both are narrow. Both are human-engineered. The difference isn't scope — it's whether the specification fully captures the problem.
 

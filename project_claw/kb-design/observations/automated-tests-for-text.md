@@ -10,7 +10,7 @@ status: current
 
 Text artifacts can be tested like software if you define contracts per document type. The same test pyramid applies: cheap deterministic checks at the base, LLM-based rubric grading in the middle, cross-document corpus checks at the top.
 
-We have note types now (analysis, design, review, etc.). Each type could have its own contracts — an analysis needs different things than an insight or a spec.
+Since [document types should be verifiable](../document-types-should-be-verifiable.md), each type and trait asserts a checkable structural property — and those properties are exactly what testing contracts should verify. A `spec` needs Design/Implementation sections; `has-claim` needs an assertive title. The type system and the test pyramid are two sides of the same coin: types define what to check, tests do the checking.
 
 Key principle: build contracts from real failures, not from a taxonomy of possible checks. Same way you build a test suite — add a test when something breaks, not before.
 

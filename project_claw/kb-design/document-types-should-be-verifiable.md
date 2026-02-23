@@ -18,9 +18,9 @@ The test: after reading the type, can you say something concrete about the docum
 
 In programming, types are useful because the compiler enforces them. If nothing checked that a `List` is actually a list, the type annotation would be decoration. The value of a type comes from enforcement — something in the system acts on it.
 
-Here, the "compiler" is a mix of agents and scripts. An agent reading `type: spec` can decide to implement from it. A script can grep for `has-claim` to find citable arguments. But they can only do this if the type asserts something checkable. `type: design` gives them nothing to act on — every note in a design KB is "about design." An unverifiable type is like an unenforced type annotation: technically present, practically invisible.
+Here, the "compiler" is a mix of agents and scripts. An agent reading `type: spec` can decide to implement from it. A script can grep for `has-claim` to find citable arguments. But they can only do this if the type asserts something checkable. `type: design` gives them nothing to act on — every note in a design KB is "about design." An unverifiable type is like an unenforced type annotation: technically present, practically invisible. The [text testing pyramid](./observations/automated-tests-for-text.md) sketches what enforcement could look like in practice: deterministic checks for structural contracts, LLM rubrics for judgment-dependent traits.
 
-Types guide what the processor — the [hybrid VM](../../docs/theory.md) — can do with the document. A `spec` tells an agent it can build against this. A `has-comparison` tells it there are alternatives to choose between. The type is only useful if the processor can trust it, and trust requires the ability to check.
+Types guide what the processor — the [hybrid VM](../../docs/theory.md) — can do with the document. A `spec` tells an agent it can build against this. A `has-comparison` tells it there are alternatives to choose between. Since [agents navigate by deciding what to read next](./observations/agents-navigate-by-deciding-what-to-read-next.md), types and traits are precisely the hints that make those decisions informed rather than blind — the type tells the agent what it can do with the document *before opening it*. The type is only useful if the processor can trust it, and trust requires the ability to check.
 
 ## But our processor is stochastic
 
@@ -28,7 +28,7 @@ In conventional programming, types are crisp because the processor is determinis
 
 Our processor is a [probabilistic VM](../../docs/theory.md) — an LLM that interprets specifications stochastically. This has a direct consequence: type *assignment* is also stochastic. An agent classifying a document performs a stochastic projection — the same document might be classified differently by different agents, or even the same agent on different runs. The fuzziness isn't a bug in the type system. It's a consequence of the processor being probabilistic.
 
-This means we need types that are useful despite fuzziness — types that assert structural properties you can check, even if the checking requires judgment rather than proof.
+This means we need types that are useful despite fuzziness — types that assert structural properties you can check, even if the checking requires judgment rather than proof. Type assignment is itself a case of [storing an LLM output as stabilization](../notes/storing-llm-outputs-is-stabilization.md) — choosing to label a document `type: spec` collapses a distribution of possible classifications to a single point.
 
 ## What went wrong with flat types
 
@@ -69,7 +69,7 @@ A note can satisfy multiple traits without conflict. What the old system called 
 
 ## The crystallisation gradient
 
-`note` is the base type that makes no structural claim — like `Any` in a gradually typed language. This connects to the [crystallisation gradient](../../docs/theory.md): just as code starts stochastic and stabilizes to deterministic, documents start untyped and gain type information as they mature.
+`note` is the base type that makes no structural claim — like `Any` in a gradually typed language. This connects to the [crystallisation gradient](../notes/crystallisation-learning-timescales.md): just as code starts stochastic and stabilizes to deterministic, documents start untyped and gain type information as they mature.
 
 1. New content enters as `type: note` — soft, no structural claims
 2. Traits accumulate as the document develops — `has-claim` when the title becomes an assertion, `has-implementation` when code sketches appear
@@ -97,6 +97,16 @@ Since types are assigned by a stochastic processor, the system must degrade grac
 - Nothing should break if a type or trait is missing or incorrect
 
 The practical test: an agent that ignores the type field entirely and reads every document should still work — just less efficiently. Types are an optimization for navigation, not a correctness requirement.
+
+---
+
+Relevant Notes:
+- [note-types](./note-types.md) — the spec implementing this design: base types, traits, and the migration table from old flat types
+- [automated-tests-for-text](./observations/automated-tests-for-text.md) — enables enforcement: the test pyramid provides the "compiler" for type contracts (deterministic checks for structure, LLM rubrics for judgment-dependent traits)
+- [storing-llm-outputs-is-stabilization](../notes/storing-llm-outputs-is-stabilization.md) — grounds the stochastic processor argument: type assignment is itself a stabilization decision, and the tolerance of misclassification mirrors the generator/verifier pattern
+- [agents-navigate-by-deciding-what-to-read-next](./observations/agents-navigate-by-deciding-what-to-read-next.md) — types and traits are the navigation hints this note describes; they tell agents what a document offers before opening it
+- [crystallisation-learning-timescales](../notes/crystallisation-learning-timescales.md) — the crystallisation gradient that the type maturation path mirrors: `note` is untyped, traits accumulate, base types promote
+- [001-generate-topic-links-from-frontmatter](./adr/001-generate-topic-links-from-frontmatter.md) — precedent: when a mapping is verifiable and deterministic (areas -> Topics), it was automated; the same principle drives the type system design
 
 Topics:
 - [kb-design](./kb-design.md)

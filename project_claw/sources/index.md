@@ -13,3 +13,5 @@ type: index
 - [Ingest: Spacebot — AI Agent for Teams and Communities](./spacedriveapp-spacebot-ai-agent.ingest.md) *(tool-announcement)*
 - [Spacebot: AI Agent for Teams and Communities](./spacedriveapp-spacebot-ai-agent.md) *(web-page)*
 - [Spacebot: AI Agent for Teams and Communities](./spacedriveapp-spacebot-ai-agent.working.md) *(web-page)*
+- [The Bitter Lesson](./wikipedia-bitter-lesson.md) *(encyclopedia-article)*
+- [The Bitter Lesson](./wikipedia-bitter-lesson.working.md) *(encyclopedia-article)*

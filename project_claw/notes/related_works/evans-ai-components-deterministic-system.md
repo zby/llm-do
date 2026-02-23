@@ -142,7 +142,7 @@ Evans' article validates llm-do's core approach ("extend with LLMs, stabilize wi
 3. How to generate and freeze taxonomies
 4. Phase markers in worker configuration
 
-The key insight: LLMs are excellent classifiers but unreliable modelers. Design systems that leverage this asymmetry.
+The key insight: LLMs are excellent classifiers but unreliable modelers. Design systems that leverage this asymmetry. [The bitter lesson](../../sources/wikipedia-bitter-lesson.md) provides the counter-argument: general-purpose methods scaling with computation have historically outperformed hand-crafted domain knowledge, which suggests that freezing human-designed taxonomies may be a temporary engineering expedient rather than a durable design principle. Whether Evans' approach survives as a wise division of labor or gets dissolved by scaling model capability is an open question.
 
 ## References
 

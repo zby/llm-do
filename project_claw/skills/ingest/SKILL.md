@@ -2,7 +2,7 @@
 name: ingest
 description: Ingest a source into the knowledge base. Accepts a URL (GitHub, X/Twitter, or web page) or a path to an existing snapshot. URLs are snapshotted first, then the snapshot is classified, connected, and analysed. Saves report as .ingest.md. Triggers on "/ingest", "/ingest [url-or-file]".
 user-invocable: true
-allowed-tools: Read, Write, Grep, Glob, Bash, Skill, WebFetch
+allowed-tools: Read, Write, Grep, Glob, Bash, Skill
 context: fork
 model: opus
 argument-hint: "[url-or-file] — URL (https://...) or path to .md file in project_claw/sources/. No argument lists recent snapshots."

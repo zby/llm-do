@@ -18,6 +18,7 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 
 - [scenarios](./scenarios.md) — concrete use cases the knowledge system must serve
 - [note-types](./note-types.md) — taxonomy of the type field for docs/notes/ frontmatter
+- [context-loading-strategy](./context-loading-strategy.md) — CLAUDE.md should be a slim router, not a manual; match instruction specificity to loading frequency
 
 ## Observations
 

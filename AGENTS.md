@@ -93,20 +93,7 @@ Run relevant checks before submitting changes:
 
 ## Agent Self-Improvement
 
-Agents can capture learnings in `project_claw/notes/agent-learnings/` without approval.
-
-**When to write:**
-- Friction or gotchas worth documenting
-- Patterns that should become conventions
-- Corrections received that reveal missing guidance
-- Tool-specific behaviors worth codifying
-
-**Guidelines:**
-- Don't interrupt the current task — jot quickly and continue
-- Keep notes brief and actionable
-- One learning per note
-
-Learnings are periodically reviewed and promoted to AGENTS.md, tool READMEs, or architecture docs.
+See "When to Write a Note" in `CLAUDE.md` for the full policy. Agent-initiated notes go to `project_claw/notes/agent-learnings/` — notes only, no tasks or ADRs.
 
 ---
 

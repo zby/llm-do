@@ -1,18 +1,63 @@
 # Instructions for Claude and AI Assistants
 
-Read and follow all guidance in `AGENTS.md`.
+## Key References
 
-## Documentation Examples
+- `README.md` — setup, CLI usage, examples
+- `docs/architecture.md` — internal design, agent delegation, approval system
+- `project_claw/notes/` — working design documents and explorations
+- `examples/pitchdeck_eval/` — reference implementation for multi-agent patterns
+
+## Development
+
+- For executing python scripts use `uv run` - the global environment does not have all dependencies
+- Test agent features by creating example projects in `examples/` and running with `llm-do`
+- Do not preserve backwards compatibility; with no external consumers, always prioritize cleaner design over keeping old behavior alive
+- **YAGNI**: Don't implement features that aren't needed yet. If you identify a gap in the spec, create a note in `project_claw/notes/` instead of implementing it
+- Favor clear architecture over hacks; delete dead code when possible
+- If backcompat code is ever needed, mark it with `# BACKCOMPAT: <reason> - remove after <condition>` so it can be identified and removed later
+
+### Documentation Examples
 
 When writing examples that use live models:
 - Use `anthropic:claude-haiku-4-5` as the primary model (cost-effective)
 - Include `openai:gpt-4o-mini` as an alternative
 - README examples should always show execution with live models, not placeholders
 
-## Git Usage
+### Agent Design
+
+- Keep each agent focused on a single unit of work; use `call_agent` for sub-tasks
+- Document available tools in `instructions` so models know how to call them
+
+## Architecture & Design Discussions
+
+When working on code architecture, interface design, or system modeling, act as a **full research collaborator** rather than a terse advisor. This means:
+
+- Speak at length about design trade-offs, alternatives considered, and reasoning
+- Surface your own concerns, hunches, and open questions proactively
+- Engage with the human's ideas critically — push back, extend, or redirect as needed
+- Share and probe mental models — how you conceptualize the system, where the boundaries are, what analogies inform your thinking
+- Treat the conversation as joint exploration, not Q&A
+
+This collaborative mode applies to: runtime design, API boundaries, data flow, abstraction choices, naming conventions, and similar structural decisions. For routine implementation tasks, the standard concise style remains appropriate.
+
+## Quality Checks
+
+Run relevant checks before submitting changes:
+- **Lint**: `uv run ruff check .`
+- **Typecheck**: `uv run mypy llm_do`
+- **Tests**: `uv run pytest` — all tests must pass. Tests use dummy models, no API calls needed.
+- **Inline snapshots**: when changing `snapshot(...)` assertions, run `uv run pytest <target> --inline-snapshot=fix` and review rewritten diffs before final test runs.
+
+**Never claim checks passed unless they were actually run.** If checks cannot be run, explicitly state why.
+
+## Git
 
 - Do not use `git -C <path>` - it complicates approval rules
 - Assume you are already in the project directory and run git commands directly
+- **Never** `git add -A` — review `git status` and stage specific files
+- Check `git diff` before committing
+- **Never** use `git reset --hard` or force-push without explicit permission
+- Prefer safe alternatives: `git revert`, new commits, temporary branches
 
 ---
 
@@ -28,7 +73,7 @@ When writing examples that use live models:
 |-------------|-------------|
 | Design notes, insights, explorations | `project_claw/notes/` |
 | Architecture decisions | `project_claw/adr/` |
-| Project tasks | `project_claw/tasks/` |
+| Project tasks | `project_claw/tasks/` (read `project_claw/tasks/README.md` before creating) |
 | KB design & methodology | `project_claw/kb-design/` |
 | External source snapshots | `project_claw/sources/` |
 
@@ -70,5 +115,7 @@ rg '\[.*\]\(.*note-title\.md\)' --glob '*.md'
 - The vault serves the library, not the other way around
 
 ---
+
+Stay small, stay testable, trust the LLM.
 
 For the arscontexta processing pipeline, skills, operational space, and session rhythm, see `arscontexta/CLAUDE.md`.

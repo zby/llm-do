@@ -43,8 +43,27 @@ project_claw/
 
 See [ADR index](./adr/index.md).
 
+## Indexes
+
+Two kinds:
+
+- **Directory indexes** (`index.md` in each collection) — auto-generated flat listings. Rebuild with `uv run scripts/generate_notes_index.py <directory>`.
+- **Area indexes** (e.g. `notes/approvals-index.md`) — curated navigation hubs with editorial context. Updated by `/connect` or manually.
+
+## Search (qmd)
+
+Collections: notes, adr, kb-design, sources, code-reviews, tasks-active, tasks-backlog, tasks-recurring, arscontexta, docs. Completed tasks intentionally excluded.
+
+```bash
+qmd query "search terms"     # hybrid search with reranking
+qmd search "search terms"    # BM25 keyword search
+qmd update && qmd embed      # re-index after changes
+```
+
+## Agent-initiated notes
+
+Agent observations during work go to `notes/agent-learnings/` — low friction, no need to read WRITING.md. Periodically reviewed and promoted to the main KB or deleted.
+
 ## Writing
 
-Read [WRITING.md](./WRITING.md) before creating or editing KB content — templates, frontmatter, links, and quality checks.
-
-See `CLAUDE.md` in the repo root for the routing table and search patterns.
+Read [WRITING.md](./WRITING.md) before creating or editing main KB content — templates, frontmatter, links, and quality checks.

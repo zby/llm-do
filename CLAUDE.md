@@ -65,6 +65,13 @@ Run relevant checks before submitting changes:
 
 **If it won't exist next session, write it down now.**
 
+## How it loads
+
+- **`CLAUDE.md`** (this file) — always loaded. Routing table, search patterns, guardrails.
+- **`project_claw/WRITING.md`** — read on demand when creating/editing KB content.
+- **Skills** (`.claude/skills/`) — descriptions always loaded; skill bodies loaded on invoke.
+- See [context-loading-strategy](project_claw/kb-design/context-loading-strategy.md) for design rationale.
+
 **Boundary:** Public project documentation (`docs/*.md`) is NOT part of the knowledge system. The internal workspace (`project_claw/`) is where the knowledge system operates.
 
 ## Where Things Go

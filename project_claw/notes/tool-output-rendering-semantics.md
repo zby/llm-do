@@ -1,5 +1,7 @@
 ---
 description: Semantic render hints for structured tool output display
+type: design
+areas: [index]
 ---
 
 # Tool Output Rendering Semantics

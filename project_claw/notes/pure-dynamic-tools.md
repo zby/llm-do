@@ -1,5 +1,7 @@
 ---
 description: LLM-authored tools that can only call agents, enabling safe dynamic orchestration
+type: design
+areas: [index]
 ---
 
 # Pure Dynamic Tools

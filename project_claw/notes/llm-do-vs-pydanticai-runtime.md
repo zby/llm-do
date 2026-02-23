@@ -1,5 +1,6 @@
 ---
 description: What llm-do adds on top of vanilla PydanticAI agents
+type: analysis
 areas: [pydanticai-upstream-index]
 ---
 

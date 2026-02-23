@@ -16,5 +16,5 @@ Review `llm_do/` as a whole - SOLID principles require holistic analysis of modu
 
 ## Output
 
-Record findings in `docs/notes/reviews/review-solid.md`.
+Record findings in `project_claw/code-reviews/review-solid.md`.
 

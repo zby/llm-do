@@ -1,5 +1,7 @@
 ---
 description: Aligning .agent format with Agent Skills standard specification
+type: design
+areas: [index]
 ---
 
 # Agent Skills Standard Unification

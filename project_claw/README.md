@@ -21,6 +21,7 @@ project_claw/
   notes/          — design notes, explorations, insights
   adr/            — architecture decision records
   sources/        — snapshots of external references
+  code-reviews/   — automated code review output
   kb-design/      — notes about the KB system itself
   tasks/          — task tracker (backlog, active, completed, recurring)
   templates/      — writing scaffolds for all content types

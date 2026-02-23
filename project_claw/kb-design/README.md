@@ -4,7 +4,7 @@ Observations and design work toward a knowledge base for llm-do's design history
 
 ## Goal
 
-Build a knowledge base that applies llm-do's own ideas — [crystallisation](../theory.md), stabilization, the generator/verifier pattern — to managing the project's design notes, decisions, and architecture. The knowledge base is both a practical tool and a showcase of the concepts from theory.md.
+Build a knowledge base that applies llm-do's own ideas — [crystallisation](../../docs/theory.md), stabilization, the generator/verifier pattern — to managing the project's design notes, decisions, and architecture. The knowledge base is both a practical tool and a showcase of the concepts from theory.md.
 
 ## Constraint: Claude Code as runtime
 

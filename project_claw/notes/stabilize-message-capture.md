@@ -1,5 +1,7 @@
 ---
 description: Removing private PydanticAI dependency for message capture
+type: design
+areas: [pydanticai-upstream-index]
 ---
 
 # Stabilize Message Capture Without Private _agent_graph

@@ -10,16 +10,17 @@ Working documents for exploration, design thinking, and capturing insights.
 
 ## Usage
 
-- **Creating**: Add to `docs/notes/` with YAML frontmatter (see below)
-- **Promoting**: Move to `docs/adr/background/` when a note becomes foundational to a design decision
-- **Referencing**: Link from AGENTS.md or tasks when the note informs decisions
+- **Creating**: Add to `project_claw/notes/` with YAML frontmatter (see below)
+- **Promoting**: Move to `project_claw/adr/` when a note becomes foundational to a design decision
+- **Referencing**: Link from CLAUDE.md or tasks when the note informs decisions
 
 ## Subdirectories
 
 - `agent-learnings/` — staging area for agent-discovered insights
 - `meta/` — upstream proposals and cross-project concerns
 - `research/` — external research analysis and literature review
-- `reviews/` — code review notes and audits
+
+Code reviews live in `project_claw/code-reviews/`, not here.
 
 ## Frontmatter
 

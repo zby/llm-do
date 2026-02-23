@@ -1,5 +1,7 @@
 ---
 description: Brainstorm for Python-only worker definitions via decorators
+type: design
+areas: [index]
 ---
 
 # Python Worker Annotation Brainstorm

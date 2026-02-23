@@ -36,4 +36,4 @@ Currently refactoring other parts of the system. This is a contained change that
 ## References
 
 - **File**: `llm_do/ui/parser.py:36-153`
-- **Analysis**: `docs/notes/reviews/fowler.md` (Critical item #1 in UI Code section)
+- **Analysis**: `project_claw/code-reviews/fowler.md` (Critical item #1 in UI Code section)

@@ -1,5 +1,7 @@
 ---
 description: Simplifying Python embedding with a quick_run helper that collapses 15 lines of wiring to 1-3
+type: design
+areas: [index]
 ---
 
 # Execution Mode Scripting Simplification

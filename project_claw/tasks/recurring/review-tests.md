@@ -30,10 +30,10 @@ Process:
    For each file, add 1-2 sentences on the contract it protects.
 2) Obsolescence scan: find tests referencing removed APIs, deprecated flags, brittle error strings, or internal call order. Capture intent and whether it is still relevant.
 3) Action plan (before edits): group into KEEP/REWRITE/DELETE/CONSOLIDATE with justification and risk.
-   - Record the inventory + plan in `docs/notes/reviews/review-tests.md` before any code changes.
+   - Record the inventory + plan in `project_claw/code-reviews/review-tests.md` before any code changes.
 4) Apply changes iteratively: small patches per file/theme; rerun tests each time; keep assertions on stable outcomes (public outputs, exception types, state transitions). Follow `tests/README.md` patterns (TestModel/custom runner; avoid real models unless required).
 5) Deliverables:
-   - Report at `docs/notes/reviews/review-tests.md`:
+   - Report at `project_claw/code-reviews/review-tests.md`:
      - Summary counts (kept/rewritten/deleted)
      - Contracts covered
      - Gaps/follow-ups
@@ -51,9 +51,9 @@ Output format in chat:
 - [ ] Obsolescence scan notes captured
 - [ ] Action plan agreed
 - [ ] Iterative patches with `uv run pytest`
-- [ ] Report written to `docs/notes/reviews/review-tests.md`
+- [ ] Report written to `project_claw/code-reviews/review-tests.md`
 
 ## Output
 
-Record findings in `docs/notes/reviews/review-tests.md`. Start with inventory + action plan and note that no edits have been made yet if you stop early.
+Record findings in `project_claw/code-reviews/review-tests.md`. Start with inventory + action plan and note that no edits have been made yet if you stop early.
 

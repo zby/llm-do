@@ -15,7 +15,7 @@ Make UI events data-only and move all rendering/widget creation into renderer ba
   - `llm_do/ui/display.py` calls event render methods directly.
   - `llm_do/ui/adapter.py` adapts `RuntimeEvent` -> `UIEvent`; runtime already emits `RuntimeEvent`.
   - `llm_do/ui/app.py`, `llm_do/ui/widgets/*` use event widget creation paths.
-- Related tasks/notes/docs (inlined from `docs/notes/reviews/review-solid.md`):
+- Related tasks/notes/docs (inlined from `project_claw/code-reviews/review-solid.md`):
   - UIEvent classes mix data + presentation (`render_rich`, `render_text`, `create_widget`), giving each event multiple reasons to change.
   - Adding a new render format requires edits across every UIEvent subclass.
   - UIEvent mandates render methods even when a backend never uses them (ISP pain).

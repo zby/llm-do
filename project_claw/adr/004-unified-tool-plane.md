@@ -1,3 +1,10 @@
+---
+description: Unified tool plane ensuring identical observable behavior across agents, entry functions, and scripts
+type: adr
+areas: []
+status: accepted
+---
+
 # ADR-004: Unified Tool Plane for Agents and Entry Functions
 
 **Status:** Accepted

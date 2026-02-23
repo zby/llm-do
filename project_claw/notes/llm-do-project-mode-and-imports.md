@@ -1,5 +1,7 @@
 ---
 description: Spec for project mode discovery, worker imports, and tool linking
+type: spec
+areas: [index]
 ---
 
 # llm-do Project Mode, Worker Imports, and Tool Linking

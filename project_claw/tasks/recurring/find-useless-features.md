@@ -44,7 +44,7 @@ Periodic audit for features that add complexity without clear value.
 
 ## Output
 
-Save new reviews as `docs/notes/reviews/useless-features-audit-YYYY-MM-DD.md`
+Save new reviews as `project_claw/code-reviews/useless-features-audit-YYYY-MM-DD.md`
 
 ## Notes
 

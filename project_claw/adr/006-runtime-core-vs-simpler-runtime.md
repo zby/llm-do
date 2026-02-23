@@ -1,3 +1,10 @@
+---
+description: Keep runtime core (registry, call context, approval policy) rather than thin wrapper over PydanticAI
+type: adr
+areas: []
+status: accepted
+---
+
 # ADR-006: Runtime Core vs Simpler Runtime
 
 **Status:** Accepted

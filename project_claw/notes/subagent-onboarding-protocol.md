@@ -1,5 +1,7 @@
 ---
 description: Bidirectional setup conversation before subagent starts work
+type: design
+areas: [index]
 ---
 
 # Subagent Onboarding Protocol

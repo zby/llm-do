@@ -1,3 +1,10 @@
+---
+description: AgentArgs as the stable, typed public input contract for agents and tool schemas
+type: adr
+areas: []
+status: accepted
+---
+
 # ADR-002: AgentArgs as Public Input Contract
 
 **Status:** Accepted

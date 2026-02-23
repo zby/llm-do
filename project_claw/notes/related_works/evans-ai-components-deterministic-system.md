@@ -149,4 +149,4 @@ The key insight: LLMs are excellent classifiers but unreliable modelers. Design 
 - Article: https://www.domainlanguage.com/articles/ai-components-deterministic-system/
 - Evans' DDD work: https://www.domainlanguage.com/
 - llm-do theory: [theory.md](../../../docs/theory.md)
-- Related: [../adaptation-agentic-ai-analysis.md](../adaptation-agentic-ai-analysis.md)
+- Related: [adaptation-agentic-ai-analysis.md](../research/adaptation-agentic-ai-analysis.md)

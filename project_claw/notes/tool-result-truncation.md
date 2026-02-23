@@ -1,5 +1,7 @@
 ---
 description: Standardizing truncation metadata for tool results
+type: design
+areas: [index]
 ---
 
 # Tool Result Truncation Metadata

@@ -1,3 +1,10 @@
+---
+description: Thin custom-prefix adapter for model resolution with explicit OAuth gating at project level
+type: adr
+areas: []
+status: accepted
+---
+
 # ADR-001: Thin Custom Prefix Adapter + OAuth Gating
 
 **Status:** Accepted

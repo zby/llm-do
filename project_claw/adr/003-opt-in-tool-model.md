@@ -1,3 +1,10 @@
+---
+description: Opt-in tool model where agents explicitly declare needed toolsets rather than inheriting all
+type: adr
+areas: []
+status: accepted
+---
+
 # ADR-003: Opt-In Tool Model for Agents
 
 **Status:** Accepted

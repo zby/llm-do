@@ -1,5 +1,7 @@
 ---
 description: How to embed llm-do in Python applications (API unstable)
+type: design
+areas: [index]
 ---
 
 # Programmatic Embedding
@@ -86,4 +88,4 @@ complete working examples of both patterns.
 
 - Embedding API surface is not yet stable — expect `build_registry` signature changes
 - Host wiring assembly may be simplified in future iterations
-- See [`docs/reference.md`](reference.md) for the current detailed API reference
+- See [`docs/reference.md`](../../docs/reference.md) for the current detailed API reference

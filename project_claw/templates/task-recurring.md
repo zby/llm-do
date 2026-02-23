@@ -17,5 +17,5 @@ This file is a stable runbook. Do not edit it per run; only change it when scope
 
 ## Output
 
-Record findings in `docs/notes/reviews/review-<area>.md`.
+Record findings in `project_claw/code-reviews/review-<area>.md`.
 Append one dated section per run (for example `## 2026-02-06`) with summary, findings, and follow-ups.

@@ -74,6 +74,7 @@ Run relevant checks before submitting changes:
 | Design notes, insights, explorations | `project_claw/notes/` |
 | Architecture decisions | `project_claw/adr/` |
 | Project tasks | `project_claw/tasks/` (read `project_claw/tasks/README.md` before creating) |
+| Code review output | `project_claw/code-reviews/` |
 | KB design & methodology | `project_claw/kb-design/` |
 | External source snapshots | `project_claw/sources/` |
 

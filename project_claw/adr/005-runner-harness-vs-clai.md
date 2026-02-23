@@ -1,3 +1,10 @@
+---
+description: Own runner/harness layer for CLI/TUI instead of adopting PydanticAI's clai
+type: adr
+areas: []
+status: accepted
+---
+
 # ADR-005: Runner Harness vs PydanticAI CLAI
 
 **Status:** Accepted

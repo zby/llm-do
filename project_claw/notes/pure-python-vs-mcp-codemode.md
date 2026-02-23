@@ -1,5 +1,7 @@
 ---
 description: Comparing MCP code mode with llm-do pure Python composite tools
+type: analysis
+areas: [index]
 ---
 
 # Pure Python vs MCP Code Mode

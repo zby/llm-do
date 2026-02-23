@@ -1,7 +1,6 @@
 ---
 name: triage
 description: Triage GitHub notifications against a local knowledge base.
-model: anthropic:claude-haiku-4-5
 toolsets:
   - github_tools
   - kb_tools

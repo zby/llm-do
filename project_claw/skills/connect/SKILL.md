@@ -2,7 +2,7 @@
 name: connect
 description: Find connections between notes and update indexes. Requires semantic judgment to identify genuine relationships. Use after /extract creates notes, when exploring connections, or when a topic needs synthesis. Triggers on "/connect", "/connect [note]", "find connections", "update indexes", "connect these notes".
 user-invocable: true
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash, mcp__qmd__search, mcp__qmd__vsearch, mcp__qmd__query, mcp__qmd__status
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Skill, mcp__qmd__search, mcp__qmd__vsearch, mcp__qmd__query, mcp__qmd__status
 context: fork
 model: opus
 ---
@@ -52,7 +52,7 @@ Parse immediately:
 **Execute these steps:**
 
 1. Read the target note fully — understand its claim and context
-2. **Check note type.** If the target has no frontmatter (a `text` file), promote it to `type: note` with `status: seedling` before connecting. Add frontmatter with `description`, `type: note`, `traits`, `areas: []`, and `status: seedling`. Do NOT set `status: current` — that requires human review.
+2. **Check note type.** If the target has no frontmatter (a `text` file), run `/convert` on it first to add frontmatter with `status: seedling`. Do not connect a text file without converting it — frontmatter is required for areas, indexes, and quality gates.
 3. **Throughout discovery:** Capture which indexes you read, which queries you ran (with scores), which candidates you evaluated. This becomes the Discovery Trace — proving methodology was followed, not reconstructed.
 4. Run Phase 0 (sync search index)
 5. Use dual discovery in parallel:

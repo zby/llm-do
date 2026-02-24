@@ -8,6 +8,7 @@ type: index
 - [ADR-001: Generate Topic links from frontmatter](./adr/001-generate-topic-links-from-frontmatter.md)
 - [{{ phase_name | title }}](./arscontexta-connect.md)
 - [Backlinks — use cases and design space](./backlinks.md) *(note)* — Analysis of where backlinks (inbound link visibility) would concretely help agents working in the KB — use cases, trade-offs, and design options
+- [Claw learning is broader than retrieval](./claw-learning-is-broader-than-retrieval.md) *(note)* — A Claw's learning loop must improve action capacity (classification, planning, communication), not just retrieval — question-answering is one mode among many
 - [CLAUDE.md is a router, not a manual](./context-loading-strategy.md) *(note)* — CLAUDE.md should be a slim router to task-specific docs, not a comprehensive manual — because it's loaded every session
 - [Convert still requires semantic description](./convert-still-requires-semantic-description.md)
 - [Document classification](./document-classification.md) *(spec)* — Base types assert verifiable structure (text, note, spec, review, index, adr); traits assert checkable properties; status tracks commitment (seedling vs current) independently of structure
@@ -29,6 +30,7 @@ type: index
 - [Text testing framework — source material](./text-testing-framework.md) *(note)* — Reference framework for automated text testing — contracts per document type, test pyramid (deterministic/LLM rubric/corpus), production workflow
 - [Three-space agent memory maps to Tulving's taxonomy](./three-space-agent-memory-maps-to-tulving-taxonomy.md) — Agent memory split into knowledge, self, and operational spaces mirrors Tulving's semantic/episodic/procedural distinction
 - [Three-space memory separation predicts measurable failure modes](./three-space-memory-separation-predicts-measurable-failure-modes.md) — The three-space memory claim is testable because flat memory predicts specific cross-contamination failures
+- [Title as claim enables traversal as reasoning](./title-as-claim-enables-traversal-as-reasoning.md) *(note)* — When note titles are claims rather than topics, following links between them reads as a chain of reasoning — the file tree becomes a scan of arguments, and link semantics (since, because, but) encode relationship types
 - [What cludebot teaches us](./what-cludebot-teaches-us.md) — Techniques from cludebot worth borrowing — what we already cover, what to adopt now, and what to watch for as the KB grows
 - [What doesn't work](./what-doesnt-work.md) *(review)* — Anti-patterns and areas with insufficient evidence — auto-commits, queue overhead, validation ceremony, session rhythm
 - [What works](./what-works.md) *(review)* — Patterns proven valuable in practice — prose-as-title, template nudges, frontmatter queries, semantic search via qmd, discovery-first, public/internal boundary

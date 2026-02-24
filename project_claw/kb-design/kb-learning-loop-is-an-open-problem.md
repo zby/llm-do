@@ -58,6 +58,7 @@ Relevant Notes:
 - [retrieval-scoring-layer](./retrieval-scoring-layer.md) — metadata-aware reranking addresses part of the quality gates problem: not "did the graph improve?" but "can the graph serve the right content for each query type?"
 - [scenarios](./scenarios.md) — the actual use cases the learning loop's evaluation function would need to optimise against
 - [text-testing-framework](./text-testing-framework.md) — quality gates at both note and corpus level that could serve as building blocks for the loop's evaluation, though they test artifact quality and consistency, not end-to-end question-answering capacity
+- [claw-learning-is-broader-than-retrieval](./claw-learning-is-broader-than-retrieval.md) — extends: argues the retrieval-oriented framing here is one layer of a broader problem; a Claw's learning loop must also improve action capacity (classification, communication, planning)
 
 Topics:
 - [kb-design](./kb-design.md)

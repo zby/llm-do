@@ -54,7 +54,7 @@ Two kinds:
 
 ## Search (qmd)
 
-Collections: notes, adr, kb-design, sources, code-reviews, tasks-active, tasks-backlog, tasks-recurring, arscontexta, docs. Completed tasks intentionally excluded.
+Collections: notes, adr, kb-design, sources, skills, code-reviews, tasks-active, tasks-backlog, tasks-recurring, docs. Completed tasks intentionally excluded.
 
 ```bash
 qmd query "search terms"     # hybrid search with reranking

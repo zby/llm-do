@@ -78,12 +78,14 @@ Run relevant checks before submitting changes:
 
 | Content Type | Destination |
 |-------------|-------------|
-| Design notes, insights, explorations | `project_claw/notes/` |
+| General principles and insights | `project_claw/notes/` |
 | Architecture decisions | `project_claw/adr/` |
 | Project tasks | `project_claw/tasks/` (read `project_claw/tasks/README.md` before creating) |
 | Code review output | `project_claw/code-reviews/` |
-| KB design & methodology | `project_claw/kb-design/` |
+| KB system design & methodology | `project_claw/kb-design/` |
 | External source snapshots | `project_claw/sources/` |
+
+**Routing heuristic — `notes/` vs `kb-design/`:** `notes/` holds general ideas that would apply to any system (crystallisation, oracle strength, the bitter lesson boundary). `kb-design/` holds those ideas applied to project_claw's specific KB — document classification, link contracts, context loading. If a note is about the concept, it goes in `notes/`. If it's about how this KB implements the concept, it goes in `kb-design/`.
 
 When uncertain: "Is this durable knowledge (notes/) or a formal decision (adr/)?"
 

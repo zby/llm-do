@@ -3,7 +3,7 @@
 
 Usage:
     uv run scripts/sync_topic_links.py project_claw/notes/my-note.md
-    uv run scripts/sync_topic_links.py project_claw/notes/ project_claw/kb-design/
+    uv run scripts/sync_topic_links.py project_claw/notes/ project_claw/claw-design/
     uv run scripts/sync_topic_links.py --dry-run project_claw/notes/my-note.md
 
 Accepts files and directories. Directories are expanded to *.md files
@@ -57,10 +57,10 @@ def find_index_relpath(area: str, note_dir: Path) -> str:
       2. Subdirectories: {search_dir}/*/{area}.md
 
     This handles indexes in the same directory (approvals-index.md next to notes),
-    in a sibling subdirectory (kb-design/kb-design.md from notes/), or in a sibling
-    subdirectory with a different name (kb-design/links.md from notes/).
+    in a sibling subdirectory (claw-design/claw-design.md from notes/), or in a sibling
+    subdirectory with a different name (claw-design/links.md from notes/).
 
-    Returns a relative path like './area.md' or '../kb-design/area.md'.
+    Returns a relative path like './area.md' or '../claw-design/area.md'.
     Falls back to './area.md' if not found (will trigger a warning elsewhere).
     """
     filename = f"{area}.md"

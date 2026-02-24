@@ -2,7 +2,7 @@
 description: Metadata-aware reranking over semantic search — type-dependent recency decay, per-note overrides, SQLite index rebuilt from frontmatter
 type: note
 traits: [has-claim]
-areas: [kb-design]
+areas: [claw-design]
 status: speculative
 ---
 
@@ -60,4 +60,4 @@ Relevant Notes:
 - [document types should be verifiable](./document-types-should-be-verifiable.md) — prerequisite: per-type scoring policies require types that agents and scripts can trust
 
 Topics:
-- [kb-design](./kb-design.md)
+- [claw-design](./claw-design.md)

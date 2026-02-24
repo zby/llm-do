@@ -38,7 +38,7 @@ The type is the interface; the operation's implementation can move between LLM a
 
 Without affordance-bearing types, a knowledge base is a pile of text that agents search and read. With them, agents can reason about *what to do* with a document before reading it — the type is a contract about valid operations, just as in a typed program.
 
-The [verifiability criterion](../kb-design/document-types-should-be-verifiable.md) is the quality test: a type earns its place only if it asserts structural properties that enable specific operations. `type: design` fails because it affords nothing that `type: note` doesn't. `type: claim` succeeds because it enables verification workflows that generic notes don't support.
+The [verifiability criterion](../claw-design/document-types-should-be-verifiable.md) is the quality test: a type earns its place only if it asserts structural properties that enable specific operations. `type: design` fails because it affords nothing that `type: note` doesn't. `type: claim` succeeds because it enables verification workflows that generic notes don't support.
 
 ## Instructions should check argument types
 
@@ -58,5 +58,5 @@ This also clarifies the `instructions` type from the other direction: instructio
 
 ---
 Relevant Notes:
-- [document types should be verifiable](../kb-design/document-types-should-be-verifiable.md) — foundation: establishes the verifiability criterion this note builds on
+- [document types should be verifiable](../claw-design/document-types-should-be-verifiable.md) — foundation: establishes the verifiability criterion this note builds on
 - [theory](../../docs/theory.md) — foundation: the stabilise/soften framework this extends to knowledge artifacts

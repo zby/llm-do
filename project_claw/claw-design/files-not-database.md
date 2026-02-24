@@ -2,7 +2,7 @@
 description: Files with git beat a database for agent-facing knowledge bases — universal interface, free versioning, no infrastructure to maintain
 type: note
 traits: [has-claim]
-areas: [kb-design]
+areas: [claw-design]
 status: current
 ---
 
@@ -38,4 +38,4 @@ Relevant Notes:
 - [retrieval scoring layer](./retrieval-scoring-layer.md) — addresses the "structured queries" gap by proposing a derived SQLite index, keeping files as source of truth
 
 Topics:
-- [kb-design](./kb-design.md)
+- [claw-design](./claw-design.md)

@@ -2,7 +2,7 @@
 description: An agent doing a task navigates by deciding what to read — links, index entries, search tools, and skill descriptions are all pointers with varying amounts of context for that decision
 type: note
 traits: [has-claim]
-areas: [kb-design, links]
+areas: [claw-design, links]
 status: current
 ---
 
@@ -40,5 +40,5 @@ The knowledge system should make these decisions cheap. Every mechanism has its 
 Prose-as-title is the shortcut that works across all of these — because [title as claim enables traversal as reasoning](../title-as-claim-enables-traversal-as-reasoning.md), the pointer carries the argument by itself. But bare pointers without context force the agent to open every target, which is expensive in tokens and attention.
 
 Topics:
-- [kb-design](./../kb-design.md)
+- [claw-design](./../claw-design.md)
 - [links](./../links.md)

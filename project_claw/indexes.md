@@ -11,7 +11,7 @@ When this list exceeds ~50 entries, replace the exhaustive scan with a targeted 
 - [approvals-index](./notes/approvals-index.md) — approval system design: threat model, capability taxonomy, UI integration
 - [pydanticai-upstream-index](./notes/pydanticai-upstream-index.md) — proposed PydanticAI changes, upstream issues, impact on llm-do
 
-## kb-design/
+## claw-design/
 
-- [kb-design](./kb-design/kb-design.md) — designing and building the knowledge base itself: what works, what doesn't, how to test it
-- [links](./kb-design/links.md) — how links work as decision points, navigation modes, link contracts, automated link management
+- [claw-design](./claw-design/claw-design.md) — designing and building the knowledge base itself: what works, what doesn't, how to test it
+- [links](./claw-design/links.md) — how links work as decision points, navigation modes, link contracts, automated link management

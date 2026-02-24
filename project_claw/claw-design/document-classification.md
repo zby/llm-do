@@ -1,7 +1,7 @@
 ---
 description: Base types assert verifiable structure (text, note, spec, review, index, adr); traits assert checkable properties; status tracks commitment (seedling vs current) independently of structure
 type: spec
-areas: [kb-design]
+areas: [claw-design]
 status: current
 ---
 
@@ -89,4 +89,4 @@ areas: [index]
 **Status is orthogonal to type.** Structure (`text` → `note` → `spec`) and commitment (`seedling` → `current`) are independent axes. A note can be structurally complete and connected while still being a seedling — meaning "we haven't decided to keep this." This avoids conflating "has enough shape to connect" with "has been reviewed and endorsed."
 
 Topics:
-- [kb-design](./kb-design.md)
+- [claw-design](./claw-design.md)

@@ -275,7 +275,7 @@ PASS:
 
 WARN:
 - description: 38 chars — below recommended minimum of 50
-- areas-topics: areas: [kb-design] set but no Topics: footer found
+- areas-topics: areas: [claw-design] set but no Topics: footer found
   → Run: uv run project_claw/scripts/sync_topic_links.py project_claw/notes/note-title.md
 
 FAIL:

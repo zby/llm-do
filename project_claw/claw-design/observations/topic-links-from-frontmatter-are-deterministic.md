@@ -2,7 +2,7 @@
 description: The areas-to-Topics mapping is mechanical — now implemented as scripts/sync_topic_links.py
 type: note
 traits: [has-claim]
-areas: [kb-design, links]
+areas: [claw-design, links]
 status: outdated
 ---
 
@@ -15,5 +15,5 @@ The `areas:` frontmatter field lists which indexes a note belongs to. The Topics
 See [storing LLM outputs is stabilization](../../notes/storing-llm-outputs-is-stabilization.md) for the general pattern.
 
 Topics:
-- [kb-design](./../kb-design.md)
+- [claw-design](./../claw-design.md)
 - [links](./../links.md)

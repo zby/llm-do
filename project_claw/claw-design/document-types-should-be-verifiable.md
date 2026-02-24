@@ -2,7 +2,7 @@
 description: Document types should assert verifiable structural properties, not subject matter — with a base type + traits model inspired by gradual and structural typing
 type: note
 traits: [has-claim]
-areas: [kb-design]
+areas: [claw-design]
 status: current
 ---
 
@@ -109,4 +109,4 @@ Relevant Notes:
 - [001-generate-topic-links-from-frontmatter](./adr/001-generate-topic-links-from-frontmatter.md) — precedent: when a mapping is verifiable and deterministic (areas -> Topics), it was automated; the same principle drives the type system design
 
 Topics:
-- [kb-design](./kb-design.md)
+- [claw-design](./claw-design.md)

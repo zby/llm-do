@@ -2,7 +2,7 @@
 description: Link-following is local with context; search is long-range with titles/descriptions; indexes bridge both modes
 type: note
 traits: [has-claim]
-areas: [kb-design, links]
+areas: [claw-design, links]
 status: current
 ---
 
@@ -21,5 +21,5 @@ This matters for design: links need surrounding context to inform decisions, sea
 See also: [agents navigate by deciding what to read next](agents-navigate-by-deciding-what-to-read-next.md), [link contracts source material](../link-contracts-framework.md).
 
 Topics:
-- [kb-design](./../kb-design.md)
+- [claw-design](./../claw-design.md)
 - [links](./../links.md)

@@ -2,7 +2,7 @@
 description: A Claw's learning loop must improve action capacity (classification, planning, communication), not just retrieval — question-answering is one mode among many
 type: note
 traits: [has-claim]
-areas: [kb-design]
+areas: [claw-design]
 status: speculative
 ---
 
@@ -69,4 +69,4 @@ Relevant Notes:
 - [document-classification](./document-classification.md) — implication: current document types are structured for reference knowledge; action-oriented knowledge types may not fit the existing base types
 
 Topics:
-- [kb-design](./kb-design.md)
+- [claw-design](./claw-design.md)

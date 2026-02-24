@@ -4,7 +4,7 @@ type: index
 status: current
 ---
 
-# KB design
+# Claw design
 
 How we design the knowledge base for llm-do's design history. These are meta-observations — not about llm-do the library, but about the system we use to track its evolution.
 

@@ -331,28 +331,28 @@ class TestFindIndexRelpath:
         assert find_index_relpath("my-index", deep) == "../../my-index.md"
 
     def test_sibling_subdirectory(self, tmp_path):
-        """Index in a sibling subdir: project/kb-design/kb-design.md from project/notes/."""
+        """Index in a sibling subdir: project/claw-design/claw-design.md from project/notes/."""
         notes = tmp_path / "notes"
         notes.mkdir()
-        kb = tmp_path / "kb-design"
+        kb = tmp_path / "claw-design"
         kb.mkdir()
-        (kb / "kb-design.md").write_text("# Index\n")
-        assert find_index_relpath("kb-design", notes) == "../kb-design/kb-design.md"
+        (kb / "claw-design.md").write_text("# Index\n")
+        assert find_index_relpath("claw-design", notes) == "../claw-design/claw-design.md"
 
     def test_sibling_subdirectory_different_name(self, tmp_path):
-        """Index in a sibling subdir with different name: project/kb-design/links.md from project/notes/."""
+        """Index in a sibling subdir with different name: project/claw-design/links.md from project/notes/."""
         notes = tmp_path / "notes"
         notes.mkdir()
-        kb = tmp_path / "kb-design"
+        kb = tmp_path / "claw-design"
         kb.mkdir()
         (kb / "links.md").write_text("# Index\n")
-        assert find_index_relpath("links", notes) == "../kb-design/links.md"
+        assert find_index_relpath("links", notes) == "../claw-design/links.md"
 
     def test_same_dir_preferred_over_sibling(self, tmp_path):
         """When index exists both in same dir and sibling subdir, same dir wins."""
         notes = tmp_path / "notes"
         notes.mkdir()
-        kb = tmp_path / "kb-design"
+        kb = tmp_path / "claw-design"
         kb.mkdir()
         (notes / "my-index.md").write_text("# Index\n")
         (kb / "my-index.md").write_text("# Index\n")

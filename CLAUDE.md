@@ -70,7 +70,7 @@ Run relevant checks before submitting changes:
 - **`CLAUDE.md`** (this file) — always loaded. Routing table, search patterns, guardrails.
 - **`project_claw/WRITING.md`** — read on demand when creating/editing KB content.
 - **Skills** (`.claude/skills/`) — descriptions always loaded; skill bodies loaded on invoke.
-- See [context-loading-strategy](project_claw/kb-design/context-loading-strategy.md) for design rationale.
+- See [context-loading-strategy](project_claw/claw-design/context-loading-strategy.md) for design rationale.
 
 **Boundary:** Public project documentation (`docs/*.md`) is NOT part of the knowledge system. The internal workspace (`project_claw/`) is where the knowledge system operates.
 
@@ -82,10 +82,10 @@ Run relevant checks before submitting changes:
 | Architecture decisions | `project_claw/adr/` |
 | Project tasks | `project_claw/tasks/` (read `project_claw/tasks/README.md` before creating) |
 | Code review output | `project_claw/code-reviews/` |
-| KB system design & methodology | `project_claw/kb-design/` |
+| KB system design & methodology | `project_claw/claw-design/` |
 | External source snapshots | `project_claw/sources/` |
 
-**Routing heuristic — `notes/` vs `kb-design/`:** `notes/` holds general ideas that would apply to any system (crystallisation, oracle strength, the bitter lesson boundary). `kb-design/` holds those ideas applied to project_claw's specific KB — document classification, link contracts, context loading. If a note is about the concept, it goes in `notes/`. If it's about how this KB implements the concept, it goes in `kb-design/`.
+**Routing heuristic — `notes/` vs `claw-design/`:** `notes/` holds general ideas that would apply to any system (crystallisation, oracle strength, the bitter lesson boundary). `claw-design/` holds those ideas applied to project_claw's specific KB — document classification, link contracts, context loading. If a note is about the concept, it goes in `notes/`. If it's about how this KB implements the concept, it goes in `claw-design/`.
 
 When uncertain: "Is this durable knowledge (notes/) or a formal decision (adr/)?"
 

@@ -2,7 +2,7 @@
 description: The KB's value is question-answering capacity, but designing a learning loop requires more usage history than we currently have
 type: note
 traits: [has-claim]
-areas: [kb-design]
+areas: [claw-design]
 status: speculative
 ---
 
@@ -61,4 +61,4 @@ Relevant Notes:
 - [claw-learning-is-broader-than-retrieval](./claw-learning-is-broader-than-retrieval.md) — extends: argues the retrieval-oriented framing here is one layer of a broader problem; a Claw's learning loop must also improve action capacity (classification, communication, planning)
 
 Topics:
-- [kb-design](./kb-design.md)
+- [claw-design](./claw-design.md)

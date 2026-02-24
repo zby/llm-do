@@ -2,7 +2,7 @@
 description: Reference framework for automated text testing — contracts per document type, test pyramid (deterministic/LLM rubric/corpus), production workflow
 type: note
 traits: [has-external-sources]
-areas: [kb-design]
+areas: [claw-design]
 status: current
 ---
 
@@ -11,7 +11,7 @@ status: current
 Full framework for automated testing of text artifacts, received 2026-02-21.
 Saved as reference for when we start building concrete checks.
 
-See docs/kb-design/observations/automated-tests-for-text.md for the distilled observation.
+See docs/claw-design/observations/automated-tests-for-text.md for the distilled observation.
 
 ---
 
@@ -103,4 +103,4 @@ Single-note: required sections, max length, next step with owner, no relative da
 Corpus: top-5 similarity contradiction check, threshold linking, glossary alignment.
 
 Topics:
-- [kb-design](./kb-design.md)
+- [claw-design](./claw-design.md)

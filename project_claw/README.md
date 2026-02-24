@@ -23,7 +23,7 @@ project_claw/
   notes/          — design notes, explorations, insights        [index](./notes/index.md)
   adr/            — architecture decision records                [index](./adr/index.md)
   sources/        — snapshots of external references             [index](./sources/index.md)
-  kb-design/      — notes about the KB system itself             [index](./kb-design/index.md)
+  claw-design/    — notes about the KB system itself             [index](./claw-design/index.md)
   skills/         — KB skills (connect, ingest) — symlinked from .claude/skills/
   scripts/        — KB helper scripts (index generation, topic sync, snapshots)
   code-reviews/   — automated code review output
@@ -54,7 +54,7 @@ Two kinds:
 
 ## Search (qmd)
 
-Collections: notes, adr, kb-design, sources, skills, code-reviews, tasks-active, tasks-backlog, tasks-recurring, docs. Completed tasks intentionally excluded.
+Collections: notes, adr, claw-design, sources, skills, code-reviews, tasks-active, tasks-backlog, tasks-recurring, docs. Completed tasks intentionally excluded.
 
 ```bash
 qmd query "search terms"     # hybrid search with reranking

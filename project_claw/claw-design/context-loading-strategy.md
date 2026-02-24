@@ -2,7 +2,7 @@
 description: CLAUDE.md should be a slim router to task-specific docs, not a comprehensive manual — because it's loaded every session
 type: note
 traits: [has-claim]
-areas: [kb-design]
+areas: [claw-design]
 status: current
 ---
 

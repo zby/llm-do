@@ -2,7 +2,7 @@
 description: Analysis of where backlinks (inbound link visibility) would concretely help agents working in the KB — use cases, trade-offs, and design options
 type: note
 traits: [has-comparison]
-areas: [kb-design, links]
+areas: [claw-design, links]
 status: speculative
 ---
 
@@ -104,5 +104,5 @@ Relevant Notes:
 - [001-generate-topic-links-from-frontmatter](./adr/001-generate-topic-links-from-frontmatter.md) — precedent: deterministic link generation from structured data, the pattern that option B would follow
 
 Topics:
-- [kb-design](./kb-design.md)
+- [claw-design](./claw-design.md)
 - [links](./links.md)

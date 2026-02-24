@@ -4,11 +4,11 @@ Read this before creating or editing notes, ADRs, indexes, or source reviews. Fo
 
 ## Before You Write
 
-**Text files** skip this checklist entirely. A `text` file is a markdown file with no frontmatter — just create the file and write. See [document-classification](kb-design/document-classification.md) for the full type hierarchy.
+**Text files** skip this checklist entirely. A `text` file is a markdown file with no frontmatter — just create the file and write. See [document-classification](claw-design/document-classification.md) for the full type hierarchy.
 
 For **notes and above** (any type with frontmatter), every note must be findable by a future agent who doesn't know it exists. Before saving, check:
 
-1. **[Title as claim](kb-design/title-as-claim-enables-traversal-as-reasoning.md)** — Does it work as prose when linked? `since [title](./title.md)` reads naturally? (Applies to single-claim documents; multi-claim specs and frameworks get topical titles instead.)
+1. **[Title as claim](claw-design/title-as-claim-enables-traversal-as-reasoning.md)** — Does it work as prose when linked? `since [title](./title.md)` reads naturally? (Applies to single-claim documents; multi-claim specs and frameworks get topical titles instead.)
 2. **Description** — Does it add information beyond the title? Would an agent searching for this concept find it?
 3. **Index membership** — Is it linked from at least one area index? (Directory indexes are auto-generated.)
 4. **Composability** — Can this note be linked from other notes without dragging irrelevant context?
@@ -48,7 +48,7 @@ Frontmatter makes notes queryable via ripgrep. Its presence determines the note'
 | Field | Required | Constraints |
 |-------|----------|------------|
 | `description` | Yes | Max 200 chars, must add info beyond title |
-| `type` | No | Base type: `note` (default), `spec`, `review`, `index`, `adr`. See [document-classification](kb-design/document-classification.md) |
+| `type` | No | Base type: `note` (default), `spec`, `review`, `index`, `adr`. See [document-classification](claw-design/document-classification.md) |
 | `traits` | No | Independently checkable properties: `has-claim`, `has-comparison`, `has-external-sources`, `has-implementation` |
 | `areas` | No | Array of area index names this note belongs to (not the auto-generated directory index) |
 | `status` | No | current, outdated, speculative |

@@ -2,7 +2,7 @@
 description: Text artifacts can be tested with the same pyramid as software — deterministic checks, LLM rubrics, corpus compatibility — built from real failures not taxonomy
 type: note
 traits: [has-claim]
-areas: [kb-design]
+areas: [claw-design]
 status: current
 ---
 
@@ -24,4 +24,4 @@ A knowledge base is a collection of stored LLM outputs — each note is a stabil
 We haven't built any of this yet. Start when we hit a concrete quality problem that a check would have caught.
 
 Topics:
-- [kb-design](./../kb-design.md)
+- [claw-design](./../claw-design.md)

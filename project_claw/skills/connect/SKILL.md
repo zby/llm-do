@@ -114,7 +114,7 @@ Discovery scans three collections under `project_claw/`:
 | Directory | Contains |
 |-----------|----------|
 | `project_claw/notes/` | Main KB — claims, design notes, research |
-| `project_claw/kb-design/` | Knowledge system methodology and architecture |
+| `project_claw/claw-design/` | Knowledge system methodology and architecture |
 | `project_claw/sources/` | Snapshotted external sources |
 
 Use all three directories when searching for candidates (keyword grep, description scan, link following). Index updates (Phase 5), directory index regeneration (Phase 7), and areas-topics sync (Gate 6) only apply to notes in `project_claw/notes/`.
@@ -196,7 +196,7 @@ Using only search misses curated structure. Using only index misses semantic nei
 
 For specific terms and exact matches — search all collections:
 ```bash
-grep -r "term" project_claw/notes/ project_claw/kb-design/ project_claw/sources/ --include="*.md"
+grep -r "term" project_claw/notes/ project_claw/claw-design/ project_claw/sources/ --include="*.md"
 ```
 
 Use grep when:
@@ -359,7 +359,7 @@ When you edit an older note to add a reverse link, you MAY flag it for full reco
 
 **Check incoming links:**
 ```bash
-grep -r '\[.*\](.*note-name\.md)' project_claw/notes/ project_claw/kb-design/ project_claw/sources/ --include="*.md" | wc -l
+grep -r '\[.*\](.*note-name\.md)' project_claw/notes/ project_claw/claw-design/ project_claw/sources/ --include="*.md" | wc -l
 ```
 
 If >= 5, skip flagging.
@@ -521,7 +521,7 @@ Verify every markdown link target exists. Never create links to non-existent fil
 
 ```bash
 # Check that a link target exists
-ls project_claw/notes/"target-name.md" project_claw/kb-design/"target-name.md" project_claw/sources/"target-name.md" 2>/dev/null
+ls project_claw/notes/"target-name.md" project_claw/claw-design/"target-name.md" project_claw/sources/"target-name.md" 2>/dev/null
 ```
 
 ### Gate 6: Areas-Topics Consistency

@@ -2,7 +2,7 @@
 description: Reference framework for systematic, testable linking — link contracts, intent taxonomy, automated checks, agent implications
 type: note
 traits: [has-external-sources]
-areas: [kb-design, links]
+areas: [claw-design, links]
 status: current
 ---
 
@@ -11,8 +11,8 @@ status: current
 Framework for systematic, testable linking in knowledge bases. Received 2026-02-21.
 Saved as reference for when we start building concrete link practices.
 
-See docs/kb-design/observations/agents-navigate-by-deciding-what-to-read-next.md and
-docs/kb-design/observations/two-kinds-of-navigation.md for the distilled observations.
+See docs/claw-design/observations/agents-navigate-by-deciding-what-to-read-next.md and
+docs/claw-design/observations/two-kinds-of-navigation.md for the distilled observations.
 
 ---
 
@@ -115,5 +115,5 @@ Agents do constrained exploration. If links carry intent and cost:
 5. If something is required to proceed, summarize it — don't outsource to a link
 
 Topics:
-- [kb-design](./kb-design.md)
+- [claw-design](./claw-design.md)
 - [links](./links.md)

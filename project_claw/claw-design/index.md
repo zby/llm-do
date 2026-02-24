@@ -1,20 +1,21 @@
 ---
-description: Auto-generated directory — run scripts/generate_notes_index.py /home/zby/llm/llm-do/project_claw/kb-design to rebuild
+description: Auto-generated directory — run scripts/generate_notes_index.py /home/zby/llm/llm-do/project_claw/claw-design to rebuild
 type: index
 ---
 
-# Kb Design Directory
+# Claw Design Directory
 
 - [ADR-001: Generate Topic links from frontmatter](./adr/001-generate-topic-links-from-frontmatter.md)
 - [{{ phase_name | title }}](./arscontexta-connect.md)
+- [Arscontexta methodology review](./arscontexta-review.md) *(note)* — Curated extraction of transferable ideas from arscontexta's 250-note methodology collection, filtered for a programmer's perspective — what's genuinely actionable vs philosophical vs system-specific
 - [Backlinks — use cases and design space](./backlinks.md) *(note)* — Analysis of where backlinks (inbound link visibility) would concretely help agents working in the KB — use cases, trade-offs, and design options
+- [Claw design](./claw-design.md) *(index)* — Index of notes about designing and building the knowledge base itself — what works, what doesn't, how to test it
 - [Claw learning is broader than retrieval](./claw-learning-is-broader-than-retrieval.md) *(note)* — A Claw's learning loop must improve action capacity (classification, planning, communication), not just retrieval — question-answering is one mode among many
 - [CLAUDE.md is a router, not a manual](./context-loading-strategy.md) *(note)* — CLAUDE.md should be a slim router to task-specific docs, not a comprehensive manual — because it's loaded every session
 - [Convert still requires semantic description](./convert-still-requires-semantic-description.md)
 - [Document classification](./document-classification.md) *(spec)* — Base types assert verifiable structure (text, note, spec, review, index, adr); traits assert checkable properties; status tracks commitment (seedling vs current) independently of structure
 - [Document types should be verifiable](./document-types-should-be-verifiable.md) *(note)* — Document types should assert verifiable structural properties, not subject matter — with a base type + traits model inspired by gradual and structural typing
 - [Files beat a database for agent knowledge bases](./files-not-database.md) *(note)* — Files with git beat a database for agent-facing knowledge bases — universal interface, free versioning, no infrastructure to maintain
-- [KB design](./kb-design.md) *(index)* — Index of notes about designing and building the knowledge base itself — what works, what doesn't, how to test it
 - [The KB needs a learning loop](./kb-learning-loop-is-an-open-problem.md) *(note)* — The KB's value is question-answering capacity, but designing a learning loop requires more usage history than we currently have
 - [Link contracts framework — source material](./link-contracts-framework.md) *(note)* — Reference framework for systematic, testable linking — link contracts, intent taxonomy, automated checks, agent implications
 - [Links](./links.md) *(index)* — Index of notes about linking — how links work as decision points, navigation modes, link contracts, and automated link management

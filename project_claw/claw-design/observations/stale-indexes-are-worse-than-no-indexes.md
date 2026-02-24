@@ -2,7 +2,7 @@
 description: An agent trusts an index as exhaustive — a missing entry doesn't trigger search, it makes the note invisible
 type: note
 traits: [has-claim]
-areas: [kb-design, links]
+areas: [claw-design, links]
 status: current
 ---
 
@@ -33,5 +33,5 @@ The `areas:` frontmatter field is the first defense — it declares index member
 This observation draws on arscontexta methodology research ("stale navigation actively misleads because agents trust curated maps completely"), adapted to our specific system where `areas:` frontmatter and `docs/indexes.md` provide the defense mechanisms.
 
 Topics:
-- [kb-design](./../kb-design.md)
+- [claw-design](./../claw-design.md)
 - [links](./../links.md)

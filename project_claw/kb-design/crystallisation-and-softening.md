@@ -1,25 +1,48 @@
 ---
-description: KB artifacts exist on a spectrum from calculator-like (exact, durable) to vision-feature-like (plausible theory, may soften) — design for both
+description: A KB's value is its ability to answer project questions — the learning loop and evaluation criteria are open problems
 type: note
 traits: [has-claim]
 areas: [kb-design]
-status: current
+status: speculative
 ---
 
-# KB design must account for softening
+# The KB needs a learning loop
 
-The [bitter lesson boundary](../notes/bitter-lesson-boundary.md) distinguishes two kinds of crystallised artifacts: calculator-like (spec fully captures the problem) and vision-feature-like (spec encodes a theory that scale may outperform). Both exist in this KB. Practical systems are always hybrids, and the mix shifts over time through crystallisation and its complement, softening.
+## What is a KB for?
 
-## What this means for the KB
+A knowledge base exists to answer questions about the project. This defines value for every artifact: a note is valuable if it helps answer a question, a link is valuable if it helps navigate from a question to an answer, a grouping is valuable if it makes related answers findable together.
 
-Some KB artifacts are calculators — the sync scripts, the frontmatter schema, the link verification gates. Their specs fully define the problem. These are durable.
+New knowledge — extracting claims, writing synthesis notes, discovering connections — is valuable only insofar as it improves future question-answering.
 
-Others are vision features — the ingestion pipeline stages, the connection methodology, the three-phase discovery process. These encode our current theory of how knowledge work should be decomposed. They work now, but a more capable model might handle them as a single undifferentiated step.
+## Knowledge lives in both notes and links
 
-Design implications:
+A KB's knowledge is in the content of its notes and in the structure of its links — neither alone is sufficient. A note without links still says something. A link without good notes on both ends is useless. But the link structure is the part that's hardest to get right and most underinvested in: adding notes is easy, discovering which notes genuinely connect and why requires judgment.
 
-- **Keep the two kinds separable.** Don't tangle durable infrastructure (file formats, index rebuilding) with decomposition theories (pipeline stages, skill boundaries). When a theory-artifact softens, you want to replace it without rewiring the infrastructure.
+This suggests that learning at scale for a KB involves improving both — better notes and better links — but that the link structure is where the most untapped value sits, because it's where understanding is encoded: which ideas support each other, which are in tension, which compose into larger arguments.
 
-- **Spec what, not how.** The [retrieval scoring layer](./retrieval-scoring-layer.md) specifies *what* scoring should achieve (type-dependent recency decay) without prescribing *how* — that's a calculator-like spec. A skill that prescribes "first do X, then Y, then Z" is a vision-feature-like spec.
+## The boiling cauldron (aspirational)
 
-- **Watch for composition failure.** If skills don't compose into better outcomes, that's the softening signal — the decomposition is wrong, not the individual pieces.
+The visible KB is the production system. Learning could happen through a background process that continuously proposes mutations:
+
+- **Extract**: pull a claim from a source that hasn't been extracted yet
+- **Split**: break a note that makes two claims into two notes
+- **Synthesise**: two notes that together imply something neither says alone
+- **Relink**: find semantically similar notes that aren't linked
+- **Reformulate**: improve a title so it works better as prose when linked
+- **Regroup**: a cluster of notes suggests an index that doesn't exist yet
+
+Each mutation would be speculative — staged separately, surfaced for human review only when it scores high enough.
+
+## Open problems
+
+**Evaluation.** The KB's value is defined by the questions it answers, but those questions evolve with the project. There's no static benchmark to optimise against. Eventually, logging actual usage (queries, failed retrievals, how many hops to an answer) could provide signal — but we don't have enough usage yet to learn from.
+
+**Quality gates.** Structural metrics (PageRank, betweenness centrality, cluster density) are proxies at best. A note can be well-connected because it's vague enough to "relate to" everything. The real test is whether a change helps answer a question that couldn't be answered before — and we don't have a systematic way to measure that yet.
+
+**Surfacing rate.** Too many proposals and the human ignores them. Too few and the system isn't learning. Calibrating this requires feedback on what gets accepted, which requires enough volume to learn from.
+
+These are all instances of the same gap: **we need more usage before we can design the learning loop properly.** The right move for now is to keep building the KB manually, pay attention to what works and what doesn't, and revisit this when there's enough history to learn from.
+
+## Connection to crystallisation
+
+The [bitter lesson boundary](../notes/bitter-lesson-boundary.md) distinguishes calculator-like artifacts (spec captures the problem) from vision-feature-like artifacts (spec encodes a theory). The KB's infrastructure — file formats, frontmatter schema, sync scripts — is calculator-like. The knowledge organisation — which links exist, how notes are grouped, what gets extracted — is vision-feature-like. A learning loop would be the mechanism for continuously improving the vision-feature layer. We're not ready to build it, but the distinction tells us where it would operate.

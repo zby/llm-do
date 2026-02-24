@@ -4,7 +4,7 @@ Read this before creating or editing notes, ADRs, indexes, or source reviews. Fo
 
 ## Before You Write
 
-**Text files** skip this checklist entirely. A `text` file is a markdown file with no frontmatter — just create the file and write. See [note-types](kb-design/note-types.md) for the full type hierarchy.
+**Text files** skip this checklist entirely. A `text` file is a markdown file with no frontmatter — just create the file and write. See [document-classification](kb-design/document-classification.md) for the full type hierarchy.
 
 For **notes and above** (any type with frontmatter), every note must be findable by a future agent who doesn't know it exists. Before saving, check:
 
@@ -48,7 +48,7 @@ Frontmatter makes notes queryable via ripgrep. Its presence determines the note'
 | Field | Required | Constraints |
 |-------|----------|------------|
 | `description` | Yes | Max 200 chars, must add info beyond title |
-| `type` | No | Base type: `note` (default), `spec`, `review`, `index`, `adr`. See [note-types](kb-design/note-types.md) |
+| `type` | No | Base type: `note` (default), `spec`, `review`, `index`, `adr`. See [document-classification](kb-design/document-classification.md) |
 | `traits` | No | Independently checkable properties: `has-claim`, `has-comparison`, `has-external-sources`, `has-implementation` |
 | `areas` | No | Array of area index names this note belongs to (not the auto-generated directory index) |
 | `status` | No | current, outdated, speculative |

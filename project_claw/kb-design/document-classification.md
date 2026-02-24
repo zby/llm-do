@@ -5,7 +5,7 @@ areas: [kb-design]
 status: current
 ---
 
-# Note types
+# Document classification
 
 See [document-types-should-be-verifiable](./document-types-should-be-verifiable.md) for the design rationale.
 

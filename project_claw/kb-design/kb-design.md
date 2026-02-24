@@ -18,7 +18,7 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 
 - [files-not-database](./files-not-database.md) — files with git beat a database for agent KBs: universal interface, free versioning, zero infrastructure; derived indexes solve scale problems without replacing the source of truth
 - [document-types-should-be-verifiable](./document-types-should-be-verifiable.md) — design rationale: types assert checkable structural properties, not subject matter; base type + traits model inspired by gradual typing
-- [note-types](./note-types.md) — the spec implementing the above: base types, traits, migration from old flat types
+- [document-classification](./document-classification.md) — the spec implementing the above: base types, traits, migration from old flat types
 - [scenarios](./scenarios.md) — concrete use cases the knowledge system must serve
 - [context-loading-strategy](./context-loading-strategy.md) — CLAUDE.md should be a slim router, not a manual; match instruction specificity to loading frequency
 

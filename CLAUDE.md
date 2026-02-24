@@ -98,7 +98,7 @@ Write a note when something would be lost between sessions:
 
 If it matters and won't exist next session, write it down now.
 
-**Agent-initiated observations** go to `project_claw/notes/agent-learnings/` — jot quickly with a title and description, don't interrupt the current task. These are reviewed and promoted later.
+**Agent-initiated observations** go to `project_claw/notes/agent-learnings/` — just create a markdown file with a title and some text, no frontmatter needed. A file without frontmatter is a `text` file: the lowest-ceremony base type, meant for quick capture. Text files are reviewed later and either promoted to full notes (by adding frontmatter with a `description` field and `status: seedling`) or pruned.
 
 **For main KB work** (human-requested notes, ADRs, source reviews), read `project_claw/WRITING.md` for templates, link conventions, and quality checks.
 

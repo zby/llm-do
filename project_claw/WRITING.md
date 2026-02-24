@@ -4,7 +4,9 @@ Read this before creating or editing notes, ADRs, indexes, or source reviews. Fo
 
 ## Before You Write
 
-Every note must be findable by a future agent who doesn't know it exists. Before saving, check:
+**Text files** skip this checklist entirely. A `text` file is a markdown file with no frontmatter — just create the file and write. See [note-types](kb-design/note-types.md) for the full type hierarchy.
+
+For **notes and above** (any type with frontmatter), every note must be findable by a future agent who doesn't know it exists. Before saving, check:
 
 1. **Title as claim** — Does it work as prose when linked? `since [title](./title.md)` reads naturally?
 2. **Description** — Does it add information beyond the title? Would an agent searching for this concept find it?
@@ -38,7 +40,10 @@ Templates live in `project_claw/templates/`. Each provides frontmatter fields to
 
 ## Frontmatter
 
-Every internal workspace note has YAML frontmatter. Frontmatter makes notes queryable via ripgrep.
+Frontmatter makes notes queryable via ripgrep. Its presence determines the note's base type:
+
+- **No frontmatter** → `text` — raw capture, no structural expectations
+- **Has frontmatter** → `note` or more specific type — full quality checks apply
 
 | Field | Required | Constraints |
 |-------|----------|------------|
@@ -50,7 +55,7 @@ Every internal workspace note has YAML frontmatter. Frontmatter makes notes quer
 
 **`description` is the most important field.** It enables progressive disclosure: read the title and description to decide whether to load the full note.
 
-Task files do not use frontmatter — their status is encoded by directory (backlog/active/completed).
+Task files do not use frontmatter — their status is encoded by directory (backlog/active/completed). Seedlings also lack frontmatter, but are distinguished by location (they live in `notes/`, not `tasks/`).
 
 ## Links
 
@@ -154,8 +159,11 @@ rg -o '\]\(([^)]+\.md)\)' project_claw/notes/ -r '$1' --no-filename | sort -u | 
   [ -f "project_claw/notes/$target" ] || echo "Dangling: $target"
 done
 
-# Schema validation
-rg -L '^description:' project_claw/notes/*.md    # missing descriptions
+# Find text files (no frontmatter)
+rg -L '^---' project_claw/notes/*.md
+
+# Find notes missing descriptions (has frontmatter but no description — broken, not text)
+rg -l '^---' project_claw/notes/*.md | xargs rg -L '^description:'
 ```
 
 ## Common Pitfalls

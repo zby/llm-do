@@ -22,7 +22,7 @@ Step 4 is where the knowledge system earns its keep. To write a good comment we 
 - Read our existing notes on the affected area
 - Find prior decisions that constrain or inform the response
 
-The question for the knowledge system: does it make step 4 faster and better than just reading code and grepping?
+The question for the knowledge system: does it make step 4 faster and better than just reading code and grepping? These scenarios are the concrete evaluation criteria a [KB learning loop](./kb-learning-loop-is-an-open-problem.md) would need to optimise against — but we don't yet have enough logged usage of them to design that loop.
 
 ## Proposing our own changes
 

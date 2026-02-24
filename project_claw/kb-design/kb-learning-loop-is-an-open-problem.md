@@ -1,5 +1,5 @@
 ---
-description: A KB's value is its ability to answer project questions — the learning loop and evaluation criteria are open problems
+description: The KB's value is question-answering capacity, but designing a learning loop requires more usage history than we currently have
 type: note
 traits: [has-claim]
 areas: [kb-design]
@@ -12,13 +12,13 @@ status: speculative
 
 A knowledge base exists to answer questions about the project. This defines value for every artifact: a note is valuable if it helps answer a question, a link is valuable if it helps navigate from a question to an answer, a grouping is valuable if it makes related answers findable together.
 
-New knowledge — extracting claims, writing synthesis notes, discovering connections — is valuable only insofar as it improves future question-answering.
+New knowledge — extracting claims, writing synthesis notes, discovering connections — is valuable only insofar as it improves future question-answering. The [scenarios](./scenarios.md) that define actual KB usage (upstream change analysis, proposing our own changes) are the closest thing we have to a requirements spec for what this question-answering capacity must serve.
 
 ## Knowledge lives in both notes and links
 
 A KB's knowledge is in the content of its notes and in the structure of its links — neither alone is sufficient. A note without links still says something. A link without good notes on both ends is useless. But the link structure is the part that's hardest to get right and most underinvested in: adding notes is easy, discovering which notes genuinely connect and why requires judgment.
 
-This suggests that learning at scale for a KB involves improving both — better notes and better links — but that the link structure is where the most untapped value sits, because it's where understanding is encoded: which ideas support each other, which are in tension, which compose into larger arguments.
+This suggests that learning at scale for a KB involves improving both — better notes and better links — but that the link structure is where the most untapped value sits, because it's where understanding is encoded: which ideas support each other, which are in tension, which compose into larger arguments. When [stale indexes suppress search entirely](./observations/stale-indexes-are-worse-than-no-indexes.md), the cost of underinvestment in link structure becomes concrete: notes that exist but aren't linked become invisible.
 
 ## The boiling cauldron (aspirational)
 
@@ -31,18 +31,33 @@ The visible KB is the production system. Learning could happen through a backgro
 - **Reformulate**: improve a title so it works better as prose when linked
 - **Regroup**: a cluster of notes suggests an index that doesn't exist yet
 
-Each mutation would be speculative — staged separately, surfaced for human review only when it scores high enough.
+Each mutation would be speculative — staged separately, surfaced for human review only when it scores high enough. This is the automated version of what [crystallisation as continuous learning](../notes/crystallisation-is-continuous-learning.md) describes as the manual stabilise/soften cycle — the same system-level adaptation, but with the agent proposing mutations instead of a human driving each one.
 
 ## Open problems
 
 **Evaluation.** The KB's value is defined by the questions it answers, but those questions evolve with the project. There's no static benchmark to optimise against. Eventually, logging actual usage (queries, failed retrievals, how many hops to an answer) could provide signal — but we don't have enough usage yet to learn from.
 
-**Quality gates.** Structural metrics (PageRank, betweenness centrality, cluster density) are proxies at best. A note can be well-connected because it's vague enough to "relate to" everything. The real test is whether a change helps answer a question that couldn't be answered before — and we don't have a systematic way to measure that yet.
+**Quality gates.** Structural metrics (PageRank, betweenness centrality, cluster density) are proxies at best. A note can be well-connected because it's vague enough to "relate to" everything. The real test is whether a change helps answer a question that couldn't be answered before — and we don't have a systematic way to measure that yet. The [text testing framework](./text-testing-framework.md) provides quality checks at both the note level (structural contracts, LLM rubric grading) and the corpus level (contradiction detection, coverage and linking behavior, terminology alignment), but these test artifact quality and inter-document consistency, not the graph's end-to-end question-answering capacity.
 
 **Surfacing rate.** Too many proposals and the human ignores them. Too few and the system isn't learning. Calibrating this requires feedback on what gets accepted, which requires enough volume to learn from.
 
-These are all instances of the same gap: **we need more usage before we can design the learning loop properly.** The right move for now is to keep building the KB manually, pay attention to what works and what doesn't, and revisit this when there's enough history to learn from.
+These are all instances of the same gap: **we need more usage before we can design the learning loop properly.** The right move for now is to keep building the KB manually, pay attention to [what works](./what-works.md) and [what doesn't](./what-doesnt-work.md), and revisit this when there's enough history to learn from. Those two review notes ARE the manual observation log this approach recommends — they capture proven patterns and anti-patterns that would eventually feed a learning loop's evaluation function.
 
 ## Connection to crystallisation
 
 The [bitter lesson boundary](../notes/bitter-lesson-boundary.md) distinguishes calculator-like artifacts (spec captures the problem) from vision-feature-like artifacts (spec encodes a theory). The KB's infrastructure — file formats, frontmatter schema, sync scripts — is calculator-like. The knowledge organisation — which links exist, how notes are grouped, what gets extracted — is vision-feature-like. A learning loop would be the mechanism for continuously improving the vision-feature layer. We're not ready to build it, but the distinction tells us where it would operate.
+
+---
+
+Relevant Notes:
+- [crystallisation-is-continuous-learning](../notes/crystallisation-is-continuous-learning.md) — describes the stabilise/soften cycle in both human-driven and automated forms (DSPy, ProTeGi); the boiling cauldron is a KB-specific instantiation of that cycle, applying it to note and link mutations rather than prompts and code
+- [what-cludebot-teaches-us](./what-cludebot-teaches-us.md) — co-retrieval reinforcement and consolidation passes are concrete mechanisms for the boiling cauldron; cludebot's "need enough query volume" conclusion mirrors the "need usage first" gap here
+- [what-works](./what-works.md) — the observation log this note recommends as interim approach; proven patterns that would feed a learning loop's evaluation
+- [what-doesnt-work](./what-doesnt-work.md) — the anti-pattern log; complements what-works as ground truth for what the loop should avoid proposing
+- [needs-testing](./needs-testing.md) — the extract/connect/review cycle is a primitive version of the boiling cauldron, already partially operational
+- [retrieval-scoring-layer](./retrieval-scoring-layer.md) — metadata-aware reranking addresses part of the quality gates problem: not "did the graph improve?" but "can the graph serve the right content for each query type?"
+- [scenarios](./scenarios.md) — the actual use cases the learning loop's evaluation function would need to optimise against
+- [text-testing-framework](./text-testing-framework.md) — quality gates at both note and corpus level that could serve as building blocks for the loop's evaluation, though they test artifact quality and consistency, not end-to-end question-answering capacity
+
+Topics:
+- [kb-design](./kb-design.md)

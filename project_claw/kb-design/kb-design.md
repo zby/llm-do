@@ -43,6 +43,7 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 
 ## Gaps
 
+- [kb-learning-loop-is-an-open-problem](./kb-learning-loop-is-an-open-problem.md) — the KB needs a continuous improvement loop, but evaluation requires usage history we don't have yet. The boiling cauldron (extract/split/synthesise/relink/regroup mutations) is aspirational; what-works and what-doesnt-work serve as the manual observation log until we can design the loop properly.
 - [retrieval-scoring-layer](./retrieval-scoring-layer.md) — speculative: metadata-aware reranking over qmd results. Now connected to files-not-database (derived index pattern), what-cludebot-teaches-us (staleness decay), three-space model (metabolic rates), and document-types-should-be-verifiable (type trustworthiness prerequisite). Promote to Foundations when/if validated.
 
 ---
@@ -50,3 +51,4 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 Agent Notes:
 - 2026-02-23: connected files-not-database to what-works, what-cludebot-teaches-us, and the koylanai source. The "files as source of truth, derived indexes" pattern is a thread that runs through most of the Foundations and Evaluation sections — it's the implicit architectural assumption the whole KB rests on. Making it explicit via the files-not-database note strengthens the foundations.
 - 2026-02-23: connected retrieval-scoring-layer. Its core idea — per-type decay rates in retrieval — is anticipated by both cludebot (staleness decay) and the three-space model (metabolic rates). The note concretizes what those notes describe abstractly. Keeping in Gaps since it's still speculative, but it's well-grounded in existing thinking now.
+- 2026-02-24: connected kb-learning-loop-is-an-open-problem. The note ties together much of the index: what-works/what-doesnt-work are the manual observation log the loop would feed from, needs-testing's extract/connect/review cycle is a primitive version of the boiling cauldron, retrieval-scoring-layer addresses part of the quality gates problem, and scenarios defines the evaluation criteria. The crystallisation-is-continuous-learning connection is the strongest — the learning loop is the aspirational automated version of the manual crystallisation cycle.

@@ -10,6 +10,7 @@ Accepts files and directories. Directories are expanded to *.md files
 (non-recursive). At least one path is required.
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -51,18 +52,42 @@ def parse_areas(content: str) -> list[str]:
 def find_index_relpath(area: str, note_dir: Path) -> str:
     """Find the relative path from note_dir to the area's index file.
 
-    Searches note_dir first, then parent, then grandparent (up to 3 levels).
-    Returns a relative path like './area.md' or '../area.md'.
+    At each level (note_dir, parent, grandparent, up to 4 levels), checks:
+      1. Flat file: {search_dir}/{area}.md
+      2. Subdirectories: {search_dir}/*/{area}.md
+
+    This handles indexes in the same directory (approvals-index.md next to notes),
+    in a sibling subdirectory (kb-design/kb-design.md from notes/), or in a sibling
+    subdirectory with a different name (kb-design/links.md from notes/).
+
+    Returns a relative path like './area.md' or '../kb-design/area.md'.
     Falls back to './area.md' if not found (will trigger a warning elsewhere).
     """
     filename = f"{area}.md"
-    search_dir = note_dir
-    prefix = "."
-    for _ in range(3):
-        if (search_dir / filename).exists():
-            return f"{prefix}/{filename}"
-        prefix = prefix + "/.."
+    search_dir = note_dir.resolve()
+    note_dir_resolved = note_dir.resolve()
+
+    for _ in range(4):
+        # Check flat file in search_dir
+        candidate = search_dir / filename
+        if candidate.exists():
+            rel = os.path.relpath(candidate, note_dir_resolved)
+            return f"./{rel}" if not rel.startswith("..") else rel
+
+        # Check one level of subdirectories
+        try:
+            if search_dir.is_dir():
+                for subdir in sorted(search_dir.iterdir()):
+                    if subdir.is_dir() and not subdir.name.startswith("."):
+                        candidate = subdir / filename
+                        if candidate.exists():
+                            rel = os.path.relpath(candidate, note_dir_resolved)
+                            return f"./{rel}" if not rel.startswith("..") else rel
+        except PermissionError:
+            pass
+
         search_dir = search_dir.parent
+
     return f"./{filename}"
 
 
@@ -166,9 +191,12 @@ def main():
     if all_areas:
         print("Areas referenced in frontmatter:")
         for area in sorted(all_areas):
-            # Check for index file next to each note that references the area
-            found = any((note.parent / f"{area}.md").exists() for note in notes)
-            status = "OK" if found else "WARNING: index file not found nearby"
+            # Check whether the area's index file can be found from any note
+            found = any(
+                (note.parent / find_index_relpath(area, note.parent)).resolve().exists()
+                for note in notes
+            )
+            status = "OK" if found else "WARNING: index file not found"
             print(f"  {area} — {status}")
         print()
 

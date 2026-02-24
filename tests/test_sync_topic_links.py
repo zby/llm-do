@@ -104,7 +104,7 @@ class TestBuildTopicsSection:
         subdir.mkdir()
         (tmp_path / "my-index.md").write_text("# Index\n")
         result = build_topics_section(["my-index"], subdir)
-        assert "- [my-index](./../my-index.md)\n" in result
+        assert "- [my-index](../my-index.md)\n" in result
 
 
 # --- remove_topics_section ---
@@ -322,13 +322,41 @@ class TestFindIndexRelpath:
         subdir = tmp_path / "sub"
         subdir.mkdir()
         (tmp_path / "my-index.md").write_text("# Index\n")
-        assert find_index_relpath("my-index", subdir) == "./../my-index.md"
+        assert find_index_relpath("my-index", subdir) == "../my-index.md"
 
     def test_grandparent_directory(self, tmp_path):
         deep = tmp_path / "a" / "b"
         deep.mkdir(parents=True)
         (tmp_path / "my-index.md").write_text("# Index\n")
-        assert find_index_relpath("my-index", deep) == "./../../my-index.md"
+        assert find_index_relpath("my-index", deep) == "../../my-index.md"
+
+    def test_sibling_subdirectory(self, tmp_path):
+        """Index in a sibling subdir: project/kb-design/kb-design.md from project/notes/."""
+        notes = tmp_path / "notes"
+        notes.mkdir()
+        kb = tmp_path / "kb-design"
+        kb.mkdir()
+        (kb / "kb-design.md").write_text("# Index\n")
+        assert find_index_relpath("kb-design", notes) == "../kb-design/kb-design.md"
+
+    def test_sibling_subdirectory_different_name(self, tmp_path):
+        """Index in a sibling subdir with different name: project/kb-design/links.md from project/notes/."""
+        notes = tmp_path / "notes"
+        notes.mkdir()
+        kb = tmp_path / "kb-design"
+        kb.mkdir()
+        (kb / "links.md").write_text("# Index\n")
+        assert find_index_relpath("links", notes) == "../kb-design/links.md"
+
+    def test_same_dir_preferred_over_sibling(self, tmp_path):
+        """When index exists both in same dir and sibling subdir, same dir wins."""
+        notes = tmp_path / "notes"
+        notes.mkdir()
+        kb = tmp_path / "kb-design"
+        kb.mkdir()
+        (notes / "my-index.md").write_text("# Index\n")
+        (kb / "my-index.md").write_text("# Index\n")
+        assert find_index_relpath("my-index", notes) == "./my-index.md"
 
     def test_not_found_falls_back(self, tmp_path):
         assert find_index_relpath("missing-index", tmp_path) == "./missing-index.md"

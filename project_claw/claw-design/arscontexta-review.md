@@ -32,11 +32,11 @@ The "Lazy Cornell" anti-pattern: drawing structural lines (folders, tags, templa
 
 ### The documentation to skill to hook trajectory
 
-New best practices should start as written instructions (cheap to revise), get promoted to skills (reliable when invoked), and only become automated hooks once confirmed deterministic through extensive use. Premature automation creates confident systematic errors. Not all methodology completes the trajectory — judgment-requiring operations stay at skill level permanently. This mirrors the [context loading strategy](./context-loading-strategy.md)'s hierarchy — CLAUDE.md instructions, skill descriptions, skill bodies — as a maturation path rather than just a loading mechanism. It also parallels [crystallisation as continuous learning](../notes/crystallisation-is-continuous-learning.md): the doc-to-skill-to-hook trajectory is crystallisation applied to methodology rather than code, moving from stochastic (written instructions an agent interprets) to deterministic (automated hooks).
+New best practices should start as written instructions (cheap to revise), get promoted to skills (reliable when invoked), and only become automated hooks once confirmed deterministic through extensive use. Premature automation creates confident systematic errors. Not all methodology completes the trajectory — judgment-requiring operations stay at skill level permanently. This mirrors the [context loading strategy](./context-loading-strategy.md)'s hierarchy — CLAUDE.md instructions, skill descriptions, skill bodies — as a maturation path rather than just a loading mechanism. It also parallels [crystallisation as continuous learning](../notes/crystallisation-is-continuous-learning.md): the doc-to-skill-to-hook trajectory is crystallisation applied to methodology rather than code, moving from stochastic (written instructions an agent interprets) to deterministic (automated hooks). More broadly, this is one instance of [programming practices applying to prompting](../notes/programming-practices-apply-to-prompting.md) — the "progressive compilation" transfer, where a flexible representation (written instructions) gets progressively frozen into a rigid, efficient one (automated hook).
 
 ### Automation retirement criteria
 
-Four signals that an automated check should be removed: (1) zero catches over months, (2) false positives exceed true positives, (3) methodology change made it irrelevant, (4) replaced by a better mechanism. Applies to CI checks, linters, validation hooks — anything automated that grows monotonically but never shrinks. This complements [cludebot's staleness decay](./what-cludebot-teaches-us.md): decay rates tell you when content is stale; retirement criteria tell you when automation is stale. Both are about pruning what no longer earns its keep.
+Four signals that an automated check should be removed: (1) zero catches over months, (2) false positives exceed true positives, (3) methodology change made it irrelevant, (4) replaced by a better mechanism. Applies to CI checks, linters, validation hooks — anything automated that grows monotonically but never shrinks. This complements [cludebot's staleness decay](./what-cludebot-teaches-us.md): decay rates tell you when content is stale; retirement criteria tell you when automation is stale. Both are about pruning what no longer earns its keep. The retirement criteria are the inverse of [softening signals](../notes/softening-signals.md) — softening signals detect when crystallised code encodes theory rather than specification; retirement criteria detect when crystallised automation has outlived its usefulness.
 
 ### Verbatim risk in agent output
 
@@ -44,7 +44,7 @@ Agents produce output that looks like synthesis (bullet points, headings, "key p
 
 ### Productivity porn diagnostic
 
-Does complexity growth track with output growth? If infrastructure sophistication rises while actual knowledge output stays flat, you're optimizing the wrong thing. A useful self-check for KB-building.
+Does complexity growth track with output growth? If infrastructure sophistication rises while actual knowledge output stays flat, you're optimizing the wrong thing. A useful self-check for KB-building, and a candidate evaluation heuristic for the [KB learning loop](./kb-learning-loop-is-an-open-problem.md) — it tests whether the loop's mutations are producing knowledge rather than just rearranging structure.
 
 ## Tier 2: Good principles, already known but confirmed
 
@@ -76,6 +76,15 @@ Intellectual lineage: Andy Matuschak (evergreen notes), Tiago Forte (intermediat
 Develop the Tier 1 ideas into standalone notes or integrate them into existing guidance (WRITING.md, validation rules, skill instructions). Once each idea has been placed, remove this seedling.
 
 ---
+
+Relevant Notes:
+- [crystallisation is continuous learning](../notes/crystallisation-is-continuous-learning.md) — foundation: the doc-to-skill-to-hook trajectory is crystallisation applied to methodology; verbatim risk is a failure mode within the learning loop
+- [programming practices apply to prompting](../notes/programming-practices-apply-to-prompting.md) — synthesizes: multiple Tier 1 ideas (description quality, falsifiability, progressive compilation) are instances of the general transfer of programming practices to prompting and documents
+- [kb-learning-loop-is-an-open-problem](./kb-learning-loop-is-an-open-problem.md) — enables: productivity porn diagnostic, description quality, and verbatim risk are candidate evaluation heuristics for the learning loop
+- [storing LLM outputs is stabilization](../notes/storing-llm-outputs-is-stabilization.md) — grounds: verbatim risk is the generator/verifier failure mode where the verifier can't distinguish real synthesis from reformatted input
+- [softening signals](../notes/softening-signals.md) — complements: automation retirement criteria are the methodology-side counterpart of code softening signals
+- [what-cludebot-teaches-us](./what-cludebot-teaches-us.md) — extends: automation retirement criteria complement cludebot's staleness decay; both prune what no longer earns its keep
+- [title-as-claim-enables-traversal-as-reasoning](./title-as-claim-enables-traversal-as-reasoning.md) — grounded by: the falsifiability test sharpens claim quality, which is a prerequisite for claim titles to work as reasoning premises
 
 Source:
 - [arscontexta](https://github.com/agenticnotetaking/arscontexta) — agent-operated knowledge system methodology, ~250 methodology notes reviewed 2026-02-24

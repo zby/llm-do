@@ -24,7 +24,7 @@ Base types are hard structural categories with low ambiguity. A document has exa
 
 `text` is the root type — like `Any` in a gradually typed language. A markdown file with no frontmatter. It represents a thought captured before it has enough shape to structure. The absence of frontmatter *is* the type — no `type: text` field needed.
 
-`note` is the first structured type. It requires frontmatter with at least a `description` field and carries the expectations from WRITING.md ([title-as-claim](../notes/title-as-claim-enables-traversal-as-reasoning.md), description quality, index membership, composability). Notes with the `has-claim` trait use claim titles that serve as premises in reasoning chains; specs and other multi-claim documents use topical titles instead.
+`note` is the first structured type. It requires frontmatter with at least a `description` field and carries the expectations from WRITING.md ([title-as-claim](./title-as-claim-enables-traversal-as-reasoning.md), description quality, index membership, composability). Notes with the `has-claim` trait use claim titles that serve as premises in reasoning chains; specs and other multi-claim documents use topical titles instead.
 
 ## Status
 

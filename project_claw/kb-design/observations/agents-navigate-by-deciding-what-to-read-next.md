@@ -37,7 +37,7 @@ The knowledge system should make these decisions cheap. Every mechanism has its 
 - Skill descriptions need to say *when and why*, not just *what*
 - Notes need titles that are claims and descriptions that add information beyond them
 
-Prose-as-title is the shortcut that works across all of these — because [title as claim enables traversal as reasoning](../../notes/title-as-claim-enables-traversal-as-reasoning.md), the pointer carries the argument by itself. But bare pointers without context force the agent to open every target, which is expensive in tokens and attention.
+Prose-as-title is the shortcut that works across all of these — because [title as claim enables traversal as reasoning](../title-as-claim-enables-traversal-as-reasoning.md), the pointer carries the argument by itself. But bare pointers without context force the agent to open every target, which is expensive in tokens and attention.
 
 Topics:
 - [kb-design](./../kb-design.md)

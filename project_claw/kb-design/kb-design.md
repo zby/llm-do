@@ -21,7 +21,7 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 - [document-classification](./document-classification.md) — the spec implementing the above: base types, traits, migration from old flat types
 - [scenarios](./scenarios.md) — concrete use cases the knowledge system must serve
 - [context-loading-strategy](./context-loading-strategy.md) — CLAUDE.md should be a slim router, not a manual; match instruction specificity to loading frequency
-- [title-as-claim-enables-traversal-as-reasoning](../notes/title-as-claim-enables-traversal-as-reasoning.md) — claim titles make link traversal read as reasoning chains; topical titles break this, which is why multi-claim specs get different title conventions
+- [title-as-claim-enables-traversal-as-reasoning](./title-as-claim-enables-traversal-as-reasoning.md) — claim titles make link traversal read as reasoning chains; topical titles break this, which is why multi-claim specs get different title conventions
 
 ## Observations
 

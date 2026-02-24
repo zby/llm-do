@@ -11,7 +11,7 @@ Patterns that have proven valuable in practice.
 
 ## Prose-as-title convention
 
-Note titles that work as claims when linked make the graph self-documenting. "Since [[thin adapters reduce coupling between providers and runtime]]" reads as prose and tells you what the note argues without opening it. Titles-as-labels ("adapter notes", "runtime thoughts") destroy this property. The theory behind this — why [title as claim enables traversal as reasoning](../notes/title-as-claim-enables-traversal-as-reasoning.md) — also identifies where it breaks: multi-claim documents (specs, frameworks) get topical titles because no single claim subsumes their content.
+Note titles that work as claims when linked make the graph self-documenting. "Since [[thin adapters reduce coupling between providers and runtime]]" reads as prose and tells you what the note argues without opening it. Titles-as-labels ("adapter notes", "runtime thoughts") destroy this property. The theory behind this — why [title as claim enables traversal as reasoning](./title-as-claim-enables-traversal-as-reasoning.md) — also identifies where it breaks: multi-claim documents (specs, frameworks) get topical titles because no single claim subsumes their content.
 
 ## Template fields as behavioral nudges
 

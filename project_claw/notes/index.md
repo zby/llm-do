@@ -45,7 +45,7 @@ type: index
 - [Proposed toolset lifecycle resolution for PydanticAI](./proposed-toolset-lifecycle-resolution-for-pydanticai.md) *(note)* — Early sketch of how PydanticAI could handle common toolset lifecycle cases and provide extension points for exotic ones — rough proposal for discussion, not a finished design
 - [Pure Dynamic Tools](./pure-dynamic-tools.md) *(note)* — LLM-authored tools that can only call agents, enabling safe dynamic orchestration
 - [Pure Python vs MCP Code Mode](./pure-python-vs-mcp-codemode.md) *(note)* — Comparing MCP code mode with llm-do pure Python composite tools
-- [PydanticAI Traits API Analysis](./pydanticai-traits-api-analysis.md) *(note)* — PydanticAI Traits API (PR
+- [PydanticAI Traits Is Better Long-Term Architecture Than Deferred Tool Handler](./pydanticai-traits-is-better-long-term-architecture-than-deferred-tool-handler.md) *(note)* — PydanticAI Traits API (PR
 - [PydanticAI upstream index](./pydanticai-upstream-index.md) *(index)* — Index of notes about proposed PydanticAI changes, upstream issues, and how they affect llm-do
 - [Python Worker Annotation Brainstorm](./python-agent-annotation-brainstorm.md) *(note)* — Brainstorm for Python-only worker definitions via decorators
 - [Eric Evans: AI Components for a Deterministic System](./related_works/evans-ai-components-deterministic-system.md)

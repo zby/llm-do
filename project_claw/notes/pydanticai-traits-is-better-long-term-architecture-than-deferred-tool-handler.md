@@ -7,7 +7,7 @@ status: current
 pr: https://github.com/pydantic/pydantic-ai/pull/4233
 ---
 
-# PydanticAI Traits API Analysis
+# PydanticAI Traits Is Better Long-Term Architecture Than Deferred Tool Handler
 
 PR [#4233](https://github.com/pydantic/pydantic-ai/pull/4233) is a research report surveying community projects (including llm-do) and proposing a Traits API for PydanticAI v2. Traits are composable, cross-cutting behaviors attached to agents — lifecycle hooks, guardrails, sub-agent patterns, and more. The report catalogs what the community has built on top of PydanticAI and distills common patterns into a proposed framework primitive.
 

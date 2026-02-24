@@ -27,7 +27,7 @@ Notes about PydanticAI design gaps, proposed changes, and how upstream decisions
 
 ## Traits API
 
-- [pydanticai-traits-api-analysis](./pydanticai-traits-api-analysis.md) — analysis of the Traits API proposal (PR #4233) and what it means for llm-do: approval wrapping elimination and CallScope lifecycle replacement
+- [pydanticai-traits-is-better-long-term-architecture-than-deferred-tool-handler](./pydanticai-traits-is-better-long-term-architecture-than-deferred-tool-handler.md) — analysis of the Traits API proposal (PR #4233) and what it means for llm-do: approval wrapping elimination and CallScope lifecycle replacement
 
 ## Broader comparison
 

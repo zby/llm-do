@@ -24,7 +24,7 @@ These reference removed concepts (Worker class) or describe unimplemented propos
 ## 2. Duplicates / Redundant Pairs
 
 - [ ] **`type-catalog-review.md`** (top-level, 159 lines) vs **`research/type-catalog-review.md`** (58 lines) — Same title, same topic. Top-level is the expanded version. **Action: delete `research/type-catalog-review.md`.**
-- [ ] **`meta/blocking_approvals.md`** (427 lines) — Raw upstream proposal draft. The analytical synthesis lives in `we-want-to-get-rid-of-approval-wrapping.md` + `pydanticai-traits-api-analysis.md`. **Action: decide — delete raw draft or keep as reference material.**
+- [ ] **`meta/blocking_approvals.md`** (427 lines) — Raw upstream proposal draft. The analytical synthesis lives in `we-want-to-get-rid-of-approval-wrapping.md` + `pydanticai-traits-is-better-long-term-architecture-than-deferred-tool-handler.md`. **Action: decide — delete raw draft or keep as reference material.**
 - [ ] **`reviews/useless-features-audit-2026-01-24.md`** (232 lines) — Superseded by 01-29 and 02-09 audits. **Action: delete** (findings carried forward into later audits).
 - [ ] **`reviews/useless-features-audit-2026-01-29.md`** (110 lines) — Superseded by 02-09 audit. **Action: delete** (findings carried forward).
 
@@ -66,7 +66,7 @@ For reference — these were reviewed and found current:
 - **Approvals cluster** (7 notes): `approvals-index.md`, `capability-based-approvals.md`, `approvals-guard-against-llm-mistakes-not-active-attacks.md`, `approval-override-rationale.md`, `ui-event-stream-blocking-approvals.md`, `preapproved-capability-scopes.md`, `we-want-to-get-rid-of-approval-wrapping.md`
 - **Toolset state cluster** (4 notes): `toolset-state-spectrum-from-stateless-to-transactional.md`, `toolset-state-prevents-treating-pydanticai-agents-as-global.md`, `proposed-toolset-lifecycle-resolution-for-pydanticai.md`, `stateful-flag-evaluation-against-toolset-spectrum.md`
 - **Crystallisation pair**: `crystallisation-learning-timescales.md`, `crystallisation-is-continuous-learning.md`
-- **Upstream tracking**: `pydanticai-upstream-index.md`, `pydanticai-traits-api-analysis.md`
+- **Upstream tracking**: `pydanticai-upstream-index.md`, `pydanticai-traits-is-better-long-term-architecture-than-deferred-tool-handler.md`
 - **Other current**: `llm-do-vs-pydanticai-runtime.md`, `execution-modes-user-stories.md`, `stabilize-message-capture.md`, `tool-output-rendering-semantics.md`, `tool-result-truncation.md`, `toolset-instantiation-questions.md`, `pure-dynamic-tools.md`, `programmatic-embedding.md`, `index.md`
 - **Reviews still current**: `useless-features-audit-2026-02-09.md`, `review-modules-summary.md`, `review-solid.md`, `review-tests.md`
 - **Meta**: `llm-day-2026-presentation.md`, `llm-day-2026-presentation-v2.marp.md`, `meetup-demo-plan.md`, `pydanticai-runtime-trace.md`

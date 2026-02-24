@@ -94,25 +94,32 @@ Applies to: all types except `text`
 | Check | Rule | How to Verify |
 |-------|------|---------------|
 | Length | Should be ~50-200 characters | Count characters in description value |
-| New information | Must add context beyond the title | Compare description against filename/title — if semantically equivalent, WARN |
+| Discrimination | Must help pick THIS note over similar ones | Compare description against filename/title — if semantically equivalent, WARN. Then ask: if 5 notes matched a search, would this description help choose this one? |
 | No trailing period | Convention: descriptions don't end with periods | Check last character |
 | Single sentence | Should be one coherent statement | Check for sentence-ending punctuation (`. ! ?`) mid-description |
 
-**How to check "adds new info":** Read the title (filename without `.md`, hyphens to spaces). Read the description. If the description merely restates the title using different words, it fails. A good description adds one of:
-- **Mechanism** — how or why the claim works
-- **Scope** — what boundaries the claim has
-- **Implication** — what follows from the claim
-- **Context** — where the claim applies
+**The description is a retrieval filter, not a summary.** It answers "why THIS note?" not "what is this note about?" The title already states the claim; the description orients the reader by adding what the title can't carry. In priority order:
+
+1. **Mechanism** — how or why the claim works (strongest discriminator)
+2. **Scope** — what boundaries or conditions the claim has
+3. **Implication** — what follows from the claim in practice
+4. **Context** — where the claim applies or what prompted it
+
+Lead with mechanism or scope — these discriminate best. Add implication if space allows. Within 200 chars you typically fit one or two of these.
 
 **Examples:**
 
-Bad (restates title):
+Bad (restates title — no discrimination value):
 - Title: `approvals guard against llm mistakes not active attacks`
 - Description: "The approval system protects against LLM errors rather than deliberate attacks"
 
-Good (adds mechanism):
+Good (adds mechanism — reader immediately knows WHY):
 - Title: `approvals guard against llm mistakes not active attacks`
 - Description: "A determined attacker controls the prompt and can social-engineer approval; approvals catch the common case of tool misuse from hallucination or misunderstanding"
+
+Good (adds scope — reader knows WHEN this applies):
+- Title: `oracle strength spectrum`
+- Description: "The bitter lesson boundary is a gradient, not a binary — oracle strength (how cheaply and reliably you can verify correctness) determines where on the spectrum a component sits"
 
 #### 4. Type Valid
 

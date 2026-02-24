@@ -9,7 +9,7 @@ Read this before creating or editing notes, ADRs, indexes, or source reviews. Fo
 For **notes and above** (any type with frontmatter), every note must be findable by a future agent who doesn't know it exists. Before saving, check:
 
 1. **[Title as claim](claw-design/title-as-claim-enables-traversal-as-reasoning.md)** — Does it work as prose when linked? `since [title](./title.md)` reads naturally? (Applies to single-claim documents; multi-claim specs and frameworks get topical titles instead.)
-2. **Description** — Does it add information beyond the title? Would an agent searching for this concept find it?
+2. **Description** — Is it a retrieval filter, not a summary? The test: if an agent searched for this note's main concept and got 5 results, would this description help pick THIS one? Descriptions that paraphrase the title add zero retrieval value.
 3. **Index membership** — Is it linked from at least one area index? (Directory indexes are auto-generated.)
 4. **Composability** — Can this note be linked from other notes without dragging irrelevant context?
 
@@ -47,13 +47,13 @@ Frontmatter makes notes queryable via ripgrep. Its presence determines the note'
 
 | Field | Required | Constraints |
 |-------|----------|------------|
-| `description` | Yes | Max 200 chars, must add info beyond title |
+| `description` | Yes | Max 200 chars, must discriminate this note from similar ones |
 | `type` | No | Base type: `note` (default), `spec`, `review`, `index`, `adr`. See [document-classification](claw-design/document-classification.md) |
 | `traits` | No | Independently checkable properties: `has-claim`, `has-comparison`, `has-external-sources`, `has-implementation` |
 | `areas` | No | Array of area index names this note belongs to (not the auto-generated directory index) |
 | `status` | No | current, outdated, speculative |
 
-**`description` is the most important field.** It enables progressive disclosure: read the title and description to decide whether to load the full note.
+**`description` is the most important field.** It's a retrieval filter, not a summary — it helps agents decide whether to load the full note. A good description answers "why THIS note?" not "what is this note about?"
 
 Task files do not use frontmatter — their status is encoded by directory (backlog/active/completed). Seedlings also lack frontmatter, but are distinguished by location (they live in `notes/`, not `tasks/`).
 

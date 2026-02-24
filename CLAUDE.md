@@ -63,6 +63,8 @@ Run relevant checks before submitting changes:
 
 # Knowledge System
 
+A **[claw](project_claw/sources/simon-willison-karpathy-claws.md)** is a reactive, AI-native knowledge system — a structured workspace where an agent reads, writes, connects, and learns from persistent notes, responding to events (new sources, changed context) rather than waiting for queries. `project_claw/` is this project's claw.
+
 **If it won't exist next session, write it down now.**
 
 ## How it loads
@@ -82,12 +84,12 @@ Run relevant checks before submitting changes:
 | Architecture decisions | `project_claw/adr/` |
 | Project tasks | `project_claw/tasks/` (read `project_claw/tasks/README.md` before creating) |
 | Code review output | `project_claw/code-reviews/` |
-| KB system design & methodology | `project_claw/claw-design/` |
+| Claw system design & methodology | `project_claw/claw-design/` |
 | External source snapshots | `project_claw/sources/` |
 
-**Routing heuristic — `notes/` vs `claw-design/`:** `notes/` holds general ideas that would apply to any system (crystallisation, oracle strength, the bitter lesson boundary). `claw-design/` holds those ideas applied to project_claw's specific KB — document classification, link contracts, context loading. If a note is about the concept, it goes in `notes/`. If it's about how this KB implements the concept, it goes in `claw-design/`.
+**Routing heuristic — `notes/` vs `claw-design/`:** `notes/` holds general ideas related to llm-do including the theory about systems connecting LLMs and software (crystallisation, the bitter lesson boundary). `claw-design/` holds those ideas applied to claw as an example of such a system — document classification, link contracts, context loading. When in doubt: "Is it about general systems connecting LLMs and software, or about a specific genre of such systems — the claw genre?"
 
-When uncertain: "Is this durable knowledge (notes/) or a formal decision (adr/)?"
+For the `notes/` vs `adr/` boundary: "Is this durable knowledge or a formal decision?"
 
 ## When to Write a Note
 

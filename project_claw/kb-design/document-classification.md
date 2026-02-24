@@ -37,6 +37,8 @@ Status tracks **commitment** — whether a note has been reviewed and endorsed. 
 | `speculative` | Exploratory — deliberately kept as open conjecture. |
 | `outdated` | Superseded — kept for reference but no longer the active view. |
 
+The initial status is `seedling`, not "draft" — a draft implies commitment to develop it, while a seedling may simply be pruned.
+
 `text` files (no frontmatter) have implicit `status: seedling`. When a `text` file gains frontmatter (is promoted to `note`), its status should be set explicitly. `/connect` promotes structure (`text` → `note`) but preserves provisionality by setting `status: seedling`, not `status: current`. Human review flips the status to `current`.
 
 **Finding seedlings that need review:**

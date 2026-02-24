@@ -52,15 +52,16 @@ Parse immediately:
 **Execute these steps:**
 
 1. Read the target note fully — understand its claim and context
-2. **Throughout discovery:** Capture which indexes you read, which queries you ran (with scores), which candidates you evaluated. This becomes the Discovery Trace — proving methodology was followed, not reconstructed.
-3. Run Phase 0 (sync search index)
-4. Use dual discovery in parallel:
+2. **Check note type.** If the target has no frontmatter (a `text` file), promote it to `type: note` with `status: seedling` before connecting. Add frontmatter with `description`, `type: note`, `traits`, `areas: []`, and `status: seedling`. Do NOT set `status: current` — that requires human review.
+3. **Throughout discovery:** Capture which indexes you read, which queries you ran (with scores), which candidates you evaluated. This becomes the Discovery Trace — proving methodology was followed, not reconstructed.
+4. Run Phase 0 (sync search index)
+5. Use dual discovery in parallel:
    - Browse relevant index(s) for related notes
    - Run semantic search for conceptually related notes
-5. Evaluate each candidate: does a genuine connection exist? Can you articulate WHY?
-6. Add inline markdown links where connections pass the articulation test
-7. Update relevant index(s) with this note
-8. Report what was connected and why
+6. Evaluate each candidate: does a genuine connection exist? Can you articulate WHY?
+7. Add inline markdown links where connections pass the articulation test
+8. Update relevant index(s) with this note
+9. Report what was connected and why
 
 **START NOW.** Reference below explains methodology — use to guide, not as output.
 

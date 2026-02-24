@@ -40,7 +40,7 @@ There are two strategies for getting reliable output from a stochastic generator
 
 This is the generator/verifier pattern: verification is often cheaper than generation. For code, you can run tests. For text, you need the automated checks described in the testing pyramid (deterministic → LLM rubric → corpus).
 
-Strategy 2 is only viable when verification is cheap relative to generation. It also reframes the relationship between prompt testing and artifact testing: they're not just separate concerns, they're *complementary strategies*. Prompt testing tells you the distribution is worth sampling from. Artifact testing is the filter that makes a high-variance distribution usable.
+Strategy 2 is only viable when verification is cheap relative to generation — which is to say, when [oracle strength](./oracle-strength-spectrum.md) is sufficient. The viability of generator/verifier varies along the oracle spectrum: it works well in the hard-to-soft oracle range but breaks down in the delayed-oracle and no-oracle zones where the quality gate can't discriminate. This also reframes the relationship between prompt testing and artifact testing: they're not just separate concerns, they're *complementary strategies*. Prompt testing tells you the distribution is worth sampling from. Artifact testing is the filter that makes a high-variance distribution usable.
 
 The implication for stabilization: a good filter lets you *not* stabilize the prompt. You keep the stochastic generator because the verifier handles quality. Constraining the prompt is pushing reliability into the generator instead — a different tradeoff, not a strictly better one.
 
@@ -51,3 +51,4 @@ Relevant Notes:
 - [crystallisation-is-continuous-learning](./crystallisation-is-continuous-learning.md) — foundation: each stored artifact is a step in the continuous learning loop this note describes
 - [evans-ai-components-deterministic-system](./related_works/evans-ai-components-deterministic-system.md) — exemplifies the constraint strategy: Evans' "freeze taxonomy then classify" is collapsing a distribution to a point for the modeling/classification boundary
 - [adaptation-agentic-ai-analysis](./research/adaptation-agentic-ai-analysis.md) — provides data-driven triggers (error patterns, repeated tool failures) for when to make the stabilization decision this note describes
+- [oracle-strength-spectrum](./oracle-strength-spectrum.md) — determines where generator/verifier is viable: the pattern requires sufficient oracle strength for the quality gate to discriminate

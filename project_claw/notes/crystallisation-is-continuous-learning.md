@@ -74,3 +74,4 @@ Relevant Notes:
 - [adaptation-agentic-ai-analysis](research/adaptation-agentic-ai-analysis.md) — extends: provides data-driven triggers (error patterns, repeated tool failures) for when to crystallise vs soften, grounding the learning loop in concrete signals
 - [professional-developers-ai-agents](related_works/professional-developers-ai-agents.md) — empirical evidence that professional developers naturally practice the crystallisation loop: validate, extract patterns, stabilise
 - [python-agent-annotation-brainstorm](python-agent-annotation-brainstorm.md) — enables: the softening/stabilising paths lower friction for moving along the crystallisation gradient between LLM workers and deterministic code
+- [oracle-strength-spectrum](oracle-strength-spectrum.md) — the Karpathy verifiability properties (resettable, efficient, rewardable) map to oracle strength; this note reframes verifiability as a gradient of how cheaply you can check correctness

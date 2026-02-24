@@ -1,5 +1,5 @@
 ---
-description: Base types assert verifiable structure (note, spec, review, index, adr); traits assert independently checkable properties (has-claim, has-comparison, has-external-sources, has-implementation)
+description: Base types assert verifiable structure (text, note, spec, review, index, adr); traits assert checkable properties; status tracks commitment (seedling vs current) independently of structure
 type: spec
 areas: [kb-design]
 status: current
@@ -15,13 +15,34 @@ Base types are hard structural categories with low ambiguity. A document has exa
 
 | Base type | Structural test | Verifiability |
 |-----------|----------------|---------------|
-| `note` | Default — no structural claims | Always valid |
+| `text` | No frontmatter — raw capture | Always valid |
+| `note` | Has frontmatter with description | Check for frontmatter, description field |
 | `spec` | Implementation-ready detail; has Design/Implementation sections | Check for sections |
 | `review` | Examines specific existing code; has Findings; dated | Check for code refs, date |
 | `index` | Primarily navigational links | Check link density |
 | `adr` | Architecture decision record; has Context/Decision/Consequences | Check for ADR sections |
 
-`note` is the honest default — like `Any` in a gradually typed language. New content starts as `note` and gets promoted when it clearly satisfies a more specific base type.
+`text` is the root type — like `Any` in a gradually typed language. A markdown file with no frontmatter. It represents a thought captured before it has enough shape to structure. The absence of frontmatter *is* the type — no `type: text` field needed.
+
+`note` is the first structured type. It requires frontmatter with at least a `description` field and carries the expectations from WRITING.md (title-as-claim, description quality, index membership, composability).
+
+## Status
+
+Status tracks **commitment** — whether a note has been reviewed and endorsed. It is orthogonal to base type: a `note` can be structurally complete (has frontmatter, connections, area membership) while still being provisional.
+
+| Status | Meaning |
+|--------|---------|
+| `seedling` | Provisional — we haven't decided to keep this. May be pruned. |
+| `current` | Endorsed — reviewed and accepted into the KB. |
+| `speculative` | Exploratory — deliberately kept as open conjecture. |
+| `outdated` | Superseded — kept for reference but no longer the active view. |
+
+`text` files (no frontmatter) have implicit `status: seedling`. When a `text` file gains frontmatter (is promoted to `note`), its status should be set explicitly. `/connect` promotes structure (`text` → `note`) but preserves provisionality by setting `status: seedling`, not `status: current`. Human review flips the status to `current`.
+
+**Finding seedlings that need review:**
+```bash
+rg '^status: seedling' project_claw/notes/
+```
 
 ## Traits
 
@@ -61,7 +82,9 @@ areas: [index]
 
 **Types are verifiable.** Each type and trait asserts a structural property you can check. The question is "what structural property am I asserting?" not "what is this about?" Subject matter belongs in `areas`.
 
-**Types crystallise.** Notes start as `note` and get promoted as they gain structure. A bare `note` that persists is a signal for review. This mirrors the crystallisation gradient applied to the KB itself.
+**Types crystallise.** Content can start as `text` (no frontmatter) and get promoted to `note` by adding frontmatter, then to more specific types as structure develops. A `text` file that persists without promotion is a candidate for pruning. This mirrors the crystallisation gradient applied to the KB itself.
+
+**Status is orthogonal to type.** Structure (`text` → `note` → `spec`) and commitment (`seedling` → `current`) are independent axes. A note can be structurally complete and connected while still being a seedling — meaning "we haven't decided to keep this." This avoids conflating "has enough shape to connect" with "has been reviewed and endorsed."
 
 Topics:
 - [kb-design](./kb-design.md)

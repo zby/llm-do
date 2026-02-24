@@ -9,6 +9,7 @@ type: index
 - [Approval Override Rationale](./approval-override-rationale.md) *(note)* — Why per-agent approval overrides exist and when we might remove them
 - [approvals guard against LLM mistakes not active attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) *(note)* — Approvals are a UI feature for catching LLM errors, not a security boundary — isolation is the security boundary
 - [Approvals](./approvals-index.md) *(index)* — Approval system design — threat model, capability taxonomy, UI integration, and upstream simplification
+- [The bitter lesson stops at calculators](./bitter-lesson-boundary.md) *(note)* — The bitter lesson has a boundary — calculators vs vision features illustrate when exact solutions survive scaling and when they don't
 - [Approval System Design](./capability-based-approvals.md) *(note)* — Capability-based approval system design for tool execution control
 - [Container Security Boundary](./container-security-boundary.md) *(note)* — Using Docker containers as security boundary for tool execution
 - [Crystallisation Is Continuous Learning](./crystallisation-is-continuous-learning.md) *(note)* — Crystallisation systematises the out-of-band optimisations every deployed system accumulates — achieving continuous learning through versioned artifacts, whether human-driven or automated
@@ -30,6 +31,7 @@ type: index
 - [llm-do 5-Minute Meetup Demo Plan](./meta/meetup-demo-plan.md) — 5-minute demo plan showing progressive stabilization workflow
 - [PydanticAI Runtime Split and Trace Hooks](./meta/pydanticai-runtime-trace.md) — Proposed PydanticAI changes for runtime/session split and tracing
 - [RLM ephemeral code prevents accumulation](./meta/rlm-ephemeral-code-prevents-accumulation.md) — RLM discards generated code after each run — the single design choice that separates it from llm-do
+- [The bitter lesson boundary is a gradient, not a binary](./oracle-strength-spectrum.md) *(note)* — The bitter lesson boundary is a gradient, not a binary — oracle strength (how cheaply and reliably you can verify correctness) determines where on the spectrum a component sits and how to invest engineering effort
 - [Mistral Vibe Borrowing Report](./other_python_llm_assistants/mistral-vibe-borrowing-report.md)
 - [Mistral Vibe](./other_python_llm_assistants/mistral-vibe.md)
 - [PAI Agent SDK / Paintress CLI](./other_python_llm_assistants/pai-agent-sdk.md)
@@ -56,6 +58,8 @@ type: index
 - [Manifest-Selected Entry Motivation](./research/manifest-selected-entry-motivation.md) — Motivation for moving entry selection from worker to manifest
 - [Type Catalog Review](./research/type-catalog-review.md) — Review of type surface with simplification recommendations
 - [What Survives in Multi-Agent Systems](./research/voooooogel-multi-agent-future.md) — Analysis of what multi-agent patterns will survive stronger models
+- [Operational signals that a component is a softening candidate](./softening-signals.md)
+- [Spec mining is crystallisation's operational mechanism](./spec-mining-as-crystallisation.md)
 - [Stabilize Message Capture Without Private _agent_graph](./stabilize-message-capture.md) *(note)* — Removing private PydanticAI dependency for message capture
 - [The stateful flag resolves simple accumulation but not session or composition-site cases](./stateful-flag-evaluation-against-toolset-spectrum.md) *(note)* — Concrete examples for each toolset state category, evaluating whether the proposed stateful flag + copy-before-run mechanism resolves each case
 - [Storing LLM outputs is stabilization](./storing-llm-outputs-is-stabilization.md) *(note)* — Choosing to keep a specific LLM output collapses a distribution to a point — the same stabilizing move the theory doc describes for code, applied to artifacts

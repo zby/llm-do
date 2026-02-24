@@ -6,7 +6,6 @@ type: index
 # Claw Design Directory
 
 - [ADR-001: Generate Topic links from frontmatter](./adr/001-generate-topic-links-from-frontmatter.md)
-- [{{ phase_name | title }}](./arscontexta-connect.md)
 - [Arscontexta methodology review](./arscontexta-review.md) *(note)* — Curated extraction of transferable ideas from arscontexta's 250-note methodology collection, filtered for a programmer's perspective — what's genuinely actionable vs philosophical vs system-specific
 - [Backlinks — use cases and design space](./backlinks.md) *(note)* — Analysis of where backlinks (inbound link visibility) would concretely help agents working in the KB — use cases, trade-offs, and design options
 - [Claw design](./claw-design.md) *(index)* — Index of notes about designing and building the knowledge base itself — what works, what doesn't, how to test it

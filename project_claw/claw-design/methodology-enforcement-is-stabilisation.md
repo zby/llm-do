@@ -28,7 +28,9 @@ This is [progressive compilation applied to methodology](../notes/programming-pr
 2. **Skill** — encode it as a structured prompt. Reliable when invoked, but requires explicit invocation. Good for judgment-requiring operations that shouldn't be automated.
 3. **Hook/script** — automate the deterministic parts. Only after the practice has stabilised enough that you know exactly what the check should do.
 
-Not everything should complete the trajectory. Operations requiring semantic judgment (like "is this connection genuine?") belong permanently at the skill level. Attempting to automate judgment produces [confident systematic errors](./arscontexta-review.md) — the over-automation risk. The [topic-links-from-frontmatter case](./observations/topic-links-from-frontmatter-are-deterministic.md) is a clean example of the trajectory completing: an LLM-generated Topics footer was recognised as fully mechanical, and the operation moved to a deterministic script.
+Not everything should complete the trajectory. Operations requiring semantic judgment (like "is this connection genuine?") belong permanently at the skill level — their [oracle strength](../notes/oracle-strength-spectrum.md) is too low to support deterministic verification. Attempting to automate judgment produces [confident systematic errors](./arscontexta-review.md) — the over-automation risk. The [topic-links-from-frontmatter case](./observations/topic-links-from-frontmatter-are-deterministic.md) is a clean example of the trajectory completing: an LLM-generated Topics footer was recognised as fully mechanical, and the operation moved to a deterministic script.
+
+The maturation trajectory parallels [document type maturation](./document-types-should-be-verifiable.md) — just as documents start as untyped `note` and gain type information as they crystallise, practices start as written guidance and gain enforcement structure as they prove out. Both are gradual typing applied to different substrates: types accumulate verifiable structural properties; enforcement accumulates deterministic triggers and responses. The [context loading hierarchy](./context-loading-strategy.md) mirrors the same gradient from the information-delivery side — CLAUDE.md instructions, skill descriptions, skill bodies — but for loading specificity rather than enforcement reliability.
 
 ## Current state
 
@@ -36,7 +38,7 @@ We have hooks in `.claude/hooks/` but they aren't wired up (`"hooks": {}` in set
 
 ## Open questions
 
-- When should a WRITING.md instruction become a validate check? What's the signal that instruction-level enforcement isn't enough?
+- When should a WRITING.md instruction become a validate check? [Oracle strength](../notes/oracle-strength-spectrum.md) may provide the answer: a practice is ready to move down the gradient when you can cheaply verify whether it was followed correctly. If verification requires semantic judgment, the practice stays at skill level; if it can be reduced to structural checks, it is a candidate for scripting.
 - Should hook warnings be treated differently from skill output? The LLM sees both as text, but the trigger mechanism differs.
 - Are there practices currently at skill level that should be scripts? (sync_topic_links.py was probably this — a skill-level operation that turned out to be fully deterministic.)
 
@@ -49,6 +51,9 @@ Relevant Notes:
 - [programming practices apply to prompting](../notes/programming-practices-apply-to-prompting.md) — synthesizes: the maturation trajectory is progressive compilation applied to methodology — flexible instructions frozen into rigid, efficient automation
 - [topic links from frontmatter are deterministic](./observations/topic-links-from-frontmatter-are-deterministic.md) — exemplifies: a skill-level operation that completed the maturation trajectory into a deterministic script
 - [what doesn't work](./what-doesnt-work.md) — examples: validation ceremony and session rhythm protocol as premature automation
+- [document types should be verifiable](./document-types-should-be-verifiable.md) — parallels: document type maturation (note -> traits -> promoted base type) follows the same gradual-typing pattern as methodology maturation (instruction -> skill -> hook -> script); both trade flexibility for reliability as verifiability increases
+- [oracle strength spectrum](../notes/oracle-strength-spectrum.md) — determines when a practice is ready to move down the enforcement gradient: cheap verification enables scripting; expensive verification keeps the practice at skill level
+- [context loading strategy](./context-loading-strategy.md) — mirrors: the loading hierarchy (CLAUDE.md -> skill descriptions -> skill bodies) parallels the enforcement hierarchy, but for information specificity rather than practice reliability
 
 Topics:
 - [claw-design](./claw-design.md)

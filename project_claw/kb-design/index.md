@@ -9,6 +9,8 @@ type: index
 - [{{ phase_name | title }}](./arscontexta-connect.md)
 - [Backlinks — use cases and design space](./backlinks.md) *(note)* — Analysis of where backlinks (inbound link visibility) would concretely help agents working in the KB — use cases, trade-offs, and design options
 - [CLAUDE.md is a router, not a manual](./context-loading-strategy.md) *(note)* — CLAUDE.md should be a slim router to task-specific docs, not a comprehensive manual — because it's loaded every session
+- [Convert still requires semantic description](./convert-still-requires-semantic-description.md)
+- [Document classification](./document-classification.md) *(spec)* — Base types assert verifiable structure (text, note, spec, review, index, adr); traits assert checkable properties; status tracks commitment (seedling vs current) independently of structure
 - [Document types should be verifiable](./document-types-should-be-verifiable.md) *(note)* — Document types should assert verifiable structural properties, not subject matter — with a base type + traits model inspired by gradual and structural typing
 - [Files beat a database for agent knowledge bases](./files-not-database.md) *(note)* — Files with git beat a database for agent-facing knowledge bases — universal interface, free versioning, no infrastructure to maintain
 - [KB design](./kb-design.md) *(index)* — Index of notes about designing and building the knowledge base itself — what works, what doesn't, how to test it
@@ -16,7 +18,6 @@ type: index
 - [Link contracts framework — source material](./link-contracts-framework.md) *(note)* — Reference framework for systematic, testable linking — link contracts, intent taxonomy, automated checks, agent implications
 - [Links](./links.md) *(index)* — Index of notes about linking — how links work as decision points, navigation modes, link contracts, and automated link management
 - [Needs testing](./needs-testing.md) *(review)* — Promising ideas without enough evidence — extract/connect/review cycle, input classification before processing
-- [Document classification](./document-classification.md) *(spec)* — Base types assert verifiable structure (text, note, spec, review, index, adr); traits assert checkable properties; status tracks commitment (seedling vs current) independently of structure
 - [Agents navigate by deciding what to read next](./observations/agents-navigate-by-deciding-what-to-read-next.md) *(note)* — An agent doing a task navigates by deciding what to read — links, index entries, search tools, and skill descriptions are all pointers with varying amounts of context for that decision
 - [Automated tests for text](./observations/automated-tests-for-text.md) *(note)* — Text artifacts can be tested with the same pyramid as software — deterministic checks, LLM rubrics, corpus compatibility — built from real failures not taxonomy
 - [Stale indexes are worse than no indexes](./observations/stale-indexes-are-worse-than-no-indexes.md) *(note)* — An agent trusts an index as exhaustive — a missing entry doesn't trigger search, it makes the note invisible

@@ -5,6 +5,7 @@ type: index
 
 # Notes Directory
 
+- [Features to borrow from arscontexta-connect when adding pipeline support](./agent-learnings/connect-pipeline-features.md)
 - [Agent Skills Standard Unification](./agent-skills-unification.md) *(note)* — Aligning .agent format with Agent Skills standard specification
 - [Approval Override Rationale](./approval-override-rationale.md) *(note)* — Why per-agent approval overrides exist and when we might remove them
 - [approvals guard against LLM mistakes not active attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) *(note)* — Approvals are a UI feature for catching LLM errors, not a security boundary — isolation is the security boundary
@@ -64,6 +65,7 @@ type: index
 - [The stateful flag resolves simple accumulation but not session or composition-site cases](./stateful-flag-evaluation-against-toolset-spectrum.md) *(note)* — Concrete examples for each toolset state category, evaluating whether the proposed stateful flag + copy-before-run mechanism resolves each case
 - [Storing LLM outputs is stabilization](./storing-llm-outputs-is-stabilization.md) *(note)* — Choosing to keep a specific LLM output collapses a distribution to a point — the same stabilizing move the theory doc describes for code, applied to artifacts
 - [Subagent Onboarding Protocol](./subagent-onboarding-protocol.md) *(note)* — Bidirectional setup conversation before subagent starts work
+- [Title as claim enables traversal as reasoning](./title-as-claim-enables-traversal-as-reasoning.md) *(note)* — When note titles are claims rather than topics, following links between them reads as a chain of reasoning — the file tree becomes a scan of arguments, and link semantics (since, because, but) encode relationship types
 - [Tool Output Rendering Semantics](./tool-output-rendering-semantics.md) *(note)* — Semantic render hints for structured tool output display
 - [Tool Result Truncation Metadata](./tool-result-truncation.md) *(note)* — Standardizing truncation metadata for tool results
 - [Toolset state prevents treating PydanticAI agents as global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) *(note)* — PydanticAI documents agents as stateless and global, but toolsets on agents can carry mutable state across runs — llm-do works around this with per-call Agent construction and toolset factories

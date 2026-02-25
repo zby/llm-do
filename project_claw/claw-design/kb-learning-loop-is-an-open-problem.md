@@ -30,6 +30,7 @@ The visible KB is the production system. Learning could happen through a backgro
 - **Relink**: find semantically similar notes that aren't linked
 - **Reformulate**: improve a title so it works better as prose when linked
 - **Regroup**: a cluster of notes suggests an index that doesn't exist yet
+- **Retire**: an automated check, link, or note has outlived its usefulness — four signals: zero catches over months, false positives exceed true positives, methodology change made it irrelevant, replaced by a better mechanism (from [arscontexta](https://github.com/agenticnotetaking/arscontexta) methodology review)
 
 Each mutation would be speculative — staged separately, surfaced for human review only when it scores high enough. This is the automated version of what [crystallisation as continuous learning](../notes/crystallisation-is-continuous-learning.md) describes as the manual stabilise/soften cycle — the same system-level adaptation, but with the agent proposing mutations instead of a human driving each one.
 

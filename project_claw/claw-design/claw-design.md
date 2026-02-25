@@ -42,7 +42,7 @@ How we design the knowledge base for llm-do's design history. These are meta-obs
 
 - [link-contracts-framework](./link-contracts-framework.md) — source framework for systematic, testable linking
 - [text-testing-framework](./text-testing-framework.md) — source framework for automated text quality checks
-- [arscontexta-review](./arscontexta-review.md) — curated extraction from arscontexta's ~250 methodology notes: description-as-retrieval-filter, falsifiability test for claims, doc-to-skill-to-hook maturation trajectory, automation retirement criteria, verbatim risk diagnostic
+
 
 ## Gaps
 

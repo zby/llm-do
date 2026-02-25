@@ -44,6 +44,14 @@ Strategy 2 is only viable when verification is cheap relative to generation — 
 
 The implication for stabilization: a good filter lets you *not* stabilize the prompt. You keep the stochastic generator because the verifier handles quality. Constraining the prompt is pushing reliability into the generator instead — a different tradeoff, not a strictly better one.
 
+## Verbatim risk: the hardest verification failure
+
+The generator/verifier pattern has a specific failure mode where the verifier *can't* discriminate: the agent produces output that looks like synthesis — headings, bullet points, "key points" — but contains no insight beyond what the source already stated. The output is reformatted repetition, not processing. This is the worst case because the quality gate passes confidently: the output is well-structured, grammatical, and topically relevant. It just doesn't add anything.
+
+The test: does the output contain claims, connections, or implications not already in the source? If not, the "processing" is illusory. This applies directly to extraction and ingestion workflows — an agent asked to extract insights from a source may produce a note that paraphrases the source with better formatting, which then gets stabilized (stored, linked, indexed) as if it were new knowledge. The KB grows in volume without growing in knowledge.
+
+This is hard to catch because it requires comparing the output against the source, which is a judgment call with low [oracle strength](./oracle-strength-spectrum.md). Structural checks can't detect it — the output has all the right properties (frontmatter, links, claim title). Only semantic comparison reveals the gap.
+
 ---
 
 Relevant Notes:

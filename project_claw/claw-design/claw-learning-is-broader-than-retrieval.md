@@ -61,6 +61,7 @@ The [KB learning loop note](./kb-learning-loop-is-an-open-problem.md) is interna
 
 Relevant Notes:
 - [kb-learning-loop-is-an-open-problem](./kb-learning-loop-is-an-open-problem.md) — the retrieval-oriented learning loop analysis; this note argues it's one layer of a broader problem
+- [quality-signals-for-kb-evaluation](./quality-signals-for-kb-evaluation.md) — addresses the retrieval layer's evaluation with a composite oracle from structural and LLM-hybrid signals; the action layer would need different signals entirely (preference consistency, procedure effectiveness, precedent alignment)
 - [three-space-agent-memory-maps-to-tulving-taxonomy](./three-space-agent-memory-maps-to-tulving-taxonomy.md) — the three memory spaces may map to different learning dynamics: semantic (knowledge), procedural (operations), episodic (self/preferences)
 - [three-space-memory-separation-predicts-measurable-failure-modes](./three-space-memory-separation-predicts-measurable-failure-modes.md) — the predicted failures of flat memory are symptoms of forcing action-oriented knowledge into a retrieval-oriented structure
 - [scenarios](./scenarios.md) — the current scenario set is retrieval-oriented; an action-oriented framing would add classification, communication, and planning scenarios

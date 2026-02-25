@@ -25,6 +25,7 @@ type: index
 - [Stale indexes are worse than no indexes](./observations/stale-indexes-are-worse-than-no-indexes.md) *(note)* — An agent trusts an index as exhaustive — a missing entry doesn't trigger search, it makes the note invisible
 - [Topic links from frontmatter are deterministic](./observations/topic-links-from-frontmatter-are-deterministic.md) *(note)* — The areas-to-Topics mapping is mechanical — now implemented as scripts/sync_topic_links.py
 - [Two kinds of navigation](./observations/two-kinds-of-navigation.md) *(note)* — Link-following is local with context; search is long-range with titles/descriptions; indexes bridge both modes
+- [Quality signals for KB evaluation](./quality-signals-for-kb-evaluation.md) *(note)* — Catalogues graph-topology, content-proxy, and LLM-hybrid signals that could be combined into a weak composite oracle to drive a mutation-based KB learning loop without requiring usage data.
 - [Retrieval needs a metadata-aware scoring layer](./retrieval-scoring-layer.md) *(note)* — Metadata-aware reranking over semantic search — type-dependent recency decay, per-note overrides, SQLite index rebuilt from frontmatter
 - [Scenarios](./scenarios.md) *(note)* — Concrete use cases for the knowledge system — upstream change analysis and proposing our own changes
 - [Text testing framework — source material](./text-testing-framework.md) *(note)* — Reference framework for automated text testing — contracts per document type, test pyramid (deterministic/LLM rubric/corpus), production workflow

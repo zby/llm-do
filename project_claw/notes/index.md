@@ -21,6 +21,7 @@ type: index
 - [Untitled](./examples/LongCoT.md)
 - [Execution Mode Scripting Simplification](./execution-mode-scripting-simplification.md) *(note)* — Simplifying Python embedding with a quick_run helper that collapses 15 lines of wiring to 1-3
 - [Execution Modes: User Stories](./execution-modes-user-stories.md) *(spec)* — User stories for TUI, headless, and chat execution modes
+- [Extract KB as standalone project](./extract-kb-as-standalone-project.md)
 - [Git Integration Research](./git-integration-research.md) — Research on git integration patterns from Aider and golem-forge
 - [Indirection is costly in LLM instructions](./indirection-is-costly-in-llm-instructions.md) *(note)* — In code, indirection (variables, config, abstraction layers) is nearly free at runtime — in LLM instructions, every layer of indirection costs context and interpretation overhead on every read
 - [Inspectable substrate, not supervision, defeats the blackbox problem](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) *(note)* — Chollet frames agentic coding as ML producing blackbox codebases — crystallisation counters this not by requiring human review but by choosing a substrate (repo artifacts) that any agent can inspect, diff, test, and verify
@@ -49,6 +50,10 @@ type: index
 - [PydanticAI Traits Is Better Long-Term Architecture Than Deferred Tool Handler](./pydanticai-traits-is-better-long-term-architecture-than-deferred-tool-handler.md) *(note)* — PydanticAI Traits API (PR
 - [PydanticAI upstream index](./pydanticai-upstream-index.md) *(index)* — Index of notes about proposed PydanticAI changes, upstream issues, and how they affect llm-do
 - [Python Worker Annotation Brainstorm](./python-agent-annotation-brainstorm.md) *(note)* — Brainstorm for Python-only worker definitions via decorators
+- [Agent Skills for Context Engineering](./related-systems/agent-skills-for-context-engineering.md) *(note)* — Skill-based context engineering framework — 14 instructional modules covering attention mechanics, multi-agent patterns, memory, evaluation. Strong on operational patterns, weaker on learning theory.
+- [Ars Contexta](./related-systems/arscontexta.md) *(note)* — Claude Code plugin that generates knowledge systems from conversation, backed by 249 research claims. Ancestor of our claw — we run a local instance but have diverged significantly in structure and theory.
+- [Related Systems](./related-systems/related-systems-index.md) *(index)* — Comparable knowledge/agent systems tracked for evolving ideas, convergence signals, and borrowable patterns
+- [Thalo](./related-systems/thalo.md) *(note)* — Custom plain-text language for knowledge management with Tree-Sitter grammar, typed entities, 27 validation rules, and LSP. Makes the same programming-theory-over-psychology bet we do, but went further into formalization with a custom DSL.
 - [Eric Evans: AI Components for a Deterministic System](./related_works/evans-ai-components-deterministic-system.md)
 - [Granular Software](./related_works/granular-software.md)
 - [Professional Software Developers and AI Agent Use](./related_works/professional-developers-ai-agents.md)

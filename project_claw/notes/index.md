@@ -22,6 +22,7 @@ type: index
 - [Execution Mode Scripting Simplification](./execution-mode-scripting-simplification.md) *(note)* — Simplifying Python embedding with a quick_run helper that collapses 15 lines of wiring to 1-3
 - [Execution Modes: User Stories](./execution-modes-user-stories.md) *(spec)* — User stories for TUI, headless, and chat execution modes
 - [Git Integration Research](./git-integration-research.md) — Research on git integration patterns from Aider and golem-forge
+- [Indirection is costly in LLM instructions](./indirection-is-costly-in-llm-instructions.md) *(note)* — In code, indirection (variables, config, abstraction layers) is nearly free at runtime — in LLM instructions, every layer of indirection costs context and interpretation overhead on every read
 - [Inspectable substrate, not supervision, defeats the blackbox problem](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) *(note)* — Chollet frames agentic coding as ML producing blackbox codebases — crystallisation counters this not by requiring human review but by choosing a substrate (repo artifacts) that any agent can inspect, diff, test, and verify
 - [Library System Specification](./library-system-spec.md) *(spec)* — Specification for reusable agent and tool libraries that can be shared across projects
 - [llm-do Project Mode, Worker Imports, and Tool Linking](./llm-do-project-mode-and-imports.md) *(spec)* — Spec for project mode discovery, worker imports, and tool linking
@@ -54,6 +55,7 @@ type: index
 - [RLM Implementations vs llm-do](./related_works/rlm-comparison.md)
 - [RLM (Recursive Language Model) — For Programmers](./related_works/rlm-explained.md)
 - [Shesha vs llm-do](./related_works/shesha-comparison.md)
+- [Reliability dimensions map to oracle-hardening stages](./reliability-dimensions-map-to-oracle-hardening-stages.md) *(note)* — The four reliability dimensions from Rabanser et al. (consistency, robustness, predictability, safety) each harden a different oracle question — mapping empirical agent evaluation onto the oracle-strength spectrum
 - [Analysis: Adaptation of Agentic AI (arXiv:2512.16301)](./research/adaptation-agentic-ai-analysis.md) — Analysis of agentic AI adaptation paper and llm-do implications
 - [Experiment runtime without Worker class](./research/experiment-runtime-without-worker.md) — Exploring runtime design without the Worker class
 - [Manifest-Selected Entry Motivation](./research/manifest-selected-entry-motivation.md) — Motivation for moving entry selection from worker to manifest

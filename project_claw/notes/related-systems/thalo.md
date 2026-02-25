@@ -53,7 +53,7 @@ The comparison illuminates a design spectrum:
 ## What We Could Borrow
 
 - **The "unit tests for knowledge" framing.** Resonates with oracle hardening but is more accessible language. Could be useful when explaining our approach.
-- **Actualization as a pattern.** Separating "what to synthesize" (query) from "how to synthesize" (prompt) from "who synthesizes" (any LLM) is a clean decoupling we could apply to claw operations.
+- **Synthesis as map-reduce over knowledge.** Their `define-synthesis` is a saved query + prompt pair — a repeatable synthesis specification. The general mechanism is map-reduce: query selects entries, prompt maps over them, LLM reduces to output. Powerful pattern but needs a use case where you repeatedly ask the same shaped question over changing inputs. We don't have that pattern yet.
 - **Incremental workspace model.** If we ever build tooling beyond rg + skills, their architecture (workspace → documents → incremental semantic analysis) is a good reference.
 
 ## What to Watch

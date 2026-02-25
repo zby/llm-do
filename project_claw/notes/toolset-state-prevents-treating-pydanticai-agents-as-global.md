@@ -2,7 +2,7 @@
 description: PydanticAI documents agents as stateless and global, but toolsets on agents can carry mutable state across runs — llm-do works around this with per-call Agent construction and toolset factories
 type: note
 traits: [has-claim]
-areas: [pydanticai-upstream-index]
+areas: [pydanticai-upstream]
 status: current
 ---
 
@@ -81,4 +81,4 @@ Relevant Notes:
 - [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — enables: eliminating approval wrapping removes the primary driver of per-call Agent construction
 
 Topics:
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
+- [pydanticai-upstream](./pydanticai-upstream-index.md)

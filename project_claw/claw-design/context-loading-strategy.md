@@ -37,3 +37,6 @@ Both are always loaded, but they work differently:
 The overlap is intentional but serves different purposes. CLAUDE.md says "before creating notes, read WRITING.md" (imperative routing). A skill description says "/connect — find connections between notes" (available capability). Both point toward the same kind of work but through different mechanisms — one pushes, the other pulls.
 
 **Key design question:** When should guidance live in CLAUDE.md vs in a skill description? If the agent must always follow it, CLAUDE.md. If the agent should know it's available and choose when to use it, skill description + skill body.
+
+Topics:
+- [claw-design](./claw-design.md)

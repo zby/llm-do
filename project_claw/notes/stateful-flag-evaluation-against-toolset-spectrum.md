@@ -2,7 +2,7 @@
 description: Concrete examples for each toolset state category, evaluating whether the proposed stateful flag + copy-before-run mechanism resolves each case
 type: note
 traits: [has-comparison]
-areas: [pydanticai-upstream-index]
+areas: [pydanticai-upstream]
 status: current
 last_verified: 2026-02-18
 pydanticai_version: "1.26.0"
@@ -649,4 +649,4 @@ Relevant Notes:
 - [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — eliminating wrapping makes the stateful flag work cleanly for frameworks
 
 Topics:
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
+- [pydanticai-upstream](./pydanticai-upstream-index.md)

@@ -2,7 +2,7 @@
 description: PydanticAI Traits API (PR #4233) proposes lifecycle hooks and cross-cutting behaviors that could eliminate our approval wrapping and CallScope scaffolding — one of two upstream paths to simplification
 type: note
 traits: [has-comparison, has-external-sources]
-areas: [pydanticai-upstream-index, approvals-index]
+areas: [pydanticai-upstream, approvals]
 status: current
 pr: https://github.com/pydantic/pydantic-ai/pull/4233
 ---
@@ -50,5 +50,5 @@ Relevant Notes:
 - [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — the upstream issue Traits would help resolve: per-call Agent construction forced by toolset state
 
 Topics:
-- [approvals-index](./approvals-index.md)
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
+- [approvals](./approvals-index.md)
+- [pydanticai-upstream](./pydanticai-upstream-index.md)

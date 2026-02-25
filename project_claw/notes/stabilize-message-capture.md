@@ -2,7 +2,7 @@
 description: Removing private PydanticAI dependency for message capture
 type: note
 traits: [has-implementation]
-areas: [pydanticai-upstream-index]
+areas: [pydanticai-upstream]
 ---
 
 # Stabilize Message Capture Without Private _agent_graph
@@ -40,3 +40,6 @@ now emits end-of-run snapshots and the private `_agent_graph` dependency is gone
 - Do we still need incremental `message_log_callback` output, or is a post-run snapshot sufficient for CLI/debugging?
 - Are we willing to change `-vvv` output format to events instead of serialized `ModelMessage` objects?
 - If we keep event-based logs, should `message_log_callback` be replaced or renamed to avoid implying message-level objects?
+
+Topics:
+- [pydanticai-upstream](./pydanticai-upstream-index.md)

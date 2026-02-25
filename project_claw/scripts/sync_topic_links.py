@@ -63,32 +63,33 @@ def find_index_relpath(area: str, note_dir: Path) -> str:
     Returns a relative path like './area.md' or '../claw-design/area.md'.
     Falls back to './area.md' if not found (will trigger a warning elsewhere).
     """
-    filename = f"{area}.md"
+    filenames = [f"{area}.md", f"{area}-index.md"]
     search_dir = note_dir.resolve()
     note_dir_resolved = note_dir.resolve()
 
     for _ in range(4):
-        # Check flat file in search_dir
-        candidate = search_dir / filename
-        if candidate.exists():
-            rel = os.path.relpath(candidate, note_dir_resolved)
-            return f"./{rel}" if not rel.startswith("..") else rel
+        for filename in filenames:
+            # Check flat file in search_dir
+            candidate = search_dir / filename
+            if candidate.exists():
+                rel = os.path.relpath(candidate, note_dir_resolved)
+                return f"./{rel}" if not rel.startswith("..") else rel
 
-        # Check one level of subdirectories
-        try:
-            if search_dir.is_dir():
-                for subdir in sorted(search_dir.iterdir()):
-                    if subdir.is_dir() and not subdir.name.startswith("."):
-                        candidate = subdir / filename
-                        if candidate.exists():
-                            rel = os.path.relpath(candidate, note_dir_resolved)
-                            return f"./{rel}" if not rel.startswith("..") else rel
-        except PermissionError:
-            pass
+            # Check one level of subdirectories
+            try:
+                if search_dir.is_dir():
+                    for subdir in sorted(search_dir.iterdir()):
+                        if subdir.is_dir() and not subdir.name.startswith("."):
+                            candidate = subdir / filename
+                            if candidate.exists():
+                                rel = os.path.relpath(candidate, note_dir_resolved)
+                                return f"./{rel}" if not rel.startswith("..") else rel
+            except PermissionError:
+                pass
 
         search_dir = search_dir.parent
 
-    return f"./{filename}"
+    return f"./{filenames[0]}"
 
 
 def build_topics_section(areas: list[str], note_dir: Path | None = None) -> str:

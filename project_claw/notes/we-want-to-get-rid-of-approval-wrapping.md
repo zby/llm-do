@@ -2,7 +2,7 @@
 description: Two upstream PydanticAI paths could eliminate our ApprovalToolset wrapper stacking — deferred_tool_handler and Traits before_tool_call hooks
 type: note
 traits: [has-claim, has-implementation]
-areas: [approvals-index, pydanticai-upstream-index]
+areas: [approvals, pydanticai-upstream]
 status: current
 last_verified: 2026-02-18
 ---
@@ -91,5 +91,5 @@ Relevant Notes:
 - [type-catalog-review](./type-catalog-review.md) — context: documents the `ApprovalMode` duplication and override shape duplication that the type migration should clean up
 
 Topics:
-- [approvals-index](./approvals-index.md)
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
+- [approvals](./approvals-index.md)
+- [pydanticai-upstream](./pydanticai-upstream-index.md)

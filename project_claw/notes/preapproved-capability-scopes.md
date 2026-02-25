@@ -2,7 +2,7 @@
 description: Path-scoped preapproval policies for reducing approval prompts
 type: note
 traits: [has-implementation]
-areas: [approvals-index]
+areas: [approvals]
 ---
 
 # Preapproved Capability Scopes
@@ -55,4 +55,4 @@ Relevant Notes:
 - [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — grounds: scoped preapproval is safe precisely because approvals are a UX feature, not a security boundary
 
 Topics:
-- [approvals-index](./approvals-index.md)
+- [approvals](./approvals-index.md)

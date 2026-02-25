@@ -2,7 +2,7 @@
 description: Catalog of toolset state patterns — most tools are stateless so the problem is easy to miss, but shared resources, browser sessions, and DB transactions reveal that toolset lifecycle is an unresolved design question
 type: note
 traits: [has-comparison]
-areas: [pydanticai-upstream-index]
+areas: [pydanticai-upstream]
 status: current
 ---
 
@@ -227,4 +227,4 @@ Relevant Notes:
 - [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — per-call isolation as a key llm-do differentiator over vanilla PydanticAI
 
 Topics:
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
+- [pydanticai-upstream](./pydanticai-upstream-index.md)

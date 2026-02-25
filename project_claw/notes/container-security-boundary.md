@@ -2,7 +2,7 @@
 description: Using Docker containers as security boundary for tool execution
 type: note
 traits: [has-comparison]
-areas: [approvals-index]
+areas: [approvals]
 ---
 
 # Container Security Boundary
@@ -88,3 +88,6 @@ This gives security where it matters without overhead for everything.
 Relevant Notes:
 - [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — extends: articulates the consequence of container isolation being the security boundary — approvals become a UX feature rather than a security mechanism
 - [capability-based-approvals](./capability-based-approvals.md) — enables: container isolation makes it safe for the capability-based approval system to optimize for usability rather than security
+
+Topics:
+- [approvals](./approvals-index.md)

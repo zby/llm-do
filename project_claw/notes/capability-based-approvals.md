@@ -2,7 +2,7 @@
 description: Capability-based approval system design for tool execution control
 type: note
 traits: [has-implementation]
-areas: [approvals-index]
+areas: [approvals]
 status: current
 ---
 
@@ -116,4 +116,4 @@ Relevant Notes:
 - [git-integration-research](./git-integration-research.md) — example: proposed git toolset shows how narrow tools map to specific capability declarations (git.read, git.write, git.push)
 
 Topics:
-- [approvals-index](./approvals-index.md)
+- [approvals](./approvals-index.md)

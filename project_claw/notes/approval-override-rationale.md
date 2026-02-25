@@ -2,7 +2,7 @@
 description: Why per-agent approval overrides exist and when we might remove them
 type: note
 traits: []
-areas: [approvals-index]
+areas: [approvals]
 ---
 
 # Approval Override Rationale
@@ -43,4 +43,4 @@ Relevant Notes:
 - [capability-based-approvals](./capability-based-approvals.md) — supersedes: capability-based policy where tools declare facts and the runtime evaluates them replaces the need for per-agent approval overrides
 
 Topics:
-- [approvals-index](./approvals-index.md)
+- [approvals](./approvals-index.md)

@@ -2,7 +2,7 @@
 description: Early sketch of how PydanticAI could handle common toolset lifecycle cases and provide extension points for exotic ones — rough proposal for discussion, not a finished design
 type: note
 traits: [has-implementation]
-areas: [pydanticai-upstream-index]
+areas: [pydanticai-upstream]
 status: speculative
 ---
 
@@ -145,4 +145,4 @@ Relevant Notes:
 - [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — enables: once wrapping is eliminated, Layer 2 (first-class factories) could fully replace llm-do's per-call Agent construction
 
 Topics:
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
+- [pydanticai-upstream](./pydanticai-upstream-index.md)

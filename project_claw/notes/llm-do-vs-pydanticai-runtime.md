@@ -2,7 +2,7 @@
 description: What llm-do adds on top of vanilla PydanticAI agents
 type: note
 traits: [has-comparison, has-external-sources]
-areas: [pydanticai-upstream-index]
+areas: [pydanticai-upstream]
 ---
 
 # llm-do vs vanilla PydanticAI: what the runtime adds
@@ -201,7 +201,7 @@ Relevant Notes:
 - [toolset-state-prevents-treating-pydanticai-agents-as-global](./toolset-state-prevents-treating-pydanticai-agents-as-global.md) — details why llm-do constructs Agents per-call instead of reusing them as PydanticAI docs recommend
 
 Topics:
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
+- [pydanticai-upstream](./pydanticai-upstream.md)
 
 ## References
 - https://ai.pydantic.dev/multi-agent-applications/#agent-delegation-and-dependencies
@@ -210,4 +210,4 @@ Topics:
 - subagents-pydantic-ai/docs/index.md
 
 Topics:
-- [pydanticai-upstream-index](./pydanticai-upstream-index.md)
+- [pydanticai-upstream](./pydanticai-upstream-index.md)

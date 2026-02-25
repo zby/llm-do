@@ -60,3 +60,6 @@ The deepest divergence is in grounding discipline. Arscontexta draws on **cognit
 - How does the plugin marketplace model evolve — does it become a distribution channel for knowledge system patterns?
 - Do the 249 research claims get maintained and updated, or become stale?
 - Does the fresh-context-per-phase pattern prove its value in practice, and should we adopt it?
+
+Topics:
+- [related-systems](./related-systems-index.md)

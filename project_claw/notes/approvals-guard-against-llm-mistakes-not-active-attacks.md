@@ -2,7 +2,7 @@
 description: Approvals are a UI feature for catching LLM errors, not a security boundary — isolation is the security boundary
 type: note
 traits: [has-claim]
-areas: [approvals-index]
+areas: [approvals]
 status: current
 ---
 
@@ -41,4 +41,4 @@ Relevant Notes:
 - [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — extends: the "syscall interception" computational model frames approvals as mediation for visibility and error-catching, not security
 
 Topics:
-- [approvals-index](./approvals-index.md)
+- [approvals](./approvals-index.md)

@@ -54,3 +54,6 @@ These techniques could strengthen our [quality signals work](../../claw-design/q
 - Does the skill specification evolve toward something like our document classification?
 - How does the evaluation methodology mature — could it become a reusable component?
 - Do they stay platform-agnostic or drift toward Claude Code specifics?
+
+Topics:
+- [related-systems](./related-systems-index.md)

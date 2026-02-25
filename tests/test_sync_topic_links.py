@@ -358,6 +358,24 @@ class TestFindIndexRelpath:
         (kb / "my-index.md").write_text("# Index\n")
         assert find_index_relpath("my-index", notes) == "./my-index.md"
 
+    def test_index_suffix_same_directory(self, tmp_path):
+        """Area 'related-systems' finds 'related-systems-index.md'."""
+        (tmp_path / "related-systems-index.md").write_text("# Index\n")
+        assert find_index_relpath("related-systems", tmp_path) == "./related-systems-index.md"
+
+    def test_index_suffix_in_subdirectory(self, tmp_path):
+        """Area 'related-systems' finds 'related-systems/related-systems-index.md'."""
+        subdir = tmp_path / "related-systems"
+        subdir.mkdir()
+        (subdir / "related-systems-index.md").write_text("# Index\n")
+        assert find_index_relpath("related-systems", tmp_path) == "./related-systems/related-systems-index.md"
+
+    def test_exact_name_preferred_over_index_suffix(self, tmp_path):
+        """When both 'area.md' and 'area-index.md' exist, exact match wins."""
+        (tmp_path / "my-area.md").write_text("# Index\n")
+        (tmp_path / "my-area-index.md").write_text("# Index\n")
+        assert find_index_relpath("my-area", tmp_path) == "./my-area.md"
+
     def test_not_found_falls_back(self, tmp_path):
         assert find_index_relpath("missing-index", tmp_path) == "./missing-index.md"
 

@@ -2,7 +2,7 @@
 description: Approval broker design for event-stream UI with blocking approvals
 type: note
 traits: [has-implementation]
-areas: [approvals-index]
+areas: [approvals]
 ---
 
 # Event-Stream UI with Blocking Approvals
@@ -94,4 +94,4 @@ Relevant Notes:
 - [we-want-to-get-rid-of-approval-wrapping](./we-want-to-get-rid-of-approval-wrapping.md) — adapts: when wrapping is eliminated, the broker's `request_approval` / `respond` interface adapts to produce `DeferredToolResult` (Path 1) or integrate with `before_tool_call` hooks (Path 2)
 
 Topics:
-- [approvals-index](./approvals-index.md)
+- [approvals](./approvals-index.md)

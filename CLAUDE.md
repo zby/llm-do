@@ -120,6 +120,18 @@ rg 'areas:.*architecture' project_claw/notes/
 rg '\[.*\]\(.*note-title\.md\)' --glob '*.md'
 ```
 
+### qmd (semantic search)
+
+Always use `--index llm-do` to scope searches to this project:
+```bash
+qmd --index llm-do query "concept"
+qmd --index llm-do search "keyword"
+qmd --index llm-do update        # re-index after changes
+```
+
+Collections are defined in `project_claw/claw-design/qmd-collections.yml`.
+Setup: `cp project_claw/claw-design/qmd-collections.yml ~/.config/qmd/llm-do.yml`
+
 ## Guardrails
 
 - Never present inferences as facts — "I notice a pattern" not "this is true"

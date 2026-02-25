@@ -20,9 +20,9 @@ The bitter lesson does have a boundary. Both calculators and hand-crafted vision
 
 Both are narrow. Both are human-engineered. The difference isn't scope — it's whether the specification fully captures the problem.
 
-## The boundary is hard to see in practice
+## In practice, the boundary is a working heuristic
 
-Calculators are the easy case: we know exactly what we want, and we've known since the start. But most practical solutions don't arrive with that clarity. The transistor wasn't obviously practical. Neither was the Fourier transform, or public-key cryptography before the internet. Practicality emerged from composition, not from any single step. You can't use "is this obviously practical?" as a reliable test.
+The boundary between calculators and vision features is real, but identifying which side you're on is not. Calculators are the easy case: we know exactly what we want, and we've known since the start. But most practical solutions don't arrive with that clarity. The transistor wasn't obviously practical. Neither was the Fourier transform, or public-key cryptography before the internet. Practicality emerged from composition, not from any single step. You can't use "is this obviously practical?" as a reliable test.
 
 The vision researchers faced exactly this. Each individual feature — edge detection, corner detection, scale-invariant keypoints — was genuinely useful in isolation. The failure was in composition: the pieces didn't add up to "seeing." But that failure was only visible in retrospect, after learned representations demonstrated a better path. **Composition failure is the tell** — when individually sound components don't compose into the larger capability, the specs are probably theories, not definitions.
 
@@ -32,10 +32,20 @@ The vision researchers faced exactly this. Each individual feature — edge dete
 
 Crystallisation therefore has a complement: **softening**. Where crystallisation hardens a working solution into an exact artifact, softening replaces a crystallised component with a learned or general-purpose one when scale makes that viable. The bitter lesson describes a trajectory, not a law of nature — and the trajectory runs in both directions. Edge detection was crystallised (hand-coded algorithms), softened (replaced by learned features), and may re-crystallise at a different level of the stack (as an accelerator inside a learned architecture). FlashAttention is hand-crafted algorithmic optimization inside learned architectures; tokenizers are engineered preprocessing that learned models depend on. Approaches that get bitter-lessoned away at one level sometimes reappear embedded within the general method at another.
 
-Good practice in a hybrid system:
+Working heuristics for a hybrid system:
 
 1. **Crystallise for current leverage, not permanence.** A test that checks "does this function return the right number" is probably a calculator. A convention that says "always decompose agents into these three phases" is probably a vision feature. Crystallise both — but expect the second kind to eventually soften.
 
 2. **Prefer specs that describe what over how.** The more a crystallised artifact encodes a theory of how something works (rather than what it should produce), the more likely it is a softening candidate. "This endpoint returns X given Y" survives longer than "always process requests in three stages."
 
 3. **Watch for composition failure as a softening signal.** If crystallised conventions don't compose into better systems, that's the signal to soften — replace the rigid decomposition with a learned one.
+
+### Confidence signals: calculator or vision feature?
+
+None of these are decisive — the whole point is that you often can't tell until scale tests the distinction. But they shift your confidence:
+
+| Signal | Raises "calculator" confidence | Raises "vision feature" confidence |
+|--------|-------------------------------|-----------------------------------|
+| **Is correctness fully specifiable?** | Spec IS the problem (multiplication, sorting) | Spec approximates the problem (edge detection, sentiment) |
+| **Is the spec a definition or a proxy metric?** | Output has a single correct answer verifiable without judgment | Verification requires human evaluation or proxy scores |
+| **Are failures local or compositional?** | Bugs are in individual components; fixing them fixes the system | Components work in isolation but don't compose into the target capability |

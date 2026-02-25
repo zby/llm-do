@@ -15,7 +15,7 @@ Note titles that work as claims when linked make the graph self-documenting. "Si
 
 ## Template fields as behavioral nudges
 
-The `areas: []` field in note templates guides agents to update indexes without explicit rules. The agent fills in the template, hits the empty array, and naturally asks "which index does this belong to?" The CLAUDE.md rule reinforces this, but the template is what makes it automatic. See [the observation](observations/template-areas-field-nudges-index-updates.md) that triggered this directory.
+Template fields like `description:` and `type:` guide agents to supply metadata at the moment of creation. The agent fills in the template, hits the empty field, and naturally asks "what should this be?" This is more reliable than documentation rules that the agent reads at session start and forgets. The `areas: []` field nudges agents toward curated area indexes — though notes are discoverable via auto-generated directory indexes regardless.
 
 ## Discovery-first as creation constraint
 

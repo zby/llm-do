@@ -4,7 +4,7 @@ The [bitter lesson boundary](./bitter-lesson-boundary.md) says some crystallised
 
 ## Signals that a component encodes theory, not specification
 
-**Brittleness under paraphrase or reordering.** If the component breaks when inputs are rephrased, reordered, or padded with irrelevant content, it's relying on surface patterns rather than capturing the underlying structure. Metamorphic tests can detect this systematically.
+**Brittleness under paraphrase or reordering.** If the component breaks when inputs are rephrased, reordered, or padded with irrelevant content, it's relying on surface patterns rather than capturing the underlying structure. Metamorphic tests can detect this systematically. Rabanser et al.'s [agent reliability study](../sources/towards-a-science-of-ai-agent-reliability.md) operationalises this signal as the R_prompt metric and finds it is the key differentiator among robustness dimensions: models handle genuine faults gracefully yet remain vulnerable to surface-level instruction rephrasings — empirical confirmation at scale that paraphrase brittleness detects vision-feature components.
 
 **Isolation-vs-integration gap.** The component performs well on unit tests but fails in integration. This was exactly the vision-features pattern: each feature (edge detection, corner detection) worked in isolation, but they didn't compose into "seeing." A growing gap between unit and integration performance is a softening signal.
 

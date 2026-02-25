@@ -16,10 +16,7 @@ Parse the target to determine what to do:
 
 1. **No target** — list `project_claw/sources/` recent `.md` files (excluding .json, .ingest.md, .working.md), then ask which to ingest.
 
-2. **URL** (starts with `http://` or `https://`) — snapshot it first, then ingest the result:
-   - **GitHub issue/PR** (`github.com/.../issues/N` or `github.com/.../pull/N`) → run: `uv run project_claw/scripts/github_snapshot.py "<url>"`
-   - **X/Twitter post** (`x.com/.../status/...` or `twitter.com/.../status/...`) → run: `uv run project_claw/scripts/x_snapshot.py "<url>"`
-   - **Any other URL** → invoke `/snapshot-web <url>`
+2. **URL** (starts with `http://` or `https://`) — invoke `/snapshot-web <url>` to capture it. `/snapshot-web` handles all URL types (web pages, PDFs, GitHub, X/Twitter).
 
    Parse the "Snapshot saved:" line from the output to get the file path. That becomes the input for Step 1.
 

@@ -35,6 +35,7 @@ This connects to [crystallisation](../notes/stabilisation-is-learning.md): cryst
 
 - **Wikis have a decay problem.** The original WikiWikiWeb eventually suffered from stale pages nobody maintained. Our `status: outdated` and seedling review process are meant to address this, but the risk remains — low friction for capture means high volume, and curation must keep up.
 - **"In place" has limits.** A `text` file that grows into a 500-line `structured-claim` might be better split. The principle is "refine in place when possible," not "never split."
+- **The ladder is a library pattern.** The refinement-in-place trajectory assumes documents move toward permanence — accumulating structure, becoming more connected, staying in the KB. [Workshop documents](./a-functioning-claw-needs-a-workshop-layer-not-just-a-library.md) (tasks, decision threads, experiments) follow the opposite trajectory: they consume value over time and end by being archived or discarded. The wikiwiki principle applies to knowledge capture, not to work-in-motion.
 
 ---
 
@@ -44,6 +45,7 @@ Relevant Notes:
 - [stabilisation-is-learning](../notes/stabilisation-is-learning.md) — the general pattern; the wiki principle is the UX requirement that makes crystallisation practical
 - [learning-is-capacity-change](../notes/learning-is-capacity-change.md) — the theoretical backing: each rung on the ladder is a capacity change in Simon's sense, trading generality for reliability
 - [title-as-claim-enables-traversal-as-reasoning](./title-as-claim-enables-traversal-as-reasoning.md) — the note→structured-claim transition: a claim title is the first refinement step, Toulmin sections are the second
+- [a functioning claw needs a workshop layer](./a-functioning-claw-needs-a-workshop-layer-not-just-a-library.md) — boundary: the refinement ladder is specifically a library pattern; workshop documents follow the opposite trajectory (consuming value, ending in archival)
 
 Topics:
 - [claw-design](./claw-design.md)

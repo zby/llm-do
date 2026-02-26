@@ -68,6 +68,7 @@ Relevant Notes:
 - [koylanai-personal-brain-os (ingest)](../sources/koylanai-personal-brain-os.ingest.md) — exemplifies: a practitioner-built Claw that already stores preferences, procedures, judgment precedents, and voice as distinct knowledge types
 - [stabilisation-is-learning](../notes/stabilisation-is-learning.md) — grounds: the artifact-accumulation model of learning applies, but action-oriented learning needs different artifact types than note/link mutations
 - [document-classification](./document-classification.md) — implication: current document types are structured for reference knowledge; action-oriented knowledge types may not fit the existing base types
+- [a functioning claw needs a workshop layer](./a-functioning-claw-needs-a-workshop-layer-not-just-a-library.md) — concretizes: workshop documents (tasks, decision threads, experiments) are the action-oriented artifacts that produce preferences, procedures, and precedents; the workshop→library extraction bridge is where action-capacity learning is harvested
 
 Topics:
 - [claw-design](./claw-design.md)

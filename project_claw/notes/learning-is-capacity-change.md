@@ -23,7 +23,7 @@ Herbert Simon: "Learning is any change in a system that produces a more or less 
 | Discover a design principle | All future decisions in that area | "Types and directories are orthogonal" applies broadly |
 | Improve methodology | All future KB operations | The crystallisation gradient changes how everything stabilises |
 
-Argyris's [single-loop vs double-loop learning](https://infed.org/dir/welcome/chris-argyris-theories-of-action-double-loop-learning-and-organizational-learning/) maps onto this axis as rough regions: single-loop corrects within existing rules (narrow scope), double-loop changes the governing variables themselves (wide scope) — discovering that [types and directories are orthogonal](../claw-design/types-and-directories-are-orthogonal.md), developing the [crystallisation gradient](./stabilisation-is-learning.md), redesigning the [methodology enforcement approach](../claw-design/methodology-enforcement-is-stabilisation.md).
+Argyris's [single-loop vs double-loop learning](https://infed.org/dir/welcome/chris-argyris-theories-of-action-double-loop-learning-and-organizational-learning/) maps onto this axis as rough regions: single-loop corrects within existing rules (narrow scope), double-loop changes the governing variables themselves (wide scope) — discovering that [why directories despite their costs](../claw-design/why-directories-despite-their-costs.md), developing the [crystallisation gradient](./stabilisation-is-learning.md), redesigning the [methodology enforcement approach](../claw-design/methodology-enforcement-is-stabilisation.md).
 
 ### Reliability, speed, cost — the crystallisation compound
 

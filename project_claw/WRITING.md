@@ -31,9 +31,11 @@ Templates live in `project_claw/templates/`. Each provides frontmatter fields to
 | Template | Content type | Use for |
 |----------|-------------|---------|
 | `note.md` | Design notes | Freeform exploration, insights, analysis |
+| `structured-claim.md` | Structured claims | Developed arguments with Evidence/Reasoning/Caveats sections |
 | `adr.md` | Architecture decisions | Formal decisions with context/consequences |
 | `index.md` | Area indexes | Navigation hubs grouping related notes |
 | `source-review.md` | External source analysis | Connecting external material to the project |
+| `related-system.md` | Related system reviews | Comparing external systems to ours (`notes/related-systems/`) |
 | `task-active.md` | Active tasks | In-progress work items |
 | `task-backlog.md` | Backlog tasks | Ideas not yet ready for work |
 | `task-recurring.md` | Recurring tasks | Periodic reviews and audits |
@@ -48,8 +50,8 @@ Frontmatter makes notes queryable via ripgrep. Its presence determines the note'
 | Field | Required | Constraints |
 |-------|----------|------------|
 | `description` | Yes | Max 200 chars, must discriminate this note from similar ones |
-| `type` | No | Base type: `note` (default), `spec`, `review`, `index`, `adr`. See [document-classification](claw-design/document-classification.md) |
-| `traits` | No | Independently checkable properties: `has-claim`, `has-comparison`, `has-external-sources`, `has-implementation` |
+| `type` | No | Base type: `note` (default), `structured-claim`, `spec`, `review`, `index`, `adr`. See [document-classification](claw-design/document-classification.md) |
+| `traits` | No | Independently checkable properties: `has-comparison`, `has-external-sources`, `has-implementation` |
 | `areas` | No | Array of area index names this note belongs to (not the auto-generated directory index) |
 | `status` | No | current, outdated, speculative |
 

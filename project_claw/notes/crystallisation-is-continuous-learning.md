@@ -1,23 +1,23 @@
 ---
-description: Crystallisation systematises the out-of-band optimisations every deployed system accumulates — achieving continuous learning through versioned artifacts, whether human-driven or automated
-type: note
-traits: [has-claim]
+description: Crystallisation is continuous learning — each step trades generality for compound gains in reliability, speed, and cost. It systematises the out-of-band optimisations every deployed system accumulates, through versioned artifacts rather than weight updates.
+type: structured-claim
+traits: []
 areas: []
 ---
 
 # Crystallisation Is Continuous Learning
 
-## The Claim
-
 AI labs frame "continuous learning" as a weight-update problem: how do you adapt a deployed model to new data, new tasks, and shifting distributions without a full retraining cycle? The standard approaches — fine-tuning on deployment logs, online learning, experience replay — all modify the model's parameters.
 
 But the goals these approaches pursue — durable adaptation during deployment, accumulation of task-specific knowledge, improved performance over time — are exactly what [crystallisation](crystallisation-learning-timescales.md) already achieves. Not through weights, but through repo artifacts: prompts, schemas, evals, tools, and deterministic code that accumulate in version control.
 
-This is not a metaphorical equivalence. A system that progressively extracts patterns from LLM behavior into testable, diffable, reviewable artifacts is doing genuine system-level learning. The system's behavior improves over time; the improvement persists across sessions; and the mechanism is more transparent than anything weight-based approaches can offer.
+This is not a metaphorical equivalence. A system that progressively extracts patterns from LLM behavior into testable, diffable, reviewable artifacts is doing genuine system-level [learning — capacity change](learning-is-capacity-change.md) in Simon's sense. Each crystallisation step trades generality for simultaneous gains in reliability, speed, and cost: the LLM check that might hallucinate, takes seconds, and costs money becomes a script that never fails, runs in milliseconds, and is free. The system's overall generality is preserved (the LLM still handles everything not yet crystallised), but for each operation that crystallises, the capacity improvement is compound — not just "more reliable" but "more reliable AND faster AND cheaper."
 
-## Why Artifacts Beat Weights
+## Evidence
 
-Weight-based continuous learning inherits deep problems:
+### Why Artifacts Beat Weights
+
+The compound gain — reliability, speed, cost — explains why repo artifacts outperform weight updates for the learning they both target. Weight-based continuous learning inherits deep problems:
 
 | Property | Weight updates | Repo artifacts |
 |----------|---------------|----------------|
@@ -30,15 +30,15 @@ Weight-based continuous learning inherits deep problems:
 
 The Karpathy verifiability framing sharpens this: a task is verifiable to the extent it is **resettable** (you can retry), **efficient** (retries are cheap), and **rewardable** (you can evaluate automatically). Repo artifacts score higher on all three dimensions than weight updates. You can re-run a prompt test in seconds. You can evaluate the output against assertions. You can iterate dozens of times before committing. Weight updates require training runs, validation sets, and careful monitoring for regression.
 
-## Comparison with Alternatives
+### Comparison with Alternatives
 
-### Fine-tuning
+#### Fine-tuning
 
 Fine-tuning is the most direct form of weight-based continuous learning: take deployment data, update the model. It works, but it's expensive (compute), risky (forgetting), opaque (what did the model learn?), and coarse (the whole model changes when you wanted to improve one behavior).
 
 Crystallisation achieves the same narrowing of the behavior distribution, but through external artifacts. Instead of fine-tuning a model to format dates consistently, you extract a deterministic `format_date()` function. Instead of fine-tuning for a house style, you version the system prompt with examples. The effect on system behavior is equivalent; the mechanism is inspectable.
 
-### RAG
+#### RAG
 
 Traditional RAG — a single retrieve-then-answer step — is largely obsolete. What people actually build now is agentic RAG: retrieval happens inside an agentic loop, where the agent decides what to search for, evaluates what it finds, and searches again if needed. This is a much stronger pattern.
 
@@ -46,17 +46,21 @@ Agentic RAG fits naturally inside the crystallisation framework. The repo itself
 
 The old critique of RAG — fragile retrieval, unstructured knowledge, no way to test or diff what's stored — applies to the one-shot vector-store pattern. Agentic retrieval over a crystallised repo sidesteps all three: the agent compensates for retrieval imprecision by iterating, the knowledge is structured by design, and every artifact is diffable and reviewable.
 
-### Automated Prompt Optimization
+#### Automated Prompt Optimization
 
 Systems like DSPy and ProTeGi search over prompt components to optimize against an objective. This is not merely crystallisation-adjacent — it's an automated instance of the same loop. The artifacts are prompts, the optimization is iterative, the improvement persists. What these systems lack is the broader framework: the verifiability gradient, the progression from optimized prompts to schemas to deterministic code, and the infrastructure for versioning, testing, and reviewing what was learned.
 
 Crystallisation provides that system. DSPy discovers better prompts; crystallisation provides the framework to harden those discoveries into progressively more verifiable forms, track them in version control, and test them in CI. The [adaptation taxonomy for agentic AI](research/adaptation-agentic-ai-analysis.md) identifies concrete data-driven triggers for when to crystallise (e.g., "tool consistently fails with certain input patterns") versus when to soften back to prompts, providing the feedback signals that drive this learning loop. The combination is the full picture: automated search for what works, systematic infrastructure for preserving and verifying what was found.
 
-## The Verifiability Gradient as Learning Gradient
+## Reasoning
 
-Each grade of crystallisation — from restructured prompts through schemas and evals to deterministic code — represents a different level of "learning" by the deployed system. Moving down the [verifiability gradient](crystallisation-learning-timescales.md) is learning: the substrate is different from neural weight updates, but the function — adapting system behavior to deployment experience — is identical. At the very top of this gradient sit [dynamic agents](dynamic-agents-runtime-design.md) — ephemeral, experimental workers created at runtime where patterns have not yet stabilised enough for repo artifacts. They represent the pre-crystallisation state: the exploration phase before the learning loop has enough signal to extract durable knowledge.
+### The Verifiability Gradient as Learning Gradient
 
-## Why This Framing Matters
+Each grade of crystallisation — from restructured prompts through schemas and evals to deterministic code — represents a compound capacity gain: reliability, speed, and cost all improve together as you move down the [verifiability gradient](crystallisation-learning-timescales.md). What decreases is generality — a deterministic script handles exactly its case, a prompt handles a fuzzy neighborhood of cases. The gradient is a trade-off curve between generality and the reliability+speed+cost compound. Moving down it is learning in Simon's sense: the system's adaptive capacity increases for the specific operations that crystallise.
+
+At the very top of this gradient sit [dynamic agents](dynamic-agents-runtime-design.md) — ephemeral, experimental workers created at runtime where patterns have not yet stabilised enough for repo artifacts. They represent the pre-crystallisation state: maximum generality, minimum reliability — the exploration phase before the learning loop has enough signal to extract durable knowledge.
+
+### Why This Framing Matters
 
 Calling crystallisation "continuous learning" is not just terminological. It reframes what deployed AI systems need:
 
@@ -66,9 +70,16 @@ Calling crystallisation "continuous learning" is not just terminological. It ref
 
 3. **Verifiability as the metric.** Instead of asking "how do we keep the model learning?", ask "how verifiable is each piece of our system?" and push toward more verifiable forms. The [theory document](../../docs/theory.md) describes this as the stabilise/soften cycle: crystallise patterns when they emerge, soften back when new requirements appear. The [python-agent-annotation-brainstorm](python-agent-annotation-brainstorm.md) explores the practical mechanisms for this bidirectionality — decorators and annotations that make it easy to move between LLM-based workers and deterministic Python code, lowering the friction of moving along the crystallisation gradient.
 
+## Caveats
+
+- **Not all learning is crystallisation.** Weight-based learning captures distributional knowledge that doesn't reduce to explicit artifacts — style, tone, world knowledge. Crystallisation handles the extractable, testable subset. The claim is that this subset covers most of what deployed systems need for continuous improvement, not that it covers everything.
+- **Crystallisation requires human or automated curation.** Artifacts don't maintain themselves — prompts go stale, schemas need updating, evals drift. The process assumes an active curation loop, whether human-driven or automated.
+- **The compound gain (reliability + speed + cost) only applies to operations that fully crystallise.** Partially crystallised operations — where a script handles 80% of cases and an LLM handles the rest — get partial gains, and the boundary between the two regimes needs ongoing maintenance.
+
 ---
 
 Relevant Notes:
+- [learning-is-capacity-change](learning-is-capacity-change.md) — foundation: crystallisation is learning on the reliability+speed+cost compound axis; this note provides the capacity decomposition that makes the claim precise
 - [crystallisation-learning-timescales](crystallisation-learning-timescales.md) — foundation: defines the three timescales and the verifiability gradient this note builds on
 - [dynamic-agents-runtime-design](dynamic-agents-runtime-design.md) — exemplifies the pre-crystallisation state: ephemeral agents sit at the top of the verifiability gradient where patterns are too unstable for durable artifacts
 - [adaptation-agentic-ai-analysis](research/adaptation-agentic-ai-analysis.md) — extends: provides data-driven triggers (error patterns, repeated tool failures) for when to crystallise vs soften, grounding the learning loop in concrete signals

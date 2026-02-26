@@ -1,7 +1,7 @@
 ---
-description: Simon's definition — learning is any change that produces a more or less permanent change in a system's capacity for adapting to its environment. Capacity decomposes into generality, reliability, and likely other dimensions that don't move in the same direction.
+description: Simon's definition — learning is any change that produces a more or less permanent change in a system's capacity for adapting to its environment. Capacity decomposes into generality and a crystallisation compound (reliability+speed+cost) that trades against it.
 type: note
-traits: [has-claim, has-external-sources]
+traits: [has-external-sources]
 status: seedling
 areas: []
 ---
@@ -25,23 +25,19 @@ Herbert Simon: "Learning is any change in a system that produces a more or less 
 
 Argyris's [single-loop vs double-loop learning](https://infed.org/dir/welcome/chris-argyris-theories-of-action-double-loop-learning-and-organizational-learning/) maps onto this axis as rough regions: single-loop corrects within existing rules (narrow scope), double-loop changes the governing variables themselves (wide scope) — discovering that [types and directories are orthogonal](../claw-design/types-and-directories-are-orthogonal.md), developing the [crystallisation gradient](./crystallisation-is-continuous-learning.md), redesigning the [methodology enforcement approach](../claw-design/methodology-enforcement-is-stabilisation.md).
 
-### Reliability — how deterministically does the capacity work?
+### Reliability, speed, cost — the crystallisation compound
 
 An LLM can multiply numbers. A calculator can multiply numbers. The calculator has far more capacity for multiplication — it never hallucinates 7×8=54, it handles arbitrarily large numbers, it runs in microseconds. But the LLM has more generality — it can also translate, summarise, write prose.
 
-[Process crystallisation](./crystallisation-is-continuous-learning.md) (prompt → schema → code) is learning that increases reliability without necessarily changing generality. Replacing an LLM validation check with a Python script doesn't change *what* gets checked — it changes *how reliably* it gets checked. The system's overall generality stays the same (the LLM still handles everything else), but capacity for that specific operation increases because it now works every time.
+[Process crystallisation](./crystallisation-is-continuous-learning.md) (prompt → schema → code) is learning that improves reliability, speed, and cost simultaneously. Replacing an LLM validation check with a Python script doesn't change *what* gets checked — it changes how reliably (never hallucinates), how fast (milliseconds vs seconds), and how cheaply (free vs API call) it gets checked. These three dimensions move together because crystallisation is fundamentally a substrate change — from stochastic LLM to deterministic code. What you give up is generality: the script handles exactly what it handles, nothing more. The system's overall generality stays the same (the LLM still handles everything else), but for the specific operation crystallised, the trade is generality for gains on every other axis.
 
-Crystallisation cuts across Argyris's loops — it can be single-loop (crystallising one check into a script) or double-loop (deciding that [claim notes should use Toulmin-derived sections](../claw-design/claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md)). What crystallisation changes is the reliability axis, not the generality axis.
+Crystallisation cuts across Argyris's loops — it can be single-loop (crystallising one check into a script) or double-loop (deciding that [claim notes should use Toulmin-derived sections](../claw-design/claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md)). What crystallisation changes is the reliability+speed+cost compound, not the generality axis.
 
 ### Other dimensions
 
-These may be independent or may be consequences of generality and reliability — we don't know yet:
+- **Composability** — a verified claim is more useful as a premise than an unverified one. The capacity gain isn't in the claim itself but in what other things can build on it. This may be a consequence of reliability rather than independent.
 
-- **Speed** — a script runs in milliseconds, an LLM in seconds. Same result, but the faster version enables use cases the slower one doesn't (pre-commit hooks, interactive feedback loops).
-- **Cost** — crystallisation often reduces cost, which matters for operations that run frequently. A check that costs $0.01 per run is qualitatively different from one that's free.
-- **Composability** — a verified claim is more useful as a premise than an unverified one. The capacity gain isn't in the claim itself but in what other things can build on it.
-
-The list is likely incomplete. The point is that capacity is not a simple function of any single dimension — more generality sometimes means more capacity (the LLM handles novel situations no script could), more reliability sometimes means more capacity (the script never gets it wrong). The optimal point depends on the task and the environment.
+The list is likely incomplete. The point is that capacity is not a simple function of any single dimension — more generality sometimes means more capacity (the LLM handles novel situations no script could), more reliability sometimes means more capacity (the script never gets it wrong). Crystallisation shows that reliability, speed, and cost are correlated: they improve together when you move from LLM to code. The fundamental trade-off is generality against this compound. The optimal point depends on the task and the environment.
 
 ## Why this matters for the learning loop
 
@@ -52,11 +48,11 @@ The [KB learning loop](../claw-design/automating-kb-learning-is-an-open-problem.
 - **Relink, regroup, synthesise** — medium scope, changing how knowledge connects
 - **Retire, restructure** — wide scope, changing the system's organising principles
 
-**By reliability:**
-- **Deterministic operations** (link checking, section validation, index regeneration) — already automatable as scripts
+**By crystallisability** (reliability+speed+cost compound):
+- **Crystallisable operations** (link checking, section validation, index regeneration) — already automatable as scripts, gaining reliability, speed, and cost simultaneously
 - **Judgment operations** (is this claim worth keeping? should these notes merge?) — require LLM or human assessment, may crystallise later as patterns emerge
 
-Automating narrow-scope improvements is relatively tractable (ingest pipelines, LLM extraction, validation scripts). Automating wide-scope improvements is the hard part — it requires judgment about what principles generalise. Crystallisation operations are a separate axis of automation — often tractable regardless of scope, because the question "can this be made deterministic?" is itself fairly deterministic.
+Automating narrow-scope improvements is relatively tractable (ingest pipelines, LLM extraction, validation scripts). Automating wide-scope improvements is the hard part — it requires judgment about what principles generalise. Crystallisation is a separate axis — often tractable regardless of scope, because the question "can this be made deterministic?" is itself fairly deterministic.
 
 The [wikiwiki principle](../claw-design/wikiwiki-principle-lowest-friction-capture-then-progressive-refinement.md) addresses the UX side: by making each refinement step low-friction and in-place, narrow-scope learning (adding frontmatter, sharpening descriptions) happens continuously rather than in batches, freeing attention for the wide-scope judgment that can't be automated.
 

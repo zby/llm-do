@@ -79,6 +79,37 @@ Discovering the right proportions matters — the combination produces results t
 individual ingredients don't. But it is a usage pattern on top of existing
 capabilities, not a new computational primitive.
 
+### Map-Reduce Without a REPL
+
+A stronger version of the novelty argument claims that standard CLI agents *cannot*
+do map-reduce at all — that you need RLM's REPL to aggregate sub-agent results
+programmatically rather than forwarding them through the parent's context. This is
+wrong. CLI agents can replicate the pattern using files and shell tools:
+
+1. **Map**: Spawn N sub-agents (e.g. Claude Code's Task tool), each writing results to
+   a file.
+2. **Reduce**: A shell command (`jq`, `paste`, a Python script) combines those files
+   programmatically.
+3. **Parent context**: Only sees the final reduced output — the intermediate results
+   never enter any LLM context.
+
+The file system plays the role of RLM's Python variables, and the shell plays the
+role of RLM's inline code. The reduction is programmatic in both cases — no LLM
+needed for the combine step, and the parent's context cost is near zero.
+
+Note that the CLI agent also *writes* the reduction code — the shell commands or
+scripts that combine results are LLM-authored, just like the REPL code in RLMs.
+The model is authoring both the decomposition strategy and the reduction logic in
+both cases.
+
+The remaining difference is *cohesion* (see §5 below): in an RLM the decomposition
+and reduction are a single program visible in one context. In the CLI pattern, the
+same logic is spread across multiple tool calls — the model writes the map step,
+sees the results, then writes the reduce step. The plan is sequential rather than
+expressed as one coherent program. But this is a difference of ergonomics, not of
+computational capability. The programmatic map-reduce that RLMs claim as exclusive
+to their architecture is achievable with standard CLI tooling.
+
 ## Where llm-do Diverges
 
 The RLM implementations and llm-do both support recursive dispatch between LLM and

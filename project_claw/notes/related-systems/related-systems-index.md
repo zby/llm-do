@@ -12,10 +12,11 @@ External systems doing similar work — knowledge management for AI agents, cont
 - [Agent Skills for Context Engineering](./agent-skills-for-context-engineering.md) — skill-based context engineering reference library loaded as agent guidance; strong on operational patterns, no learning theory
 - [Ars Contexta](./arscontexta.md) — Claude Code plugin that generates knowledge systems from conversation; ancestor of our claw, grounded in cognitive psychology research
 - [Thalo](./thalo.md) — custom plain-text language with grammar, types, validation, and LSP; makes the same programming-theory bet we do but with full compiler formalization
+- [ClawVault](./clawvault.md) — TypeScript memory system with scored observations, session handoffs, and reflection pipelines; has a working workshop layer where we have theory, strongest source of borrowable patterns for ephemeral knowledge
 
 ## Patterns Across Systems
 
-All four systems (including ours) independently converge on:
+All five systems (including ours) independently converge on:
 - **Filesystem over databases** — plain text, version-controlled, no lock-in
 - **Progressive disclosure** — load descriptions at startup, full content on demand
 - **Start simple** — architectural reduction outperforms over-engineering

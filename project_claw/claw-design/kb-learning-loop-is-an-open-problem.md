@@ -1,12 +1,16 @@
 ---
-description: The KB's value is question-answering capacity, but designing a learning loop requires more usage history than we currently have
+description: The KB already learns through manual work (every improvement is capacity change per Simon). The open problem is automating the judgment-heavy mutations — connections, groupings, synthesis — which require oracles we can't yet manufacture.
 type: note
 traits: [has-claim]
 areas: [claw-design]
 status: speculative
 ---
 
-# The KB needs a learning loop
+# Automating KB learning is an open problem
+
+The KB already has a learning loop — human + agent working together. Every session that improves notes, sharpens connections, or discovers principles is [learning in Simon's sense](../notes/learning-is-capacity-change.md): a change that increases the system's adaptive capacity. This happens all the time, from fixing typos (narrow scope) to discovering design principles (wide scope).
+
+The open problem is not "the KB needs a learning loop" but **automating the judgment-heavy parts** of the loop we already run manually.
 
 ## What is a KB for?
 
@@ -51,6 +55,7 @@ The [bitter lesson boundary](../notes/bitter-lesson-boundary.md) distinguishes c
 ---
 
 Relevant Notes:
+- [learning-is-capacity-change](../notes/learning-is-capacity-change.md) — foundation: Simon's definition of learning as capacity change; every KB improvement is learning, the spectrum of generalisation scope shows why automating wide-scope mutations is the hard part
 - [crystallisation-is-continuous-learning](../notes/crystallisation-is-continuous-learning.md) — describes the stabilise/soften cycle in both human-driven and automated forms (DSPy, ProTeGi); the boiling cauldron is a KB-specific instantiation of that cycle, applying it to note and link mutations rather than prompts and code
 - [what-cludebot-teaches-us](./what-cludebot-teaches-us.md) — co-retrieval reinforcement and consolidation passes are concrete mechanisms for the boiling cauldron; cludebot's "need enough query volume" conclusion mirrors the "need usage first" gap here
 - [what-works](./what-works.md) — the observation log this note recommends as interim approach; proven patterns that would feed a learning loop's evaluation

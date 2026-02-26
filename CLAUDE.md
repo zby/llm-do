@@ -55,6 +55,7 @@ Run relevant checks before submitting changes:
 - Do not use `git -C <path>` - it complicates approval rules
 - Assume you are already in the project directory and run git commands directly
 - **Never** `git add -A` — review `git status` and stage specific files
+- **Prefer atomic stage+commit** — combine staging and committing in one command (`git add <files> && git commit -m "..."`). Leaving files staged without committing risks another agent's commit sweeping in unrelated changes.
 - Check `git diff` before committing
 - **Never** use `git reset --hard` or force-push without explicit permission
 - Prefer safe alternatives: `git revert`, new commits, temporary branches

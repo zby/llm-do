@@ -1,5 +1,5 @@
 ---
-description: Simon's definition — learning is any change that produces a more or less permanent change in a system's capacity for adapting to its environment. All KB improvements are learning, from typo fixes to methodology changes.
+description: Simon's definition — learning is any change that produces a more or less permanent change in a system's capacity for adapting to its environment. Capacity decomposes into generality, reliability, and likely other dimensions that don't move in the same direction.
 type: note
 traits: [has-claim, has-external-sources]
 status: seedling
@@ -8,9 +8,11 @@ areas: []
 
 # Learning is capacity change
 
-Herbert Simon: "Learning is any change in a system that produces a more or less permanent change in its capacity for adapting to its environment." By this definition, almost every KB improvement is learning — even fixing a typo increases adaptive capacity because the system can now answer a question it would have confused before. The distinction isn't between "content change" and "capacity change" — all content changes improve capacity. The distinction is **how widely the improvement generalises**.
+Herbert Simon: "Learning is any change in a system that produces a more or less permanent change in its capacity for adapting to its environment." By this definition, almost every KB improvement is learning — even fixing a typo increases adaptive capacity because the system can now answer a question it would have confused before. The distinction isn't between "content change" and "capacity change" — all content changes improve capacity. But capacity is not a single dimension — it decomposes into several components that don't move in the same direction.
 
-## The generalisation spectrum
+## Dimensions of capacity
+
+### Generality — how widely does the capacity apply?
 
 | Change | Scope | Example |
 |--------|-------|---------|
@@ -21,26 +23,42 @@ Herbert Simon: "Learning is any change in a system that produces a more or less 
 | Discover a design principle | All future decisions in that area | "Types and directories are orthogonal" applies broadly |
 | Improve methodology | All future KB operations | The crystallisation gradient changes how everything stabilises |
 
-Every row increases the system's adaptive capacity. The rows differ in how many future situations benefit.
+Argyris's [single-loop vs double-loop learning](https://infed.org/dir/welcome/chris-argyris-theories-of-action-double-loop-learning-and-organizational-learning/) maps onto this axis as rough regions: single-loop corrects within existing rules (narrow scope), double-loop changes the governing variables themselves (wide scope) — discovering that [types and directories are orthogonal](../claw-design/types-and-directories-are-orthogonal.md), developing the [crystallisation gradient](./crystallisation-is-continuous-learning.md), redesigning the [methodology enforcement approach](../claw-design/methodology-enforcement-is-stabilisation.md).
 
-## Argyris's loops as scope markers
+### Reliability — how deterministically does the capacity work?
 
-Argyris's [single-loop vs double-loop learning](https://infed.org/dir/welcome/chris-argyris-theories-of-action-double-loop-learning-and-organizational-learning/) maps onto this spectrum as rough regions, not a binary:
+An LLM can multiply numbers. A calculator can multiply numbers. The calculator has far more capacity for multiplication — it never hallucinates 7×8=54, it handles arbitrarily large numbers, it runs in microseconds. But the LLM has more generality — it can also translate, summarise, write prose.
 
-- **Single-loop** — correcting errors within existing rules. Fixing notes, improving descriptions, adding missing links. The governing variables (types, conventions, methodology) don't change. Narrow generalisation scope.
-- **Double-loop** — changing the governing variables themselves. Discovering that [types and directories are orthogonal](../claw-design/types-and-directories-are-orthogonal.md), developing the [crystallisation gradient](./crystallisation-is-continuous-learning.md), redesigning the [methodology enforcement approach](../claw-design/methodology-enforcement-is-stabilisation.md). Wide generalisation scope.
+[Process crystallisation](./crystallisation-is-continuous-learning.md) (prompt → schema → code) is learning that increases reliability without necessarily changing generality. Replacing an LLM validation check with a Python script doesn't change *what* gets checked — it changes *how reliably* it gets checked. The system's overall generality stays the same (the LLM still handles everything else), but capacity for that specific operation increases because it now works every time.
 
-[Process crystallisation](./crystallisation-is-continuous-learning.md) (prompt → schema → code) sits in between — it doesn't change what the system knows but makes existing operations more reliable and cheaper, increasing capacity for the same class of tasks.
+Crystallisation cuts across Argyris's loops — it can be single-loop (crystallising one check into a script) or double-loop (deciding that [claim notes should use Toulmin-derived sections](../claw-design/claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md)). What crystallisation changes is the reliability axis, not the generality axis.
+
+### Other dimensions
+
+These may be independent or may be consequences of generality and reliability — we don't know yet:
+
+- **Speed** — a script runs in milliseconds, an LLM in seconds. Same result, but the faster version enables use cases the slower one doesn't (pre-commit hooks, interactive feedback loops).
+- **Cost** — crystallisation often reduces cost, which matters for operations that run frequently. A check that costs $0.01 per run is qualitatively different from one that's free.
+- **Composability** — a verified claim is more useful as a premise than an unverified one. The capacity gain isn't in the claim itself but in what other things can build on it.
+
+The list is likely incomplete. The point is that capacity is not a simple function of any single dimension — more generality sometimes means more capacity (the LLM handles novel situations no script could), more reliability sometimes means more capacity (the script never gets it wrong). The optimal point depends on the task and the environment.
 
 ## Why this matters for the learning loop
 
-The [KB learning loop](../claw-design/kb-learning-loop-is-an-open-problem.md) frames the open problem as needing automated mutations (extract, split, synthesise, relink, retire). These mutations span the whole spectrum:
+The [KB learning loop](../claw-design/automating-kb-learning-is-an-open-problem.md) frames the open problem as needing automated mutations (extract, split, synthesise, relink, retire). These mutations differ on both axes:
 
-- **Extract, reformulate** — narrow scope. Improving individual notes.
-- **Relink, regroup, synthesise** — medium scope. Changing how knowledge connects.
-- **Retire, restructure** — wide scope. Changing the system's organising principles.
+**By generality:**
+- **Extract, reformulate** — narrow scope, improving individual notes
+- **Relink, regroup, synthesise** — medium scope, changing how knowledge connects
+- **Retire, restructure** — wide scope, changing the system's organising principles
 
-Automating narrow-scope improvements is relatively tractable (ingest pipelines, LLM extraction, validation scripts). Automating wide-scope improvements is the hard part — it requires judgment about what principles generalise. This is why the learning loop is an open problem: the most valuable mutations are the widest-scope ones, and scope of generalisation is the hardest thing to assess automatically.
+**By reliability:**
+- **Deterministic operations** (link checking, section validation, index regeneration) — already automatable as scripts
+- **Judgment operations** (is this claim worth keeping? should these notes merge?) — require LLM or human assessment, may crystallise later as patterns emerge
+
+Automating narrow-scope improvements is relatively tractable (ingest pipelines, LLM extraction, validation scripts). Automating wide-scope improvements is the hard part — it requires judgment about what principles generalise. Crystallisation operations are a separate axis of automation — often tractable regardless of scope, because the question "can this be made deterministic?" is itself fairly deterministic.
+
+The [wikiwiki principle](../claw-design/wikiwiki-principle-lowest-friction-capture-then-progressive-refinement.md) addresses the UX side: by making each refinement step low-friction and in-place, narrow-scope learning (adding frontmatter, sharpening descriptions) happens continuously rather than in batches, freeing attention for the wide-scope judgment that can't be automated.
 
 ## Sources
 

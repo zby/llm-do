@@ -10,7 +10,7 @@ status: speculative
 
 ## The narrow framing
 
-The [KB learning loop note](./kb-learning-loop-is-an-open-problem.md) frames the KB's value as "question-answering capacity" — a note is valuable if it helps answer a question. This works as a model for a reference knowledge base, but project_claw is a [Claw](../sources/simon-willison-karpathy-claws.md): an AI-assisted system that accumulates context and evolves with use. The KB is its most developed subsystem, but the system's purpose is broader than lookup.
+The [KB learning loop note](./automating-kb-learning-is-an-open-problem.md) frames the KB's value as "question-answering capacity" — a note is valuable if it helps answer a question. This works as a model for a reference knowledge base, but project_claw is a [Claw](../sources/simon-willison-karpathy-claws.md): an AI-assisted system that accumulates context and evolves with use. The KB is its most developed subsystem, but the system's purpose is broader than lookup.
 
 ## What a Claw actually does
 
@@ -27,7 +27,7 @@ You *can* frame all of these as answering a question ("What category does this b
 
 If the KB's value is action capacity rather than retrieval accuracy, several things shift:
 
-**Evaluation.** "Did it answer correctly?" becomes "Did it act appropriately?" — harder to measure, more dependent on user judgment, and irreducibly subjective in many cases. The [KB learning loop](./kb-learning-loop-is-an-open-problem.md) already identifies evaluation as the hardest open problem; broadening the scope makes it harder still.
+**Evaluation.** "Did it answer correctly?" becomes "Did it act appropriately?" — harder to measure, more dependent on user judgment, and irreducibly subjective in many cases. The [KB learning loop](./automating-kb-learning-is-an-open-problem.md) already identifies evaluation as the hardest open problem; broadening the scope makes it harder still.
 
 **What counts as knowledge.** A retrieval-oriented KB stores facts and relationships. An action-oriented KB also needs to store:
 - **Preferences** — how the user wants things done, not just what's true
@@ -39,7 +39,7 @@ If the KB's value is action capacity rather than retrieval accuracy, several thi
 
 **Document types.** The current [document classification](./document-classification.md) system — base types like `note`, `spec`, `review` — is oriented around structural properties of reference knowledge. Preferences, procedures, and judgment precedents don't fit neatly into these categories. If the KB grows to store action-oriented knowledge, the type system may need to accommodate content whose value is "enabling correct action" rather than "answering questions."
 
-**Mutation types.** The [boiling cauldron](./kb-learning-loop-is-an-open-problem.md) proposes extract, split, synthesise, relink, reformulate, regroup — all oriented around making knowledge more findable and better structured. An action-oriented system might also need:
+**Mutation types.** The [boiling cauldron](./automating-kb-learning-is-an-open-problem.md) proposes extract, split, synthesise, relink, reformulate, regroup — all oriented around making knowledge more findable and better structured. An action-oriented system might also need:
 - **Codify preference** — turn an observed pattern in user decisions into an explicit rule
 - **Capture procedure** — extract a workflow from repeated actions
 - **Consolidate precedents** — when several past decisions on similar cases exist, extract the underlying policy
@@ -48,7 +48,7 @@ If the KB's value is action capacity rather than retrieval accuracy, several thi
 
 ## The retrieval frame isn't wrong, just partial
 
-The [KB learning loop note](./kb-learning-loop-is-an-open-problem.md) is internally coherent and its analysis of the retrieval-oriented learning problem is sound. This note doesn't invalidate that — it argues that retrieval learning is one layer of a larger system. The boiling cauldron, quality gates, and surfacing rate problems all still apply to the retrieval layer. But the Claw needs a learning loop at the action layer too, and that's a different (harder) problem.
+The [KB learning loop note](./automating-kb-learning-is-an-open-problem.md) is internally coherent and its analysis of the retrieval-oriented learning problem is sound. This note doesn't invalidate that — it argues that retrieval learning is one layer of a larger system. The boiling cauldron, quality gates, and surfacing rate problems all still apply to the retrieval layer. But the Claw needs a learning loop at the action layer too, and that's a different (harder) problem.
 
 ## Open Questions
 
@@ -60,7 +60,7 @@ The [KB learning loop note](./kb-learning-loop-is-an-open-problem.md) is interna
 ---
 
 Relevant Notes:
-- [kb-learning-loop-is-an-open-problem](./kb-learning-loop-is-an-open-problem.md) — the retrieval-oriented learning loop analysis; this note argues it's one layer of a broader problem
+- [automating-kb-learning-is-an-open-problem](./automating-kb-learning-is-an-open-problem.md) — the retrieval-oriented learning loop analysis; this note argues it's one layer of a broader problem
 - [quality-signals-for-kb-evaluation](./quality-signals-for-kb-evaluation.md) — addresses the retrieval layer's evaluation with a composite oracle from structural and LLM-hybrid signals; the action layer would need different signals entirely (preference consistency, procedure effectiveness, precedent alignment)
 - [three-space-agent-memory-maps-to-tulving-taxonomy](./three-space-agent-memory-maps-to-tulving-taxonomy.md) — the three memory spaces may map to different learning dynamics: semantic (knowledge), procedural (operations), episodic (self/preferences)
 - [three-space-memory-separation-predicts-measurable-failure-modes](./three-space-memory-separation-predicts-measurable-failure-modes.md) — the predicted failures of flat memory are symptoms of forcing action-oriented knowledge into a retrieval-oriented structure

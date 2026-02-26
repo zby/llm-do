@@ -11,7 +11,7 @@ status: current
 
 Hook-driven automatic commits after every note operation created a mess. Commits were noisy, hard to review, and we spent significant effort removing them. Agents should not commit without explicit human approval.
 
-Together with [what works](./what-works.md), this is the manual observation log that a [KB learning loop](./kb-learning-loop-is-an-open-problem.md) would eventually feed from — these anti-patterns are ground truth for what mutations the loop should avoid proposing.
+Together with [what works](./what-works.md), this is the manual observation log that a [KB learning loop](./automating-kb-learning-is-an-open-problem.md) would eventually feed from — these anti-patterns are ground truth for what mutations the loop should avoid proposing.
 
 ## Observations needing more evidence
 

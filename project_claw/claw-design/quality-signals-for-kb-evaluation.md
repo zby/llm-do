@@ -10,7 +10,7 @@ status: speculative
 
 Brainstorming: what signals — structural, semantic, or hybrid — could serve as soft oracles for KB quality? No single signal is reliable, but many weak signals combined might provide enough guidance to drive a learning loop without waiting for usage data.
 
-The analogy: AlphaGo works because the game has a perfect verifier. KBs don't. But we don't need a perfect verifier to learn — we need a signal that's better than random. Can we manufacture one from a basket of imperfect signals? Framed on the [oracle-strength spectrum](../notes/oracle-strength-spectrum.md), the question is whether combining many no-oracle or weak-oracle signals can manufacture a usable soft oracle — hardening the guidance available to the [learning loop](./kb-learning-loop-is-an-open-problem.md) without requiring the usage data it currently lacks.
+The analogy: AlphaGo works because the game has a perfect verifier. KBs don't. But we don't need a perfect verifier to learn — we need a signal that's better than random. Can we manufacture one from a basket of imperfect signals? Framed on the [oracle-strength spectrum](../notes/oracle-strength-spectrum.md), the question is whether combining many no-oracle or weak-oracle signals can manufacture a usable soft oracle — hardening the guidance available to the [learning loop](./automating-kb-learning-is-an-open-problem.md) without requiring the usage data it currently lacks.
 
 ## Static signals (measurable at any point)
 
@@ -65,7 +65,7 @@ Testable by: run all signals on the current KB, identify the notes each signal f
 
 ## What could drive a learning loop
 
-If the composite signal is good enough, the boiling cauldron from [the KB learning loop](./kb-learning-loop-is-an-open-problem.md) could work:
+If the composite signal is good enough, the boiling cauldron from [the KB learning loop](./automating-kb-learning-is-an-open-problem.md) could work:
 1. Propose a mutation (extract, split, synthesise, relink, regroup)
 2. Measure composite quality score before and after
 3. Accept mutations that improve the score, reject those that don't
@@ -119,7 +119,7 @@ The fix-and-re-critique approach is itself metamorphic: you're not testing absol
 ---
 
 Relevant Notes:
-- [kb-learning-loop-is-an-open-problem](./kb-learning-loop-is-an-open-problem.md) — the problem this note addresses: the learning loop needs quality gates, and this note proposes the composite signal that could serve as one
+- [automating-kb-learning-is-an-open-problem](./automating-kb-learning-is-an-open-problem.md) — the problem this note addresses: the learning loop needs quality gates, and this note proposes the composite signal that could serve as one
 - [oracle-strength-spectrum](../notes/oracle-strength-spectrum.md) — grounds the framing: each quality signal is a weak oracle, and the composite is an oracle-hardening strategy (manufacturing a soft oracle from many no-oracle signals)
 - [text-testing-framework](./text-testing-framework.md) — the test pyramid (deterministic / LLM rubric / corpus) maps onto the signal categories here; the framework provides the concrete testing infrastructure these signals would feed
 - [automated-tests-for-text](./observations/automated-tests-for-text.md) — the distilled observation that text can be tested like software; this note extends that by asking which tests, combined, could drive automated improvement

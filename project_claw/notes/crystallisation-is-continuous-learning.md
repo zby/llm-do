@@ -1,8 +1,9 @@
 ---
-description: Crystallisation is continuous learning — each step trades generality for compound gains in reliability, speed, and cost. It systematises the out-of-band optimisations every deployed system accumulates, through versioned artifacts rather than weight updates.
+description: Crystallisation is continuous learning — each step trades generality for compound gains in reliability, speed, and cost via versioned artifacts rather than weight updates
 type: structured-claim
 traits: []
 areas: []
+status: current
 ---
 
 # Crystallisation Is Continuous Learning

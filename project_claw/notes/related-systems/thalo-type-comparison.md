@@ -162,7 +162,8 @@ Relevant Notes:
 - [oracle-strength-spectrum](../oracle-strength-spectrum.md) — determines which checks can be deterministic (hard oracle) vs must stay LLM-judged (soft oracle)
 - [quality-signals-for-kb-evaluation](../../claw-design/quality-signals-for-kb-evaluation.md) — the broader quality framework these validation rules feed into
 - [thalo](./thalo.md) — the main system review note
+- [Toulmin argument](../../sources/purdue-owl-toulmin-argument.md) — grounds: Toulmin's formal argumentation model provides the canonical decomposition (claim/grounds/warrant/qualifier/rebuttal/backing) that Thalo's opinion entity approximates with Claim/Reasoning/Caveats sections
 
 Topics:
-- [related-systems](./related-systems-index.md)
 - [claw-design](../../claw-design/claw-design.md)
+- [related-systems](./related-systems-index.md)

@@ -48,9 +48,11 @@ Invoke the /connect skill on the working copy:
 
 This runs full connect-style discovery: index exploration, semantic search,
 keyword search, articulation-tested connections. /connect will write links
-INTO the working copy pointing at real docs/notes/ files. Since the working
-copy is outside docs/notes/, no reverse links get added to the KB — no
-pollution.
+INTO the working copy pointing at real docs/notes/ files.
+
+**Note:** /connect also adds reverse links FROM KB notes back TO the working
+copy (bidirectional linking). These reverse links will point to the
+`.working.md` file. Step 5b fixes these before the working copy is deleted.
 
 Wait for /connect to complete before proceeding.
 
@@ -144,6 +146,23 @@ Save the report next to the snapshot as `.ingest.md`:
 
 - Input:  `project_claw/sources/some-article.md`
 - Output: `project_claw/sources/some-article.ingest.md`
+
+## Step 5b: Rewrite Reverse Links
+
+/connect may have added reverse links from KB notes pointing to the
+`.working.md` file. Before deleting the working copy, rewrite these to
+point to the snapshot file (the permanent source artifact).
+
+```bash
+# Find all files linking to the .working.md
+grep -rl "{basename}.working.md" project_claw/ --include="*.md"
+```
+
+For each file found, replace `.working.md` with `.md` in the link target:
+- `some-article.working.md` → `some-article.md`
+
+Use `sed` or edit each file. Verify the snapshot file exists at the
+rewritten path.
 
 ## Step 6: Clean Up Working Copy
 

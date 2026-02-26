@@ -429,6 +429,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    from dotenv import load_dotenv
+
+    load_dotenv()
     args = parse_args()
     try:
         result = snapshot_x_url(args.url, out_dir=args.out_dir, max_posts=args.max_posts)

@@ -1,7 +1,7 @@
 ---
 description: Metadata-aware reranking over semantic search — type-dependent recency decay, per-note overrides, SQLite index rebuilt from frontmatter
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design]
 status: speculative
 ---

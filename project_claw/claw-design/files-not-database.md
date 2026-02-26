@@ -1,7 +1,7 @@
 ---
 description: Files with git beat a database for agent-facing knowledge bases — universal interface, free versioning, no infrastructure to maintain
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design]
 status: current
 ---

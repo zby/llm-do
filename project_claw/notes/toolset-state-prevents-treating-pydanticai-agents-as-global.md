@@ -1,7 +1,7 @@
 ---
 description: PydanticAI documents agents as stateless and global, but toolsets on agents can carry mutable state across runs — llm-do works around this with per-call Agent construction and toolset factories
 type: note
-traits: [has-claim]
+traits: []
 areas: [pydanticai-upstream]
 status: current
 ---

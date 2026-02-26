@@ -1,7 +1,7 @@
 ---
 description: Document types should assert verifiable structural properties, not subject matter — with a base type + traits model inspired by gradual and structural typing
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design]
 status: current
 ---
@@ -18,7 +18,7 @@ The test: after reading the type, can you say something concrete about the docum
 
 In programming, types are useful because the compiler enforces them. If nothing checked that a `List` is actually a list, the type annotation would be decoration. The value of a type comes from enforcement — something in the system acts on it.
 
-Here, the "compiler" is a mix of agents and scripts. An agent reading `type: spec` can decide to implement from it. A script can grep for `has-claim` to find citable arguments. But they can only do this if the type asserts something checkable. `type: design` gives them nothing to act on — every note in a design KB is "about design." An unverifiable type is like an unenforced type annotation: technically present, practically invisible. The [text testing pyramid](./observations/automated-tests-for-text.md) sketches what enforcement could look like in practice: deterministic checks for structural contracts, LLM rubrics for judgment-dependent traits.
+Here, the "compiler" is a mix of agents and scripts. An agent reading `type: spec` can decide to implement from it. A script can grep for `type: structured-claim` to find citable arguments with full Evidence/Reasoning sections. But they can only do this if the type asserts something checkable. `type: design` gives them nothing to act on — every note in a design KB is "about design." An unverifiable type is like an unenforced type annotation: technically present, practically invisible. The [text testing pyramid](./observations/automated-tests-for-text.md) sketches what enforcement could look like in practice: deterministic checks for structural contracts, LLM rubrics for judgment-dependent traits.
 
 Types guide what the processor — the [hybrid VM](../../docs/theory.md) — can do with the document. A `spec` tells an agent it can build against this. A `has-comparison` tells it there are alternatives to choose between. Since [agents navigate by deciding what to read next](./observations/agents-navigate-by-deciding-what-to-read-next.md), types and traits are precisely the hints that make those decisions informed rather than blind — the type tells the agent what it can do with the document *before opening it*. The type is only useful if the processor can trust it, and trust requires the ability to check.
 
@@ -44,7 +44,7 @@ The solution borrows from subtyping and structural typing. Instead of a flat enu
 
 ```yaml
 type: note
-traits: [has-claim, has-external-sources]
+traits: [has-comparison, has-external-sources]
 ```
 
 **Base types** are structurally distinct with low ambiguity — like choosing between `List`, `Dict`, and `Set`:
@@ -60,20 +60,19 @@ traits: [has-claim, has-external-sources]
 
 | Trait | What it tells the agent |
 |-------|------------------------|
-| `has-claim` | You can cite this as an argument; the title is an assertion |
 | `has-comparison` | You can use this to decide between alternatives |
 | `has-external-sources` | This connects to material outside the project |
 | `has-implementation` | This contains code sketches or concrete API proposals |
 
-A note can satisfy multiple traits without conflict. What the old system called "research" becomes `note` + `has-external-sources`. What it called "insight" becomes `note` + `has-claim`. A research note with a crystallized conclusion is `note` + `has-external-sources` + `has-claim` — no forced choice.
+A note can satisfy multiple traits without conflict. What the old system called "research" becomes `note` + `has-external-sources`. What it called "insight" becomes `structured-claim` (if the argument is developed) or stays `note` (if the title is a claim but the body is free-form). A research note with a crystallized conclusion is `structured-claim` + `has-external-sources` — no forced choice.
 
 ## The crystallisation gradient
 
 `note` is the base type that makes no structural claim — like `Any` in a gradually typed language. This connects to the [crystallisation gradient](../notes/crystallisation-learning-timescales.md): just as code starts stochastic and stabilizes to deterministic, documents start untyped and gain type information as they mature.
 
 1. New content enters as `type: note` — soft, no structural claims
-2. Traits accumulate as the document develops — `has-claim` when the title becomes an assertion, `has-implementation` when code sketches appear
-3. Base type gets promoted to `spec` or `review` when hard structural criteria are met
+2. Traits accumulate as the document develops — `has-implementation` when code sketches appear, `has-external-sources` when citing external material
+3. Base type gets promoted to `structured-claim`, `spec`, or `review` when hard structural criteria are met
 4. A bare `note` with no traits that persists is a signal — maybe it needs splitting, promotion, or review
 
 This is gradual typing applied to documents. The system works at every point on the spectrum, from fully untyped to fully classified.
@@ -83,8 +82,8 @@ This is gradual typing applied to documents. The system works at every point on 
 Several type system concepts map to specific aspects of this design:
 
 - **Gradual typing** (Python, TypeScript) → the crystallisation gradient. `note` is `Any`; type annotations accumulate as confidence grows
-- **Protocols / structural typing** → traits. A document satisfies `has-claim` if the title is an assertion, regardless of whether someone labeled it. We store the label for searchability rather than re-checking every time
-- **Refinement types** (`{x: int | x > 0}`) → traits as predicates on `note`. Some are easy to check (`has-external-sources` — grep for URLs), others require judgment (`has-claim` — is the title an assertion?)
+- **Protocols / structural typing** → traits. A document satisfies `has-external-sources` if it references external material, regardless of whether someone labeled it. We store the label for searchability rather than re-checking every time
+- **Refinement types** (`{x: int | x > 0}`) → traits as predicates on `note`. Some are easy to check (`has-external-sources` — grep for URLs), others require judgment (`has-comparison` — is there a structured evaluation?)
 - **Soft typing** (Scheme/Lisp) → tolerance of misclassification. The system infers types advisorily; violations are quality issues, not errors
 
 ## Tolerance of misclassification

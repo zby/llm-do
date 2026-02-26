@@ -17,7 +17,7 @@ last-checked: 2026-02-25
 
 **"Unit tests for knowledge."** The central claim is that knowledge bases and codebases are similar — both need good structure to compound, both decay without it. Thalo provides a validation feedback loop: AI generates entries, `thalo check` validates them against 27 rules, creating iterative refinement. This is strikingly close to our [oracle hardening](../oracle-strength-spectrum.md) — they're manufacturing hard oracles for knowledge quality.
 
-**Grammar-based type system.** Entities define types of knowledge (e.g. `opinion`, `reference`, `lore`, `journal`) with typed metadata fields (`string`, `date`, `link`, literal unions like `"article" | "video"`) and required/optional content sections. Values are parsed into typed AST nodes by Tree-Sitter, not regex-validated. This is our [types mark affordances](../programming-language-types-applied-to-documents-mark-affordances.md) principle taken to its logical extreme — a full compiler rather than YAML frontmatter conventions.
+**Grammar-based type system.** Entities define types of knowledge (e.g. `opinion`, `reference`, `lore`, `journal`) with typed metadata fields (`string`, `date`, `link`, literal unions like `"article" | "video"`) and required/optional content sections. Values are parsed into typed AST nodes by Tree-Sitter, not regex-validated. This is our [types mark affordances](../instructions-are-typed-callables.md) principle taken to its logical extreme — a full compiler rather than YAML frontmatter conventions.
 
 **Plain text is paramount.** Pure text files in git, no database, no lock-in, works with any editor. Full scripting API. This aligns with our markdown-as-source-of-truth stance and the filesystem-over-databases pattern shared across all systems we track.
 
@@ -67,7 +67,7 @@ The comparison illuminates a design spectrum:
 
 Relevant Notes:
 - [oracle-strength-spectrum](../oracle-strength-spectrum.md) — foundation: Thalo's 27 rules are hard oracles manufactured for knowledge quality; the comparison illuminates what "oracle hardening" looks like when pursued to full formalization
-- [programming-language-types-applied-to-documents-mark-affordances](../programming-language-types-applied-to-documents-mark-affordances.md) — foundation: Thalo's entity system is this principle taken to a full compiler; our YAML conventions occupy a different point on the same spectrum
+- [instructions-are-typed-callables](../instructions-are-typed-callables.md) — foundation: Thalo's entity system is this principle taken to a full compiler; our YAML conventions occupy a different point on the same spectrum
 - [programming-practices-apply-to-prompting](../programming-practices-apply-to-prompting.md) — synthesizes: Thalo is the most extreme example of programming practices (typing, testing, compilation) applied to knowledge management — they built an actual compiler where we use conventions
 - [crystallisation-learning-timescales](../crystallisation-learning-timescales.md) — contrasts: Thalo has no crystallisation gradient; their rules are fixed at design time, while the verifiability gradient explains why progressive formalization (prompt -> schema -> code) beats upfront commitment
 - [document-types-should-be-verifiable](../../claw-design/document-types-should-be-verifiable.md) — converges: same goal (types with defined sections, checkable structure), different trajectory — they committed upfront via grammar, we discover through practice

@@ -1,7 +1,7 @@
 ---
 description: Catalogues graph-topology, content-proxy, and LLM-hybrid signals that could be combined into a weak composite oracle to drive a mutation-based KB learning loop without requiring usage data.
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design]
 status: speculative
 ---

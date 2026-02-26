@@ -1,7 +1,7 @@
 ---
 description: Link-following is local with context; search is long-range with titles/descriptions; indexes bridge both modes
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design, links]
 status: current
 ---

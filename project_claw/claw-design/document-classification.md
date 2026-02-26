@@ -21,10 +21,13 @@ Base types are hard structural categories with low ambiguity. A document has exa
 | `review` | Examines specific existing code; has Findings; dated | Check for code refs, date |
 | `index` | Primarily navigational links | Check link density |
 | `adr` | Architecture decision record; has Context/Decision/Consequences | Check for ADR sections |
+| `structured-claim` | Title is an assertion; has Evidence and Reasoning sections | Check for `## Evidence` and `## Reasoning` headings |
 
 `text` is the root type — like `Any` in a gradually typed language. A markdown file with no frontmatter. It represents a thought captured before it has enough shape to structure. The absence of frontmatter *is* the type — no `type: text` field needed.
 
-`note` is the first structured type. It requires frontmatter with at least a `description` field and carries the expectations from WRITING.md ([title-as-claim](./title-as-claim-enables-traversal-as-reasoning.md), description quality, index membership, composability). Notes with the `has-claim` trait use claim titles that serve as premises in reasoning chains; specs and other multi-claim documents use topical titles instead.
+`note` is the first structured type. It requires frontmatter with at least a `description` field and carries the expectations from WRITING.md ([title-as-claim](./title-as-claim-enables-traversal-as-reasoning.md), description quality, index membership, composability). Notes with claim titles serve as premises in reasoning chains; specs and other multi-claim documents use topical titles instead.
+
+`structured-claim` extends `note` with required argument sections: `## Evidence`, `## Reasoning`, and optionally `## Caveats`. It represents a fully developed argument — the [Toulmin scaffold](./claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md) applied to a claim-titled note. The promotion path is `note` → `structured-claim`: when a note's argument matures enough to fill Evidence/Reasoning sections, it earns the type.
 
 ## Status
 
@@ -52,17 +55,18 @@ Traits are independently checkable properties. A document can have zero or more 
 
 | Trait | What it asserts | Verifiability |
 |-------|----------------|---------------|
-| `has-claim` | Title is an assertion; body argues for it | Requires judgment |
 | `has-comparison` | Structured evaluation of alternatives (tables, option lists) | Grep for comparison tables |
 | `has-external-sources` | References material outside the project | Grep for URLs/citations |
 | `has-implementation` | Contains code sketches or concrete API proposals | Grep for code blocks with API surface |
+
+> **Retired:** `has-claim` was replaced by the `structured-claim` base type. Claim-style titles remain a convention for any note (see [title-as-claim](./title-as-claim-enables-traversal-as-reasoning.md)); developed arguments use `type: structured-claim` instead of a trait.
 
 ### What the old flat types become
 
 | Old type | New encoding |
 |----------|-------------|
 | `design` | `note` (was subject matter, not structure) |
-| `insight` | `note` + `has-claim` |
+| `insight` | `structured-claim` (developed argument) or `note` (claim title, free-form body) |
 | `analysis` | `note` + `has-comparison` |
 | `research` | `note` + `has-external-sources` |
 | `comparison` | `note` + `has-comparison` |
@@ -73,7 +77,7 @@ Traits are independently checkable properties. A document can have zero or more 
 ---
 description: Storing an LLM output collapses a distribution to a point
 type: note
-traits: [has-claim]
+traits: [has-comparison]
 areas: [index]
 ---
 ```

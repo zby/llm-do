@@ -7,6 +7,9 @@ type: index
 
 - [Ingest: The File System Is the New Database: How I Built a Personal OS for AI Agents](./koylanai-personal-brain-os.ingest.md) *(practitioner-report)*
 - [The File System Is the New Database: How I Built a Personal OS for AI Agents](./koylanai-personal-brain-os.md) *(x-article)*
+- [Solving a Million-Step LLM Task with Zero Errors](./meyerson-maker-million-step-llm-zero-errors.md) *(academic-paper)*
+- [Solving a Million-Step LLM Task with Zero Errors](./meyerson-maker-million-step-llm-zero-errors.working.md) *(academic-paper)*
+- [Ingest: Toulmin Argument](./purdue-owl-toulmin-argument.ingest.md) *(conceptual-essay)*
 - [Toulmin Argument](./purdue-owl-toulmin-argument.md) *(documentation)*
 - [Ingest: Andrej Karpathy talks about "Claws"](./simon-willison-karpathy-claws.ingest.md) *(conceptual-essay)*
 - [Andrej Karpathy talks about "Claws"](./simon-willison-karpathy-claws.md) *(blog-post)*

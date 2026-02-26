@@ -48,6 +48,7 @@ Validation checks are cumulative — each type inherits checks from simpler type
 
 - **text**: no checks (always valid)
 - **note**: frontmatter validity, description, enum fields, composability, link health, areas-topics
+- **structured-claim**: note checks + Evidence and Reasoning sections present
 - **spec**: note checks + Design/Implementation sections present
 - **review**: note checks + Findings section present
 - **index**: note checks + link density (primarily navigational)
@@ -129,7 +130,7 @@ Applies to: all types except `text`
 |-------|------|---------------|
 | Enum value | If `type:` present, must be one of the valid base types | Compare against allowed list |
 
-**Valid base types:** `note`, `spec`, `review`, `index`, `adr`
+**Valid base types:** `note`, `spec`, `review`, `index`, `adr`, `structured-claim`
 
 If the value is not in the list, report the invalid value and list the valid options.
 
@@ -143,7 +144,7 @@ Applies to: all types except `text`
 |-------|------|---------------|
 | Enum values | If `traits:` present, every value must be a valid trait | Compare each against allowed list |
 
-**Valid traits:** `has-claim`, `has-comparison`, `has-external-sources`, `has-implementation`
+**Valid traits:** `has-comparison`, `has-external-sources`, `has-implementation`
 
 Report each invalid trait individually. Skip if `traits:` is absent.
 
@@ -200,10 +201,11 @@ This check verifies that the two representations stay in sync. `areas:` is the s
 
 #### 10. Type-Specific Structure
 
-Applies to: `spec`, `review`, `index`, `adr` only
+Applies to: `structured-claim`, `spec`, `review`, `index`, `adr` only
 
 | Type | Required structure | How to Verify |
 |------|--------------------|---------------|
+| `structured-claim` | Has Evidence and Reasoning sections; title is an assertion | Grep for `## Evidence` and `## Reasoning` headings |
 | `spec` | Has Design and/or Implementation sections | Grep for `## Design` or `## Implementation` headings |
 | `review` | Has Findings section; is dated | Grep for `## Findings` heading; check for date in frontmatter or body |
 | `index` | Primarily navigational links | Check that link density is high relative to prose |

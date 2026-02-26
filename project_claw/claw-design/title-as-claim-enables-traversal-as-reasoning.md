@@ -1,7 +1,7 @@
 ---
 description: When note titles are claims rather than topics, following links between them reads as a chain of reasoning — the file tree becomes a scan of arguments, and link semantics (since, because, but) encode relationship types
 type: note
-traits: [has-claim, has-external-sources]
+traits: [has-external-sources]
 areas: [claw-design, links]
 status: seedling
 ---
@@ -14,7 +14,7 @@ When you link to a claim-titled note, the link becomes part of your argument:
 
 > "because [approvals guard against LLM mistakes not active attacks](../notes/approvals-guard-against-llm-mistakes-not-active-attacks.md), we can separate the security boundary from the approval UX"
 
-The title IS the reasoning. Traversal IS thinking. The title functions as a typed signature — you know what you're getting before you load the full note. A topic label like "memory notes" is an undocumented function; a claim like "structure enables navigation" tells you the return value. This connects to how [types applied to documents mark affordances](../notes/programming-language-types-applied-to-documents-mark-affordances.md) — a claim title is an affordance declaration.
+The title IS the reasoning. Traversal IS thinking. The title functions as a typed signature — you know what you're getting before you load the full note. A topic label like "memory notes" is an undocumented function; a claim like "structure enables navigation" tells you the return value. This connects to how [types applied to documents mark affordances](../notes/instructions-are-typed-callables.md) — a claim title is an affordance declaration.
 
 ## Why it works
 
@@ -42,16 +42,16 @@ The traversal-as-reasoning framing explains why. A claim-titled note can serve a
 
 The two layers coexist. Specs link TO their constituent claim-notes for justification ([document types should be verifiable](./document-types-should-be-verifiable.md) is the rationale extracted from the classification spec). Claim-notes link TO specs as the system they support. But they have different title conventions because they play different roles in traversal.
 
-This maps onto the existing type system: notes with the `has-claim` trait carry claim titles; `spec`, `index`, and other structural types carry topical titles. The trait and the title convention are the same signal.
+This maps onto the existing type system: notes with claim titles may be promoted to `type: structured-claim` when the argument matures; `spec`, `index`, and other structural types carry topical titles. The title convention (claim vs topical) is independent of the type — any `note` can use a claim title.
 
 ## The shadow side
 
-Not every idea decomposes into a single declarative sentence — some are relational, procedural, emergent, or compositional. When reformulation feels forced, the question is whether the insight isn't ready or the format can't accommodate it. The `has-claim` trait makes this explicit: if you can't write a claim title, the note may not have the `has-claim` trait, and that's fine.
+Not every idea decomposes into a single declarative sentence — some are relational, procedural, emergent, or compositional. When reformulation feels forced, the question is whether the insight isn't ready or the format can't accommodate it. The type system makes this explicit: if you can't write a claim title, the note stays `type: note` with a topical title, and that's fine.
 
 ---
 
 Relevant Notes:
-- [programming-language types applied to documents mark affordances](../notes/programming-language-types-applied-to-documents-mark-affordances.md) — extends: claim titles are affordance declarations, telling you what reasoning operations a note supports
+- [programming-language types applied to documents mark affordances](../notes/instructions-are-typed-callables.md) — extends: claim titles are affordance declarations, telling you what reasoning operations a note supports
 - [document types should be verifiable](./document-types-should-be-verifiable.md) — example: a claim extracted from a multi-claim spec, enabling it to serve as a premise
 - [document classification](./document-classification.md) — example: a multi-claim spec that gets a topical title because no single claim subsumes its content
 - [agents navigate by deciding what to read next](./observations/agents-navigate-by-deciding-what-to-read-next.md) — grounds: claim titles make the navigation decision cheap by carrying the argument in the pointer itself

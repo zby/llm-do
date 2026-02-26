@@ -1,7 +1,7 @@
 ---
 description: The areas-to-Topics mapping is mechanical — now implemented as scripts/sync_topic_links.py
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design, links]
 status: outdated
 ---

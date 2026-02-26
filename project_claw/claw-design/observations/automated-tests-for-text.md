@@ -1,7 +1,7 @@
 ---
 description: Text artifacts can be tested with the same pyramid as software — deterministic checks, LLM rubrics, corpus compatibility — built from real failures not taxonomy
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design]
 status: current
 ---
@@ -10,7 +10,7 @@ status: current
 
 Text artifacts can be tested like software if you define contracts per document type. The same test pyramid applies: cheap deterministic checks at the base, LLM-based rubric grading in the middle, cross-document corpus checks at the top.
 
-Since [document types should be verifiable](../document-types-should-be-verifiable.md), each type and trait asserts a checkable structural property — and those properties are exactly what testing contracts should verify. A `spec` needs Design/Implementation sections; `has-claim` needs an assertive title. The type system and the test pyramid are two sides of the same coin: types define what to check, tests do the checking.
+Since [document types should be verifiable](../document-types-should-be-verifiable.md), each type and trait asserts a checkable structural property — and those properties are exactly what testing contracts should verify. A `spec` needs Design/Implementation sections; `structured-claim` needs Evidence and Reasoning sections. The type system and the test pyramid are two sides of the same coin: types define what to check, tests do the checking.
 
 Key principle: build contracts from real failures, not from a taxonomy of possible checks. Same way you build a test suite — add a test when something breaks, not before.
 

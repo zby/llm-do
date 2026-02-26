@@ -1,7 +1,7 @@
 ---
 description: Claw skills should be generated from templates at setup time, not parameterised with runtime variables — applying the general principle that indirection is costly in LLM instructions
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design]
 status: seedling
 ---

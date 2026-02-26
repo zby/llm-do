@@ -1,7 +1,7 @@
 ---
 description: Two upstream PydanticAI paths could eliminate our ApprovalToolset wrapper stacking — deferred_tool_handler and Traits before_tool_call hooks
 type: note
-traits: [has-claim, has-implementation]
+traits: [has-implementation]
 areas: [approvals, pydanticai-upstream]
 status: current
 last_verified: 2026-02-18

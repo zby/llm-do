@@ -102,6 +102,42 @@ Next steps:
 ===
 ```
 
+### note → structured-claim
+
+Promotes a note with a claim title into a fully structured argument with Toulmin-derived sections.
+
+#### Step 1: Locate and verify
+
+Resolve the target to a file path. Read the file. Verify it has frontmatter with `type: note` (or no explicit type). If it's already `type: structured-claim`, report and stop.
+
+#### Step 2: Restructure body
+
+Add or identify `## Evidence`, `## Reasoning`, and `## Caveats` sections. Move existing content into the appropriate sections:
+- Observations, facts, references → `## Evidence`
+- Principles connecting evidence to the title claim → `## Reasoning`
+- Scope limits, assumptions, counterarguments → `## Caveats`
+
+#### Step 3: Update frontmatter
+
+- Set `type: structured-claim`
+- Keep `status` unchanged (conversion doesn't endorse)
+
+#### Step 4: Report
+
+```
+=== CONVERTED: filename.md ===
+
+note → structured-claim
+
+Sections added: Evidence, Reasoning, Caveats
+description: [unchanged]
+
+Next steps:
+- /validate filename.md — check quality
+- Review and set status: current when endorsed
+===
+```
+
 ### Future conversions (not yet implemented)
 
 These are documented as directions, not working features. If a user requests one, explain it's not implemented yet.

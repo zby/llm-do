@@ -1,7 +1,7 @@
 ---
 description: An agent doing a task navigates by deciding what to read — links, index entries, search tools, and skill descriptions are all pointers with varying amounts of context for that decision
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design, links]
 status: current
 ---

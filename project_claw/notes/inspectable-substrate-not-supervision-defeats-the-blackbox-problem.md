@@ -1,7 +1,7 @@
 ---
 description: Chollet frames agentic coding as ML producing blackbox codebases — crystallisation counters this not by requiring human review but by choosing a substrate (repo artifacts) that any agent can inspect, diff, test, and verify
 type: note
-traits: [has-claim, has-external-sources]
+traits: [has-external-sources]
 areas: []
 status: current
 ---
@@ -22,7 +22,7 @@ An LLM can review a diff and catch a Clever Hans shortcut in generated code. It 
 
 ## The failure mode mapping
 
-Chollet's predicted ML problems map directly to [crystallisation](crystallisation-is-continuous-learning.md) failure modes — but with mitigations that weight-based systems can't match:
+Chollet's predicted ML problems map directly to [crystallisation](stabilisation-is-learning.md) failure modes — but with mitigations that weight-based systems can't match:
 
 | ML failure mode | Crystallisation equivalent | Mitigation available |
 |----------------|---------------------------|---------------------|
@@ -40,5 +40,5 @@ Chollet asks "what will be the Keras of agentic coding?" — the abstraction lay
 ---
 
 Relevant Notes:
-- [crystallisation-is-continuous-learning](crystallisation-is-continuous-learning.md) — foundation: crystallisation as system-level learning through repo artifacts
+- [stabilisation-is-learning](stabilisation-is-learning.md) — foundation: crystallisation as system-level learning through repo artifacts
 - [crystallisation-learning-timescales](crystallisation-learning-timescales.md) — the verifiability gradient that determines when and how to crystallise

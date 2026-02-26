@@ -7,14 +7,17 @@ type: index
 
 - [Features to borrow from arscontexta-connect when adding pipeline support](./agent-learnings/connect-pipeline-features.md)
 - [Agent Skills Standard Unification](./agent-skills-unification.md) *(note)* — Aligning .agent format with Agent Skills standard specification
+- [Alexander's patterns connect to knowledge system design at multiple levels](./alexander-patterns-and-knowledge-system-design.md) *(note)* — Christopher Alexander's pattern language, generative processes, and centers may connect to our knowledge system design at multiple levels — from structured document types to crystallisation to link semantics. Vague but persistent.
 - [Approval Override Rationale](./approval-override-rationale.md) *(note)* — Why per-agent approval overrides exist and when we might remove them
 - [approvals guard against LLM mistakes not active attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) *(note)* — Approvals are a UI feature for catching LLM errors, not a security boundary — isolation is the security boundary
 - [Approvals](./approvals-index.md) *(index)* — Approval system design — threat model, capability taxonomy, UI integration, and upstream simplification
-- [The bitter lesson stops at calculators](./bitter-lesson-boundary.md) *(note)* — The bitter lesson has a boundary — calculators vs vision features illustrate when exact solutions survive scaling and when they don't
+- [The bitter lesson stops at calculators](./bitter-lesson-boundary.md) *(structured-claim)* — The bitter lesson has a boundary — calculators vs vision features illustrate when exact solutions survive scaling and when they don't
 - [Approval System Design](./capability-based-approvals.md) *(note)* — Capability-based approval system design for tool execution control
 - [Container Security Boundary](./container-security-boundary.md) *(note)* — Using Docker containers as security boundary for tool execution
-- [Crystallisation Is Continuous Learning](./crystallisation-is-continuous-learning.md) *(note)* — Crystallisation systematises the out-of-band optimisations every deployed system accumulates — achieving continuous learning through versioned artifacts, whether human-driven or automated
+- [Continuous learning is stabilisation during deployment](./continuous-learning-is-stabilisation-during-deployment.md) *(structured-claim)* — AI labs' continuous learning — adapting deployed models without retraining — is achievable through stabilisation with versioned artifacts, which beats weight updates on inspectability, rollback, verification, and composability
+- [Stabilisation is learning](./stabilisation-is-learning.md) *(structured-claim)* — Every act of stabilisation — reducing variance, increasing determinism — is learning in Simon's sense. It trades generality for compound gains in reliability, speed, and cost.
 - [Crystallisation: The Missing Middle](./crystallisation-learning-timescales.md) *(note)* — Crystallisation fills the gap between training and in-context learning — repo artifacts provide durable, inspectable adaptation with a verifiability gradient from prompt tweaks to deterministic code
+- [Deterministic validation should be a script](./deterministic-validation-should-be-a-script.md) *(note)* — Half of /validate's checks are hard-oracle (enums, link resolution, frontmatter structure) and could run as a Python script in milliseconds instead of burning LLM tokens via the skill
 - [Dynamic Workers Runtime Design](./dynamic-agents-runtime-design.md) *(note)* — Design for runtime creation and invocation of dynamic workers
 - [Untitled](./examples/AICL.md)
 - [Untitled](./examples/Chang2025.md)
@@ -25,6 +28,7 @@ type: index
 - [Git Integration Research](./git-integration-research.md) — Research on git integration patterns from Aider and golem-forge
 - [Indirection is costly in LLM instructions](./indirection-is-costly-in-llm-instructions.md) *(note)* — In code, indirection (variables, config, abstraction layers) is nearly free at runtime — in LLM instructions, every layer of indirection costs context and interpretation overhead on every read
 - [Inspectable substrate, not supervision, defeats the blackbox problem](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) *(note)* — Chollet frames agentic coding as ML producing blackbox codebases — crystallisation counters this not by requiring human review but by choosing a substrate (repo artifacts) that any agent can inspect, diff, test, and verify
+- [Learning is capacity change](./learning-is-capacity-change.md) *(note)* — Simon's definition — learning is any change that produces a more or less permanent change in a system's capacity for adapting to its environment. Capacity decomposes into generality and a crystallisation compound (reliability+speed+cost) that trades against it.
 - [Library System Specification](./library-system-spec.md) *(spec)* — Specification for reusable agent and tool libraries that can be shared across projects
 - [llm-do Project Mode, Worker Imports, and Tool Linking](./llm-do-project-mode-and-imports.md) *(spec)* — Spec for project mode discovery, worker imports, and tool linking
 - [llm-do vs vanilla PydanticAI: what the runtime adds](./llm-do-vs-pydanticai-runtime.md) *(note)* — What llm-do adds on top of vanilla PydanticAI agents
@@ -34,7 +38,7 @@ type: index
 - [llm-do 5-Minute Meetup Demo Plan](./meta/meetup-demo-plan.md) — 5-minute demo plan showing progressive stabilization workflow
 - [PydanticAI Runtime Split and Trace Hooks](./meta/pydanticai-runtime-trace.md) — Proposed PydanticAI changes for runtime/session split and tracing
 - [RLM ephemeral code prevents accumulation](./meta/rlm-ephemeral-code-prevents-accumulation.md) — RLM discards generated code after each run — the single design choice that separates it from llm-do
-- [The bitter lesson boundary is a gradient, not a binary](./oracle-strength-spectrum.md) *(note)* — The bitter lesson boundary is a gradient, not a binary — oracle strength (how cheaply and reliably you can verify correctness) determines where on the spectrum a component sits and how to invest engineering effort
+- [The bitter lesson boundary is a gradient, not a binary](./oracle-strength-spectrum.md) *(structured-claim)* — The bitter lesson boundary is a gradient, not a binary — oracle strength (how cheaply and reliably you can verify correctness) determines where on the spectrum a component sits and how to invest engineering effort
 - [Mistral Vibe Borrowing Report](./other_python_llm_assistants/mistral-vibe-borrowing-report.md)
 - [Mistral Vibe](./other_python_llm_assistants/mistral-vibe.md)
 - [PAI Agent SDK / Paintress CLI](./other_python_llm_assistants/pai-agent-sdk.md)
@@ -42,7 +46,7 @@ type: index
 - [TunaCode](./other_python_llm_assistants/tunacode.md)
 - [Preapproved Capability Scopes](./preapproved-capability-scopes.md) *(note)* — Path-scoped preapproval policies for reducing approval prompts
 - [Programmatic Embedding](./programmatic-embedding.md) *(note)* — How to embed llm-do in Python applications (API unstable)
-- [Programming-language types applied to documents mark affordances, not subjects](./programming-language-types-applied-to-documents-mark-affordances.md) *(note)* — Programming-language type systems applied to knowledge base documents — types mark which operations are valid on content, not just what it's about
+- [Instructions are typed callables with document type signatures](./instructions-are-typed-callables.md) *(note)* — Skills and tasks are typed callables — they accept document types as input and produce types as output, and should declare their signatures like functions declare parameter types
 - [Programming practices apply to prompting](./programming-practices-apply-to-prompting.md) *(note)* — Programming practices — typing, testing, progressive compilation, version control — apply to LLM prompting and knowledge systems, with probabilistic execution making some practices harder
 - [Proposed toolset lifecycle resolution for PydanticAI](./proposed-toolset-lifecycle-resolution-for-pydanticai.md) *(note)* — Early sketch of how PydanticAI could handle common toolset lifecycle cases and provide extension points for exotic ones — rough proposal for discussion, not a finished design
 - [Pure Dynamic Tools](./pure-dynamic-tools.md) *(note)* — LLM-authored tools that can only call agents, enabling safe dynamic orchestration
@@ -53,6 +57,7 @@ type: index
 - [Agent Skills for Context Engineering](./related-systems/agent-skills-for-context-engineering.md) *(note)* — Skill-based context engineering framework — 14 instructional modules covering attention mechanics, multi-agent patterns, memory, evaluation. Strong on operational patterns, weaker on learning theory.
 - [Ars Contexta](./related-systems/arscontexta.md) *(note)* — Claude Code plugin that generates knowledge systems from conversation, backed by 249 research claims. Ancestor of our claw — we run a local instance but have diverged significantly in structure and theory.
 - [Related Systems](./related-systems/related-systems-index.md) *(index)* — Comparable knowledge/agent systems tracked for evolving ideas, convergence signals, and borrowable patterns
+- [Thalo entity types compared to claw document types](./related-systems/thalo-type-comparison.md) *(note)* — Side-by-side comparison of Thalo's entity definitions and our document classification — same goal, different maturity. Reference for when we encounter recurring note shapes and need to decide what structure to adopt.
 - [Thalo](./related-systems/thalo.md) *(note)* — Custom plain-text language for knowledge management with Tree-Sitter grammar, typed entities, 27 validation rules, and LSP. Makes the same programming-theory-over-psychology bet we do, but went further into formalization with a custom DSL.
 - [Eric Evans: AI Components for a Deterministic System](./related_works/evans-ai-components-deterministic-system.md)
 - [Granular Software](./related_works/granular-software.md)

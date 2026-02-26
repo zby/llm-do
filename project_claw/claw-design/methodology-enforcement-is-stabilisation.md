@@ -1,7 +1,7 @@
 ---
 description: Instructions, skills, hooks, and scripts form a stabilisation gradient for methodology — from fully stochastic (LLM may follow) to fully deterministic (code always runs), with hooks occupying a middle ground of deterministic triggers with stochastic responses
 type: note
-traits: [has-claim]
+traits: []
 areas: [claw-design]
 status: seedling
 ---
@@ -48,7 +48,7 @@ We have hooks in `.claude/hooks/` but they aren't wired up (`"hooks": {}` in set
 
 Relevant Notes:
 - [crystallisation: the missing middle](../notes/crystallisation-learning-timescales.md) — grounds: the verifiability gradient for code (prompt tweaks -> schemas -> evals -> deterministic modules) is the general pattern this note instantiates for methodology
-- [crystallisation is continuous learning](../notes/crystallisation-is-continuous-learning.md) — foundation: the stabilisation gradient for code; this note applies the same gradient to methodology
+- [stabilisation is learning](../notes/stabilisation-is-learning.md) — foundation: the stabilisation gradient for code; this note applies the same gradient to methodology
 - [programming practices apply to prompting](../notes/programming-practices-apply-to-prompting.md) — synthesizes: the maturation trajectory is progressive compilation applied to methodology — flexible instructions frozen into rigid, efficient automation
 - [topic links from frontmatter are deterministic](./observations/topic-links-from-frontmatter-are-deterministic.md) — exemplifies: a skill-level operation that completed the maturation trajectory into a deterministic script
 - [what doesn't work](./what-doesnt-work.md) — examples: validation ceremony and session rhythm protocol as premature automation

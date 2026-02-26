@@ -1,7 +1,7 @@
 ---
 description: Choosing to keep a specific LLM output collapses a distribution to a point — the same stabilizing move the theory doc describes for code, applied to artifacts
 type: note
-traits: [has-claim]
+traits: []
 areas: []
 status: speculative
 ---
@@ -18,7 +18,7 @@ This applies broadly:
 - **Configuration** — an LLM suggests settings; you freeze the ones that behave well
 - **Accumulated logs** — append-only formats (JSONL) enforce stabilization structurally: the agent can add but cannot overwrite. [Koylanai lost 3 months of engagement data](../sources/koylanai-personal-brain-os.ingest.md) when an agent rewrote a JSON file instead of appending — concrete evidence that without append-only constraints, agents will accidentally destroy stabilized artifacts
 
-In each case, the stored artifact is more stable than the process that created it. The prompt remains stochastic; the artifact is now deterministic. This is how [crystallisation is continuous learning](./crystallisation-is-continuous-learning.md) — each stored artifact is a step in the system's adaptation, narrowing behavior through versioned artifacts rather than weight updates.
+In each case, the stored artifact is more stable than the process that created it. The prompt remains stochastic; the artifact is now deterministic. This is how [stabilisation is learning](./stabilisation-is-learning.md) — each stored artifact is a step in the system's adaptation, narrowing behavior through versioned artifacts rather than weight updates.
 
 ## Testing implications
 
@@ -56,7 +56,7 @@ This is hard to catch because it requires comparing the output against the sourc
 
 Relevant Notes:
 - [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — extends the stabilization gradient with a new application: output artifacts, not just code
-- [crystallisation-is-continuous-learning](./crystallisation-is-continuous-learning.md) — foundation: each stored artifact is a step in the continuous learning loop this note describes
+- [stabilisation-is-learning](./stabilisation-is-learning.md) — foundation: each stored artifact is a step in the continuous learning loop this note describes
 - [evans-ai-components-deterministic-system](./related_works/evans-ai-components-deterministic-system.md) — exemplifies the constraint strategy: Evans' "freeze taxonomy then classify" is collapsing a distribution to a point for the modeling/classification boundary
 - [adaptation-agentic-ai-analysis](./research/adaptation-agentic-ai-analysis.md) — provides data-driven triggers (error patterns, repeated tool failures) for when to make the stabilization decision this note describes
 - [oracle-strength-spectrum](./oracle-strength-spectrum.md) — determines where generator/verifier is viable: the pattern requires sufficient oracle strength for the quality gate to discriminate

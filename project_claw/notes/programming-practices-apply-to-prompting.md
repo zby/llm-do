@@ -11,7 +11,7 @@ Much of what we do in llm-do and this knowledge base is applying established pro
 
 ## Practices we apply
 
-**Typing.** We assign types to documents to mark what operations they afford — a `claim` can be verified, a `spec` can be implemented, `instructions` can be followed. This is the same practice as typing values in code: [the type determines valid operations](./programming-language-types-applied-to-documents-mark-affordances.md). The [verifiability criterion](../claw-design/document-types-should-be-verifiable.md) ensures types do real work — a type that doesn't enable specific operations is noise.
+**Typing.** We assign types to documents to mark what operations they afford — a `claim` can be verified, a `spec` can be implemented, `instructions` can be followed. This is the same practice as typing values in code: [the type determines valid operations](./instructions-are-typed-callables.md). The [verifiability criterion](../claw-design/document-types-should-be-verifiable.md) ensures types do real work — a type that doesn't enable specific operations is noise.
 
 **Progressive compilation.** We stabilise LLM behaviour into code as patterns emerge — the same move as compiling: freezing a flexible representation into a rigid, efficient one. [theory.md](../../docs/theory.md) frames this explicitly. The [crystallisation gradient](./crystallisation-learning-timescales.md) maps the spectrum from prompt tweaks through evals to deterministic modules. Unlike compilation, stabilisation is stochastic projection — each run samples a different valid implementation. The same pattern applies to [methodology enforcement](../claw-design/methodology-enforcement-is-stabilisation.md) — written instructions compile into skills, then hooks, then scripts — with the added insight that not all methodology should complete the trajectory.
 
@@ -27,7 +27,7 @@ Where prompts are probabilistic, practices get harder, not just different. Testi
 
 ## Why the practices transfer
 
-Both domains solve the same problems: making behaviour predictable, making systems composable, making artifacts verifiable. The underlying concepts (type theory, compilation, contracts) explain *why* a practice works in both settings. [Thalo](./related-systems/thalo.md) demonstrates the endpoint: a system that built a full compiler (Tree-Sitter grammar, LSP, 27 validation rules) for knowledge management, taking typing and testing to their logical extreme. [Crystallisation systematises these transfers](./crystallisation-is-continuous-learning.md) — the accumulated prompt adjustments, output post-processing, and workflow changes that every deployed system accumulates are exactly these programming practices applied informally. The motivation is practical — these are things we do, not abstractions we admire.
+Both domains solve the same problems: making behaviour predictable, making systems composable, making artifacts verifiable. The underlying concepts (type theory, compilation, contracts) explain *why* a practice works in both settings. [Thalo](./related-systems/thalo.md) demonstrates the endpoint: a system that built a full compiler (Tree-Sitter grammar, LSP, 27 validation rules) for knowledge management, taking typing and testing to their logical extreme. [Crystallisation systematises these transfers](./stabilisation-is-learning.md) — the accumulated prompt adjustments, output post-processing, and workflow changes that every deployed system accumulates are exactly these programming practices applied informally. The motivation is practical — these are things we do, not abstractions we admire.
 
 ## Open Questions
 
@@ -37,11 +37,11 @@ Both domains solve the same problems: making behaviour predictable, making syste
 
 ---
 Relevant Notes:
-- [programming-language types applied to documents](./programming-language-types-applied-to-documents-mark-affordances.md) — typing practice applied to KB documents
+- [programming-language types applied to documents](./instructions-are-typed-callables.md) — typing practice applied to KB documents
 - [document types should be verifiable](../claw-design/document-types-should-be-verifiable.md) — quality criterion for document types
 - [theory](../../docs/theory.md) — conceptual foundation: hybrid VM, stabilise/soften, program sampling
 - [crystallisation: the missing middle](./crystallisation-learning-timescales.md) — progressive compilation in practice
-- [crystallisation is continuous learning](./crystallisation-is-continuous-learning.md) — synthesizes: the informal programming practices accumulated by every deployed system are what crystallisation systematises
+- [stabilisation is learning](./stabilisation-is-learning.md) — synthesizes: the informal programming practices accumulated by every deployed system are what crystallisation systematises
 - [storing LLM outputs is stabilization](./storing-llm-outputs-is-stabilization.md) — version control practice applied to LLM outputs
 - [inspectable substrate](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) — design for testability applied to LLM artifacts
 - [automated tests for text](../claw-design/observations/automated-tests-for-text.md) — extends the testing discussion: concrete test pyramid for the doubled testing surface this note identifies

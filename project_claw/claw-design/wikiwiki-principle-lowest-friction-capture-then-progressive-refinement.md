@@ -1,7 +1,7 @@
 ---
 description: Ward Cunningham's wiki design principle — minimize capture friction, then refine in place — is the animating idea behind the text→note→structured-claim crystallisation ladder
 type: note
-traits: [has-claim, has-external-sources]
+traits: [has-external-sources]
 areas: [claw-design]
 status: seedling
 ---
@@ -29,7 +29,7 @@ A half-formed intuition doesn't need Toulmin sections — it needs to exist befo
 
 The key property is **refinement in place**. A thought captured as `text` becomes a `note` by adding frontmatter to the same file. A `note` becomes a `structured-claim` by adding sections to the same file. No migration, no new file, no pipeline. The URL (file path) stays stable, links don't break, git history is preserved. This is what makes refinement cheap enough to actually happen — the same insight Cunningham had about wiki pages.
 
-This connects to [crystallisation](../notes/crystallisation-is-continuous-learning.md): crystallisation is the general pattern (stochastic → deterministic), the wiki principle is the UX requirement that makes it work (each step must be low-friction and in-place).
+This connects to [crystallisation](../notes/stabilisation-is-learning.md): crystallisation is the general pattern (stochastic → deterministic), the wiki principle is the UX requirement that makes it work (each step must be low-friction and in-place).
 
 ## Caveats
 
@@ -41,7 +41,7 @@ This connects to [crystallisation](../notes/crystallisation-is-continuous-learni
 Relevant Notes:
 - [document-classification](./document-classification.md) — the type ladder this principle animates: text → note → structured-claim
 - [claim notes should use Toulmin-derived sections](./claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md) — the structured-claim type that sits at the top of the refinement ladder
-- [crystallisation-is-continuous-learning](../notes/crystallisation-is-continuous-learning.md) — the general pattern; the wiki principle is the UX requirement that makes crystallisation practical
+- [stabilisation-is-learning](../notes/stabilisation-is-learning.md) — the general pattern; the wiki principle is the UX requirement that makes crystallisation practical
 - [learning-is-capacity-change](../notes/learning-is-capacity-change.md) — the theoretical backing: each rung on the ladder is a capacity change in Simon's sense, trading generality for reliability
 - [title-as-claim-enables-traversal-as-reasoning](./title-as-claim-enables-traversal-as-reasoning.md) — the note→structured-claim transition: a claim title is the first refinement step, Toulmin sections are the second
 

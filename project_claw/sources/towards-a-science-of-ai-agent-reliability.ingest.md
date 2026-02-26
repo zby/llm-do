@@ -37,7 +37,7 @@ The paper argues that mean task success rate is an inadequate measure for deploy
 
 5. **approvals-guard-against-llm-mistakes-not-active-attacks** (moderate): Recommendation 4's augmentation/automation distinction maps directly to llm-do's approval system. Human-in-the-loop as reliability backstop (augmentation) versus security boundary.
 
-6. **crystallisation-is-continuous-learning** (moderate): Recommendation 2 supports crystallisation's argument that deploy-time artifact improvements (evals, deterministic modules, prompt versioning) can address reliability gaps that model training leaves open.
+6. **stabilisation-is-learning** (moderate): Recommendation 2 supports crystallisation's argument that deploy-time artifact improvements (evals, deterministic modules, prompt versioning) can address reliability gaps that model training leaves open.
 
 7. **spec-mining-as-crystallisation** (moderate): Table 3's mapping of real-world failures to reliability metrics is spec mining applied to evaluation -- extracting deterministic checks from observed failure patterns.
 

@@ -1,7 +1,7 @@
 ---
 description: The four reliability dimensions from Rabanser et al. (consistency, robustness, predictability, safety) each harden a different oracle question — mapping empirical agent evaluation onto the oracle-strength spectrum
 type: note
-traits: [has-claim, has-external-sources]
+traits: [has-external-sources]
 areas: []
 status: seedling
 ---
@@ -21,7 +21,7 @@ The [oracle-strength spectrum](./oracle-strength-spectrum.md) describes a gradie
 
 The oracle-strength note says "invest in telemetry and eval harnesses *before* investing in capability, because guidance is the bottleneck." The reliability framework shows exactly where to invest: each dimension is a separate oracle that can be hardened independently. You don't need to solve all four at once.
 
-The empirical finding that capability gains have outpaced reliability gains over 18 months of model releases is the oracle-strength prediction confirmed at scale: the bottleneck is verification quality, not generation quality.
+The empirical finding that capability gains have outpaced reliability gains over 18 months of model releases is the oracle-strength prediction confirmed at scale: the bottleneck is verification quality, not generation quality. [MAKER's million-step zero-error result](../sources/meyerson-maker-million-step-llm-zero-errors.md) demonstrates what happens when you take this seriously for consistency: decompose to minimal subtasks, vote across independent samples, discard red-flagged outputs. The entire MDAP framework is architectural oracle hardening — and it works precisely because per-step oracle strength is hard (each Towers of Hanoi move has a deterministic correct answer).
 
 ## Connection to spec mining
 
@@ -41,5 +41,6 @@ Relevant Notes:
 - [oracle-strength-spectrum](./oracle-strength-spectrum.md) — foundation: the gradient from hard to no oracle that this note maps reliability dimensions onto
 - [spec-mining-as-crystallisation](./spec-mining-as-crystallisation.md) — the operational mechanism for hardening consistency and robustness oracles
 - [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — augmentation as a workaround for weak predictability oracles
-- [crystallisation-is-continuous-learning](./crystallisation-is-continuous-learning.md) — reliability hardening as deploy-time learning, not training-time learning
+- [stabilisation-is-learning](./stabilisation-is-learning.md) — reliability hardening as deploy-time learning, not training-time learning
 - [softening-signals](./softening-signals.md) — indicators for where a component sits on the spectrum; prompt robustness (R_prompt) is a softening signal measured at scale
+- [MAKER: Solving a Million-Step LLM Task with Zero Errors](../sources/meyerson-maker-million-step-llm-zero-errors.md) — concrete architectural hardening: decomposition + voting hardens consistency, red-flagging hardens predictability, both enabled by hard per-step oracles

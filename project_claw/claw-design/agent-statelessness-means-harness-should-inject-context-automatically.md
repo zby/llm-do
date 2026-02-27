@@ -1,16 +1,18 @@
 ---
-description: Since agents can't remember definitions across reads, the harness should auto-inject referenced documents by type — definitions once per session, ADRs when modifying related code. Extends document affordances from operations to retrieval profiles.
+description: Since agents can't carry vocabulary or decisions between reads, the harness should auto-inject referenced context — definitions once per session, ADRs when relevant. The trigger mechanism (type, link semantics, term detection) is an open question; the need follows directly from statelessness.
 type: structured-claim
 traits: []
 areas: [claw-design]
 status: speculative
 ---
 
-# Agent statelessness means the harness should inject context by document type
+# Agent statelessness means the harness should inject context automatically
 
 Since [agents are stateless](./agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md), they can't carry definitions, decisions, or vocabulary between reads. An agent that reads a note linking to [crystallisation](../notes/crystallisation.md) doesn't know the definition unless it follows the link — at the cost of a tool call, context space, and a decision. The knowledge is in the KB but not in the context window.
 
-The remedy is type-triggered context injection: when the harness loads a document, it identifies links to typed documents and auto-injects appropriate content. This extends [document affordances](./document-types-should-be-verifiable.md) from "what operations can I perform on this document" to "what context gets loaded alongside this document." The type becomes a retrieval trigger, not just a structural assertion.
+The remedy is automatic context injection: when the harness loads a document, it identifies references that the agent will need and injects appropriate content. This extends [document affordances](./document-types-should-be-verifiable.md) from "what operations can I perform on this document" to "what context gets loaded alongside this document."
+
+How the harness identifies what to inject is an open design question. Document type is one signal — a `definition` type could trigger auto-injection. But link semantics (referential vs argumentative), frontmatter metadata, or even term detection in the document text could also serve as triggers. The claim here is about the *need* for injection, not the mechanism.
 
 ## Evidence
 
@@ -34,24 +36,24 @@ For the harness to identify definitions, they need a machine-readable type. The 
 - Make the title convention (topical) part of the type contract — definitions are a recognized exception to [title-as-claim](./title-as-claim-enables-traversal-as-reasoning.md)
 - Prevent unbounded growth — a definition that needs Evidence/Reasoning/Caveats is really a `structured-claim` about the term, not a definition
 
-### Other type-triggered behaviors
+### Beyond definitions: other candidates for injection
 
-The mechanism isn't limited to definitions. Different types could trigger different retrieval profiles:
+The need for auto-injection isn't limited to definitions. Different kinds of referenced documents would benefit from different injection strategies:
 
-| Type | Triggered behavior | Rationale |
+| What to inject | When | Rationale |
 |------|-------------------|-----------|
-| `definition` | Auto-inject on first reference, once per session | Vocabulary must be present for correct reasoning |
-| `index` | Preload when entering a topic area | Navigation context reduces dead-end traversals |
-| `adr` | Surface when modifying related code | Decisions constrain implementation; must be visible |
-| `spec` | Load when implementing related features | Specs define the contract |
+| Definitions | On first reference, once per session | Vocabulary must be present for correct reasoning |
+| Area indexes | When entering a topic area | Navigation context reduces dead-end traversals |
+| ADRs | When modifying related code | Decisions constrain implementation; must be visible |
+| Specs | When implementing related features | Specs define the contract |
 
-Each row is a hypothesis about what context is needed when. The harness tests these hypotheses by observing whether auto-injection improves agent outcomes vs. explicit loading.
+Each row is a hypothesis about what context is needed when. The trigger mechanism — type-based, link-semantic, metadata-driven — may differ per case. The harness tests these hypotheses by observing whether auto-injection improves agent outcomes vs. explicit loading.
 
 ## Reasoning
 
-The [context-loading strategy](./context-loading-strategy.md) currently describes a static hierarchy: CLAUDE.md (always) → skill descriptions (always) → skill bodies (on invoke) → task-specific docs (on demand). Type-triggered injection adds a dynamic layer: documents loaded reactively based on what the agent is reading.
+The [context-loading strategy](./context-loading-strategy.md) currently describes a static hierarchy: CLAUDE.md (always) → skill descriptions (always) → skill bodies (on invoke) → task-specific docs (on demand). Automatic injection adds a dynamic layer: documents loaded reactively based on what the agent is reading.
 
-This sits between "always loaded" and "on demand" — call it "on reference." The agent doesn't request the definition; the harness provides it. The agent doesn't need to know the definition exists; the type ensures it arrives.
+This sits between "always loaded" and "on demand" — call it "on reference." The agent doesn't request the definition; the harness provides it. The agent doesn't need to know the definition exists; the injection mechanism ensures it arrives.
 
 The hierarchy becomes:
 1. **Always** — CLAUDE.md, skill descriptions

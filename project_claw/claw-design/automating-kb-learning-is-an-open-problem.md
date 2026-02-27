@@ -36,7 +36,7 @@ The visible KB is the production system. Learning could happen through a backgro
 - **Regroup**: a cluster of notes suggests an index that doesn't exist yet
 - **Retire**: an automated check, link, or note has outlived its usefulness — four signals: zero catches over months, false positives exceed true positives, methodology change made it irrelevant, replaced by a better mechanism (from [arscontexta](https://github.com/agenticnotetaking/arscontexta) methodology review)
 
-Each mutation would be speculative — staged separately, surfaced for human review only when it scores high enough. This is the automated version of what [stabilisation as learning](../notes/stabilisation-is-learning.md) describes as the manual stabilise/soften cycle — the same system-level adaptation, but with the agent proposing mutations instead of a human driving each one.
+Each mutation would be speculative — staged separately, surfaced for human review only when it scores high enough. This is the automated version of what [stabilisation as learning](../notes/agentic-systems-learn-through-three-distinct-mechanisms.md) describes as the manual stabilise/soften cycle — the same system-level adaptation, but with the agent proposing mutations instead of a human driving each one.
 
 ## Open problems
 
@@ -56,7 +56,7 @@ The [bitter lesson boundary](../notes/bitter-lesson-boundary.md) distinguishes c
 
 Relevant Notes:
 - [learning-is-capacity-change](../notes/learning-is-capacity-change.md) — foundation: Simon's definition of learning as capacity change; every KB improvement is learning, the spectrum of generalisation scope shows why automating wide-scope mutations is the hard part
-- [stabilisation-is-learning](../notes/stabilisation-is-learning.md) — describes the stabilise/soften cycle in both human-driven and automated forms (DSPy, ProTeGi); the boiling cauldron is a KB-specific instantiation of that cycle, applying it to note and link mutations rather than prompts and code
+- [stabilisation-is-learning](../notes/agentic-systems-learn-through-three-distinct-mechanisms.md) — describes the stabilise/soften cycle in both human-driven and automated forms (DSPy, ProTeGi); the boiling cauldron is a KB-specific instantiation of that cycle, applying it to note and link mutations rather than prompts and code
 - [what-cludebot-teaches-us](./what-cludebot-teaches-us.md) — co-retrieval reinforcement and consolidation passes are concrete mechanisms for the boiling cauldron; cludebot's "need enough query volume" conclusion mirrors the "need usage first" gap here
 - [what-works](./what-works.md) — the observation log this note recommends as interim approach; proven patterns that would feed a learning loop's evaluation
 - [what-doesnt-work](./what-doesnt-work.md) — the anti-pattern log; complements what-works as ground truth for what the loop should avoid proposing

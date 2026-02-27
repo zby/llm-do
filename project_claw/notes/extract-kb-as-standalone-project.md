@@ -1,40 +1,103 @@
-# Extract KB as standalone project
+---
+description: Extraction plan for the claw system as a standalone repo with two tiers — distillate-only (skills, templates, scripts) for operational use, and distillate+methodology for understanding, adaptation, and skill maintenance
+type: note
+traits: []
+areas: [claw-design]
+status: current
+---
 
-The knowledge base in `project_claw/` should be extracted into its own project. The KB is the "source code" and the skills we produce are the "compiled programs" — users could use just the skills to build their own claws, or contribute to the general KB.
+# Extracting the claw system requires a two-tier distillation model
 
-## Audience
+The claw system in `project_claw/` should be extracted into its own repository. The core insight shaping the extraction: the operational layer (skills, templates, scripts) is [distilled from the methodology KB](../claw-design/skills-distil-methodology-not-crystallise-it.md), and this distillation relationship is the organizing principle for both the repo structure and the distribution model.
 
-People building agentic systems — how to structure agents, where the LLM ends and code begins, how to make agents reliable, how to compose them.
+## The distillation relationship
+
+The entire operational layer — skills, templates, scripts — is distillate of the methodology:
+
+- **Skills**: distilled, no phase change (markdown → markdown). Operational procedures extracted from discursive reasoning across methodology notes.
+- **Templates**: distilled, no phase change. Required sections and structural scaffolds derived from methodology about what makes good notes, what properties should be verifiable, what supports agent traversal.
+- **Scripts**: distilled *and* crystallised. The derivation from methodology is distillation; the output being executable code is crystallisation (the phase transition that skills and templates don't undergo).
+
+Distillation is the derivation relationship. Crystallisation is an additional property of the output medium that some distillates have. The two concepts aren't mutually exclusive — distillation is broader and can include crystallisation.
+
+This means the source repo contains two layers: the methodology (source) and everything derived from it (distillate). Users can install either the distillate alone or both layers.
+
+## Two tiers
+
+**Tier 1 — distillate only (skills + templates + scripts):** "I want to build a KB for my project."
+- Operational capability without the theory
+- Works for common cases, but since [agent statelessness makes skill layers architectural](../claw-design/agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md), there's a cliff when the procedures don't cover a case — the agent degrades into a generic LLM, not into a "less certain claw-augmented agent"
+- Provenance links stripped at build time (dead weight without the methodology)
+
+**Tier 2 — distillate + methodology:** "I want to understand, adapt, and maintain the system."
+- Two audiences:
+  1. **System builders** developing similar knowledge systems — the methodology goes deep into first principles (files-not-database, progressive refinement, context loading, document classification)
+  2. **KB refiners** improving their local claw — skills can't contain full knowledge, and when they hit edge cases, the methodology provides the reasoning to adapt
+- Provenance links preserved — the agent can follow them on demand when procedures don't cover a situation
+- Also serves as the "development environment" for evolving the skills themselves — you can't improve the distillate without access to the source
+
+The tiers aren't "basic vs premium" — they're "operational vs maintainable."
+
+## Build-time generation
+
+[Skills should be generated at build time, not parameterised](../claw-design/generate-instructions-at-build-time.md). This applies to the full operational layer:
+
+- **Path resolution**: Templates contain `{{claw_root}}/notes/`; the setup script resolves to the actual path (e.g., `project_claw/notes/` when embedded in a parent project, `./notes/` when standalone)
+- **Provenance inclusion**: A single build configuration knob — Tier 1 strips provenance links, Tier 2 keeps them. Same source templates, two outputs.
+- **The canonical form is standalone** (paths relative to claw root). Embedding in a parent project is the special case that requires a prefix.
+
+Provenance links in source templates serve double duty: documentation of the distillation relationship (for humans maintaining the methodology) AND optional runtime context for Tier 2 agents. Same artifact, two consumers.
+
+## What moves vs what stays
+
+**Moves to the claw repo:**
+- `claw-design/` — the methodology KB
+- `skills/` (connect, convert, ingest, snapshot-web, validate)
+- `templates/` — referenced by skills, derived from methodology
+- `scripts/` — index generation, topic sync, referenced by skills
+- `WRITING.md` — writing guide is methodology, not project-specific
+- General-methodology sources (Willison/Karpathy claws, Toulmin, Notes Without Reasons, arscontexta)
+
+**Stays in llm-do:**
+- `notes/` — mostly llm-do-specific design exploration
+- `adr/` — llm-do architecture decisions
+- `code-reviews/`, `tasks/` — llm-do project artifacts
+- Project-specific CLAUDE.md sections and routing table
+
+**Gray area — general theory notes:** Notes like `crystallisation-learning-timescales.md`, `bitter-lesson-boundary.md`, `agentic-systems-learn-through-three-distinct-mechanisms.md` are general concepts but also the core vocabulary the claw methodology uses. Options: (a) move them as foundational notes in the claw repo, (b) keep them in llm-do with cross-repo references, (c) let the methodology notes be self-contained enough to not need them. This needs a decision.
+
+## How llm-do consumes the extracted claw
+
+After extraction, llm-do installs the claw as Tier 2 (distillate + methodology), because:
+- It's the birthplace — developers need to evolve the methodology
+- The methodology is a showcase for llm-do's own crystallisation concepts
+- Several llm-do notes reference claw-design notes and vice versa
+
+The CLAUDE.md Knowledge System section becomes a routing fragment that wires the installed claw into the project. The claw repo provides a template fragment; the project customizes it with local routing (where project-specific notes go, etc.).
 
 ## Naming
 
-Working name: **agentic-architecture**
+Working name: **claw** (distinctive, specific to the genre)
 
-Rejected alternatives:
-- "neuro-symbolic knowledge base" — wrong audience. Neuro-symbolic in AI research means combining neural nets with formal symbolic reasoning (logic programming, ontologies, theorem provers). Our work is about engineering systems where LLMs and conventional software collaborate — crystallisation, bitter lesson boundary, stabilisation patterns.
-- "agentic architecture knowledge base" — "knowledge base" describes format not content, adds noise to the name
-- "agentic patterns" — viable but less distinctive
-- "claw patterns" — requires too much context to understand
+Previously considered:
+- "agentic-architecture" — too broad, implies general agent design rather than the specific knowledge-system genre
+- "neuro-symbolic knowledge base" — wrong audience (academic AI research, not engineering)
+- "claw patterns" — requires too much context without prior exposure
 
-## Content scope
+## Open Questions
 
-What the KB covers:
-- Where to draw the boundary between LLM and code (bitter lesson boundary)
-- How to progressively harden fluid LLM behavior into stable software (crystallisation)
-- Patterns for agent orchestration, tool design, approval systems
-- The claw as a genre — reactive AI-native knowledge systems
-- Practical methodology for building hybrid LLM+code systems
+- Installation mechanism: git submodule (version-locked, easy for Tier 2) vs setup script (copies and generates, lighter for Tier 1) vs both?
+- How to handle cross-repo references when methodology notes reference general-theory notes that stay in llm-do?
+- Should the repo include an example/starter claw (empty KB structure with skills wired up) for new users?
+- The CLAUDE.md fragment design — how much can be templated vs how much must be project-specific?
 
-## Skills alone won't work (yet)
+---
 
-Skills encode *how* to do KB work (ingest, connect, validate) but not *why* to make particular judgments. The quality of connections depends on understanding crystallisation, bitter lesson boundary, what makes a good note — knowledge that lives in the notes, not the skills.
+Relevant Notes:
+- [skills distil methodology, not crystallise it](../claw-design/skills-distil-methodology-not-crystallise-it.md) — foundation: the derivation relationship that organizes the two-tier model
+- [agent statelessness makes skill layers architectural](../claw-design/agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md) — foundation: why the two tiers are permanent infrastructure, not a learning progression; explains the Tier 1 cliff
+- [generate instructions at build time](../claw-design/generate-instructions-at-build-time.md) — enables: the build-time generation pattern that makes tier-specific output possible
+- [context-loading strategy](../claw-design/context-loading-strategy.md) — constrains: the loading hierarchy the claw fragment must integrate into
 
-However, skills don't need to reference the KB directly during execution. The value flows indirectly: once connections are established between notes, those connections surface relevant KB knowledge when the LLM reads connected notes in context. The KB teaches through its structure, not by being consulted as a reference.
-
-This means the KB and skills need to ship together — the skills are the KB's interface, not a standalone product.
-
-## Open questions
-
-- What stays in llm-do vs moves to the new project? The llm-do-specific notes (code reviews, ADRs about llm-do internals) stay. General principles and claw methodology move.
-- Do skills live in the new project or remain project-local? Skills are the "compiled" output — arguably they belong with the KB that produces them.
-- How to handle the split without breaking links?
+Topics:
+- [claw-design](../claw-design/claw-design.md)

@@ -27,7 +27,7 @@ Where prompts are probabilistic, practices get harder, not just different. Testi
 
 ## Why the practices transfer
 
-Both domains solve the same problems: making behaviour predictable, making systems composable, making artifacts verifiable. The underlying concepts (type theory, compilation, contracts) explain *why* a practice works in both settings. [Thalo](./related-systems/thalo.md) demonstrates the endpoint: a system that built a full compiler (Tree-Sitter grammar, LSP, 27 validation rules) for knowledge management, taking typing and testing to their logical extreme. [Crystallisation systematises these transfers](./stabilisation-is-learning.md) — the accumulated prompt adjustments, output post-processing, and workflow changes that every deployed system accumulates are exactly these programming practices applied informally. The motivation is practical — these are things we do, not abstractions we admire.
+Both domains solve the same problems: making behaviour predictable, making systems composable, making artifacts verifiable. The underlying concepts (type theory, compilation, contracts) explain *why* a practice works in both settings. [Thalo](./related-systems/thalo.md) demonstrates the endpoint: a system that built a full compiler (Tree-Sitter grammar, LSP, 27 validation rules) for knowledge management, taking typing and testing to their logical extreme. [Crystallisation systematises these transfers](./agentic-systems-learn-through-three-distinct-mechanisms.md) — the accumulated prompt adjustments, output post-processing, and workflow changes that every deployed system accumulates are exactly these programming practices applied informally. The motivation is practical — these are things we do, not abstractions we admire.
 
 ## Open Questions
 
@@ -41,7 +41,7 @@ Relevant Notes:
 - [document types should be verifiable](../claw-design/document-types-should-be-verifiable.md) — quality criterion for document types
 - [theory](../../docs/theory.md) — conceptual foundation: hybrid VM, stabilise/soften, program sampling
 - [crystallisation: the missing middle](./crystallisation-learning-timescales.md) — progressive compilation in practice
-- [stabilisation is learning](./stabilisation-is-learning.md) — synthesizes: the informal programming practices accumulated by every deployed system are what crystallisation systematises
+- [stabilisation is learning](./agentic-systems-learn-through-three-distinct-mechanisms.md) — synthesizes: the informal programming practices accumulated by every deployed system are what crystallisation systematises
 - [storing LLM outputs is stabilization](./storing-llm-outputs-is-stabilization.md) — version control practice applied to LLM outputs
 - [inspectable substrate](./inspectable-substrate-not-supervision-defeats-the-blackbox-problem.md) — design for testability applied to LLM artifacts
 - [automated tests for text](../claw-design/observations/automated-tests-for-text.md) — extends the testing discussion: concrete test pyramid for the doubled testing surface this note identifies

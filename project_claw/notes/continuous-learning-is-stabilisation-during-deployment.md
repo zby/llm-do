@@ -10,7 +10,7 @@ status: current
 
 AI labs frame "continuous learning" as a weight-update problem: how do you adapt a deployed model to new data, new tasks, and shifting distributions without a full retraining cycle? The standard approaches — fine-tuning on deployment logs, online learning, experience replay — all modify the model's parameters.
 
-[Stabilisation](stabilisation-is-learning.md) achieves the same goals through a different mechanism: versioned repo artifacts — prompts, schemas, evals, tools, and deterministic code — that accumulate and improve during deployment. Each artifact is a stabilisation step that [trades generality for compound gains in reliability, speed, and cost](learning-is-capacity-change.md). When this happens continuously during deployment, it's continuous learning — just not through weights.
+[Stabilisation](agentic-systems-learn-through-three-distinct-mechanisms.md) achieves the same goals through a different mechanism: versioned repo artifacts — prompts, schemas, evals, tools, and deterministic code — that accumulate and improve during deployment. Each artifact is a stabilisation step that [trades generality for compound gains in reliability, speed, and cost](learning-is-capacity-change.md). When this happens continuously during deployment, it's continuous learning — just not through weights.
 
 ## Evidence
 
@@ -67,7 +67,7 @@ Calling stabilisation "continuous learning" is not just terminological. It refra
 ---
 
 Relevant Notes:
-- [stabilisation-is-learning](stabilisation-is-learning.md) — foundation: the general claim that stabilisation is learning; this note applies it to the specific hot topic of continuous learning during deployment
+- [stabilisation-is-learning](agentic-systems-learn-through-three-distinct-mechanisms.md) — foundation: the general claim that stabilisation is learning; this note applies it to the specific hot topic of continuous learning during deployment
 - [learning-is-capacity-change](learning-is-capacity-change.md) — foundation: capacity decomposes into generality vs reliability+speed+cost compound
 - [crystallisation-learning-timescales](crystallisation-learning-timescales.md) — the verifiability gradient that structures the progression from prompts to code
 - [adaptation-agentic-ai-analysis](research/adaptation-agentic-ai-analysis.md) — provides data-driven triggers for when to stabilise vs soften, grounding the loop in concrete signals

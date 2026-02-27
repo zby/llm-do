@@ -28,7 +28,7 @@ This gives skills type signatures:
 | `/validate` | `note → validation-report` |
 | `/convert` | `text → note` |
 
-The operations afforded by a type can sit anywhere on the stochastic-deterministic spectrum — a deterministic check (does this `structured-claim` have an `## Evidence` section?) or a stochastic judgment (does the evidence actually support the claim?). The type is the interface; the implementation can [crystallise](./stabilisation-is-learning.md) from LLM to code as patterns stabilise.
+The operations afforded by a type can sit anywhere on the stochastic-deterministic spectrum — a deterministic check (does this `structured-claim` have an `## Evidence` section?) or a stochastic judgment (does the evidence actually support the claim?). The type is the interface; the implementation can [crystallise](./agentic-systems-learn-through-three-distinct-mechanisms.md) from LLM to code as patterns stabilise.
 
 ## Open questions
 
@@ -42,5 +42,5 @@ Relevant Notes:
 - [document-types-should-be-verifiable](../claw-design/document-types-should-be-verifiable.md) — foundation: types mark affordances; this note extends the idea from data types to function types
 - [document-classification](../claw-design/document-classification.md) — the spec defining the types that would appear in skill signatures
 - [learning-is-capacity-change](./learning-is-capacity-change.md) — the capacity framework: each type step trades generality for reliability+speed+cost, making operations reliable without reading the full document
-- [stabilisation-is-learning](./stabilisation-is-learning.md) — the operations afforded by types can themselves crystallise from LLM to code
+- [stabilisation-is-learning](./agentic-systems-learn-through-three-distinct-mechanisms.md) — the operations afforded by types can themselves crystallise from LLM to code
 - [theory](../../docs/theory.md) — the stabilise/soften framework this extends to knowledge artifacts

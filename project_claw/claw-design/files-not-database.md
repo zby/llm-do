@@ -21,7 +21,7 @@ A database migration doesn't just change storage — it replaces the entire tool
 
 1. **Finding things** — solved by semantic search indexes (qmd)
 2. **Too many files per directory** — solved by subdirectories
-3. **Structured queries with scoring** — the real gap, but solvable with [a metadata-aware scoring layer](./retrieval-scoring-layer.md)
+3. **Structured queries with scoring** — the real gap, but solvable with [note quality scores](./notes-need-quality-scores-to-scale-curation.md)
 
 The pattern is: files as source of truth, derived indexes for capabilities files alone can't provide. Each index (semantic, structured, scoring) is a build artifact that can be rebuilt from files at any time.
 
@@ -35,7 +35,7 @@ Relevant Notes:
 - [what works](./what-works.md) — provides the evidence base: frontmatter queries, semantic search via qmd, and progressive disclosure all work within the file-based architecture
 - [what cludebot teaches us](./what-cludebot-teaches-us.md) — evaluates a database-backed agent memory system and concludes the valuable techniques transfer to files without the infrastructure cost
 - [Koylanai Personal Brain OS](../sources/koylanai-personal-brain-os.ingest.md) — independent practitioner report validating the same architectural choice at 80+ file scale
-- [retrieval scoring layer](./retrieval-scoring-layer.md) — addresses the "structured queries" gap by proposing a derived SQLite index, keeping files as source of truth
+- [notes need quality scores to scale curation](./notes-need-quality-scores-to-scale-curation.md) — addresses the "structured queries" gap with composite note scores; derived indexes keep files as source of truth
 
 Topics:
 - [claw-design](./claw-design.md)

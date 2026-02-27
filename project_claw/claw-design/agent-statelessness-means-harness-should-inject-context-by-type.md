@@ -1,28 +1,22 @@
 ---
-description: Document types could trigger automatic context injection — definitions loaded once per session when first referenced, retrieval profiles varying by type. This extends document affordances from what-you-can-do-with-it to what-gets-loaded-alongside-it.
-type: note
+description: Since agents can't remember definitions across reads, the harness should auto-inject referenced documents by type — definitions once per session, ADRs when modifying related code. Extends document affordances from operations to retrieval profiles.
+type: structured-claim
 traits: []
 areas: [claw-design]
 status: speculative
 ---
 
-# Type-triggered context injection
+# Agent statelessness means the harness should inject context by document type
 
-## The problem
+Since [agents are stateless](./agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md), they can't carry definitions, decisions, or vocabulary between reads. An agent that reads a note linking to [crystallisation](../notes/crystallisation.md) doesn't know the definition unless it follows the link — at the cost of a tool call, context space, and a decision. The knowledge is in the KB but not in the context window.
 
-An agent reads a note that links to [crystallisation](../notes/crystallisation.md). The link is referential — "as defined in [crystallisation]" — and the definitional note exists precisely to pin down how the term is used in this project. But since [agents are stateless](./agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md), the agent doesn't know the definition unless it follows the link. And following a link costs a tool call, context space, and a decision — overhead that makes agents less likely to look up definitions they "should" already know.
+The remedy is type-triggered context injection: when the harness loads a document, it identifies links to typed documents and auto-injects appropriate content. This extends [document affordances](./document-types-should-be-verifiable.md) from "what operations can I perform on this document" to "what context gets loaded alongside this document." The type becomes a retrieval trigger, not just a structural assertion.
 
-The result: definitions exist but don't reliably reach the agent that needs them. The knowledge is in the KB but not in the context window.
-
-## The mechanism: type as retrieval trigger
-
-If the harness knows a document's type, it can decide what to load alongside it. When an agent reads a document containing a link to a `definition`-typed note, the harness could auto-inject that definition into context — without the agent needing to follow the link explicitly.
-
-This extends [document affordances](./document-types-should-be-verifiable.md) from "what operations can I perform on this document" to "what context gets loaded alongside this document." The type becomes a retrieval trigger, not just a structural assertion.
+## Evidence
 
 ### Definitions as the first case
 
-Definitions are the cleanest case for type-triggered injection because:
+Definitions are the cleanest case for auto-injection and motivate a `definition` type:
 
 - **They're small.** Under 200 characters in the description, a few paragraphs in the body. The context cost is low.
 - **They're stable.** Definitions change rarely. Once loaded, they remain valid for the session.
@@ -53,7 +47,7 @@ The mechanism isn't limited to definitions. Different types could trigger differ
 
 Each row is a hypothesis about what context is needed when. The harness tests these hypotheses by observing whether auto-injection improves agent outcomes vs. explicit loading.
 
-## Connection to the loading hierarchy
+## Reasoning
 
 The [context-loading strategy](./context-loading-strategy.md) currently describes a static hierarchy: CLAUDE.md (always) → skill descriptions (always) → skill bodies (on invoke) → task-specific docs (on demand). Type-triggered injection adds a dynamic layer: documents loaded reactively based on what the agent is reading.
 
@@ -65,18 +59,9 @@ The hierarchy becomes:
 3. **On invoke** — skill bodies
 4. **On demand** — methodology notes, source reviews
 
-## Why this requires our own harness
+## Caveats
 
-On Claude Code, the agent decides what to read. There's no interception point between "agent sees a link" and "agent follows the link." Auto-injection requires a harness that:
-
-1. Parses the document being loaded
-2. Identifies links to typed documents
-3. Resolves those links and checks the target's type
-4. Injects appropriate content before returning the document to the agent
-
-This is straightforward to build but impossible on someone else's runtime. It's one of the concrete reasons to eventually port the claw to llm-do's own harness.
-
-## Open questions
+**Requires our own harness.** On Claude Code, the agent decides what to read. There's no interception point between "agent sees a link" and "agent follows the link." Auto-injection requires a harness that parses loaded documents, identifies links to typed targets, and injects content before returning the document to the agent. Straightforward to build but impossible on someone else's runtime.
 
 - **Context budget:** Even small definitions add up. With 20 technical terms, auto-injecting all on first reference might cost 4-5K tokens. Is that worth it? Probably yes for definitions (they're the vocabulary), but the budget question sharpens for larger types.
 - **Staleness:** If a definition is injected once per session and later updated during the session, the agent has the stale version. Definitions are stable enough that this is unlikely, but ADRs or specs might not be.

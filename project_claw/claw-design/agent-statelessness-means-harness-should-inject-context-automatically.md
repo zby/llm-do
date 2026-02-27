@@ -77,6 +77,7 @@ Relevant Notes:
 - [instructions are typed callables](../notes/instructions-are-typed-callables.md) — parallel: that note gives skills type signatures; this note gives documents retrieval profiles
 - [agent statelessness makes skill layers architectural](./agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md) — motivates: the agent can't remember definitions, so the harness must provide them
 - [context-loading strategy](./context-loading-strategy.md) — extends: adds an "on reference" layer between "always loaded" and "on demand"
+- [human-LLM differences are load-bearing for knowledge system design](../notes/human-llm-differences-are-load-bearing-for-knowledge-system-design.md) — motivates: the "cannot fill gaps" row in the dual-audience table is exactly the problem context injection addresses; tier separation handles the writing side, injection handles the loading side
 - [title-as-claim-enables-traversal-as-reasoning](./title-as-claim-enables-traversal-as-reasoning.md) — context: definitional notes are an identified exception to claim titles; the `definition` type would formalize this
 
 Topics:

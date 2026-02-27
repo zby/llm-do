@@ -4,7 +4,7 @@ Observations and design work toward a knowledge base for llm-do's design history
 
 ## Goal
 
-Build a knowledge base that applies llm-do's own ideas — [crystallisation](../../docs/theory.md), stabilization, the generator/verifier pattern — to managing the project's design notes, decisions, and architecture. The knowledge base is both a practical tool and a showcase of the concepts from theory.md.
+Build a knowledge base that applies llm-do's own ideas — [deploy-time learning](../../docs/theory.md), stabilisation, the generator/verifier pattern — to managing the project's design notes, decisions, and architecture. The knowledge base is both a practical tool and a showcase of the concepts from theory.md.
 
 ## Constraint: Claude Code as runtime
 
@@ -20,7 +20,7 @@ arscontexta is our first large experiment. These observations evaluate what work
 - **What to simplify** — overhead that doesn't pay for itself (e.g., queue management, pipeline chaining)
 - **What to build** — automated quality checks as they become justified by real failures, not taxonomy
 
-The crystallisation gradient applies to the knowledge base itself:
+The verifiability gradient applies to the knowledge base itself:
 1. Start soft — LLM writes and connects notes (stochastic)
 2. Add filters — automated checks reject bad samples (deterministic code where possible, LLM rubrics where needed)
 3. Stabilize search — recurring queries become indexes, tags, structured `rg` patterns

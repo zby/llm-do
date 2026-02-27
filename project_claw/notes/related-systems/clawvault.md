@@ -62,7 +62,7 @@ Each step encodes more retrieval judgment into the system and removes more from 
 
 ## What We Should Not Borrow (Yet)
 
-**LLM-heavy automation.** Their compression, fact extraction, and injection pipelines all run through LLMs. This adds capability but also opacity — you can't easily tell why something was promoted or what was lost in compression. We want to understand the fundamental patterns before automating them. The [crystallisation gradient](../crystallisation-learning-timescales.md) matters here: automating a process before understanding it locks in assumptions.
+**LLM-heavy automation.** Their compression, fact extraction, and injection pipelines all run through LLMs. This adds capability but also opacity — you can't easily tell why something was promoted or what was lost in compression. We want to understand the fundamental patterns before automating them. The [verifiability gradient](../crystallisation-learning-timescales.md) matters here: automating a process before understanding it locks in assumptions.
 
 **The 8 primitives taxonomy.** Goals, Agents, State Space, Feedback, Capital, Institution, Synthesis, Recursion — this is a framework that organises their features, but it's unclear whether these are fundamental categories or a retroactive grouping of what they happened to build. We'd rather discover our categories from practice.
 
@@ -82,7 +82,7 @@ These aren't mutually exclusive. You could frontload a minimal context (as we al
 
 **Human-in-the-loop vs. agent-driven.** Their promotion pipeline is largely automated — LLMs extract, score, and route observations. Our model keeps humans in the promotion loop (text → seedling → note requires human judgment). This reflects different bets on whether LLM judgment is reliable enough for knowledge curation. We're more conservative, but their system generates evidence about whether the automated approach works.
 
-**No learning theory.** Like [Thalo](./thalo.md), ClawVault has no framework for deciding when to formalise something vs. leave it fluid. No [crystallisation gradient](../crystallisation-learning-timescales.md), no stabilise/soften boundary. Their observation format was designed; it doesn't evolve based on what the system learns about its own learning. This is the gap between building a knowledge system and understanding knowledge systems.
+**No learning theory.** Like [Thalo](./thalo.md), ClawVault has no framework for deciding when to formalise something vs. leave it fluid. No [verifiability gradient](../crystallisation-learning-timescales.md), no stabilise/soften boundary. Their observation format was designed; it doesn't evolve based on what the system learns about its own learning. This is the gap between building a knowledge system and understanding knowledge systems.
 
 ## What to Watch
 

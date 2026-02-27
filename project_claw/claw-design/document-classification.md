@@ -88,7 +88,7 @@ areas: [index]
 
 **Types are verifiable.** Each type and trait asserts a structural property you can check. The question is "what structural property am I asserting?" not "what is this about?" Subject matter belongs in `areas`.
 
-**Types crystallise.** Content can start as `text` (no frontmatter) and get promoted to `note` by adding frontmatter, then to more specific types as structure develops. A `text` file that persists without promotion is a candidate for pruning. This mirrors the crystallisation gradient applied to the KB itself.
+**Types mature through stabilisation.** Content can start as `text` (no frontmatter) and get promoted to `note` by adding frontmatter, then to more specific types as structure develops. A `text` file that persists without promotion is a candidate for pruning. This mirrors the verifiability gradient applied to the KB itself.
 
 **Status is orthogonal to type.** Structure (`text` → `note` → `spec`) and commitment (`seedling` → `current`) are independent axes. A note can be structurally complete and connected while still being a seedling — meaning "we haven't decided to keep this." This avoids conflating "has enough shape to connect" with "has been reviewed and endorsed."
 

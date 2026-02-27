@@ -66,9 +66,9 @@ traits: [has-comparison, has-external-sources]
 
 A note can satisfy multiple traits without conflict. What the old system called "research" becomes `note` + `has-external-sources`. What it called "insight" becomes `structured-claim` (if the argument is developed) or stays `note` (if the title is a claim but the body is free-form). A research note with a crystallized conclusion is `structured-claim` + `has-external-sources` — no forced choice.
 
-## The crystallisation gradient
+## The verifiability gradient
 
-`note` is the base type that makes no structural claim — like `Any` in a gradually typed language. This connects to the [crystallisation gradient](../notes/crystallisation-learning-timescales.md): just as code starts stochastic and stabilizes to deterministic, documents start untyped and gain type information as they mature.
+`note` is the base type that makes no structural claim — like `Any` in a gradually typed language. This connects to the [verifiability gradient](../notes/crystallisation-learning-timescales.md): just as code starts stochastic and stabilizes to deterministic, documents start untyped and gain type information as they mature.
 
 1. New content enters as `type: note` — soft, no structural claims
 2. Traits accumulate as the document develops — `has-implementation` when code sketches appear, `has-external-sources` when citing external material
@@ -81,7 +81,7 @@ This is gradual typing applied to documents. The system works at every point on 
 
 Several type system concepts map to specific aspects of this design:
 
-- **Gradual typing** (Python, TypeScript) → the crystallisation gradient. `note` is `Any`; type annotations accumulate as confidence grows
+- **Gradual typing** (Python, TypeScript) → the verifiability gradient. `note` is `Any`; type annotations accumulate as confidence grows
 - **Protocols / structural typing** → traits. A document satisfies `has-external-sources` if it references external material, regardless of whether someone labeled it. We store the label for searchability rather than re-checking every time
 - **Refinement types** (`{x: int | x > 0}`) → traits as predicates on `note`. Some are easy to check (`has-external-sources` — grep for URLs), others require judgment (`has-comparison` — is there a structured evaluation?)
 - **Soft typing** (Scheme/Lisp) → tolerance of misclassification. The system infers types advisorily; violations are quality issues, not errors
@@ -104,7 +104,7 @@ Relevant Notes:
 - [automated-tests-for-text](./observations/automated-tests-for-text.md) — enables enforcement: the test pyramid provides the "compiler" for type contracts (deterministic checks for structure, LLM rubrics for judgment-dependent traits)
 - [storing-llm-outputs-is-stabilization](../notes/storing-llm-outputs-is-stabilization.md) — grounds the stochastic processor argument: type assignment is itself a stabilization decision, and the tolerance of misclassification mirrors the generator/verifier pattern
 - [agents-navigate-by-deciding-what-to-read-next](./observations/agents-navigate-by-deciding-what-to-read-next.md) — types and traits are the navigation hints this note describes; they tell agents what a document offers before opening it
-- [crystallisation-learning-timescales](../notes/crystallisation-learning-timescales.md) — the crystallisation gradient that the type maturation path mirrors: `note` is untyped, traits accumulate, base types promote
+- [crystallisation-learning-timescales](../notes/crystallisation-learning-timescales.md) — the verifiability gradient that the type maturation path mirrors: `note` is untyped, traits accumulate, base types promote
 - [001-generate-topic-links-from-frontmatter](./adr/001-generate-topic-links-from-frontmatter.md) — precedent: when a mapping is verifiable and deterministic (areas -> Topics), it was automated; the same principle drives the type system design
 
 Topics:

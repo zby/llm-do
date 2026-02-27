@@ -1,5 +1,5 @@
 ---
-description: Simon's definition — learning is any change that produces a more or less permanent change in a system's capacity for adapting to its environment. Capacity decomposes into generality and a crystallisation compound (reliability+speed+cost) that trades against it.
+description: Simon's definition — learning is any change that produces a more or less permanent change in a system's capacity for adapting to its environment. Capacity decomposes into generality and a compound (reliability+speed+cost) that trades against it; three mechanisms (stabilisation, crystallisation, distillation) operate on this trade-off differently.
 type: note
 traits: [has-external-sources]
 status: seedling
@@ -21,23 +21,25 @@ Herbert Simon: "Learning is any change in a system that produces a more or less 
 | Add a connection | Two notes' mutual discoverability | Navigation between these ideas now exists |
 | Define structured sections for a type | All future notes of that type | Every related-system note gets consistent structure |
 | Discover a design principle | All future decisions in that area | "Types and directories are orthogonal" applies broadly |
-| Improve methodology | All future KB operations | The crystallisation gradient changes how everything stabilises |
+| Improve methodology | All future KB operations | The verifiability gradient changes how everything stabilises |
 
-Argyris's [single-loop vs double-loop learning](https://infed.org/dir/welcome/chris-argyris-theories-of-action-double-loop-learning-and-organizational-learning/) maps onto this axis as rough regions: single-loop corrects within existing rules (narrow scope), double-loop changes the governing variables themselves (wide scope) — discovering that [why directories despite their costs](../claw-design/why-directories-despite-their-costs.md), developing the [crystallisation gradient](./agentic-systems-learn-through-three-distinct-mechanisms.md), redesigning the [methodology enforcement approach](../claw-design/methodology-enforcement-is-stabilisation.md).
+Argyris's [single-loop vs double-loop learning](https://infed.org/dir/welcome/chris-argyris-theories-of-action-double-loop-learning-and-organizational-learning/) maps onto this axis as rough regions: single-loop corrects within existing rules (narrow scope), double-loop changes the governing variables themselves (wide scope) — discovering that [why directories despite their costs](../claw-design/why-directories-despite-their-costs.md), developing the [learning mechanisms](./agentic-systems-learn-through-three-distinct-mechanisms.md), redesigning the [methodology enforcement approach](../claw-design/methodology-enforcement-is-stabilisation.md).
 
-### Reliability, speed, cost — the crystallisation compound
+### Reliability, speed, cost — the learning compound
 
 An LLM can multiply numbers. A calculator can multiply numbers. The calculator has far more capacity for multiplication — it never hallucinates 7×8=54, it handles arbitrarily large numbers, it runs in microseconds. But the LLM has more generality — it can also translate, summarise, write prose.
 
-[Process crystallisation](./agentic-systems-learn-through-three-distinct-mechanisms.md) (prompt → schema → code) is learning that improves reliability, speed, and cost simultaneously. Replacing an LLM validation check with a Python script doesn't change *what* gets checked — it changes how reliably (never hallucinates), how fast (milliseconds vs seconds), and how cheaply (free vs API call) it gets checked. These three dimensions move together because crystallisation is fundamentally a substrate change — from stochastic LLM to deterministic code. What you give up is generality: the script handles exactly what it handles, nothing more. The system's overall generality stays the same (the LLM still handles everything else), but for the specific operation crystallised, the trade is generality for gains on every other axis.
+[Crystallisation](./crystallisation-learning-timescales.md) (prompt → code) is the most dramatic learning mechanism — it improves reliability, speed, and cost simultaneously by changing the substrate. Replacing an LLM validation check with a Python script doesn't change *what* gets checked — it changes how reliably (never hallucinates), how fast (milliseconds vs seconds), and how cheaply (free vs API call) it gets checked. These three dimensions move together because crystallisation is fundamentally a substrate change — from stochastic LLM to deterministic code. What you give up is generality: the script handles exactly what it handles, nothing more.
 
-Crystallisation cuts across Argyris's loops — it can be single-loop (crystallising one check into a script) or double-loop (deciding that [claim notes should use Toulmin-derived sections](../claw-design/claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md)). What crystallisation changes is the reliability+speed+cost compound, not the generality axis.
+But the compound isn't exclusive to crystallisation. [Stabilisation](./agentic-systems-learn-through-three-distinct-mechanisms.md) (storing outputs, writing conventions) also improves reliability and speed, just less dramatically. [Distillation](../claw-design/skills-derive-from-methodology-through-distillation.md) (extracting procedures from reasoning) improves speed and cost by reducing context load. All three mechanisms trade generality for compound gains — they differ in how much and through what operation.
+
+Learning cuts across Argyris's loops — it can be single-loop (crystallising one check into a script) or double-loop (deciding that [claim notes should use Toulmin-derived sections](../claw-design/claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md)). What learning changes is the reliability+speed+cost compound, not the generality axis.
 
 ### Other dimensions
 
 - **Composability** — a verified claim is more useful as a premise than an unverified one. The capacity gain isn't in the claim itself but in what other things can build on it. This may be a consequence of reliability rather than independent.
 
-The list is likely incomplete. The point is that capacity is not a simple function of any single dimension — more generality sometimes means more capacity (the LLM handles novel situations no script could), more reliability sometimes means more capacity (the script never gets it wrong). Crystallisation shows that reliability, speed, and cost are correlated: they improve together when you move from LLM to code. The fundamental trade-off is generality against this compound. The optimal point depends on the task and the environment.
+The list is likely incomplete. The point is that capacity is not a simple function of any single dimension — more generality sometimes means more capacity (the LLM handles novel situations no script could), more reliability sometimes means more capacity (the script never gets it wrong). All three learning mechanisms show that reliability, speed, and cost are correlated: they improve together as artifacts harden. The fundamental trade-off is generality against this compound. The optimal point depends on the task and the environment.
 
 ## Why this matters for the learning loop
 

@@ -6,7 +6,7 @@ areas: [claw-design]
 status: seedling
 ---
 
-# Skills distil methodology, not crystallise it
+# Skills derive from methodology through distillation
 
 Skills in a claw are derived from the methodology KB. The `/connect` skill encodes procedures — scan descriptions, run the articulation test, check agent traversal value — that were reasoned out across a constellation of methodology notes: the [Toulmin argument structure](./claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md), the [Notes Without Reasons](../sources/agentic-note-taking-23-notes-without-reasons-2026894188516696435.md) review, the [title-as-claim](./title-as-claim-enables-traversal-as-reasoning.md) convention, the [link contracts framework](./link-contracts-framework.md). The skill works because it encodes the right procedures. But it can't explain why those procedures are right, or help adapt them when they don't fit.
 

@@ -64,7 +64,7 @@ Provenance links in source templates serve double duty: documentation of the der
 - `code-reviews/`, `tasks/` — llm-do project artifacts
 - Project-specific CLAUDE.md sections and routing table
 
-**Gray area — general theory notes:** Notes like `crystallisation-learning-timescales.md`, `bitter-lesson-boundary.md`, `agentic-systems-learn-through-three-distinct-mechanisms.md` are general concepts but also the core vocabulary the claw methodology uses. Options: (a) move them as foundational notes in the claw repo, (b) keep them in llm-do with cross-repo references, (c) let the methodology notes be self-contained enough to not need them. This needs a decision.
+**Gray area — general theory notes:** Notes like `deploy-time-learning-the-missing-middle.md`, `bitter-lesson-boundary.md`, `agentic-systems-learn-through-three-distinct-mechanisms.md` are general concepts but also the core vocabulary the claw methodology uses. Options: (a) move them as foundational notes in the claw repo, (b) keep them in llm-do with cross-repo references, (c) let the methodology notes be self-contained enough to not need them. This needs a decision.
 
 ## How llm-do consumes the extracted claw
 

@@ -8,7 +8,7 @@ status: seedling
 
 # Methodology enforcement is stabilisation
 
-The ways we enforce methodology in the KB — instructions, skills, hooks, scripts — map directly onto the [stabilisation spectrum](../../docs/theory.md). The enforcement layers parallel the [crystallisation verifiability gradient](../notes/crystallisation-learning-timescales.md) — where crystallisation moves code from prompt tweaks through schemas to deterministic modules, methodology enforcement moves practices from written guidance through structured skills to automated scripts. Each layer trades flexibility for reliability by moving the trigger, the response, or both from stochastic to deterministic.
+The ways we enforce methodology in the KB — instructions, skills, hooks, scripts — map directly onto the [stabilisation spectrum](../../docs/theory.md). The enforcement layers parallel the [crystallisation verifiability gradient](../notes/deploy-time-learning-the-missing-middle.md) — where crystallisation moves code from prompt tweaks through schemas to deterministic modules, methodology enforcement moves practices from written guidance through structured skills to automated scripts. Each layer trades flexibility for reliability by moving the trigger, the response, or both from stochastic to deterministic.
 
 | Layer | Trigger | Response | Reliability | Example |
 |-------|---------|----------|-------------|---------|
@@ -47,7 +47,7 @@ We have hooks in `.claude/hooks/` but they aren't wired up (`"hooks": {}` in set
 ---
 
 Relevant Notes:
-- [crystallisation: the missing middle](../notes/crystallisation-learning-timescales.md) — grounds: the verifiability gradient for code (prompt tweaks -> schemas -> evals -> deterministic modules) is the general pattern this note instantiates for methodology
+- [crystallisation: the missing middle](../notes/deploy-time-learning-the-missing-middle.md) — grounds: the verifiability gradient for code (prompt tweaks -> schemas -> evals -> deterministic modules) is the general pattern this note instantiates for methodology
 - [stabilisation is learning](../notes/agentic-systems-learn-through-three-distinct-mechanisms.md) — foundation: the stabilisation gradient for code; this note applies the same gradient to methodology
 - [programming practices apply to prompting](../notes/programming-practices-apply-to-prompting.md) — synthesizes: the maturation trajectory is progressive compilation applied to methodology — flexible instructions frozen into rigid, efficient automation
 - [topic links from frontmatter are deterministic](./observations/topic-links-from-frontmatter-are-deterministic.md) — exemplifies: a skill-level operation that completed the maturation trajectory into a deterministic script

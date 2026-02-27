@@ -43,7 +43,7 @@ Agentic RAG fits naturally inside the stabilisation framework. The repo itself i
 
 ### Automated prompt optimization
 
-Systems like DSPy and ProTeGi search over prompt components to optimize against an objective. This is an automated instance of stabilisation: the artifacts are prompts, the optimization is iterative, the improvement persists. What these systems lack is the broader framework: the [verifiability gradient](crystallisation-learning-timescales.md), the progression from optimized prompts to schemas to deterministic code, and the infrastructure for versioning, testing, and reviewing what was learned.
+Systems like DSPy and ProTeGi search over prompt components to optimize against an objective. This is an automated instance of stabilisation: the artifacts are prompts, the optimization is iterative, the improvement persists. What these systems lack is the broader framework: the [verifiability gradient](deploy-time-learning-the-missing-middle.md), the progression from optimized prompts to schemas to deterministic code, and the infrastructure for versioning, testing, and reviewing what was learned.
 
 Stabilisation provides that framework. DSPy discovers better prompts; stabilisation provides the infrastructure to harden those discoveries into progressively more verifiable forms, track them in version control, and test them in CI. The [adaptation taxonomy for agentic AI](research/adaptation-agentic-ai-analysis.md) identifies concrete data-driven triggers for when to stabilise versus when to soften, providing the feedback signals. The combination is the full picture: automated search for what works, systematic infrastructure for preserving what was found.
 
@@ -69,7 +69,7 @@ Calling stabilisation "continuous learning" is not just terminological. It refra
 Relevant Notes:
 - [stabilisation-is-learning](agentic-systems-learn-through-three-distinct-mechanisms.md) — foundation: the general claim that stabilisation is learning; this note applies it to the specific hot topic of continuous learning during deployment
 - [learning-is-capacity-change](learning-is-capacity-change.md) — foundation: capacity decomposes into generality vs reliability+speed+cost compound
-- [crystallisation-learning-timescales](crystallisation-learning-timescales.md) — the verifiability gradient that structures the progression from prompts to code
+- [deploy-time-learning](deploy-time-learning-the-missing-middle.md) — the verifiability gradient that structures the progression from prompts to code
 - [adaptation-agentic-ai-analysis](research/adaptation-agentic-ai-analysis.md) — provides data-driven triggers for when to stabilise vs soften, grounding the loop in concrete signals
 - [professional-developers-ai-agents](related_works/professional-developers-ai-agents.md) — empirical evidence that developers naturally practice the stabilisation loop
 - [oracle-strength-spectrum](oracle-strength-spectrum.md) — the Karpathy verifiability properties map to oracle strength

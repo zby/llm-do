@@ -10,7 +10,7 @@ status: speculative
 
 ## The gap
 
-The knowledge system tracks outbound links well: notes have inline links and "Relevant Notes" footers declaring what they depend on. But no note knows who links TO it. An agent reading `crystallisation-learning-timescales.md` — which is referenced by 10+ files — sees only the notes it cites, not the notes that cite it.
+The knowledge system tracks outbound links well: notes have inline links and "Relevant Notes" footers declaring what they depend on. But no note knows who links TO it. An agent reading `deploy-time-learning-the-missing-middle.md` — which is referenced by 10+ files — sees only the notes it cites, not the notes that cite it.
 
 The system provides grep-based discovery (`rg 'note-title\.md' --glob '*.md'`), but that's a manual step agents have to think to perform. Backlinks would make inbound connections visible at reading time, not just searchable.
 

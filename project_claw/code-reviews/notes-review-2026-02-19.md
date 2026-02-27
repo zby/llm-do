@@ -65,7 +65,7 @@ For reference — these were reviewed and found current:
 
 - **Approvals cluster** (7 notes): `approvals-index.md`, `capability-based-approvals.md`, `approvals-guard-against-llm-mistakes-not-active-attacks.md`, `approval-override-rationale.md`, `ui-event-stream-blocking-approvals.md`, `preapproved-capability-scopes.md`, `we-want-to-get-rid-of-approval-wrapping.md`
 - **Toolset state cluster** (4 notes): `toolset-state-spectrum-from-stateless-to-transactional.md`, `toolset-state-prevents-treating-pydanticai-agents-as-global.md`, `proposed-toolset-lifecycle-resolution-for-pydanticai.md`, `stateful-flag-evaluation-against-toolset-spectrum.md`
-- **Crystallisation pair**: `crystallisation-learning-timescales.md`, `agentic-systems-learn-through-three-distinct-mechanisms.md`
+- **Crystallisation pair**: `deploy-time-learning-the-missing-middle.md`, `agentic-systems-learn-through-three-distinct-mechanisms.md`
 - **Upstream tracking**: `pydanticai-upstream-index.md`, `pydanticai-traits-is-better-long-term-architecture-than-deferred-tool-handler.md`
 - **Other current**: `llm-do-vs-pydanticai-runtime.md`, `execution-modes-user-stories.md`, `stabilize-message-capture.md`, `tool-output-rendering-semantics.md`, `tool-result-truncation.md`, `toolset-instantiation-questions.md`, `pure-dynamic-tools.md`, `programmatic-embedding.md`, `index.md`
 - **Reviews still current**: `useless-features-audit-2026-02-09.md`, `review-modules-summary.md`, `review-solid.md`, `review-tests.md`

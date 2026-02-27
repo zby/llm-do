@@ -65,4 +65,4 @@ Relevant Notes:
 - [agent statelessness makes skill layers architectural, not pedagogical](../claw-design/agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md) — extends: the most consequential specific difference; the tier separation is the primary mechanism for managing dual audiences
 - [indirection is costly in LLM instructions](./indirection-is-costly-in-llm-instructions.md) — example: a specific difference (context budget vs cognitive load) that produces a similar design response (resolve at build time) for different reasons
 - [context loading strategy](../claw-design/context-loading-strategy.md) — addresses the loading side of the dual-audience problem; this note identifies the writing side as a separate concern
-- [crystallisation: the missing middle](./crystallisation-learning-timescales.md) — context: the three timescales framing; agent statelessness reframes in-context as "loading" not "learning"
+- [crystallisation: the missing middle](./deploy-time-learning-the-missing-middle.md) — context: the three timescales framing; agent statelessness reframes in-context as "loading" not "learning"

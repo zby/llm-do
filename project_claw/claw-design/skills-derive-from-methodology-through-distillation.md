@@ -16,7 +16,7 @@ What is this derivation relationship? The project already has two terms for rela
 
 ### It is not crystallisation
 
-[Crystallisation](../notes/crystallisation-learning-timescales.md) in this project means the prompt→code phase transition: natural language instructions becoming executable logic. The medium changes. The consumer changes (LLM → interpreter/runtime). The verification regime changes. It is like a physical phase transition — the nature of the artifact changes dramatically.
+[Crystallisation](../notes/deploy-time-learning-the-missing-middle.md) in this project means the prompt→code phase transition: natural language instructions becoming executable logic. The medium changes. The consumer changes (LLM → interpreter/runtime). The verification regime changes. It is like a physical phase transition — the nature of the artifact changes dramatically.
 
 The methodology→skill relationship has none of these properties. The input is markdown consumed by an LLM. The output is markdown consumed by an LLM. There is no phase change. What changes is the *rhetorical mode* — discursive, multi-perspective, argumentative reasoning becomes procedural, step-sequenced instruction — but the substance remains natural language processed by the same kind of reader.
 
@@ -83,7 +83,7 @@ For a human, distilled procedures are a convenience that can eventually be trans
 Relevant Notes:
 - [methodology enforcement is stabilisation](./methodology-enforcement-is-stabilisation.md) — distinguishes: that note covers enforcement reliability (how reliably is methodology followed); this note covers derivation (how skill content relates to methodology content)
 - [agent statelessness makes skill layers architectural](./agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md) — refines: that note's substantive arguments (permanent infrastructure, systematic blind spots, no graceful degradation) stand; this note offers "distillation" as a more precise term for the methodology→skill relationship it calls "compilation"
-- [crystallisation: the missing middle](../notes/crystallisation-learning-timescales.md) — distinguishes: crystallisation involves a phase transition in medium; distillation does not
+- [crystallisation: the missing middle](../notes/deploy-time-learning-the-missing-middle.md) — distinguishes: crystallisation involves a phase transition in medium; distillation does not
 - [context-loading strategy](./context-loading-strategy.md) — enables: the loading hierarchy is the architectural consequence of distillation; skill tier exists because methodology tier is too expensive to load routinely
 - [title as claim enables traversal as reasoning](./title-as-claim-enables-traversal-as-reasoning.md) — example source: one of several methodology notes that the /connect skill distils
 - [claim notes should use Toulmin-derived sections](./claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md) — example source: Toulmin structure is distilled into the skill's articulation test

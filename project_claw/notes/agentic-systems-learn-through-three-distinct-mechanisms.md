@@ -46,9 +46,9 @@ The KB itself demonstrates this. Every session that improves notes, sharpens con
 
 ## Crystallisation
 
-[Crystallisation](crystallisation-learning-timescales.md) is the most dramatic form of stabilisation — it crosses a medium boundary. Natural language instructions become executable code. The consumer changes (LLM → interpreter/runtime). The verification regime changes (stochastic → deterministic). It's a phase transition: the nature of the artifact changes fundamentally.
+[Crystallisation](deploy-time-learning-the-missing-middle.md) is the most dramatic form of stabilisation — it crosses a medium boundary. Natural language instructions become executable code. The consumer changes (LLM → interpreter/runtime). The verification regime changes (stochastic → deterministic). It's a phase transition: the nature of the artifact changes fundamentally.
 
-The [verifiability gradient](crystallisation-learning-timescales.md) — from restructured prompts through schemas and evals to deterministic code — is a compound capacity gradient: reliability, speed, and cost all improve together as you move down it. At the top sit [dynamic agents](dynamic-agents-runtime-design.md) — maximum generality, minimum reliability. At the bottom sits deterministic code — minimum generality, maximum reliability. The system's learning trajectory is its movement along this gradient.
+The [verifiability gradient](deploy-time-learning-the-missing-middle.md) — from restructured prompts through schemas and evals to deterministic code — is a compound capacity gradient: reliability, speed, and cost all improve together as you move down it. At the top sit [dynamic agents](dynamic-agents-runtime-design.md) — maximum generality, minimum reliability. At the bottom sits deterministic code — minimum generality, maximum reliability. The system's learning trajectory is its movement along this gradient.
 
 ## Distillation
 
@@ -87,7 +87,7 @@ AI labs frame "continuous learning" as adapting a deployed model to new data wit
 
 Relevant Notes:
 - [learning-is-capacity-change](learning-is-capacity-change.md) — foundation: provides the capacity decomposition (generality vs reliability+speed+cost) that makes this claim precise
-- [crystallisation-learning-timescales](crystallisation-learning-timescales.md) — foundation: defines the three timescales and the verifiability gradient; develops the crystallisation mechanism in detail
+- [deploy-time-learning](deploy-time-learning-the-missing-middle.md) — foundation: defines the three timescales and the verifiability gradient; develops the crystallisation mechanism in detail
 - [skills-derive-from-methodology-through-distillation](../claw-design/skills-derive-from-methodology-through-distillation.md) — foundation: develops the distillation mechanism; distinguishes it from crystallisation and stabilisation
 - [continuous-learning-is-stabilisation-during-deployment](./continuous-learning-is-stabilisation-during-deployment.md) — extends: the specific argument that AI labs' continuous learning is achievable through artifact-based stabilisation
 - [bitter-lesson-boundary](bitter-lesson-boundary.md) — connects: the calculator/vision-feature boundary determines when stabilisation is permanent vs when softening is needed

@@ -68,7 +68,7 @@ A note can satisfy multiple traits without conflict. What the old system called 
 
 ## The verifiability gradient
 
-`note` is the base type that makes no structural claim — like `Any` in a gradually typed language. This connects to the [verifiability gradient](../notes/crystallisation-learning-timescales.md): just as code starts stochastic and stabilizes to deterministic, documents start untyped and gain type information as they mature.
+`note` is the base type that makes no structural claim — like `Any` in a gradually typed language. This connects to the [verifiability gradient](../notes/deploy-time-learning-the-missing-middle.md): just as code starts stochastic and stabilizes to deterministic, documents start untyped and gain type information as they mature.
 
 1. New content enters as `type: note` — soft, no structural claims
 2. Traits accumulate as the document develops — `has-implementation` when code sketches appear, `has-external-sources` when citing external material
@@ -104,7 +104,7 @@ Relevant Notes:
 - [automated-tests-for-text](./observations/automated-tests-for-text.md) — enables enforcement: the test pyramid provides the "compiler" for type contracts (deterministic checks for structure, LLM rubrics for judgment-dependent traits)
 - [storing-llm-outputs-is-stabilization](../notes/storing-llm-outputs-is-stabilization.md) — grounds the stochastic processor argument: type assignment is itself a stabilization decision, and the tolerance of misclassification mirrors the generator/verifier pattern
 - [agents-navigate-by-deciding-what-to-read-next](./observations/agents-navigate-by-deciding-what-to-read-next.md) — types and traits are the navigation hints this note describes; they tell agents what a document offers before opening it
-- [crystallisation-learning-timescales](../notes/crystallisation-learning-timescales.md) — the verifiability gradient that the type maturation path mirrors: `note` is untyped, traits accumulate, base types promote
+- [deploy-time-learning](../notes/deploy-time-learning-the-missing-middle.md) — the verifiability gradient that the type maturation path mirrors: `note` is untyped, traits accumulate, base types promote
 - [001-generate-topic-links-from-frontmatter](./adr/001-generate-topic-links-from-frontmatter.md) — precedent: when a mapping is verifiable and deterministic (areas -> Topics), it was automated; the same principle drives the type system design
 
 Topics:

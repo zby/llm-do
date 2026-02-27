@@ -35,10 +35,10 @@ Every mitigation relies on the same property: the artifact is inspectable. You c
 
 ## The real question
 
-Chollet asks "what will be the Keras of agentic coding?" — the abstraction layer that lets humans steer codebase "training" with minimal cognitive overhead. The [verifiability gradient](crystallisation-learning-timescales.md) is a candidate answer: it tells you which grade of crystallisation to use for each piece of your system, based on how verifiable you need it to be. The stabilise/soften cycle is the steering mechanism — crystallise when patterns emerge, soften when new requirements appear. And crucially, neither the gradient nor the cycle requires a human in the loop. They require an inspectable substrate.
+Chollet asks "what will be the Keras of agentic coding?" — the abstraction layer that lets humans steer codebase "training" with minimal cognitive overhead. The [verifiability gradient](deploy-time-learning-the-missing-middle.md) is a candidate answer: it tells you which grade of crystallisation to use for each piece of your system, based on how verifiable you need it to be. The stabilise/soften cycle is the steering mechanism — crystallise when patterns emerge, soften when new requirements appear. And crucially, neither the gradient nor the cycle requires a human in the loop. They require an inspectable substrate.
 
 ---
 
 Relevant Notes:
 - [stabilisation-is-learning](agentic-systems-learn-through-three-distinct-mechanisms.md) — foundation: crystallisation as system-level learning through repo artifacts
-- [crystallisation-learning-timescales](crystallisation-learning-timescales.md) — the verifiability gradient that determines when and how to crystallise
+- [deploy-time-learning](deploy-time-learning-the-missing-middle.md) — the verifiability gradient that determines when and how to crystallise

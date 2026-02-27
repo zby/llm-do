@@ -55,7 +55,7 @@ This is hard to catch because it requires comparing the output against the sourc
 ---
 
 Relevant Notes:
-- [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — extends the stabilization gradient with a new application: output artifacts, not just code
+- [deploy-time-learning](./deploy-time-learning-the-missing-middle.md) — extends the stabilization gradient with a new application: output artifacts, not just code
 - [stabilisation-is-learning](./agentic-systems-learn-through-three-distinct-mechanisms.md) — foundation: each stored artifact is a step in the continuous learning loop this note describes
 - [evans-ai-components-deterministic-system](./related_works/evans-ai-components-deterministic-system.md) — exemplifies the constraint strategy: Evans' "freeze taxonomy then classify" is collapsing a distribution to a point for the modeling/classification boundary
 - [adaptation-agentic-ai-analysis](./research/adaptation-agentic-ai-analysis.md) — provides data-driven triggers (error patterns, repeated tool failures) for when to make the stabilization decision this note describes

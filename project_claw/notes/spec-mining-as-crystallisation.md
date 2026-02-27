@@ -1,6 +1,6 @@
 # Spec mining is crystallisation's operational mechanism
 
-[Crystallisation](./crystallisation-learning-timescales.md) says knowledge hardens into repo artifacts — tests, specs, conventions. But where do those artifacts come from? One answer: you mine them from observed behavior.
+[Crystallisation](./deploy-time-learning-the-missing-middle.md) says knowledge hardens into repo artifacts — tests, specs, conventions. But where do those artifacts come from? One answer: you mine them from observed behavior.
 
 ## The pattern
 

@@ -28,7 +28,7 @@ Koylanai describes "Personal Brain OS," a Git-repository-based personal operatin
 
 Six connections to existing KB notes:
 
-1. **[crystallisation-learning-timescales](../notes/crystallisation-learning-timescales.md)** (exemplifies): Koylanai's progressive disclosure maps onto the verifiability gradient. His three levels (routing -> module -> data) are graduated artifact loading. His format-function mapping (JSONL for append-only logs, YAML for config, Markdown for narrative) is choosing the right hardness grade per content type -- the same principle the crystallisation gradient describes for prompts vs. schemas vs. deterministic code.
+1. **[deploy-time-learning](../notes/deploy-time-learning-the-missing-middle.md)** (exemplifies): Koylanai's progressive disclosure maps onto the verifiability gradient. His three levels (routing -> module -> data) are graduated artifact loading. His format-function mapping (JSONL for append-only logs, YAML for config, Markdown for narrative) is choosing the right hardness grade per content type -- the same principle the crystallisation gradient describes for prompts vs. schemas vs. deterministic code.
 
 2. **[stabilisation-is-learning](../notes/agentic-systems-learn-through-three-distinct-mechanisms.md)** (exemplifies): Personal Brain OS is a concrete instance of the core claim. The system learns through accumulating versioned artifacts (decision logs, failure patterns, voice profiles), not weight updates. The feedback loop (goals -> content -> metrics -> reviews -> goals) is exactly the continuous learning loop described theoretically.
 

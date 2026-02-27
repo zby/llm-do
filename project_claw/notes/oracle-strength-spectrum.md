@@ -26,7 +26,7 @@ The bitter lesson is strongest when you have a decent training signal — hard o
 
 ### The engineering move: manufacturing guidance
 
-The interesting reframe: the core engineering challenge isn't "crystallise or soften?" but "convert no-oracle into some-oracle, then harden the oracle." That's [crystallisation](./crystallisation-learning-timescales.md) applied to *the objective itself*, not just to the implementation.
+The interesting reframe: the core engineering challenge isn't "crystallise or soften?" but "convert no-oracle into some-oracle, then harden the oracle." That's [crystallisation](./deploy-time-learning-the-missing-middle.md) applied to *the objective itself*, not just to the implementation.
 
 Examples of oracle hardening:
 - Logging user corrections turns no-oracle into interactive oracle
@@ -43,13 +43,13 @@ This suggests a priority order: invest in telemetry and eval harnesses *before* 
 
 - **Oracle strength is itself hard to assess.** Proxy scores that seem cheap and reliable may turn out to correlate poorly with the real objective — you don't always know whether your oracle is hard or soft until you test at scale.
 - **Open question: does oracle strength predict bitter-lessoning?** If so, the spectrum is prescriptive — invest in crystallisation where oracles are hard, invest in learned approaches where oracles are soft. But this remains conjecture.
-- **Open question: oracle strength and crystallisation timescales.** Hard oracles crystallise fast (you can test immediately); delayed oracles crystallise slowly (you have to wait for signal). The connection to [crystallisation timescales](./crystallisation-learning-timescales.md) seems natural but hasn't been tested.
+- **Open question: oracle strength and crystallisation timescales.** Hard oracles crystallise fast (you can test immediately); delayed oracles crystallise slowly (you have to wait for signal). The connection to [crystallisation timescales](./deploy-time-learning-the-missing-middle.md) seems natural but hasn't been tested.
 
 ---
 
 Relevant Notes:
 - [bitter-lesson-boundary](./bitter-lesson-boundary.md) — foundation: the binary distinction this note refines into a gradient
-- [crystallisation-learning-timescales](./crystallisation-learning-timescales.md) — the verifiability gradient maps to oracle strength: harder oracles enable tighter iteration loops
+- [deploy-time-learning](./deploy-time-learning-the-missing-middle.md) — the verifiability gradient maps to oracle strength: harder oracles enable tighter iteration loops
 - [stabilisation-is-learning](./agentic-systems-learn-through-three-distinct-mechanisms.md) — the Karpathy verifiability framing (resettable, efficient, rewardable) is an oracle-strength argument
 - [spec-mining-as-crystallisation](./spec-mining-as-crystallisation.md) — the operational mechanism for oracle hardening: extracting deterministic rules from observed behavior
 - [softening-signals](./softening-signals.md) — provides testable indicators for where a component sits on the oracle spectrum

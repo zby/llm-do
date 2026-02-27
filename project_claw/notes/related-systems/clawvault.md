@@ -52,7 +52,7 @@ The "seen twice on different dates" heuristic is simple and testable — a concr
 
 **4. The reflection cycle as a skill.** Their weekly `reflect` command reviews recent observations and produces a synthesis. This could be a `/reflect` skill for us — periodic review of agent-learnings and recent notes to surface patterns, contradictions, and promotion candidates. Lower-ceremony than their automated pipeline, but the practice itself is valuable.
 
-**5. Retrieval crystallisation patterns (needs more data).** ClawVault's KB-area patterns — injection triggers, retrieval profiles, context frontloading — are interesting not as retrieval mechanisms but as a [crystallisation](../crystallisation-learning-timescales.md) spectrum for how knowledge gets surfaced:
+**5. Retrieval crystallisation patterns (needs more data).** ClawVault's KB-area patterns — injection triggers, retrieval profiles, context frontloading — are interesting not as retrieval mechanisms but as a [crystallisation](../deploy-time-learning-the-missing-middle.md) spectrum for how knowledge gets surfaced:
 
 - **Triggers** in frontmatter (`triggers: ["deployment", "rollback"]`) — crystallised retrieval conditions on individual artifacts. The knowledge becomes self-routing: instead of the agent needing to find it, the system knows when to surface it.
 - **Profiles** (`planning`, `incident`, `handoff`) — crystallised retrieval strategies for classes of tasks. Someone observed "during incident response, recent observations matter most" and hardened that into a named strategy.
@@ -62,7 +62,7 @@ Each step encodes more retrieval judgment into the system and removes more from 
 
 ## What We Should Not Borrow (Yet)
 
-**LLM-heavy automation.** Their compression, fact extraction, and injection pipelines all run through LLMs. This adds capability but also opacity — you can't easily tell why something was promoted or what was lost in compression. We want to understand the fundamental patterns before automating them. The [verifiability gradient](../crystallisation-learning-timescales.md) matters here: automating a process before understanding it locks in assumptions.
+**LLM-heavy automation.** Their compression, fact extraction, and injection pipelines all run through LLMs. This adds capability but also opacity — you can't easily tell why something was promoted or what was lost in compression. We want to understand the fundamental patterns before automating them. The [verifiability gradient](../deploy-time-learning-the-missing-middle.md) matters here: automating a process before understanding it locks in assumptions.
 
 **The 8 primitives taxonomy.** Goals, Agents, State Space, Feedback, Capital, Institution, Synthesis, Recursion — this is a framework that organises their features, but it's unclear whether these are fundamental categories or a retroactive grouping of what they happened to build. We'd rather discover our categories from practice.
 
@@ -82,7 +82,7 @@ These aren't mutually exclusive. You could frontload a minimal context (as we al
 
 **Human-in-the-loop vs. agent-driven.** Their promotion pipeline is largely automated — LLMs extract, score, and route observations. Our model keeps humans in the promotion loop (text → seedling → note requires human judgment). This reflects different bets on whether LLM judgment is reliable enough for knowledge curation. We're more conservative, but their system generates evidence about whether the automated approach works.
 
-**No learning theory.** Like [Thalo](./thalo.md), ClawVault has no framework for deciding when to formalise something vs. leave it fluid. No [verifiability gradient](../crystallisation-learning-timescales.md), no stabilise/soften boundary. Their observation format was designed; it doesn't evolve based on what the system learns about its own learning. This is the gap between building a knowledge system and understanding knowledge systems.
+**No learning theory.** Like [Thalo](./thalo.md), ClawVault has no framework for deciding when to formalise something vs. leave it fluid. No [verifiability gradient](../deploy-time-learning-the-missing-middle.md), no stabilise/soften boundary. Their observation format was designed; it doesn't evolve based on what the system learns about its own learning. This is the gap between building a knowledge system and understanding knowledge systems.
 
 ## What to Watch
 
@@ -97,7 +97,7 @@ Relevant Notes:
 - [a-functioning-claw-needs-a-workshop-layer](../../claw-design/a-functioning-claw-needs-a-workshop-layer-not-just-a-library.md) — foundation: ClawVault's observations, handoffs, and reflections are concrete workshop artifacts where we have only the theoretical need
 - [claw-learning-is-broader-than-retrieval](../../claw-design/claw-learning-is-broader-than-retrieval.md) — foundation: ClawVault's observation types (decision, preference, lesson) are concrete implementations of the action-oriented knowledge types this note identifies as missing
 - [automating-kb-learning-is-an-open-problem](../../claw-design/automating-kb-learning-is-an-open-problem.md) — extends: ClawVault's reflection pipeline is a working (if LLM-heavy) implementation of the boiling cauldron mutations
-- [crystallisation-learning-timescales](../crystallisation-learning-timescales.md) — contrasts: ClawVault automates promotion without a theory of when automation is premature; their results would test whether early automation helps or locks in assumptions
+- [deploy-time-learning](../deploy-time-learning-the-missing-middle.md) — contrasts: ClawVault automates promotion without a theory of when automation is premature; their results would test whether early automation helps or locks in assumptions
 - [context-loading-strategy](../../claw-design/context-loading-strategy.md) — contrasts: ClawVault frontloads context via profiles and injection; we use progressive disclosure with agent-driven retrieval — different bets on whether the system or the agent should decide what's relevant
 - [Thalo](./thalo.md) — sibling: both are compared against our theoretical position; Thalo formalised types (compiler), ClawVault formalised lifecycle (pipeline), we're formalising understanding (theory)
 

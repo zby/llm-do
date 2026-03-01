@@ -4,7 +4,7 @@
 
 - `README.md` — setup, CLI usage, examples
 - `docs/architecture.md` — internal design, agent delegation, approval system
-- `project_claw/notes/` — working design documents and explorations
+- `kb/notes/` — working design documents and explorations
 - `examples/pitchdeck_eval/` — reference implementation for multi-agent patterns
 
 ## Development
@@ -12,7 +12,7 @@
 - For executing python scripts use `uv run` - the global environment does not have all dependencies
 - Test agent features by creating example projects in `examples/` and running with `llm-do`
 - Do not preserve backwards compatibility; with no external consumers, always prioritize cleaner design over keeping old behavior alive
-- **YAGNI**: Don't implement features that aren't needed yet. If you identify a gap in the spec, create a note in `project_claw/notes/` instead of implementing it
+- **YAGNI**: Don't implement features that aren't needed yet. If you identify a gap in the spec, create a note in `kb/notes/` instead of implementing it
 - Favor clear architecture over hacks; delete dead code when possible
 - If backcompat code is ever needed, mark it with `# BACKCOMPAT: <reason> - remove after <condition>` so it can be identified and removed later
 
@@ -64,31 +64,29 @@ Run relevant checks before submitting changes:
 
 # Knowledge System
 
-A **[claw](project_claw/sources/simon-willison-karpathy-claws.md)** is a reactive, AI-native knowledge system — a structured workspace where an agent reads, writes, connects, and learns from persistent notes, responding to events (new sources, changed context) rather than waiting for queries. `project_claw/` is this project's claw.
+This project uses **[commonplace](commonplace/README.md)** — a reactive, AI-native knowledge system. The project's content lives in `kb/`; the framework (methodology, types, skills, scripts) lives in `commonplace/` (symlinked from sibling repo).
 
 **If it won't exist next session, write it down now.**
 
 ## How it loads
 
 - **`CLAUDE.md`** (this file) — always loaded. Routing table, search patterns, guardrails.
-- **`project_claw/WRITING.md`** — read on demand when creating/editing KB content.
+- **`kb/WRITING.md`** — read on demand when creating/editing KB content.
 - **Skills** (`.claude/skills/`) — descriptions always loaded; skill bodies loaded on invoke.
-- See [context-loading-strategy](project_claw/claw-design/context-loading-strategy.md) for design rationale.
+- **Methodology** (`commonplace/kb/notes/`) — consulted on demand for edge cases skills don't cover.
 
-**Boundary:** Public project documentation (`docs/*.md`) is NOT part of the knowledge system. The internal workspace (`project_claw/`) is where the knowledge system operates.
+**Boundary:** Public project documentation (`docs/*.md`) is NOT part of the knowledge system. `kb/` is where the knowledge system operates. `commonplace/` contains the framework and methodology.
 
 ## Where Things Go
 
 | Content Type | Destination |
 |-------------|-------------|
-| General principles and insights | `project_claw/notes/` |
-| Architecture decisions | `project_claw/adr/` |
-| Project tasks | `project_claw/tasks/` (read `project_claw/tasks/README.md` before creating) |
-| Code review output | `project_claw/code-reviews/` |
-| Claw system design & methodology | `project_claw/claw-design/` |
-| External source snapshots | `project_claw/sources/` |
-
-**Routing heuristic — `notes/` vs `claw-design/`:** `notes/` holds general ideas related to llm-do including the theory about systems connecting LLMs and software (crystallisation, the bitter lesson boundary). `claw-design/` holds those ideas applied to claw as an example of such a system — document classification, link contracts, context loading. When in doubt: "Is it about general systems connecting LLMs and software, or about a specific genre of such systems — the claw genre?"
+| llm-do design notes and insights | `kb/notes/` |
+| Architecture decisions | `kb/notes/adr/` |
+| Project tasks | `kb/tasks/` (read `kb/tasks/README.md` before creating) |
+| Code review output | `kb/code-reviews/` |
+| External source snapshots | `kb/sources/` |
+| Knowledge system methodology | `commonplace/kb/notes/` (don't write here — it's the framework) |
 
 For the `notes/` vs `adr/` boundary: "Is this durable knowledge or a formal decision?"
 
@@ -103,22 +101,25 @@ Write a note when something would be lost between sessions:
 
 If it matters and won't exist next session, write it down now.
 
-**Agent-initiated observations** go to `project_claw/notes/agent-learnings/` — just create a markdown file with a title and some text, no frontmatter needed. A file without frontmatter is a `text` file: the lowest-ceremony base type, meant for quick capture. Text files are reviewed later and either promoted to full notes (by adding frontmatter with a `description` field and `status: seedling`) or pruned.
+**Agent-initiated observations** go to `kb/notes/agent-learnings/` — just create a markdown file with a title and some text, no frontmatter needed. A file without frontmatter is a `text` file: the lowest-ceremony base type, meant for quick capture.
 
-**For main KB work** (human-requested notes, ADRs, source reviews), read `project_claw/WRITING.md` for templates, link conventions, and quality checks.
+**For main KB work** (human-requested notes, ADRs, source reviews), read `kb/WRITING.md` for templates, link conventions, and quality checks.
 
 ## Searching the KB
 
 ```bash
 # Scan descriptions for a concept
-rg '^description:.*runtime' project_claw/notes/
+rg '^description:.*runtime' kb/notes/
 
 # Find notes by type or area
-rg '^type: source-review' project_claw/notes/
-rg 'areas:.*architecture' project_claw/notes/
+rg '^type: source-review' kb/notes/
+rg 'areas:.*architecture' kb/notes/
 
 # Find backlinks to a specific note
-rg '\[.*\]\(.*note-title\.md\)' --glob '*.md'
+rg '\[.*\]\(.*note-title\.md\)' --glob '*.md' kb/
+
+# Search methodology (when skills don't cover the edge case)
+rg 'pattern' commonplace/kb/notes/
 ```
 
 ### qmd (semantic search)
@@ -129,9 +130,6 @@ qmd --index llm-do query "concept"
 qmd --index llm-do search "keyword"
 qmd --index llm-do update        # re-index after changes
 ```
-
-Collections are defined in `project_claw/claw-design/qmd-collections.yml`.
-Setup: `cp project_claw/claw-design/qmd-collections.yml ~/.config/qmd/llm-do.yml`
 
 ## Guardrails
 

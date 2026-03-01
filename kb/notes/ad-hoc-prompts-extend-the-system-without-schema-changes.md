@@ -26,7 +26,7 @@ The formal system didn't grow. A prompt absorbed the requirement.
 
 ## Where this sits on the stabilisation spectrum
 
-[Methodology enforcement is stabilisation](./methodology-enforcement-is-stabilisation.md) describes a gradient: instructions → skills → hooks → scripts. Each step trades flexibility for reliability. Ad hoc instructions notes sit at the loosest end — maximally flexible, zero infrastructure cost, but also zero validation and zero reuse.
+[Methodology enforcement is stabilisation](../../commonplace/kb/notes/methodology-enforcement-is-stabilisation.md) describes a gradient: instructions → skills → hooks → scripts. Each step trades flexibility for reliability. Ad hoc instructions notes sit at the loosest end — maximally flexible, zero infrastructure cost, but also zero validation and zero reuse.
 
 [Instructions are typed callables](./instructions-are-typed-callables.md) argues for the other end: declare type signatures, validate inputs, make skills composable. Both are correct for different moments. The typed-callable view is right for operations that recur — `/connect`, `/validate`, `/ingest`. The ad hoc view is right for operations that might happen once, or whose shape isn't clear yet.
 
@@ -60,11 +60,11 @@ The common thread: systems that blur the boundary between using and extending ar
 
 Relevant Notes:
 - [instructions-are-typed-callables](./instructions-are-typed-callables.md) — the typed end of the spectrum: skills should declare signatures. This note argues for the untyped end — ad hoc instructions that absorb requirements without schema changes. Both are correct for different moments.
-- [methodology-enforcement-is-stabilisation](./methodology-enforcement-is-stabilisation.md) — foundation: the gradient from instructions to scripts. Ad hoc instructions notes are the loosest point on this gradient.
+- [methodology-enforcement-is-stabilisation](../../commonplace/kb/notes/methodology-enforcement-is-stabilisation.md) — foundation: the gradient from instructions to scripts. Ad hoc instructions notes are the loosest point on this gradient.
 - [programming-practices-apply-to-prompting](./programming-practices-apply-to-prompting.md) — extends: this note adds a practice that goes the other direction — sometimes staying at the prompt level is the right choice, not a failure to compile
 - [unified-calling-conventions-enable-bidirectional-refactoring](./unified-calling-conventions-enable-bidirectional-refactoring.md) — enables: unified calling conventions make it possible to start with a prompt and later extract to a skill without changing call sites
-- [a-functioning-claw-needs-a-workshop-layer-not-just-a-library](./a-functioning-claw-needs-a-workshop-layer-not-just-a-library.md) — extends: the workshop layer is where ad hoc instructions live; the library is where they stabilise into skills
+- [a-functioning-claw-needs-a-workshop-layer-not-just-a-library](../../commonplace/kb/notes/a-functioning-claw-needs-a-workshop-layer-not-just-a-library.md) — extends: the workshop layer is where ad hoc instructions live; the library is where they stabilise into skills
 
 Topics:
-- [claw-design](./claw-design.md)
-- [learning-theory](./learning-theory.md)
+- [claw-design](../../commonplace/kb/notes/claw-design.md)
+- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

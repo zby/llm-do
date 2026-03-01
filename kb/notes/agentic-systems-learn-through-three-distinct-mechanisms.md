@@ -99,4 +99,4 @@ Relevant Notes:
 - [agent-statelessness-makes-skill-layers-architectural](../claw-design/agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md) — motivates: explains why distillation is architecturally necessary, not just convenient
 
 Topics:
-- [learning-theory](./learning-theory.md)
+- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

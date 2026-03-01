@@ -30,4 +30,4 @@ Relevant Notes:
 - [methodology enforcement is stabilisation](../claw-design/methodology-enforcement-is-stabilisation.md) — stabilisation applied to methodology: instruction → skill → hook → script
 
 Topics:
-- [learning-theory](./learning-theory.md)
+- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

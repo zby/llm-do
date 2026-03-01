@@ -62,4 +62,4 @@ Relevant Notes:
 - [oracle-strength-spectrum](./oracle-strength-spectrum.md) — determines where generator/verifier is viable: the pattern requires sufficient oracle strength for the quality gate to discriminate
 
 Topics:
-- [learning-theory](./learning-theory.md)
+- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

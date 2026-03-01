@@ -76,4 +76,4 @@ Relevant Notes:
 - [python-agent-annotation-brainstorm](python-agent-annotation-brainstorm.md) — practical mechanisms for moving between LLM workers and deterministic code
 
 Topics:
-- [learning-theory](./learning-theory.md)
+- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

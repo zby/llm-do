@@ -97,4 +97,4 @@ Deploy-time learning is a **taxonomy** (three timescales of system adaptation) a
 For how the verifiability gradient maps to the stabilise/soften cycle, see [agentic systems are probabilistic programs](./agentic-systems-are-probabilistic-programs.md).
 
 Topics:
-- [learning-theory](./learning-theory.md)
+- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

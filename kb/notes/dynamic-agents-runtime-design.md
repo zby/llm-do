@@ -153,4 +153,4 @@ Relevant Notes:
 - [type-catalog-review](./type-catalog-review.md) — documents the implemented type surface (`DynamicAgentsToolset`, `AgentCreateArgs`, `AgentCallArgs`)
 
 Topics:
-- [index](./index.md)
+- [index](../../commonplace/kb/notes/index.md)

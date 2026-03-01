@@ -130,7 +130,7 @@ Example: a file-renaming agent initially uses LLM judgment for everything. You n
 
 Either way, **version both spec and artifact**. Regeneration is a new projection from the same spec—a different sample, not a deterministic rebuild. Don't treat "re-generate later" as a build step.
 
-For the gradient of stabilisation techniques — from prompt restructuring through evals to deterministic modules — see [Crystallisation: The Missing Middle](notes/crystallisation-learning-timescales.md).
+For the gradient of stabilisation techniques — from prompt restructuring through evals to deterministic modules — see [Deploy-time learning: the missing middle](../kb/notes/deploy-time-learning-the-missing-middle.md).
 
 ### Softening as extension
 

@@ -90,7 +90,7 @@ Metamorphic checks are particularly valuable here because they introduce decorre
 
 ## Implications for the knowledge system
 
-Structured document types are a form of error correction: they constrain the output space (structural checks) and steer the model toward [higher-quality training distributions](../../commonplace/kb/notes/structure-activates-higher-quality-training-distributions.md). But the framework here suggests going further:
+Structured document types are a form of error correction: they constrain the output space (structural checks) and steer the model toward higher-quality training distributions. But the framework here suggests going further:
 
 - **Validation scripts** are hard-oracle checks — cheap, deterministic, but narrow
 - **Multiple generation + voting** could improve seedling quality before human review
@@ -104,9 +104,6 @@ The progression from [oracle hardening](./oracle-strength-spectrum.md) to error 
 Relevant Notes:
 - [oracle-strength-spectrum](./oracle-strength-spectrum.md) — foundation: the spectrum of oracle strength this note extends with error correction as an amplification mechanism
 - [MAKER paper](../sources/meyerson-maker-million-step-llm-zero-errors.ingest.md) — example: voting with hard oracles achieves O(s ln s) scaling for million-step tasks; this note generalises beyond hard oracles
-- [structure activates higher-quality training distributions](../../commonplace/kb/notes/structure-activates-higher-quality-training-distributions.md) — enables: structured templates are one error-correction mechanism (distribution selection constrains output); this note places them in the broader design space
 - [reliability dimensions map to oracle hardening stages](./reliability-dimensions-map-to-oracle-hardening-stages.md) — extends: reliability dimensions are specific oracle-hardening moves; error correction amplifies whatever oracle strength they achieve
 - [stabilisation-is-learning](./agentic-systems-learn-through-three-distinct-mechanisms.md) — parallel: crystallisation moves toward harder oracles, making error correction cheaper; but error correction doesn't require hard oracles
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

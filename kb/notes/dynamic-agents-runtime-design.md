@@ -152,5 +152,3 @@ Relevant Notes:
 - [toolset-state-spectrum-from-stateless-to-transactional](./toolset-state-spectrum-from-stateless-to-transactional.md) — the lifecycle policy table addresses the per-agent vs shared instance question that dynamic agents' session registry must also resolve
 - [type-catalog-review](./type-catalog-review.md) — documents the implemented type surface (`DynamicAgentsToolset`, `AgentCreateArgs`, `AgentCallArgs`)
 
-Topics:
-- [index](../../commonplace/kb/notes/index.md)

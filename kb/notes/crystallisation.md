@@ -25,7 +25,5 @@ Relevant Notes:
 - [distillation](./distillation.md) — sibling mechanism: extracts procedures from reasoning without changing medium
 - [agentic systems learn through three distinct mechanisms](./agentic-systems-learn-through-three-distinct-mechanisms.md) — the umbrella note defining all three
 - [deploy-time learning](./deploy-time-learning-the-missing-middle.md) — the verifiability gradient across which crystallisation sits at the far end
-- [spec-mining-as-crystallisation](../../commonplace/kb/notes/spec-mining-as-crystallisation.md) — the operational mechanism: observe behavior, extract patterns, write deterministic code
+- [spec-mining-as-crystallisation](./spec-mining-as-crystallisation.md) — the operational mechanism: observe behavior, extract patterns, write deterministic code
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

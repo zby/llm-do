@@ -47,5 +47,3 @@ Relevant Notes:
 - [automated tests for text](../claw-design/observations/automated-tests-for-text.md) — extends the testing discussion: concrete test pyramid for the doubled testing surface this note identifies
 - [methodology enforcement is stabilisation](../claw-design/methodology-enforcement-is-stabilisation.md) — extends: progressive compilation applied specifically to KB methodology, with a concrete gradient (instruction -> skill -> hook -> script) and the insight that judgment-requiring operations stay at skill level permanently
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

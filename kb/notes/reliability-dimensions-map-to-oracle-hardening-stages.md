@@ -25,7 +25,7 @@ The empirical finding that capability gains have outpaced reliability gains over
 
 ## Connection to spec mining
 
-[Spec mining](../../commonplace/kb/notes/spec-mining-as-crystallisation.md) is the operational mechanism for consistency and robustness hardening. You watch failures, extract patterns, write deterministic checks. The Rabanser framework's Table 3 — mapping real-world failures to reliability metrics — is spec mining applied to evaluation itself: each failure class becomes a testable property.
+[Spec mining](./spec-mining-as-crystallisation.md) is the operational mechanism for consistency and robustness hardening. You watch failures, extract patterns, write deterministic checks. The Rabanser framework's Table 3 — mapping real-world failures to reliability metrics — is spec mining applied to evaluation itself: each failure class becomes a testable property.
 
 The workflow becomes: observe failure → classify by reliability dimension → mine a spec for that dimension → the oracle hardens.
 
@@ -39,11 +39,9 @@ This connects to the [approval system's value](./approvals-guard-against-llm-mis
 
 Relevant Notes:
 - [oracle-strength-spectrum](./oracle-strength-spectrum.md) — foundation: the gradient from hard to no oracle that this note maps reliability dimensions onto
-- [spec-mining-as-crystallisation](../../commonplace/kb/notes/spec-mining-as-crystallisation.md) — the operational mechanism for hardening consistency and robustness oracles
+- [spec-mining-as-crystallisation](./spec-mining-as-crystallisation.md) — the operational mechanism for hardening consistency and robustness oracles
 - [approvals-guard-against-llm-mistakes-not-active-attacks](./approvals-guard-against-llm-mistakes-not-active-attacks.md) — augmentation as a workaround for weak predictability oracles
 - [stabilisation-is-learning](./agentic-systems-learn-through-three-distinct-mechanisms.md) — reliability hardening as deploy-time learning, not training-time learning
-- [softening-signals](../../commonplace/kb/notes/softening-signals.md) — indicators for where a component sits on the spectrum; prompt robustness (R_prompt) is a softening signal measured at scale
+- [softening-signals](./softening-signals.md) — indicators for where a component sits on the spectrum; prompt robustness (R_prompt) is a softening signal measured at scale
 - [MAKER: Solving a Million-Step LLM Task with Zero Errors](../sources/meyerson-maker-million-step-llm-zero-errors.md) — concrete architectural hardening: decomposition + voting hardens consistency, red-flagging hardens predictability, both enabled by hard per-step oracles
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

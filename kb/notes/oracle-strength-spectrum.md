@@ -37,7 +37,7 @@ This suggests a priority order: invest in telemetry and eval harnesses *before* 
 
 ### Connections resolved
 
-[Spec mining](../../commonplace/kb/notes/spec-mining-as-crystallisation.md) is the systematic method for moving components toward the hard-oracle end: it extracts regularities from observed behavior into deterministic checks, converting soft/delayed oracles into hard ones. Meanwhile, [softening signals](../../commonplace/kb/notes/softening-signals.md) provide testable indicators for where a component sits on this spectrum — brittleness under paraphrase, isolation-vs-integration gaps, and process-heavy constraints all suggest the oracle is softer than it appears.
+[Spec mining](./spec-mining-as-crystallisation.md) is the systematic method for moving components toward the hard-oracle end: it extracts regularities from observed behavior into deterministic checks, converting soft/delayed oracles into hard ones. Meanwhile, [softening signals](./softening-signals.md) provide testable indicators for where a component sits on this spectrum — brittleness under paraphrase, isolation-vs-integration gaps, and process-heavy constraints all suggest the oracle is softer than it appears.
 
 ## Caveats
 
@@ -51,10 +51,8 @@ Relevant Notes:
 - [bitter-lesson-boundary](./bitter-lesson-boundary.md) — foundation: the binary distinction this note refines into a gradient
 - [deploy-time-learning](./deploy-time-learning-the-missing-middle.md) — the verifiability gradient maps to oracle strength: harder oracles enable tighter iteration loops
 - [stabilisation-is-learning](./agentic-systems-learn-through-three-distinct-mechanisms.md) — the Karpathy verifiability framing (resettable, efficient, rewardable) is an oracle-strength argument
-- [spec-mining-as-crystallisation](../../commonplace/kb/notes/spec-mining-as-crystallisation.md) — the operational mechanism for oracle hardening: extracting deterministic rules from observed behavior
-- [softening-signals](../../commonplace/kb/notes/softening-signals.md) — provides testable indicators for where a component sits on the oracle spectrum
+- [spec-mining-as-crystallisation](./spec-mining-as-crystallisation.md) — the operational mechanism for oracle hardening: extracting deterministic rules from observed behavior
+- [softening-signals](./softening-signals.md) — provides testable indicators for where a component sits on the oracle spectrum
 - [storing-llm-outputs-is-stabilization](./storing-llm-outputs-is-stabilization.md) — the generator/verifier pattern depends on oracle strength: verification must be cheap for the pattern to work
 - [quality-signals-for-kb-evaluation](../claw-design/quality-signals-for-kb-evaluation.md) — concrete oracle-hardening instance: manufacturing a composite soft oracle from many no-oracle/weak-oracle signals (graph topology, content proxies, LLM judgment) to drive a KB learning loop
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

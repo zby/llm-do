@@ -75,5 +75,3 @@ Relevant Notes:
 - [oracle-strength-spectrum](oracle-strength-spectrum.md) — the Karpathy verifiability properties map to oracle strength
 - [python-agent-annotation-brainstorm](python-agent-annotation-brainstorm.md) — practical mechanisms for moving between LLM workers and deterministic code
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

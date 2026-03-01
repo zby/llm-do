@@ -63,5 +63,3 @@ Working heuristics for a hybrid system:
 | **Is the spec a definition or a proxy metric?** | Output has a single correct answer verifiable without judgment | Verification requires human evaluation or proxy scores |
 | **Are failures local or compositional?** | Bugs are in individual components; fixing them fixes the system | Components work in isolation but don't compose into the target capability |
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

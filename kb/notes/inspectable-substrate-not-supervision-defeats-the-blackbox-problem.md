@@ -43,5 +43,3 @@ Relevant Notes:
 - [stabilisation-is-learning](agentic-systems-learn-through-three-distinct-mechanisms.md) — foundation: crystallisation as system-level learning through repo artifacts
 - [deploy-time-learning](deploy-time-learning-the-missing-middle.md) — the verifiability gradient that determines when and how to crystallise
 
-Topics:
-- [learning-theory](./../../commonplace/kb/notes/learning-theory.md)

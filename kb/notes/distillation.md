@@ -35,5 +35,3 @@ Relevant Notes:
 - [skills derive from methodology through distillation](../claw-design/skills-derive-from-methodology-through-distillation.md) — the full argument for distillation as a distinct mechanism
 - [agent statelessness makes skill layers architectural](../claw-design/agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md) — why distillation is architecturally necessary, not just convenient
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

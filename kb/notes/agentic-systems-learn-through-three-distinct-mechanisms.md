@@ -98,5 +98,3 @@ Relevant Notes:
 - [methodology-enforcement-is-stabilisation](../claw-design/methodology-enforcement-is-stabilisation.md) — applies: the instruction → skill → hook → script gradient is stabilisation applied to methodology
 - [agent-statelessness-makes-skill-layers-architectural](../claw-design/agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md) — motivates: explains why distillation is architecturally necessary, not just convenient
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

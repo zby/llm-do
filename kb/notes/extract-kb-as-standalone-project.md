@@ -82,7 +82,6 @@ Previously considered names:
 ---
 
 Relevant Notes:
-- [commonplace installation architecture](../claw-design/commonplace-installation-architecture.md) — refines: the directory layout, copy-vs-reference boundary, and types architecture for the extracted repo
 - [skills distil methodology, not crystallise it](../claw-design/skills-distil-methodology-not-crystallise-it.md) — foundation: the distillation relationship (prose → prose derivation) that applies to skills and templates; scripts undergo the distinct crystallisation transformation
 - [agent statelessness makes skill layers architectural](../claw-design/agent-statelessness-makes-skill-layers-architectural-not-pedagogical.md) — foundation: why the methodology and derived artifacts are permanent infrastructure, not a learning progression
 - [generate instructions at build time](../claw-design/generate-instructions-at-build-time.md) — enables: the build-time generation pattern that the installation step implements

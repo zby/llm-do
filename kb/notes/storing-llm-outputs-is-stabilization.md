@@ -61,5 +61,3 @@ Relevant Notes:
 - [adaptation-agentic-ai-analysis](./research/adaptation-agentic-ai-analysis.md) — provides data-driven triggers (error patterns, repeated tool failures) for when to make the stabilization decision this note describes
 - [oracle-strength-spectrum](./oracle-strength-spectrum.md) — determines where generator/verifier is viable: the pattern requires sufficient oracle strength for the quality gate to discriminate
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

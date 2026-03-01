@@ -167,14 +167,10 @@ Treating agentic systems as probabilistic programs suggests:
 ---
 
 Relevant Notes:
-- [learning-theory](./../../commonplace/kb/notes/learning-theory.md) — parent index: learning mechanisms, oracle theory, memory architecture
 - [stabilisation](./stabilisation.md) — defines the narrowing mechanism this note frames theoretically
 - [crystallisation](./crystallisation.md) — the stabilisation gradient from prompt tweaks to deterministic modules
 - [programming-practices-apply-to-prompting](./programming-practices-apply-to-prompting.md) — applies: typing, testing, and version control transfer to prompting under this probabilistic model
 - [storing-llm-outputs-is-stabilization](./storing-llm-outputs-is-stabilization.md) — applies: keeping an LLM output collapses a distribution to a point
-- [document-types-should-be-verifiable](./../../commonplace/kb/notes/document-types-should-be-verifiable.md) — applies: type assignment is stochastic projection under this framework
 - [unified-calling-conventions-enable-bidirectional-refactoring](./unified-calling-conventions-enable-bidirectional-refactoring.md) — enables: llm-do implements the movable boundary through unified calling conventions over a hybrid VM
 - [ad-hoc-prompts-extend-the-system-without-schema-changes](./ad-hoc-prompts-extend-the-system-without-schema-changes.md) — exemplifies: ad hoc instructions are the concrete mechanism for softening-as-extension in a claw
 
-Topics:
-- [learning-theory](./../../commonplace/kb/notes/learning-theory.md)

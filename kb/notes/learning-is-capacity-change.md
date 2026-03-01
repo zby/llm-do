@@ -64,5 +64,3 @@ The [wikiwiki principle](../claw-design/wikiwiki-principle-lowest-friction-captu
 - Chris Argyris: [Single-loop vs double-loop learning](https://infed.org/dir/welcome/chris-argyris-theories-of-action-double-loop-learning-and-organizational-learning/) — single-loop corrects within existing rules; double-loop changes the governing variables.
 - [Knowledge acquisition](https://en.wikipedia.org/wiki/Knowledge_acquisition) — extracting and structuring knowledge from sources; one region on the learning spectrum, not a separate activity.
 
-Topics:
-- [learning-theory](../../commonplace/kb/notes/learning-theory.md)

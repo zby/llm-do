@@ -30,7 +30,7 @@ The calling convention is uniform across the chain. Each link can be independent
 With unified calling, the progression is smooth:
 
 1. **Start neural** — define an agent to handle a task. Quick to add, handles ambiguity.
-2. **Observe patterns** — the agent consistently lowercases and replaces spaces with underscores. This is [spec-mining](./../../commonplace/kb/notes/spec-mining-as-crystallisation.md) — extracting deterministic patterns from stochastic behavior.
+2. **Observe patterns** — the agent consistently lowercases and replaces spaces with underscores. This is [spec-mining](./spec-mining-as-crystallisation.md) — extracting deterministic patterns from stochastic behavior.
 3. **Crystallise** — extract `sanitize_filename()` to Python. The agent still handles ambiguous cases. The call site doesn't change.
 4. **Extend via softening** — new requirements emerge (handle Unicode, detect dates). Add an LLM call for the new cases. Again, the call site doesn't change.
 
@@ -65,9 +65,7 @@ Relevant Notes:
 - [agentic-systems-are-probabilistic-programs](./agentic-systems-are-probabilistic-programs.md) — foundation: the probabilistic programs framing that this note makes architecturally concrete
 - [stabilisation](./stabilisation.md) — the mechanism that unified calling makes frictionless
 - [crystallisation](./crystallisation.md) — the phase transition from neural to symbolic that unified calling makes a local operation
-- [spec-mining-as-crystallisation](./../../commonplace/kb/notes/spec-mining-as-crystallisation.md) — the operational mechanism: observe agent behavior, extract to code — enabled by stable call sites
+- [spec-mining-as-crystallisation](./spec-mining-as-crystallisation.md) — the operational mechanism: observe agent behavior, extract to code — enabled by stable call sites
 - [instructions-are-typed-callables](./instructions-are-typed-callables.md) — the type-theoretic view that llm-do operationalises
 - [programming-practices-apply-to-prompting](./programming-practices-apply-to-prompting.md) — extends: extract-function and inline refactoring transfer directly when calling conventions are unified
 
-Topics:
-- [learning-theory](./../../commonplace/kb/notes/learning-theory.md)

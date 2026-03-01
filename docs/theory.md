@@ -1,8 +1,6 @@
 # Interpreting Fuzzy Specifications
 
-*A hybrid virtual machine for LLM and code.*
-
-> This document sketches a theoretical framing for llm-do. Not a complete theory—just enough conceptual machinery to clarify why certain design choices make sense. For the general theory, see the [companion note](../kb/notes/agentic-systems-interpret-fuzzy-specifications.md).
+> This document sketches a theoretical framing for llm-do. Not a complete theory—just enough conceptual machinery to clarify why certain design choices make sense.
 
 ## LLMs as Virtual Machines
 

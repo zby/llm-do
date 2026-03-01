@@ -10,7 +10,7 @@ How systems learn, verify, and improve. These notes define learning mechanisms, 
 
 ## Foundations
 
-- [interpreting fuzzy specifications](../../docs/theory.md) — LLM-based systems have two distinct properties: execution indeterminism and semantic fuzziness; the "program sampling" model, interpretation space narrowing, semantic boundaries, and the stabilise/soften cycle
+- [interpreting underspecified instructions](../../docs/theory.md) — LLM-based systems have two distinct properties: execution indeterminism and semantic underspecification; spec-to-program projection, interpretation space narrowing, boundaries, and the stabilise/soften cycle
 
 ## Definitions
 

@@ -1,4 +1,4 @@
-# Interpreting Fuzzy Specifications
+# Interpreting Underspecified Instructions
 
 > A theoretical framing for llm-do. Not a complete theory — just enough conceptual machinery to clarify why certain design choices make sense.
 
@@ -6,9 +6,9 @@
 
 LLM-based systems differ from traditional programs in two ways that are often conflated but are conceptually distinct:
 
-**1. Semantic fuzziness.** Natural language specifications don't have precise denotations. "Write a summary" admits a *space* of valid interpretations — different lengths, emphases, structures. This is a property of the specification language itself, not the engine.
+**1. Semantic underspecification.** Natural language specifications don't have precise denotations. "Write a summary" admits a *space* of valid interpretations — different lengths, emphases, structures. This is a property of the specification language itself, not the engine.
 
-**2. Execution indeterminism.** The same prompt can produce different outputs across runs due to sampling (temperature > 0). This is a property of the execution engine — conceptually simpler than semantic fuzziness, and theoretically eliminable (temperature=0), though in practice all deployed systems exhibit it and often benefit from it.
+**2. Execution indeterminism.** The same prompt can produce different outputs across runs due to sampling (temperature > 0). This is a property of the execution engine — conceptually simpler than semantic underspecification, and theoretically eliminable (temperature=0), though in practice all deployed systems exhibit it and often benefit from it.
 
 The two are not entirely orthogonal — indeterminism is the mechanism by which different interpretations get surfaced across runs — but they are fundamentally different in kind. The first is semantics; the second is engineering.
 
@@ -30,7 +30,7 @@ The spec-to-program mapping is one-to-many — a semantic property, not a probab
 
 This makes LLMs different from compilers. A compiler performs a semantic-preserving transformation — a homeomorphism between representations where the meaning is invariant. An LLM performs a *projection*: it collapses a space of valid interpretations to one concrete program.
 
-The two phenomena layer on top of each other: the projection picks an interpretation (semantic fuzziness), then execution of that interpretation may vary across runs (indeterminism). But the more interesting variation comes from the first source — qualitatively different strategies, not noisy executions of the same one.
+The two phenomena layer on top of each other: the projection picks an interpretation (semantic underspecification), then execution of that interpretation may vary across runs (indeterminism). But the more interesting variation comes from the first source — qualitatively different strategies, not noisy executions of the same one.
 
 ### Example: "Refactor for Readability"
 
@@ -51,7 +51,7 @@ The usual tools: system prompts, few-shot examples, tool definitions, output sch
 
 The one clear case is temperature: it only affects execution indeterminism. It controls sampling variance without changing what the spec means. This is why lowering temperature alone doesn't solve the "wrong interpretation" problem — it just makes the LLM commit to it more consistently.
 
-None of these eliminate ambiguity entirely. Natural language specs remain underspecified even under maximum constraint. So real systems don't just manage fuzziness within LLM components — they manage the transitions between LLM and code.
+None of these eliminate ambiguity entirely. Natural language specs remain underspecified even under maximum constraint. So real systems don't just manage underspecification within LLM components — they manage the transitions between LLM and code.
 
 ## Boundaries
 
@@ -59,11 +59,11 @@ Agentic systems interleave LLM components and code. When an LLM calls a tool, or
 
 ```
        LLM           →        Tool          →        LLM
-fuzzy + indeterministic   precise + deterministic   fuzzy + indeterministic
+underspecified + indeterministic   precise + deterministic   underspecified + indeterministic
 ```
 
 At each crossing:
-- **LLM → Code**: Semantic fuzziness resolves — the code treats the LLM's output as a concrete value, regardless of what other interpretations were possible. Indeterminism collapses — given the same arguments, the code returns the same result.
+- **LLM → Code**: Semantic underspecification resolves — the code treats the LLM's output as a concrete value, regardless of what other interpretations were possible. Indeterminism collapses — given the same arguments, the code returns the same result.
 - **Code → LLM**: Both are reintroduced. A concrete value enters a component that interprets a natural-language spec to decide what to do with it. The spec doesn't uniquely determine the behavior, and sampling adds further variation.
 
 The two phenomena are conceptually distinct but travel together in practice: LLM components have both, code has neither. This is why these boundaries are natural **checkpoints** — the deterministic code doesn't care how it was reached, only what arguments it received. This matters for debugging, testing, and reasoning about the system.
@@ -72,15 +72,15 @@ But boundaries aren't fixed. As systems evolve, logic moves across them.
 
 ## Stabilising and Softening
 
-Components exist on a spectrum from fuzzy semantics (natural language, LLM-interpreted) to precise semantics (formal language, deterministic code). Logic can move in both directions.
+Components exist on a spectrum from underspecified semantics (natural language, LLM-interpreted) to precise semantics (formal language, deterministic code). Logic can move in both directions.
 
-**Stabilising**: Replace an LLM component with a deterministic one. This does two things simultaneously: it **resolves semantic fuzziness** by choosing one interpretation from the space the spec admits and committing to it in a language with precise semantics, and it **removes execution indeterminism** by eliminating sampling noise. Both matter in practice, but the semantic commitment is the deeper operation.
+**Stabilising**: Replace an LLM component with a deterministic one. This does two things simultaneously: it **resolves semantic underspecification** by choosing one interpretation from the space the spec admits and committing to it in a language with precise semantics, and it **removes execution indeterminism** by eliminating sampling noise. Both matter in practice, but the semantic commitment is the deeper operation.
 
 **Softening**: Replace a deterministic component with an LLM-interpreted one. Describe new functionality in natural language; the LLM figures out how to do it.
 
 ```
-Fuzzy (flexible, handles ambiguity)  ——stabilise——>  Precise (reliable, testable, cheap)
-Fuzzy (flexible, handles ambiguity)  <——soften———  Precise (reliable, testable, cheap)
+Underspecified (flexible, handles ambiguity)  ——stabilise——>  Precise (reliable, testable, cheap)
+Underspecified (flexible, handles ambiguity)  <——soften———  Precise (reliable, testable, cheap)
 ```
 
 ### Why stabilise?
@@ -93,7 +93,7 @@ Stabilising a pattern to code has three practical benefits:
 
 **Reliability.** Deterministic code returns the same output for the same input, every time. No hallucination, no refusal, no drift across model versions.
 
-The tradeoff: code requires you to commit to one precise interpretation. LLMs let you specify *intent* in fuzzy natural language and defer the choice of interpretation to runtime. That's why stabilising is progressive — you wait until patterns emerge before committing to a specific semantics.
+The tradeoff: code requires you to commit to one precise interpretation. LLMs let you specify *intent* in natural language and defer the choice of interpretation to runtime. That's why stabilising is progressive — you wait until patterns emerge before committing to a specific semantics.
 
 ### One-shot vs progressive stabilising
 
@@ -115,7 +115,7 @@ Real systems need both directions. A component might start as an LLM call (quick
 
 ## The Hybrid VM
 
-The concepts above — boundaries, stabilising, softening — are general. llm-do's specific contribution is a **hybrid VM** that makes the boundary between fuzzy and precise semantics easy to cross.
+The concepts above — boundaries, stabilising, softening — are general. llm-do's specific contribution is a **hybrid VM** that makes the boundary between underspecified and precise semantics easy to cross.
 
 The hybrid VM unifies LLM execution (neural) and Python execution (symbolic) under a single calling convention at the tool layer the LLM sees. The VM can dispatch to either; callers don't need to know which.
 
@@ -138,7 +138,7 @@ analysis = await ctx.deps.call_agent("ticket_classifier", ticket_text)
 analysis = ticket_classifier(ticket_text)
 ```
 
-The LLM-facing calling convention is unified. The implementation moved from fuzzy to precise semantics; prompts don't change.
+The LLM-facing calling convention is unified. The implementation moved from underspecified to precise semantics; prompts don't change.
 
 For more on this design, see [Unified calling conventions enable bidirectional refactoring](../kb/notes/unified-calling-conventions-enable-bidirectional-refactoring.md).
 
@@ -162,7 +162,7 @@ The VM enables the harness by providing interception points. Name-based dispatch
 
 The harness enables:
 - **Approval workflows**: Human-in-the-loop for sensitive operations
-- **Composition**: Components with fuzzy and precise semantics interleave freely
+- **Composition**: Components with underspecified and precise semantics interleave freely
 - **Testing strategies**: Swap implementations for testing
 - **Auditability**: Tool-level logging and inspection
 
@@ -172,21 +172,21 @@ The harness is llm-do's specific implementation choice. The hybrid VM concept st
 
 The two phenomena create different challenges for testing and debugging.
 
-**Testing**: Execution indeterminism means you run the same input N times and check the distribution of outputs — statistical hypothesis testing, not assertion equality. Semantic fuzziness means you also need to verify that the space of valid interpretations is acceptable, not just that individual outputs look right. Every piece you stabilise becomes traditionally testable — because you've committed to one interpretation in a precise language.
+**Testing**: Execution indeterminism means you run the same input N times and check the distribution of outputs — statistical hypothesis testing, not assertion equality. Semantic underspecification means you also need to verify that the space of valid interpretations is acceptable, not just that individual outputs look right. Every piece you stabilise becomes traditionally testable — because you've committed to one interpretation in a precise language.
 
-**Debugging**: When a prompt "fails," the first question is which phenomenon is responsible. Is the LLM producing a bad execution of a good interpretation (indeterminism problem — may not reproduce)? Or is it consistently choosing an interpretation you didn't intend (fuzziness problem — the spec admits it, so it will recur)? The fix is different: retry vs. rewrite the spec.
+**Debugging**: When a prompt "fails," the first question is which phenomenon is responsible. Is the LLM producing a bad execution of a good interpretation (indeterminism problem — may not reproduce)? Or is it consistently choosing an interpretation you didn't intend (underspecification problem — the spec admits it, so it will recur)? The fix is different: retry vs. rewrite the spec.
 
 ## Design Implications
 
-Treating agentic systems as interpreters of fuzzy specifications suggests:
+Treating agentic systems as interpreters of underspecified instructions suggests:
 
-1. **Be explicit about semantic boundaries** — know where you're crossing between precise and fuzzy semantics
+1. **Be explicit about semantic boundaries** — know where you're crossing between precise and underspecified semantics
 2. **Enable bidirectional refactoring** — design interfaces so components can move across the boundary without rewriting call sites
 3. **Narrow interpretations where reliability matters** — use schemas, constraints, and deterministic code on critical paths
 4. **Preserve ambiguity where it helps** — don't over-constrain creative or genuinely open-ended tasks
 5. **Version both spec and artifact** — regeneration is a new projection, not a deterministic rebuild
 6. **Design for unpredictable interpretation** — the LLM may resolve ambiguity differently than you expect
-7. **Stabilise progressively, soften tactically** — start with fuzzy specs for flexibility, commit to precise semantics as patterns emerge
+7. **Stabilise progressively, soften tactically** — start underspecified for flexibility, commit to precise semantics as patterns emerge
 
 ## Tradeoffs
 

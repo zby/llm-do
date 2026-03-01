@@ -42,5 +42,5 @@ Relevant Notes:
 - [document-types-should-be-verifiable](../claw-design/document-types-should-be-verifiable.md) — foundation: types mark affordances; this note extends the idea from data types to function types
 - [learning-is-capacity-change](./learning-is-capacity-change.md) — the capacity framework: each type step trades generality for reliability+speed+cost, making operations reliable without reading the full document
 - [stabilisation-is-learning](./agentic-systems-learn-through-three-distinct-mechanisms.md) — the operations afforded by types can themselves crystallise from LLM to code
-- [interpreting fuzzy specifications](../../docs/theory.md) — the stabilise/soften framework this extends to knowledge artifacts
+- [interpreting underspecified instructions](../../docs/theory.md) — the stabilise/soften framework this extends to knowledge artifacts
 

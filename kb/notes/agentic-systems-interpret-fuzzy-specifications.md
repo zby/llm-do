@@ -1,10 +1,16 @@
-# Interpreting Fuzzy Specifications
+---
+description: LLM-based systems have two distinct properties — execution indeterminism (present in all practical systems) and semantic fuzziness of natural language specs (the deeper difference from traditional programming) — the "program sampling" model captures the second, which indeterminism tends to obscure
+type: note
+traits: [has-external-sources]
+areas: [learning-theory]
+status: current
+---
 
-*A hybrid virtual machine for LLM and code.*
+# Agentic systems interpret fuzzy specifications
 
-> This document sketches a theoretical framing for llm-do. Not a complete theory—just enough conceptual machinery to clarify why certain design choices make sense. For the general theory, see the [companion note](../kb/notes/agentic-systems-interpret-fuzzy-specifications.md).
+*A theoretical framing for LLM-based agentic systems — enough conceptual machinery to clarify why certain design choices make sense.*
 
-## LLMs as Virtual Machines
+## LLMs as virtual machines
 
 An LLM can be viewed as a virtual machine. Give it a sufficiently detailed specification, and it interprets that spec into behavior. This is more than metaphor—projects like [OpenProse](https://github.com/openprose/prose) treat the LLM explicitly as an interpreter: "A long-running AI session is a Turing-complete computer."
 
@@ -16,9 +22,9 @@ This pure LLM VM approach has limitations:
 - Specifications are in natural language (fuzzy semantics, no precise denotation)
 - Execution is indeterministic (sampling noise on top of semantic fuzziness)
 
-**llm-do takes the next step: a hybrid VM** that unifies LLM execution (neural) and Python execution (symbolic) under a single calling convention. The VM can dispatch to either; callers don't need to know which. This enables moving computation between neural and symbolic as systems evolve—stabilise patterns to code when they emerge, soften rigid code back to LLM when edge cases multiply.
+These limitations motivate hybrid architectures that combine LLM execution (neural) and code execution (symbolic), enabling computation to move between the two as systems evolve—stabilise patterns to code when they emerge, soften rigid code back to LLM when edge cases multiply.
 
-## Two Distinct Phenomena
+## Two distinct phenomena
 
 LLM-based systems differ from traditional programs in two ways that are often conflated but are conceptually distinct:
 
@@ -34,7 +40,7 @@ Counterintuitively, indeterminism *hides* the deeper issue rather than revealing
 
 If LLMs were deterministic, you'd get one stable output for "refactor for readability"—but you'd have to ask: *why this interpretation and not any of the other equally valid ones?* That question forces you to see that the specification language doesn't have the same semantics as a formal programming language. The indeterminism lets you avoid that question by explaining everything as noise.
 
-## Probabilistic Programming as Practical Model
+## Probabilistic programming as practical model
 
 Both phenomena—fuzzy semantics and execution indeterminism—are captured by a single framework: probabilistic programming. LLM-based agentic systems interleave deterministic computation with components that interpret fuzzy natural-language specs:
 
@@ -46,7 +52,7 @@ z = llm_call(prompt2(y))    # fuzzy semantics + indeterminism
 
 The LLM components have two sources of variation—the semantic fuzziness of natural language specs and the execution indeterminism of the engine—while traditional code has neither. The combined distribution is too complex to characterize directly, so we reason about it through simpler mental models.
 
-## A Useful Mental Model: "Program Sampling"
+## A useful mental model: "program sampling"
 
 Programmers often reason about LLMs as if they sample a *program* (or interpretation) from the specification, then execute it:
 
@@ -66,7 +72,7 @@ D(Output | Spec, Input) ≈ Σ Pr[Program | Spec] · D(Output | Program, Input)
 
 The mixture over programs captures the semantic fuzziness—multiple valid interpretations of the spec. The `D(Output | Program, Input)` term captures execution indeterminism—variation within a single interpretation. Both are present in practice, but the program-sampling model highlights that the more interesting variation comes from the first source.
 
-### Example: "Refactor for Readability"
+### Example: "Refactor for readability"
 
 Ask an LLM coding assistant to refactor a function for readability. Valid interpretations include:
 
@@ -79,7 +85,7 @@ These aren't noisy variations of *one* strategy—they're different *interpretat
 
 We don't claim this is how LLMs actually work internally. But as a mental model for reasoning about the semantic gap between natural language specs and concrete behavior, it's useful: prompt engineering becomes about narrowing the space of valid interpretations, not debugging a fixed program.
 
-## Narrowing the Interpretation Space
+## Narrowing the interpretation space
 
 In probabilistic programming, you shape distributions through priors, conditioning, and constraints. With LLMs, you use different mechanisms—but the goal is the same: **narrowing the space of interpretations the LLM might choose**.
 
@@ -94,7 +100,7 @@ In probabilistic programming, you shape distributions through priors, conditioni
 
 Understanding these as **distribution-shaping techniques** clarifies what each can and can't do—and which phenomenon each addresses. Temperature operates on execution indeterminism only; it sharpens or flattens the sampling without changing what the spec means. Examples and detailed instructions operate on semantic fuzziness; they narrow the space of valid interpretations. Schemas and tool definitions do both: they constrain structure (reducing indeterminism) and sometimes eliminate entire classes of interpretation (reducing fuzziness). But none eliminate the ambiguity entirely—natural language specs remain fuzzy even under maximum constraint.
 
-## Semantic Boundaries
+## Semantic boundaries
 
 Agentic systems interleave components with fuzzy semantics (LLM) and precise semantics (code). When an LLM calls a tool, or a tool triggers an LLM, execution crosses a **semantic boundary**.
 
@@ -112,7 +118,7 @@ These boundaries are natural **checkpoints**. The deterministic code doesn't car
 
 But boundaries aren't fixed. As systems evolve, logic moves across them.
 
-## Stabilising and Softening
+## Stabilising and softening
 
 Components exist on a spectrum from fuzzy semantics (natural language, LLM-interpreted) to precise semantics (formal language, deterministic code). Logic can move in both directions.
 
@@ -147,7 +153,7 @@ Example: a file-renaming agent initially uses LLM judgment for everything. You n
 
 Either way, **version both spec and artifact**. Regeneration is a new projection from the same spec—potentially a different resolution of the same ambiguity, not a deterministic rebuild. Don't treat "re-generate later" as a build step.
 
-For the gradient of stabilisation techniques — from prompt restructuring through evals to deterministic modules — see [Crystallisation](../kb/notes/crystallisation.md).
+For the gradient of stabilisation techniques — from prompt restructuring through evals to deterministic modules — see [crystallisation](./crystallisation.md).
 
 ### Softening as extension
 
@@ -155,60 +161,7 @@ The common path for softening is **extension**: you need new capability, describ
 
 Real systems need both directions. A component might start as an LLM call (quick to add), stabilise to code as patterns emerge (reliable and fast), then grow new capabilities via softening. The system breathes.
 
-## The Hybrid VM
-
-The hybrid VM unifies neural (LLM) and symbolic (Python) execution **at the tool layer the LLM sees**. This unified calling convention is what enables bidirectional refactoring between components with fuzzy and precise semantics.
-
-### Why unified calling matters
-
-If an LLM call looks completely different from a tool call, refactoring across the semantic boundary is painful. Prompt structure fights the change.
-
-The hybrid VM solves this:
-- Agents and tools share a single tool namespace for the LLM
-- Prompt call sites stay stable when implementations move across the boundary
-
-```python
-# LLM tool call (prompt) stays the same:
-# tool: ticket_classifier(...)
-
-# Python orchestration today (neural)
-analysis = await ctx.deps.call_agent("ticket_classifier", ticket_text)
-
-# Python orchestration tomorrow (symbolic)
-analysis = ticket_classifier(ticket_text)
-```
-
-The LLM-facing calling convention is unified. The implementation moved from fuzzy to precise semantics; prompts don't change.
-
-For more on this design, see [Unified calling conventions enable bidirectional refactoring](../kb/notes/unified-calling-conventions-enable-bidirectional-refactoring.md).
-
-### Name-based dispatch
-
-Unified calling requires **name-based dispatch**: components are identified by string name rather than direct object reference.
-
-Why names?
-
-- **Dynamic resolution.** When an LLM decides to call another component, it outputs a string. You need name-based lookup to resolve that string to an implementation.
-- **Late binding.** The called component doesn't need to exist when the caller is defined.
-- **Implementation-agnostic interfaces.** A name like `ticket_classifier` can resolve to an agent today and a Python function tomorrow.
-
-Direct reference couples caller to implementation. Name-based dispatch keeps the interface stable while implementations change.
-
-## The Harness (llm-do's Addition)
-
-On top of the hybrid VM, llm-do adds a **harness**—an orchestration layer that intercepts operations, manages approvals, and controls execution flow.
-
-The VM enables the harness by providing interception points. Name-based dispatch means every call goes through a lookup layer that can wrap, modify, or gate the invocation. The VM provides the machinery; the harness uses it to implement policies.
-
-The harness enables:
-- **Approval workflows**: Human-in-the-loop for sensitive operations (VM provides the interception; harness provides the UI)
-- **Composition**: Components with fuzzy and precise semantics interleave freely
-- **Testing strategies**: Swap implementations for testing
-- **Auditability**: Tool-level logging and inspection
-
-The harness is llm-do's specific implementation choice. The hybrid VM concept stands independently—other systems could build different orchestration layers on the same interception points.
-
-## Testing and Debugging
+## Testing and debugging
 
 LLM components require different approaches, and the two phenomena create different challenges.
 
@@ -216,7 +169,7 @@ LLM components require different approaches, and the two phenomena create differ
 
 **Debugging**: When a prompt "fails," you need to distinguish between the two phenomena. Is the LLM producing a bad execution of a good interpretation (indeterminism problem—may not reproduce)? Or is it consistently choosing an interpretation you didn't intend (fuzziness problem—the spec admits it, so it will recur)? The fix is different: retry vs. rewrite the spec.
 
-## Design Implications
+## Design implications
 
 Treating agentic systems as interpreters of fuzzy specifications suggests:
 
@@ -228,21 +181,15 @@ Treating agentic systems as interpreters of fuzzy specifications suggests:
 6. **Design for unpredictable interpretation**—the LLM may resolve ambiguity differently than you expect
 7. **Stabilise progressively, soften tactically**—start with fuzzy specs for flexibility, commit to precise semantics as patterns emerge
 
-## Tradeoffs
-
-**llm-do is a good fit when:**
-- You want normal Python control flow (branching, loops, retries)
-- You're prototyping and will stabilise as patterns emerge
-- You need tool-level auditability and approvals
-- You want flexibility to refactor between LLM and code
-
-**It may be a poor fit when:**
-- You need durable workflows with checkpointing/replay
-- Graph visualization is your primary interface
-- You need distributed orchestration out of the box
-
-llm-do can be a component *within* durable workflow systems (Temporal, Prefect), but doesn't replace them.
-
 ---
 
-See also: [architecture](architecture.md) for internal structure, [reference](reference.md) for API.
+Relevant Notes:
+- [learning-theory](./learning-theory.md) — parent index: learning mechanisms, oracle theory, memory architecture
+- [stabilisation](./stabilisation.md) — defines the narrowing mechanism this note frames theoretically
+- [crystallisation](./crystallisation.md) — the stabilisation gradient from prompt tweaks to deterministic modules
+- [programming-practices-apply-to-prompting](./programming-practices-apply-to-prompting.md) — applies: typing, testing, and version control transfer to prompting under this framework
+- [storing-llm-outputs-is-stabilization](./storing-llm-outputs-is-stabilization.md) — applies: keeping an LLM output resolves fuzziness to a fixed interpretation
+- [unified-calling-conventions-enable-bidirectional-refactoring](./unified-calling-conventions-enable-bidirectional-refactoring.md) — enables: llm-do implements the movable semantic boundary through unified calling conventions
+
+Topics:
+- [learning-theory](./learning-theory.md)

@@ -40,7 +40,7 @@ Each argument stands alone — any one of them justifies enforcing structure. To
 Relevant Notes:
 - [document-classification](../claw-design/document-classification.md) — context: the type system these arguments justify, particularly `structured-claim` as a base type with required sections
 - [claim notes should use Toulmin-derived sections](../claw-design/claim-notes-should-use-toulmin-derived-sections-for-structured-argument.md) — foundation: the specific Toulmin structure this note argues works for LLMs
-- [programming practices apply to prompting](./programming-practices-apply-to-prompting.md) — extends: adds a new category of transfer — not just programming practices but writing genre conventions
+- programming practices apply to prompting — extends: adds a new category of transfer — not just programming practices (typing, testing, version control) but writing genre conventions
 
 Topics:
 - [claw-design](../claw-design/claw-design.md)

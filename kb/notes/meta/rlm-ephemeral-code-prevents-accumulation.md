@@ -42,7 +42,7 @@ Every pattern the LLM discovers must be rediscovered on the next run. This means
 
 ## The crystallisation alternative
 
-llm-do treats code generation as the first step of [crystallisation](../deploy-time-learning-the-missing-middle.md) — converting stochastic LLM behavior into deterministic, testable infrastructure. An LLM might generate a tool during a session; that tool then enters the standard software lifecycle (version control, testing, code review). Over time, the system gets better because its solutions accumulate.
+llm-do treats code generation as the first step of [crystallisation](https://github.com/zby/commonplace/blob/main/kb/notes/deploy-time-learning-the-missing-middle.md) — converting stochastic LLM behavior into deterministic, testable infrastructure. An LLM might generate a tool during a session; that tool then enters the standard software lifecycle (version control, testing, code review). Over time, the system gets better because its solutions accumulate.
 
 This is not free. Persistent code requires approval gates for side effects, lifecycle management for stateful tools, and maintenance effort to keep things current. But it means the system *learns* — not through weight updates, but through the repo.
 
@@ -59,5 +59,5 @@ The answer to the first question is ephemeral code. The answer to the second is 
 Relevant Notes:
 - [RLM Implementations vs llm-do](../related_works/rlm-comparison.md) — comprehensive five-divergence comparison
 - [RLM explained](../related_works/rlm-explained.md) — what the RLM pattern is and how it works
-- [deploy-time-learning](../deploy-time-learning-the-missing-middle.md) — the three timescales framework that motivates versioned code
-- [storing-llm-outputs-is-stabilization](../storing-llm-outputs-is-stabilization.md) — extends this: even storing an LLM's raw output is a form of stabilization
+- [deploy-time-learning](https://github.com/zby/commonplace/blob/main/kb/notes/deploy-time-learning-the-missing-middle.md) — the three timescales framework that motivates versioned code
+- [storing-llm-outputs-is-stabilization](https://github.com/zby/commonplace/blob/main/kb/notes/storing-llm-outputs-is-stabilization.md) — extends this: even storing an LLM's raw output is a form of stabilization

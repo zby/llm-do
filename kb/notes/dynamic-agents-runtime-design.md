@@ -67,7 +67,7 @@ A new toolset (e.g., `dynamic_workers`) providing:
 ### Experimental scope (YAGNI)
 
 Dynamic workers should remain **experimental** for a long time — they sit at the
-ephemeral end of the [deploy-time-learning](./deploy-time-learning-the-missing-middle.md) gradient, where
+ephemeral end of the deploy-time-learning gradient (repo artifacts provide durable adaptation through stabilisation, crystallisation, and distillation — a verifiability gradient from prompt tweaks to deterministic code), where
 patterns need to be observed across many runs before committing to stable APIs.
 The goal is to enable fast iteration on bootstrapping/decomposition workflows,
 not to design a fully-general plugin/runtime system up front.
@@ -148,7 +148,7 @@ Relevant Notes:
 - [llm-do-vs-pydanticai-runtime](./llm-do-vs-pydanticai-runtime.md) — provides the foundation: name-based dispatch and the unified tool/agent namespace that dynamic agents must integrate with
 - [capability-based-approvals](./capability-based-approvals.md) — enables approval for dynamically created agents by separating capability declaration from policy evaluation
 - [subagent-onboarding-protocol](./subagent-onboarding-protocol.md) — extends this by adding a bidirectional setup conversation before `agent_call`, addressing single-shot invocation limitations
-- [deploy-time-learning](./deploy-time-learning-the-missing-middle.md) — frames why dynamic agents should remain experimental: they operate at the ephemeral end of the verifiability gradient
+- deploy-time-learning — frames why dynamic agents should remain experimental: they operate at the ephemeral end of the verifiability gradient (from prompt tweaks to deterministic code)
 - [toolset-state-spectrum-from-stateless-to-transactional](./toolset-state-spectrum-from-stateless-to-transactional.md) — the lifecycle policy table addresses the per-agent vs shared instance question that dynamic agents' session registry must also resolve
 - [type-catalog-review](./type-catalog-review.md) — documents the implemented type surface (`DynamicAgentsToolset`, `AgentCreateArgs`, `AgentCallArgs`)
 

@@ -8,7 +8,7 @@ LLM-based systems differ from traditional programs in two ways that are often co
 
 **1. Semantic underspecification.** Natural language specifications don't have precise denotations. "Write a summary" admits a *space* of valid interpretations — different lengths, emphases, structures. This is a property of the specification language itself, not the engine.
 
-**2. Execution indeterminism.** The same prompt can produce different outputs across runs due to sampling (temperature > 0). This is a property of the execution engine — conceptually simpler than semantic underspecification, and theoretically eliminable (temperature=0), though in practice all deployed systems exhibit it and often benefit from it.
+**2. Execution indeterminism.** The same prompt can produce different outputs across runs due to sampling (temperature > 0). This is a property of the execution engine — conceptually simpler than semantic underspecification, and largely eliminable via temperature=0, though implementation details (floating-point non-determinism, batching, infrastructure changes) mean true determinism is hard to guarantee in practice. All deployed systems exhibit indeterminism and often benefit from it.
 
 The two are not entirely orthogonal — indeterminism is the mechanism by which different interpretations get surfaced across runs — but they are fundamentally different in kind. The first is semantics; the second is engineering.
 
@@ -28,7 +28,7 @@ Spec → choose interpretation → execute on input → output
 
 The spec-to-program mapping is one-to-many — a semantic property, not a probabilistic one. Even a deterministic LLM would face it: it would always pick the same interpretation, but the user couldn't predict which one from the spec alone.
 
-This makes LLMs different from compilers. A compiler performs a semantic-preserving transformation — a homeomorphism between representations where the meaning is invariant. An LLM performs a *projection*: it collapses a space of valid interpretations to one concrete program.
+This makes LLMs different from compilers. A compiler performs a semantics-preserving translation — the source and target represent the same program, just in different languages. An LLM performs a *projection*: it collapses a space of valid interpretations to one concrete program.
 
 The two phenomena layer on top of each other: the projection picks an interpretation (semantic underspecification), then execution of that interpretation may vary across runs (indeterminism). But the more interesting variation comes from the first source — qualitatively different strategies, not noisy executions of the same one.
 
@@ -49,7 +49,7 @@ This reframes prompt engineering: it's about narrowing the space of valid interp
 
 The usual tools: system prompts, few-shot examples, tool definitions, output schemas, conversation history, temperature. In practice it's hard to determine which phenomenon a given mechanism addresses — a more detailed system prompt might narrow the interpretation space, or it might just make one interpretation more likely without eliminating the others. The line between "disambiguating the spec" and "biasing the engine" is rarely clean.
 
-The one clear case is temperature: it only affects execution indeterminism. It controls sampling variance without changing what the spec means. This is why lowering temperature alone doesn't solve the "wrong interpretation" problem — it just makes the LLM commit to it more consistently.
+Temperature is often cited as purely an indeterminism control, but it's subtler than that. Lowering temperature concentrates the sampling distribution — which can change *which interpretation* you see, not just how noisily you see it. At temperature=0 the LLM still picks one interpretation from the space the spec admits; you just get the same one every time. This is why lowering temperature alone doesn't solve the "wrong interpretation" problem — it eliminates variation without ensuring the remaining interpretation is the one you wanted.
 
 None of these eliminate ambiguity entirely. Natural language specs remain underspecified even under maximum constraint. So real systems don't just manage underspecification within LLM components — they manage the transitions between LLM and code.
 
@@ -91,7 +91,7 @@ Stabilising a pattern to code has three practical benefits:
 
 **Latency.** Every LLM call involves network round-trip plus inference time. Even fast models add hundreds of milliseconds. Code executes in microseconds.
 
-**Reliability.** Deterministic code returns the same output for the same input, every time. No hallucination, no refusal, no drift across model versions.
+**Reliability.** Deterministic code returns the same output for the same input, every time. No hallucination, no refusal, no silent behavior changes when the underlying model is updated.
 
 The tradeoff: code requires you to commit to one precise interpretation. LLMs let you specify *intent* in natural language and defer the choice of interpretation to runtime. That's why stabilising is progressive — you wait until patterns emerge before committing to a specific semantics.
 
@@ -105,7 +105,7 @@ Example: a file-renaming agent initially uses LLM judgment for everything. You n
 
 Either way, **version both spec and artifact**. Regeneration is a new projection from the same spec — potentially a different resolution of the same ambiguity, not a deterministic rebuild. Don't treat "re-generate later" as a build step.
 
-For the gradient of stabilisation techniques — from prompt restructuring through evals to deterministic modules — see [Deploy-time learning: the missing middle](../kb/notes/deploy-time-learning-the-missing-middle.md).
+For the gradient of stabilisation techniques — from prompt restructuring through evals to deterministic modules — see [Deploy-time learning: the missing middle](https://github.com/zby/commonplace/blob/main/kb/notes/deploy-time-learning-the-missing-middle.md).
 
 ### Softening as extension
 
@@ -172,7 +172,7 @@ The harness is llm-do's specific implementation choice. The hybrid VM concept st
 
 The two phenomena create different challenges for testing and debugging.
 
-**Testing**: Execution indeterminism means you run the same input N times and check the distribution of outputs — statistical hypothesis testing, not assertion equality. Semantic underspecification means you also need to verify that the space of valid interpretations is acceptable, not just that individual outputs look right. Every piece you stabilise becomes traditionally testable — because you've committed to one interpretation in a precise language.
+**Testing**: Execution indeterminism means you can't rely on assertion equality for LLM outputs — you need to run the same input multiple times and check that outputs fall within acceptable bounds. In practice this looks more like sampling and checking invariants than formal hypothesis testing, but the principle holds: you're characterising a distribution, not verifying a point. Semantic underspecification means you also need to verify that the space of valid interpretations is acceptable, not just that individual outputs look right. Every piece you stabilise becomes traditionally testable — because you've committed to one interpretation in a precise language.
 
 **Debugging**: When a prompt "fails," the first question is which phenomenon is responsible. Is the LLM producing a bad execution of a good interpretation (indeterminism problem — may not reproduce)? Or is it consistently choosing an interpretation you didn't intend (underspecification problem — the spec admits it, so it will recur)? The fix is different: retry vs. rewrite the spec.
 

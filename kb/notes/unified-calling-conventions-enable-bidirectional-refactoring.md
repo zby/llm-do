@@ -8,7 +8,7 @@ status: current
 
 # Unified calling conventions enable bidirectional refactoring between neural and symbolic
 
-The [underspecified instructions framing](../../docs/theory.md) says components should move between underspecified (LLM) and precise (code) semantics as systems evolve — stabilise patterns to code, soften rigid code back to LLM. But the framing doesn't say how to make the boundary movable in practice. The answer is a unified calling convention: if neural and symbolic components present the same interface, callers don't need to know which they're talking to, and refactoring across the boundary becomes a local operation.
+The [underspecified instructions framing](https://github.com/zby/commonplace/blob/main/kb/notes/agentic-systems-interpret-underspecified-instructions.md) says components should move between underspecified (LLM) and precise (code) semantics as systems evolve — stabilise patterns to code, soften rigid code back to LLM. But the framing doesn't say how to make the boundary movable in practice. The answer is a unified calling convention: if neural and symbolic components present the same interface, callers don't need to know which they're talking to, and refactoring across the boundary becomes a local operation.
 
 ## The mechanism
 
@@ -62,7 +62,7 @@ Prompts, skills, and tools share a callable structure with typed inputs and outp
 ---
 
 Relevant Notes:
-- [interpreting underspecified instructions](../../docs/theory.md) — foundation: the underspecified instructions framing that this note makes architecturally concrete
+- [interpreting underspecified instructions](https://github.com/zby/commonplace/blob/main/kb/notes/agentic-systems-interpret-underspecified-instructions.md) — foundation: the underspecified instructions framing that this note makes architecturally concrete
 - [stabilisation](https://github.com/zby/commonplace/blob/main/kb/notes/stabilisation.md) — the mechanism that unified calling makes frictionless
 - [crystallisation](https://github.com/zby/commonplace/blob/main/kb/notes/crystallisation.md) — the phase transition from neural to symbolic that unified calling makes a local operation
 - [spec-mining-as-crystallisation](https://github.com/zby/commonplace/blob/main/kb/notes/spec-mining-as-crystallisation.md) — the operational mechanism: observe agent behavior, extract to code — enabled by stable call sites

@@ -242,7 +242,7 @@ For Python-driven orchestration (instead of agent-first), see [`pitchdeck_eval_c
 
 ## Documentation
 
-- **[`docs/theory.md`](docs/theory.md)** — Theoretical foundation: probabilistic programs, stabilizing/softening, tradeoffs
+- **[`docs/theory.md`](docs/theory.md)** — Theoretical foundation: hybrid VM, unified calling, harness, tradeoffs
 - **[`project_claw/notes/crystallisation-learning-timescales.md`](project_claw/notes/crystallisation-learning-timescales.md)** — Crystallisation: learning across sessions through progressively verifiable artifacts
 - **[`docs/architecture.md`](docs/architecture.md)** — Internal structure: unified calling, harness layer, runtime scopes
 - **[`docs/reference.md`](docs/reference.md)** — API reference: workflows, toolsets, agent format
